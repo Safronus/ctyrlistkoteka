@@ -189,6 +189,92 @@ export async function generateWebPVariants(params: {
   };
 }
 
+/**
+ * Generates a single WebP variant for a per-location MAP screenshot.
+ * Lives at /generated/maps/{sha}.webp publicly. Maps don't need a thumb
+ * variant — only one fixed-size overlay is rendered.
+ */
+export interface GeneratedMapImage {
+  sha1: string;
+  /** Public URL for the map overlay (matches Nginx /generated/ alias). */
+  imageUrl: string;
+  width: number;
+  height: number;
+  sourceFormat: string;
+}
+
+export async function generateMapWebP(params: {
+  sourcePath: string;
+  generatedDir: string;
+  forceRegen?: boolean;
+  sha1?: string;
+}): Promise<GeneratedMapImage> {
+  const { sourcePath, generatedDir, forceRegen = false } = params;
+  const sha1 = params.sha1 ?? (await sha1File(sourcePath));
+
+  const mapFs = join(generatedDir, "maps", `${sha1}.webp`);
+  const imageUrl = `/generated/maps/${sha1}.webp`;
+
+  if (!forceRegen && (await exists(mapFs))) {
+    const sharp = require("sharp") as typeof import("sharp");
+    const meta = await sharp(mapFs).metadata();
+    return {
+      sha1,
+      imageUrl,
+      width: meta.width ?? 0,
+      height: meta.height ?? 0,
+      sourceFormat: "cached",
+    };
+  }
+
+  await mkdir(dirname(mapFs), { recursive: true });
+
+  // Maps are PNG/JPEG — sharp handles both. They contain text labels so
+  // quality matters more than file size; aim higher than the default.
+  const sharp = require("sharp") as typeof import("sharp");
+  const raw = await readFile(sourcePath);
+  const format = detectFormat(raw);
+  const out = await sharp(raw, { failOn: "none" })
+    .webp({ quality: 88 })
+    .toBuffer({ resolveWithObject: true });
+
+  const fs = await import("node:fs/promises");
+  await fs.writeFile(mapFs, out.data);
+
+  return {
+    sha1,
+    imageUrl,
+    width: out.info.width,
+    height: out.info.height,
+    sourceFormat: format,
+  };
+}
+
+/**
+ * Computes the LatLng bounds of a map screenshot from its pixel size and
+ * the GPS centre / zoom level encoded in the filename. Pure math, no I/O.
+ * Same formula as docs/filename-convention.md §B.
+ */
+export function computeMapBounds(params: {
+  centerLat: number;
+  centerLng: number;
+  zoom: number;
+  width: number;
+  height: number;
+}): [[number, number], [number, number]] {
+  const { centerLat, centerLng, zoom, width, height } = params;
+  const resolution =
+    (156543.03 * Math.cos((centerLat * Math.PI) / 180)) / 2 ** zoom;
+  const widthM = width * resolution;
+  const heightM = height * resolution;
+  const dLat = heightM / 111320;
+  const dLng = widthM / (111320 * Math.cos((centerLat * Math.PI) / 180));
+  return [
+    [centerLat - dLat / 2, centerLng - dLng / 2],
+    [centerLat + dLat / 2, centerLng + dLng / 2],
+  ];
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await stat(path);

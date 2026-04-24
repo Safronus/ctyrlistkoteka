@@ -271,6 +271,11 @@ async function phaseMaps(
     return { maps, mapToLocation };
   }
 
+  // Lazy-load image helpers — keeps dry-run lightweight.
+  const { generateMapWebP, computeMapBounds, sha1File } = await import(
+    "../src/lib/images"
+  );
+
   for (const m of maps) {
     // Best-effort decomposition — never fails. If the code doesn't match a
     // known shape, splitLocationCode returns the whole thing as cadastral.
@@ -278,8 +283,22 @@ async function phaseMaps(
     const displayName =
       m.parsed.description || m.parsed.locationCode;
 
-    // Bounds from GPS + zoom + image size (per docs/filename-convention.md §B)
-    const bounds = await computeImageBounds(m);
+    // Generate the WebP overlay variant for the browser. Returns the
+    // /generated/maps/<sha>.webp URL we'll store in DB.
+    const sha1 = await sha1File(m.path);
+    const mapImg = await generateMapWebP({
+      sourcePath: m.path,
+      generatedDir: ctx.generatedDir,
+      forceRegen: ctx.opts.forceRegen,
+      sha1,
+    });
+    const bounds = computeMapBounds({
+      centerLat: m.parsed.centerLat,
+      centerLng: m.parsed.centerLng,
+      zoom: m.parsed.zoom,
+      width: mapImg.width,
+      height: mapImg.height,
+    });
 
     // Upsert by code — multiple maps may share a location. The first map
     // encountered for a code creates the Location row (with id=its mapId);
@@ -322,10 +341,10 @@ async function phaseMaps(
         centerLat: m.parsed.centerLat,
         centerLng: m.parsed.centerLng,
         zoom: m.parsed.zoom,
-        imagePath: m.path,
-        imageBounds: bounds.bounds,
-        imageWidth: bounds.width,
-        imageHeight: bounds.height,
+        imagePath: mapImg.imageUrl,
+        imageBounds: bounds,
+        imageWidth: mapImg.width,
+        imageHeight: mapImg.height,
         hasPolygon: false, // TODO Fáze 8: EXIF AOI_POLYGON
         isAnonymized: false,
         originalFilename: m.filename,
@@ -333,9 +352,10 @@ async function phaseMaps(
       update: {
         locationId: location.id,
         description: m.parsed.description,
-        imageBounds: bounds.bounds,
-        imageWidth: bounds.width,
-        imageHeight: bounds.height,
+        imagePath: mapImg.imageUrl,
+        imageBounds: bounds,
+        imageWidth: mapImg.width,
+        imageHeight: mapImg.height,
       },
     });
   }
@@ -350,41 +370,8 @@ async function phaseMaps(
   return { maps, mapToLocation };
 }
 
-async function computeImageBounds(m: MapFileInfo): Promise<{
-  bounds: [[number, number], [number, number]];
-  width: number;
-  height: number;
-}> {
-  // Lazy-load sharp only when not in dry-run; here we're already past that.
-  const sharp = (await import("sharp")).default as unknown as typeof import("sharp");
-  let width = 0;
-  let height = 0;
-  try {
-    const meta = await sharp(m.path).metadata();
-    width = meta.width ?? 0;
-    height = meta.height ?? 0;
-  } catch {
-    // Couldn't read — fall back to nominal 1280×960, bounds will be approximate.
-    width = 1280;
-    height = 960;
-  }
-
-  const { centerLat, centerLng, zoom } = m.parsed;
-  const resolution =
-    (156543.03 * Math.cos((centerLat * Math.PI) / 180)) / 2 ** zoom;
-  const widthM = width * resolution;
-  const heightM = height * resolution;
-  const dLat = heightM / 111320;
-  const dLng = widthM / (111320 * Math.cos((centerLat * Math.PI) / 180));
-  return {
-    bounds: [
-      [centerLat - dLat / 2, centerLng - dLng / 2],
-      [centerLat + dLat / 2, centerLng + dLng / 2],
-    ],
-    width,
-    height,
-  };
-}
+// Bounds + image generation are now handled inline by generateMapWebP +
+// computeMapBounds (src/lib/images.ts).
 
 // --------------------------------------------------------------------------
 //  Finds phase — parse data/finds/ and data/crops/
