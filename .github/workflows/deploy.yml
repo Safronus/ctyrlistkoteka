@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy to VPS
 
 on:
   push:
@@ -6,45 +6,68 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: production-deploy
-  cancel-in-progress: false
+  # Only one deploy in flight; newer pushes cancel an in-progress one.
+  group: deploy-prod
+  cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Lint + typecheck + test
+  check:
+    name: Lint / typecheck / test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version: lts/*
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
+
+      # Prisma client is required for type checking the DB layer.
+      - run: pnpm prisma generate
+
       - run: pnpm lint
+
       - run: pnpm typecheck
+
       - run: pnpm test
 
   deploy:
-    name: Deploy to OVH VPS
-    needs: verify
+    name: Deploy to ctyrlistkoteka.cz
+    needs: check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Only push events to main trigger an actual deploy — workflow_dispatch
+    # still runs checks but skips the SSH step unless also on main.
+    if: github.ref == 'refs/heads/main'
     steps:
-      - name: SSH + pull + build + reload
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          # -l: login shell loads nvm so pnpm/node are on PATH.
+          # set -e: abort on first failure.
+          # Deploy is non-destructive: fast-forward only (no rebase).
           script: |
-            set -e
+            set -euo pipefail
             cd /var/www/ctyrlistkoteka
-            git fetch origin main
+            git fetch --prune origin main
             git reset --hard origin/main
-            export PATH="$HOME/.nvm/versions/node/$(cat .nvmrc)/bin:$PATH"
+            source "$HOME/.nvm/nvm.sh"
             pnpm install --frozen-lockfile
+            pnpm prisma generate
             pnpm prisma migrate deploy
             pnpm build
             pm2 reload ctyrlistkoteka
+            pm2 save
+          envs: HOME
+          script_stop: true

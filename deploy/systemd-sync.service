@@ -1,0 +1,32 @@
+# /etc/systemd/system/ctyrlistkoteka-sync.service
+#
+# One-shot unit that imports data/ → DB + (re)generates WebP variants.
+# Triggered by ctyrlistkoteka-sync.timer; can also be run ad-hoc:
+#   sudo systemctl start ctyrlistkoteka-sync.service
+#
+# See docs/sync-workflow.md for the CLI and failure handling.
+[Unit]
+Description=Čtyřlístkotéka data sync (filesystem → DB)
+After=postgresql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=app
+Group=app
+WorkingDirectory=/var/www/ctyrlistkoteka
+Environment=NODE_ENV=production
+# Login shell loads nvm so `pnpm` resolves on PATH without hardcoding the
+# node version. If nvm isn't installed for the app user, replace with a
+# full path to the pnpm binary.
+ExecStart=/bin/bash -lc 'pnpm sync >> /var/log/ctyrlistkoteka/sync.log 2>&1'
+# Don't take the service down if a single sync run fails.
+SuccessExitStatus=0 1
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=5
+
+[Install]
+WantedBy=multi-user.target

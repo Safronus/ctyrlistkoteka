@@ -1,0 +1,24 @@
+# /etc/systemd/system/ctyrlistkoteka-sync.timer
+#
+# Enable with:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ctyrlistkoteka-sync.timer
+#
+# Inspect schedule / last run:
+#   systemctl list-timers | grep ctyrlistkoteka
+#   journalctl -u ctyrlistkoteka-sync.service -n 100
+[Unit]
+Description=Nightly Čtyřlístkotéka data sync
+Requires=ctyrlistkoteka-sync.service
+
+[Timer]
+# Daily at 03:00 local time (~off-peak for the VPS and for CDNs).
+OnCalendar=*-*-* 03:00:00
+# Make up a missed run if the server was down at 03:00.
+Persistent=true
+# Spread slightly to avoid thundering-herd at 03:00 across hosts.
+RandomizedDelaySec=10m
+Unit=ctyrlistkoteka-sync.service
+
+[Install]
+WantedBy=timers.target
