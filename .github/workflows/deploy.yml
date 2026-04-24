@@ -1,0 +1,50 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Lint + typecheck + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  deploy:
+    name: Deploy to OVH VPS
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH + pull + build + reload
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /var/www/ctyrlistkoteka
+            git fetch origin main
+            git reset --hard origin/main
+            export PATH="$HOME/.nvm/versions/node/$(cat .nvmrc)/bin:$PATH"
+            pnpm install --frozen-lockfile
+            pnpm prisma migrate deploy
+            pnpm build
+            pm2 reload ctyrlistkoteka

@@ -1,0 +1,169 @@
+// Prisma schema pro Čtyřlístkotéka
+// Detail viz docs/data-schema.md
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ============================================================
+//  ENUMS
+// ============================================================
+
+enum FindState {
+  NORMAL
+  ANONYMIZED
+  DONATED
+  LOST
+  NO_GPS
+  NO_PHOTO
+  LOCATION_MISSING
+  NOT_PICKED
+}
+
+enum ImageType {
+  ORIGINAL
+  CROP
+}
+
+// ============================================================
+//  LOCATIONS
+// ============================================================
+
+model Location {
+  id                  Int      @id // klíč z LokaceStavyPoznamky.json
+  code                String   @unique @db.VarChar(100) // "RATIBOŘ_POLE001f"
+  codeTransliterated  String   @unique @db.VarChar(100) // "RATIBOR__POLE001f"
+  cadastralArea       String   @db.VarChar(100) // "RATIBOŘ"
+  locationType        String   @db.VarChar(50)  // "POLE"
+  number              Int      @db.SmallInt
+  subpart             String?  @db.Char(1)      // "a", "f", …
+  displayName         String   @db.VarChar(255)
+  description         String?  @db.Text
+
+  // PostGIS geometry (raw SQL pro čtení/zápis)
+  centerPoint         Unsupported("geometry(Point, 4326)")?
+  polygon             Unsupported("geometry(Polygon, 4326)")?
+
+  createdAt           DateTime @default(now()) @db.Timestamptz
+  updatedAt           DateTime @updatedAt @db.Timestamptz
+
+  maps                LocationMap[]
+  finds               Find[]
+
+  @@index([cadastralArea])
+  @@index([locationType])
+  @@map("locations")
+}
+
+// ============================================================
+//  LOCATION MAPS (PNG/JPEG lokační mapy)
+// ============================================================
+
+model LocationMap {
+  id               Int      @id // MAP_ID z názvu souboru (1–99999)
+  locationId       Int
+  location         Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  locationCode     String   @db.VarChar(100) // pro rychlé propojení
+  description      String?  @db.VarChar(500) // lidsky čitelný popis z názvu
+  centerLat        Float    // GPS střed z názvu
+  centerLng        Float
+  zoom             Int      @db.SmallInt     // OSM zoom level
+
+  imagePath        String   @db.VarChar(500) // cesta k souboru na disku
+  imageBounds      Json?    // [[swLat, swLng], [neLat, neLng]]
+  imageWidth       Int?     // rozměry obrázku v px
+  imageHeight      Int?
+
+  hasPolygon       Boolean  @default(false) // AOI_POLYGON v metadatech
+  isAnonymized     Boolean  @default(false) // z metadat souboru
+  originalFilename String   @db.VarChar(500)
+
+  createdAt        DateTime @default(now()) @db.Timestamptz
+
+  finds            Find[]
+
+  @@index([locationId])
+  @@index([locationCode])
+  @@map("location_maps")
+}
+
+// ============================================================
+//  FINDS
+// ============================================================
+
+model Find {
+  id            Int      @id // ID z názvu souboru, NE autoincrement
+  locationId    Int?
+  location      Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  mapId         Int?
+  map           LocationMap? @relation(fields: [mapId], references: [id], onDelete: SetNull)
+
+  foundAt       DateTime? @db.Date        // z EXIF DateTimeOriginal
+  leafCount     Int       @default(4) @db.SmallInt
+  notes         String?   @db.Text        // z JSON poznamky
+  isAnonymized  Boolean   @default(false) // z JSON anonymizace + filename
+
+  coordinates   Unsupported("geometry(Point, 4326)")?
+
+  createdAt     DateTime  @default(now()) @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @db.Timestamptz
+
+  images        FindImage[]
+  states        FindStateAssignment[]
+
+  @@index([locationId])
+  @@index([mapId])
+  @@index([foundAt(sort: Desc)])
+  @@index([leafCount])
+  @@index([isAnonymized])
+  @@map("finds")
+}
+
+// ============================================================
+//  FIND IMAGES
+// ============================================================
+
+model FindImage {
+  id               Int       @id @default(autoincrement())
+  findId           Int
+  find             Find      @relation(fields: [findId], references: [id], onDelete: Cascade)
+
+  imageType        ImageType @default(ORIGINAL) // ORIGINAL nebo CROP
+  originalFilename String    @db.VarChar(500)
+  originalSha1     String    @db.Char(40) // pro detekci změn
+  webPath          String    @db.VarChar(500)  // /generated/web/{sha}.webp
+  thumbPath        String    @db.VarChar(500)  // /generated/thumb/{sha}.webp
+
+  width            Int       // rozměry WebP web varianty
+  height           Int
+  isPrimary        Boolean   @default(false)
+  sortOrder        Int       @default(0) @db.SmallInt
+
+  createdAt        DateTime  @default(now()) @db.Timestamptz
+
+  @@index([findId])
+  @@index([isPrimary])
+  @@map("find_images")
+}
+
+// ============================================================
+//  FIND STATE ASSIGNMENTS (M:N)
+// ============================================================
+
+model FindStateAssignment {
+  findId Int
+  find   Find      @relation(fields: [findId], references: [id], onDelete: Cascade)
+  state  FindState
+
+  @@id([findId, state])
+  @@index([state])
+  @@map("find_state_assignments")
+}

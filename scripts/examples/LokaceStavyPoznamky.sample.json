@@ -1,0 +1,24 @@
+{
+  "anonymizace": {
+    "ANONYMIZOVANE": ["6-7", "43-44", "99"]
+  },
+  "lokace": {
+    "1": ["15-35", "57-62"],
+    "10": ["13608", "14310-14313"],
+    "100": ["15157"]
+  },
+  "poznamky": {
+    "14608": "DAR - Brášule a jeho rodinka",
+    "15141": "DAR - FAI AI Symposium 2025",
+    "156": "Nalezeno v Irsku v Dublinu"
+  },
+  "stavy": {
+    "BEZFOTKY": ["734", "15055"],
+    "BEZGPS": ["165"],
+    "BEZLOKACE": [],
+    "DAROVANY": ["13602-13603", "14608"],
+    "LOKACE-NEEXISTUJE": ["36", "112-130"],
+    "NEUTRZEN": [],
+    "ZTRACENY": ["378", "14561"]
+  }
+}
