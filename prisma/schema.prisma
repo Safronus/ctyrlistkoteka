@@ -39,7 +39,7 @@ enum ImageType {
 model Location {
   id                 Int      @id // MAP_ID z názvu souboru lokační mapy (shoduje se s klíči v LokaceStavyPoznamky.json "lokace")
   code               String   @unique @db.VarChar(150) // "RATIBOŘ_POLE001f", "HLUBOKÁ NAD VLTAVOU_GOLFCLUB001", "NEEXISTUJE-ZLÍN_JSVAHY-JAVOROVÁ002"
-  codeTransliterated String   @unique @map("code_transliterated") @db.VarChar(150) // ASCII-safe forma z toAsciiCode()
+  codeTransliterated String   @map("code_transliterated") @db.VarChar(150) // ASCII-safe forma z toAsciiCode() — convenience, ne přirozený klíč
   cadastralArea      String   @map("cadastral_area") @db.VarChar(100) // "RATIBOŘ"; fallback = celý code
   locationType       String?  @map("location_type") @db.VarChar(100) // "POLE", "JSVAHY-UTB-U5-Z" — může chybět pro HOŠŤÁLKOVÁ001
   number             Int?     @db.SmallInt // 000–999, může být null pro RATIBOŘ_DOMA-JALOVEC

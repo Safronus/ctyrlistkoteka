@@ -224,7 +224,7 @@ interface MapFileInfo {
 
 async function phaseMaps(
   ctx: Context,
-): Promise<{ maps: MapFileInfo[]; locationIds: Set<number> }> {
+): Promise<{ maps: MapFileInfo[]; mapToLocation: Map<number, number> }> {
   const dir = join(ctx.dataDir, "maps");
   const files = await listFiles(dir);
   ctx.log.log({
@@ -235,7 +235,7 @@ async function phaseMaps(
   });
 
   const maps: MapFileInfo[] = [];
-  const locationIds = new Set<number>();
+  const uniqueCodes = new Set<string>();
 
   for (const filename of files) {
     const parsed = parseMapFilename(filename);
@@ -248,17 +248,27 @@ async function phaseMaps(
       continue;
     }
     maps.push({ filename, path: join(dir, filename), parsed: parsed.value });
-    locationIds.add(parsed.value.mapId);
+    uniqueCodes.add(parsed.value.locationCode);
   }
+
+  // mapId → locationId lookup, populated as we upsert Locations. Real data
+  // has multiple maps per location (~7 dupes in 129 maps) so this is N:1
+  // by location code, not 1:1 by mapId.
+  const mapToLocation = new Map<number, number>();
 
   if (ctx.opts.dryRun) {
     ctx.log.log({
       event: "maps.plan",
       level: "info",
-      would_upsert_locations: locationIds.size,
+      would_upsert_locations: uniqueCodes.size,
       would_upsert_maps: maps.length,
+      duplicate_codes: maps.length - uniqueCodes.size,
     });
-    return { maps, locationIds };
+    // In dry-run we still build the lookup so phaseFinds reports
+    // unknown_map_refs honestly. mapId → mapId stand-in (good enough for
+    // the count we report).
+    for (const m of maps) mapToLocation.set(m.parsed.mapId, m.parsed.mapId);
+    return { maps, mapToLocation };
   }
 
   for (const m of maps) {
@@ -271,8 +281,11 @@ async function phaseMaps(
     // Bounds from GPS + zoom + image size (per docs/filename-convention.md §B)
     const bounds = await computeImageBounds(m);
 
-    await ctx.prisma.location.upsert({
-      where: { id: m.parsed.mapId },
+    // Upsert by code — multiple maps may share a location. The first map
+    // encountered for a code creates the Location row (with id=its mapId);
+    // later maps with the same code reuse that row's id.
+    const location = await ctx.prisma.location.upsert({
+      where: { code: m.parsed.locationCode },
       create: {
         id: m.parsed.mapId,
         code: m.parsed.locationCode,
@@ -284,7 +297,6 @@ async function phaseMaps(
         displayName,
       },
       update: {
-        code: m.parsed.locationCode,
         codeTransliterated: toAsciiCode(m.parsed.locationCode),
         cadastralArea: parts.cadastralArea,
         locationType: parts.locationType,
@@ -292,16 +304,19 @@ async function phaseMaps(
         subpart: parts.subpart,
         displayName,
       },
+      select: { id: true },
     });
 
+    mapToLocation.set(m.parsed.mapId, location.id);
+
     await ctx.prisma
-      .$executeRaw`UPDATE locations SET center_point = ST_SetSRID(ST_MakePoint(${m.parsed.centerLng}, ${m.parsed.centerLat}), 4326) WHERE id = ${m.parsed.mapId}`;
+      .$executeRaw`UPDATE locations SET center_point = ST_SetSRID(ST_MakePoint(${m.parsed.centerLng}, ${m.parsed.centerLat}), 4326) WHERE id = ${location.id}`;
 
     await ctx.prisma.locationMap.upsert({
       where: { id: m.parsed.mapId },
       create: {
         id: m.parsed.mapId,
-        locationId: m.parsed.mapId,
+        locationId: location.id,
         locationCode: m.parsed.locationCode,
         description: m.parsed.description,
         centerLat: m.parsed.centerLat,
@@ -316,6 +331,7 @@ async function phaseMaps(
         originalFilename: m.filename,
       },
       update: {
+        locationId: location.id,
         description: m.parsed.description,
         imageBounds: bounds.bounds,
         imageWidth: bounds.width,
@@ -327,10 +343,11 @@ async function phaseMaps(
   ctx.log.log({
     event: "maps.done",
     level: "info",
-    upserted: maps.length,
+    upserted_maps: maps.length,
+    upserted_locations: new Set(mapToLocation.values()).size,
   });
 
-  return { maps, locationIds };
+  return { maps, mapToLocation };
 }
 
 async function computeImageBounds(m: MapFileInfo): Promise<{
@@ -413,7 +430,7 @@ async function scanFindDir(
 
 async function phaseFinds(
   ctx: Context,
-  knownLocationIds: Set<number>,
+  mapToLocation: Map<number, number>,
 ): Promise<FindFileInfo[]> {
   const finds = await scanFindDir(
     join(ctx.dataDir, "finds"),
@@ -437,7 +454,7 @@ async function phaseFinds(
 
   if (ctx.opts.dryRun) {
     const unknownLocRefs = all.filter(
-      (f) => !knownLocationIds.has(f.parsed.mapNumber),
+      (f) => !mapToLocation.has(f.parsed.mapNumber),
     ).length;
     const byState = countBy(all.map((f) => f.parsed.state));
     const anonCount = all.filter((f) => f.parsed.isAnonymized).length;
@@ -464,21 +481,22 @@ async function phaseFinds(
       sha1,
     });
     const exif = await readExifSafe(f.path);
-    const mapExists = knownLocationIds.has(f.parsed.mapNumber);
+    const locationId = mapToLocation.get(f.parsed.mapNumber) ?? null;
+    const mapId = locationId !== null ? f.parsed.mapNumber : null;
 
     await ctx.prisma.find.upsert({
       where: { id: f.parsed.findId },
       create: {
         id: f.parsed.findId,
-        locationId: mapExists ? f.parsed.mapNumber : null,
-        mapId: mapExists ? f.parsed.mapNumber : null,
+        locationId,
+        mapId,
         foundAt: exif.dateTaken ?? null,
         leafCount: 4,
         isAnonymized: f.parsed.isAnonymized,
       },
       update: {
-        locationId: mapExists ? f.parsed.mapNumber : null,
-        mapId: mapExists ? f.parsed.mapNumber : null,
+        locationId,
+        mapId,
         foundAt: exif.dateTaken ?? null,
         isAnonymized: f.parsed.isAnonymized,
       },
@@ -597,7 +615,7 @@ async function phaseMeta(ctx: Context, meta: Meta) {
 async function phasePrune(
   ctx: Context,
   allFinds: readonly FindFileInfo[],
-  knownLocationIds: ReadonlySet<number>,
+  mapToLocation: ReadonlyMap<number, number>,
 ) {
   const diskFindIds = new Set(allFinds.map((f) => f.parsed.findId));
   const dbFindIds = (await ctx.prisma.find.findMany({ select: { id: true } })).map(
@@ -605,6 +623,8 @@ async function phasePrune(
   );
   const orphanFinds = dbFindIds.filter((id) => !diskFindIds.has(id));
 
+  // Locations on disk = the unique set of values in mapToLocation.
+  const knownLocationIds = new Set(mapToLocation.values());
   const dbLocationIds = (
     await ctx.prisma.location.findMany({ select: { id: true } })
   ).map((r) => r.id);
@@ -720,19 +740,21 @@ async function main() {
     const runFinds = opts.only === null || opts.only === "finds";
     const runMeta = (opts.only === null || opts.only === "meta") && meta !== null;
 
-    let knownLocationIds = new Set<number>();
+    let mapToLocation = new Map<number, number>();
     if (runMaps) {
       const r = await phaseMaps(ctx);
-      knownLocationIds = r.locationIds;
+      mapToLocation = r.mapToLocation;
     } else {
-      // Reuse DB state when skipping maps
-      const rows = await prisma.location.findMany({ select: { id: true } });
-      knownLocationIds = new Set(rows.map((r) => r.id));
+      // Reuse DB state when skipping maps — read existing location_maps.
+      const rows = await prisma.locationMap.findMany({
+        select: { id: true, locationId: true },
+      });
+      for (const r of rows) mapToLocation.set(r.id, r.locationId);
     }
 
     let allFinds: FindFileInfo[] = [];
     if (runFinds) {
-      allFinds = await phaseFinds(ctx, knownLocationIds);
+      allFinds = await phaseFinds(ctx, mapToLocation);
     }
 
     if (runMeta && meta) {
@@ -740,7 +762,7 @@ async function main() {
     }
 
     if (runFinds) {
-      await phasePrune(ctx, allFinds, knownLocationIds);
+      await phasePrune(ctx, allFinds, mapToLocation);
     }
 
     log.log({
