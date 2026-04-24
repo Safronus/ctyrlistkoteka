@@ -7,13 +7,23 @@ import { THUMB_QUALITY, THUMB_SIZE, WEB_QUALITY, WEB_SIZE } from "./constants";
 
 export interface GeneratedImage {
   sha1: string;
+  /** Public URL — what to put in <img src>. Always begins with /generated/. */
   webPath: string;
+  /** Public URL for the small variant. */
   thumbPath: string;
   /** Size of the web-resolution WebP (limiting edge = WEB_SIZE). */
   width: number;
   height: number;
   /** Format detected from magic bytes ("heic" / "jpeg" / "png" / "unknown"). */
   sourceFormat: string;
+}
+
+/** Public URL the browser uses. Nginx aliases /generated/ → $GENERATED_DIR. */
+function publicWebUrl(sha1: string): string {
+  return `/generated/web/${sha1}.webp`;
+}
+function publicThumbUrl(sha1: string): string {
+  return `/generated/thumb/${sha1}.webp`;
 }
 
 /**
@@ -72,6 +82,11 @@ export function detectFormat(buf: Buffer): "heic" | "jpeg" | "png" | "unknown" {
  * idempotent: if both files already exist and no regen is requested, returns
  * the existing metadata without doing work.
  *
+ * Returned `webPath` / `thumbPath` are PUBLIC URLs (e.g.
+ * "/generated/web/{sha}.webp"), not filesystem paths — they end up in
+ * find_images.web_path/thumb_path and feed straight into <img src>. Nginx
+ * (or Next dev) serves /generated/ from the configured generated dir.
+ *
  * sharp and heic-convert are `require`d lazily so that the import cost is
  * only paid when generation actually runs (dry-run stays fast).
  */
@@ -84,26 +99,26 @@ export async function generateWebPVariants(params: {
   const { sourcePath, generatedDir, forceRegen = false } = params;
   const sha1 = params.sha1 ?? (await sha1File(sourcePath));
 
-  const webPath = join(generatedDir, "web", `${sha1}.webp`);
-  const thumbPath = join(generatedDir, "thumb", `${sha1}.webp`);
+  // Filesystem paths used to write/check existence:
+  const webFs = join(generatedDir, "web", `${sha1}.webp`);
+  const thumbFs = join(generatedDir, "thumb", `${sha1}.webp`);
 
   // Fast path: both outputs already present.
-  if (!forceRegen && (await exists(webPath)) && (await exists(thumbPath))) {
-    // Lazy-load sharp only for metadata
+  if (!forceRegen && (await exists(webFs)) && (await exists(thumbFs))) {
     const sharp = require("sharp") as typeof import("sharp");
-    const meta = await sharp(webPath).metadata();
+    const meta = await sharp(webFs).metadata();
     return {
       sha1,
-      webPath,
-      thumbPath,
+      webPath: publicWebUrl(sha1),
+      thumbPath: publicThumbUrl(sha1),
       width: meta.width ?? 0,
       height: meta.height ?? 0,
       sourceFormat: "cached",
     };
   }
 
-  await mkdir(dirname(webPath), { recursive: true });
-  await mkdir(dirname(thumbPath), { recursive: true });
+  await mkdir(dirname(webFs), { recursive: true });
+  await mkdir(dirname(thumbFs), { recursive: true });
 
   const raw = await readFile(sourcePath);
   const format = detectFormat(raw);
@@ -158,15 +173,16 @@ export async function generateWebPVariants(params: {
     .webp({ quality: THUMB_QUALITY })
     .toBuffer({ resolveWithObject: true });
 
+  const fs = await import("node:fs/promises");
   await Promise.all([
-    (await import("node:fs/promises")).writeFile(webPath, webBuf.data),
-    (await import("node:fs/promises")).writeFile(thumbPath, thumbBuf.data),
+    fs.writeFile(webFs, webBuf.data),
+    fs.writeFile(thumbFs, thumbBuf.data),
   ]);
 
   return {
     sha1,
-    webPath,
-    thumbPath,
+    webPath: publicWebUrl(sha1),
+    thumbPath: publicThumbUrl(sha1),
     width: webBuf.info.width,
     height: webBuf.info.height,
     sourceFormat: format,

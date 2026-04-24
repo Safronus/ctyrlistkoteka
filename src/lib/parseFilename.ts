@@ -49,12 +49,16 @@ const NO_NOTE_MARKERS = new Set([
 export function parseFindFilename(
   filename: string,
 ): ParseResult<ParsedFindFilename> {
-  const dot = filename.lastIndexOf(".");
+  // Normalize Unicode (filenames coming from macOS via rsync/scp arrive in
+  // NFD form — "Á" as A + combining acute — which fails string equality
+  // against our NFC-typed source-code constants like "NORMÁLNÍ").
+  const nfc = filename.normalize("NFC");
+  const dot = nfc.lastIndexOf(".");
   if (dot === -1) {
     return fail(`No file extension: "${filename}"`);
   }
-  const name = filename.slice(0, dot);
-  const extension = filename.slice(dot + 1);
+  const name = nfc.slice(0, dot);
+  const extension = nfc.slice(dot + 1);
 
   const parts = name.split("+");
   if (parts.length < 5) {
@@ -108,12 +112,13 @@ export function parseFindFilename(
 export function parseMapFilename(
   filename: string,
 ): ParseResult<ParsedMapFilename> {
-  const dot = filename.lastIndexOf(".");
+  const nfc = filename.normalize("NFC");
+  const dot = nfc.lastIndexOf(".");
   if (dot === -1) {
     return fail(`No file extension: "${filename}"`);
   }
-  const name = filename.slice(0, dot);
-  const extension = filename.slice(dot + 1);
+  const name = nfc.slice(0, dot);
+  const extension = nfc.slice(dot + 1);
 
   const parts = name.split("+");
   if (parts.length !== 6) {

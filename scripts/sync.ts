@@ -558,11 +558,26 @@ async function phaseMeta(ctx: Context, meta: Meta) {
     return;
   }
 
+  // JSON regularly references find IDs that don't (yet) exist in DB —
+  // either because the user hasn't uploaded all photos, or because finds
+  // were deleted. Filter every JSON-driven write through this set so we
+  // don't blow up on FK violations.
+  const existingFindIds = new Set(
+    (await ctx.prisma.find.findMany({ select: { id: true } })).map((r) => r.id),
+  );
+  let skippedNotes = 0;
+  let skippedStates = 0;
+  let skippedAnon = 0;
+
   // Notes
   for (const [idStr, note] of Object.entries(meta.poznamky)) {
     const id = Number(idStr);
     if (!Number.isInteger(id)) continue;
-    await ctx.prisma.find.updateMany({
+    if (!existingFindIds.has(id)) {
+      skippedNotes += 1;
+      continue;
+    }
+    await ctx.prisma.find.update({
       where: { id },
       data: { notes: note },
     });
@@ -581,6 +596,10 @@ async function phaseMeta(ctx: Context, meta: Meta) {
     }
     const ids = parseRanges(specs);
     for (const id of ids) {
+      if (!existingFindIds.has(id)) {
+        skippedStates += 1;
+        continue;
+      }
       await ctx.prisma.findStateAssignment.upsert({
         where: { findId_state: { findId: id, state } },
         create: { findId: id, state },
@@ -591,18 +610,31 @@ async function phaseMeta(ctx: Context, meta: Meta) {
 
   // Anonymization
   const anonIds = parseRanges(meta.anonymizace.ANONYMIZOVANE);
-  if (anonIds.length > 0) {
+  const anonIdsExisting = anonIds.filter((id) => existingFindIds.has(id));
+  skippedAnon = anonIds.length - anonIdsExisting.length;
+  if (anonIdsExisting.length > 0) {
     await ctx.prisma.find.updateMany({
-      where: { id: { in: anonIds } },
+      where: { id: { in: anonIdsExisting } },
       data: { isAnonymized: true },
     });
-    for (const id of anonIds) {
+    for (const id of anonIdsExisting) {
       await ctx.prisma.findStateAssignment.upsert({
         where: { findId_state: { findId: id, state: FindState.ANONYMIZED } },
         create: { findId: id, state: FindState.ANONYMIZED },
         update: {},
       });
     }
+  }
+
+  if (skippedNotes + skippedStates + skippedAnon > 0) {
+    ctx.log.log({
+      event: "meta.skipped_missing_finds",
+      level: "warn",
+      notes: skippedNotes,
+      states: skippedStates,
+      anonymization: skippedAnon,
+      hint: "JSON references find IDs that aren't on disk yet — usually OK during partial uploads",
+    });
   }
 
   ctx.log.log({ event: "meta.done", level: "info", ...plan });
