@@ -80,5 +80,4 @@ jobs:
             pnpm build
             pm2 reload ctyrlistkoteka
             pm2 save
-          envs: HOME
           script_stop: true
