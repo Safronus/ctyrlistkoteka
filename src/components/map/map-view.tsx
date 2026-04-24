@@ -99,14 +99,54 @@ function Legend({
   return null;
 }
 
+/**
+ * Pick the points to fit. Markers (with real GPS) win when present; only
+ * fall back to location centres when no markers exist. Then drop any
+ * point > 800 km from the median centroid — useful when one or two
+ * outlier locations (e.g., Dublin, Reykjavík) would otherwise zoom the
+ * view out across the whole Atlantic and hide the dense home cluster.
+ */
 function computeBounds(data: MapData): LatLngBoundsExpression | null {
-  const pts: Array<[number, number]> = [];
-  for (const m of data.markers) pts.push([m.lat, m.lng]);
-  for (const l of data.locations) {
-    if (l.centerLat !== null && l.centerLng !== null) {
-      pts.push([l.centerLat, l.centerLng]);
-    }
-  }
-  if (pts.length === 0) return null;
-  return pts as LatLngBoundsExpression;
+  const points: Array<[number, number]> =
+    data.markers.length > 0
+      ? data.markers.map((m) => [m.lat, m.lng])
+      : data.locations
+          .filter((l) => l.centerLat !== null && l.centerLng !== null)
+          .map((l) => [l.centerLat as number, l.centerLng as number]);
+
+  if (points.length === 0) return null;
+  if (points.length <= 2) return points as LatLngBoundsExpression;
+
+  const medLat = median(points.map((p) => p[0]));
+  const medLng = median(points.map((p) => p[1]));
+  const inliers = points.filter(
+    ([lat, lng]) => haversineKm(lat, lng, medLat, medLng) < 800,
+  );
+  // Need at least 2 points to make bounds; otherwise keep the originals.
+  return (inliers.length >= 2 ? inliers : points) as LatLngBoundsExpression;
+}
+
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const m = Math.floor(sorted.length / 2);
+  if (sorted.length === 0) return 0;
+  return sorted.length % 2
+    ? (sorted[m] as number)
+    : ((sorted[m - 1] as number) + (sorted[m] as number)) / 2;
+}
+
+function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
 }

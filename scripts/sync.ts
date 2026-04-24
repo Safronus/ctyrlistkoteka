@@ -190,26 +190,65 @@ async function readExifSafe(
 ): Promise<{ dateTaken: Date | null; lat: number | null; lng: number | null }> {
   try {
     const exifr = (await import("exifr")).default;
-    const exif = (await exifr.parse(path, {
-      gps: true,
-      pick: ["DateTimeOriginal", "CreateDate", "latitude", "longitude"],
-    })) as
+    // Default options give us EXIF + GPS with auto-unwrapping into top-level
+    // `latitude` / `longitude`. `pick` was previously used here together
+    // with `gps: true` and that combination filters output keys BEFORE the
+    // GPS unwrap step — leaving us with empty results. Always read the full
+    // default set; we filter to just the keys we need below.
+    const exif = (await exifr.parse(path)) as
       | {
           DateTimeOriginal?: Date;
           CreateDate?: Date;
           latitude?: number;
           longitude?: number;
+          GPSLatitude?: number | number[];
+          GPSLongitude?: number | number[];
+          GPSLatitudeRef?: string;
+          GPSLongitudeRef?: string;
         }
       | undefined;
     if (!exif) return { dateTaken: null, lat: null, lng: null };
+
+    // Prefer the auto-unwrapped decimals; fall back to manually decoding
+    // the raw degrees/minutes/seconds tuple some HEIC variants emit.
+    const lat =
+      typeof exif.latitude === "number"
+        ? exif.latitude
+        : toDecimalDegrees(exif.GPSLatitude, exif.GPSLatitudeRef);
+    const lng =
+      typeof exif.longitude === "number"
+        ? exif.longitude
+        : toDecimalDegrees(exif.GPSLongitude, exif.GPSLongitudeRef);
+
     return {
       dateTaken: exif.DateTimeOriginal ?? exif.CreateDate ?? null,
-      lat: exif.latitude ?? null,
-      lng: exif.longitude ?? null,
+      lat: lat !== null && Number.isFinite(lat) ? lat : null,
+      lng: lng !== null && Number.isFinite(lng) ? lng : null,
     };
   } catch {
     return { dateTaken: null, lat: null, lng: null };
   }
+}
+
+/**
+ * Converts EXIF GPS values (decimal number OR [deg, min, sec] tuple) plus a
+ * direction reference ("N"/"S"/"E"/"W") into a signed decimal degree.
+ */
+function toDecimalDegrees(
+  raw: number | number[] | undefined,
+  ref: string | undefined,
+): number | null {
+  if (raw === undefined) return null;
+  let dd: number;
+  if (typeof raw === "number") {
+    dd = raw;
+  } else if (Array.isArray(raw) && raw.length >= 3) {
+    dd = (raw[0] ?? 0) + (raw[1] ?? 0) / 60 + (raw[2] ?? 0) / 3600;
+  } else {
+    return null;
+  }
+  if (ref === "S" || ref === "W") dd = -dd;
+  return Number.isFinite(dd) ? dd : null;
 }
 
 // --------------------------------------------------------------------------
@@ -482,6 +521,10 @@ async function phaseFinds(
 
   const { generateWebPVariants, sha1File } = await import("../src/lib/images");
 
+  let withGps = 0;
+  let withoutGps = 0;
+  let unexpectedNoGps = 0;
+
   for (const f of all) {
     const sha1 = await sha1File(f.path);
     const image = await generateWebPVariants({
@@ -515,6 +558,20 @@ async function phaseFinds(
     if (exif.lat !== null && exif.lng !== null) {
       await ctx.prisma
         .$executeRaw`UPDATE finds SET coordinates = ST_SetSRID(ST_MakePoint(${exif.lng}, ${exif.lat}), 4326) WHERE id = ${f.parsed.findId}`;
+      withGps += 1;
+    } else {
+      withoutGps += 1;
+      // Filename's STATE = BEZGPS legitimately has no GPS — don't flag.
+      // Anything else is suspicious: we couldn't read EXIF coords from a
+      // file the user expected to have them.
+      if (f.parsed.state !== FindState.NO_GPS) {
+        unexpectedNoGps += 1;
+        ctx.log.failure({
+          file: f.path,
+          reason: "no_exif_gps",
+          details: `find #${f.parsed.findId} has no readable GPS in EXIF (state ${f.parsed.state})`,
+        });
+      }
     }
 
     const existing = await ctx.prisma.findImage.findFirst({
@@ -542,7 +599,14 @@ async function phaseFinds(
     }
   }
 
-  ctx.log.log({ event: "finds.done", level: "info", upserted: all.length });
+  ctx.log.log({
+    event: "finds.done",
+    level: "info",
+    upserted: all.length,
+    with_gps: withGps,
+    without_gps: withoutGps,
+    unexpected_no_gps: unexpectedNoGps,
+  });
   return all;
 }
 
