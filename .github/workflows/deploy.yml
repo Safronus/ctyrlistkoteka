@@ -68,10 +68,12 @@ jobs:
             cd /var/www/ctyrlistkoteka
             # Pin the GitHub deploy key explicitly. Non-interactive SSH
             # sessions from drone-ssh don't always pick up ~/.ssh/config.
-            export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/github_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+            # Hardcoded path — $HOME gets expanded on the runner, not on
+            # the VPS, so we can't use it here.
+            export GIT_SSH_COMMAND="ssh -i /home/app/.ssh/github_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
             git fetch --prune origin main
             git reset --hard origin/main
-            source "$HOME/.nvm/nvm.sh"
+            source "/home/app/.nvm/nvm.sh"
             pnpm install --frozen-lockfile
             pnpm prisma generate
             pnpm prisma migrate deploy
