@@ -272,9 +272,8 @@ async function phaseMaps(
   }
 
   // Lazy-load image helpers — keeps dry-run lightweight.
-  const { generateMapWebP, computeMapBounds, sha1File } = await import(
-    "../src/lib/images"
-  );
+  const { generateMapWebP, computeMapBounds, readAoiPolygon, sha1File } =
+    await import("../src/lib/images");
 
   for (const m of maps) {
     // Best-effort decomposition — never fails. If the code doesn't match a
@@ -331,6 +330,29 @@ async function phaseMaps(
     await ctx.prisma
       .$executeRaw`UPDATE locations SET center_point = ST_SetSRID(ST_MakePoint(${m.parsed.centerLng}, ${m.parsed.centerLat}), 4326) WHERE id = ${location.id}`;
 
+    // Try to extract AOI polygon from the PNG's tEXt metadata. First map
+    // for a given location wins — subsequent maps' polygons are noted on
+    // the LocationMap row but don't overwrite the canonical Location.polygon.
+    const aoi = await readAoiPolygon(
+      m.path,
+      bounds,
+      mapImg.width,
+      mapImg.height,
+    );
+    if (aoi) {
+      // Build POLYGON WKT in lng/lat order (PostGIS convention).
+      const wkt =
+        "POLYGON((" +
+        aoi.map(([lng, lat]) => `${lng} ${lat}`).join(", ") +
+        "))";
+      // Only set if Location doesn't already have one (first wins).
+      await ctx.prisma.$executeRaw`
+        UPDATE locations
+        SET polygon = ST_GeomFromText(${wkt}, 4326)
+        WHERE id = ${location.id} AND polygon IS NULL
+      `;
+    }
+
     await ctx.prisma.locationMap.upsert({
       where: { id: m.parsed.mapId },
       create: {
@@ -345,7 +367,7 @@ async function phaseMaps(
         imageBounds: bounds,
         imageWidth: mapImg.width,
         imageHeight: mapImg.height,
-        hasPolygon: false, // TODO Fáze 8: EXIF AOI_POLYGON
+        hasPolygon: aoi !== null,
         isAnonymized: false,
         originalFilename: m.filename,
       },
@@ -356,6 +378,7 @@ async function phaseMaps(
         imageBounds: bounds,
         imageWidth: mapImg.width,
         imageHeight: mapImg.height,
+        hasPolygon: aoi !== null,
       },
     });
   }

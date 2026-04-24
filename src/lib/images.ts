@@ -275,6 +275,133 @@ export function computeMapBounds(params: {
   ];
 }
 
+/**
+ * Reads PNG textual metadata chunks (tEXt + iTXt) and returns them as a
+ * keyword→value map. Used to extract the AOI_POLYGON JSON written by the
+ * map-generator tool.
+ *
+ * PNG layout: 8-byte signature, then chunks of {length(4) type(4)
+ * data(length) crc(4)}. tEXt is keyword + 0x00 + latin1 text; iTXt has
+ * additional language/translated-keyword fields then UTF-8 text.
+ */
+export function parsePngTextChunks(buf: Buffer): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (
+    buf.length < 8 ||
+    buf[0] !== 0x89 ||
+    buf[1] !== 0x50 ||
+    buf[2] !== 0x4e ||
+    buf[3] !== 0x47
+  ) {
+    return out;
+  }
+  let off = 8;
+  while (off + 12 <= buf.length) {
+    const length = buf.readUInt32BE(off);
+    const type = buf.subarray(off + 4, off + 8).toString("ascii");
+    const dataStart = off + 8;
+    const dataEnd = dataStart + length;
+    if (dataEnd + 4 > buf.length) break;
+
+    if (type === "tEXt") {
+      const data = buf.subarray(dataStart, dataEnd);
+      const sep = data.indexOf(0);
+      if (sep > 0) {
+        const keyword = data.subarray(0, sep).toString("latin1");
+        // PNG spec says latin1, but real-world tooling often writes UTF-8.
+        // Try utf8 first, fall back to latin1 if it produced replacement chars.
+        const utf8 = data.subarray(sep + 1).toString("utf8");
+        out[keyword] = utf8.includes("�")
+          ? data.subarray(sep + 1).toString("latin1")
+          : utf8;
+      }
+    } else if (type === "iTXt") {
+      const data = buf.subarray(dataStart, dataEnd);
+      const sep1 = data.indexOf(0);
+      if (sep1 > 0) {
+        const keyword = data.subarray(0, sep1).toString("latin1");
+        const compFlag = data[sep1 + 1] ?? 0;
+        // Skip compression method byte
+        let p = sep1 + 3;
+        // Skip language tag (null-terminated)
+        const sep2 = data.indexOf(0, p);
+        if (sep2 < 0) {
+          off = dataEnd + 4;
+          continue;
+        }
+        p = sep2 + 1;
+        // Skip translated keyword (null-terminated)
+        const sep3 = data.indexOf(0, p);
+        if (sep3 < 0) {
+          off = dataEnd + 4;
+          continue;
+        }
+        p = sep3 + 1;
+        if (compFlag === 0) {
+          out[keyword] = data.subarray(p).toString("utf8");
+        }
+        // Compressed iTXt isn't decoded — we don't expect it.
+      }
+    }
+
+    if (type === "IEND") break;
+    off = dataEnd + 4; // CRC
+  }
+  return out;
+}
+
+/**
+ * Extracts an AOI polygon from a PNG map's metadata and converts it from
+ * pixel coordinates to GPS (in GeoJSON [lng, lat] order). Returns null if
+ * the file has no AOI_POLYGON tag or it doesn't parse.
+ *
+ * Pixel→GPS uses the image's geographic bounds (computed from filename
+ * GPS centre + zoom + pixel size). Pixel origin is top-left, so
+ *   px = 0     → swLng (left = west)
+ *   px = width → neLng
+ *   py = 0     → neLat (top = north)
+ *   py = height → swLat
+ */
+export async function readAoiPolygon(
+  sourcePath: string,
+  bounds: [[number, number], [number, number]],
+  width: number,
+  height: number,
+): Promise<Array<[number, number]> | null> {
+  const buf = await readFile(sourcePath);
+  const tags = parsePngTextChunks(buf);
+  const raw = tags.AOI_POLYGON;
+  if (!raw) return null;
+
+  let parsed: { points?: unknown };
+  try {
+    parsed = JSON.parse(raw) as { points?: unknown };
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed.points) || parsed.points.length < 3) return null;
+
+  const [[swLat, swLng], [neLat, neLng]] = bounds;
+  const out: Array<[number, number]> = [];
+  for (const pt of parsed.points) {
+    if (!Array.isArray(pt) || pt.length < 2) continue;
+    const px = Number(pt[0]);
+    const py = Number(pt[1]);
+    if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+    const lng = swLng + (px / width) * (neLng - swLng);
+    const lat = neLat - (py / height) * (neLat - swLat);
+    out.push([lng, lat]);
+  }
+  if (out.length < 3) return null;
+  // Close the linear ring as PostGIS expects.
+  const first = out[0]!;
+  const last = out[out.length - 1]!;
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    out.push([first[0], first[1]]);
+  }
+  return out;
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await stat(path);
