@@ -1,33 +1,37 @@
 import { FindState } from "@prisma/client";
 
 /**
- * Mapping from transliterated filename STATE field to DB enum.
+ * Mapping from the STATE field of a find-photo filename to the DB enum.
  *
- * Per docs/filename-convention.md the pattern after transliteration is:
- *   NORMÁLNÍ  → NORMA_LNI_
- *   DAROVANÝ  → DAROVAN_   (or DAROVANY_ depending on Ý rule; we accept both)
- *   BEZGPS    → BEZGPS
- *   BEZFOTKY  → BEZFOTKY
+ * Real filenames preserve `+` separators and diacritics (the transliterated
+ * convention documented earlier in docs/filename-convention.md describes
+ * an older tool chain that is not what the user actually uses). The real
+ * state tokens are:
+ *   NORMÁLNÍ          → NORMAL
+ *   BEZGPS            → NO_GPS
+ *   BEZFOTKY          → NO_PHOTO
+ *   DAROVANÝ          → DONATED
+ *   LOKACE-NEEXISTUJE → LOCATION_MISSING
  *
- * Order matters for regex alternation: longer patterns first so DAROVANY_
- * is tried before DAROVAN_.
+ * Legacy transliterated tokens are kept as fallbacks so any historical
+ * files that happen to have been through the old tooling still import.
  */
-export const FILENAME_STATE_PATTERNS: ReadonlyArray<{
-  pattern: string;
-  state: FindState;
-}> = [
-  { pattern: "NORMA_LNI_", state: FindState.NORMAL },
-  { pattern: "DAROVANY_", state: FindState.DONATED },
-  { pattern: "DAROVAN_", state: FindState.DONATED },
-  { pattern: "BEZFOTKY", state: FindState.NO_PHOTO },
-  { pattern: "BEZGPS", state: FindState.NO_GPS },
-];
+export const FILENAME_STATE_MAP: ReadonlyMap<string, FindState> = new Map([
+  ["NORMÁLNÍ", FindState.NORMAL],
+  ["BEZGPS", FindState.NO_GPS],
+  ["BEZFOTKY", FindState.NO_PHOTO],
+  ["DAROVANÝ", FindState.DONATED],
+  ["LOKACE-NEEXISTUJE", FindState.LOCATION_MISSING],
+  // Legacy transliterated forms — kept for compatibility.
+  ["NORMA_LNI_", FindState.NORMAL],
+  ["DAROVANY_", FindState.DONATED],
+  ["DAROVAN_", FindState.DONATED],
+]);
 
 /**
  * Mapping from JSON "stavy" keys to DB enum (docs/filename-convention.md, D).
- * Some keys intentionally map to the same enum:
- *   BEZLOKACE          → LOCATION_MISSING
- *   LOKACE-NEEXISTUJE  → LOCATION_MISSING (sjednoceno)
+ * JSON keys stay ASCII (no diacritics). `BEZLOKACE` and `LOKACE-NEEXISTUJE`
+ * both collapse to LOCATION_MISSING as documented.
  */
 export const JSON_STATE_MAP: Readonly<Record<string, FindState>> = {
   BEZFOTKY: FindState.NO_PHOTO,

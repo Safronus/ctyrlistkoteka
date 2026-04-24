@@ -21,11 +21,11 @@ import { FindState, ImageType, PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import {
   parseFindFilename,
-  parseLocationCode,
   parseMapFilename,
   type ParsedFindFilename,
   type ParsedMapFilename,
 } from "../src/lib/parseFilename";
+import { splitLocationCode, toAsciiCode } from "../src/lib/locationCode";
 import { parseRanges } from "../src/lib/parseRanges";
 import { JSON_STATE_MAP } from "../src/lib/stateMapping";
 
@@ -262,15 +262,11 @@ async function phaseMaps(
   }
 
   for (const m of maps) {
-    const code = parseLocationCode(m.parsed.locationCodeTransliterated);
-    if (!code.ok) {
-      ctx.log.failure({
-        file: `maps/${m.filename}`,
-        reason: "location_code_parse_error",
-        details: code.error,
-      });
-      continue;
-    }
+    // Best-effort decomposition — never fails. If the code doesn't match a
+    // known shape, splitLocationCode returns the whole thing as cadastral.
+    const parts = splitLocationCode(m.parsed.locationCode);
+    const displayName =
+      m.parsed.description || m.parsed.locationCode;
 
     // Bounds from GPS + zoom + image size (per docs/filename-convention.md §B)
     const bounds = await computeImageBounds(m);
@@ -279,20 +275,22 @@ async function phaseMaps(
       where: { id: m.parsed.mapId },
       create: {
         id: m.parsed.mapId,
-        code: m.parsed.locationCodeTransliterated,
-        codeTransliterated: m.parsed.locationCodeTransliterated,
-        cadastralArea: code.value.cadastralArea,
-        locationType: code.value.locationType,
-        number: code.value.number,
-        subpart: code.value.subpart,
-        displayName: m.parsed.descriptionTransliterated || m.parsed.locationCodeTransliterated,
+        code: m.parsed.locationCode,
+        codeTransliterated: toAsciiCode(m.parsed.locationCode),
+        cadastralArea: parts.cadastralArea,
+        locationType: parts.locationType,
+        number: parts.number,
+        subpart: parts.subpart,
+        displayName,
       },
       update: {
-        cadastralArea: code.value.cadastralArea,
-        locationType: code.value.locationType,
-        number: code.value.number,
-        subpart: code.value.subpart,
-        displayName: m.parsed.descriptionTransliterated || m.parsed.locationCodeTransliterated,
+        code: m.parsed.locationCode,
+        codeTransliterated: toAsciiCode(m.parsed.locationCode),
+        cadastralArea: parts.cadastralArea,
+        locationType: parts.locationType,
+        number: parts.number,
+        subpart: parts.subpart,
+        displayName,
       },
     });
 
@@ -304,8 +302,8 @@ async function phaseMaps(
       create: {
         id: m.parsed.mapId,
         locationId: m.parsed.mapId,
-        locationCode: m.parsed.locationCodeTransliterated,
-        description: m.parsed.descriptionTransliterated,
+        locationCode: m.parsed.locationCode,
+        description: m.parsed.description,
         centerLat: m.parsed.centerLat,
         centerLng: m.parsed.centerLng,
         zoom: m.parsed.zoom,
@@ -318,7 +316,7 @@ async function phaseMaps(
         originalFilename: m.filename,
       },
       update: {
-        description: m.parsed.descriptionTransliterated,
+        description: m.parsed.description,
         imageBounds: bounds.bounds,
         imageWidth: bounds.width,
         imageHeight: bounds.height,

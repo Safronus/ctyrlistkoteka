@@ -107,10 +107,12 @@ export default async function FindDetailPage({ params }: PageProps) {
                 label="Katastr"
                 value={find.location.cadastralArea}
               />
-              <KeyValue
-                label="Typ prostředí"
-                value={find.location.locationType}
-              />
+              {find.location.locationType && (
+                <KeyValue
+                  label="Typ prostředí"
+                  value={find.location.locationType}
+                />
+              )}
             </>
           )}
         </Panel>

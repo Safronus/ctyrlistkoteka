@@ -1,22 +1,17 @@
-import { FindState } from "@prisma/client";
-import { FILENAME_STATE_PATTERNS } from "./stateMapping";
-
 /**
  * Filename parser for find photos AND location maps.
  *
- * On disk the original "+"-separated format:
- *   {FIND_ID}+{MAP_NUMBER}+{LOCATION_CODE}+{STATE}+{ANON_FLAG}+{NOTE}.{ext}
- * has all "+" and diacritic letters replaced by "_". Because underscores
- * occur BOTH as field separators AND inside individual fields, we can't
- * naively split on "_".
+ * Real filenames keep `+` as the field separator AND preserve diacritics,
+ * so parsing is just `split('+')` plus segment-level validation. The
+ * LOCATION_CODE segment is treated as an opaque string — any downstream
+ * decomposition happens in `splitLocationCode` in locationCode.ts.
  *
- * Strategy: positional regex. Anchors are reliable (FIND_ID digits, 5-digit
- * MAP_NUMBER, finite STATE alternation, NE|ANO anon flag) so the only
- * ambiguous field — LOCATION_CODE — is pinned on both sides.
- *
- * On any failure the parser returns { ok: false, error } with a short
- * machine-readable reason; callers log it to sync-failures.jsonl.
+ * On failure we return `{ ok: false, error }` with a short reason so the
+ * sync script can log it to sync-failures.jsonl. Parsing never throws.
  */
+
+import { FindState } from "@prisma/client";
+import { FILENAME_STATE_MAP } from "./stateMapping";
 
 export type ParseResult<T> =
   | { ok: true; value: T }
@@ -25,20 +20,20 @@ export type ParseResult<T> =
 export interface ParsedFindFilename {
   findId: number;
   mapNumber: number;
-  locationCodeTransliterated: string;
+  /** Raw location code — opaque, contains diacritics and optional spaces. */
+  locationCode: string;
   state: FindState;
-  /** True if filename's 5th field is ANO. NOT the final anonymization decision
-   *  — that is JSON's "anonymizace.ANONYMIZOVANE" OR-ed with this flag. */
+  /** Filename pole 5 = ANO. OR-ed with JSON.anonymizace in sync. */
   isAnonymized: boolean;
   hasNote: boolean;
-  /** Transliterated note text or null when filename says "BezPozna_mky". */
-  noteTransliterated: string | null;
+  /** Raw note text (with diacritics) or null when filename says "BezPoznámky". */
+  note: string | null;
   extension: string;
 }
 
 export interface ParsedMapFilename {
-  locationCodeTransliterated: string;
-  descriptionTransliterated: string;
+  locationCode: string;
+  description: string;
   centerLat: number;
   centerLng: number;
   zoom: number;
@@ -46,36 +41,10 @@ export interface ParsedMapFilename {
   extension: string;
 }
 
-const NO_NOTE_MARKER = "BezPozna_mky";
-
-/**
- * Regex built from FILENAME_STATE_PATTERNS, longer alternations first.
- * Each pattern is RegExp-escaped (no metacharacters expected, but defensive).
- */
-const STATE_ALTERNATION = FILENAME_STATE_PATTERNS.map((p) =>
-  p.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-).join("|");
-
-/**
- * Full find-photo name regex. Each field is captured.
- *
- *   ^(\d+)                     FIND_ID
- *   _(\d{5})                   MAP_NUMBER (5 digits, zero-padded)
- *   _(.+?)                     LOCATION_CODE (non-greedy, bounded below)
- *   _(<STATE_ALT>)             STATE
- *   _(NE|ANO)                  ANON flag
- *   (?:_(.*))?                 NOTE (optional)
- *   $
- *
- * The non-greedy (.+?) backtracks until the STATE alternative on its right
- * matches, guaranteeing the correct split even when LOCATION_CODE contains
- * underscores.
- */
-const FIND_NAME_RE = new RegExp(
-  "^(\\d+)_(\\d{5})_(.+?)_(" +
-    STATE_ALTERNATION +
-    ")_(NE|ANO)(?:_(.*))?$",
-);
+const NO_NOTE_MARKERS = new Set([
+  "BezPoznámky",
+  "BezPozna_mky", // legacy transliterated form
+]);
 
 export function parseFindFilename(
   filename: string,
@@ -87,60 +56,54 @@ export function parseFindFilename(
   const name = filename.slice(0, dot);
   const extension = filename.slice(dot + 1);
 
-  const m = FIND_NAME_RE.exec(name);
-  if (!m) {
-    return fail(`Filename does not match find-photo schema: "${filename}"`);
+  const parts = name.split("+");
+  if (parts.length < 5) {
+    return fail(
+      `Expected at least 5 '+' segments, got ${parts.length}: "${filename}"`,
+    );
   }
 
-  const [, findIdStr, mapNumStr, locCode, stateStr, anonFlag, noteRaw] = m;
+  const [findIdStr, mapNumStr, locCode, stateStr, anonFlag, ...noteParts] =
+    parts;
 
-  const statePattern = FILENAME_STATE_PATTERNS.find(
-    (p) => p.pattern === stateStr,
-  );
-  if (!statePattern) {
-    // Regex alternation matched, so this is unreachable barring a bug.
+  if (!/^\d+$/.test(findIdStr!)) {
+    return fail(`FIND_ID must be numeric, got "${findIdStr}"`);
+  }
+  if (!/^\d{5}$/.test(mapNumStr!)) {
+    return fail(`MAP_NUMBER must be 5 digits, got "${mapNumStr}"`);
+  }
+
+  const locationCode = locCode!.trim();
+  if (!locationCode) {
+    return fail(`LOCATION_CODE is empty`);
+  }
+
+  const state = FILENAME_STATE_MAP.get(stateStr!);
+  if (!state) {
     return fail(`Unknown STATE token: "${stateStr}"`);
   }
 
-  const noteTransliterated = noteRaw ?? null;
+  if (anonFlag !== "NE" && anonFlag !== "ANO") {
+    return fail(`ANON_FLAG must be NE or ANO, got "${anonFlag}"`);
+  }
+
+  // Notes may themselves contain `+` (unlikely but legal in user land).
+  // Rejoin trailing segments so we never silently drop data.
+  const noteRaw = noteParts.length > 0 ? noteParts.join("+") : "";
   const hasNote =
-    noteTransliterated !== null && noteTransliterated !== NO_NOTE_MARKER;
+    noteRaw.length > 0 && !NO_NOTE_MARKERS.has(noteRaw);
 
   return ok({
     findId: Number(findIdStr),
     mapNumber: Number(mapNumStr),
-    locationCodeTransliterated: locCode!,
-    state: statePattern.state,
+    locationCode,
+    state,
     isAnonymized: anonFlag === "ANO",
     hasNote,
-    noteTransliterated: hasNote ? noteTransliterated : null,
+    note: hasNote ? noteRaw : null,
     extension,
   });
 }
-
-/**
- * Map filename regex. Applied after stripping extension.
- *
- *   ^(LOCATION_CODE)_(DESCRIPTION)_GPS(lat)S_(lng)V_Z(zoom)_(MAP_ID)$
- *
- * LOCATION_CODE is matched separately (same cadastral_type_number[subpart]
- * shape as find photos). DESCRIPTION is then whatever's between the code
- * and the GPS anchor.
- */
-const MAP_TAIL_RE =
-  /^(?<rest>.+)_GPS(?<lat>\d+_\d+)S_(?<lng>\d+_\d+)V_Z(?<zoom>\d+)_(?<mapId>\d{5})$/;
-
-/**
- * Regex matching the LOCATION_CODE prefix in a map/find name.
- * Greedy on the cadastral part so trailing underscores from diacritics
- * (e.g., "RATIBOR_" from "RATIBOŘ") are captured in the cadastral group.
- *
- *   cadastral: any chars, but ending right before the _TYPE boundary
- *   type:      run of uppercase letters
- *   number:    exactly 3 digits
- *   subpart:   0 or 1 lowercase letter
- */
-const LOCATION_CODE_RE = /^(.+?)_([A-Z]+)(\d{3})([a-z]?)/;
 
 export function parseMapFilename(
   filename: string,
@@ -152,66 +115,75 @@ export function parseMapFilename(
   const name = filename.slice(0, dot);
   const extension = filename.slice(dot + 1);
 
-  const tail = MAP_TAIL_RE.exec(name);
-  if (!tail || !tail.groups) {
-    return fail(`Filename does not match map schema: "${filename}"`);
+  const parts = name.split("+");
+  if (parts.length !== 6) {
+    return fail(
+      `Map expected 6 '+' segments, got ${parts.length}: "${filename}"`,
+    );
   }
 
-  const { rest, lat, lng, zoom, mapId } = tail.groups;
-  const centerLat = Number(lat!.replace("_", "."));
-  const centerLng = Number(lng!.replace("_", "."));
-  if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng)) {
-    return fail(`Invalid GPS in map filename: "${filename}"`);
+  const [code, description, latSeg, lngSeg, zoomSeg, mapIdSeg] = parts;
+
+  const locationCode = code!.trim();
+  if (!locationCode) {
+    return fail(`LOCATION_CODE is empty`);
   }
 
-  const codeMatch = LOCATION_CODE_RE.exec(rest!);
-  if (!codeMatch) {
-    return fail(`Could not find LOCATION_CODE in: "${filename}"`);
+  const centerLat = parseLatitude(latSeg!);
+  if (centerLat === null) {
+    return fail(`Invalid latitude segment: "${latSeg}"`);
   }
 
-  const locationCodeTransliterated = codeMatch[0];
-  const descriptionTransliterated = rest!
-    .slice(codeMatch[0].length)
-    .replace(/^_/, "");
+  const centerLng = parseLongitude(lngSeg!);
+  if (centerLng === null) {
+    return fail(`Invalid longitude segment: "${lngSeg}"`);
+  }
+
+  const zoomMatch = /^Z(\d+)$/.exec(zoomSeg!);
+  if (!zoomMatch) {
+    return fail(`Invalid zoom segment: "${zoomSeg}"`);
+  }
+  const zoom = Number(zoomMatch[1]);
+
+  if (!/^\d{5}$/.test(mapIdSeg!)) {
+    return fail(`MAP_ID must be 5 digits, got "${mapIdSeg}"`);
+  }
 
   return ok({
-    locationCodeTransliterated,
-    descriptionTransliterated,
+    locationCode,
+    description: description!.trim(),
     centerLat,
     centerLng,
-    zoom: Number(zoom!),
-    mapId: Number(mapId!),
+    zoom,
+    mapId: Number(mapIdSeg),
     extension,
   });
 }
 
 /**
- * Convenience splitter for a LOCATION_CODE into its 4 components.
- * Works on either transliterated ("RATIBOR__POLE001f") or original
- * ("RATIBOŘ_POLE001f") input — treats any non-digit, non-lowercase tail as
- * part of the cadastral area.
+ * Parses the latitude segment "GPS{number}{S|J}".
+ *   S = sever (north) → positive
+ *   J = jih  (south)  → negative
  */
-export interface LocationCodeParts {
-  cadastralArea: string;
-  locationType: string;
-  number: number;
-  subpart: string | null;
+function parseLatitude(segment: string): number | null {
+  const m = /^GPS(\d+(?:\.\d+)?)([SJ])$/.exec(segment);
+  if (!m) return null;
+  const abs = Number(m[1]);
+  if (!Number.isFinite(abs)) return null;
+  return m[2] === "J" ? -abs : abs;
 }
 
-export function parseLocationCode(
-  code: string,
-): ParseResult<LocationCodeParts> {
-  const m = /^(.+?)[_]?([A-Z]+)(\d{3})([a-z]?)$/.exec(code);
-  if (!m) {
-    return fail(`Invalid LOCATION_CODE: "${code}"`);
-  }
-  const cadastralArea = m[1]!.replace(/_+$/, "");
-  return ok({
-    cadastralArea,
-    locationType: m[2]!,
-    number: Number(m[3]),
-    subpart: m[4] ? m[4] : null,
-  });
+/**
+ * Parses the longitude segment "{number}{V|Z}".
+ *   V = východ (east) → positive
+ *   Z = západ  (west) → negative (e.g. Dublin, Reykjavík)
+ */
+function parseLongitude(segment: string): number | null {
+  const m = /^(\d+(?:\.\d+)?)([VZ])$/.exec(segment);
+  if (!m) return null;
+  const abs = Number(m[1]);
+  if (!Number.isFinite(abs)) return null;
+  return m[2] === "Z" ? -abs : abs;
 }
 
 function ok<T>(value: T): { ok: true; value: T } {

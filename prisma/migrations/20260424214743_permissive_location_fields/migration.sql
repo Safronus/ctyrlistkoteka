@@ -1,0 +1,10 @@
+-- AlterTable
+ALTER TABLE "location_maps" ALTER COLUMN "location_code" SET DATA TYPE VARCHAR(150);
+
+-- AlterTable
+ALTER TABLE "locations" ALTER COLUMN "code" SET DATA TYPE VARCHAR(150),
+ALTER COLUMN "code_transliterated" SET DATA TYPE VARCHAR(150),
+ALTER COLUMN "location_type" DROP NOT NULL,
+ALTER COLUMN "location_type" SET DATA TYPE VARCHAR(100),
+ALTER COLUMN "number" DROP NOT NULL,
+ALTER COLUMN "display_name" SET DATA TYPE VARCHAR(500);

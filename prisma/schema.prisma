@@ -38,13 +38,13 @@ enum ImageType {
 
 model Location {
   id                 Int      @id // MAP_ID z názvu souboru lokační mapy (shoduje se s klíči v LokaceStavyPoznamky.json "lokace")
-  code               String   @unique @db.VarChar(100) // "RATIBOŘ_POLE001f"
-  codeTransliterated String   @unique @map("code_transliterated") @db.VarChar(100) // "RATIBOR__POLE001f"
-  cadastralArea      String   @map("cadastral_area") @db.VarChar(100) // "RATIBOŘ"
-  locationType       String   @map("location_type") @db.VarChar(50) // "POLE"
-  number             Int      @db.SmallInt
+  code               String   @unique @db.VarChar(150) // "RATIBOŘ_POLE001f", "HLUBOKÁ NAD VLTAVOU_GOLFCLUB001", "NEEXISTUJE-ZLÍN_JSVAHY-JAVOROVÁ002"
+  codeTransliterated String   @unique @map("code_transliterated") @db.VarChar(150) // ASCII-safe forma z toAsciiCode()
+  cadastralArea      String   @map("cadastral_area") @db.VarChar(100) // "RATIBOŘ"; fallback = celý code
+  locationType       String?  @map("location_type") @db.VarChar(100) // "POLE", "JSVAHY-UTB-U5-Z" — může chybět pro HOŠŤÁLKOVÁ001
+  number             Int?     @db.SmallInt // 000–999, může být null pro RATIBOŘ_DOMA-JALOVEC
   subpart            String?  @db.Char(1) // "a", "f", …
-  displayName        String   @map("display_name") @db.VarChar(255)
+  displayName        String   @map("display_name") @db.VarChar(500) // z popisu mapy (může být dlouhý)
   description        String?  @db.Text
 
   // PostGIS geometry (raw SQL pro čtení/zápis)
@@ -71,7 +71,7 @@ model LocationMap {
   locationId       Int      @map("location_id")
   location         Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
-  locationCode     String   @map("location_code") @db.VarChar(100) // pro rychlé propojení
+  locationCode     String   @map("location_code") @db.VarChar(150) // pro rychlé propojení
   description      String?  @db.VarChar(500) // lidsky čitelný popis z názvu
   centerLat        Float    @map("center_lat") // GPS střed z názvu
   centerLng        Float    @map("center_lng")

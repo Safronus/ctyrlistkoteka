@@ -25,7 +25,8 @@ export interface PublicLocation {
   code: string;
   displayName: string;
   cadastralArea: string;
-  locationType: string;
+  /** May be null for codes without a TYPE segment (e.g. HOŠŤÁLKOVÁ001). */
+  locationType: string | null;
 }
 
 export interface PublicFind {
@@ -109,7 +110,7 @@ async function hydrate(
       code: string;
       displayName: string;
       cadastralArea: string;
-      locationType: string;
+      locationType: string | null;
     } | null;
     states: Array<{ state: FindState }>;
     images: Array<{

@@ -1,128 +1,155 @@
 import { describe, it, expect } from "vitest";
 import { FindState } from "@prisma/client";
-import {
-  parseFindFilename,
-  parseMapFilename,
-  parseLocationCode,
-} from "./parseFilename";
+import { parseFindFilename, parseMapFilename } from "./parseFilename";
+import { splitLocationCode, toAsciiCode } from "./locationCode";
 
-describe("parseFindFilename", () => {
+describe("parseFindFilename — real format (+ separators, diacritics)", () => {
   it("parses the canonical example from docs/filename-convention.md", () => {
     const r = parseFindFilename(
-      "16230_00031_RATIBOR__POLE001f_NORMA_LNI__NE_BezPozna_mky.HEIC",
+      "16230+00031+RATIBOŘ_POLE001f+NORMÁLNÍ+NE+BezPoznámky.HEIC",
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.value).toEqual({
       findId: 16230,
       mapNumber: 31,
-      locationCodeTransliterated: "RATIBOR__POLE001f",
+      locationCode: "RATIBOŘ_POLE001f",
       state: FindState.NORMAL,
       isAnonymized: false,
       hasNote: false,
-      noteTransliterated: null,
+      note: null,
       extension: "HEIC",
     });
   });
 
-  it("captures a real note (not BezPozna_mky)", () => {
+  it("captures a real note (not BezPoznámky)", () => {
     const r = parseFindFilename(
-      "156_00010_PRAHA_PARK012b_NORMA_LNI__NE_Nalezeno_v_Irsku_v_Dublinu.HEIC",
+      "156+00010+PRAHA_PARK012b+NORMÁLNÍ+NE+Nalezeno v Irsku v Dublinu.HEIC",
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.value.hasNote).toBe(true);
-    expect(r.value.noteTransliterated).toBe("Nalezeno_v_Irsku_v_Dublinu");
+    expect(r.value.note).toBe("Nalezeno v Irsku v Dublinu");
   });
 
-  it("detects the anonymization flag (ANO)", () => {
+  it("accepts anonymization flag ANO", () => {
     const r = parseFindFilename(
-      "42_00001_BRNO_LES003a_NORMA_LNI__ANO_BezPozna_mky.HEIC",
+      "42+00001+BRNO_LES003a+NORMÁLNÍ+ANO+BezPoznámky.HEIC",
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.value.isAnonymized).toBe(true);
   });
 
-  it("parses BEZGPS state", () => {
+  it.each([
+    ["NORMÁLNÍ", FindState.NORMAL],
+    ["BEZGPS", FindState.NO_GPS],
+    ["BEZFOTKY", FindState.NO_PHOTO],
+    ["DAROVANÝ", FindState.DONATED],
+    ["LOKACE-NEEXISTUJE", FindState.LOCATION_MISSING],
+  ])("maps STATE %s → %s", (token, expected) => {
     const r = parseFindFilename(
-      "165_00001_RATIBOR__POLE001a_BEZGPS_NE_BezPozna_mky.HEIC",
+      `100+00001+RATIBOŘ_POLE001a+${token}+NE+BezPoznámky.HEIC`,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.state).toBe(FindState.NO_GPS);
+    expect(r.value.state).toBe(expected);
   });
 
-  it("parses BEZFOTKY state", () => {
+  it("accepts legacy transliterated NORMA_LNI_", () => {
     const r = parseFindFilename(
-      "734_00001_RATIBOR__POLE001a_BEZFOTKY_NE_BezPozna_mky.HEIC",
+      "1+00001+RATIBOR__POLE001a+NORMA_LNI_+NE+BezPoznámky.HEIC",
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.state).toBe(FindState.NO_PHOTO);
+    expect(r.value.state).toBe(FindState.NORMAL);
   });
 
-  it("parses DAROVAN_ state (Ý → _ rule)", () => {
+  it.each([
+    "RATIBOŘ_POLE001f",
+    "ZLÍN_ČEPKOV001",
+    "HOŠŤÁLKOVÁ001",
+    "PRŽNO001",
+    "RATIBOŘ_DOMA-JALOVEC",
+    "ZLÍN_JSVAHY-SNP000",
+    "ZLÍN_JSVAHY-UTB-U5-Z001",
+    "NEEXISTUJE-VSETÍN000",
+    "NEEXISTUJE-ZLÍN_JSVAHY-JAVOROVÁ002",
+    "BIELSKO-BIALA002",
+    "KRAKÓW_WAWEL001",
+    "REYKJAVÍK_MIKLABRAUT001",
+    "HLUBOKÁ NAD VLTAVOU_GOLFCLUB001",
+    "ZLíN_JSVAHY-UTB-U5-001",
+  ])("accepts location code verbatim: %s", (code) => {
     const r = parseFindFilename(
-      "14608_00001_RATIBOR__POLE001a_DAROVAN__NE_DAR_-_Brasule.HEIC",
+      `1+00001+${code}+NORMÁLNÍ+NE+BezPoznámky.HEIC`,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.state).toBe(FindState.DONATED);
-    expect(r.value.hasNote).toBe(true);
+    expect(r.value.locationCode).toBe(code);
   });
 
-  it("parses DAROVANY_ state (Ý → Y_ rule)", () => {
+  it("rejoins notes that contain '+'", () => {
     const r = parseFindFilename(
-      "14608_00001_RATIBOR__POLE001a_DAROVANY__NE_BezPozna_mky.HEIC",
+      "1+00001+RATIBOŘ_POLE001a+NORMÁLNÍ+NE+DAR + Brášule.HEIC",
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.state).toBe(FindState.DONATED);
+    expect(r.value.note).toBe("DAR + Brášule");
   });
 
-  it("accepts HEIC/JPEG/PNG extensions equally", () => {
-    const heic = parseFindFilename(
-      "1_00001_BRNO_LES003a_NORMA_LNI__NE_BezPozna_mky.HEIC",
+  it("fails on missing extension", () => {
+    const r = parseFindFilename(
+      "1+00001+RATIBOŘ_POLE001a+NORMÁLNÍ+NE+BezPoznámky",
     );
-    const jpeg = parseFindFilename(
-      "1_00001_BRNO_LES003a_NORMA_LNI__NE_BezPozna_mky.JPEG",
-    );
-    const png = parseFindFilename(
-      "1_00001_BRNO_LES003a_NORMA_LNI__NE_BezPozna_mky.PNG",
-    );
-    expect(heic.ok && jpeg.ok && png.ok).toBe(true);
-  });
-
-  it("fails cleanly on missing extension", () => {
-    const r = parseFindFilename("16230_00031_FOO_NORMA_LNI__NE_BezPozna_mky");
     expect(r.ok).toBe(false);
   });
 
-  it("fails cleanly on wrong schema (missing MAP_NUMBER)", () => {
-    const r = parseFindFilename("16230_RATIBOR_POLE001f.HEIC");
+  it("fails on too few segments", () => {
+    const r = parseFindFilename("1+00001+RATIBOŘ_POLE001a.HEIC");
     expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(r.error).toMatch(/does not match/i);
   });
 
-  it("fails cleanly on unknown STATE", () => {
+  it("fails on non-numeric FIND_ID", () => {
     const r = parseFindFilename(
-      "1_00001_BRNO_LES003a_FUTURE_NE_BezPozna_mky.HEIC",
+      "abc+00001+RATIBOŘ_POLE001a+NORMÁLNÍ+NE+BezPoznámky.HEIC",
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it("fails on MAP_NUMBER that is not 5 digits", () => {
+    const r = parseFindFilename(
+      "1+31+RATIBOŘ_POLE001a+NORMÁLNÍ+NE+BezPoznámky.HEIC",
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it("fails on unknown STATE", () => {
+    const r = parseFindFilename(
+      "1+00001+RATIBOŘ_POLE001a+FUTURE+NE+BezPoznámky.HEIC",
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it("fails on invalid anonymization flag", () => {
+    const r = parseFindFilename(
+      "1+00001+RATIBOŘ_POLE001a+NORMÁLNÍ+MAYBE+BezPoznámky.HEIC",
     );
     expect(r.ok).toBe(false);
   });
 });
 
-describe("parseMapFilename", () => {
-  const SAMPLE =
-    "RATIBOR__POLE001a_Pole_nad_penzionem_HORA_-_hlavni__ultima_tni__nalezis_te___leva__hrana__GPS49_36668S_17_88867V_Z16_00026.png";
-
-  it("parses the canonical example from docs/filename-convention.md §B", () => {
-    const r = parseMapFilename(SAMPLE);
+describe("parseMapFilename — real format", () => {
+  it("parses the canonical Ratiboř example (with diacritics, spaces, parens)", () => {
+    const r = parseMapFilename(
+      "RATIBOŘ_POLE001a+Pole nad penzionem HORA - hlavní ultimátní naleziště (levá hrana)+GPS49.36668S+17.88867V+Z16+00026.png",
+    );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.locationCodeTransliterated).toBe("RATIBOR__POLE001a");
+    expect(r.value.locationCode).toBe("RATIBOŘ_POLE001a");
+    expect(r.value.description).toBe(
+      "Pole nad penzionem HORA - hlavní ultimátní naleziště (levá hrana)",
+    );
     expect(r.value.centerLat).toBeCloseTo(49.36668, 5);
     expect(r.value.centerLng).toBeCloseTo(17.88867, 5);
     expect(r.value.zoom).toBe(16);
@@ -130,75 +157,120 @@ describe("parseMapFilename", () => {
     expect(r.value.extension).toBe("png");
   });
 
-  it("captures the transliterated description", () => {
-    const r = parseMapFilename(SAMPLE);
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    // Description keeps underscores where spaces/diacritics were
-    expect(r.value.descriptionTransliterated).toContain("Pole_nad_penzionem");
-  });
-
-  it("parses a simple map without cadastral diacritics", () => {
+  it("handles longitude Z (west of Greenwich) — Dublin", () => {
     const r = parseMapFilename(
-      "BRNO_LES003a_Simple_desc_GPS49_0S_17_5V_Z15_00055.png",
+      "DUBLIN_PINEROAD001+Pine Road+GPS53.34062S+6.21562Z+Z16+00099.png",
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.locationCodeTransliterated).toBe("BRNO_LES003a");
-    expect(r.value.centerLat).toBeCloseTo(49.0, 1);
-    expect(r.value.centerLng).toBeCloseTo(17.5, 1);
-    expect(r.value.zoom).toBe(15);
-    expect(r.value.mapId).toBe(55);
+    expect(r.value.centerLat).toBeCloseTo(53.34062, 5);
+    expect(r.value.centerLng).toBeCloseTo(-6.21562, 5);
   });
 
-  it("fails on missing GPS anchor", () => {
-    const r = parseMapFilename("RATIBOR__POLE001a_bez_gps.png");
+  it("handles longitude Z — Reykjavík", () => {
+    const r = parseMapFilename(
+      "REYKJAVÍK_MIKLABRAUT001+Miklabraut+GPS64.13547S+21.92512Z+Z15+00123.png",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.centerLng).toBeCloseTo(-21.92512, 5);
+  });
+
+  it.each([
+    "HOŠŤÁLKOVÁ001",
+    "HLUBOKÁ NAD VLTAVOU_GOLFCLUB001",
+    "ZLÍN_JSVAHY-UTB-U5-Z001",
+    "NEEXISTUJE-VSETÍN000",
+  ])("accepts opaque location code: %s", (code) => {
+    const r = parseMapFilename(
+      `${code}+popis+GPS49.0S+17.0V+Z15+00055.png`,
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.locationCode).toBe(code);
+  });
+
+  it("fails on wrong segment count", () => {
+    const r = parseMapFilename("RATIBOŘ+GPS49.0S+17.0V+Z15+00055.png");
     expect(r.ok).toBe(false);
   });
 
-  it("fails on missing extension", () => {
+  it("fails on malformed latitude", () => {
     const r = parseMapFilename(
-      "RATIBOR__POLE001a_foo_GPS49_0S_17_0V_Z16_00001",
+      "RATIBOŘ_POLE001a+desc+49.0+17.0V+Z15+00055.png",
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it("fails on malformed zoom", () => {
+    const r = parseMapFilename(
+      "RATIBOŘ_POLE001a+desc+GPS49.0S+17.0V+zoom15+00055.png",
     );
     expect(r.ok).toBe(false);
   });
 });
 
-describe("parseLocationCode", () => {
-  it("splits a transliterated code with single diacritic (Ř)", () => {
-    const r = parseLocationCode("RATIBOR__POLE001f");
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.value).toEqual({
-      cadastralArea: "RATIBOR",
-      locationType: "POLE",
-      number: 1,
-      subpart: "f",
-    });
+describe("splitLocationCode — best-effort decomposition", () => {
+  it.each([
+    [
+      "RATIBOŘ_POLE001f",
+      { cadastralArea: "RATIBOŘ", locationType: "POLE", number: 1, subpart: "f" },
+    ],
+    [
+      "ZLÍN_ČEPKOV001",
+      { cadastralArea: "ZLÍN", locationType: "ČEPKOV", number: 1, subpart: null },
+    ],
+    [
+      "HOŠŤÁLKOVÁ001",
+      { cadastralArea: "HOŠŤÁLKOVÁ", locationType: null, number: 1, subpart: null },
+    ],
+    [
+      "RATIBOŘ_DOMA-JALOVEC",
+      { cadastralArea: "RATIBOŘ", locationType: "DOMA-JALOVEC", number: null, subpart: null },
+    ],
+    [
+      "ZLÍN_JSVAHY-SNP000",
+      { cadastralArea: "ZLÍN", locationType: "JSVAHY-SNP", number: 0, subpart: null },
+    ],
+    [
+      "ZLÍN_JSVAHY-UTB-U5-Z001",
+      { cadastralArea: "ZLÍN", locationType: "JSVAHY-UTB-U5-Z", number: 1, subpart: null },
+    ],
+    [
+      "HLUBOKÁ NAD VLTAVOU_GOLFCLUB001",
+      { cadastralArea: "HLUBOKÁ NAD VLTAVOU", locationType: "GOLFCLUB", number: 1, subpart: null },
+    ],
+    [
+      "NEEXISTUJE-VSETÍN000",
+      { cadastralArea: "NEEXISTUJE-VSETÍN", locationType: null, number: 0, subpart: null },
+    ],
+    [
+      "BIELSKO-BIALA002",
+      { cadastralArea: "BIELSKO-BIALA", locationType: null, number: 2, subpart: null },
+    ],
+    [
+      "KRAKÓW_WAWEL001",
+      { cadastralArea: "KRAKÓW", locationType: "WAWEL", number: 1, subpart: null },
+    ],
+  ])("splits %s", (code, expected) => {
+    expect(splitLocationCode(code)).toEqual(expected);
   });
 
-  it("splits an original code with diacritics intact", () => {
-    const r = parseLocationCode("RATIBOŘ_POLE001f");
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.value.cadastralArea).toBe("RATIBOŘ");
-    expect(r.value.locationType).toBe("POLE");
+  it("never fails — returns whole string for unrecognized shapes", () => {
+    const r = splitLocationCode("WEIRD");
+    expect(r.cadastralArea).toBe("WEIRD");
+    expect(r.number).toBeNull();
   });
+});
 
-  it("handles a code without subpart", () => {
-    const r = parseLocationCode("PRAHA_PARK012");
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.value).toEqual({
-      cadastralArea: "PRAHA",
-      locationType: "PARK",
-      number: 12,
-      subpart: null,
-    });
-  });
-
-  it("fails on invalid code", () => {
-    expect(parseLocationCode("nonsense").ok).toBe(false);
-    expect(parseLocationCode("PRAHA_PARK").ok).toBe(false);
+describe("toAsciiCode", () => {
+  it.each([
+    ["RATIBOŘ_POLE001f", "RATIBOR_POLE001f"],
+    ["HOŠŤÁLKOVÁ001", "HOSTALKOVA001"],
+    ["HLUBOKÁ NAD VLTAVOU_GOLFCLUB001", "HLUBOKA_NAD_VLTAVOU_GOLFCLUB001"],
+    ["KRAKÓW_WAWEL001", "KRAKOW_WAWEL001"],
+    ["ZLíN_JSVAHY", "ZLiN_JSVAHY"], // case preserved
+  ])("%s → %s", (input, expected) => {
+    expect(toAsciiCode(input)).toBe(expected);
   });
 });
