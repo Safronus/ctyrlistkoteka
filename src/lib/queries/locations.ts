@@ -9,10 +9,15 @@
 
 import { FindState, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { DEFAULT_LOCATION_ID } from "@/lib/constants";
 import { isFormerLocation } from "@/lib/locationCode";
 import { paddedIdMatches, parseIdQuery } from "@/lib/search";
 
-export type LocationSort = "id" | "code" | "finds";
+/** Sort key. `dist-asc` / `dist-desc` order locations by great-circle
+ *  distance from MAP 00001. Anonymized locations have NULL distance
+ *  (their coords are private) and fall to the end of distance sorts so
+ *  the order can't be used to triangulate them. */
+export type LocationSort = "id" | "code" | "finds" | "dist-asc" | "dist-desc";
 
 export interface LocationStats {
   total: number;
@@ -56,6 +61,11 @@ export interface LocationListItem {
    *  ST_Y/ST_X of center_point). Null when the location has no recorded
    *  center yet. */
   coordinates: { lat: number; lng: number } | null;
+  /** Great-circle distance in metres from MAP 00001's GPS centre to this
+   *  location's center_point. Null when the location is anonymized (the
+   *  number could leak position), when MAP 00001 isn't on disk, or when
+   *  the location has no recorded centre. */
+  distanceFromDefault: number | null;
   stats: LocationStats;
 }
 
@@ -166,26 +176,39 @@ export async function listLocations(
   const isAnonymizedLoc = (locId: number) => hasAnonymizedMap.has(locId);
 
   // ------------------------------------------------------------ polygon areas + center coords (PostGIS)
+  // We piggy-back the distance-from-MAP-00001 calculation onto this row
+  // — the locations table is small (~128 rows) so adding ST_DistanceSphere
+  // here costs effectively nothing.
   const geoRows = await prisma.$queryRaw<
     Array<{
       id: number;
       area_m2: number | null;
       center_lat: number | null;
       center_lng: number | null;
+      dist_m: number | null;
     }>
   >`
+    WITH ref AS (
+      SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
+      FROM "location_maps" WHERE id = ${DEFAULT_LOCATION_ID}
+    )
     SELECT id,
            CASE WHEN polygon IS NOT NULL
                 THEN ST_Area(polygon::geography)
                 ELSE NULL
            END AS area_m2,
            ST_Y(center_point)::float8 AS center_lat,
-           ST_X(center_point)::float8 AS center_lng
+           ST_X(center_point)::float8 AS center_lng,
+           CASE WHEN center_point IS NOT NULL
+                  AND (SELECT pt FROM ref) IS NOT NULL
+                THEN ST_DistanceSphere(center_point, (SELECT pt FROM ref))::float8
+           END AS dist_m
     FROM "locations"
     WHERE id IN (${Prisma.join(ids)})
   `;
   const areaByLoc = new Map<number, number>();
   const coordsByLoc = new Map<number, { lat: number; lng: number }>();
+  const distByLoc = new Map<number, number>();
   for (const r of geoRows) {
     if (r.area_m2 !== null && Number.isFinite(r.area_m2)) {
       areaByLoc.set(r.id, r.area_m2);
@@ -197,6 +220,9 @@ export async function listLocations(
       Number.isFinite(r.center_lng)
     ) {
       coordsByLoc.set(r.id, { lat: r.center_lat, lng: r.center_lng });
+    }
+    if (r.dist_m !== null && Number.isFinite(r.dist_m)) {
+      distByLoc.set(r.id, r.dist_m);
     }
   }
 
@@ -303,6 +329,7 @@ export async function listLocations(
         isGone: gone,
         polygonAreaM2: null,
         coordinates: null,
+        distanceFromDefault: null,
         stats: EMPTY_STATS,
       };
     }
@@ -317,6 +344,7 @@ export async function listLocations(
       isGone: gone,
       polygonAreaM2: areaByLoc.get(l.id) ?? null,
       coordinates: coordsByLoc.get(l.id) ?? null,
+      distanceFromDefault: distByLoc.get(l.id) ?? null,
       stats: totalsByLoc.get(l.id) ?? EMPTY_STATS,
     };
   });
@@ -343,6 +371,16 @@ export async function listLocations(
     items.sort((a, b) => collator.compare(a.code, b.code));
   } else if (sort === "id") {
     items.sort((a, b) => a.id - b.id);
+  } else if (sort === "dist-asc" || sort === "dist-desc") {
+    const dir = sort === "dist-asc" ? 1 : -1;
+    items.sort((a, b) => {
+      const da = a.distanceFromDefault;
+      const db = b.distanceFromDefault;
+      if (da === null && db === null) return a.id - b.id;
+      if (da === null) return 1; // anonymized / no-GPS rows fall to end
+      if (db === null) return -1;
+      return dir * (da - db);
+    });
   } else {
     items.sort(
       (a, b) => b.stats.total - a.stats.total || a.id - b.id,

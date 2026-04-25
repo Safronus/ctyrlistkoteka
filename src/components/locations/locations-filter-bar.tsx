@@ -13,6 +13,8 @@ const SORT_LABELS: Record<LocationSort, string> = {
   finds: "Podle počtu nálezů",
   id: "Podle ID",
   code: "Abecedně",
+  "dist-asc": "Od nejbližší (MAP 00001)",
+  "dist-desc": "Od nejvzdálenější (MAP 00001)",
 };
 
 export function LocationsFilterBar({

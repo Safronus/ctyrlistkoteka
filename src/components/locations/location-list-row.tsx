@@ -10,6 +10,7 @@ import {
   formatAreaM2,
   formatCount,
   formatDateTimeCs,
+  formatDistance,
   formatLocationId,
   formatTimeSinceCs,
   FINDS,
@@ -55,10 +56,23 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
             <>
               <RowMeta location={location} />
               {location.coordinates && (
-                <GpsValue
-                  lat={location.coordinates.lat}
-                  lng={location.coordinates.lng}
-                />
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <GpsValue
+                    lat={location.coordinates.lat}
+                    lng={location.coordinates.lng}
+                  />
+                  {location.distanceFromDefault !== null && (
+                    <span
+                      className="text-xs text-gray-500"
+                      title="Vzdušná vzdálenost od GPS středu lokační mapy 00001"
+                    >
+                      <span className="font-mono tabular-nums text-gray-800">
+                        {formatDistance(location.distanceFromDefault)}
+                      </span>{" "}
+                      od MAP 00001
+                    </span>
+                  )}
+                </div>
               )}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <RowCount location={location} />

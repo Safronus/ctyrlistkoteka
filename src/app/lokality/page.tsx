@@ -27,7 +27,13 @@ function pickString(v: string | string[] | undefined): string | undefined {
   return v;
 }
 
-const SORT_VALUES: readonly LocationSort[] = ["finds", "id", "code"];
+const SORT_VALUES: readonly LocationSort[] = [
+  "finds",
+  "id",
+  "code",
+  "dist-asc",
+  "dist-desc",
+];
 
 function parseSort(v: string | undefined): LocationSort {
   // "finds" is the default — keep it stable with listLocations().
