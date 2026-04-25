@@ -364,27 +364,34 @@ export interface MapPngMetadata {
   isAnonymized: boolean;
 }
 
+// Candidate keys are stored already-normalized (lowercase, ASCII-only,
+// no spaces/punctuation) so the comparison is straight equality after
+// the same normalization is applied to whatever the PNG actually carries.
+// The OSM Map Generator writes the keyword as "Anonymizovaná lokace"
+// (with diacritics + space); exiftool's JSON output sanitizes that to
+// "AnonymizovanLokace", which is what we'd otherwise expect — but we
+// must match against the real chunk keyword, not exiftool's view of it.
 const ANON_TAG_KEYS = [
-  "anonymizovanlokace",
   "anonymizovanalokace",
   "anonymized",
   "anonymizedlocation",
-  "is_anonymized",
+  "isanonymized",
 ];
 const ANON_TAG_VALUES = new Set(["ano", "yes", "true", "1"]);
 
-function tagsToCaseInsensitive(
-  tags: Record<string, string>,
-): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const [k, v] of Object.entries(tags)) out.set(k.toLowerCase(), v);
-  return out;
+function normalizeKey(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 function readAnonymizedFlag(tags: Record<string, string>): boolean {
-  const lower = tagsToCaseInsensitive(tags);
+  const normalized = new Map<string, string>();
+  for (const [k, v] of Object.entries(tags)) normalized.set(normalizeKey(k), v);
   for (const key of ANON_TAG_KEYS) {
-    const v = lower.get(key);
+    const v = normalized.get(key);
     if (v !== undefined && ANON_TAG_VALUES.has(v.trim().toLowerCase())) {
       return true;
     }
