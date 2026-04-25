@@ -474,6 +474,11 @@ async function phaseMaps(
       },
       update: {
         locationId: location.id,
+        // Keep the denormalised code/filename in sync with whatever the
+        // current PNG parses to — useful when a typo in the original
+        // location code is fixed later by renaming the file.
+        locationCode: m.parsed.locationCode,
+        originalFilename: m.filename,
         description: m.parsed.description,
         imagePath: mapImg.imageUrl,
         imageBounds: bounds,
