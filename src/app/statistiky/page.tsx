@@ -28,7 +28,7 @@ import {
   type MonthDayPoint,
   type YearlyPoint,
 } from "@/lib/queries/stats";
-import { WorldChoroplethMapLoader } from "@/components/stats/world-choropleth-map-loader";
+import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
 
 export const metadata: Metadata = {
   title: "Statistiky",
@@ -361,7 +361,7 @@ function GeoStatsSection({
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
             Mapa nálezů podle států
           </h3>
-          <WorldChoroplethMapLoader byCountry={byCountry} />
+          <WorldChoroplethMap byCountry={byCountry} />
         </div>
       )}
     </section>

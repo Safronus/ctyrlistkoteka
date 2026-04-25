@@ -1,182 +1,103 @@
-"use client";
-
-import { GeoJSON, MapContainer, useMap } from "react-leaflet";
-import { useEffect, useMemo, useRef } from "react";
-import type { Layer, PathOptions } from "leaflet";
-import type { Feature, Geometry } from "geojson";
-import "leaflet/dist/leaflet.css";
-import {
-  getWorldCountries,
-  type CountryFeatureProps,
-} from "@/lib/world-countries";
+import { geoEqualEarth, geoPath } from "d3-geo";
+import { getWorldCountries, type CountryFeatureProps } from "@/lib/world-countries";
 import type { CountryPoint } from "@/lib/queries/stats";
 
 interface Props {
   byCountry: readonly CountryPoint[];
 }
 
+// SVG viewBox dimensions. The aspect ratio matches the projection's
+// natural extent so countries don't get squashed; the actual pixel size
+// is controlled by `className="h-auto w-full"` on the <svg> element.
+const WIDTH = 980;
+const HEIGHT = 480;
+
 /**
- * Choropleth world map — countries are filled green according to their
- * find share, the rest of the landmass stays a flat neutral. No tile
- * layer: a pure outline ("blind") map keeps the gradient unambiguous,
- * and there's no need for OSM imagery on a country-level visualisation.
+ * Choropleth world map of finds by country, rendered as a static SVG.
  *
- * Find counts are pre-computed by the server (`byCountry`) and joined
- * to the GeoJSON features by ISO 3166-1 numeric — the same identifier
- * `geo.ts` returns from its point-in-polygon resolver.
+ * Why D3 + an inline SVG instead of Leaflet:
+ *   - The Natural Earth 110m countries used by `world-atlas` contain
+ *     polygons whose rings cross the antimeridian (Russia/Chukotka,
+ *     Antarctica, the Aleutian arc). Leaflet's GeoJSON layer connects
+ *     each ring with straight lines in projection space, which paints
+ *     a horizontal stripe across the entire map at the affected
+ *     latitudes. d3-geo's geoPath cuts those rings at the antimeridian
+ *     before projecting, so the map renders cleanly without any extra
+ *     pre-processing of the dataset.
+ *   - The map on this page is informational — there's no need for tile
+ *     panning or zooming. Dropping Leaflet here saves a sizeable chunk
+ *     from the stats page bundle and removes the SSR-bypass dance the
+ *     previous loader had to do.
+ *
+ * Equal Earth (Šavrič / Patterson / Jenny 2018) is an equal-area
+ * projection that keeps countries' relative sizes honest while still
+ * looking pleasantly map-shaped — important for a "by country"
+ * choropleth where a Mercator would dwarf all of Africa.
  */
 export function WorldChoroplethMap({ byCountry }: Props) {
-  const countByCode = useMemo(() => {
-    const m = new Map<string, { name: string; count: number }>();
-    for (const c of byCountry) m.set(c.code, { name: c.name, count: c.count });
-    return m;
-  }, [byCountry]);
+  const collection = getWorldCountries();
 
-  const max = useMemo(
-    () => byCountry.reduce((m, c) => Math.max(m, c.count), 0),
-    [byCountry],
+  // Fit the whole world into the SVG box. fitSize handles centring +
+  // scale automatically.
+  const projection = geoEqualEarth().fitSize(
+    [WIDTH, HEIGHT],
+    collection,
   );
+  const path = geoPath(projection);
 
-  const featureCollection = useMemo(() => getWorldCountries(), []);
+  const max = byCountry.reduce((m, c) => Math.max(m, c.count), 0);
+  const byCode = new Map<string, { name: string; count: number }>();
+  for (const c of byCountry) byCode.set(c.code, { name: c.name, count: c.count });
 
   return (
-    // `relative z-0` pins Leaflet's internal panes (which use z-index 200..700
-    // for tile/overlay/tooltip stacks) inside a fresh stacking context. Without
-    // it, a path pane at z-400 outranks the sticky page header at z-40 and
-    // overlaps the navigation when the user scrolls past the choropleth.
-    <div className="relative z-0 overflow-hidden rounded-xl border border-gray-200">
-      <MapContainer
-        center={[25, 10]}
-        zoom={2}
-        minZoom={1}
-        maxZoom={6}
-        // Restrict panning to a single world copy. Without this, Leaflet
-        // happily lets the user drag past 180° into an adjacent (empty)
-        // world tile — the GeoJSON layer doesn't repeat itself, so what
-        // looks like "Russia / the north is broken" is actually the seam
-        // where the polygons end and the next world copy begins. The
-        // 85° lat clamp matches Web Mercator's effective range so the
-        // top edge isn't a black bar.
-        maxBounds={[
-          [-85, -180],
-          [85, 180],
-        ]}
-        maxBoundsViscosity={1}
-        // Wheel zoom would hijack page scroll on a stats page that's
-        // mostly text — we leave it off and rely on the visible zoom
-        // buttons + double-click to zoom in / shift+double-click to
-        // zoom out. The buttons matter because the previous setup hid
-        // them, leaving no obvious way to zoom out at all.
-        scrollWheelZoom={false}
-        worldCopyJump={false}
-        zoomControl={true}
-        attributionControl={false}
-        className="h-96 w-full"
+    <div className="overflow-hidden rounded-xl border border-gray-200">
+      <svg
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label="Mapa nálezů podle států"
+        className="block h-auto w-full"
         style={{ background: "oklch(0.92 0.02 220)" }}
       >
-        <CountriesLayer
-          features={featureCollection}
-          countByCode={countByCode}
-          max={max}
-        />
-        <DisableInteractionsOnMobile />
-      </MapContainer>
+        {collection.features.map((feat) => {
+          const props = feat.properties as CountryFeatureProps;
+          const entry = byCode.get(props.id);
+          const count = entry?.count ?? 0;
+          const d = path(feat);
+          if (!d) return null;
+
+          // √-scaling so countries with a handful of finds are still
+          // distinguishable from the blank landmass without making
+          // every active country look identical to the dominant one.
+          const t = max > 0 ? Math.sqrt(count / max) : 0;
+          const fill =
+            count > 0
+              ? `oklch(${0.92 - t * 0.5} ${0.04 + t * 0.13} 145)`
+              : "oklch(0.93 0.005 145)";
+          const stroke =
+            count > 0 ? "oklch(0.35 0.04 145)" : "oklch(0.78 0.005 145)";
+
+          const label = entry?.name ?? props.name;
+          return (
+            <path
+              key={props.id}
+              d={d}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth={count > 0 ? 0.6 : 0.5}
+              vectorEffect="non-scaling-stroke"
+            >
+              <title>{`${label}: ${count} ${pluralFinds(count)}`}</title>
+            </path>
+          );
+        })}
+      </svg>
     </div>
   );
-}
-
-function CountriesLayer({
-  features,
-  countByCode,
-  max,
-}: {
-  features: ReturnType<typeof getWorldCountries>;
-  countByCode: Map<string, { name: string; count: number }>;
-  max: number;
-}) {
-  const styleFor = (count: number): PathOptions => {
-    if (count <= 0) {
-      return {
-        fillColor: "oklch(0.93 0.005 145)",
-        fillOpacity: 1,
-        color: "oklch(0.78 0.005 145)",
-        weight: 0.5,
-      };
-    }
-    // √-scaling so countries with a handful of finds are still
-    // distinguishable from blank landmass without making every active
-    // country look identical to the dominant one.
-    const t = max > 0 ? Math.sqrt(count / max) : 0;
-    const L = 0.92 - t * 0.5;
-    const C = 0.04 + t * 0.13;
-    return {
-      fillColor: `oklch(${L} ${C} 145)`,
-      fillOpacity: 1,
-      color: "oklch(0.35 0.04 145)",
-      weight: 0.6,
-    };
-  };
-
-  const onEachFeature = (
-    feature: Feature<Geometry, CountryFeatureProps>,
-    layer: Layer,
-  ) => {
-    const entry = countByCode.get(feature.properties.id);
-    const count = entry?.count ?? 0;
-    const name = entry?.name ?? feature.properties.name;
-    layer.bindTooltip(
-      `<strong>${escapeHtml(name)}</strong><br/>${count} ${pluralFinds(count)}`,
-      { sticky: true, direction: "auto" },
-    );
-  };
-
-  return (
-    <GeoJSON
-      data={features}
-      style={(feature) => {
-        const id = (feature?.properties as CountryFeatureProps | undefined)?.id;
-        const count = id ? countByCode.get(id)?.count ?? 0 : 0;
-        return styleFor(count);
-      }}
-      onEachFeature={onEachFeature as never}
-    />
-  );
-}
-
-/**
- * On touch devices a pinch-zoom inside the embedded map fights the
- * page scroll, which is irritating on a stats page that's primarily
- * about reading numbers. We therefore disable map gestures for coarse
- * pointers — desktop users keep the full interactive map.
- */
-function DisableInteractionsOnMobile() {
-  const map = useMap();
-  const done = useRef(false);
-  useEffect(() => {
-    if (done.current) return;
-    done.current = true;
-    if (
-      typeof window !== "undefined" &&
-      window.matchMedia("(pointer: coarse)").matches
-    ) {
-      map.dragging.disable();
-      map.touchZoom.disable();
-      map.doubleClickZoom.disable();
-    }
-  }, [map]);
-  return null;
 }
 
 function pluralFinds(n: number): string {
   if (n === 1) return "nález";
   if (n >= 2 && n <= 4) return "nálezy";
   return "nálezů";
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
