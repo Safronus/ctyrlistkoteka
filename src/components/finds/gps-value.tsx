@@ -21,20 +21,20 @@ export function GpsValue({ lat, lng }: { lat: number; lng: number }) {
       : `${toVerboseDms(lat, true)} ${toVerboseDms(lng, false)}`;
 
   return (
-    <div className="flex items-baseline justify-between gap-4">
-      <dt className="text-xs font-medium text-gray-500">GPS</dt>
-      <dd className="flex items-center gap-2 text-sm text-gray-800">
-        <span className="font-mono">{text}</span>
-        <button
-          type="button"
-          onClick={cycle}
-          aria-label="Přepnout formát GPS"
-          title="Přepnout formát GPS"
-          className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-brand-700"
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-        </button>
-      </dd>
+    <div className="flex items-center gap-2 text-sm">
+      <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        GPS
+      </span>
+      <span className="font-mono text-gray-800">{text}</span>
+      <button
+        type="button"
+        onClick={cycle}
+        aria-label="Přepnout formát GPS"
+        title="Přepnout formát GPS"
+        className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-brand-700"
+      >
+        <RefreshCw className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }

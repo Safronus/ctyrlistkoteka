@@ -5,11 +5,10 @@ import { ImageType } from "@prisma/client";
 import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { StateBadges } from "@/components/finds/state-badges";
-import { formatDateCs, formatDateTimeCs } from "@/lib/format";
+import { formatDateTimeCs } from "@/lib/format";
 import {
   getFindById,
   getAllFindIds,
-  type PublicImage,
   type PublicLocationMap,
 } from "@/lib/queries/finds";
 
@@ -91,20 +90,32 @@ export default async function FindDetailPage({ params }: PageProps) {
         </Link>
       </nav>
 
-      <header className="space-y-2">
+      <header className="space-y-3">
         <h1 className="text-3xl font-bold text-gray-900">
           Nález č. {find.id}
         </h1>
-        <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
-          <span>{formatDateCs(find.foundAt)}</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
+          <span>{formatDateTimeCs(find.foundAt)}</span>
           <span aria-hidden>·</span>
           <span>{locationLabel}</span>
         </div>
         {find.states.length > 0 && <StateBadges states={find.states} />}
+        {!find.isAnonymized && find.coordinates && (
+          <GpsValue
+            lat={find.coordinates.lat}
+            lng={find.coordinates.lng}
+          />
+        )}
+        {!find.isAnonymized && find.notes && (
+          <p className="whitespace-pre-wrap rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+            {find.notes}
+          </p>
+        )}
       </header>
 
       <ImageGallery
         image={mainImage}
+        cropImage={cropImage}
         altBase={`Nález č. ${find.id}`}
       />
 
@@ -115,79 +126,26 @@ export default async function FindDetailPage({ params }: PageProps) {
         </p>
       )}
 
-      <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Panel title="Detaily">
-          {cropImage && <CropPreview image={cropImage} findId={find.id} />}
-          <KeyValue label="ID nálezu" value={`#${find.id}`} />
-          <KeyValue
-            label="Datum nálezu"
-            value={formatDateTimeCs(find.foundAt)}
-          />
-          {!find.isAnonymized &&
-            (find.coordinates ? (
-              <GpsValue
-                lat={find.coordinates.lat}
-                lng={find.coordinates.lng}
-              />
-            ) : (
-              <KeyValue label="GPS" value="Není k dispozici" />
-            ))}
-          {!find.isAnonymized && find.notes && (
-            <div className="pt-1">
-              <p className="text-xs font-medium text-gray-500">Poznámka</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800">
-                {find.notes}
-              </p>
-            </div>
-          )}
-        </Panel>
-
-        <Panel title="Lokalita">
-          {find.isAnonymized ? (
-            <p className="text-sm text-gray-600">
-              Konkrétní lokalita anonymizovaného nálezu se nezobrazuje.
-            </p>
-          ) : find.location ? (
-            <>
-              <KeyValue label="Lokalita" value={find.location.displayName} />
-              <KeyValue label="Kód lokality" value={find.location.code} />
-            </>
-          ) : (
-            <p className="text-sm text-gray-600">
-              Lokalita není k tomuto nálezu přiřazena.
-            </p>
-          )}
-          {find.locationMaps.length > 0 && (
-            <LocationMapsGallery maps={find.locationMaps} />
-          )}
-        </Panel>
-      </section>
+      <Panel title="Lokalita">
+        {find.isAnonymized ? (
+          <p className="text-sm text-gray-600">
+            Konkrétní lokalita anonymizovaného nálezu se nezobrazuje.
+          </p>
+        ) : find.location ? (
+          <>
+            <KeyValue label="Lokalita" value={find.location.displayName} />
+            <KeyValue label="Kód lokality" value={find.location.code} />
+          </>
+        ) : (
+          <p className="text-sm text-gray-600">
+            Lokalita není k tomuto nálezu přiřazena.
+          </p>
+        )}
+        {find.locationMaps.length > 0 && (
+          <LocationMapsGallery maps={find.locationMaps} />
+        )}
+      </Panel>
     </article>
-  );
-}
-
-function CropPreview({
-  image,
-  findId,
-}: {
-  image: PublicImage;
-  findId: number;
-}) {
-  return (
-    <figure className="pb-2">
-      <figcaption className="mb-1 text-xs font-medium text-gray-500">
-        Výřez
-      </figcaption>
-      {/* Served by Nginx; Next Image optimizer not needed. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={image.webPath}
-        alt={`Výřez nálezu č. ${findId}`}
-        loading="lazy"
-        decoding="async"
-        className="max-h-56 w-auto rounded-md border border-gray-200"
-      />
-    </figure>
   );
 }
 
