@@ -8,15 +8,16 @@
 #   systemctl list-timers | grep ctyrlistkoteka
 #   journalctl -u ctyrlistkoteka-sync.service -n 100
 [Unit]
-Description=Nightly Čtyřlístkotéka data sync
+Description=Twice-daily Čtyřlístkotéka data sync
 Requires=ctyrlistkoteka-sync.service
 
 [Timer]
-# Daily at 03:00 local time (~off-peak for the VPS and for CDNs).
-OnCalendar=*-*-* 03:00:00
-# Make up a missed run if the server was down at 03:00.
+# Twice a day at 06:00 and 18:00 local — picks up rsync'd uploads
+# within at most 12 hours without ever overlapping a peak-traffic slot.
+OnCalendar=*-*-* 06,18:00:00
+# Make up a missed run if the server was down at the scheduled time.
 Persistent=true
-# Spread slightly to avoid thundering-herd at 03:00 across hosts.
+# Spread by up to 10 min so multiple hosts wouldn't fire simultaneously.
 RandomizedDelaySec=10m
 Unit=ctyrlistkoteka-sync.service
 

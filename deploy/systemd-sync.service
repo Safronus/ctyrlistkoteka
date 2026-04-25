@@ -19,7 +19,15 @@ Environment=NODE_ENV=production
 # Login shell loads nvm so `pnpm` resolves on PATH without hardcoding the
 # node version. If nvm isn't installed for the app user, replace with a
 # full path to the pnpm binary.
-ExecStart=/bin/bash -lc 'pnpm sync >> /var/log/ctyrlistkoteka/sync.log 2>&1'
+#
+# After the import we trigger a graceful PM2 reload so Next.js picks up
+# the fresh DB state — without it the home page / stats card counters
+# would lag behind the import by up to the ISR revalidate window. The
+# `&&` chain makes the reload conditional on a clean sync exit; failed
+# syncs leave the running process untouched. The trailing `|| true`
+# keeps the unit "successful" from systemd's POV (we already handle
+# real failures via the journal + sync-failures.jsonl artefact).
+ExecStart=/bin/bash -lc 'pnpm sync >> /var/log/ctyrlistkoteka/sync.log 2>&1 && pm2 reload ctyrlistkoteka >> /var/log/ctyrlistkoteka/sync.log 2>&1 || true'
 # Don't take the service down if a single sync run fails.
 SuccessExitStatus=0 1
 StandardOutput=journal

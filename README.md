@@ -134,6 +134,31 @@ cd /var/www/ctyrlistkoteka && pnpm sync --prune && pm2 restart ctyrlistkoteka
 `--prune` na čistém stavu nemá co mazat, takže nic nepokazí, a chrání před
 zapomenutým úklidem.
 
+### Automatický sync 2× denně
+
+Je k dispozici systemd timer (šablona `deploy/systemd-sync.timer` +
+`deploy/systemd-sync.service`), který spustí `pnpm sync` v 06:00 a 18:00
+místního času a po něm udělá `pm2 reload ctyrlistkoteka`. `--prune` se
+automaticky **nespouští** — orphany v DB i `generated/` zůstávají, dokud
+`pnpm sync --prune` ručně nepustíš (chrání to před chybným úklidem, kdyby
+běh načasování spadl doprostřed rozpracovaného rsyncu).
+
+Sync sám rychle přeskakuje soubory, které se od poslední importované
+verze nezměnily (porovnává `mtime` proti `find_images.created_at`),
+takže pravidelný běh nad nezměněnou sbírkou trvá sekundy, ne minuty.
+
+Instalace na VPS (jednou):
+
+```sh
+sudo cp deploy/systemd-sync.service /etc/systemd/system/ctyrlistkoteka-sync.service
+sudo cp deploy/systemd-sync.timer  /etc/systemd/system/ctyrlistkoteka-sync.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now ctyrlistkoteka-sync.timer
+systemctl list-timers | grep ctyrlistkoteka     # ověř plán
+```
+
+Stav posledního běhu: `journalctl -u ctyrlistkoteka-sync.service -n 200`.
+
 ## Dokumentace
 
 - [`CLAUDE.md`](CLAUDE.md) — závazné pokyny pro práci na projektu

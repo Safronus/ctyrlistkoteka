@@ -657,15 +657,55 @@ async function phaseFinds(
 
   const { generateWebPVariants, sha1File } = await import("../src/lib/images");
 
+  // Fast-path skip lookup: which (findId, filename) pairs are already in
+  // DB and when. Combined with the file's current mtime this lets us
+  // skip every file the user hasn't touched since the last import — no
+  // sha1 read, no EXIF read, no DB round-trip. For ~17k cached images
+  // that turns a multi-minute sync into seconds, which is what makes
+  // the 12-hour timer practical.
+  //
+  // Trade-offs:
+  //   - We trust file mtime. rsync preserves source mtime by default, so
+  //     a file that wasn't re-uploaded keeps its old timestamp and the
+  //     skip kicks in. If the user `touch`es a file the mtime advances
+  //     and we reprocess (wasteful but safe).
+  //   - We don't verify that the WebP outputs still exist on disk. If
+  //     someone manually deletes from generated/, the DB row will let
+  //     us skip even though the variants are gone. Fix: re-run with
+  //     --force-regen (which bypasses both this skip and the WebP
+  //     cache).
+  const ingestedAt = new Map<string, number>();
+  for (const r of await ctx.prisma.findImage.findMany({
+    select: { findId: true, originalFilename: true, createdAt: true },
+  })) {
+    ingestedAt.set(
+      `${r.findId}:${r.originalFilename}`,
+      r.createdAt.getTime(),
+    );
+  }
+
   let withGps = 0;
   let withoutGps = 0;
   let unexpectedNoGps = 0;
   let dateOnlyExif = 0;
   let noDateExif = 0;
+  let skipped = 0;
 
   const progress = makeProgressTicker("finds.upsert", all.length, ctx.log);
 
   for (const f of all) {
+    if (!ctx.opts.forceRegen) {
+      const known = ingestedAt.get(`${f.parsed.findId}:${f.filename}`);
+      if (known !== undefined) {
+        const st = await stat(f.path);
+        if (st.mtimeMs <= known) {
+          skipped += 1;
+          progress.tick();
+          continue;
+        }
+      }
+    }
+
     const sha1 = await sha1File(f.path);
     const image = await generateWebPVariants({
       sourcePath: f.path,
@@ -746,7 +786,8 @@ async function phaseFinds(
   ctx.log.log({
     event: "finds.done",
     level: "info",
-    upserted: all.length,
+    upserted: all.length - skipped,
+    skipped_unchanged: skipped,
     with_gps: withGps,
     without_gps: withoutGps,
     unexpected_no_gps: unexpectedNoGps,
