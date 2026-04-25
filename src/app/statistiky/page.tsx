@@ -12,6 +12,7 @@ import {
   type FindHighlight,
   type LocationPoint,
   type MonthDayPoint,
+  type YearlyPoint,
 } from "@/lib/queries/stats";
 
 export const metadata: Metadata = {
@@ -54,6 +55,8 @@ export default async function StatistikyPage() {
         byHour={stats.byHour}
         byDayOfWeek={stats.byDayOfWeek}
         byMonthOfYear={stats.byMonthOfYear}
+        yearly={stats.yearly}
+        firstYear={stats.totals.firstYear}
         byMonthDay={stats.byMonthDay}
       />
     </div>
@@ -267,16 +270,37 @@ function CalendarStatsSection({
   byHour,
   byDayOfWeek,
   byMonthOfYear,
+  yearly,
+  firstYear,
   byMonthDay,
 }: {
   byHour: readonly CalendarPoint[];
   byDayOfWeek: readonly CalendarPoint[];
   byMonthOfYear: readonly CalendarPoint[];
+  yearly: readonly YearlyPoint[];
+  firstYear: number | null;
   byMonthDay: readonly MonthDayPoint[];
 }) {
   const hourly = fillSeries(byHour, HOUR_KEYS);
   const daily = fillSeries(byDayOfWeek, DOW_KEYS);
   const monthly = fillSeries(byMonthOfYear, MONTH_KEYS);
+
+  // Year axis spans first-recorded find through the current calendar
+  // year so a year with zero finds still shows up as an empty column.
+  // Falls back to the current year alone when no finds carry a date.
+  const currentYear = new Date().getFullYear();
+  const startYear = firstYear ?? currentYear;
+  const yearKeys = (() => {
+    const out: number[] = [];
+    for (let y = Math.min(startYear, currentYear); y <= currentYear; y++) {
+      out.push(y);
+    }
+    return out;
+  })();
+  const yearlySeries = fillSeries(
+    yearly.map((y) => ({ key: y.year, count: y.count })),
+    yearKeys,
+  );
 
   return (
     <section className="space-y-4">
@@ -285,8 +309,8 @@ function CalendarStatsSection({
           Kalendářní statistiky
         </h2>
         <p className="text-sm text-gray-500">
-          Rozložení nálezů podle hodiny dne, dne v týdnu, měsíce v roce a
-          po dnech kalendářního roku.
+          Rozložení nálezů podle hodiny dne, dne v týdnu, měsíce v roce, po
+          rocích a po dnech kalendářního roku.
         </p>
       </header>
 
@@ -311,6 +335,14 @@ function CalendarStatsSection({
         data={monthly}
         labelLong={(k) => MONTH_LABELS[k] ?? String(k)}
         labelShort={(k) => MONTH_SHORT[k] ?? String(k)}
+        tableColumns={1}
+      />
+
+      <CalendarSubsection
+        title="Podle roků"
+        data={yearlySeries}
+        labelLong={(k) => String(k)}
+        labelShort={(k) => String(k)}
         tableColumns={1}
       />
 
