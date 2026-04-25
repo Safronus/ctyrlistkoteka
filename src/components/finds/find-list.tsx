@@ -2,7 +2,11 @@ import Link from "next/link";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
-import { formatDateTimeCs, formatLocationId } from "@/lib/format";
+import {
+  formatDateTimeCs,
+  formatDistance,
+  formatLocationId,
+} from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
 
 export function FindList({ finds }: { finds: readonly PublicFind[] }) {
@@ -56,6 +60,17 @@ function FindListRow({ find }: { find: PublicFind }) {
         {!find.isAnonymized && find.coordinates && (
           <p className="font-mono text-xs text-gray-500">
             {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
+            {find.distanceFromDefault !== null && (
+              <>
+                {" · "}
+                <span
+                  className="text-gray-600"
+                  title="Vzdušná vzdálenost od GPS středu lokační mapy 00001"
+                >
+                  {formatDistance(find.distanceFromDefault)} od MAP 00001
+                </span>
+              </>
+            )}
           </p>
         )}
 

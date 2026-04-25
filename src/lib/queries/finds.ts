@@ -45,6 +45,12 @@ export interface PublicFind {
    *  rows. `null` when the find has no location, the location has no
    *  available maps, or the find itself is anonymized. */
   locationThumbUrl: string | null;
+  /** Great-circle distance in metres from the default LocationMap
+   *  (id = DEFAULT_LOCATION_ID). Null when the find is anonymized,
+   *  has no GPS, or MAP 00001 isn't on disk. We deliberately set it
+   *  to null for anonymized finds so the value can't be used to
+   *  triangulate their position. */
+  distanceFromDefault: number | null;
 }
 
 export interface FindFilters {
@@ -62,8 +68,11 @@ export interface FindListResult {
   totalPages: number;
 }
 
-/** Sort direction by find ID. `desc` = newest first (default UI). */
-export type FindSort = "desc" | "asc";
+/** Sort direction. `desc`/`asc` order by find ID; `dist-asc`/`dist-desc`
+ *  order by great-circle distance from MAP 00001 (closest / farthest
+ *  first). Anonymized finds and finds without GPS get NULL distance and
+ *  fall to the end of distance sorts regardless of direction. */
+export type FindSort = "desc" | "asc" | "dist-asc" | "dist-desc";
 
 /** Build the WHERE clause for a filter set. Async because numeric search
  *  queries trigger a small auxiliary lookup so that "0001" matches #00001
@@ -162,18 +171,35 @@ async function hydrate(
 
   const ids = rows.map((r) => r.id);
   const coordRows = await prisma.$queryRaw<
-    Array<{ id: number; lat: number | null; lng: number | null }>
+    Array<{
+      id: number;
+      lat: number | null;
+      lng: number | null;
+      dist_m: number | null;
+    }>
   >`
+    WITH ref AS (
+      SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
+      FROM location_maps WHERE id = ${DEFAULT_LOCATION_ID}
+    )
     SELECT id,
            ST_Y(coordinates)::float8 AS lat,
-           ST_X(coordinates)::float8 AS lng
+           ST_X(coordinates)::float8 AS lng,
+           CASE WHEN is_anonymized = false
+                  AND (SELECT pt FROM ref) IS NOT NULL
+                THEN ST_DistanceSphere(coordinates, (SELECT pt FROM ref))::float8
+           END AS dist_m
     FROM finds
     WHERE id IN (${Prisma.join(ids)}) AND coordinates IS NOT NULL
   `;
   const coordsMap = new Map<number, { lat: number; lng: number }>();
+  const distMap = new Map<number, number>();
   for (const c of coordRows) {
     if (c.lat !== null && c.lng !== null) {
       coordsMap.set(c.id, { lat: c.lat, lng: c.lng });
+    }
+    if (c.dist_m !== null) {
+      distMap.set(c.id, c.dist_m);
     }
   }
 
@@ -202,6 +228,10 @@ async function hydrate(
       // attachLocationThumbs. Keeping it on the base shape avoids a second
       // PublicFind type just for list rows.
       locationThumbUrl: null as string | null,
+      // SQL CASE already returns NULL for anonymized rows, so we never
+      // surface a distance that could be used to back-derive the
+      // anonymized find's position.
+      distanceFromDefault: distMap.get(r.id) ?? null,
     };
   });
 }
@@ -239,6 +269,11 @@ export async function listFinds(
 ): Promise<FindListResult> {
   const where = await buildWhere(filters);
   const safePage = Math.max(1, page);
+
+  if (sort === "dist-asc" || sort === "dist-desc") {
+    return listFindsByDistance(where, safePage, pageSize, sort);
+  }
+
   const [total, rows] = await Promise.all([
     prisma.find.count({ where }),
     prisma.find.findMany({
@@ -250,6 +285,107 @@ export async function listFinds(
     }),
   ]);
   const items = await hydrate(rows);
+  await attachLocationThumbs(items);
+  return {
+    items,
+    total,
+    page: safePage,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
+}
+
+/**
+ * Distance-sorted listing path. Prisma can't ORDER BY a PostGIS-derived
+ * scalar through its WhereInput-driven query builder, so we:
+ *   1) ask Prisma for every matching find ID under the user's filters,
+ *   2) batch-pull each ID's distance + anonymization flag via raw SQL,
+ *   3) sort + paginate the IDs in JS (anonymized / no-GPS rows fall to
+ *      the end regardless of direction so distance order can't be used
+ *      to triangulate them),
+ *   4) hand the page slice back to Prisma to fetch full include rows.
+ *
+ * For the current dataset (~17 k finds) the extra round-trip is sub-100 ms;
+ * we'll revisit if the catalog grows past ~100 k.
+ */
+async function listFindsByDistance(
+  where: Prisma.FindWhereInput,
+  safePage: number,
+  pageSize: number,
+  sort: "dist-asc" | "dist-desc",
+): Promise<FindListResult> {
+  const idRows = await prisma.find.findMany({
+    where,
+    select: { id: true },
+  });
+  const ids = idRows.map((r) => r.id);
+  const total = ids.length;
+  if (total === 0) {
+    return {
+      items: [],
+      total: 0,
+      page: safePage,
+      pageSize,
+      totalPages: 1,
+    };
+  }
+
+  // Anonymized rows get NULL distance so they can't be ordered by it —
+  // mirrors the policy in hydrate().
+  const distRows = await prisma.$queryRaw<
+    Array<{ id: number; dist_m: number | null }>
+  >`
+    WITH ref AS (
+      SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
+      FROM location_maps WHERE id = ${DEFAULT_LOCATION_ID}
+    )
+    SELECT id,
+           CASE WHEN is_anonymized = false
+                  AND coordinates IS NOT NULL
+                  AND (SELECT pt FROM ref) IS NOT NULL
+                THEN ST_DistanceSphere(coordinates, (SELECT pt FROM ref))::float8
+           END AS dist_m
+    FROM finds
+    WHERE id IN (${Prisma.join(ids)})
+  `;
+  const distMap = new Map<number, number | null>();
+  for (const r of distRows) distMap.set(r.id, r.dist_m);
+
+  const dir = sort === "dist-asc" ? 1 : -1;
+  const sortedIds = [...ids].sort((a, b) => {
+    const da = distMap.get(a) ?? null;
+    const db = distMap.get(b) ?? null;
+    if (da === null && db === null) return a - b; // stable by id
+    if (da === null) return 1; // a after b
+    if (db === null) return -1; // a before b
+    return dir * (da - db);
+  });
+
+  const pageIds = sortedIds.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
+  );
+  if (pageIds.length === 0) {
+    return {
+      items: [],
+      total,
+      page: safePage,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
+
+  const pageRows = await prisma.find.findMany({
+    where: { id: { in: pageIds } },
+    include: LIST_INCLUDE,
+  });
+  // Prisma returns rows in arbitrary order — re-sort to match the
+  // distance-driven page order so the UI sees the right sequence.
+  const byId = new Map(pageRows.map((r) => [r.id, r]));
+  const ordered = pageIds
+    .map((id) => byId.get(id))
+    .filter((r): r is (typeof pageRows)[number] => r !== undefined);
+  const items = await hydrate(ordered);
   await attachLocationThumbs(items);
   return {
     items,

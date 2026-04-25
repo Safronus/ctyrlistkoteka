@@ -2,7 +2,14 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
-import { LayoutGrid, List, ArrowDownNarrowWide, ArrowUpNarrowWide } from "lucide-react";
+import {
+  LayoutGrid,
+  List,
+  ArrowDownNarrowWide,
+  ArrowUpNarrowWide,
+  Compass,
+  Globe,
+} from "lucide-react";
 import type { FindSort } from "@/lib/queries/finds";
 
 export type FindView = "grid" | "list";
@@ -58,6 +65,16 @@ export function ViewSortToolbar({
             value: "asc",
             label: "Nejstarší",
             icon: <ArrowUpNarrowWide className="h-4 w-4" />,
+          },
+          {
+            value: "dist-asc",
+            label: "Nejbližší",
+            icon: <Compass className="h-4 w-4" />,
+          },
+          {
+            value: "dist-desc",
+            label: "Nejvzdálenější",
+            icon: <Globe className="h-4 w-4" />,
           },
         ]}
         onChange={(v) => setParam("sort", v, "desc")}

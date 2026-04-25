@@ -191,14 +191,21 @@ export function formatLocationId(id: number): string {
  * polygon. Two decimal places for the larger units, integer for m².
  */
 /**
- * Distance formatter used on /statistiky for the "farthest find" card.
- * Pulls a single human-friendly form: metres for sub-kilometre, one
- * decimal in the < 100 km range so a 12.3 km distance keeps its
- * resolution, integer kilometres beyond — at that scale a fractional
- * value just adds noise.
+ * Distance formatter used in the find list, detail page, and the
+ * "farthest find" card on /statistiky. Picks the friendliest unit
+ * for the magnitude:
+ *   < 1 m      → centimetres (rounded)
+ *   < 1 km     → metres (rounded)
+ *   < 100 km   → kilometres with one decimal — keeps 12.3 km legible
+ *   ≥ 100 km   → integer kilometres; decimals just add noise at that scale
  */
 export function formatDistance(meters: number): string {
   if (!Number.isFinite(meters) || meters < 0) return "";
+  if (meters < 1) {
+    return `${new Intl.NumberFormat("cs-CZ").format(
+      Math.round(meters * 100),
+    )} cm`;
+  }
   if (meters < 1000) {
     return `${new Intl.NumberFormat("cs-CZ").format(Math.round(meters))} m`;
   }

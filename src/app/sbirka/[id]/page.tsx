@@ -5,7 +5,11 @@ import { ImageType } from "@prisma/client";
 import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { StateBadges } from "@/components/finds/state-badges";
-import { formatDateTimeCs, formatLocationId } from "@/lib/format";
+import {
+  formatDateTimeCs,
+  formatDistance,
+  formatLocationId,
+} from "@/lib/format";
 import { isFormerLocation } from "@/lib/locationCode";
 import {
   getAdjacentFindIds,
@@ -109,14 +113,29 @@ export default async function FindDetailPage({ params }: PageProps) {
           {find.states.length > 0 && <StateBadges states={find.states} />}
         </div>
 
-        {/* Meta row: datetime on the left, GPS on the right (when shown). */}
+        {/* Meta row: datetime on the left, GPS + distance on the right.
+            Distance trails the GPS pair so the eye keeps the cardinal
+            "how far from home" number adjacent to the absolute coords. */}
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-gray-600">
           <span>{formatDateTimeCs(find.foundAt)}</span>
           {!find.isAnonymized && find.coordinates && (
-            <GpsValue
-              lat={find.coordinates.lat}
-              lng={find.coordinates.lng}
-            />
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <GpsValue
+                lat={find.coordinates.lat}
+                lng={find.coordinates.lng}
+              />
+              {find.distanceFromDefault !== null && (
+                <span
+                  className="text-xs text-gray-500"
+                  title="Vzdušná vzdálenost od GPS středu lokační mapy 00001"
+                >
+                  <span className="font-mono tabular-nums text-gray-800">
+                    {formatDistance(find.distanceFromDefault)}
+                  </span>{" "}
+                  od MAP 00001
+                </span>
+              )}
+            </div>
           )}
         </div>
 
