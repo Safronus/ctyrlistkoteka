@@ -5,7 +5,7 @@ import { ImageType } from "@prisma/client";
 import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { StateBadges } from "@/components/finds/state-badges";
-import { formatDateTimeCs } from "@/lib/format";
+import { formatDateTimeCs, formatLocationId } from "@/lib/format";
 import {
   getAdjacentFindIds,
   getAllFindIds,
@@ -226,10 +226,6 @@ function Panel({
       <dl className="space-y-2">{children}</dl>
     </section>
   );
-}
-
-function formatLocationId(id: number): string {
-  return `#${String(id).padStart(5, "0")}`;
 }
 
 /** True when a location code marks a vanished location (file convention:

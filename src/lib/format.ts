@@ -59,3 +59,12 @@ export function formatCount(
 export const FINDS = ["nález", "nálezy", "nálezů"] as const;
 export const LOCATIONS = ["lokalita", "lokality", "lokalit"] as const;
 export const YEARS = ["rok", "roky", "let"] as const;
+
+/**
+ * Five-digit location identifier matching the user's MAP_ID convention,
+ * e.g. 1 → "#00001". Used in the find detail panel and the list view's
+ * title row.
+ */
+export function formatLocationId(id: number): string {
+  return `#${String(id).padStart(5, "0")}`;
+}
