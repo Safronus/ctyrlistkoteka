@@ -362,7 +362,7 @@ async function phaseMaps(
   }
 
   // Lazy-load image helpers — keeps dry-run lightweight.
-  const { generateMapWebP, computeMapBounds, readAoiPolygon, sha1File } =
+  const { generateMapWebP, computeMapBounds, readMapMetadata, sha1File } =
     await import("../src/lib/images");
 
   for (const m of maps) {
@@ -420,15 +420,16 @@ async function phaseMaps(
     await ctx.prisma
       .$executeRaw`UPDATE locations SET center_point = ST_SetSRID(ST_MakePoint(${m.parsed.centerLng}, ${m.parsed.centerLat}), 4326) WHERE id = ${location.id}`;
 
-    // Try to extract AOI polygon from the PNG's tEXt metadata. First map
-    // for a given location wins — subsequent maps' polygons are noted on
-    // the LocationMap row but don't overwrite the canonical Location.polygon.
-    const aoi = await readAoiPolygon(
+    // Read PNG tEXt once for both AOI polygon (first map for a location
+    // wins — subsequent maps don't overwrite the canonical
+    // Location.polygon) and the AnonymizovanLokace flag.
+    const meta = await readMapMetadata(
       m.path,
       bounds,
       mapImg.width,
       mapImg.height,
     );
+    const aoi = meta.aoi;
     if (aoi) {
       // Build POLYGON WKT in lng/lat order (PostGIS convention).
       const wkt =
@@ -458,7 +459,7 @@ async function phaseMaps(
         imageWidth: mapImg.width,
         imageHeight: mapImg.height,
         hasPolygon: aoi !== null,
-        isAnonymized: false,
+        isAnonymized: meta.isAnonymized,
         originalFilename: m.filename,
       },
       update: {
@@ -469,6 +470,7 @@ async function phaseMaps(
         imageWidth: mapImg.width,
         imageHeight: mapImg.height,
         hasPolygon: aoi !== null,
+        isAnonymized: meta.isAnonymized,
       },
     });
   }

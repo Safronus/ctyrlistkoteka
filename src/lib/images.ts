@@ -351,6 +351,67 @@ export function parsePngTextChunks(buf: Buffer): Record<string, string> {
 }
 
 /**
+ * Bundle of metadata pulled out of a location-map PNG in a single file
+ * read. Returned by `readMapMetadata` — both the AOI polygon (if any)
+ * and the AnonymizovanLokace flag come from the same tEXt chunks, so
+ * we parse them together.
+ */
+export interface MapPngMetadata {
+  /** GPS polygon in GeoJSON [lng, lat] order, or null if no AOI tag. */
+  aoi: Array<[number, number]> | null;
+  /** True when the map's tEXt carries an "AnonymizovanLokace=Ano"
+   *  (or equivalent) flag — propagated to LocationMap.isAnonymized. */
+  isAnonymized: boolean;
+}
+
+const ANON_TAG_KEYS = [
+  "anonymizovanlokace",
+  "anonymizovanalokace",
+  "anonymized",
+  "anonymizedlocation",
+  "is_anonymized",
+];
+const ANON_TAG_VALUES = new Set(["ano", "yes", "true", "1"]);
+
+function tagsToCaseInsensitive(
+  tags: Record<string, string>,
+): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [k, v] of Object.entries(tags)) out.set(k.toLowerCase(), v);
+  return out;
+}
+
+function readAnonymizedFlag(tags: Record<string, string>): boolean {
+  const lower = tagsToCaseInsensitive(tags);
+  for (const key of ANON_TAG_KEYS) {
+    const v = lower.get(key);
+    if (v !== undefined && ANON_TAG_VALUES.has(v.trim().toLowerCase())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Extracts every metadata bit we care about from a location-map PNG in
+ * a single file read: the AOI polygon (in GPS coords, if present) and
+ * the anonymization flag.
+ */
+export async function readMapMetadata(
+  sourcePath: string,
+  bounds: [[number, number], [number, number]],
+  width: number,
+  height: number,
+): Promise<MapPngMetadata> {
+  const buf = await readFile(sourcePath);
+  const tags = parsePngTextChunks(buf);
+  return {
+    aoi: parseAoiFromTags(tags, bounds, width, height),
+    isAnonymized: readAnonymizedFlag(tags),
+  };
+}
+
+/**
  * Extracts an AOI polygon from a PNG map's metadata and converts it from
  * pixel coordinates to GPS (in GeoJSON [lng, lat] order). Returns null if
  * the file has no AOI_POLYGON tag or it doesn't parse.
@@ -370,6 +431,15 @@ export async function readAoiPolygon(
 ): Promise<Array<[number, number]> | null> {
   const buf = await readFile(sourcePath);
   const tags = parsePngTextChunks(buf);
+  return parseAoiFromTags(tags, bounds, width, height);
+}
+
+function parseAoiFromTags(
+  tags: Record<string, string>,
+  bounds: [[number, number], [number, number]],
+  width: number,
+  height: number,
+): Array<[number, number]> | null {
   const raw = tags.AOI_POLYGON;
   if (!raw) return null;
 
