@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
-import { formatShortDateCs } from "@/lib/format";
+import { formatDateTimeCs } from "@/lib/format";
+import { formatGpsApple } from "@/lib/gpsFormat";
 
 export function FindList({ finds }: { finds: readonly PublicFind[] }) {
   if (finds.length === 0) {
@@ -25,11 +26,15 @@ export function FindList({ finds }: { finds: readonly PublicFind[] }) {
 }
 
 function FindListRow({ find }: { find: PublicFind }) {
-  const locationName =
-    find.location?.displayName ?? find.location?.code ?? "Bez lokality";
+  // Anonymized finds must not leak their actual location label here, just
+  // like /sbirka/[id] hides it. Coordinates and notes are already stripped
+  // upstream by anonymize().
+  const locationName = find.isAnonymized
+    ? "Anonymizovaná lokalita"
+    : (find.location?.displayName ?? find.location?.code ?? "Bez lokality");
   const altText = find.isAnonymized
-    ? `Anonymizovaný nález č. ${find.id}`
-    : `Nález č. ${find.id} – ${locationName}`;
+    ? `Anonymizovaný nález #${find.id}`
+    : `Nález #${find.id} – ${locationName}`;
 
   return (
     <Link
@@ -39,25 +44,32 @@ function FindListRow({ find }: { find: PublicFind }) {
       <FindThumbnail
         image={find.primaryImage}
         alt={altText}
-        className="h-20 w-20 shrink-0 rounded-md sm:h-24 sm:w-24"
+        className="h-24 w-24 shrink-0 rounded-md sm:h-28 sm:w-28"
       />
-      <div className="flex min-w-0 flex-1 flex-col justify-between gap-1">
-        <div className="flex items-baseline justify-between gap-3">
-          <p className="truncate text-base font-medium text-gray-900 group-hover:text-brand-700">
-            <span className="text-brand-700">#{find.id}</span>
-            <span className="ml-2 font-normal text-gray-700">{locationName}</span>
-          </p>
-          <p className="shrink-0 text-xs text-gray-500">
-            {formatShortDateCs(find.foundAt)}
-          </p>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <span className="text-base font-semibold text-brand-700 group-hover:underline">
+            #{find.id}
+          </span>
+          <span className="text-xs text-gray-500">
+            {formatDateTimeCs(find.foundAt)}
+          </span>
         </div>
+
+        <p className="truncate text-sm text-gray-700" title={locationName}>
+          {locationName}
+        </p>
+
+        {!find.isAnonymized && find.coordinates && (
+          <p className="font-mono text-xs text-gray-500">
+            {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
+          </p>
+        )}
+
+        {find.states.length > 0 && <StateBadges states={find.states} />}
 
         {find.notes && (
           <p className="truncate text-sm text-gray-600">{find.notes}</p>
-        )}
-
-        {find.states.length > 0 && (
-          <StateBadges states={find.states} />
         )}
       </div>
     </Link>

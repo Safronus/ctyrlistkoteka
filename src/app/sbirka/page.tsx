@@ -44,7 +44,7 @@ function parseSort(value: string | undefined): FindSort {
 }
 
 function parseView(value: string | undefined): FindView {
-  return value === "list" ? "list" : "grid";
+  return value === "grid" ? "grid" : "list";
 }
 
 interface PageProps {
@@ -83,7 +83,7 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     if (filters.state) params.set("state", filters.state);
     if (filters.year) params.set("year", String(filters.year));
     if (sort !== "desc") params.set("sort", sort);
-    if (view !== "grid") params.set("view", view);
+    if (view !== "list") params.set("view", view);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return qs ? `/sbirka?${qs}` : "/sbirka";

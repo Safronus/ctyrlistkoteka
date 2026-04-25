@@ -42,7 +42,7 @@ export function ViewSortToolbar({
           { value: "grid", label: "Dlaždice", icon: <LayoutGrid className="h-4 w-4" /> },
           { value: "list", label: "Seznam", icon: <List className="h-4 w-4" /> },
         ]}
-        onChange={(v) => setParam("view", v, "grid")}
+        onChange={(v) => setParam("view", v, "list")}
       />
 
       <Segmented
