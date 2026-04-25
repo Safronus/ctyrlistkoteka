@@ -15,7 +15,13 @@ type Format = "apple" | "verbose";
 export function GpsValue({ lat, lng }: { lat: number; lng: number }) {
   const [format, setFormat] = useState<Format>("apple");
 
-  const cycle = () => setFormat((f) => (f === "apple" ? "verbose" : "apple"));
+  // Defensive stopPropagation — when the GPS row sits inside another
+  // clickable element (e.g. the location list row's expand-to-toggle
+  // wrapper), cycling the format must not also trigger that handler.
+  const cycle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFormat((f) => (f === "apple" ? "verbose" : "apple"));
+  };
   const text =
     format === "apple"
       ? formatGpsApple(lat, lng)

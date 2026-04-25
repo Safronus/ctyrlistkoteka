@@ -35,6 +35,10 @@ export interface LocationListItem {
    *  null. Computed via PostGIS ST_Area on the geography casting so the
    *  number is real m² rather than square degrees. */
   polygonAreaM2: number | null;
+  /** GPS center point recorded in the location-map filename (decoded from
+   *  ST_Y/ST_X of center_point). Null when the location has no recorded
+   *  center yet. */
+  coordinates: { lat: number; lng: number } | null;
   stats: LocationStats;
 }
 
@@ -119,22 +123,38 @@ export async function listLocations(
   const isAnonymizedLoc = (locId: number) =>
     hasAnyMap.has(locId) && !hasPublicMap.has(locId);
 
-  // ------------------------------------------------------------ polygon areas (PostGIS)
-  const areaRows = await prisma.$queryRaw<
-    Array<{ id: number; area_m2: number | null }>
+  // ------------------------------------------------------------ polygon areas + center coords (PostGIS)
+  const geoRows = await prisma.$queryRaw<
+    Array<{
+      id: number;
+      area_m2: number | null;
+      center_lat: number | null;
+      center_lng: number | null;
+    }>
   >`
     SELECT id,
            CASE WHEN polygon IS NOT NULL
                 THEN ST_Area(polygon::geography)
                 ELSE NULL
-           END AS area_m2
+           END AS area_m2,
+           ST_Y(center_point)::float8 AS center_lat,
+           ST_X(center_point)::float8 AS center_lng
     FROM "locations"
     WHERE id IN (${Prisma.join(ids)})
   `;
   const areaByLoc = new Map<number, number>();
-  for (const r of areaRows) {
+  const coordsByLoc = new Map<number, { lat: number; lng: number }>();
+  for (const r of geoRows) {
     if (r.area_m2 !== null && Number.isFinite(r.area_m2)) {
       areaByLoc.set(r.id, r.area_m2);
+    }
+    if (
+      r.center_lat !== null &&
+      r.center_lng !== null &&
+      Number.isFinite(r.center_lat) &&
+      Number.isFinite(r.center_lng)
+    ) {
+      coordsByLoc.set(r.id, { lat: r.center_lat, lng: r.center_lng });
     }
   }
 
@@ -222,6 +242,7 @@ export async function listLocations(
     thumbnailUrl: thumbByLoc.get(l.id) ?? null,
     isAnonymized: isAnonymizedLoc(l.id),
     polygonAreaM2: areaByLoc.get(l.id) ?? null,
+    coordinates: coordsByLoc.get(l.id) ?? null,
     stats: totalsByLoc.get(l.id) ?? EMPTY_STATS,
   }));
 }

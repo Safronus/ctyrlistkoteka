@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Lock } from "lucide-react";
+import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
 import type { LocationListItem } from "@/lib/queries/locations";
+import { GpsValue } from "@/components/finds/gps-value";
 import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
 import {
   formatAreaM2,
@@ -14,20 +15,44 @@ import {
 
 export function LocationListRow({ location }: { location: LocationListItem }) {
   const [open, setOpen] = useState(false);
+  const toggle = () => setOpen((o) => !o);
+
+  // Whole row is the click/keyboard target. Using role=button instead of
+  // <button> lets the GpsValue toggle (also a button) live inside without
+  // creating an invalid nested-button — its own onClick already
+  // stopPropagation()s.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggle();
+    }
+  };
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={toggle}
+        onKeyDown={onKeyDown}
         aria-expanded={open}
-        className="flex w-full items-stretch gap-4 p-3 text-left transition hover:bg-brand-50"
+        className="flex w-full cursor-pointer items-stretch gap-4 p-3 text-left transition hover:bg-brand-50 focus:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
       >
         <RowThumb location={location} />
         <div className="flex min-w-0 flex-1 flex-col justify-between gap-1">
           <RowTitle location={location} />
-          <RowMeta location={location} />
-          <RowCount location={location} />
+          {!location.isAnonymized && (
+            <>
+              <RowMeta location={location} />
+              {location.coordinates && (
+                <GpsValue
+                  lat={location.coordinates.lat}
+                  lng={location.coordinates.lng}
+                />
+              )}
+              <RowCount location={location} />
+            </>
+          )}
         </div>
         <div
           aria-hidden
@@ -39,7 +64,7 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
             <ChevronRight className="h-5 w-5" />
           )}
         </div>
-      </button>
+      </div>
 
       {open && <StatsPanel location={location} />}
     </div>
@@ -51,9 +76,10 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
 
 function RowThumb({ location }: { location: LocationListItem }) {
   if (location.isAnonymized) {
+    // Generic placeholder — the actual map must not be shown.
     return (
       <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-purple-200 bg-purple-50 text-purple-400 sm:h-24 sm:w-24">
-        <Lock className="h-7 w-7" aria-hidden />
+        <HelpCircle className="h-10 w-10" aria-hidden />
         <span className="sr-only">Anonymizovaná lokalita</span>
       </div>
     );
@@ -79,19 +105,6 @@ function RowThumb({ location }: { location: LocationListItem }) {
 }
 
 function RowTitle({ location }: { location: LocationListItem }) {
-  if (location.isAnonymized) {
-    return (
-      <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className="font-mono text-xs text-gray-500">
-          {formatLocationId(location.id)}
-        </span>
-        <span className="text-sm font-semibold text-purple-700">
-          Anonymizovaná lokalita
-        </span>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-wrap items-baseline gap-x-2">
       <span className="font-mono text-xs text-gray-500">
@@ -103,20 +116,21 @@ function RowTitle({ location }: { location: LocationListItem }) {
       >
         {location.code}
       </span>
-      {location.displayName && location.displayName !== location.code && (
-        <span
-          className="truncate text-sm text-gray-500"
-          title={location.displayName}
-        >
-          ({location.displayName})
-        </span>
-      )}
+      {!location.isAnonymized &&
+        location.displayName &&
+        location.displayName !== location.code && (
+          <span
+            className="truncate text-sm text-gray-500"
+            title={location.displayName}
+          >
+            ({location.displayName})
+          </span>
+        )}
     </div>
   );
 }
 
 function RowMeta({ location }: { location: LocationListItem }) {
-  if (location.isAnonymized) return null;
   const parts = [
     location.cadastralArea,
     location.locationType,
@@ -134,7 +148,7 @@ function RowCount({ location }: { location: LocationListItem }) {
   return (
     <p className="text-sm font-medium text-brand-700">
       {formatCount(location.stats.total, FINDS)}
-      {!location.isAnonymized && location.stats.anonymized > 0 && (
+      {location.stats.anonymized > 0 && (
         <span className="ml-2 text-xs text-purple-600">
           ({location.stats.anonymized} anonymizovaných)
         </span>
@@ -150,8 +164,7 @@ function StatsPanel({ location }: { location: LocationListItem }) {
   if (location.isAnonymized) {
     return (
       <div className="border-t border-purple-200 bg-purple-50 px-3 py-4 text-sm text-purple-900 sm:px-6">
-        Detail anonymizované lokality se nezobrazuje. Vidíš jen souhrnný
-        počet nálezů.
+        Detail anonymizované lokality se nezobrazuje.
       </div>
     );
   }
@@ -248,6 +261,7 @@ function StatsPanel({ location }: { location: LocationListItem }) {
                 </h3>
                 <Link
                   href={`/sbirka/${stats.firstFindId}`}
+                  onClick={(e) => e.stopPropagation()}
                   className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
                 >
                   #{stats.firstFindId} →
