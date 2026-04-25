@@ -23,15 +23,23 @@ import { NextResponse, type NextRequest } from "next/server";
 const isDev = process.env.NODE_ENV !== "production";
 
 function buildCsp(nonce: string): string {
+  // CSP wildcards require at least one explicit subdomain segment, so
+  // `*.tile.openstreetmap.org` doesn't cover the bare host. Leaflet
+  // hits both forms (subdomained `a/b/c.tile…` for tiles, occasionally
+  // the bare `tile.openstreetmap.org` for plugins / direct URLs), so
+  // we list both in img-src AND connect-src.
+  const tileSrc =
+    "https://tile.openstreetmap.org https://*.tile.openstreetmap.org";
+
   if (isDev) {
     return [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.tile.openstreetmap.org",
+      `img-src 'self' data: blob: ${tileSrc}`,
       "font-src 'self'",
       // ws / wss let the HMR websocket connect.
-      "connect-src 'self' ws: wss: https://*.tile.openstreetmap.org",
+      `connect-src 'self' ws: wss: ${tileSrc}`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -47,9 +55,9 @@ function buildCsp(nonce: string): string {
     // require deeper changes than this CSP pass.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://*.tile.openstreetmap.org",
+    `img-src 'self' data: blob: ${tileSrc}`,
     "font-src 'self'",
-    "connect-src 'self' https://*.tile.openstreetmap.org",
+    `connect-src 'self' ${tileSrc}`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
