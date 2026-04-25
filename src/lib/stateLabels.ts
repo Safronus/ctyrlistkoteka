@@ -9,6 +9,7 @@ export const STATE_LABELS: Readonly<Record<FindState, string>> = {
   [FindState.NO_GPS]: "Bez GPS",
   [FindState.NO_PHOTO]: "Bez fotky",
   [FindState.LOCATION_MISSING]: "Bez lokality",
+  [FindState.LOCATION_GONE]: "Zaniklá lokalita",
   [FindState.NOT_PICKED]: "Neutržený",
 };
 
@@ -21,5 +22,6 @@ export const STATE_BADGE: Readonly<Record<FindState, string>> = {
   [FindState.NO_GPS]: "bg-yellow-100 text-yellow-800",
   [FindState.NO_PHOTO]: "bg-slate-100 text-slate-700",
   [FindState.LOCATION_MISSING]: "bg-orange-100 text-orange-700",
+  [FindState.LOCATION_GONE]: "bg-rose-100 text-rose-800",
   [FindState.NOT_PICKED]: "bg-blue-100 text-blue-700",
 };

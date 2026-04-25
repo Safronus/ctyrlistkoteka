@@ -46,7 +46,7 @@ describe("parseFindFilename — real format (+ separators, diacritics)", () => {
     ["BEZGPS", FindState.NO_GPS],
     ["BEZFOTKY", FindState.NO_PHOTO],
     ["DAROVANÝ", FindState.DONATED],
-    ["LOKACE-NEEXISTUJE", FindState.LOCATION_MISSING],
+    ["LOKACE-NEEXISTUJE", FindState.LOCATION_GONE],
   ])("maps STATE %s → %s", (token, expected) => {
     const r = parseFindFilename(
       `100+00001+RATIBOŘ_POLE001a+${token}+NE+BezPoznámky.HEIC`,

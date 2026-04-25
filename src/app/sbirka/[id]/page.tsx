@@ -156,6 +156,12 @@ export default async function FindDetailPage({ params }: PageProps) {
             {find.location ? formatLocationId(find.location.id) : ""}.
           </p>
         )}
+        {!find.isAnonymized && isFormerLocation(find.location?.code) && (
+          <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+            Tato lokalita už fyzicky neexistuje (zástavba, terénní úprava
+            apod.). Mapa zobrazuje původní místo.
+          </p>
+        )}
         {find.location ? (
           <>
             <KeyValue label="Kód lokality" value={find.location.code} />
@@ -224,6 +230,13 @@ function Panel({
 
 function formatLocationId(id: number): string {
   return `#${String(id).padStart(5, "0")}`;
+}
+
+/** True when a location code marks a vanished location (file convention:
+ *  the location-map filename starts with "NEEXISTUJE-", which the parser
+ *  preserves verbatim into Location.code). */
+function isFormerLocation(code: string | null | undefined): boolean {
+  return typeof code === "string" && code.startsWith("NEEXISTUJE-");
 }
 
 function AdjacentLink({
