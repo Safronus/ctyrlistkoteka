@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FindState } from "@prisma/client";
+import { CollectionProgressBanner } from "@/components/finds/collection-progress-banner";
 import { FilterBar } from "@/components/finds/filter-bar";
 import { FindGrid } from "@/components/finds/find-grid";
 import { FindList } from "@/components/finds/find-list";
@@ -10,6 +11,7 @@ import {
 import { Pagination } from "@/components/finds/pagination";
 import { FINDS_PER_PAGE } from "@/lib/constants";
 import {
+  getCollectionProgress,
   getFilterOptions,
   listFinds,
   type FindFilters,
@@ -71,10 +73,18 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
   const sort = parseSort(pickString(sp.sort));
   const view = parseView(pickString(sp.view));
 
-  const [options, result] = await Promise.all([
+  const [options, result, progress] = await Promise.all([
     getFilterOptions(),
     listFinds(filters, page, FINDS_PER_PAGE, sort),
+    getCollectionProgress(),
   ]);
+
+  const hasFilters = !!(
+    filters.q ||
+    filters.locationId ||
+    filters.state ||
+    filters.year
+  );
 
   const buildHref = (p: number) => {
     const params = new URLSearchParams();
@@ -98,6 +108,14 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
           {result.total !== 0 && " celkem"}
         </p>
       </header>
+
+      {!hasFilters && (
+        <CollectionProgressBanner
+          count={progress.count}
+          minFindId={progress.minFindId}
+          maxFindId={progress.maxFindId}
+        />
+      )}
 
       <FilterBar
         options={options}

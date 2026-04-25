@@ -460,6 +460,31 @@ export async function getFilterOptions(): Promise<FilterOptions> {
 }
 
 /** Simple totals for the home page. */
+export interface CollectionProgress {
+  count: number;
+  minFindId: number | null;
+  maxFindId: number | null;
+}
+
+/**
+ * Range + count of find IDs currently in the DB. Used by /sbirka to flag
+ * a back-catalog import that hasn't reached find #1 yet (or that has
+ * gaps within its current range). Cheap — one count + a min/max query.
+ */
+export async function getCollectionProgress(): Promise<CollectionProgress> {
+  const [count, range] = await Promise.all([
+    prisma.find.count(),
+    prisma.$queryRaw<Array<{ min_id: number | null; max_id: number | null }>>`
+      SELECT MIN(id)::int AS min_id, MAX(id)::int AS max_id FROM finds
+    `,
+  ]);
+  const r = range[0];
+  if (count === 0 || !r || r.min_id === null || r.max_id === null) {
+    return { count, minFindId: null, maxFindId: null };
+  }
+  return { count, minFindId: r.min_id, maxFindId: r.max_id };
+}
+
 export async function getCollectionTotals(): Promise<{
   finds: number;
   locations: number;
