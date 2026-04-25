@@ -43,6 +43,10 @@
 import { readdir, stat, mkdir, access } from 'node:fs/promises';
 import { join, extname, basename, parse as parsePath } from 'node:path';
 import { parseArgs } from 'node:util';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 // Lazy imports (mohou chybět, skript vysvětlí co nainstalovat)
 let sharp: typeof import('sharp');
@@ -168,12 +172,15 @@ async function convertFile(
     });
   }
 
-  // .withMetadata() zachovává EXIF (GPS, datum, orientace, camera info)
+  // .withMetadata() zachovává EXIF v JPEG → JPEG pipeline. Pro HEIC ale
+  // heic-convert zahodí veškerý EXIF už při dekódování → sharp tu nemá
+  // co zachovat. Řešíme tím, že po zápisu JPEG zkopírujeme EXIF z
+  // originálu přes exiftool (krok níže).
   // .rotate() aplikuje EXIF orientaci do pixelů (mobily často ukládají
-  //   fotky otočené jen v EXIF, ne v pixelech)
+  //   fotky otočené jen v EXIF, ne v pixelech).
   const outputBuffer = await pipeline
     .rotate()          // aplikuj EXIF orientaci
-    .withMetadata()    // zachovej EXIF (GPS, datum, vše)
+    .withMetadata()    // zachovej co sharp ještě má (JPEG vstupy)
     .jpeg({
       quality: QUALITY,
       mozjpeg: true,   // lepší komprese
@@ -183,7 +190,15 @@ async function convertFile(
   const fs = await import('node:fs');
   await fs.promises.writeFile(outputPath, outputBuffer);
 
-  // Zachovat datum souboru z originálu (mtime + atime)
+  // Pro HEIC vstupy obnov EXIF z originálu — heic-convert ho zahodil.
+  // Orientation se resetuje na 1, protože sharp.rotate() už pixely
+  // natočil; jinak by viewer rotaci aplikoval podruhé.
+  if (ext === '.heic' || ext === '.heif') {
+    await copyExifFromOriginal(inputPath, outputPath);
+  }
+
+  // Zachovat datum souboru z originálu (mtime + atime). Musí být po
+  // exiftool kroku, protože ten by jinak mtime přepsal.
   await fs.promises.utimes(outputPath, inputStat.atime, inputStat.mtime);
 
   const outputSize = outputBuffer.length;
@@ -201,6 +216,46 @@ async function convertFile(
   }
 
   return { inputSize, outputSize, skipped: false };
+}
+
+// --- EXIF zotavení z originálu přes exiftool ---
+
+let exiftoolWarned = false;
+
+/**
+ * Kopíruje veškerý EXIF z originálu do už-vyrobeného JPEG. Volá se po
+ * sharp pipeline pro HEIC vstupy (tam EXIF zmizí během heic-convert).
+ * Orientation je vynulovaná (1 = bez rotace), protože sharp.rotate() už
+ * pixely otočil podle původní orientace.
+ *
+ * Vyžaduje `exiftool` v PATH (na macOS: `brew install exiftool`).
+ * Při selhání jen varuje — JPEG zůstane bez EXIF, ale je použitelný.
+ */
+async function copyExifFromOriginal(
+  sourcePath: string,
+  targetPath: string,
+): Promise<void> {
+  try {
+    await execFileAsync('exiftool', [
+      '-overwrite_original',
+      '-m',                           // tolerantní k drobným chybám
+      '-TagsFromFile', sourcePath,
+      '-all:all>all:all',             // zkopíruj všechny tagy
+      '-Orientation=1',               // reset; pixely jsou už správně
+      targetPath,
+    ]);
+  } catch (err: any) {
+    if (!exiftoolWarned) {
+      exiftoolWarned = true;
+      console.warn(
+        `\n⚠️  exiftool nedostupný nebo selhal: ${err.message?.split('\n')[0] ?? err}`
+      );
+      console.warn(
+        '   HEIC fotky budou bez GPS/datumu v EXIF. Nainstaluj přes:'
+      );
+      console.warn('     brew install exiftool');
+    }
+  }
 }
 
 // --- Paralelní zpracování s limitem ---
