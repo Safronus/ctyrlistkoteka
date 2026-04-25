@@ -60,6 +60,80 @@ Otevři [http://localhost:3000](http://localhost:3000).
 | `pnpm generate-images` | HEIC/JPEG → WebP varianty |
 | `pnpm db:studio` | Prisma Studio |
 
+## Sync na produkci po rsyncu
+
+Po nahrání nových dat do `/var/ctyrlistkoteka/data/{finds,crops,maps,meta}` na VPS
+se podle situace volí jiný příkaz.
+
+### 1. Jen přibyly nové soubory (žádné mazání lokálně)
+
+```sh
+cd /var/www/ctyrlistkoteka
+pnpm sync
+pm2 restart ctyrlistkoteka
+```
+
+`sync` bez `--prune` jen přidá/aktualizuje. Existující WebP varianty (klíčované
+sha1) se nepřepisují, takže běh je rychlý — počítá se hlavně sha1 nových souborů.
+
+### 2. Lokálně se něco smazalo/přejmenovalo (nebo měl rsync `--delete`)
+
+```sh
+cd /var/www/ctyrlistkoteka
+pnpm sync --prune --dry-run     # nejdřív koukni, co se chystá smazat
+pnpm sync --prune                # když dry-run vypadá dobře, pusť ostře
+pm2 restart ctyrlistkoteka
+```
+
+`--prune` smaže DB orphany (`finds`, `locations`, `location_maps`) i WebP soubory
+v `generated/`, na které už nic v DB neukazuje. Bez `--prune` zůstanou v DB staré
+řádky a stránky budou ukazovat fantómy.
+
+### 3. Změnil se jen `LokaceStavyPoznamky.json`
+
+```sh
+cd /var/www/ctyrlistkoteka
+pnpm sync --only=meta
+pm2 restart ctyrlistkoteka
+```
+
+Nesahá na soubory ani neregeneruje obrázky — jen přepíše poznámky/stavy/anonymizaci v DB.
+
+### Proč `pm2 restart`
+
+Next.js drží SSR/ISR cache stránek. Bez restartu jsou na webu vidět stará čísla
+i přes čerstvou DB. Restart je rychlý (~2 s).
+
+### Užitečné flagy
+
+| Flag | Použití |
+| --- | --- |
+| `--dry-run` | Žádné DB zápisy ani mazání. Vypíše plán + parse failures. |
+| `--force-regen` | Přegeneruje WebP i když existují (po změně `WEB_SIZE`/`THUMB_QUALITY` apod.). |
+| `--find=<id>` | Jen jeden konkrétní nález — pro debug. |
+| `--only=maps\|finds\|meta` | Spustí jen vybranou fázi. |
+
+### Logy
+
+Každý běh píše do `logs/sync-<ISO>.log` (strukturovaný JSON) a
+`logs/sync-failures-<ISO>.jsonl` (parse chyby).
+
+```sh
+tail -f logs/sync-*.log | jq .
+ls logs/sync-failures-*.jsonl    # 0 souborů = žádné parse chyby
+```
+
+### TL;DR jako rutina
+
+V drtivé většině případů (ať už se mazalo lokálně nebo ne) stačí spouštět:
+
+```sh
+cd /var/www/ctyrlistkoteka && pnpm sync --prune && pm2 restart ctyrlistkoteka
+```
+
+`--prune` na čistém stavu nemá co mazat, takže nic nepokazí, a chrání před
+zapomenutým úklidem.
+
 ## Dokumentace
 
 - [`CLAUDE.md`](CLAUDE.md) — závazné pokyny pro práci na projektu
