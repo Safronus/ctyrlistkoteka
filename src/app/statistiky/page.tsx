@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { HelpCircle, MapPin } from "lucide-react";
+import {
+  EyeOff,
+  Gift,
+  HelpCircle,
+  MapPin,
+  MapPinOff,
+  type LucideIcon,
+} from "lucide-react";
 import {
   formatDateTimeCs,
   formatLocationId,
@@ -36,8 +43,45 @@ export default async function StatistikyPage() {
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <TotalCard label="nálezů" value={fmt.format(totals.finds)} />
-        <TotalCard label="lokalit" value={fmt.format(totals.locations)} />
+        <TotalCard
+          label="nálezů"
+          value={fmt.format(totals.finds)}
+          subStats={
+            totals.donatedFinds > 0
+              ? [
+                  {
+                    icon: Gift,
+                    label: "darováno",
+                    value: fmt.format(totals.donatedFinds),
+                  },
+                ]
+              : []
+          }
+        />
+        <TotalCard
+          label="lokalit"
+          value={fmt.format(totals.locations)}
+          subStats={[
+            ...(totals.anonymizedLocations > 0
+              ? [
+                  {
+                    icon: EyeOff,
+                    label: "anonymizovaných",
+                    value: fmt.format(totals.anonymizedLocations),
+                  },
+                ]
+              : []),
+            ...(totals.goneLocations > 0
+              ? [
+                  {
+                    icon: MapPinOff,
+                    label: "zaniklých",
+                    value: fmt.format(totals.goneLocations),
+                  },
+                ]
+              : []),
+          ]}
+        />
       </section>
 
       {(firstFind || lastFind) && (
@@ -66,11 +110,45 @@ export default async function StatistikyPage() {
 // ---------------------------------------------------------------------------
 //  Totals + first/last find
 
-function TotalCard({ label, value }: { label: string; value: string }) {
+interface SubStat {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}
+
+function TotalCard({
+  label,
+  value,
+  subStats = [],
+}: {
+  label: string;
+  value: string;
+  subStats?: readonly SubStat[];
+}) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
+    <div className="flex flex-col items-center rounded-xl border border-gray-200 bg-white p-6 text-center">
       <p className="text-4xl font-bold text-brand-700">{value}</p>
       <p className="mt-1 text-sm text-gray-500">{label}</p>
+      {subStats.length > 0 && (
+        <ul className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-gray-100 pt-3 text-xs text-gray-600">
+          {subStats.map((s) => {
+            const Icon = s.icon;
+            return (
+              <li
+                key={s.label}
+                className="inline-flex items-center gap-1.5"
+                title={`${s.label}: ${s.value}`}
+              >
+                <Icon className="h-3.5 w-3.5 text-brand-700" aria-hidden />
+                <span className="font-mono font-semibold tabular-nums text-gray-900">
+                  {s.value}
+                </span>
+                <span className="text-gray-500">{s.label}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

@@ -16,6 +16,18 @@ export interface StatsTotals {
   locations: number;
   photographed: number;
   anonymized: number;
+  /** Distinct finds tagged with the DONATED state — i.e. clovers that
+   *  the user gifted away. Reused on the page header to highlight the
+   *  share of the collection that left the archive. */
+  donatedFinds: number;
+  /** Locations where at least one location_map is flagged anonymized.
+   *  Mirrors the same "any anonymized map → whole location is private"
+   *  rule used in `listLocations`, so the number on /statistiky lines
+   *  up with the count of hidden rows on /lokality. */
+  anonymizedLocations: number;
+  /** Locations whose code starts with `NEEXISTUJE-` — places that no
+   *  longer exist physically (built over, ploughed under, etc.). */
+  goneLocations: number;
   firstYear: number | null;
   lastYear: number | null;
 }
@@ -122,6 +134,9 @@ export async function getCollectionStats(): Promise<CollectionStats> {
         locations: bigint;
         photographed: bigint;
         anonymized: bigint;
+        donated_finds: bigint;
+        anonymized_locations: bigint;
+        gone_locations: bigint;
         first_year: number | null;
         last_year: number | null;
       }>
@@ -131,6 +146,12 @@ export async function getCollectionStats(): Promise<CollectionStats> {
         (SELECT COUNT(*) FROM locations) AS locations,
         (SELECT COUNT(DISTINCT find_id) FROM find_images) AS photographed,
         (SELECT COUNT(*) FROM finds WHERE is_anonymized = true) AS anonymized,
+        (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
+           WHERE state = 'DONATED') AS donated_finds,
+        (SELECT COUNT(DISTINCT location_id) FROM location_maps
+           WHERE is_anonymized = true) AS anonymized_locations,
+        (SELECT COUNT(*) FROM locations
+           WHERE code LIKE 'NEEXISTUJE-%') AS gone_locations,
         (SELECT EXTRACT(YEAR FROM MIN(found_at))::int FROM finds) AS first_year,
         (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year
     `,
@@ -250,6 +271,9 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     locations: t ? Number(t.locations) : 0,
     photographed: t ? Number(t.photographed) : 0,
     anonymized: t ? Number(t.anonymized) : 0,
+    donatedFinds: t ? Number(t.donated_finds) : 0,
+    anonymizedLocations: t ? Number(t.anonymized_locations) : 0,
+    goneLocations: t ? Number(t.gone_locations) : 0,
     firstYear: t?.first_year ?? null,
     lastYear: t?.last_year ?? null,
   };
