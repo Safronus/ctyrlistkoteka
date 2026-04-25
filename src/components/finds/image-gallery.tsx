@@ -50,7 +50,7 @@ export function ImageGallery({
             src={cropImage.webPath}
             alt={`${altBase} – výřez`}
             aria-hidden={!showCrop}
-            className={`pointer-events-none absolute inset-0 m-auto max-h-[70vh] w-full object-contain transition-opacity duration-150 ${
+            className={`pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-150 ${
               showCrop ? "opacity-100" : "opacity-0"
             }`}
           />
