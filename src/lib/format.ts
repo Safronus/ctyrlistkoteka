@@ -60,13 +60,14 @@ export function formatDateTimeCs(date: Date | null | undefined): string {
 }
 
 /**
- * Czech-style "how much time has passed since" string. Picks the largest
- * meaningful unit and shows the next one too when it's non-zero, so the
- * result reads naturally:
- *   "před 2 lety a 3 měsíci"
- *   "před 5 měsíci a 12 dny"
+ * Czech-style "how much time has passed since" string. Joins every
+ * non-zero calendar unit down to hours so longer gaps still get the
+ * fine-grain context the date alone hides:
+ *   "před 4 lety, 9 měsíci, 27 dny a 5 hodinami"
+ *   "před 5 měsíci, 12 dny a 3 hodinami"
  *   "před 4 dny a 7 hodinami"
  *   "před 3 hodinami a 12 minutami"
+ *   "před 12 minutami"
  *   "před chvílí"
  * Returns "—" for null/future.
  */
@@ -76,68 +77,79 @@ export function formatTimeSinceCs(date: Date | null | undefined): string {
   const diffMs = now.getTime() - date.getTime();
   if (diffMs < 0) return "—";
 
-  const { years, months, days } = calendarDiff(date, now);
+  const { years, months, days, hours, minutes } = preciseCalendarDiff(
+    date,
+    now,
+  );
 
-  const yearsStr = (n: number) =>
-    `${n} ${pluralCs(n, ["rokem", "lety", "lety"])}`;
-  const monthsStr = (n: number) =>
-    `${n} ${pluralCs(n, ["měsícem", "měsíci", "měsíci"])}`;
-  const daysStr = (n: number) =>
-    `${n} ${pluralCs(n, ["dnem", "dny", "dny"])}`;
-  const hoursStr = (n: number) =>
-    `${n} ${pluralCs(n, ["hodinou", "hodinami", "hodinami"])}`;
-  const minutesStr = (n: number) =>
-    `${n} ${pluralCs(n, ["minutou", "minutami", "minutami"])}`;
+  const parts: string[] = [];
+  if (years > 0)
+    parts.push(`${years} ${pluralCs(years, ["rokem", "lety", "lety"])}`);
+  if (months > 0)
+    parts.push(`${months} ${pluralCs(months, ["měsícem", "měsíci", "měsíci"])}`);
+  if (days > 0)
+    parts.push(`${days} ${pluralCs(days, ["dnem", "dny", "dny"])}`);
+  if (hours > 0)
+    parts.push(`${hours} ${pluralCs(hours, ["hodinou", "hodinami", "hodinami"])}`);
 
-  if (years > 0) {
-    return months > 0
-      ? `před ${yearsStr(years)} a ${monthsStr(months)}`
-      : `před ${yearsStr(years)}`;
+  // When the gap is < 1 hour, fall through to minutes (or "před chvílí").
+  if (parts.length === 0) {
+    if (minutes < 1) return "před chvílí";
+    return `před ${minutes} ${pluralCs(minutes, ["minutou", "minutami", "minutami"])}`;
   }
-  if (months > 0) {
-    return days > 0
-      ? `před ${monthsStr(months)} a ${daysStr(days)}`
-      : `před ${monthsStr(months)}`;
-  }
-  if (days > 0) {
-    // Hours-of-day for the open trailing window. floor(diffMs / day)
-    // matches `days` here because no month/year boundary was crossed.
-    const restMs = diffMs - days * 86_400_000;
-    const hours = Math.max(0, Math.floor(restMs / 3_600_000));
-    return hours > 0
-      ? `před ${daysStr(days)} a ${hoursStr(hours)}`
-      : `před ${daysStr(days)}`;
-  }
-  const totalHours = Math.floor(diffMs / 3_600_000);
-  if (totalHours > 0) {
-    const restMs = diffMs - totalHours * 3_600_000;
-    const minutes = Math.floor(restMs / 60_000);
-    return minutes > 0
-      ? `před ${hoursStr(totalHours)} a ${minutesStr(minutes)}`
-      : `před ${hoursStr(totalHours)}`;
-  }
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return "před chvílí";
-  return `před ${minutesStr(minutes)}`;
+
+  return `před ${joinCs(parts)}`;
 }
 
-function calendarDiff(
+/**
+ * Joins string parts the Czech way: "A", "A a B", "A, B a C". Default
+ * (no Oxford comma) — matches everyday Czech style.
+ */
+function joinCs(parts: readonly string[]): string {
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0]!;
+  if (parts.length === 2) return `${parts[0]} a ${parts[1]}`;
+  return `${parts.slice(0, -1).join(", ")} a ${parts[parts.length - 1]}`;
+}
+
+/**
+ * Five-component calendar diff between two Dates with proper
+ * borrow-chain (minutes → hours → days → months → years). Only goes
+ * down to minutes — sub-minute diffs are reported as "před chvílí".
+ */
+function preciseCalendarDiff(
   from: Date,
   to: Date,
-): { years: number; months: number; days: number } {
+): {
+  years: number;
+  months: number;
+  days: number;
+  hours: number;
+  minutes: number;
+} {
   let years = to.getFullYear() - from.getFullYear();
   let months = to.getMonth() - from.getMonth();
   let days = to.getDate() - from.getDate();
+  let hours = to.getHours() - from.getHours();
+  let minutes = to.getMinutes() - from.getMinutes();
+
+  if (minutes < 0) {
+    hours -= 1;
+    minutes += 60;
+  }
+  if (hours < 0) {
+    days -= 1;
+    hours += 24;
+  }
   if (days < 0) {
     months -= 1;
-    // Borrow the day count of the month preceding `to`.
     days += new Date(to.getFullYear(), to.getMonth(), 0).getDate();
   }
   if (months < 0) {
     years -= 1;
     months += 12;
   }
-  return { years, months, days };
+  return { years, months, days, hours, minutes };
 }
 
 /**
