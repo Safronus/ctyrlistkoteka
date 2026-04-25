@@ -9,6 +9,7 @@ import { FindState, Prisma, type ImageType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { anonymize } from "@/lib/anonymize";
 import { DEFAULT_LOCATION_ID } from "@/lib/constants";
+import { parseIdQuery } from "@/lib/search";
 
 export interface PublicImage {
   id: number;
@@ -64,8 +65,10 @@ export interface FindListResult {
 /** Sort direction by find ID. `desc` = newest first (default UI). */
 export type FindSort = "desc" | "asc";
 
-/** Build the WHERE clause for a filter set. */
-function buildWhere(f: FindFilters): Prisma.FindWhereInput {
+/** Build the WHERE clause for a filter set. Async because numeric search
+ *  queries trigger a small auxiliary lookup so that "0001" matches #00001
+ *  (and the substring "0001" also matches #00010-#00019, #10010, etc.). */
+async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
   const where: Prisma.FindWhereInput = {};
   const and: Prisma.FindWhereInput[] = [];
 
@@ -79,20 +82,46 @@ function buildWhere(f: FindFilters): Prisma.FindWhereInput {
 
   if (f.q && f.q.trim()) {
     const q = f.q.trim();
-    and.push({
-      OR: [
-        // Only search inside notes for NON-anonymized finds to avoid
-        // leaking that a secret find matches a keyword.
-        {
-          AND: [
-            { isAnonymized: false },
-            { notes: { contains: q, mode: "insensitive" } },
-          ],
-        },
-        { location: { displayName: { contains: q, mode: "insensitive" } } },
-        { location: { code: { contains: q, mode: "insensitive" } } },
-      ],
-    });
+    const or: Prisma.FindWhereInput[] = [
+      // Only search inside notes for NON-anonymized finds to avoid
+      // leaking that a secret find matches a keyword.
+      {
+        AND: [
+          { isAnonymized: false },
+          { notes: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      { location: { displayName: { contains: q, mode: "insensitive" } } },
+      { location: { code: { contains: q, mode: "insensitive" } } },
+    ];
+
+    // Numeric query → also match by find ID (exact + padded substring)
+    // and by location ID. Padded substring uses a single raw query
+    // against `LPAD(id::text, 5, '0')` so the lookup stays index-free
+    // but cheap enough for ~17k finds.
+    const idQuery = parseIdQuery(q);
+    if (idQuery !== null) {
+      or.push({ id: idQuery.exactId });
+      or.push({ locationId: idQuery.exactId });
+      const pattern = `%${idQuery.digits}%`;
+      const idRows = await prisma.$queryRaw<Array<{ id: number }>>`
+        SELECT id FROM finds
+        WHERE LPAD(id::text, 5, '0') LIKE ${pattern}
+        LIMIT 1000
+      `;
+      if (idRows.length > 0) {
+        or.push({ id: { in: idRows.map((r) => r.id) } });
+      }
+      const locRows = await prisma.$queryRaw<Array<{ id: number }>>`
+        SELECT id FROM locations
+        WHERE LPAD(id::text, 5, '0') LIKE ${pattern}
+      `;
+      if (locRows.length > 0) {
+        or.push({ locationId: { in: locRows.map((r) => r.id) } });
+      }
+    }
+
+    and.push({ OR: or });
   }
 
   if (and.length > 0) where.AND = and;
@@ -208,7 +237,7 @@ export async function listFinds(
   pageSize: number,
   sort: FindSort = "desc",
 ): Promise<FindListResult> {
-  const where = buildWhere(filters);
+  const where = await buildWhere(filters);
   const safePage = Math.max(1, page);
   const [total, rows] = await Promise.all([
     prisma.find.count({ where }),

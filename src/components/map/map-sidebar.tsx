@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import type { LocationListItem } from "@/lib/queries/locations";
 import { formatAreaM2, formatCount, formatLocationId, FINDS } from "@/lib/format";
+import { paddedIdMatches, parseIdQuery } from "@/lib/search";
 
 const INPUT_CLS =
   "w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 pl-8 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
@@ -28,12 +29,21 @@ export function MapSidebar({
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return locations;
-    return locations.filter(
-      (l) =>
+    // Numeric input also matches the location's display ID — exact (so
+    // "0001" finds #00001) and substring of the padded form (so "0001"
+    // additionally finds #00010-#00019).
+    const idQuery = parseIdQuery(q);
+    return locations.filter((l) => {
+      if (idQuery !== null) {
+        if (l.id === idQuery.exactId) return true;
+        if (paddedIdMatches(l.id, idQuery.digits)) return true;
+      }
+      return (
         l.code.toLowerCase().includes(needle) ||
         l.displayName.toLowerCase().includes(needle) ||
-        l.cadastralArea.toLowerCase().includes(needle),
-    );
+        l.cadastralArea.toLowerCase().includes(needle)
+      );
+    });
   }, [locations, q]);
 
   return (

@@ -10,6 +10,7 @@
 import { FindState, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isFormerLocation } from "@/lib/locationCode";
+import { paddedIdMatches, parseIdQuery } from "@/lib/search";
 
 export type LocationSort = "id" | "code" | "finds";
 
@@ -102,11 +103,26 @@ export async function listLocations(
   if (filter.cadastralArea) where.cadastralArea = filter.cadastralArea;
   if (filter.q && filter.q.trim()) {
     const q = filter.q.trim();
-    where.OR = [
+    const or: Prisma.LocationWhereInput[] = [
       { code: { contains: q, mode: "insensitive" } },
       { displayName: { contains: q, mode: "insensitive" } },
       { cadastralArea: { contains: q, mode: "insensitive" } },
     ];
+    // Numeric input (e.g. "1", "0001", "#00001") additionally matches the
+    // location's display ID — both as an exact integer and as a substring
+    // of the zero-padded form, so "0001" finds #00001 *and* #00010-#00019.
+    // Padded-substring lookup costs one extra small query against the
+    // ~128-row locations table; cheap, and consistent with the find search.
+    const idQuery = parseIdQuery(q);
+    if (idQuery !== null) {
+      or.push({ id: idQuery.exactId });
+      const idRows = await prisma.location.findMany({ select: { id: true } });
+      const padded = idRows
+        .map((r) => r.id)
+        .filter((id) => paddedIdMatches(id, idQuery.digits));
+      if (padded.length > 0) or.push({ id: { in: padded } });
+    }
+    where.OR = or;
   }
 
   const locations = await prisma.location.findMany({
