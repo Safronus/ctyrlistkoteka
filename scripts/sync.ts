@@ -303,6 +303,48 @@ function toDecimalDegrees(
 }
 
 // --------------------------------------------------------------------------
+//  Progress
+// --------------------------------------------------------------------------
+
+/**
+ * Progress reporter for long-running per-file phases. Emits a structured
+ * log line every ~5 s or every ~5 % of items, whichever comes first, and
+ * always one final line when `total` is reached. We piggy-back on the
+ * existing Logger so the output ends up in both stdout (visible to a
+ * `| tee` user) and the JSON sync-*.log file.
+ */
+function makeProgressTicker(label: string, total: number, log: Logger) {
+  const startedAt = Date.now();
+  let lastLoggedAt = 0;
+  let done = 0;
+  const stepEvery = Math.max(1, Math.floor(total / 20));
+  return {
+    tick(): void {
+      done += 1;
+      const now = Date.now();
+      const isLast = done === total;
+      const dueByTime = now - lastLoggedAt >= 5000;
+      const dueByCount = done % stepEvery === 0;
+      if (!isLast && !dueByTime && !dueByCount) return;
+      lastLoggedAt = now;
+      const elapsedS = (now - startedAt) / 1000;
+      const rate = elapsedS > 0 ? done / elapsedS : 0;
+      const remaining = total - done;
+      const etaS = rate > 0 ? Math.round(remaining / rate) : 0;
+      log.log({
+        event: `${label}.progress`,
+        level: "info",
+        done,
+        total,
+        pct: Number(((done / total) * 100).toFixed(1)),
+        rate_per_s: Number(rate.toFixed(1)),
+        eta_s: etaS,
+      });
+    },
+  };
+}
+
+// --------------------------------------------------------------------------
 //  Map phase — parse data/maps/ files
 // --------------------------------------------------------------------------
 
@@ -365,6 +407,8 @@ async function phaseMaps(
   // Lazy-load image helpers — keeps dry-run lightweight.
   const { generateMapWebP, computeMapBounds, readMapMetadata, sha1File } =
     await import("../src/lib/images");
+
+  const progress = makeProgressTicker("maps.upsert", maps.length, ctx.log);
 
   for (const m of maps) {
     // Best-effort decomposition — never fails. If the code doesn't match a
@@ -507,6 +551,8 @@ async function phaseMaps(
         isAnonymized: meta.isAnonymized,
       },
     });
+
+    progress.tick();
   }
 
   ctx.log.log({
@@ -615,6 +661,8 @@ async function phaseFinds(
   let dateOnlyExif = 0;
   let noDateExif = 0;
 
+  const progress = makeProgressTicker("finds.upsert", all.length, ctx.log);
+
   for (const f of all) {
     const sha1 = await sha1File(f.path);
     const image = await generateWebPVariants({
@@ -689,6 +737,8 @@ async function phaseFinds(
         },
       });
     }
+
+    progress.tick();
   }
 
   ctx.log.log({
