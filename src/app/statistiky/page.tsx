@@ -22,6 +22,7 @@ import {
   type CalendarPoint,
   type CategoryPoint,
   type CountryPoint,
+  type DistanceBucket,
   type FindHighlight,
   type LocationPoint,
   type MonthDayPoint,
@@ -122,6 +123,10 @@ export default async function StatistikyPage() {
         firstYear={stats.totals.firstYear}
         byMonthDay={stats.byMonthDay}
       />
+
+      {stats.byDistance.length > 0 && (
+        <DistanceStatsSection byDistance={stats.byDistance} />
+      )}
     </div>
   );
 }
@@ -821,5 +826,57 @@ function CalendarSubsection({
         </dl>
       </details>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+//  Distance histogram — finds binned by great-circle distance from MAP 00001
+
+// Decade buckets (powers of 10). Indices match the SQL CASE in
+// stats.ts → byDistance, so any reordering must update both places.
+// Czech non-breaking spaces (U+00A0) keep "1 000" from line-wrapping
+// inside a tight axis label.
+const DISTANCE_BUCKETS: ReadonlyArray<{ long: string; short: string }> = [
+  { long: "do 10 m", short: "<10 m" },
+  { long: "10–100 m", short: "10–100 m" },
+  { long: "100 m – 1 km", short: "100 m–1 km" },
+  { long: "1–10 km", short: "1–10 km" },
+  { long: "10–100 km", short: "10–100 km" },
+  { long: "100–1 000 km", short: "100–1 000 km" },
+  { long: "1 000–10 000 km", short: "1 000–10 000 km" },
+  { long: "nad 10 000 km", short: ">10 000 km" },
+];
+
+const DISTANCE_BUCKET_KEYS = DISTANCE_BUCKETS.map((_, i) => i);
+
+function DistanceStatsSection({
+  byDistance,
+}: {
+  byDistance: readonly DistanceBucket[];
+}) {
+  const series = fillSeries(
+    byDistance.map((b) => ({ key: b.bucket, count: b.count })),
+    DISTANCE_BUCKET_KEYS,
+  );
+  return (
+    <section className="space-y-4">
+      <header>
+        <h2 className="text-lg font-semibold text-gray-900">
+          Nálezy podle vzdálenosti od lokační mapy 00001
+        </h2>
+        <p className="text-sm text-gray-500">
+          Logaritmické rozdělení podle vzdušné vzdálenosti od GPS středu
+          defaultní lokační mapy. Anonymizované nálezy a nálezy bez GPS se
+          nezahrnují.
+        </p>
+      </header>
+      <CalendarSubsection
+        title="Vzdušná vzdálenost (dekádové koše)"
+        data={series}
+        labelLong={(k) => DISTANCE_BUCKETS[k]?.long ?? String(k)}
+        labelShort={(k) => DISTANCE_BUCKETS[k]?.short ?? String(k)}
+        tableColumns={1}
+      />
+    </section>
   );
 }

@@ -74,6 +74,16 @@ export interface MonthDayPoint {
   count: number;
 }
 
+/** One bar of the "finds by distance from the default map" histogram. */
+export interface DistanceBucket {
+  /** Bucket index 0..7. Decade-based:
+   *  0 = <10 m, 1 = 10–100 m, 2 = 100 m – 1 km, 3 = 1–10 km,
+   *  4 = 10–100 km, 5 = 100–1 000 km, 6 = 1 000–10 000 km, 7 = >10 000 km.
+   *  See DISTANCE_BUCKETS in src/app/statistiky/page.tsx for labels. */
+  bucket: number;
+  count: number;
+}
+
 export interface CategoryPoint {
   name: string;
   count: number;
@@ -135,6 +145,10 @@ export interface CollectionStats {
   /** Month×day heatmap, year-independent. Sparse: only cells that
    *  have at least one find. */
   byMonthDay: MonthDayPoint[];
+  /** Decade-bucketed distance histogram from the default LocationMap's
+   *  centre. Excludes anonymized finds and finds without GPS. Empty
+   *  when MAP 00001 isn't on disk. */
+  byDistance: DistanceBucket[];
 }
 
 export async function getCollectionStats(): Promise<CollectionStats> {
@@ -163,6 +177,7 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     dowRows,
     monthRows,
     monthDayRows,
+    distanceRows,
     geoLocRows,
   ] = await Promise.all([
     prisma.$queryRaw<
@@ -333,6 +348,40 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       ORDER BY 1, 2
     `,
 
+    // Decade-bucketed distance histogram from the default LocationMap.
+    // Anonymized finds and finds without GPS are excluded — same rule
+    // as the farthest-find query. Returns sparse (zero buckets are
+    // omitted); the page fills them with zeros for a stable axis.
+    prisma.$queryRaw<Array<{ bucket: number; count: bigint }>>`
+      WITH ref AS (
+        SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
+        FROM location_maps
+        WHERE id = ${DEFAULT_LOCATION_ID}
+      ),
+      distances AS (
+        SELECT ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref)) AS dist_m
+        FROM finds f
+        WHERE f.is_anonymized = false
+          AND f.coordinates IS NOT NULL
+          AND (SELECT pt FROM ref) IS NOT NULL
+      )
+      SELECT
+        CASE
+          WHEN dist_m < 10        THEN 0
+          WHEN dist_m < 100       THEN 1
+          WHEN dist_m < 1000      THEN 2
+          WHEN dist_m < 10000     THEN 3
+          WHEN dist_m < 100000    THEN 4
+          WHEN dist_m < 1000000   THEN 5
+          WHEN dist_m < 10000000  THEN 6
+          ELSE                         7
+        END AS bucket,
+        COUNT(*) AS count
+      FROM distances
+      GROUP BY bucket
+      ORDER BY bucket
+    `,
+
     // Per-location aggregates with GPS — feeds the country/city tables
     // and the world bubble map. Anonymized locations are filtered out
     // (their precise coordinates are private per CLAUDE.md §6); a
@@ -446,6 +495,10 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     byMonthDay: monthDayRows.map((r) => ({
       month: r.month,
       day: r.day,
+      count: Number(r.count),
+    })),
+    byDistance: distanceRows.map((r) => ({
+      bucket: r.bucket,
       count: Number(r.count),
     })),
   };
