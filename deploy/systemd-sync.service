@@ -16,22 +16,29 @@ User=app
 Group=app
 WorkingDirectory=/var/www/ctyrlistkoteka
 Environment=NODE_ENV=production
-# Login shell loads nvm so `pnpm` resolves on PATH without hardcoding the
-# node version. If nvm isn't installed for the app user, replace with a
-# full path to the pnpm binary.
+# nvm conventionally registers itself from ~/.bashrc (interactive only),
+# so even `bash -l` under systemd can't see `pnpm`/`node` on PATH. Source
+# nvm.sh explicitly — same trick as .github/workflows/deploy.yml does over
+# SSH. Path matches the standard nvm install for the app user.
 #
 # After the import we trigger a graceful PM2 reload so Next.js picks up
 # the fresh DB state — without it the home page / stats card counters
 # would lag behind the import by up to the ISR revalidate window. The
 # `&&` chain makes the reload conditional on a clean sync exit; failed
-# syncs leave the running process untouched. The trailing `|| true`
-# keeps the unit "successful" from systemd's POV (we already handle
-# real failures via the journal + sync-failures.jsonl artefact).
-ExecStart=/bin/bash -lc 'pnpm sync >> /var/log/ctyrlistkoteka/sync.log 2>&1 && pm2 reload ctyrlistkoteka >> /var/log/ctyrlistkoteka/sync.log 2>&1 || true'
-# Don't take the service down if a single sync run fails.
+# syncs leave the running process untouched. We deliberately do NOT
+# trail with `|| true`: real shell-level failures (nvm missing, command
+# not found, log file unwritable) must surface as a unit failure so the
+# operator notices. SuccessExitStatus=0 1 still treats the well-defined
+# "soft failure" exit (sync.ts's process.exitCode=1 on fatal errors) as
+# success — that case has its own `sync-failures-*.jsonl` artefact.
+ExecStart=/bin/bash -c '. /home/app/.nvm/nvm.sh && pnpm sync && pm2 reload ctyrlistkoteka'
 SuccessExitStatus=0 1
-StandardOutput=journal
-StandardError=journal
+# Tee the run's stdout/stderr into a dedicated logfile via systemd
+# instead of redirecting inside the shell — that way both the file
+# AND `journalctl -u …` capture the messages, where previously the
+# `>>` chain swallowed everything before systemd could see it.
+StandardOutput=append:/var/log/ctyrlistkoteka/sync.log
+StandardError=append:/var/log/ctyrlistkoteka/sync.log
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=5
