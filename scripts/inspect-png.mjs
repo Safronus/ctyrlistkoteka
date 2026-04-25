@@ -4,19 +4,62 @@
 // AnonymizovanLokace string. Use this to find which chunk type our
 // metadata tag is actually written into.
 //
-// Usage: node scripts/inspect-png.mjs <path-to-map.png>
+// Usage:
+//   node scripts/inspect-png.mjs <path-to-map.png>
+//   node scripts/inspect-png.mjs --scan <dir>
+//
+// In --scan mode, walks every *.png in the dir, reports which contain
+// the literal "AnonymizovanLokace" in raw bytes, and dumps chunk detail
+// of the first hit.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { inflateSync } from "node:zlib";
+import { join } from "node:path";
 
-const path = process.argv[2];
-if (!path) {
-  console.error("usage: node scripts/inspect-png.mjs <path-to-png>");
+const args = process.argv.slice(2);
+if (args.length === 0) {
+  console.error(
+    "usage: node scripts/inspect-png.mjs <path-to-png>\n" +
+      "       node scripts/inspect-png.mjs --scan <dir>",
+  );
   process.exit(2);
 }
 
-const buf = readFileSync(path);
-console.log(`file: ${path} size=${buf.length}`);
+let target;
+if (args[0] === "--scan") {
+  const dir = args[1];
+  if (!dir) {
+    console.error("--scan needs a directory");
+    process.exit(2);
+  }
+  const files = readdirSync(dir)
+    .filter((f) => f.toLowerCase().endsWith(".png"))
+    .map((f) => join(dir, f))
+    .filter((p) => statSync(p).isFile());
+  console.log(`scanning ${files.length} PNG files in ${dir}`);
+  const needle = Buffer.from("AnonymizovanLokace", "utf8");
+  const hits = [];
+  for (const p of files) {
+    const b = readFileSync(p);
+    if (b.indexOf(needle) >= 0) hits.push(p);
+  }
+  console.log(`hits with raw "AnonymizovanLokace": ${hits.length}`);
+  for (const h of hits.slice(0, 10)) console.log(`  ${h}`);
+  if (hits.length === 0) {
+    console.log(
+      '\nString not found raw in any PNG → tag is compressed (likely XMP in compressed iTXt or zTXt). Picking first PNG to inspect chunk types.',
+    );
+    target = files[0];
+  } else {
+    target = hits[0];
+    console.log(`\nDumping chunks of: ${target}`);
+  }
+} else {
+  target = args[0];
+}
+
+const buf = readFileSync(target);
+console.log(`file: ${target} size=${buf.length}`);
 
 const sig = buf.subarray(0, 8);
 if (
@@ -101,3 +144,49 @@ console.log(
     ? `\nraw byte search: "AnonymizovanLokace" found at offset ${idx}`
     : `\nraw byte search: "AnonymizovanLokace" NOT FOUND in raw bytes (probably compressed)`,
 );
+
+// If raw not found, try inflating every iTXt/zTXt payload and grep there.
+if (idx < 0) {
+  console.log(
+    "\nDecoding all compressed text chunks and re-searching for AnonymizovanLokace…",
+  );
+  let off2 = 8;
+  while (off2 + 12 <= buf.length) {
+    const len = buf.readUInt32BE(off2);
+    const type = buf.subarray(off2 + 4, off2 + 8).toString("ascii");
+    const data = buf.subarray(off2 + 8, off2 + 8 + len);
+    if (type === "iTXt") {
+      const sep1 = data.indexOf(0);
+      if (sep1 > 0 && data[sep1 + 1] === 1) {
+        const sep2 = data.indexOf(0, sep1 + 3);
+        const sep3 = sep2 >= 0 ? data.indexOf(0, sep2 + 1) : -1;
+        if (sep3 >= 0) {
+          try {
+            const txt = inflateSync(data.subarray(sep3 + 1)).toString("utf8");
+            if (txt.includes("AnonymizovanLokace")) {
+              console.log(
+                `  HIT in compressed iTXt keyword=${data.subarray(0, sep1).toString("latin1")}`,
+              );
+              console.log(`  payload: ${JSON.stringify(txt.slice(0, 2000))}`);
+            }
+          } catch {}
+        }
+      }
+    } else if (type === "zTXt") {
+      const sep = data.indexOf(0);
+      if (sep > 0) {
+        try {
+          const txt = inflateSync(data.subarray(sep + 2)).toString("utf8");
+          if (txt.includes("AnonymizovanLokace")) {
+            console.log(
+              `  HIT in zTXt keyword=${data.subarray(0, sep).toString("latin1")}`,
+            );
+            console.log(`  payload: ${JSON.stringify(txt.slice(0, 2000))}`);
+          }
+        } catch {}
+      }
+    }
+    if (type === "IEND") break;
+    off2 += 12 + len;
+  }
+}
