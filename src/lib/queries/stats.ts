@@ -41,8 +41,22 @@ export interface CategoryPoint {
   count: number;
 }
 
+export interface FindHighlight {
+  id: number;
+  /** Find date as ISO string for cheap client serialization. */
+  foundAt: string | null;
+  isAnonymized: boolean;
+  /** Location data is null when the find is anonymized — see CLAUDE.md
+   *  §6, the public payload must not leak the location. */
+  location: { id: number; code: string; displayName: string } | null;
+}
+
 export interface CollectionStats {
   totals: StatsTotals;
+  /** Earliest find by ID, or null if the collection is empty. */
+  firstFind: FindHighlight | null;
+  /** Latest find by ID, mirroring firstFind. */
+  lastFind: FindHighlight | null;
   monthly: MonthlyPoint[];
   yearly: YearlyPoint[];
   topLocations: LocationPoint[];
@@ -51,8 +65,19 @@ export interface CollectionStats {
 }
 
 export async function getCollectionStats(): Promise<CollectionStats> {
+  type HighlightRow = {
+    id: number;
+    found_at: Date | null;
+    is_anonymized: boolean;
+    location_id: number | null;
+    location_code: string | null;
+    location_display_name: string | null;
+  };
+
   const [
     totalsRow,
+    firstFindRow,
+    lastFindRow,
     monthlyRows,
     yearlyRows,
     topLocRows,
@@ -76,6 +101,34 @@ export async function getCollectionStats(): Promise<CollectionStats> {
         (SELECT COUNT(*) FROM finds WHERE is_anonymized = true) AS anonymized,
         (SELECT EXTRACT(YEAR FROM MIN(found_at))::int FROM finds) AS first_year,
         (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year
+    `,
+
+    // Earliest / latest find by ID (mirrors the user's MAP_ID
+    // chronology). The CASE-anonymise pattern keeps location info
+    // out of the payload for is_anonymized=true rows so we never
+    // ship something that has to be re-redacted client-side.
+    prisma.$queryRaw<HighlightRow[]>`
+      SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
+             CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
+             CASE WHEN f.is_anonymized THEN NULL
+                  ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+             END AS location_display_name
+      FROM finds f
+      LEFT JOIN locations l ON l.id = f.location_id
+      ORDER BY f.id ASC
+      LIMIT 1
+    `,
+
+    prisma.$queryRaw<HighlightRow[]>`
+      SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
+             CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
+             CASE WHEN f.is_anonymized THEN NULL
+                  ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+             END AS location_display_name
+      FROM finds f
+      LEFT JOIN locations l ON l.id = f.location_id
+      ORDER BY f.id DESC
+      LIMIT 1
     `,
 
     prisma.$queryRaw<Array<{ month: Date; count: bigint }>>`
@@ -129,8 +182,27 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     lastYear: t?.last_year ?? null,
   };
 
+  const highlight = (row: HighlightRow | undefined): FindHighlight | null => {
+    if (!row) return null;
+    return {
+      id: row.id,
+      foundAt: row.found_at ? row.found_at.toISOString() : null,
+      isAnonymized: row.is_anonymized,
+      location:
+        !row.is_anonymized && row.location_id !== null && row.location_code
+          ? {
+              id: row.location_id,
+              code: row.location_code,
+              displayName: row.location_display_name ?? row.location_code,
+            }
+          : null,
+    };
+  };
+
   return {
     totals,
+    firstFind: highlight(firstFindRow[0]),
+    lastFind: highlight(lastFindRow[0]),
     monthly: monthlyRows.map((r) => ({
       month: r.month.toISOString().slice(0, 7),
       count: Number(r.count),
