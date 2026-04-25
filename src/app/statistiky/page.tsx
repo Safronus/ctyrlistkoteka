@@ -19,12 +19,11 @@ import {
   type CategoryPoint,
   type CountryPoint,
   type FindHighlight,
-  type LocationGeoPoint,
   type LocationPoint,
   type MonthDayPoint,
   type YearlyPoint,
 } from "@/lib/queries/stats";
-import { WorldBubbleMapLoader } from "@/components/stats/world-bubble-map-loader";
+import { WorldChoroplethMapLoader } from "@/components/stats/world-choropleth-map-loader";
 
 export const metadata: Metadata = {
   title: "Statistiky",
@@ -90,7 +89,6 @@ export default async function StatistikyPage() {
       <GeoStatsSection
         byCountry={stats.byCountry}
         byCity={stats.byCity}
-        locationPoints={stats.locationPoints}
       />
 
       <CalendarStatsSection
@@ -282,22 +280,13 @@ function TopLocationsCard({ rows }: { rows: readonly LocationPoint[] }) {
 function GeoStatsSection({
   byCountry,
   byCity,
-  locationPoints,
 }: {
   byCountry: readonly CountryPoint[];
   byCity: readonly CategoryPoint[];
-  locationPoints: readonly LocationGeoPoint[];
 }) {
-  // Hide the entire section in the cold-start case (zero non-anonymized
-  // locations have GPS yet) — an empty world map and two zero-row tables
-  // would just be noise.
-  if (
-    byCountry.length === 0 &&
-    byCity.length === 0 &&
-    locationPoints.length === 0
-  ) {
-    return null;
-  }
+  // Hide the entire section before any data has GPS — the choropleth
+  // would be a uniform light wash and the tables would be empty.
+  if (byCountry.length === 0 && byCity.length === 0) return null;
   return (
     <section className="space-y-4">
       <header>
@@ -305,9 +294,11 @@ function GeoStatsSection({
           Podle států a měst
         </h2>
         <p className="text-sm text-gray-500">
-          Stát se odvozuje z GPS středu lokality, město z katastrálního
-          území. Anonymizované lokality jsou z přehledu vyloučené (jejich
-          přesné souřadnice se na veřejný web nedostávají).
+          Stát se určuje z GPS středu lokality (point-in-polygon proti
+          hranicím Natural Earth), město z katastrálního území.
+          Anonymizované lokality a místa s prefixem
+          <span className="font-mono">{" "}NEEXISTUJE-{" "}</span>
+          jsou z přehledu měst vyloučené.
         </p>
       </header>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -316,17 +307,17 @@ function GeoStatsSection({
           rows={byCountry.map((c) => ({ key: c.code, label: c.name, count: c.count }))}
         />
         <CountTable
-          title="Podle měst (katastrálních území)"
+          title="TOP 10 měst"
           rows={byCity.map((c) => ({ key: c.name, label: c.name, count: c.count }))}
-          maxRows={15}
+          maxRows={10}
         />
       </div>
-      {locationPoints.length > 0 && (
+      {byCountry.length > 0 && (
         <div>
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Mapa nálezů
+            Mapa nálezů podle států
           </h3>
-          <WorldBubbleMapLoader points={locationPoints} />
+          <WorldChoroplethMapLoader byCountry={byCountry} />
         </div>
       )}
     </section>

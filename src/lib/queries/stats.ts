@@ -11,6 +11,7 @@
 import { FindState } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { countryFromCoords } from "@/lib/geo";
+import { isFormerLocation } from "@/lib/locationCode";
 
 export interface StatsTotals {
   finds: number;
@@ -79,17 +80,6 @@ export interface CountryPoint extends CategoryPoint {
   code: string;
 }
 
-/** One bubble on the world map: a non-anonymized location with a known
- *  GPS centre and the count of finds attributed to it. */
-export interface LocationGeoPoint {
-  id: number;
-  code: string;
-  name: string;
-  lat: number;
-  lng: number;
-  count: number;
-}
-
 export interface FindHighlight {
   id: number;
   /** Find date as ISO string for cheap client serialization. */
@@ -114,10 +104,10 @@ export interface CollectionStats {
    *  precise GPS must not leave the server. */
   byCountry: CountryPoint[];
   /** Find counts grouped by `cadastralArea` ("city/town"). Same
-   *  anonymization rule as `byCountry`. */
+   *  anonymization rule as `byCountry`; vanished places (codes prefixed
+   *  with `NEEXISTUJE-`) are also dropped so the table doesn't list a
+   *  ghost row alongside the still-existing version of the city. */
   byCity: CategoryPoint[];
-  /** Per-location bubbles for the world map. */
-  locationPoints: LocationGeoPoint[];
   locationTypes: CategoryPoint[];
   states: CategoryPoint[];
   /** Hour of day (0..23). Includes only hours that have data. */
@@ -414,15 +404,17 @@ function buildGeoBreakdowns(
 ): {
   byCountry: CountryPoint[];
   byCity: CategoryPoint[];
-  locationPoints: LocationGeoPoint[];
 } {
   const countryAcc = new Map<string, { name: string; count: number }>();
   const cityAcc = new Map<string, number>();
-  const points: LocationGeoPoint[] = [];
 
   for (const r of rows) {
     const c = Number(r.count);
-    if (c > 0) {
+    // Vanished places ("NEEXISTUJE-PRAGUE_…") still get counted in the
+    // country breakdown — they were physically *somewhere* — but the
+    // city tally would otherwise list rows like "NEEXISTUJE-ZLÍN" next
+    // to "ZLÍN", which is misleading. Drop them here.
+    if (c > 0 && !isFormerLocation(r.code)) {
       const cityKey = r.cadastral || r.code;
       cityAcc.set(cityKey, (cityAcc.get(cityKey) ?? 0) + c);
     }
@@ -433,16 +425,6 @@ function buildGeoBreakdowns(
         prev.count += c;
       } else {
         countryAcc.set(country.code, { name: country.name, count: c });
-      }
-      if (c > 0) {
-        points.push({
-          id: r.id,
-          code: r.code,
-          name: r.cadastral || r.code,
-          lat: r.lat,
-          lng: r.lng,
-          count: c,
-        });
       }
     }
   }
@@ -455,5 +437,5 @@ function buildGeoBreakdowns(
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
 
-  return { byCountry, byCity, locationPoints: points };
+  return { byCountry, byCity };
 }

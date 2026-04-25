@@ -1,15 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { LocationGeoPoint } from "@/lib/queries/stats";
+import type { CountryPoint } from "@/lib/queries/stats";
 
 /**
- * { ssr: false } edge for the world bubble map. Mirrors `MapLoader`
+ * { ssr: false } edge for the choropleth world map. Mirrors `MapLoader`
  * under /mapa — Leaflet touches `window` on import so the underlying
  * component must never enter the SSR bundle.
  */
-const WorldBubbleMap = dynamic(
-  () => import("./world-bubble-map").then((m) => m.WorldBubbleMap),
+const WorldChoroplethMap = dynamic(
+  () =>
+    import("./world-choropleth-map").then((m) => m.WorldChoroplethMap),
   {
     ssr: false,
     loading: () => (
@@ -20,10 +21,10 @@ const WorldBubbleMap = dynamic(
   },
 );
 
-export function WorldBubbleMapLoader({
-  points,
+export function WorldChoroplethMapLoader({
+  byCountry,
 }: {
-  points: readonly LocationGeoPoint[];
+  byCountry: readonly CountryPoint[];
 }) {
-  return <WorldBubbleMap points={points} />;
+  return <WorldChoroplethMap byCountry={byCountry} />;
 }
