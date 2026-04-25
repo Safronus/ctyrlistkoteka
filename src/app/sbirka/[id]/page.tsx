@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ImageType } from "@prisma/client";
 import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { StateBadges } from "@/components/finds/state-badges";
@@ -8,6 +9,7 @@ import { formatDateCs, formatDateTimeCs } from "@/lib/format";
 import {
   getFindById,
   getAllFindIds,
+  type PublicImage,
   type PublicLocationMap,
 } from "@/lib/queries/finds";
 
@@ -71,6 +73,16 @@ export default async function FindDetailPage({ params }: PageProps) {
     ? "Anonymizovaná lokalita"
     : (find.location?.displayName ?? find.location?.code ?? "Bez lokality");
 
+  // Each find has at most one main photo (ORIGINAL) and at most one crop
+  // (CROP). If imports leave duplicates behind, we still pick a single
+  // representative for each — the page never shows multiple variants.
+  const mainImage =
+    find.images.find((i) => i.imageType === ImageType.ORIGINAL) ??
+    find.images[0] ??
+    null;
+  const cropImage =
+    find.images.find((i) => i.imageType === ImageType.CROP) ?? null;
+
   return (
     <article className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <nav className="text-sm text-gray-500">
@@ -92,7 +104,7 @@ export default async function FindDetailPage({ params }: PageProps) {
       </header>
 
       <ImageGallery
-        images={find.images}
+        image={mainImage}
         altBase={`Nález č. ${find.id}`}
       />
 
@@ -105,6 +117,7 @@ export default async function FindDetailPage({ params }: PageProps) {
 
       <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Panel title="Detaily">
+          {cropImage && <CropPreview image={cropImage} findId={find.id} />}
           <KeyValue label="ID nálezu" value={`#${find.id}`} />
           <KeyValue
             label="Datum nálezu"
@@ -150,6 +163,31 @@ export default async function FindDetailPage({ params }: PageProps) {
         </Panel>
       </section>
     </article>
+  );
+}
+
+function CropPreview({
+  image,
+  findId,
+}: {
+  image: PublicImage;
+  findId: number;
+}) {
+  return (
+    <figure className="pb-2">
+      <figcaption className="mb-1 text-xs font-medium text-gray-500">
+        Výřez
+      </figcaption>
+      {/* Served by Nginx; Next Image optimizer not needed. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={image.webPath}
+        alt={`Výřez nálezu č. ${findId}`}
+        loading="lazy"
+        decoding="async"
+        className="max-h-56 w-auto rounded-md border border-gray-200"
+      />
+    </figure>
   );
 }
 
