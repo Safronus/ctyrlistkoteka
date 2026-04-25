@@ -5,6 +5,7 @@
 export function formatDateCs(date: Date | null | undefined): string {
   if (!date) return "—";
   return new Intl.DateTimeFormat("cs-CZ", {
+    weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -14,6 +15,7 @@ export function formatDateCs(date: Date | null | undefined): string {
 export function formatShortDateCs(date: Date | null | undefined): string {
   if (!date) return "—";
   return new Intl.DateTimeFormat("cs-CZ", {
+    weekday: "short",
     day: "numeric",
     month: "numeric",
     year: "numeric",
@@ -21,13 +23,14 @@ export function formatShortDateCs(date: Date | null | undefined): string {
 }
 
 /**
- * Compact datetime ("12. 5. 2023 14:23:45") for cramped layouts like
- * the grid card. Mirrors formatDateTimeCs but uses numeric month and
- * drops the "v" word so the whole string fits in a tile column.
+ * Compact datetime ("po 12. 5. 2023 14:23:45") for cramped layouts like
+ * the grid card. Short weekday keeps the column from blowing out, but
+ * the day-of-week is still visible at a glance.
  */
 export function formatShortDateTimeCs(date: Date | null | undefined): string {
   if (!date) return "—";
   return new Intl.DateTimeFormat("cs-CZ", {
+    weekday: "short",
     day: "numeric",
     month: "numeric",
     year: "numeric",
@@ -38,12 +41,15 @@ export function formatShortDateTimeCs(date: Date | null | undefined): string {
 }
 
 /**
- * Long Czech date with full wall-clock time. Used on the find detail page
- * where the EXIF capture time matters. Returns "—" for missing inputs.
+ * Long Czech date with weekday name and full wall-clock time, e.g.
+ * "pondělí 12. května 2018, 14:23:45". Used on the find detail page,
+ * the location detail panel, and the sbirka list rows where the EXIF
+ * capture time matters and there's room for the long form.
  */
 export function formatDateTimeCs(date: Date | null | undefined): string {
   if (!date) return "—";
   return new Intl.DateTimeFormat("cs-CZ", {
+    weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -55,10 +61,14 @@ export function formatDateTimeCs(date: Date | null | undefined): string {
 
 /**
  * Czech-style "how much time has passed since" string. Picks the largest
- * meaningful unit (years, months, days, hours, minutes) and shows the
- * next one too when it's non-zero, so the result reads naturally:
- *   "před 2 lety a 3 měsíci", "před 5 měsíci a 12 dny", "před 4 dny",
- *   "před 3 hodinami", "před chvílí". Returns "—" for null/future.
+ * meaningful unit and shows the next one too when it's non-zero, so the
+ * result reads naturally:
+ *   "před 2 lety a 3 měsíci"
+ *   "před 5 měsíci a 12 dny"
+ *   "před 4 dny a 7 hodinami"
+ *   "před 3 hodinami a 12 minutami"
+ *   "před chvílí"
+ * Returns "—" for null/future.
  */
 export function formatTimeSinceCs(date: Date | null | undefined): string {
   if (!date) return "—";
@@ -68,29 +78,47 @@ export function formatTimeSinceCs(date: Date | null | undefined): string {
 
   const { years, months, days } = calendarDiff(date, now);
 
-  if (years === 0 && months === 0 && days === 0) {
-    const hours = Math.floor(diffMs / 3_600_000);
-    if (hours < 1) {
-      const minutes = Math.floor(diffMs / 60_000);
-      if (minutes < 1) return "před chvílí";
-      return `před ${minutes} ${pluralCs(minutes, ["minutou", "minutami", "minutami"])}`;
-    }
-    return `před ${hours} ${pluralCs(hours, ["hodinou", "hodinami", "hodinami"])}`;
+  const yearsStr = (n: number) =>
+    `${n} ${pluralCs(n, ["rokem", "lety", "lety"])}`;
+  const monthsStr = (n: number) =>
+    `${n} ${pluralCs(n, ["měsícem", "měsíci", "měsíci"])}`;
+  const daysStr = (n: number) =>
+    `${n} ${pluralCs(n, ["dnem", "dny", "dny"])}`;
+  const hoursStr = (n: number) =>
+    `${n} ${pluralCs(n, ["hodinou", "hodinami", "hodinami"])}`;
+  const minutesStr = (n: number) =>
+    `${n} ${pluralCs(n, ["minutou", "minutami", "minutami"])}`;
+
+  if (years > 0) {
+    return months > 0
+      ? `před ${yearsStr(years)} a ${monthsStr(months)}`
+      : `před ${yearsStr(years)}`;
   }
-  if (years === 0 && months === 0) {
-    return `před ${days} ${pluralCs(days, ["dnem", "dny", "dny"])}`;
-  }
-  if (years === 0) {
-    const m = `${months} ${pluralCs(months, ["měsícem", "měsíci", "měsíci"])}`;
-    return days > 0
-      ? `před ${m} a ${days} ${pluralCs(days, ["dnem", "dny", "dny"])}`
-      : `před ${m}`;
-  }
-  const y = `${years} ${pluralCs(years, ["rokem", "lety", "lety"])}`;
   if (months > 0) {
-    return `před ${y} a ${months} ${pluralCs(months, ["měsícem", "měsíci", "měsíci"])}`;
+    return days > 0
+      ? `před ${monthsStr(months)} a ${daysStr(days)}`
+      : `před ${monthsStr(months)}`;
   }
-  return `před ${y}`;
+  if (days > 0) {
+    // Hours-of-day for the open trailing window. floor(diffMs / day)
+    // matches `days` here because no month/year boundary was crossed.
+    const restMs = diffMs - days * 86_400_000;
+    const hours = Math.max(0, Math.floor(restMs / 3_600_000));
+    return hours > 0
+      ? `před ${daysStr(days)} a ${hoursStr(hours)}`
+      : `před ${daysStr(days)}`;
+  }
+  const totalHours = Math.floor(diffMs / 3_600_000);
+  if (totalHours > 0) {
+    const restMs = diffMs - totalHours * 3_600_000;
+    const minutes = Math.floor(restMs / 60_000);
+    return minutes > 0
+      ? `před ${hoursStr(totalHours)} a ${minutesStr(minutes)}`
+      : `před ${hoursStr(totalHours)}`;
+  }
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return "před chvílí";
+  return `před ${minutesStr(minutes)}`;
 }
 
 function calendarDiff(
