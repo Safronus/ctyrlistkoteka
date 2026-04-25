@@ -314,6 +314,32 @@ export async function getAllFindIds(): Promise<number[]> {
 }
 
 /**
+ * Returns the next/previous find IDs in numeric order around `currentId`.
+ * Skips holes — if the user's IDs are 12, 14, 17, then prev(14) = 12
+ * and next(14) = 17. Either side returns null at the ends of the range.
+ */
+export async function getAdjacentFindIds(
+  currentId: number,
+): Promise<{ prevId: number | null; nextId: number | null }> {
+  const [prev, next] = await Promise.all([
+    prisma.find.findFirst({
+      where: { id: { lt: currentId } },
+      orderBy: { id: "desc" },
+      select: { id: true },
+    }),
+    prisma.find.findFirst({
+      where: { id: { gt: currentId } },
+      orderBy: { id: "asc" },
+      select: { id: true },
+    }),
+  ]);
+  return {
+    prevId: prev?.id ?? null,
+    nextId: next?.id ?? null,
+  };
+}
+
+/**
  * IDs of finds that are safe to index in the public sitemap. Anonymized
  * finds are excluded because CLAUDE.md §6 forbids them from appearing in
  * any search-engine surface. Returns lastModified so the sitemap can hint

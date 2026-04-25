@@ -7,8 +7,9 @@ import { ImageGallery } from "@/components/finds/image-gallery";
 import { StateBadges } from "@/components/finds/state-badges";
 import { formatDateTimeCs } from "@/lib/format";
 import {
-  getFindById,
+  getAdjacentFindIds,
   getAllFindIds,
+  getFindById,
   type PublicLocationMap,
 } from "@/lib/queries/finds";
 
@@ -65,7 +66,10 @@ export default async function FindDetailPage({ params }: PageProps) {
   const { id } = await params;
   const numId = Number(id);
   if (!Number.isInteger(numId) || numId <= 0) notFound();
-  const find = await getFindById(numId);
+  const [find, adjacent] = await Promise.all([
+    getFindById(numId),
+    getAdjacentFindIds(numId),
+  ]);
   if (!find) notFound();
 
   // Each find has at most one main photo (ORIGINAL) and at most one crop
@@ -80,10 +84,17 @@ export default async function FindDetailPage({ params }: PageProps) {
 
   return (
     <article className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-      <nav className="text-sm text-gray-500">
+      <nav
+        aria-label="Navigace mezi nálezy"
+        className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500"
+      >
         <Link href="/sbirka" className="hover:text-brand-700">
           ← Zpět na sbírku
         </Link>
+        <div className="flex items-center gap-3">
+          <AdjacentLink direction="prev" id={adjacent.prevId} />
+          <AdjacentLink direction="next" id={adjacent.nextId} />
+        </div>
       </nav>
 
       <header className="space-y-3">
@@ -213,6 +224,36 @@ function Panel({
 
 function formatLocationId(id: number): string {
   return `#${String(id).padStart(5, "0")}`;
+}
+
+function AdjacentLink({
+  direction,
+  id,
+}: {
+  direction: "prev" | "next";
+  id: number | null;
+}) {
+  const label =
+    direction === "prev" ? `← Předchozí #${id}` : `Další #${id} →`;
+  const placeholder = direction === "prev" ? "← Předchozí" : "Další →";
+  if (id === null) {
+    return (
+      <span
+        aria-disabled="true"
+        className="rounded-md border border-gray-200 px-2 py-1 text-gray-300"
+      >
+        {placeholder}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={`/sbirka/${id}`}
+      className="rounded-md border border-gray-200 px-2 py-1 text-gray-700 transition hover:border-brand-200 hover:text-brand-700"
+    >
+      {label}
+    </Link>
+  );
 }
 
 function KeyValue({ label, value }: { label: string; value: string }) {
