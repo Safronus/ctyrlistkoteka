@@ -100,28 +100,28 @@ export async function listLocations(
   const ids = locations.map((l) => l.id);
 
   // ------------------------------------------------------------ thumbnails + anonymization status
-  // Pull every map (anonymized too) so we can both pick a public thumbnail
-  // and decide whether the location is "fully anonymized" — i.e. has maps,
-  // but none of them are public.
+  // A single anonymized map is enough to flag the whole location — we
+  // err on the side of privacy: if even one of a location's maps was
+  // marked anonymized in metadata, none of that location's data can be
+  // surfaced publicly. A public thumbnail is only ever picked from a
+  // map that itself isn't anonymized.
   const maps = await prisma.locationMap.findMany({
     where: { locationId: { in: ids } },
     select: { locationId: true, imagePath: true, isAnonymized: true },
     orderBy: [{ locationId: "asc" }, { id: "asc" }],
   });
   const thumbByLoc = new Map<number, string>();
-  const hasPublicMap = new Set<number>();
-  const hasAnyMap = new Set<number>();
+  const hasAnonymizedMap = new Set<number>();
   for (const m of maps) {
-    hasAnyMap.add(m.locationId);
-    if (!m.isAnonymized) {
-      hasPublicMap.add(m.locationId);
-      if (!thumbByLoc.has(m.locationId)) {
-        thumbByLoc.set(m.locationId, m.imagePath);
-      }
+    if (m.isAnonymized) {
+      hasAnonymizedMap.add(m.locationId);
+      continue;
+    }
+    if (!thumbByLoc.has(m.locationId)) {
+      thumbByLoc.set(m.locationId, m.imagePath);
     }
   }
-  const isAnonymizedLoc = (locId: number) =>
-    hasAnyMap.has(locId) && !hasPublicMap.has(locId);
+  const isAnonymizedLoc = (locId: number) => hasAnonymizedMap.has(locId);
 
   // ------------------------------------------------------------ polygon areas + center coords (PostGIS)
   const geoRows = await prisma.$queryRaw<
@@ -233,16 +233,37 @@ export async function listLocations(
   }
 
   // ------------------------------------------------------------ assemble
-  return locations.map((l) => ({
-    id: l.id,
-    code: l.code,
-    displayName: l.displayName,
-    cadastralArea: l.cadastralArea,
-    locationType: l.locationType,
-    thumbnailUrl: thumbByLoc.get(l.id) ?? null,
-    isAnonymized: isAnonymizedLoc(l.id),
-    polygonAreaM2: areaByLoc.get(l.id) ?? null,
-    coordinates: coordsByLoc.get(l.id) ?? null,
-    stats: totalsByLoc.get(l.id) ?? EMPTY_STATS,
-  }));
+  // Anonymization is enforced HERE — once a location is flagged, the
+  // payload sent to the client carries only id + code + the flag.
+  // Description, cadastral area, location type, polygon area, GPS, the
+  // map thumbnail, and every aggregated stat are stripped server-side
+  // so a frontend bug can never accidentally render them.
+  return locations.map((l) => {
+    if (isAnonymizedLoc(l.id)) {
+      return {
+        id: l.id,
+        code: l.code,
+        displayName: "",
+        cadastralArea: "",
+        locationType: null,
+        thumbnailUrl: null,
+        isAnonymized: true,
+        polygonAreaM2: null,
+        coordinates: null,
+        stats: EMPTY_STATS,
+      };
+    }
+    return {
+      id: l.id,
+      code: l.code,
+      displayName: l.displayName,
+      cadastralArea: l.cadastralArea,
+      locationType: l.locationType,
+      thumbnailUrl: thumbByLoc.get(l.id) ?? null,
+      isAnonymized: false,
+      polygonAreaM2: areaByLoc.get(l.id) ?? null,
+      coordinates: coordsByLoc.get(l.id) ?? null,
+      stats: totalsByLoc.get(l.id) ?? EMPTY_STATS,
+    };
+  });
 }
