@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { StateBadges } from "@/components/finds/state-badges";
 import { formatDateCs, formatDateTimeCs } from "@/lib/format";
-import { getFindById, getAllFindIds } from "@/lib/queries/finds";
+import {
+  getFindById,
+  getAllFindIds,
+  type PublicLocationMap,
+} from "@/lib/queries/finds";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -90,6 +95,14 @@ export default async function FindDetailPage({ params }: PageProps) {
         altBase={`Nález č. ${find.id}`}
       />
 
+      {find.isAnonymized && (
+        <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
+          Tento nález je anonymizovaný — souřadnice jsou zaokrouhlené na
+          přibližnou polohu (~110 m) a poznámka se na veřejném webu
+          nezobrazuje.
+        </p>
+      )}
+
       <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Panel title="Detaily">
           <KeyValue label="ID nálezu" value={`#${find.id}`} />
@@ -97,33 +110,17 @@ export default async function FindDetailPage({ params }: PageProps) {
             label="Datum nálezu"
             value={formatDateTimeCs(find.foundAt)}
           />
-          {find.location && (
-            <>
-              <KeyValue label="Lokalita" value={find.location.displayName} />
-              <KeyValue label="Kód lokality" value={find.location.code} />
-            </>
-          )}
-        </Panel>
-
-        <Panel title="Souřadnice a poznámka">
-          {find.isAnonymized && (
-            <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
-              Tento nález je anonymizovaný — přesné souřadnice a poznámka se
-              na veřejném webu nezobrazují.
-            </p>
-          )}
           {find.coordinates ? (
-            <KeyValue
-              label="GPS"
-              value={`${find.coordinates.lat.toFixed(5)}, ${find.coordinates.lng.toFixed(5)}${
-                find.isAnonymized ? " (přibližné)" : ""
-              }`}
+            <GpsValue
+              lat={find.coordinates.lat}
+              lng={find.coordinates.lng}
+              approximate={find.isAnonymized}
             />
           ) : (
             <KeyValue label="GPS" value="Není k dispozici" />
           )}
           {!find.isAnonymized && find.notes && (
-            <div className="mt-2">
+            <div className="pt-1">
               <p className="text-xs font-medium text-gray-500">Poznámka</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800">
                 {find.notes}
@@ -131,8 +128,46 @@ export default async function FindDetailPage({ params }: PageProps) {
             </div>
           )}
         </Panel>
+
+        {find.location && (
+          <Panel title="Lokalita">
+            <KeyValue label="Lokalita" value={find.location.displayName} />
+            <KeyValue label="Kód lokality" value={find.location.code} />
+            {find.locationMaps.length > 0 && (
+              <LocationMapsGallery maps={find.locationMaps} />
+            )}
+          </Panel>
+        )}
       </section>
     </article>
+  );
+}
+
+function LocationMapsGallery({ maps }: { maps: readonly PublicLocationMap[] }) {
+  return (
+    <div className="space-y-3 pt-2">
+      {maps.map((m) => (
+        <figure
+          key={m.id}
+          className="overflow-hidden rounded-md border border-gray-200 bg-gray-50"
+        >
+          {/* Served by Nginx, no Next.js optimizer (docs/architecture.md). */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={m.imageUrl}
+            alt={m.description ?? "Mapa lokality"}
+            loading="lazy"
+            decoding="async"
+            className="h-auto w-full"
+          />
+          {m.description && (
+            <figcaption className="px-3 py-2 text-xs text-gray-600">
+              {m.description}
+            </figcaption>
+          )}
+        </figure>
+      ))}
+    </div>
   );
 }
 

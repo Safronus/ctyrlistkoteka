@@ -221,14 +221,52 @@ export async function listFinds(
   };
 }
 
-export async function getFindById(id: number): Promise<PublicFind | null> {
+export interface PublicLocationMap {
+  id: number;
+  imageUrl: string;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  description: string | null;
+}
+
+export interface PublicFindDetail extends PublicFind {
+  locationMaps: PublicLocationMap[];
+}
+
+export async function getFindById(
+  id: number,
+): Promise<PublicFindDetail | null> {
   const row = await prisma.find.findUnique({
     where: { id },
     include: LIST_INCLUDE,
   });
   if (!row) return null;
   const [hydrated] = await hydrate([row]);
-  return hydrated ?? null;
+  if (!hydrated) return null;
+
+  let locationMaps: PublicLocationMap[] = [];
+  if (hydrated.location) {
+    const maps = await prisma.locationMap.findMany({
+      where: { locationId: hydrated.location.id, isAnonymized: false },
+      select: {
+        id: true,
+        imagePath: true,
+        imageWidth: true,
+        imageHeight: true,
+        description: true,
+      },
+      orderBy: { id: "asc" },
+    });
+    locationMaps = maps.map((m) => ({
+      id: m.id,
+      imageUrl: m.imagePath,
+      imageWidth: m.imageWidth,
+      imageHeight: m.imageHeight,
+      description: m.description,
+    }));
+  }
+
+  return { ...hydrated, locationMaps };
 }
 
 /** IDs of all known finds — used by generateStaticParams for the detail page. */
