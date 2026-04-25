@@ -345,6 +345,7 @@ async function phaseMaps(
   // has multiple maps per location (~7 dupes in 129 maps) so this is N:1
   // by location code, not 1:1 by mapId.
   const mapToLocation = new Map<number, number>();
+  let anonymizedMapCount = 0;
 
   if (ctx.opts.dryRun) {
     ctx.log.log({
@@ -429,6 +430,15 @@ async function phaseMaps(
       mapImg.width,
       mapImg.height,
     );
+    if (meta.isAnonymized) {
+      anonymizedMapCount += 1;
+      ctx.log.log({
+        event: "maps.anonymized_metadata",
+        level: "info",
+        file: m.filename,
+        location_id: location.id,
+      });
+    }
     const aoi = meta.aoi;
     if (aoi) {
       // Build POLYGON WKT in lng/lat order (PostGIS convention).
@@ -480,6 +490,7 @@ async function phaseMaps(
     level: "info",
     upserted_maps: maps.length,
     upserted_locations: new Set(mapToLocation.values()).size,
+    anonymized_maps: anonymizedMapCount,
   });
 
   return { maps, mapToLocation };
