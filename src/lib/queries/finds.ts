@@ -58,6 +58,9 @@ export interface FindListResult {
   totalPages: number;
 }
 
+/** Sort direction by find ID. `desc` = newest first (default UI). */
+export type FindSort = "desc" | "asc";
+
 /** Build the WHERE clause for a filter set. */
 function buildWhere(f: FindFilters): Prisma.FindWhereInput {
   const where: Prisma.FindWhereInput = {};
@@ -199,6 +202,7 @@ export async function listFinds(
   filters: FindFilters,
   page: number,
   pageSize: number,
+  sort: FindSort = "desc",
 ): Promise<FindListResult> {
   const where = buildWhere(filters);
   const safePage = Math.max(1, page);
@@ -207,7 +211,7 @@ export async function listFinds(
     prisma.find.findMany({
       where,
       include: LIST_INCLUDE,
-      orderBy: [{ foundAt: "desc" }, { id: "desc" }],
+      orderBy: { id: sort },
       take: pageSize,
       skip: (safePage - 1) * pageSize,
     }),

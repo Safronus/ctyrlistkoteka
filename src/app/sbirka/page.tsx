@@ -2,12 +2,18 @@ import type { Metadata } from "next";
 import { FindState } from "@prisma/client";
 import { FilterBar } from "@/components/finds/filter-bar";
 import { FindGrid } from "@/components/finds/find-grid";
+import { FindList } from "@/components/finds/find-list";
+import {
+  ViewSortToolbar,
+  type FindView,
+} from "@/components/finds/view-sort-toolbar";
 import { Pagination } from "@/components/finds/pagination";
 import { FINDS_PER_PAGE } from "@/lib/constants";
 import {
   getFilterOptions,
   listFinds,
   type FindFilters,
+  type FindSort,
 } from "@/lib/queries/finds";
 import { formatCount, FINDS as FINDS_FORMS } from "@/lib/format";
 
@@ -33,6 +39,14 @@ function parseState(value: string | undefined): FindState | undefined {
     : undefined;
 }
 
+function parseSort(value: string | undefined): FindSort {
+  return value === "asc" ? "asc" : "desc";
+}
+
+function parseView(value: string | undefined): FindView {
+  return value === "list" ? "list" : "grid";
+}
+
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
@@ -55,10 +69,12 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     year: parseInt(pickString(sp.year)),
   };
   const page = parseInt(pickString(sp.page)) ?? 1;
+  const sort = parseSort(pickString(sp.sort));
+  const view = parseView(pickString(sp.view));
 
   const [options, result] = await Promise.all([
     getFilterOptions(),
-    listFinds(filters, page, FINDS_PER_PAGE),
+    listFinds(filters, page, FINDS_PER_PAGE, sort),
   ]);
 
   const buildHref = (p: number) => {
@@ -68,6 +84,8 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     if (filters.state) params.set("state", filters.state);
     if (filters.leafCount) params.set("leafs", String(filters.leafCount));
     if (filters.year) params.set("year", String(filters.year));
+    if (sort !== "desc") params.set("sort", sort);
+    if (view !== "grid") params.set("view", view);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return qs ? `/sbirka?${qs}` : "/sbirka";
@@ -94,7 +112,13 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
         }}
       />
 
-      <FindGrid finds={result.items} />
+      <ViewSortToolbar view={view} sort={sort} />
+
+      {view === "list" ? (
+        <FindList finds={result.items} />
+      ) : (
+        <FindGrid finds={result.items} />
+      )}
 
       <Pagination
         page={result.page}

@@ -38,8 +38,15 @@ export function FilterBar({
   };
 
   const clearAll = () => {
+    // Preserve presentation params (view/sort) — they're orthogonal to filters.
+    const params = new URLSearchParams();
+    const view = searchParams.get("view");
+    const sort = searchParams.get("sort");
+    if (view) params.set("view", view);
+    if (sort) params.set("sort", sort);
+    const qs = params.toString();
     startTransition(() => {
-      router.push(pathname);
+      router.push(qs ? `${pathname}?${qs}` : pathname);
     });
   };
 
