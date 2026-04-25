@@ -128,15 +128,27 @@ export default async function FindDetailPage({ params }: PageProps) {
         </p>
       )}
 
-      <Panel title="Lokalita">
-        {find.isAnonymized ? (
-          <p className="text-sm text-gray-600">
-            Konkrétní lokalita anonymizovaného nálezu se nezobrazuje.
+      <Panel
+        title="Lokalita"
+        rightSlot={
+          find.location && (
+            <span className="font-mono text-xs text-gray-500">
+              {formatLocationId(find.location.id)}
+            </span>
+          )
+        }
+      >
+        {find.isAnonymized && (
+          <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
+            Skutečná lokalita anonymizovaného nálezu se nezobrazuje. Místo
+            ní vidíš výchozí lokalitu{" "}
+            {find.location ? formatLocationId(find.location.id) : ""}.
           </p>
-        ) : find.location ? (
+        )}
+        {find.location ? (
           <>
-            <KeyValue label="Lokalita" value={find.location.displayName} />
             <KeyValue label="Kód lokality" value={find.location.code} />
+            <KeyValue label="Popis lokality" value={find.location.displayName} />
           </>
         ) : (
           <p className="text-sm text-gray-600">
@@ -181,17 +193,26 @@ function LocationMapsGallery({ maps }: { maps: readonly PublicLocationMap[] }) {
 
 function Panel({
   title,
+  rightSlot,
   children,
 }: {
   title: string;
+  rightSlot?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5">
-      <h2 className="mb-3 text-sm font-semibold text-gray-900">{title}</h2>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+        {rightSlot}
+      </div>
       <dl className="space-y-2">{children}</dl>
     </section>
   );
+}
+
+function formatLocationId(id: number): string {
+  return `#${String(id).padStart(5, "0")}`;
 }
 
 function KeyValue({ label, value }: { label: string; value: string }) {

@@ -245,19 +245,20 @@ export async function getFindById(
   const [hydrated] = await hydrate([row]);
   if (!hydrated) return null;
 
-  // Anonymized finds: location info must not leak. Replace any real
-  // location maps with the default placeholder (location DEFAULT_LOCATION_ID)
-  // and strip displayName/code on the way out.
+  // Anonymized finds: load the default placeholder location *in full*
+  // (id, code, displayName, maps) and substitute it for the real one so
+  // nothing about the actual location — not even its numeric id — leaks
+  // out of the query layer. The page can render the panel exactly the
+  // same way it does for any other find; the anonymized banner explains
+  // the substitution.
   if (hydrated.isAnonymized) {
+    const placeholder = await fetchPublicLocation(DEFAULT_LOCATION_ID);
     const placeholderMaps = await fetchLocationMaps(DEFAULT_LOCATION_ID);
-    const safeLocation: PublicLocation | null = hydrated.location
-      ? {
-          ...hydrated.location,
-          displayName: "",
-          code: "",
-        }
-      : null;
-    return { ...hydrated, location: safeLocation, locationMaps: placeholderMaps };
+    return {
+      ...hydrated,
+      location: placeholder,
+      locationMaps: placeholderMaps,
+    };
   }
 
   // Non-anonymized: show whatever maps we have for this location.
@@ -265,6 +266,22 @@ export async function getFindById(
     ? await fetchLocationMaps(hydrated.location.id)
     : [];
   return { ...hydrated, locationMaps };
+}
+
+async function fetchPublicLocation(
+  locationId: number,
+): Promise<PublicLocation | null> {
+  const row = await prisma.location.findUnique({
+    where: { id: locationId },
+    select: {
+      id: true,
+      code: true,
+      displayName: true,
+      cadastralArea: true,
+      locationType: true,
+    },
+  });
+  return row ?? null;
 }
 
 async function fetchLocationMaps(
