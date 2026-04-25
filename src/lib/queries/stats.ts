@@ -32,7 +32,17 @@ export interface YearlyPoint {
 
 export interface LocationPoint {
   id: number;
+  /** Raw code for display in the top-locations table. */
+  code: string;
+  /** Description / display name fallback. */
   name: string;
+  count: number;
+}
+
+/** Calendar-axis aggregations independent of the year. */
+export interface CalendarPoint {
+  /** 0–23 for hour, 1–7 (mon–sun) for dow, 1–12 for month. */
+  key: number;
   count: number;
 }
 
@@ -62,6 +72,12 @@ export interface CollectionStats {
   topLocations: LocationPoint[];
   locationTypes: CategoryPoint[];
   states: CategoryPoint[];
+  /** Hour of day (0..23). Includes only hours that have data. */
+  byHour: CalendarPoint[];
+  /** Day of week (1=Monday … 7=Sunday). Includes only DoWs with data. */
+  byDayOfWeek: CalendarPoint[];
+  /** Month of year (1=January … 12=December). Includes only months with data. */
+  byMonthOfYear: CalendarPoint[];
 }
 
 export async function getCollectionStats(): Promise<CollectionStats> {
@@ -83,6 +99,9 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     topLocRows,
     typeRows,
     stateRows,
+    hourRows,
+    dowRows,
+    monthRows,
   ] = await Promise.all([
     prisma.$queryRaw<
       Array<{
@@ -143,17 +162,24 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       GROUP BY 1 ORDER BY 1
     `,
 
+    // Top 10 locations by find count, dropping anonymized locations
+    // (their code/name/findCount can't be exposed publicly per
+    // CLAUDE.md §6).
     prisma.$queryRaw<
-      Array<{ id: number; name: string; count: bigint }>
+      Array<{ id: number; code: string; name: string; count: bigint }>
     >`
       SELECT l.id,
+             l.code,
              COALESCE(NULLIF(l.display_name, ''), l.code) AS name,
              COUNT(f.id) AS count
       FROM locations l
       LEFT JOIN finds f ON f.location_id = l.id
-      GROUP BY l.id, l.display_name, l.code
+      WHERE l.id NOT IN (
+        SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
+      )
+      GROUP BY l.id, l.code, l.display_name
       ORDER BY count DESC, l.id
-      LIMIT 15
+      LIMIT 10
     `,
 
     prisma.$queryRaw<Array<{ type: string; count: bigint }>>`
@@ -169,6 +195,27 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       FROM find_state_assignments
       GROUP BY state
       ORDER BY count DESC
+    `,
+
+    // Calendar axes — ignore time zone offsets (use the find's local
+    // wall-clock the user recorded). Anonymization-stripped foundAt
+    // is fine because `is_anonymized` doesn't affect the timestamp.
+    prisma.$queryRaw<Array<{ hour: number; count: bigint }>>`
+      SELECT EXTRACT(HOUR FROM found_at)::int AS hour, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY 1
+    `,
+    // Postgres DOW: 0=Sunday … 6=Saturday. Convert to ISO 1=Mon … 7=Sun
+    // so the result is naturally ordered for a Czech week.
+    prisma.$queryRaw<Array<{ dow: number; count: bigint }>>`
+      SELECT EXTRACT(ISODOW FROM found_at)::int AS dow, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY 1
+    `,
+    prisma.$queryRaw<Array<{ month: number; count: bigint }>>`
+      SELECT EXTRACT(MONTH FROM found_at)::int AS month, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY 1
     `,
   ]);
 
@@ -213,6 +260,7 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     })),
     topLocations: topLocRows.map((r) => ({
       id: r.id,
+      code: r.code,
       name: r.name,
       count: Number(r.count),
     })),
@@ -222,6 +270,12 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     })),
     states: stateRows.map((r) => ({
       name: r.state,
+      count: Number(r.count),
+    })),
+    byHour: hourRows.map((r) => ({ key: r.hour, count: Number(r.count) })),
+    byDayOfWeek: dowRows.map((r) => ({ key: r.dow, count: Number(r.count) })),
+    byMonthOfYear: monthRows.map((r) => ({
+      key: r.month,
       count: Number(r.count),
     })),
   };
