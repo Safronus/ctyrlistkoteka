@@ -15,8 +15,31 @@ import type { MapData } from "@/lib/queries/map";
 const CZ_CENTER: [number, number] = [49.8, 15.5];
 const CZ_ZOOM = 7;
 
-export function MapView({ data }: { data: MapData }) {
-  const bounds = useMemo(() => computeBounds(data), [data]);
+export function MapView({
+  data,
+  focusLocationId,
+}: {
+  data: MapData;
+  focusLocationId: number | null;
+}) {
+  // When focusing one location, ignore the wide auto-fit and zoom in on
+  // that location's polygon (preferred — shows AOI shape) or its centre
+  // point (fallback — synthesise a tiny ~80 m bbox so the view isn't
+  // scrolled to a single pixel).
+  const bounds = useMemo(() => {
+    if (focusLocationId !== null) {
+      const focused = data.locations.find((l) => l.id === focusLocationId);
+      if (focused) {
+        const fb = focusBounds(focused);
+        if (fb) return fb;
+      }
+    }
+    return computeBounds(data);
+  }, [data, focusLocationId]);
+
+  // Tighter maxZoom when focusing — for a single small AOI we want detail,
+  // not a 14-zoom city overview.
+  const maxFitZoom = focusLocationId !== null ? 19 : 14;
 
   return (
     <MapContainer
@@ -34,7 +57,7 @@ export function MapView({ data }: { data: MapData }) {
       <ImageOverlays overlays={data.overlays} />
       <LocationPolygons locations={data.locations} />
       <FindMarkers markers={data.markers} />
-      {bounds && <FitBounds bounds={bounds} />}
+      {bounds && <FitBounds bounds={bounds} maxZoom={maxFitZoom} />}
       <Legend
         markerCount={data.markers.length}
         locationCount={data.locations.length}
@@ -47,11 +70,43 @@ export function MapView({ data }: { data: MapData }) {
  * Auto-fits the map to all known data on first render. Separate component
  * because `useMap` can only be called inside MapContainer.
  */
-function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
+function FitBounds({
+  bounds,
+  maxZoom,
+}: {
+  bounds: LatLngBoundsExpression;
+  maxZoom: number;
+}) {
   const map = useMap();
   useEffect(() => {
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-  }, [map, bounds]);
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom });
+  }, [map, bounds, maxZoom]);
+  return null;
+}
+
+/**
+ * Bounds for a single focused location. Prefers the AOI polygon when set
+ * so the user gets a clear sense of the search area; falls back to a
+ * small box around the centre point when only the centre is known.
+ */
+function focusBounds(
+  loc: MapData["locations"][number],
+): LatLngBoundsExpression | null {
+  if (loc.polygon) {
+    const coords = loc.polygon.coordinates[0];
+    if (coords && coords.length > 0) {
+      return coords.map(([lng, lat]) => [lat, lng] as [number, number]);
+    }
+  }
+  if (loc.centerLat !== null && loc.centerLng !== null) {
+    // ~80 m square so the fitBounds zoom lands at street level (≈18-19)
+    // rather than maxing at maxZoom because the bbox is degenerate.
+    const d = 0.0004;
+    return [
+      [loc.centerLat - d, loc.centerLng - d],
+      [loc.centerLat + d, loc.centerLng + d],
+    ];
+  }
   return null;
 }
 

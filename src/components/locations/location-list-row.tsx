@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, HelpCircle, MapPin } from "lucide-react";
 import type { LocationListItem } from "@/lib/queries/locations";
 import { GpsValue } from "@/components/finds/gps-value";
 import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
@@ -58,7 +58,10 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
                   lng={location.coordinates.lng}
                 />
               )}
-              <RowCount location={location} />
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <RowCount location={location} />
+                <MapLink location={location} />
+              </div>
             </>
           )}
         </div>
@@ -149,16 +152,28 @@ function RowTitle({ location }: { location: LocationListItem }) {
 }
 
 function RowMeta({ location }: { location: LocationListItem }) {
-  const parts = [
-    location.cadastralArea,
-    location.locationType,
-    location.polygonAreaM2 !== null
-      ? `Plocha ${formatAreaM2(location.polygonAreaM2)}`
-      : null,
-  ].filter(Boolean);
-  if (parts.length === 0) return null;
+  // Druhý řádek: celý kód lokality (font-mono, ne split části — uživatel
+  // viděl jen `cadastral · type` a chtěl celý code) + plocha polygonu.
   return (
-    <p className="truncate text-xs text-gray-500">{parts.join(" · ")}</p>
+    <p className="truncate text-xs text-gray-500">
+      <span className="font-mono">{location.code}</span>
+      {location.polygonAreaM2 !== null && (
+        <> · {`Plocha ${formatAreaM2(location.polygonAreaM2)}`}</>
+      )}
+    </p>
+  );
+}
+
+function MapLink({ location }: { location: LocationListItem }) {
+  return (
+    <Link
+      href={`/mapa?focus=${location.id}`}
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+    >
+      <MapPin className="h-3.5 w-3.5" aria-hidden />
+      <span>Zobrazit na mapě</span>
+    </Link>
   );
 }
 

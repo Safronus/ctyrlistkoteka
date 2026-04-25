@@ -20,6 +20,12 @@ const MapView = dynamic(
   },
 );
 
-export function MapLoader({ data }: { data: MapData }) {
-  return <MapView data={data} />;
+export function MapLoader({
+  data,
+  focusLocationId,
+}: {
+  data: MapData;
+  focusLocationId?: number | null;
+}) {
+  return <MapView data={data} focusLocationId={focusLocationId ?? null} />;
 }
