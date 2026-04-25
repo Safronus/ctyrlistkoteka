@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { getMapData } from "@/lib/queries/map";
-import { MapLoader } from "@/components/map/map-loader";
+import { listLocations } from "@/lib/queries/locations";
+import { MapaShell } from "@/components/map/mapa-shell";
 
 export const metadata: Metadata = {
   title: "Mapa",
-  description:
-    "Interaktivní mapa lokalit a konkrétních nálezů sbírky čtyřlístků.",
+  description: "Interaktivní mapa lokalit sbírky čtyřlístků.",
 };
 
 // `focus` opts the page out of static caching so the focused location is
@@ -27,12 +27,22 @@ export default async function MapaPage({ searchParams }: PageProps) {
   const focusLocationId =
     focusRaw && /^\d+$/.test(focusRaw) ? Number(focusRaw) : null;
 
-  const data = await getMapData();
+  // Sidebar shows the same shape of data as /lokality, including
+  // anonymized rows (rendered with redacted info + a badge). The map
+  // itself still hides anonymized polygons/overlays via getMapData.
+  const [data, sidebarLocations] = await Promise.all([
+    getMapData(),
+    listLocations({ showAnonymized: true, showGone: true }),
+  ]);
 
   return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 125px)" }}>
       <div className="flex-1 overflow-hidden">
-        <MapLoader data={data} focusLocationId={focusLocationId} />
+        <MapaShell
+          mapData={data}
+          sidebarLocations={sidebarLocations}
+          initialFocusId={focusLocationId}
+        />
       </div>
     </div>
   );

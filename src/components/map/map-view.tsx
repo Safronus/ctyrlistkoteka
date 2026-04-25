@@ -1,12 +1,9 @@
 "use client";
 
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
-import L, { type LatLngBoundsExpression } from "leaflet";
+import { type LatLngBoundsExpression } from "leaflet";
 import { useEffect, useMemo } from "react";
 import "leaflet/dist/leaflet.css";
-import "leaflet.markercluster/dist/MarkerCluster.css";
-import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import { FindMarkers } from "./find-markers";
 import { LocationPolygons } from "./location-polygons";
 import { ImageOverlays } from "./image-overlays";
 import type { MapData } from "@/lib/queries/map";
@@ -47,7 +44,7 @@ export function MapView({
       zoom={CZ_ZOOM}
       scrollWheelZoom
       style={{ width: "100%", height: "100%" }}
-      aria-label="Interaktivní mapa nálezů"
+      aria-label="Interaktivní mapa lokalit"
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -59,31 +56,35 @@ export function MapView({
         locations={data.locations}
         focusLocationId={focusLocationId}
       />
-      <FindMarkers markers={data.markers} />
-      {bounds && <FitBounds bounds={bounds} maxZoom={maxFitZoom} />}
-      <Legend
-        markerCount={data.markers.length}
-        locationCount={data.locations.length}
-      />
+      {bounds && (
+        <FitBounds
+          bounds={bounds}
+          maxZoom={maxFitZoom}
+          focusKey={focusLocationId}
+        />
+      )}
     </MapContainer>
   );
 }
 
 /**
- * Auto-fits the map to all known data on first render. Separate component
- * because `useMap` can only be called inside MapContainer.
+ * Auto-fits the map. `focusKey` forces a re-fit whenever the user picks
+ * a new location from the sidebar — without it, useEffect deps wouldn't
+ * change because `bounds` array identity stays the same shape.
  */
 function FitBounds({
   bounds,
   maxZoom,
+  focusKey,
 }: {
   bounds: LatLngBoundsExpression;
   maxZoom: number;
+  focusKey: number | null;
 }) {
   const map = useMap();
   useEffect(() => {
     map.fitBounds(bounds, { padding: [40, 40], maxZoom });
-  }, [map, bounds, maxZoom]);
+  }, [map, bounds, maxZoom, focusKey]);
   return null;
 }
 
@@ -114,63 +115,14 @@ function focusBounds(
 }
 
 /**
- * Small overlay legend, rendered as a Leaflet control so it stays positioned
- * regardless of map panning.
- */
-function Legend({
-  markerCount,
-  locationCount,
-}: {
-  markerCount: number;
-  locationCount: number;
-}) {
-  const map = useMap();
-  useEffect(() => {
-    const control = new L.Control({ position: "topright" });
-    control.onAdd = () => {
-      const div = L.DomUtil.create("div");
-      div.innerHTML = `
-        <div style="background:white;padding:8px 10px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.15);font:12px system-ui">
-          <div style="font-weight:600;color:#111827;margin-bottom:4px">Legenda</div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#4d9748;border:1.5px solid #fff"></span>
-            <span style="color:#374151">Nálezy (${markerCount})</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#a855f7;border:1.5px solid #fff"></span>
-            <span style="color:#374151">Anonymizované</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
-            <span style="display:inline-block;width:10px;height:10px;background:rgba(77,151,72,.25);border:1.5px solid #4d9748"></span>
-            <span style="color:#374151">Lokality (${locationCount})</span>
-          </div>
-        </div>
-      `;
-      L.DomEvent.disableClickPropagation(div);
-      return div;
-    };
-    control.addTo(map);
-    return () => {
-      control.remove();
-    };
-  }, [map, markerCount, locationCount]);
-  return null;
-}
-
-/**
- * Pick the points to fit. Markers (with real GPS) win when present; only
- * fall back to location centres when no markers exist. Then drop any
- * point > 800 km from the median centroid — useful when one or two
- * outlier locations (e.g., Dublin, Reykjavík) would otherwise zoom the
- * view out across the whole Atlantic and hide the dense home cluster.
+ * Pick the points to fit when no focus is given. Drops any point > 800
+ * km from the median centroid so a couple of outlier locations (e.g.
+ * Dublin, Reykjavík) don't zoom the view out across the Atlantic.
  */
 function computeBounds(data: MapData): LatLngBoundsExpression | null {
-  const points: Array<[number, number]> =
-    data.markers.length > 0
-      ? data.markers.map((m) => [m.lat, m.lng])
-      : data.locations
-          .filter((l) => l.centerLat !== null && l.centerLng !== null)
-          .map((l) => [l.centerLat as number, l.centerLng as number]);
+  const points: Array<[number, number]> = data.locations
+    .filter((l) => l.centerLat !== null && l.centerLng !== null)
+    .map((l) => [l.centerLat as number, l.centerLng as number]);
 
   if (points.length === 0) return null;
   if (points.length <= 2) return points as LatLngBoundsExpression;
@@ -180,7 +132,6 @@ function computeBounds(data: MapData): LatLngBoundsExpression | null {
   const inliers = points.filter(
     ([lat, lng]) => haversineKm(lat, lng, medLat, medLng) < 800,
   );
-  // Need at least 2 points to make bounds; otherwise keep the originals.
   return (inliers.length >= 2 ? inliers : points) as LatLngBoundsExpression;
 }
 

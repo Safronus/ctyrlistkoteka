@@ -1,25 +1,19 @@
 /**
  * Map data query. Returns everything the /mapa page needs in one roundtrip:
- *   - find markers (id, lat/lng, anonymized flag)
  *   - location polygons (GeoJSON)
  *   - location map overlays (image URL + bounds)
  *
- * Anonymization is applied here: anonymized finds use coarsened GPS and no
- * note. See CLAUDE.md §6.
+ * Anonymization is applied here per CLAUDE.md §6 — anonymized locations
+ * are dropped from polygons and overlays so the public payload can't
+ * leak a hidden spot via shape or imagery.
+ *
+ * Find markers used to live here too; the page intentionally hides
+ * individual finds now (only locations matter), so the markers query
+ * was removed.
  */
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { ANON_GPS_PRECISION } from "@/lib/constants";
-
-export interface MapMarker {
-  id: number;
-  lat: number;
-  lng: number;
-  isAnonymized: boolean;
-  locationName: string | null;
-  foundAt: string | null; // ISO date for cheap client serialization
-}
 
 export interface MapLocation {
   id: number;
@@ -39,7 +33,6 @@ export interface MapImageOverlay {
 }
 
 export interface MapData {
-  markers: MapMarker[];
   locations: MapLocation[];
   overlays: MapImageOverlay[];
 }
@@ -47,61 +40,14 @@ export interface MapData {
 export async function getMapData(): Promise<MapData> {
   // A location is anonymized if at least one of its maps carries the
   // is_anonymized flag (matching /lokality logic). Everything keyed off
-  // such a location — polygons, markers, overlays — must be omitted from
-  // the public payload entirely.
+  // such a location — polygons, overlays — must be omitted from the
+  // public payload entirely.
   const anonLocRows = await prisma.locationMap.findMany({
     where: { isAnonymized: true },
     select: { locationId: true },
     distinct: ["locationId"],
   });
   const anonLocIds = new Set(anonLocRows.map((r) => r.locationId));
-
-  type MarkerRow = {
-    id: number;
-    lat: number | null;
-    lng: number | null;
-    is_anonymized: boolean;
-    location_id: number | null;
-    location_name: string | null;
-    found_at: Date | null;
-  };
-
-  const markerRows = await prisma.$queryRaw<MarkerRow[]>`
-    SELECT f.id,
-           ST_Y(f.coordinates)::float8 AS lat,
-           ST_X(f.coordinates)::float8 AS lng,
-           f.is_anonymized,
-           f.location_id,
-           COALESCE(l.display_name, l.code) AS location_name,
-           f.found_at
-    FROM finds f
-    LEFT JOIN locations l ON l.id = f.location_id
-    WHERE f.coordinates IS NOT NULL
-  `;
-
-  const factor = 10 ** ANON_GPS_PRECISION;
-  const markers: MapMarker[] = [];
-  for (const r of markerRows) {
-    if (r.lat === null || r.lng === null) continue;
-    // Drop markers from anonymized locations — keeping them would let the
-    // hidden polygon's spot be reverse-engineered from the GPS dots even
-    // though the polygon itself is gone.
-    if (r.location_id !== null && anonLocIds.has(r.location_id)) continue;
-    const lat = r.is_anonymized
-      ? Math.round(r.lat * factor) / factor
-      : r.lat;
-    const lng = r.is_anonymized
-      ? Math.round(r.lng * factor) / factor
-      : r.lng;
-    markers.push({
-      id: r.id,
-      lat,
-      lng,
-      isAnonymized: r.is_anonymized,
-      locationName: r.is_anonymized ? null : r.location_name,
-      foundAt: r.found_at ? r.found_at.toISOString() : null,
-    });
-  }
 
   type LocationRow = {
     id: number;
@@ -173,7 +119,7 @@ export async function getMapData(): Promise<MapData> {
     });
   }
 
-  return { markers, locations, overlays };
+  return { locations, overlays };
 }
 
 /**
