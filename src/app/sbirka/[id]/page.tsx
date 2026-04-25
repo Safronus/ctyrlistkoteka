@@ -6,6 +6,7 @@ import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { StateBadges } from "@/components/finds/state-badges";
 import { formatDateTimeCs, formatLocationId } from "@/lib/format";
+import { isFormerLocation } from "@/lib/locationCode";
 import {
   getAdjacentFindIds,
   getAllFindIds,
@@ -226,13 +227,6 @@ function Panel({
       <dl className="space-y-2">{children}</dl>
     </section>
   );
-}
-
-/** True when a location code marks a vanished location (file convention:
- *  the location-map filename starts with "NEEXISTUJE-", which the parser
- *  preserves verbatim into Location.code). */
-function isFormerLocation(code: string | null | undefined): boolean {
-  return typeof code === "string" && code.startsWith("NEEXISTUJE-");
 }
 
 function AdjacentLink({

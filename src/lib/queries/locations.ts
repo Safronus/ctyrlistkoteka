@@ -9,6 +9,9 @@
 
 import { FindState, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { isFormerLocation } from "@/lib/locationCode";
+
+export type LocationSort = "id" | "code" | "finds";
 
 export interface LocationStats {
   total: number;
@@ -31,6 +34,9 @@ export interface LocationListItem {
    *  (and at least one exists). Identifying fields are then hidden in
    *  the UI just like for anonymized finds. */
   isAnonymized: boolean;
+  /** True when the location-map filename starts with "NEEXISTUJE-",
+   *  marking the place as vanished/former. */
+  isGone: boolean;
   /** Polygon area in square meters when a polygon is recorded, otherwise
    *  null. Computed via PostGIS ST_Area on the geography casting so the
    *  number is real m² rather than square degrees. */
@@ -45,6 +51,13 @@ export interface LocationListItem {
 export interface LocationFilter {
   q?: string;
   cadastralArea?: string;
+  sort?: LocationSort;
+  /** When false, locations whose every map is anonymized are dropped from
+   *  the result. Default is `false` (hidden). */
+  showAnonymized?: boolean;
+  /** When false, locations whose code starts with `NEEXISTUJE-` are
+   *  dropped from the result. Default is `false` (hidden). */
+  showGone?: boolean;
 }
 
 /** Returns the alphabetic list of distinct cadastral areas for the city
@@ -234,11 +247,12 @@ export async function listLocations(
 
   // ------------------------------------------------------------ assemble
   // Anonymization is enforced HERE — once a location is flagged, the
-  // payload sent to the client carries only id + code + the flag.
+  // payload sent to the client carries only id + code + the two flags.
   // Description, cadastral area, location type, polygon area, GPS, the
   // map thumbnail, and every aggregated stat are stripped server-side
   // so a frontend bug can never accidentally render them.
-  return locations.map((l) => {
+  let items: LocationListItem[] = locations.map((l) => {
+    const gone = isFormerLocation(l.code);
     if (isAnonymizedLoc(l.id)) {
       return {
         id: l.id,
@@ -248,6 +262,7 @@ export async function listLocations(
         locationType: null,
         thumbnailUrl: null,
         isAnonymized: true,
+        isGone: gone,
         polygonAreaM2: null,
         coordinates: null,
         stats: EMPTY_STATS,
@@ -261,9 +276,39 @@ export async function listLocations(
       locationType: l.locationType,
       thumbnailUrl: thumbByLoc.get(l.id) ?? null,
       isAnonymized: false,
+      isGone: gone,
       polygonAreaM2: areaByLoc.get(l.id) ?? null,
       coordinates: coordsByLoc.get(l.id) ?? null,
       stats: totalsByLoc.get(l.id) ?? EMPTY_STATS,
     };
   });
+
+  // ------------------------------------------------------------ visibility filters
+  // Both default to hidden — anonymized and former-locations clutter the
+  // common case where a visitor wants to browse active places.
+  if (filter.showAnonymized !== true) {
+    items = items.filter((it) => !it.isAnonymized);
+  }
+  if (filter.showGone !== true) {
+    items = items.filter((it) => !it.isGone);
+  }
+
+  // ------------------------------------------------------------ sort
+  // `id` is the default — keeps the historical ordering visitors are
+  // used to. `code` is locale-aware (Czech collation). `finds` sorts
+  // by descending total — anonymized rows have stats=0 so they fall
+  // to the bottom, which is fine: their counts are private.
+  const sort: LocationSort = filter.sort ?? "id";
+  if (sort === "code") {
+    const collator = new Intl.Collator("cs", { sensitivity: "base" });
+    items.sort((a, b) => collator.compare(a.code, b.code));
+  } else if (sort === "finds") {
+    items.sort(
+      (a, b) => b.stats.total - a.stats.total || a.id - b.id,
+    );
+  } else {
+    items.sort((a, b) => a.id - b.id);
+  }
+
+  return items;
 }

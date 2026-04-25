@@ -28,6 +28,14 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
     }
   };
 
+  // Anonymizace má přednost před zaniklou — privacy je tvrdší. Pokud
+  // by lokalita byla obojí, render se chová jako anonymizovaná.
+  const tone = location.isAnonymized
+    ? "bg-purple-50/60 hover:bg-purple-100/60 focus:bg-purple-100/60"
+    : location.isGone
+      ? "bg-rose-50/60 hover:bg-rose-100/60 focus:bg-rose-100/60"
+      : "hover:bg-brand-50 focus:bg-brand-50";
+
   return (
     <div>
       <div
@@ -36,7 +44,7 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
         onClick={toggle}
         onKeyDown={onKeyDown}
         aria-expanded={open}
-        className="flex w-full cursor-pointer items-stretch gap-4 p-3 text-left transition hover:bg-brand-50 focus:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        className={`flex w-full cursor-pointer items-stretch gap-4 p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${tone}`}
       >
         <RowThumb location={location} />
         <div className="flex min-w-0 flex-1 flex-col justify-between gap-1">
@@ -126,6 +134,16 @@ function RowTitle({ location }: { location: LocationListItem }) {
             ({location.displayName})
           </span>
         )}
+      {location.isAnonymized && (
+        <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800">
+          Anonymizovaná
+        </span>
+      )}
+      {location.isGone && (
+        <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
+          Zaniklá
+        </span>
+      )}
     </div>
   );
 }

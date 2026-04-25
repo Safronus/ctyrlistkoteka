@@ -100,6 +100,17 @@ export function toAsciiCode(code: string): string {
     .replace(/[^\x20-\x7E]/g, "_"); // any remaining non-ASCII → _
 }
 
+/**
+ * True when the location code marks a former / no-longer-existing place.
+ * Convention: location-map filenames for these get the `NEEXISTUJE-`
+ * prefix in front of the original cadastral code.
+ */
+export function isFormerLocation(
+  code: string | null | undefined,
+): boolean {
+  return typeof code === "string" && code.startsWith("NEEXISTUJE-");
+}
+
 function trimTypeTail(t: string): string | null {
   // Strip trailing separator before the 3-digit block ("FOO-" → "FOO").
   const cleaned = t.replace(/[-_]+$/, "");

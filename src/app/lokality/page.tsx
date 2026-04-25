@@ -4,6 +4,7 @@ import { LocationListRow } from "@/components/locations/location-list-row";
 import {
   listCadastralAreas,
   listLocations,
+  type LocationSort,
 } from "@/lib/queries/locations";
 import { formatCount, LOCATIONS } from "@/lib/format";
 
@@ -26,16 +27,29 @@ function pickString(v: string | string[] | undefined): string | undefined {
   return v;
 }
 
+const SORT_VALUES: readonly LocationSort[] = ["id", "code", "finds"];
+
+function parseSort(v: string | undefined): LocationSort {
+  return SORT_VALUES.find((s) => s === v) ?? "id";
+}
+
 export default async function LokalityPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const q = pickString(sp.q) ?? "";
   const city = pickString(sp.city) ?? "";
+  const sort = parseSort(pickString(sp.sort));
+  // Both visibility toggles are opt-in — empty/absent means hidden.
+  const showAnonymized = pickString(sp.showAnon) === "1";
+  const showGone = pickString(sp.showGone) === "1";
 
   const [cities, locations] = await Promise.all([
     listCadastralAreas(),
     listLocations({
       q: q || undefined,
       cadastralArea: city || undefined,
+      sort,
+      showAnonymized,
+      showGone,
     }),
   ]);
 
@@ -51,7 +65,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
 
       <LocationsFilterBar
         cities={cities}
-        current={{ q, city }}
+        current={{ q, city, sort, showAnonymized, showGone }}
       />
 
       {locations.length === 0 ? (
