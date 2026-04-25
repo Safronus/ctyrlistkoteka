@@ -6,7 +6,9 @@
  *   pnpm sync --only=maps|finds|meta
  *   pnpm sync --find=16230     # jednotlivý nález pro debug
  *   pnpm sync --force-regen    # přegeneruj WebP i když existují
- *   pnpm sync --prune          # smaž DB záznamy, kterým chybí soubor
+ *   pnpm sync --prune          # smaž DB orphany (finds, locations,
+ *                              #   location_maps) + WebP v generated/,
+ *                              #   na které už nic v DB neukazuje
  *
  * Pořadí kroků viz docs/sync-workflow.md. Zdroje pravdy:
  *   - název souboru: IDs + kód lokality
@@ -15,7 +17,7 @@
  */
 
 import { createWriteStream, type WriteStream } from "node:fs";
-import { mkdir, readFile, readdir, stat } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, unlink } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { FindState, ImageType, PrismaClient } from "@prisma/client";
 import { z } from "zod";
@@ -890,11 +892,22 @@ async function phasePrune(
     (id) => !knownLocationIds.has(id),
   );
 
+  // Maps on disk = the keys of mapToLocation. Existing rows whose mapId is
+  // no longer on disk are orphans — happens when the user deletes/renames
+  // a map PNG. Find.map relation is onDelete: SetNull, so wiping these
+  // just nulls map_id on referencing finds.
+  const knownMapIds = new Set(mapToLocation.keys());
+  const dbMapIds = (
+    await ctx.prisma.locationMap.findMany({ select: { id: true } })
+  ).map((r) => r.id);
+  const orphanMaps = dbMapIds.filter((id) => !knownMapIds.has(id));
+
   ctx.log.log({
     event: "prune.report",
     level: "info",
     orphan_finds: orphanFinds.length,
     orphan_locations: orphanLocations.length,
+    orphan_maps: orphanMaps.length,
   });
 
   if (!ctx.opts.prune) {
@@ -913,10 +926,24 @@ async function phasePrune(
       note: "no deletions performed (--dry-run)",
       would_delete_finds: orphanFinds.length,
       would_delete_locations: orphanLocations.length,
+      would_delete_maps: orphanMaps.length,
     });
+    // Still scan generated/ so the user sees what would be freed.
+    await pruneGeneratedFiles(ctx);
     return;
   }
 
+  // Order: maps first, then finds, then locations. Cascades:
+  //   - LocationMap delete: nulls find.map_id (Find.map = onDelete: SetNull)
+  //   - Find delete: cascades to FindImage rows
+  //   - Location delete: cascades to remaining LocationMap rows for that
+  //     location (they should already be gone if we deleted them above, so
+  //     this is a no-op unless the orphan-location set diverged)
+  if (orphanMaps.length > 0) {
+    await ctx.prisma.locationMap.deleteMany({
+      where: { id: { in: orphanMaps } },
+    });
+  }
   if (orphanFinds.length > 0) {
     await ctx.prisma.find.deleteMany({ where: { id: { in: orphanFinds } } });
   }
@@ -925,6 +952,121 @@ async function phasePrune(
       where: { id: { in: orphanLocations } },
     });
   }
+
+  // After DB is consistent with disk, drop generated/ files no DB row
+  // points at anymore. Otherwise stats/gallery photos for deleted finds
+  // would still be served (via the WebP that the user hasn't touched).
+  await pruneGeneratedFiles(ctx);
+}
+
+/**
+ * Scans `$GENERATED_DIR/{web,thumb,maps}` and removes any `<sha1>.webp`
+ * file that no FindImage / LocationMap row references. Called from
+ * phasePrune after DB orphans have been deleted, so the reference set
+ * is whatever survived. In --dry-run mode it just reports.
+ *
+ * Files we don't recognise (different extension, non-sha1 basename) are
+ * left alone — covers the case where a future variant gets dropped into
+ * the same dir without us knowing about it.
+ */
+async function pruneGeneratedFiles(ctx: Context): Promise<void> {
+  const refWeb = new Set<string>();
+  const refThumb = new Set<string>();
+  const refMaps = new Set<string>();
+
+  const findImages = await ctx.prisma.findImage.findMany({
+    select: { webPath: true, thumbPath: true },
+  });
+  for (const r of findImages) {
+    const w = extractSha1FromGeneratedPath(r.webPath);
+    const t = extractSha1FromGeneratedPath(r.thumbPath);
+    if (w) refWeb.add(w);
+    if (t) refThumb.add(t);
+  }
+
+  const maps = await ctx.prisma.locationMap.findMany({
+    select: { imagePath: true },
+  });
+  for (const m of maps) {
+    const s = extractSha1FromGeneratedPath(m.imagePath);
+    if (s) refMaps.add(s);
+  }
+
+  const subdirs: Array<[string, ReadonlySet<string>]> = [
+    ["web", refWeb],
+    ["thumb", refThumb],
+    ["maps", refMaps],
+  ];
+
+  let totalDeleted = 0;
+  let totalKept = 0;
+  let totalBytesFreed = 0;
+  const perSubdir: Record<string, { deleted: number; kept: number }> = {};
+
+  for (const [subdir, refSet] of subdirs) {
+    const dir = join(ctx.generatedDir, subdir);
+    const entries = await listFiles(dir);
+    let deleted = 0;
+    let kept = 0;
+    for (const file of entries) {
+      const m = /^([a-f0-9]{40})\.webp$/i.exec(file);
+      if (!m) {
+        kept += 1;
+        continue;
+      }
+      if (refSet.has(m[1]!.toLowerCase())) {
+        kept += 1;
+        continue;
+      }
+      const full = join(dir, file);
+      let size = 0;
+      try {
+        size = (await stat(full)).size;
+      } catch {
+        continue;
+      }
+      if (!ctx.opts.dryRun) {
+        try {
+          await unlink(full);
+        } catch (err) {
+          ctx.log.log({
+            event: "prune.generated.unlink_failed",
+            level: "warn",
+            file: full,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          continue;
+        }
+      }
+      deleted += 1;
+      totalBytesFreed += size;
+    }
+    perSubdir[subdir] = { deleted, kept };
+    totalDeleted += deleted;
+    totalKept += kept;
+  }
+
+  ctx.log.log({
+    event: ctx.opts.dryRun
+      ? "prune.generated.dryrun"
+      : "prune.generated.done",
+    level: "info",
+    deleted_files: totalDeleted,
+    kept_files: totalKept,
+    bytes_freed: totalBytesFreed,
+    by_subdir: perSubdir,
+  });
+}
+
+/**
+ * Pulls the SHA-1 out of a `/generated/{web,thumb,maps}/<sha>.webp`
+ * URL. We accept both the full public URL form (what's stored in DB)
+ * and a bare filename. Returns lowercase hex or null.
+ */
+function extractSha1FromGeneratedPath(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const m = /([a-f0-9]{40})\.webp/i.exec(value);
+  return m ? m[1]!.toLowerCase() : null;
 }
 
 // --------------------------------------------------------------------------
