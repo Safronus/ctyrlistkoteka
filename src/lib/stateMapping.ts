@@ -23,6 +23,7 @@ export const FILENAME_STATE_MAP: ReadonlyMap<string, FindState> = new Map([
   ["BEZGPS", FindState.NO_GPS],
   ["BEZFOTKY", FindState.NO_PHOTO],
   ["DAROVANÝ", FindState.DONATED],
+  ["DAROVANY", FindState.DONATED],
   ["LOKACE-NEEXISTUJE", FindState.LOCATION_GONE],
   // Legacy transliterated forms — kept for compatibility.
   ["NORMA_LNI_", FindState.NORMAL],

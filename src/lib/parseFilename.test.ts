@@ -46,6 +46,7 @@ describe("parseFindFilename — real format (+ separators, diacritics)", () => {
     ["BEZGPS", FindState.NO_GPS],
     ["BEZFOTKY", FindState.NO_PHOTO],
     ["DAROVANÝ", FindState.DONATED],
+    ["DAROVANY", FindState.DONATED],
     ["LOKACE-NEEXISTUJE", FindState.LOCATION_GONE],
   ])("maps STATE %s → %s", (token, expected) => {
     const r = parseFindFilename(
