@@ -11,6 +11,7 @@ import {
   type CalendarPoint,
   type FindHighlight,
   type LocationPoint,
+  type MonthDayPoint,
 } from "@/lib/queries/stats";
 
 export const metadata: Metadata = {
@@ -53,6 +54,7 @@ export default async function StatistikyPage() {
         byHour={stats.byHour}
         byDayOfWeek={stats.byDayOfWeek}
         byMonthOfYear={stats.byMonthOfYear}
+        byMonthDay={stats.byMonthDay}
       />
     </div>
   );
@@ -265,10 +267,12 @@ function CalendarStatsSection({
   byHour,
   byDayOfWeek,
   byMonthOfYear,
+  byMonthDay,
 }: {
   byHour: readonly CalendarPoint[];
   byDayOfWeek: readonly CalendarPoint[];
   byMonthOfYear: readonly CalendarPoint[];
+  byMonthDay: readonly MonthDayPoint[];
 }) {
   const hourly = fillSeries(byHour, HOUR_KEYS);
   const daily = fillSeries(byDayOfWeek, DOW_KEYS);
@@ -281,7 +285,8 @@ function CalendarStatsSection({
           Kalendářní statistiky
         </h2>
         <p className="text-sm text-gray-500">
-          Rozložení nálezů podle hodiny dne, dne v týdnu a měsíce v roce.
+          Rozložení nálezů podle hodiny dne, dne v týdnu, měsíce v roce a
+          po dnech kalendářního roku.
         </p>
       </header>
 
@@ -308,8 +313,152 @@ function CalendarStatsSection({
         labelShort={(k) => MONTH_SHORT[k] ?? String(k)}
         tableColumns={1}
       />
+
+      <MonthDayHeatmap data={byMonthDay} />
     </section>
   );
+}
+
+// Days per month for a leap year so 29. února shows up as a real cell.
+const DAYS_PER_MONTH: Record<number, number> = {
+  1: 31, 2: 29, 3: 31, 4: 30, 5: 31, 6: 30,
+  7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31,
+};
+
+function MonthDayHeatmap({
+  data,
+}: {
+  data: readonly MonthDayPoint[];
+}) {
+  // Sparse data → dense lookup keyed "M-D".
+  const counts = new Map<string, number>();
+  for (const p of data) counts.set(`${p.month}-${p.day}`, p.count);
+
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const months = MONTH_KEYS;
+  const max = data.reduce((m, p) => Math.max(m, p.count), 0);
+
+  // Per-month and per-day totals (real days only — non-existent cells
+  // like 31. února don't contribute).
+  const monthTotals = new Map<number, number>();
+  const dayTotals = new Map<number, number>();
+  let grandTotal = 0;
+  for (const m of months) {
+    let mt = 0;
+    for (const d of days) {
+      if (d > (DAYS_PER_MONTH[m] ?? 31)) continue;
+      const c = counts.get(`${m}-${d}`) ?? 0;
+      mt += c;
+      dayTotals.set(d, (dayTotals.get(d) ?? 0) + c);
+      grandTotal += c;
+    }
+    monthTotals.set(m, mt);
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        Kalendářní heatmapa
+      </h3>
+      <p className="mb-3 text-xs text-gray-500">
+        Počty nálezů podle dne v roce napříč všemi roky. Sytost zelené
+        odpovídá podílu vůči maximálnímu dni ({max}).
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-[11px] tabular-nums">
+          <thead>
+            <tr>
+              <th className="sticky left-0 z-10 bg-white p-1 text-left text-gray-500">
+                {/* corner */}
+              </th>
+              {days.map((d) => (
+                <th
+                  key={d}
+                  className="w-7 p-0.5 text-center font-medium text-gray-500"
+                >
+                  {d}
+                </th>
+              ))}
+              <th className="w-10 p-0.5 text-center font-semibold text-gray-700">
+                Σ
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {months.map((m) => {
+              const monthMax = DAYS_PER_MONTH[m] ?? 31;
+              return (
+                <tr key={m}>
+                  <th className="sticky left-0 z-10 bg-white p-1 pr-2 text-right font-medium text-gray-700">
+                    {capitalize(MONTH_SHORT[m] ?? "")}
+                  </th>
+                  {days.map((d) => {
+                    if (d > monthMax) {
+                      return (
+                        <td
+                          key={d}
+                          className="w-7 border border-gray-100 text-center text-gray-300"
+                          aria-hidden
+                        >
+                          ×
+                        </td>
+                      );
+                    }
+                    const c = counts.get(`${m}-${d}`) ?? 0;
+                    const intensity = max > 0 ? c / max : 0;
+                    // Lightness drops 0.97 → 0.45 as count grows; chroma
+                    // grows so darker cells stay vibrantly green. White
+                    // text once lightness goes below ~0.6.
+                    const L = 0.97 - intensity * 0.5;
+                    const C = 0.04 + intensity * 0.13;
+                    const fg = L < 0.6 ? "#ffffff" : "var(--color-gray-900)";
+                    return (
+                      <td
+                        key={d}
+                        className="w-7 border border-white text-center"
+                        style={{
+                          backgroundColor: `oklch(${L} ${C} 145)`,
+                          color: fg,
+                        }}
+                        title={`${d}. ${MONTH_LABELS[m]}: ${c} ${c === 1 ? "nález" : c >= 2 && c <= 4 ? "nálezy" : "nálezů"}`}
+                      >
+                        {c}
+                      </td>
+                    );
+                  })}
+                  <td className="w-10 border border-gray-100 bg-gray-50 text-center font-semibold text-gray-700">
+                    {monthTotals.get(m) ?? 0}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th className="sticky left-0 z-10 bg-white p-1 pr-2 text-right font-semibold text-gray-700">
+                Σ
+              </th>
+              {days.map((d) => (
+                <td
+                  key={d}
+                  className="w-7 border border-gray-100 bg-gray-50 text-center font-medium text-gray-700"
+                >
+                  {dayTotals.get(d) ?? 0}
+                </td>
+              ))}
+              <td className="w-10 border border-gray-100 bg-brand-50 text-center font-bold text-brand-700">
+                {grandTotal}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function capitalize(s: string): string {
+  return s.length === 0 ? s : s[0]!.toUpperCase() + s.slice(1);
 }
 
 function CalendarSubsection({

@@ -46,6 +46,15 @@ export interface CalendarPoint {
   count: number;
 }
 
+/** One cell of the month×day heatmap (also year-independent). */
+export interface MonthDayPoint {
+  /** 1–12. */
+  month: number;
+  /** 1–31. */
+  day: number;
+  count: number;
+}
+
 export interface CategoryPoint {
   name: string;
   count: number;
@@ -78,6 +87,9 @@ export interface CollectionStats {
   byDayOfWeek: CalendarPoint[];
   /** Month of year (1=January … 12=December). Includes only months with data. */
   byMonthOfYear: CalendarPoint[];
+  /** Month×day heatmap, year-independent. Sparse: only cells that
+   *  have at least one find. */
+  byMonthDay: MonthDayPoint[];
 }
 
 export async function getCollectionStats(): Promise<CollectionStats> {
@@ -102,6 +114,7 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     hourRows,
     dowRows,
     monthRows,
+    monthDayRows,
   ] = await Promise.all([
     prisma.$queryRaw<
       Array<{
@@ -217,6 +230,18 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY 1
     `,
+    // Year-independent month×day heatmap. Returns sparse — only cells
+    // that have any finds; the page fills the rest with zeros.
+    prisma.$queryRaw<
+      Array<{ month: number; day: number; count: bigint }>
+    >`
+      SELECT EXTRACT(MONTH FROM found_at)::int AS month,
+             EXTRACT(DAY FROM found_at)::int AS day,
+             COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `,
   ]);
 
   const t = totalsRow[0];
@@ -276,6 +301,11 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     byDayOfWeek: dowRows.map((r) => ({ key: r.dow, count: Number(r.count) })),
     byMonthOfYear: monthRows.map((r) => ({
       key: r.month,
+      count: Number(r.count),
+    })),
+    byMonthDay: monthDayRows.map((r) => ({
+      month: r.month,
+      day: r.day,
       count: Number(r.count),
     })),
   };
