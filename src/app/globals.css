@@ -39,28 +39,30 @@
    subtle visitors couldn't tell it apart from the neutral light
    theme. */
 [data-theme="clover"] {
-  /* Cards / body — almost white with a faint mint wash. */
-  --color-white: oklch(0.985 0.022 145);
-  /* Page / muted surface (footer, stat panels, expanded detail
-     section). Sits midway between `white` above and the original
-     v2 mint at oklch(0.94 …) — visible green identity but less
-     "drowned in mint" than before. */
-  --color-gray-50: oklch(0.965 0.034 145);
-  --color-gray-100: oklch(0.92 0.05 145);
-  --color-gray-200: oklch(0.85 0.062 145);
-  --color-gray-300: oklch(0.76 0.06 145);
-  --color-gray-400: oklch(0.63 0.055 145);
-  --color-gray-500: oklch(0.5 0.05 145);
-  --color-gray-600: oklch(0.42 0.045 145);
-  --color-gray-700: oklch(0.34 0.04 145);
-  --color-gray-800: oklch(0.25 0.035 145);
-  --color-gray-900: oklch(0.17 0.03 145);
+  /* Cards / body — same lightness/chroma as light-theme's
+     brand-50 highlight (oklch 0.97 0.03 145). Whole UI reads as
+     "the green theme" because every surface picks up the colour
+     normally reserved for hover states elsewhere. */
+  --color-white: oklch(0.965 0.038 145);
+  /* Muted surface (footer, stat panels, expanded list rows). One
+     step deeper into mint so it visibly differentiates from the
+     pale-green cards stacked on top of it. */
+  --color-gray-50: oklch(0.92 0.065 145);
+  --color-gray-100: oklch(0.87 0.082 145);
+  --color-gray-200: oklch(0.79 0.085 145);
+  --color-gray-300: oklch(0.71 0.075 145);
+  --color-gray-400: oklch(0.59 0.07 145);
+  --color-gray-500: oklch(0.49 0.06 145);
+  --color-gray-600: oklch(0.41 0.05 145);
+  --color-gray-700: oklch(0.33 0.045 145);
+  --color-gray-800: oklch(0.24 0.035 145);
+  --color-gray-900: oklch(0.16 0.03 145);
 
-  /* Brand hovers (brand-50/100) need to feel distinct from the now-
-     also-green gray scale — bump saturation so a "hover:bg-brand-50"
-     reads as an active state and not just another mint surface. */
-  --color-brand-50: oklch(0.92 0.11 145);
-  --color-brand-100: oklch(0.86 0.16 145);
+  /* Brand hovers must be louder than the (now also-green) gray
+     scale or "hover:bg-brand-50" wouldn't read as an active
+     state — push lightness down and chroma up. */
+  --color-brand-50: oklch(0.87 0.16 145);
+  --color-brand-100: oklch(0.79 0.21 145);
 }
 
 /* -------- Light — neutral default Tailwind grays ---------------- */
