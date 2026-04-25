@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { anonymize, anonymizeMany } from "./anonymize";
-import { ANON_GPS_PRECISION } from "./constants";
 
 describe("anonymize", () => {
   it("passes through non-anonymized finds unchanged", () => {
@@ -24,21 +23,14 @@ describe("anonymize", () => {
     expect(out.notes).toBeNull();
   });
 
-  it("coarsens GPS to ANON_GPS_PRECISION decimals", () => {
-    expect(ANON_GPS_PRECISION).toBeGreaterThan(0);
+  it("drops GPS entirely on anonymized finds", () => {
     const out = anonymize({
       id: 1,
       isAnonymized: true,
       notes: null,
       coordinates: { lat: 49.36668, lng: 17.88867 },
     });
-    const factor = 10 ** ANON_GPS_PRECISION;
-    expect(out.coordinates!.lat).toBe(
-      Math.round(49.36668 * factor) / factor,
-    );
-    expect(out.coordinates!.lng).toBe(
-      Math.round(17.88867 * factor) / factor,
-    );
+    expect(out.coordinates).toBeNull();
   });
 
   it("keeps null coordinates as null", () => {
