@@ -16,11 +16,15 @@ import {
 import {
   getCollectionStats,
   type CalendarPoint,
+  type CategoryPoint,
+  type CountryPoint,
   type FindHighlight,
+  type LocationGeoPoint,
   type LocationPoint,
   type MonthDayPoint,
   type YearlyPoint,
 } from "@/lib/queries/stats";
+import { WorldBubbleMapLoader } from "@/components/stats/world-bubble-map-loader";
 
 export const metadata: Metadata = {
   title: "Statistiky",
@@ -46,40 +50,28 @@ export default async function StatistikyPage() {
         <TotalCard
           label="nálezů"
           value={fmt.format(totals.finds)}
-          subStats={
-            totals.donatedFinds > 0
-              ? [
-                  {
-                    icon: Gift,
-                    label: "darováno",
-                    value: fmt.format(totals.donatedFinds),
-                  },
-                ]
-              : []
-          }
+          subStats={[
+            {
+              icon: Gift,
+              label: "darováno",
+              value: fmt.format(totals.donatedFinds),
+            },
+          ]}
         />
         <TotalCard
           label="lokalit"
           value={fmt.format(totals.locations)}
           subStats={[
-            ...(totals.anonymizedLocations > 0
-              ? [
-                  {
-                    icon: EyeOff,
-                    label: "anonymizovaných",
-                    value: fmt.format(totals.anonymizedLocations),
-                  },
-                ]
-              : []),
-            ...(totals.goneLocations > 0
-              ? [
-                  {
-                    icon: MapPinOff,
-                    label: "zaniklých",
-                    value: fmt.format(totals.goneLocations),
-                  },
-                ]
-              : []),
+            {
+              icon: EyeOff,
+              label: "anonymizovaných",
+              value: fmt.format(totals.anonymizedLocations),
+            },
+            {
+              icon: MapPinOff,
+              label: "zaniklých",
+              value: fmt.format(totals.goneLocations),
+            },
           ]}
         />
       </section>
@@ -94,6 +86,12 @@ export default async function StatistikyPage() {
       )}
 
       {topLocations.length > 0 && <TopLocationsCard rows={topLocations} />}
+
+      <GeoStatsSection
+        byCountry={stats.byCountry}
+        byCity={stats.byCity}
+        locationPoints={stats.locationPoints}
+      />
 
       <CalendarStatsSection
         byHour={stats.byHour}
@@ -275,6 +273,120 @@ function TopLocationsCard({ rows }: { rows: readonly LocationPoint[] }) {
         ))}
       </ol>
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+//  Geo statistics — country / city tables + world bubble map
+
+function GeoStatsSection({
+  byCountry,
+  byCity,
+  locationPoints,
+}: {
+  byCountry: readonly CountryPoint[];
+  byCity: readonly CategoryPoint[];
+  locationPoints: readonly LocationGeoPoint[];
+}) {
+  // Hide the entire section in the cold-start case (zero non-anonymized
+  // locations have GPS yet) — an empty world map and two zero-row tables
+  // would just be noise.
+  if (
+    byCountry.length === 0 &&
+    byCity.length === 0 &&
+    locationPoints.length === 0
+  ) {
+    return null;
+  }
+  return (
+    <section className="space-y-4">
+      <header>
+        <h2 className="text-lg font-semibold text-gray-900">
+          Podle států a měst
+        </h2>
+        <p className="text-sm text-gray-500">
+          Stát se odvozuje z GPS středu lokality, město z katastrálního
+          území. Anonymizované lokality jsou z přehledu vyloučené (jejich
+          přesné souřadnice se na veřejný web nedostávají).
+        </p>
+      </header>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <CountTable
+          title="Podle států"
+          rows={byCountry.map((c) => ({ key: c.code, label: c.name, count: c.count }))}
+        />
+        <CountTable
+          title="Podle měst (katastrálních území)"
+          rows={byCity.map((c) => ({ key: c.name, label: c.name, count: c.count }))}
+          maxRows={15}
+        />
+      </div>
+      {locationPoints.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Mapa nálezů
+          </h3>
+          <WorldBubbleMapLoader points={locationPoints} />
+        </div>
+      )}
+    </section>
+  );
+}
+
+interface CountRow {
+  key: string;
+  label: string;
+  count: number;
+}
+
+function CountTable({
+  title,
+  rows,
+  maxRows,
+}: {
+  title: string;
+  rows: readonly CountRow[];
+  maxRows?: number;
+}) {
+  const visible = maxRows ? rows.slice(0, maxRows) : rows;
+  const max = visible.reduce((m, r) => Math.max(m, r.count), 0);
+  const truncated = maxRows ? rows.length - visible.length : 0;
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        {title}
+      </h3>
+      {visible.length === 0 ? (
+        <p className="text-sm text-gray-500">Žádná data.</p>
+      ) : (
+        <ol className="space-y-1.5">
+          {visible.map((r, i) => (
+            <li key={r.key} className="flex items-center gap-3">
+              <span className="w-6 shrink-0 text-right font-mono text-xs text-gray-500">
+                {i + 1}.
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm text-gray-900">
+                {r.label}
+              </span>
+              <div className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-full rounded-full bg-brand-500"
+                  style={{ width: max > 0 ? `${(r.count / max) * 100}%` : "0%" }}
+                />
+              </div>
+              <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums text-gray-700">
+                {r.count}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {truncated > 0 && (
+        <p className="mt-3 text-xs text-gray-500">
+          + {truncated} dalších
+        </p>
+      )}
+    </div>
   );
 }
 

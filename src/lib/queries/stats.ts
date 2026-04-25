@@ -10,6 +10,7 @@
 
 import { FindState } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { countryFromCoords } from "@/lib/geo";
 
 export interface StatsTotals {
   finds: number;
@@ -72,6 +73,23 @@ export interface CategoryPoint {
   count: number;
 }
 
+/** A `CategoryPoint` extended with the ISO 3166 country code so the UI
+ *  can render flags or stable React keys without re-deriving them. */
+export interface CountryPoint extends CategoryPoint {
+  code: string;
+}
+
+/** One bubble on the world map: a non-anonymized location with a known
+ *  GPS centre and the count of finds attributed to it. */
+export interface LocationGeoPoint {
+  id: number;
+  code: string;
+  name: string;
+  lat: number;
+  lng: number;
+  count: number;
+}
+
 export interface FindHighlight {
   id: number;
   /** Find date as ISO string for cheap client serialization. */
@@ -91,6 +109,15 @@ export interface CollectionStats {
   monthly: MonthlyPoint[];
   yearly: YearlyPoint[];
   topLocations: LocationPoint[];
+  /** Find counts grouped by country (resolved from each non-anonymized
+   *  location's GPS centre). Anonymized locations are excluded — their
+   *  precise GPS must not leave the server. */
+  byCountry: CountryPoint[];
+  /** Find counts grouped by `cadastralArea` ("city/town"). Same
+   *  anonymization rule as `byCountry`. */
+  byCity: CategoryPoint[];
+  /** Per-location bubbles for the world map. */
+  locationPoints: LocationGeoPoint[];
   locationTypes: CategoryPoint[];
   states: CategoryPoint[];
   /** Hour of day (0..23). Includes only hours that have data. */
@@ -127,6 +154,7 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     dowRows,
     monthRows,
     monthDayRows,
+    geoLocRows,
   ] = await Promise.all([
     prisma.$queryRaw<
       Array<{
@@ -263,6 +291,41 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       GROUP BY 1, 2
       ORDER BY 1, 2
     `,
+
+    // Per-location aggregates with GPS — feeds the country/city tables
+    // and the world bubble map. Anonymized locations are filtered out
+    // (their precise coordinates are private per CLAUDE.md §6); a
+    // separate aggregate would be required to surface their finds at a
+    // coarser country level, and we deliberately don't add one here —
+    // privacy beats completeness on a public stats page.
+    prisma.$queryRaw<
+      Array<{
+        id: number;
+        code: string;
+        cadastral: string;
+        lat: number | null;
+        lng: number | null;
+        count: bigint;
+      }>
+    >`
+      SELECT
+        l.id,
+        l.code,
+        l.cadastral_area AS cadastral,
+        CASE WHEN l.center_point IS NOT NULL
+             THEN ST_Y(l.center_point)::float8
+        END AS lat,
+        CASE WHEN l.center_point IS NOT NULL
+             THEN ST_X(l.center_point)::float8
+        END AS lng,
+        COUNT(f.id) AS count
+      FROM locations l
+      LEFT JOIN finds f ON f.location_id = l.id
+      WHERE l.id NOT IN (
+        SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
+      )
+      GROUP BY l.id, l.code, l.cadastral_area, l.center_point
+    `,
   ]);
 
   const t = totalsRow[0];
@@ -313,6 +376,7 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       name: r.name,
       count: Number(r.count),
     })),
+    ...buildGeoBreakdowns(geoLocRows),
     locationTypes: typeRows.map((r) => ({
       name: r.type,
       count: Number(r.count),
@@ -333,4 +397,63 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       count: Number(r.count),
     })),
   };
+}
+
+/** Splits the per-location aggregate into the three geo breakdowns the
+ *  stats page needs. Pulled out so `getCollectionStats`'s `return` block
+ *  stays a flat shape literal. */
+function buildGeoBreakdowns(
+  rows: ReadonlyArray<{
+    id: number;
+    code: string;
+    cadastral: string;
+    lat: number | null;
+    lng: number | null;
+    count: bigint;
+  }>,
+): {
+  byCountry: CountryPoint[];
+  byCity: CategoryPoint[];
+  locationPoints: LocationGeoPoint[];
+} {
+  const countryAcc = new Map<string, { name: string; count: number }>();
+  const cityAcc = new Map<string, number>();
+  const points: LocationGeoPoint[] = [];
+
+  for (const r of rows) {
+    const c = Number(r.count);
+    if (c > 0) {
+      const cityKey = r.cadastral || r.code;
+      cityAcc.set(cityKey, (cityAcc.get(cityKey) ?? 0) + c);
+    }
+    if (r.lat !== null && r.lng !== null) {
+      const country = countryFromCoords(r.lat, r.lng);
+      const prev = countryAcc.get(country.code);
+      if (prev) {
+        prev.count += c;
+      } else {
+        countryAcc.set(country.code, { name: country.name, count: c });
+      }
+      if (c > 0) {
+        points.push({
+          id: r.id,
+          code: r.code,
+          name: r.cadastral || r.code,
+          lat: r.lat,
+          lng: r.lng,
+          count: c,
+        });
+      }
+    }
+  }
+
+  const byCountry: CountryPoint[] = [...countryAcc.entries()]
+    .map(([code, v]) => ({ code, name: v.name, count: v.count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
+
+  const byCity: CategoryPoint[] = [...cityAcc.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
+
+  return { byCountry, byCity, locationPoints: points };
 }
