@@ -26,19 +26,12 @@ export function FindList({ finds }: { finds: readonly PublicFind[] }) {
 }
 
 function FindListRow({ find }: { find: PublicFind }) {
-  // Anonymized finds must not leak their actual location id or label here,
-  // mirroring the detail page's substitution. Coordinates and notes are
-  // already stripped upstream by anonymize().
-  const locationName = find.isAnonymized
-    ? "Anonymizovaná lokalita"
-    : (find.location?.displayName ?? find.location?.code ?? "Bez lokality");
-  const locationId =
-    !find.isAnonymized && find.location
-      ? formatLocationId(find.location.id)
-      : null;
+  // Anonymized finds must not leak their actual location id, code, or
+  // description here — mirrors the detail page's substitution. Coords
+  // and notes are already stripped upstream by anonymize().
   const altText = find.isAnonymized
     ? `Anonymizovaný nález #${find.id}`
-    : `Nález #${find.id} – ${locationName}`;
+    : `Nález #${find.id}`;
 
   return (
     <Link
@@ -50,26 +43,11 @@ function FindListRow({ find }: { find: PublicFind }) {
         alt={altText}
         className="h-24 w-24 shrink-0 rounded-md sm:h-28 sm:w-28"
       />
+
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        {/* Title row: #ID, #LocId and location label all left, datetime
-            flush right. The location label truncates on narrow widths. */}
+        {/* Title row: #ID + #LocId - CODE (description), datetime right. */}
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="text-base font-semibold text-brand-700 group-hover:underline">
-              #{find.id}
-            </span>
-            {locationId && (
-              <span className="font-mono text-xs text-gray-500">
-                {locationId}
-              </span>
-            )}
-            <span
-              className="truncate text-sm text-gray-700"
-              title={locationName}
-            >
-              {locationName}
-            </span>
-          </div>
+          <FindTitle find={find} />
           <span className="shrink-0 text-xs text-gray-500">
             {formatDateTimeCs(find.foundAt)}
           </span>
@@ -91,6 +69,68 @@ function FindListRow({ find }: { find: PublicFind }) {
           </div>
         )}
       </div>
+
+      {/* Location map thumbnail — kept off small screens to preserve room
+       *  for the title text. Hidden entirely for anonymized finds. */}
+      {find.locationThumbUrl && (
+        <div className="hidden shrink-0 sm:block">
+          {/* Served by Nginx; Next Image optimizer not needed. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={find.locationThumbUrl}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            decoding="async"
+            className="h-24 w-24 rounded-md border border-gray-200 object-cover sm:h-28 sm:w-28"
+          />
+        </div>
+      )}
     </Link>
+  );
+}
+
+function FindTitle({ find }: { find: PublicFind }) {
+  if (find.isAnonymized) {
+    return (
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className="text-base font-semibold text-brand-700 group-hover:underline">
+          #{find.id}
+        </span>
+        <span className="truncate text-sm text-gray-700">
+          Anonymizovaná lokalita
+        </span>
+      </div>
+    );
+  }
+
+  const loc = find.location;
+  return (
+    <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+      <span className="text-base font-semibold text-brand-700 group-hover:underline">
+        #{find.id}
+      </span>
+      {loc ? (
+        <>
+          <span className="font-mono text-xs text-gray-500">
+            {formatLocationId(loc.id)}
+          </span>
+          <span className="text-gray-400">–</span>
+          <span className="truncate text-sm text-gray-800" title={loc.code}>
+            {loc.code}
+          </span>
+          {loc.displayName && loc.displayName !== loc.code && (
+            <span
+              className="truncate text-sm text-gray-500"
+              title={loc.displayName}
+            >
+              ({loc.displayName})
+            </span>
+          )}
+        </>
+      ) : (
+        <span className="text-sm text-gray-700">Bez lokality</span>
+      )}
+    </div>
   );
 }

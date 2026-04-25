@@ -40,6 +40,10 @@ export interface PublicFind {
   states: FindState[];
   images: PublicImage[];
   primaryImage: PublicImage | null;
+  /** First non-anonymized location map URL — used as a thumbnail in list
+   *  rows. `null` when the find has no location, the location has no
+   *  available maps, or the find itself is anonymized. */
+  locationThumbUrl: string | null;
 }
 
 export interface FindFilters {
@@ -165,6 +169,10 @@ async function hydrate(
       states: r.states.map((s) => s.state),
       images,
       primaryImage: images[0] ?? null,
+      // Filled in by listFinds via a single bulk LocationMap query — see
+      // attachLocationThumbs. Keeping it on the base shape avoids a second
+      // PublicFind type just for list rows.
+      locationThumbUrl: null as string | null,
     };
   });
 }
@@ -213,6 +221,7 @@ export async function listFinds(
     }),
   ]);
   const items = await hydrate(rows);
+  await attachLocationThumbs(items);
   return {
     items,
     total,
@@ -220,6 +229,41 @@ export async function listFinds(
     pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
   };
+}
+
+/**
+ * In-place: fills `locationThumbUrl` on each find with the URL of the
+ * first non-anonymized location map for that find's location. Done in a
+ * single bulk query against location_maps so the page render stays at
+ * one extra round-trip regardless of page size. Anonymized finds never
+ * receive a thumb — disclosing the location's map would defeat the
+ * point of anonymization.
+ */
+async function attachLocationThumbs(finds: PublicFind[]): Promise<void> {
+  const locationIds = [
+    ...new Set(
+      finds
+        .filter((f) => !f.isAnonymized && f.location)
+        .map((f) => f.location!.id),
+    ),
+  ];
+  if (locationIds.length === 0) return;
+
+  const maps = await prisma.locationMap.findMany({
+    where: { locationId: { in: locationIds }, isAnonymized: false },
+    select: { locationId: true, imagePath: true },
+    orderBy: [{ locationId: "asc" }, { id: "asc" }],
+  });
+  const firstByLoc = new Map<number, string>();
+  for (const m of maps) {
+    if (!firstByLoc.has(m.locationId)) {
+      firstByLoc.set(m.locationId, m.imagePath);
+    }
+  }
+  for (const f of finds) {
+    if (f.isAnonymized || !f.location) continue;
+    f.locationThumbUrl = firstByLoc.get(f.location.id) ?? null;
+  }
 }
 
 export interface PublicLocationMap {
