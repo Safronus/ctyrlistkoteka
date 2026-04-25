@@ -357,6 +357,15 @@ const DAYS_PER_MONTH: Record<number, number> = {
   7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31,
 };
 
+// Heatmap palette — deliberately theme-blind. The green ramp itself
+// carries the meaning; if dark mode flipped these values, a "0" cell
+// rendered with "white" bg would read as a high-count cell, the same
+// way a "white" border would suddenly become a black grid line.
+const HEATMAP_EMPTY_BG = "oklch(0.97 0.04 145)"; // count=0 + × cells
+const HEATMAP_TEXT_DARK = "oklch(0.18 0.03 145)"; // cells with light bg
+const HEATMAP_X_TEXT = "oklch(0.7 0.02 145)"; // muted × glyph
+const HEATMAP_BORDER = "oklch(1 0 0)"; // pure white grid line
+
 function MonthDayHeatmap({
   data,
 }: {
@@ -426,13 +435,21 @@ function MonthDayHeatmap({
                   </th>
                   {days.map((d) => {
                     if (d > monthMax) {
-                      // Non-existent dates render with no border so they
-                      // visually disappear into the card surface — only
-                      // the "×" mark hints they exist.
+                      // Non-existent dates: hardcoded light-green bg
+                      // matching count=0 cells, with a faint × glyph.
+                      // Theme-blind so dark mode doesn't paint them
+                      // black via inherited bg-white. `borderColor`
+                      // matches the count cells' "border-white" so the
+                      // collapse-shared edge is invisible across themes.
                       return (
                         <td
                           key={d}
-                          className="w-7 text-center text-gray-300"
+                          className="w-7 border text-center"
+                          style={{
+                            backgroundColor: HEATMAP_EMPTY_BG,
+                            color: HEATMAP_X_TEXT,
+                            borderColor: HEATMAP_BORDER,
+                          }}
                           aria-hidden
                         >
                           ×
@@ -442,18 +459,21 @@ function MonthDayHeatmap({
                     const c = counts.get(`${m}-${d}`) ?? 0;
                     const intensity = max > 0 ? c / max : 0;
                     // Lightness drops 0.97 → 0.45 as count grows; chroma
-                    // grows so darker cells stay vibrantly green. White
-                    // text once lightness goes below ~0.6.
+                    // grows so darker cells stay vibrantly green. Text
+                    // colour decided purely by the cell's lightness —
+                    // theme-blind so the heatmap renders identically
+                    // in clover / light / dark.
                     const L = 0.97 - intensity * 0.5;
                     const C = 0.04 + intensity * 0.13;
-                    const fg = L < 0.6 ? "#ffffff" : "var(--color-gray-900)";
+                    const fg = L < 0.6 ? "#ffffff" : HEATMAP_TEXT_DARK;
                     return (
                       <td
                         key={d}
-                        className="w-7 border border-white text-center"
+                        className="w-7 border text-center"
                         style={{
                           backgroundColor: `oklch(${L} ${C} 145)`,
                           color: fg,
+                          borderColor: HEATMAP_BORDER,
                         }}
                         title={`${d}. ${MONTH_LABELS[m]}: ${c} ${c === 1 ? "nález" : c >= 2 && c <= 4 ? "nálezy" : "nálezů"}`}
                       >
