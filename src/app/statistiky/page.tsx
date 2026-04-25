@@ -485,22 +485,22 @@ function CalendarSubsection({
         {title}
       </h3>
 
-      {/* Vertical column chart */}
+      {/* Vertical column chart. Bars are direct flex children of the
+          fixed-height row so their percentage heights resolve against
+          h-32. Wrapping each bar in a flex column killed that height
+          context (items-end shrinks columns to content), which is why
+          every bar previously rendered as a 2 px sliver. */}
       <div className="flex h-32 items-end gap-1">
         {data.map((d) => (
           <div
             key={d.key}
-            className="flex flex-1 flex-col items-center justify-end gap-1"
+            className="flex-1 rounded-t bg-brand-500"
+            style={{
+              height: max > 0 ? `${(d.count / max) * 100}%` : "0%",
+              minHeight: d.count > 0 ? "2px" : "0",
+            }}
             title={`${labelLong(d.key)}: ${d.count}`}
-          >
-            <div
-              className="w-full rounded-t bg-brand-500"
-              style={{
-                height: max > 0 ? `${(d.count / max) * 100}%` : "0%",
-                minHeight: d.count > 0 ? "2px" : "0",
-              }}
-            />
-          </div>
+          />
         ))}
       </div>
       {/* X-axis labels — outside the flex height so empty bars don't push them around */}
