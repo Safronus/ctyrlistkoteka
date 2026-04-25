@@ -16,10 +16,8 @@ export interface StatsTotals {
   locations: number;
   photographed: number;
   anonymized: number;
-  averageLeaves: number;
   firstYear: number | null;
   lastYear: number | null;
-  maxLeaves: number | null;
 }
 
 export interface MonthlyPoint {
@@ -48,7 +46,6 @@ export interface CollectionStats {
   monthly: MonthlyPoint[];
   yearly: YearlyPoint[];
   topLocations: LocationPoint[];
-  leafDistribution: CategoryPoint[];
   locationTypes: CategoryPoint[];
   states: CategoryPoint[];
 }
@@ -59,7 +56,6 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     monthlyRows,
     yearlyRows,
     topLocRows,
-    leafRows,
     typeRows,
     stateRows,
   ] = await Promise.all([
@@ -69,10 +65,8 @@ export async function getCollectionStats(): Promise<CollectionStats> {
         locations: bigint;
         photographed: bigint;
         anonymized: bigint;
-        avg_leaves: number | null;
         first_year: number | null;
         last_year: number | null;
-        max_leaves: number | null;
       }>
     >`
       SELECT
@@ -80,10 +74,8 @@ export async function getCollectionStats(): Promise<CollectionStats> {
         (SELECT COUNT(*) FROM locations) AS locations,
         (SELECT COUNT(DISTINCT find_id) FROM find_images) AS photographed,
         (SELECT COUNT(*) FROM finds WHERE is_anonymized = true) AS anonymized,
-        (SELECT AVG(leaf_count)::float8 FROM finds) AS avg_leaves,
         (SELECT EXTRACT(YEAR FROM MIN(found_at))::int FROM finds) AS first_year,
-        (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year,
-        (SELECT MAX(leaf_count) FROM finds) AS max_leaves
+        (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year
     `,
 
     prisma.$queryRaw<Array<{ month: Date; count: bigint }>>`
@@ -111,12 +103,6 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       LIMIT 15
     `,
 
-    prisma.$queryRaw<Array<{ leaf_count: number; count: bigint }>>`
-      SELECT leaf_count, COUNT(*) AS count
-      FROM finds
-      GROUP BY 1 ORDER BY 1
-    `,
-
     prisma.$queryRaw<Array<{ type: string; count: bigint }>>`
       SELECT l.location_type AS type, COUNT(f.id) AS count
       FROM locations l
@@ -139,12 +125,8 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     locations: t ? Number(t.locations) : 0,
     photographed: t ? Number(t.photographed) : 0,
     anonymized: t ? Number(t.anonymized) : 0,
-    averageLeaves: t?.avg_leaves
-      ? Math.round(t.avg_leaves * 100) / 100
-      : 0,
     firstYear: t?.first_year ?? null,
     lastYear: t?.last_year ?? null,
-    maxLeaves: t?.max_leaves ?? null,
   };
 
   return {
@@ -160,10 +142,6 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     topLocations: topLocRows.map((r) => ({
       id: r.id,
       name: r.name,
-      count: Number(r.count),
-    })),
-    leafDistribution: leafRows.map((r) => ({
-      name: `${r.leaf_count} lístků`,
       count: Number(r.count),
     })),
     locationTypes: typeRows.map((r) => ({

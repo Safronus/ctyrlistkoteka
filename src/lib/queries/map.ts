@@ -1,6 +1,6 @@
 /**
  * Map data query. Returns everything the /mapa page needs in one roundtrip:
- *   - find markers (id, lat/lng, leafCount, anonymized flag)
+ *   - find markers (id, lat/lng, anonymized flag)
  *   - location polygons (GeoJSON)
  *   - location map overlays (image URL + bounds)
  *
@@ -16,7 +16,6 @@ export interface MapMarker {
   id: number;
   lat: number;
   lng: number;
-  leafCount: number;
   isAnonymized: boolean;
   locationName: string | null;
   foundAt: string | null; // ISO date for cheap client serialization
@@ -50,7 +49,6 @@ export async function getMapData(): Promise<MapData> {
     id: number;
     lat: number | null;
     lng: number | null;
-    leaf_count: number;
     is_anonymized: boolean;
     location_name: string | null;
     found_at: Date | null;
@@ -60,7 +58,6 @@ export async function getMapData(): Promise<MapData> {
     SELECT f.id,
            ST_Y(f.coordinates)::float8 AS lat,
            ST_X(f.coordinates)::float8 AS lng,
-           f.leaf_count,
            f.is_anonymized,
            COALESCE(l.display_name, l.code) AS location_name,
            f.found_at
@@ -83,7 +80,6 @@ export async function getMapData(): Promise<MapData> {
       id: r.id,
       lat,
       lng,
-      leafCount: r.leaf_count,
       isAnonymized: r.is_anonymized,
       locationName: r.is_anonymized ? null : r.location_name,
       foundAt: r.found_at ? r.found_at.toISOString() : null,

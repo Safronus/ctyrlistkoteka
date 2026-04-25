@@ -65,7 +65,6 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     q: pickString(sp.q) ?? undefined,
     locationId: parseInt(pickString(sp.loc)),
     state: parseState(pickString(sp.state)),
-    leafCount: parseInt(pickString(sp.leafs)),
     year: parseInt(pickString(sp.year)),
   };
   const page = parseInt(pickString(sp.page)) ?? 1;
@@ -82,7 +81,6 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     if (filters.q) params.set("q", filters.q);
     if (filters.locationId) params.set("loc", String(filters.locationId));
     if (filters.state) params.set("state", filters.state);
-    if (filters.leafCount) params.set("leafs", String(filters.leafCount));
     if (filters.year) params.set("year", String(filters.year));
     if (sort !== "desc") params.set("sort", sort);
     if (view !== "grid") params.set("view", view);
@@ -107,7 +105,6 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
           q: filters.q ?? "",
           locationId: filters.locationId ? String(filters.locationId) : "",
           state: filters.state ?? "",
-          leafCount: filters.leafCount ? String(filters.leafCount) : "",
           year: filters.year ? String(filters.year) : "",
         }}
       />

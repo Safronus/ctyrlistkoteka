@@ -41,6 +41,5 @@ export function formatCount(
 }
 
 export const FINDS = ["nález", "nálezy", "nálezů"] as const;
-export const LEAVES = ["lístek", "lístky", "lístků"] as const;
 export const LOCATIONS = ["lokalita", "lokality", "lokalit"] as const;
 export const YEARS = ["rok", "roky", "let"] as const;

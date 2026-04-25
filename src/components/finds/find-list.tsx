@@ -56,12 +56,9 @@ function FindListRow({ find }: { find: PublicFind }) {
           <p className="truncate text-sm text-gray-600">{find.notes}</p>
         )}
 
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs font-semibold text-brand-700">
-            {find.leafCount} lístků
-          </span>
+        {find.states.length > 0 && (
           <StateBadges states={find.states} />
-        </div>
+        )}
       </div>
     </Link>
   );

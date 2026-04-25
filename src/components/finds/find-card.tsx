@@ -36,12 +36,9 @@ export function FindCard({ find }: { find: PublicFind }) {
         >
           {locationName}
         </p>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-brand-700">
-            {find.leafCount} lístků
-          </span>
+        {find.states.length > 0 && (
           <StateBadges states={find.states} />
-        </div>
+        )}
       </div>
     </Link>
   );

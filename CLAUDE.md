@@ -15,7 +15,9 @@ Doména: `ctyrlistkoteka.cz` (DNS u hukot.net). Provoz: OVH VPS-2.
 1. **Domů** — uvítací stránka s úvodem a hlavními ukazateli sbírky
 2. **Sbírka** — galerie nálezů s filtry, hledáním a detailem nálezu
 3. **Mapa** — OpenStreetMap s polygonálními vrstvami lokalit + PNG overlay mapami
-4. **Statistiky** — souhrnné grafy (časová řada, top lokality, rozložení počtu lístků atd.)
+4. **Statistiky** — souhrnné grafy (časová řada, top lokality, typy prostředí, stavy nálezů)
+
+> **Invariant:** sbírka obsahuje výhradně **čtyřlístky**. Žádné pětilístky, šestilístky atd. UI proto nezobrazuje „počet lístků" ani podle něj nefiltruje. Sloupec `finds.leaf_count` je v DB zachován s `DEFAULT 4` čistě jako historický artefakt schématu.
 
 ### Cílová skupina a priority
 

@@ -544,7 +544,6 @@ async function phaseFinds(
         locationId,
         mapId,
         foundAt: exif.dateTaken ?? null,
-        leafCount: 4,
         isAnonymized: f.parsed.isAnonymized,
       },
       update: {

@@ -18,7 +18,6 @@ export function FilterBar({
     q: string;
     locationId: string;
     state: string;
-    leafCount: string;
     year: string;
   };
 }) {
@@ -51,7 +50,7 @@ export function FilterBar({
   };
 
   const hasAny =
-    current.q || current.locationId || current.state || current.leafCount || current.year;
+    current.q || current.locationId || current.state || current.year;
 
   return (
     <div
@@ -59,7 +58,7 @@ export function FilterBar({
         isPending ? "opacity-60" : ""
       }`}
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <label className="lg:col-span-2">
           <span className="mb-1 block text-xs font-medium text-gray-700">
             Hledat
@@ -117,24 +116,6 @@ export function FilterBar({
             {options.states.map((s) => (
               <option key={s} value={s}>
                 {STATE_LABELS[s as FindState]}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          <span className="mb-1 block text-xs font-medium text-gray-700">
-            Lístků
-          </span>
-          <select
-            value={current.leafCount}
-            onChange={(e) => update("leafs", e.currentTarget.value)}
-            className={`${INPUT_CLS} w-full`}
-          >
-            <option value="">Vše</option>
-            {options.leafCounts.map((n) => (
-              <option key={n} value={String(n)}>
-                {n}
               </option>
             ))}
           </select>

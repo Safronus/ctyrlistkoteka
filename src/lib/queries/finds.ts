@@ -32,7 +32,6 @@ export interface PublicLocation {
 export interface PublicFind {
   id: number;
   foundAt: Date | null;
-  leafCount: number;
   notes: string | null; // nulled for anonymized
   isAnonymized: boolean;
   coordinates: { lat: number; lng: number } | null; // coarsened for anonymized
@@ -46,7 +45,6 @@ export interface FindFilters {
   q?: string;
   locationId?: number;
   state?: FindState;
-  leafCount?: number;
   year?: number;
 }
 
@@ -67,7 +65,6 @@ function buildWhere(f: FindFilters): Prisma.FindWhereInput {
   const and: Prisma.FindWhereInput[] = [];
 
   if (f.locationId) and.push({ locationId: f.locationId });
-  if (f.leafCount) and.push({ leafCount: f.leafCount });
   if (f.state) and.push({ states: { some: { state: f.state } } });
   if (f.year) {
     const from = new Date(Date.UTC(f.year, 0, 1));
@@ -105,7 +102,6 @@ async function hydrate(
   rows: Array<{
     id: number;
     foundAt: Date | null;
-    leafCount: number;
     notes: string | null;
     isAnonymized: boolean;
     location: {
@@ -161,7 +157,6 @@ async function hydrate(
     return {
       id: r.id,
       foundAt: r.foundAt,
-      leafCount: r.leafCount,
       notes: safe.notes,
       isAnonymized: r.isAnonymized,
       coordinates: safe.coordinates,
@@ -262,20 +257,14 @@ export async function getIndexableFinds(): Promise<
 export interface FilterOptions {
   locations: Array<{ id: number; label: string }>;
   states: FindState[];
-  leafCounts: number[];
   years: number[];
 }
 
 export async function getFilterOptions(): Promise<FilterOptions> {
-  const [locations, leafCountRows, yearRows] = await Promise.all([
+  const [locations, yearRows] = await Promise.all([
     prisma.location.findMany({
       select: { id: true, code: true, displayName: true },
       orderBy: { displayName: "asc" },
-    }),
-    prisma.find.findMany({
-      distinct: ["leafCount"],
-      select: { leafCount: true },
-      orderBy: { leafCount: "asc" },
     }),
     prisma.$queryRaw<Array<{ year: number }>>`
       SELECT DISTINCT EXTRACT(YEAR FROM found_at)::int AS year
@@ -291,7 +280,6 @@ export async function getFilterOptions(): Promise<FilterOptions> {
       label: l.displayName || l.code,
     })),
     states: Object.values(FindState),
-    leafCounts: leafCountRows.map((r) => r.leafCount),
     years: yearRows.map((r) => r.year),
   };
 }

@@ -78,15 +78,16 @@ polygonem.
 | `location_id` | INTEGER FK → locations NULL | z JSON `lokace` |
 | `map_id` | INTEGER FK → location_maps NULL | MAP_NUMBER z filename |
 | `found_at` | DATE NULL | z EXIF `DateTimeOriginal` |
-| `leaf_count` | SMALLINT DEFAULT 4 | 4, 5, 6, 7… |
+| `leaf_count` | SMALLINT NOT NULL DEFAULT 4 | Vždy 4 — sbírka obsahuje výhradně čtyřlístky. Sloupec je v DB zachován jako historický artefakt schématu, app vrstva ho neexponuje. |
 | `notes` | TEXT NULL | z JSON `poznamky`, **API skrývá pro anonymizované** |
 | `is_anonymized` | BOOLEAN DEFAULT FALSE | z JSON `anonymizace` + filename pole 5 |
 | `coordinates` | GEOMETRY(Point, 4326) NULL | z EXIF GPS |
 | `created_at` | TIMESTAMPTZ | |
 | `updated_at` | TIMESTAMPTZ | |
 
-**Indexy:** `location_id`, `map_id`, `found_at` (DESC), `leaf_count`,
-`is_anonymized`, GIST na `coordinates`.
+**Indexy:** `location_id`, `map_id`, `found_at` (DESC), `is_anonymized`,
+GIST na `coordinates`. (Index na `leaf_count` v migrační historii zůstává,
+ale nemá žádný praktický smysl — všechny řádky sdílejí jednu hodnotu.)
 
 ---
 
@@ -136,7 +137,7 @@ NOT_PICKED        -- nechán na místě
 
 ## Validace a invarianty
 
-- `find.leaf_count` ≥ 4.
+- `find.leaf_count` = 4 (sbírka je výhradně čtyřlístková, viz výše).
 - Pokud `find.is_anonymized = true`, API **musí** skrýt `notes` a vrátit `coordinates`
   zaokrouhlené na 3 desetinná místa (~111 m) nebo NULL.
 - Pokud stav `NO_GPS`, `coordinates` je NULL.

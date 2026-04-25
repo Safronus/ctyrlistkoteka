@@ -43,7 +43,7 @@ export async function generateMetadata({
   const locationName =
     find.location?.displayName ?? find.location?.code ?? "bez lokality";
   const title = `Nález č. ${find.id} – ${locationName}`;
-  const description = `Čtyřlístkový nález ${find.leafCount} lístků, lokalita ${locationName}.`;
+  const description = `Čtyřlístkový nález, lokalita ${locationName}.`;
   return {
     title,
     description,
@@ -81,10 +81,6 @@ export default async function FindDetailPage({ params }: PageProps) {
           <span>{formatDateCs(find.foundAt)}</span>
           <span aria-hidden>·</span>
           <span>{locationLabel}</span>
-          <span aria-hidden>·</span>
-          <span className="font-semibold text-brand-700">
-            {find.leafCount} lístků
-          </span>
         </div>
         {find.states.length > 0 && <StateBadges states={find.states} />}
       </header>
@@ -98,7 +94,6 @@ export default async function FindDetailPage({ params }: PageProps) {
         <Panel title="Detaily">
           <KeyValue label="ID nálezu" value={`#${find.id}`} />
           <KeyValue label="Datum nálezu" value={formatDateCs(find.foundAt)} />
-          <KeyValue label="Počet lístků" value={String(find.leafCount)} />
           {find.location && (
             <>
               <KeyValue label="Lokalita" value={find.location.displayName} />

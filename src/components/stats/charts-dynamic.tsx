@@ -30,11 +30,6 @@ export const TopLocationsChart = dynamic(
   { ssr: false, loading: () => SKELETON },
 );
 
-export const LeafDistributionChart = dynamic(
-  () => import("./charts/leaf-distribution").then((m) => m.LeafDistributionChart),
-  { ssr: false, loading: () => SKELETON },
-);
-
 export const CategoryPieChart = dynamic(
   () => import("./charts/category-pie").then((m) => m.CategoryPieChart),
   { ssr: false, loading: () => SKELETON },

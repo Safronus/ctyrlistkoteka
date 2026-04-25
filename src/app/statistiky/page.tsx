@@ -3,7 +3,6 @@ import { FindState } from "@prisma/client";
 import { ChartCard } from "@/components/stats/chart-card";
 import {
   CategoryPieChart,
-  LeafDistributionChart,
   MonthlyLineChart,
   TopLocationsChart,
   YearlyBarChart,
@@ -33,7 +32,7 @@ export default async function StatistikyPage() {
         </p>
       </header>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <TotalCard
           label={formatCount(totals.finds, FINDS).split(" ")[1] ?? "nálezů"}
           value={totals.finds}
@@ -44,15 +43,6 @@ export default async function StatistikyPage() {
         />
         <TotalCard label="s fotkou" value={totals.photographed} />
         <TotalCard label="anonymizovaných" value={totals.anonymized} />
-        <TotalCard
-          label="průměr lístků"
-          value={totals.averageLeaves}
-          fractional
-        />
-        <TotalCard
-          label="max. lístků"
-          value={totals.maxLeaves ?? 0}
-        />
       </section>
 
       {totals.firstYear !== null && totals.lastYear !== null && (
@@ -74,14 +64,9 @@ export default async function StatistikyPage() {
           <YearlyBarChart data={stats.yearly} />
         </ChartCard>
 
-        <ChartCard title="Rozložení počtu lístků">
-          <LeafDistributionChart data={stats.leafDistribution} />
-        </ChartCard>
-
         <ChartCard
           title="Top lokality"
           description="Nejpilnější místa nálezů"
-          className="lg:col-span-2"
         >
           <TopLocationsChart data={stats.topLocations} />
         </ChartCard>
@@ -103,18 +88,8 @@ export default async function StatistikyPage() {
   );
 }
 
-function TotalCard({
-  label,
-  value,
-  fractional = false,
-}: {
-  label: string;
-  value: number;
-  fractional?: boolean;
-}) {
-  const fmt = new Intl.NumberFormat("cs-CZ", {
-    maximumFractionDigits: fractional ? 2 : 0,
-  });
+function TotalCard({ label, value }: { label: string; value: number }) {
+  const fmt = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 });
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 text-center">
       <p className="text-2xl font-bold text-brand-700">{fmt.format(value)}</p>

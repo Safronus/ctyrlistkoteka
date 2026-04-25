@@ -76,7 +76,6 @@ function buildPopup(m: MapMarker): string {
       <strong>${escapeHtml(title)}</strong><br/>
       <span style="color:#6b7280;font-size:12px">${escapeHtml(date)}</span><br/>
       <span style="color:#6b7280;font-size:12px">${safeName}</span><br/>
-      <span style="color:#4d9748;font-weight:600;font-size:12px">${m.leafCount} lístků</span><br/>
       <a href="/sbirka/${m.id}" style="color:#4d9748;font-size:13px;text-decoration:underline">Detail →</a>
     </div>
   `;
