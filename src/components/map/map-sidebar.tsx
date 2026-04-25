@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { HelpCircle, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import type { LocationListItem } from "@/lib/queries/locations";
 import { formatAreaM2, formatCount, formatLocationId, FINDS } from "@/lib/format";
 
@@ -10,10 +10,9 @@ const INPUT_CLS =
 
 /**
  * Scrollable list of locations rendered as a control inside the /mapa
- * sidebar. Anonymized rows follow the same /lokality treatment (purple
- * tone, "Anonymizovaná" badge, only id+code shown, no click-through to
- * the map because they're not on it). Former locations get a rose tone
- * and a "Zaniklá" badge.
+ * sidebar. Anonymized locations are filtered out upstream (they aren't
+ * on the map, and listing them with no click target was just noise);
+ * former locations get a rose tone and a "Zaniklá" badge.
  */
 export function MapSidebar({
   locations,
@@ -84,44 +83,8 @@ function SidebarRow({
   focused: boolean;
   onSelect: (id: number) => void;
 }) {
-  const tone = location.isAnonymized
-    ? "bg-purple-50/60"
-    : location.isGone
-      ? "bg-rose-50/60"
-      : "";
+  const tone = location.isGone ? "bg-rose-50/60" : "";
   const focusedTone = focused ? "ring-2 ring-inset ring-brand-500" : "";
-
-  // Anonymized locations aren't on the map → can't focus them. Render
-  // as a div so the visual stays consistent but the row is non-interactive.
-  if (location.isAnonymized) {
-    return (
-      <div
-        className={`flex items-start gap-2 px-3 py-2 text-left ${tone}`}
-        aria-disabled
-      >
-        <HelpCircle
-          className="mt-0.5 h-4 w-4 shrink-0 text-purple-400"
-          aria-hidden
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-mono text-xs text-gray-500">
-              {formatLocationId(location.id)}
-            </span>
-            <span
-              className="truncate font-mono text-xs font-semibold text-gray-700"
-              title={location.code}
-            >
-              {location.code}
-            </span>
-            <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800">
-              Anonymizovaná
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <button

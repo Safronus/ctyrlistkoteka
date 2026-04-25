@@ -13,20 +13,33 @@ import type { LocationListItem } from "@/lib/queries/locations";
  * focused, and whether the sidebar is open. Server data flows in once
  * via props; everything interactive is local.
  */
+// Default location to focus when the URL doesn't specify one. Matches
+// "lokalita 00001" — typically ZLÍN_JSVAHY-UTB-U5-001. Falls back to the
+// first available location if id 1 doesn't exist anymore.
+const DEFAULT_FOCUS_ID = 1;
+
 export function MapaShell({
   mapData,
   sidebarLocations,
-  initialFocusId,
+  urlFocusId,
 }: {
   mapData: MapData;
   sidebarLocations: readonly LocationListItem[];
-  initialFocusId: number | null;
+  urlFocusId: number | null;
 }) {
-  const [focusId, setFocusId] = useState<number | null>(initialFocusId);
-  // Sidebar opens automatically when the URL ships a focused location —
-  // otherwise the user lands on /mapa with nothing in view that explains
-  // what just happened.
-  const [sidebarOpen, setSidebarOpen] = useState(initialFocusId !== null);
+  // Default focus picks DEFAULT_FOCUS_ID when present in the data;
+  // otherwise the first location; otherwise null (no data at all).
+  const fallbackFocusId =
+    mapData.locations.find((l) => l.id === DEFAULT_FOCUS_ID)?.id ??
+    mapData.locations[0]?.id ??
+    null;
+  const [focusId, setFocusId] = useState<number | null>(
+    urlFocusId ?? fallbackFocusId,
+  );
+  // Sidebar only auto-opens when the URL explicitly carried ?focus=N
+  // (deep-link from /lokality). A bare /mapa visit keeps it closed even
+  // though we still focus the default location on the map.
+  const [sidebarOpen, setSidebarOpen] = useState(urlFocusId !== null);
 
   return (
     <div className="relative h-full w-full">

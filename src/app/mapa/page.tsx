@@ -24,15 +24,19 @@ function pickString(v: string | string[] | undefined): string | undefined {
 export default async function MapaPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const focusRaw = pickString(sp.focus);
-  const focusLocationId =
+  // null when the user just navigated to /mapa with no param — that's
+  // the signal MapaShell uses to keep the sidebar closed and pick a
+  // sensible default focus.
+  const urlFocusId =
     focusRaw && /^\d+$/.test(focusRaw) ? Number(focusRaw) : null;
 
-  // Sidebar shows the same shape of data as /lokality, including
-  // anonymized rows (rendered with redacted info + a badge). The map
-  // itself still hides anonymized polygons/overlays via getMapData.
+  // Sidebar lists only locations actually visible on the map — anonymized
+  // ones aren't there and showing them with no click target was useless.
+  // Former (NEEXISTUJE-) locations stay; their polygons are still on the
+  // map.
   const [data, sidebarLocations] = await Promise.all([
     getMapData(),
-    listLocations({ showAnonymized: true, showGone: true }),
+    listLocations({ showAnonymized: false, showGone: true }),
   ]);
 
   return (
@@ -41,7 +45,7 @@ export default async function MapaPage({ searchParams }: PageProps) {
         <MapaShell
           mapData={data}
           sidebarLocations={sidebarLocations}
-          initialFocusId={focusLocationId}
+          urlFocusId={urlFocusId}
         />
       </div>
     </div>

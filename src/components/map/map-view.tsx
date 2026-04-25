@@ -5,7 +5,7 @@ import { type LatLngBoundsExpression } from "leaflet";
 import { useEffect, useMemo } from "react";
 import "leaflet/dist/leaflet.css";
 import { LocationPolygons } from "./location-polygons";
-import { ImageOverlays } from "./image-overlays";
+import { LocationDots } from "./location-dots";
 import type { MapData } from "@/lib/queries/map";
 
 // Fallback view — Czech Republic bbox when no data is available.
@@ -51,8 +51,11 @@ export function MapView({
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         maxZoom={19}
       />
-      <ImageOverlays overlays={data.overlays} />
       <LocationPolygons
+        locations={data.locations}
+        focusLocationId={focusLocationId}
+      />
+      <LocationDots
         locations={data.locations}
         focusLocationId={focusLocationId}
       />
