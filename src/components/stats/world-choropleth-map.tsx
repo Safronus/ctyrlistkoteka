@@ -50,9 +50,26 @@ export function WorldChoroplethMap({ byCountry }: Props) {
         zoom={2}
         minZoom={1}
         maxZoom={6}
+        // Restrict panning to a single world copy. Without this, Leaflet
+        // happily lets the user drag past 180° into an adjacent (empty)
+        // world tile — the GeoJSON layer doesn't repeat itself, so what
+        // looks like "Russia / the north is broken" is actually the seam
+        // where the polygons end and the next world copy begins. The
+        // 85° lat clamp matches Web Mercator's effective range so the
+        // top edge isn't a black bar.
+        maxBounds={[
+          [-85, -180],
+          [85, 180],
+        ]}
+        maxBoundsViscosity={1}
+        // Wheel zoom would hijack page scroll on a stats page that's
+        // mostly text — we leave it off and rely on the visible zoom
+        // buttons + double-click to zoom in / shift+double-click to
+        // zoom out. The buttons matter because the previous setup hid
+        // them, leaving no obvious way to zoom out at all.
         scrollWheelZoom={false}
         worldCopyJump={false}
-        zoomControl={false}
+        zoomControl={true}
         attributionControl={false}
         className="h-96 w-full"
         style={{ background: "oklch(0.92 0.02 220)" }}
