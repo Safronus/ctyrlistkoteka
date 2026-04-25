@@ -72,6 +72,9 @@ export default function RootLayout({
                 <NavLink href="/sbirka">Sbírka</NavLink>
               </li>
               <li>
+                <NavLink href="/lokality">Lokality</NavLink>
+              </li>
+              <li>
                 <NavLink href="/mapa">Mapa</NavLink>
               </li>
               <li>
