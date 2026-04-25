@@ -8,6 +8,7 @@
 import { FindState, Prisma, type ImageType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { anonymize } from "@/lib/anonymize";
+import { DEFAULT_LOCATION_ID } from "@/lib/constants";
 
 export interface PublicImage {
   id: number;
@@ -244,29 +245,49 @@ export async function getFindById(
   const [hydrated] = await hydrate([row]);
   if (!hydrated) return null;
 
-  let locationMaps: PublicLocationMap[] = [];
-  if (hydrated.location) {
-    const maps = await prisma.locationMap.findMany({
-      where: { locationId: hydrated.location.id, isAnonymized: false },
-      select: {
-        id: true,
-        imagePath: true,
-        imageWidth: true,
-        imageHeight: true,
-        description: true,
-      },
-      orderBy: { id: "asc" },
-    });
-    locationMaps = maps.map((m) => ({
-      id: m.id,
-      imageUrl: m.imagePath,
-      imageWidth: m.imageWidth,
-      imageHeight: m.imageHeight,
-      description: m.description,
-    }));
+  // Anonymized finds: location info must not leak. Replace any real
+  // location maps with the default placeholder (location DEFAULT_LOCATION_ID)
+  // and strip displayName/code on the way out.
+  if (hydrated.isAnonymized) {
+    const placeholderMaps = await fetchLocationMaps(DEFAULT_LOCATION_ID);
+    const safeLocation: PublicLocation | null = hydrated.location
+      ? {
+          ...hydrated.location,
+          displayName: "",
+          code: "",
+        }
+      : null;
+    return { ...hydrated, location: safeLocation, locationMaps: placeholderMaps };
   }
 
+  // Non-anonymized: show whatever maps we have for this location.
+  const locationMaps = hydrated.location
+    ? await fetchLocationMaps(hydrated.location.id)
+    : [];
   return { ...hydrated, locationMaps };
+}
+
+async function fetchLocationMaps(
+  locationId: number,
+): Promise<PublicLocationMap[]> {
+  const maps = await prisma.locationMap.findMany({
+    where: { locationId, isAnonymized: false },
+    select: {
+      id: true,
+      imagePath: true,
+      imageWidth: true,
+      imageHeight: true,
+      description: true,
+    },
+    orderBy: { id: "asc" },
+  });
+  return maps.map((m) => ({
+    id: m.id,
+    imageUrl: m.imagePath,
+    imageWidth: m.imageWidth,
+    imageHeight: m.imageHeight,
+    description: m.description,
+  }));
 }
 
 /** IDs of all known finds — used by generateStaticParams for the detail page. */

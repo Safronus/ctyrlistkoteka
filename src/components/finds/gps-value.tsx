@@ -11,15 +11,7 @@ type Format = "apple" | "verbose";
  *   apple:   49°21'46.8"N 17°53'42.0"E   (Apple Maps style, suffix dir)
  *   verbose: N 49° 21' 56.530" E 17° 53' 21.120"  (prefix dir, more decimals)
  */
-export function GpsValue({
-  lat,
-  lng,
-  approximate = false,
-}: {
-  lat: number;
-  lng: number;
-  approximate?: boolean;
-}) {
+export function GpsValue({ lat, lng }: { lat: number; lng: number }) {
   const [format, setFormat] = useState<Format>("apple");
 
   const cycle = () => setFormat((f) => (f === "apple" ? "verbose" : "apple"));
@@ -33,9 +25,6 @@ export function GpsValue({
       <dt className="text-xs font-medium text-gray-500">GPS</dt>
       <dd className="flex items-center gap-2 text-sm text-gray-800">
         <span className="font-mono">{text}</span>
-        {approximate && (
-          <span className="text-xs text-gray-500">(přibližné)</span>
-        )}
         <button
           type="button"
           onClick={cycle}

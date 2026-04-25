@@ -67,8 +67,9 @@ export default async function FindDetailPage({ params }: PageProps) {
   const find = await getFindById(numId);
   if (!find) notFound();
 
-  const locationLabel =
-    find.location?.displayName ?? find.location?.code ?? "Bez lokality";
+  const locationLabel = find.isAnonymized
+    ? "Anonymizovaná lokalita"
+    : (find.location?.displayName ?? find.location?.code ?? "Bez lokality");
 
   return (
     <article className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
@@ -97,9 +98,8 @@ export default async function FindDetailPage({ params }: PageProps) {
 
       {find.isAnonymized && (
         <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
-          Tento nález je anonymizovaný — souřadnice jsou zaokrouhlené na
-          přibližnou polohu (~110 m) a poznámka se na veřejném webu
-          nezobrazuje.
+          Tento nález je anonymizovaný — souřadnice, poznámka ani konkrétní
+          lokalita se na veřejném webu nezobrazují.
         </p>
       )}
 
@@ -110,15 +110,15 @@ export default async function FindDetailPage({ params }: PageProps) {
             label="Datum nálezu"
             value={formatDateTimeCs(find.foundAt)}
           />
-          {find.coordinates ? (
-            <GpsValue
-              lat={find.coordinates.lat}
-              lng={find.coordinates.lng}
-              approximate={find.isAnonymized}
-            />
-          ) : (
-            <KeyValue label="GPS" value="Není k dispozici" />
-          )}
+          {!find.isAnonymized &&
+            (find.coordinates ? (
+              <GpsValue
+                lat={find.coordinates.lat}
+                lng={find.coordinates.lng}
+              />
+            ) : (
+              <KeyValue label="GPS" value="Není k dispozici" />
+            ))}
           {!find.isAnonymized && find.notes && (
             <div className="pt-1">
               <p className="text-xs font-medium text-gray-500">Poznámka</p>
@@ -129,15 +129,25 @@ export default async function FindDetailPage({ params }: PageProps) {
           )}
         </Panel>
 
-        {find.location && (
-          <Panel title="Lokalita">
-            <KeyValue label="Lokalita" value={find.location.displayName} />
-            <KeyValue label="Kód lokality" value={find.location.code} />
-            {find.locationMaps.length > 0 && (
-              <LocationMapsGallery maps={find.locationMaps} />
-            )}
-          </Panel>
-        )}
+        <Panel title="Lokalita">
+          {find.isAnonymized ? (
+            <p className="text-sm text-gray-600">
+              Konkrétní lokalita anonymizovaného nálezu se nezobrazuje.
+            </p>
+          ) : find.location ? (
+            <>
+              <KeyValue label="Lokalita" value={find.location.displayName} />
+              <KeyValue label="Kód lokality" value={find.location.code} />
+            </>
+          ) : (
+            <p className="text-sm text-gray-600">
+              Lokalita není k tomuto nálezu přiřazena.
+            </p>
+          )}
+          {find.locationMaps.length > 0 && (
+            <LocationMapsGallery maps={find.locationMaps} />
+          )}
+        </Panel>
       </section>
     </article>
   );

@@ -185,9 +185,14 @@ async function readJsonMeta(path: string): Promise<Meta> {
   return MetaSchema.parse(parsed);
 }
 
-async function readExifSafe(
-  path: string,
-): Promise<{ dateTaken: Date | null; lat: number | null; lng: number | null }> {
+async function readExifSafe(path: string): Promise<{
+  dateTaken: Date | null;
+  /** True if the chosen `dateTaken` carries a non-zero clock component
+   *  (i.e. HH:MM:SS not all zero). False when EXIF only stores a date. */
+  dateTakenHasClock: boolean;
+  lat: number | null;
+  lng: number | null;
+}> {
   try {
     const exifr = (await import("exifr")).default;
     // Default options give us EXIF + GPS with auto-unwrapping into top-level
@@ -197,8 +202,10 @@ async function readExifSafe(
     // default set; we filter to just the keys we need below.
     const exif = (await exifr.parse(path)) as
       | {
-          DateTimeOriginal?: Date;
-          CreateDate?: Date;
+          DateTimeOriginal?: Date | string;
+          DateTimeDigitized?: Date | string;
+          CreateDate?: Date | string;
+          ModifyDate?: Date | string;
           latitude?: number;
           longitude?: number;
           GPSLatitude?: number | number[];
@@ -207,7 +214,24 @@ async function readExifSafe(
           GPSLongitudeRef?: string;
         }
       | undefined;
-    if (!exif) return { dateTaken: null, lat: null, lng: null };
+    if (!exif) {
+      return { dateTaken: null, dateTakenHasClock: false, lat: null, lng: null };
+    }
+
+    // Try every plausible EXIF date field, then prefer the first candidate
+    // that actually carries a clock component — some pipelines (older
+    // exiftool / heic-convert / WhatsApp etc.) strip the time portion of
+    // DateTimeOriginal but leave it intact in CreateDate, or vice versa.
+    const candidates = [
+      exif.DateTimeOriginal,
+      exif.DateTimeDigitized,
+      exif.CreateDate,
+      exif.ModifyDate,
+    ]
+      .map(toDate)
+      .filter((d): d is Date => d !== null);
+    const withClock = candidates.find(hasClockComponent);
+    const dateTaken = withClock ?? candidates[0] ?? null;
 
     // Prefer the auto-unwrapped decimals; fall back to manually decoding
     // the raw degrees/minutes/seconds tuple some HEIC variants emit.
@@ -221,13 +245,40 @@ async function readExifSafe(
         : toDecimalDegrees(exif.GPSLongitude, exif.GPSLongitudeRef);
 
     return {
-      dateTaken: exif.DateTimeOriginal ?? exif.CreateDate ?? null,
+      dateTaken,
+      dateTakenHasClock: dateTaken ? hasClockComponent(dateTaken) : false,
       lat: lat !== null && Number.isFinite(lat) ? lat : null,
       lng: lng !== null && Number.isFinite(lng) ? lng : null,
     };
   } catch {
-    return { dateTaken: null, lat: null, lng: null };
+    return { dateTaken: null, dateTakenHasClock: false, lat: null, lng: null };
   }
+}
+
+/**
+ * Coerce an EXIF date field into a Date. exifr usually returns a Date
+ * instance, but if the underlying value can't be parsed (unusual EXIF
+ * variants, broken pipelines) it can fall back to the raw string.
+ */
+function toDate(v: Date | string | undefined): Date | null {
+  if (!v) return null;
+  if (v instanceof Date) return Number.isFinite(v.getTime()) ? v : null;
+  const m = /^(\d{4}):(\d{2}):(\d{2})(?:[ T](\d{2}):(\d{2}):(\d{2}))?/.exec(v);
+  if (!m) return null;
+  const [, y, mo, d, hh, mm, ss] = m;
+  const dt = new Date(
+    Number(y),
+    Number(mo) - 1,
+    Number(d),
+    Number(hh ?? 0),
+    Number(mm ?? 0),
+    Number(ss ?? 0),
+  );
+  return Number.isFinite(dt.getTime()) ? dt : null;
+}
+
+function hasClockComponent(d: Date): boolean {
+  return d.getHours() !== 0 || d.getMinutes() !== 0 || d.getSeconds() !== 0;
 }
 
 /**
@@ -524,6 +575,8 @@ async function phaseFinds(
   let withGps = 0;
   let withoutGps = 0;
   let unexpectedNoGps = 0;
+  let dateOnlyExif = 0;
+  let noDateExif = 0;
 
   for (const f of all) {
     const sha1 = await sha1File(f.path);
@@ -536,6 +589,9 @@ async function phaseFinds(
     const exif = await readExifSafe(f.path);
     const locationId = mapToLocation.get(f.parsed.mapNumber) ?? null;
     const mapId = locationId !== null ? f.parsed.mapNumber : null;
+
+    if (!exif.dateTaken) noDateExif += 1;
+    else if (!exif.dateTakenHasClock) dateOnlyExif += 1;
 
     await ctx.prisma.find.upsert({
       where: { id: f.parsed.findId },
@@ -605,7 +661,17 @@ async function phaseFinds(
     with_gps: withGps,
     without_gps: withoutGps,
     unexpected_no_gps: unexpectedNoGps,
+    date_only_exif: dateOnlyExif,
+    no_date_exif: noDateExif,
   });
+  if (dateOnlyExif > 0) {
+    ctx.log.log({
+      event: "finds.exif_clock_missing",
+      level: "warn",
+      count: dateOnlyExif,
+      note: "EXIF carried only a date, no time-of-day. Detail page will show 00:00:00 for these. Likely cause: the JPEG conversion pipeline stripped the clock — re-run prepare-upload.ts (with the exiftool fix) and rsync the files.",
+    });
+  }
   return all;
 }
 

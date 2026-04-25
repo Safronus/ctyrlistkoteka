@@ -1,5 +1,3 @@
-import { ANON_GPS_PRECISION } from "./constants";
-
 /**
  * Central anonymization boundary. **All find data sent to the UI must go
  * through this function** — reading `find.notes` or `find.coordinates`
@@ -7,9 +5,10 @@ import { ANON_GPS_PRECISION } from "./constants";
  *
  * Rules (per CLAUDE.md §6):
  *   • Notes are nulled for anonymized finds.
- *   • GPS is either coarsened to ANON_GPS_PRECISION decimals (~100 m) or
- *     dropped entirely. We coarsen so the nález still appears on the map,
- *     just at a fuzzy location.
+ *   • GPS is dropped entirely (`coordinates = null`). The /mapa page uses
+ *     a separate raw-SQL pipeline that *coarsens* coordinates to ~110 m
+ *     so anonymized markers can still appear on the public map at a fuzzy
+ *     location — that path is intentional and unaffected by this function.
  *   • The caller should still avoid putting anonymized data in <meta> or
  *     OpenGraph tags. Those pages must not be statically generated for
  *     anonymized finds.
@@ -39,7 +38,7 @@ export function anonymize<T extends FindLike>(find: T): SafeFind<T>["find"] {
   return {
     ...find,
     notes: null,
-    coordinates: coarsenCoordinates(find.coordinates),
+    coordinates: null,
   };
 }
 
@@ -47,15 +46,4 @@ export function anonymizeMany<T extends FindLike>(
   finds: readonly T[],
 ): Array<SafeFind<T>["find"]> {
   return finds.map(anonymize);
-}
-
-function coarsenCoordinates(
-  coords: { lat: number; lng: number } | null,
-): { lat: number; lng: number } | null {
-  if (!coords) return null;
-  const factor = 10 ** ANON_GPS_PRECISION;
-  return {
-    lat: Math.round(coords.lat * factor) / factor,
-    lng: Math.round(coords.lng * factor) / factor,
-  };
 }

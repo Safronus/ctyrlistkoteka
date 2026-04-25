@@ -17,5 +17,15 @@ export const HOME_REVALIDATE = 60 * 60; // 1 h
 export const FIND_REVALIDATE = 24 * 60 * 60; // 24 h
 export const STATS_REVALIDATE = 6 * 60 * 60; // 6 h
 
-// Anonymization: rounding for public GPS (~100 m at midlatitudes)
+// Anonymization: rounding for public GPS (~100 m at midlatitudes). Used by
+// /mapa's raw-SQL coarsening pipeline; the find queries / detail page drop
+// GPS entirely instead of coarsening (see src/lib/anonymize.ts).
 export const ANON_GPS_PRECISION = 3;
+
+/**
+ * Find-detail page falls back to this location's first non-anonymized map
+ * whenever the actual location info must be hidden — i.e. the find itself
+ * is anonymized, so we mustn't reveal where it came from. The user's data
+ * convention assigns location id 1 to a generic placeholder map.
+ */
+export const DEFAULT_LOCATION_ID = 1;
