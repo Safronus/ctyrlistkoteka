@@ -734,18 +734,27 @@ function CalendarSubsection({
           fixed-height row so their percentage heights resolve against
           h-32. Wrapping each bar in a flex column killed that height
           context (items-end shrinks columns to content), which is why
-          every bar previously rendered as a 2 px sliver. */}
-      <div className="flex h-32 items-end gap-1">
+          every bar previously rendered as a 2 px sliver. The pt-5
+          reserves headroom for the count label that floats just above
+          each bar's top edge — bars at ~100 % no longer overflow the
+          card's title area. */}
+      <div className="flex h-32 items-end gap-1 pt-5">
         {data.map((d) => (
           <div
             key={d.key}
-            className="flex-1 rounded-t bg-brand-500"
+            className="relative flex-1 rounded-t bg-brand-500"
             style={{
               height: max > 0 ? `${(d.count / max) * 100}%` : "0%",
               minHeight: d.count > 0 ? "2px" : "0",
             }}
             title={`${labelLong(d.key)}: ${d.count}`}
-          />
+          >
+            {d.count > 0 && (
+              <span className="absolute -top-4 left-1/2 -translate-x-1/2 font-mono text-[10px] tabular-nums text-gray-700">
+                {d.count}
+              </span>
+            )}
+          </div>
         ))}
       </div>
       {/* X-axis labels — outside the flex height so empty bars don't push them around */}
@@ -760,24 +769,30 @@ function CalendarSubsection({
         ))}
       </div>
 
-      {/* Numeric table */}
-      <dl
-        className={`mt-4 grid gap-x-6 gap-y-1 text-sm ${
-          tableColumns === 2 ? "grid-cols-2" : "grid-cols-1"
-        }`}
-      >
-        {data.map((d) => (
-          <div
-            key={d.key}
-            className="flex items-baseline justify-between border-b border-gray-100 py-1"
-          >
-            <dt className="text-gray-700">{labelLong(d.key)}</dt>
-            <dd className="font-mono tabular-nums text-gray-900">
-              {d.count}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      {/* Numeric table — collapsed by default; rare to need exact values
+          when the bars themselves now carry counts. */}
+      <details className="mt-4 group">
+        <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-gray-500 hover:text-gray-700">
+          Tabulka hodnot
+        </summary>
+        <dl
+          className={`mt-2 grid gap-x-6 gap-y-1 text-sm ${
+            tableColumns === 2 ? "grid-cols-2" : "grid-cols-1"
+          }`}
+        >
+          {data.map((d) => (
+            <div
+              key={d.key}
+              className="flex items-baseline justify-between border-b border-gray-100 py-1"
+            >
+              <dt className="text-gray-700">{labelLong(d.key)}</dt>
+              <dd className="font-mono tabular-nums text-gray-900">
+                {d.count}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </details>
     </div>
   );
 }
