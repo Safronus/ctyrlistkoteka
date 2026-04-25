@@ -106,7 +106,7 @@ model Find {
   mapId        Int?         @map("map_id")
   map          LocationMap? @relation(fields: [mapId], references: [id], onDelete: SetNull)
 
-  foundAt      DateTime?    @map("found_at") @db.Date // z EXIF DateTimeOriginal
+  foundAt      DateTime?    @map("found_at") @db.Timestamptz(6) // z EXIF DateTimeOriginal, plný timestamp včetně H:M:S
   leafCount    Int          @default(4) @map("leaf_count") @db.SmallInt
   notes        String?      @db.Text // z JSON poznamky
   isAnonymized Boolean      @default(false) @map("is_anonymized") // z JSON anonymizace + filename

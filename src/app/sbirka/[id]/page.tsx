@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { StateBadges } from "@/components/finds/state-badges";
-import { formatDateCs } from "@/lib/format";
+import { formatDateCs, formatDateTimeCs } from "@/lib/format";
 import { getFindById, getAllFindIds } from "@/lib/queries/finds";
 
 interface PageProps {
@@ -93,21 +93,14 @@ export default async function FindDetailPage({ params }: PageProps) {
       <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Panel title="Detaily">
           <KeyValue label="ID nálezu" value={`#${find.id}`} />
-          <KeyValue label="Datum nálezu" value={formatDateCs(find.foundAt)} />
+          <KeyValue
+            label="Datum nálezu"
+            value={formatDateTimeCs(find.foundAt)}
+          />
           {find.location && (
             <>
               <KeyValue label="Lokalita" value={find.location.displayName} />
               <KeyValue label="Kód lokality" value={find.location.code} />
-              <KeyValue
-                label="Katastr"
-                value={find.location.cadastralArea}
-              />
-              {find.location.locationType && (
-                <KeyValue
-                  label="Typ prostředí"
-                  value={find.location.locationType}
-                />
-              )}
             </>
           )}
         </Panel>

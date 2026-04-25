@@ -21,6 +21,22 @@ export function formatShortDateCs(date: Date | null | undefined): string {
 }
 
 /**
+ * Long Czech date with full wall-clock time. Used on the find detail page
+ * where the EXIF capture time matters. Returns "—" for missing inputs.
+ */
+export function formatDateTimeCs(date: Date | null | undefined): string {
+  if (!date) return "—";
+  return new Intl.DateTimeFormat("cs-CZ", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
+/**
  * Czech pluralization — 1 / 2..4 / 5+ / 0.
  * Usage: pluralCs(n, ["nález", "nálezy", "nálezů"])
  */
