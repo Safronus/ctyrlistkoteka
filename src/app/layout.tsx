@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Image from "next/image";
 import Link from "next/link";
 import { NavLink } from "@/components/nav-link";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/constants";
@@ -21,7 +22,10 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   ),
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      { url: "/clover.png", type: "image/png" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
   },
   openGraph: {
     title: SITE_NAME,
@@ -49,9 +53,15 @@ export default function RootLayout({
               href="/"
               className="flex items-center gap-2 text-lg font-semibold text-brand-700"
             >
-              <span aria-hidden className="text-xl">
-                🍀
-              </span>
+              <Image
+                src="/clover.png"
+                alt=""
+                aria-hidden
+                width={36}
+                height={36}
+                priority
+                className="h-9 w-9"
+              />
               <span>{SITE_NAME}</span>
             </Link>
             <ul className="flex flex-wrap items-center gap-1">
@@ -74,11 +84,24 @@ export default function RootLayout({
         <main className="flex-1">{children}</main>
 
         <footer className="border-t border-gray-200 bg-gray-50 py-6">
-          <div className="mx-auto max-w-7xl px-4 text-center text-sm text-gray-500 sm:px-6 lg:px-8">
-            <p>
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 text-center text-sm text-gray-500 sm:px-6 lg:px-8">
+            <span>
               © {new Date().getFullYear()} {SITE_NAME} · Soukromá sbírka
               čtyřlístků
-            </p>
+            </span>
+            <span aria-hidden>·</span>
+            <span className="inline-flex items-center gap-1.5">
+              vytvořil
+              <Image
+                src="/safronus.png"
+                alt=""
+                aria-hidden
+                width={20}
+                height={20}
+                className="h-5 w-5"
+              />
+              <span className="font-medium text-gray-700">Safronus</span>
+            </span>
           </div>
         </footer>
       </body>

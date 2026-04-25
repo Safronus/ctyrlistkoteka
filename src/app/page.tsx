@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { getCollectionTotals } from "@/lib/queries/finds";
 import { formatCount, FINDS, LOCATIONS, YEARS } from "@/lib/format";
@@ -12,9 +13,15 @@ export default async function HomePage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
       <section className="text-center">
-        <p aria-hidden className="text-5xl">
-          🍀
-        </p>
+        <Image
+          src="/clover.png"
+          alt=""
+          aria-hidden
+          width={1024}
+          height={1024}
+          priority
+          className="mx-auto h-40 w-40 sm:h-48 sm:w-48"
+        />
         <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
           Čtyřlístkotéka
         </h1>
