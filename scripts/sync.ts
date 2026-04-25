@@ -393,28 +393,47 @@ async function phaseMaps(
     // Upsert by code — multiple maps may share a location. The first map
     // encountered for a code creates the Location row (with id=its mapId);
     // later maps with the same code reuse that row's id.
-    const location = await ctx.prisma.location.upsert({
-      where: { code: m.parsed.locationCode },
-      create: {
-        id: m.parsed.mapId,
-        code: m.parsed.locationCode,
-        codeTransliterated: toAsciiCode(m.parsed.locationCode),
-        cadastralArea: parts.cadastralArea,
-        locationType: parts.locationType,
-        number: parts.number,
-        subpart: parts.subpart,
-        displayName,
-      },
-      update: {
-        codeTransliterated: toAsciiCode(m.parsed.locationCode),
-        cadastralArea: parts.cadastralArea,
-        locationType: parts.locationType,
-        number: parts.number,
-        subpart: parts.subpart,
-        displayName,
-      },
-      select: { id: true },
-    });
+    // Wrapped in try/catch so a unique-violation (typically NFC vs NFD
+    // mismatch between a renamed filename and the DB code) names the
+    // exact file and parsed code instead of bubbling out anonymously.
+    let location: { id: number };
+    try {
+      location = await ctx.prisma.location.upsert({
+        where: { code: m.parsed.locationCode },
+        create: {
+          id: m.parsed.mapId,
+          code: m.parsed.locationCode,
+          codeTransliterated: toAsciiCode(m.parsed.locationCode),
+          cadastralArea: parts.cadastralArea,
+          locationType: parts.locationType,
+          number: parts.number,
+          subpart: parts.subpart,
+          displayName,
+        },
+        update: {
+          codeTransliterated: toAsciiCode(m.parsed.locationCode),
+          cadastralArea: parts.cadastralArea,
+          locationType: parts.locationType,
+          number: parts.number,
+          subpart: parts.subpart,
+          displayName,
+        },
+        select: { id: true },
+      });
+    } catch (err) {
+      const codeBytes = Buffer.from(m.parsed.locationCode, "utf8")
+        .toString("hex");
+      ctx.log.log({
+        event: "maps.upsert_failed",
+        level: "error",
+        file: m.filename,
+        parsed_code: m.parsed.locationCode,
+        parsed_code_hex: codeBytes,
+        parsed_map_id: m.parsed.mapId,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
 
     mapToLocation.set(m.parsed.mapId, location.id);
 
