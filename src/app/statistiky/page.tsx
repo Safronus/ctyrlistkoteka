@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
+  Compass,
   EyeOff,
   Gift,
   HelpCircle,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import {
   formatDateTimeCs,
+  formatDistance,
   formatLocationId,
   formatTimeSinceCs,
 } from "@/lib/format";
@@ -37,7 +39,7 @@ export const revalidate = 21600;
 
 export default async function StatistikyPage() {
   const stats = await getCollectionStats();
-  const { totals, firstFind, lastFind, topLocations } = stats;
+  const { totals, firstFind, lastFind, farthestFind, topLocations } = stats;
   const fmt = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 });
 
   return (
@@ -87,12 +89,21 @@ export default async function StatistikyPage() {
         />
       </section>
 
-      {(firstFind || lastFind) && (
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {(firstFind || lastFind || farthestFind) && (
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {firstFind && <FindHighlightCard label="První nález" find={firstFind} />}
           {lastFind && lastFind.id !== firstFind?.id && (
             <FindHighlightCard label="Poslední nález" find={lastFind} />
           )}
+          {farthestFind &&
+            farthestFind.id !== firstFind?.id &&
+            farthestFind.id !== lastFind?.id && (
+              <FindHighlightCard
+                label="Nejvzdálenější nález"
+                find={farthestFind}
+                distanceMeters={farthestFind.distanceMeters}
+              />
+            )}
         </section>
       )}
 
@@ -164,9 +175,12 @@ function TotalCard({
 function FindHighlightCard({
   label,
   find,
+  distanceMeters,
 }: {
   label: string;
   find: FindHighlight;
+  /** When provided, renders a compass row showing distance from MAP 00001. */
+  distanceMeters?: number;
 }) {
   const date = find.foundAt ? new Date(find.foundAt) : null;
   return (
@@ -207,6 +221,19 @@ function FindHighlightCard({
           </p>
         )}
       </div>
+
+      {distanceMeters !== undefined && (
+        <p
+          className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-500"
+          title="Vzdálenost počítaná od GPS středu lokační mapy 00001 (defaultní)"
+        >
+          <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
+          <span className="font-mono tabular-nums text-gray-900">
+            {formatDistance(distanceMeters)}
+          </span>
+          <span>od MAP 00001</span>
+        </p>
+      )}
 
       {/* mt-auto + flex justify-center pushes the link to the bottom and
           centres it horizontally so the two highlight cards line up. */}

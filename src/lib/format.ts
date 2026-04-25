@@ -190,6 +190,29 @@ export function formatLocationId(id: number): string {
  * readable: m² for small plots, ha for fields, km² for the rare big
  * polygon. Two decimal places for the larger units, integer for m².
  */
+/**
+ * Distance formatter used on /statistiky for the "farthest find" card.
+ * Pulls a single human-friendly form: metres for sub-kilometre, one
+ * decimal in the < 100 km range so a 12.3 km distance keeps its
+ * resolution, integer kilometres beyond — at that scale a fractional
+ * value just adds noise.
+ */
+export function formatDistance(meters: number): string {
+  if (!Number.isFinite(meters) || meters < 0) return "";
+  if (meters < 1000) {
+    return `${new Intl.NumberFormat("cs-CZ").format(Math.round(meters))} m`;
+  }
+  const km = meters / 1000;
+  if (km < 100) {
+    return `${new Intl.NumberFormat("cs-CZ", {
+      maximumFractionDigits: 1,
+    }).format(km)} km`;
+  }
+  return `${new Intl.NumberFormat("cs-CZ", {
+    maximumFractionDigits: 0,
+  }).format(km)} km`;
+}
+
 export function formatAreaM2(m2: number): string {
   if (m2 >= 1_000_000) {
     const km2 = m2 / 1_000_000;

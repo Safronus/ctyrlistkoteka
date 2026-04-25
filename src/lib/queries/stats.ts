@@ -10,6 +10,7 @@
 
 import { FindState } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { DEFAULT_LOCATION_ID } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import { isFormerLocation } from "@/lib/locationCode";
 
@@ -94,12 +95,23 @@ export interface FindHighlight {
   location: { id: number; code: string; displayName: string } | null;
 }
 
+/** A `FindHighlight` extended with great-circle distance — used for the
+ *  "farthest find" card on /statistiky. */
+export interface FarthestFindHighlight extends FindHighlight {
+  /** Distance in metres from the default LocationMap's GPS centre. */
+  distanceMeters: number;
+}
+
 export interface CollectionStats {
   totals: StatsTotals;
   /** Earliest find by ID, or null if the collection is empty. */
   firstFind: FindHighlight | null;
   /** Latest find by ID, mirroring firstFind. */
   lastFind: FindHighlight | null;
+  /** Non-anonymized find with the largest great-circle distance from the
+   *  default LocationMap's centre. Null when the default map or any
+   *  qualifying find with GPS is missing. */
+  farthestFind: FarthestFindHighlight | null;
   monthly: MonthlyPoint[];
   yearly: YearlyPoint[];
   topLocations: LocationPoint[];
@@ -135,10 +147,13 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     location_display_name: string | null;
   };
 
+  type FarthestRow = HighlightRow & { dist_m: number | null };
+
   const [
     totalsRow,
     firstFindRow,
     lastFindRow,
+    farthestFindRow,
     monthlyRows,
     yearlyRows,
     topLocRows,
@@ -209,6 +224,32 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       FROM finds f
       LEFT JOIN locations l ON l.id = f.location_id
       ORDER BY f.id DESC
+      LIMIT 1
+    `,
+
+    // Farthest non-anonymized find from the default LocationMap's GPS
+    // centre. ST_DistanceSphere returns metres on a spherical Earth
+    // (within ~0.3 % of the geodetic answer — fine for a card label).
+    // The CTE makes the reference point optional: if MAP 00001 isn't on
+    // disk we still return zero rows instead of crashing.
+    prisma.$queryRaw<FarthestRow[]>`
+      WITH ref AS (
+        SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
+        FROM location_maps
+        WHERE id = ${DEFAULT_LOCATION_ID}
+      )
+      SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
+             CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
+             CASE WHEN f.is_anonymized THEN NULL
+                  ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+             END AS location_display_name,
+             ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref))::float8 AS dist_m
+      FROM finds f
+      LEFT JOIN locations l ON l.id = f.location_id
+      WHERE f.is_anonymized = false
+        AND f.coordinates IS NOT NULL
+        AND (SELECT pt FROM ref) IS NOT NULL
+      ORDER BY dist_m DESC NULLS LAST
       LIMIT 1
     `,
 
@@ -360,10 +401,19 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     };
   };
 
+  const farthestRow = farthestFindRow[0];
+  const farthestBase =
+    farthestRow && farthestRow.dist_m !== null ? highlight(farthestRow) : null;
+  const farthestFind: FarthestFindHighlight | null =
+    farthestBase && farthestRow && farthestRow.dist_m !== null
+      ? { ...farthestBase, distanceMeters: Number(farthestRow.dist_m) }
+      : null;
+
   return {
     totals,
     firstFind: highlight(firstFindRow[0]),
     lastFind: highlight(lastFindRow[0]),
+    farthestFind,
     monthly: monthlyRows.map((r) => ({
       month: r.month.toISOString().slice(0, 7),
       count: Number(r.count),

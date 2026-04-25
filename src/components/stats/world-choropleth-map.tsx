@@ -40,7 +40,11 @@ export function WorldChoroplethMap({ byCountry }: Props) {
   const featureCollection = useMemo(() => getWorldCountries(), []);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200">
+    // `relative z-0` pins Leaflet's internal panes (which use z-index 200..700
+    // for tile/overlay/tooltip stacks) inside a fresh stacking context. Without
+    // it, a path pane at z-400 outranks the sticky page header at z-40 and
+    // overlaps the navigation when the user scrolls past the choropleth.
+    <div className="relative z-0 overflow-hidden rounded-xl border border-gray-200">
       <MapContainer
         center={[25, 10]}
         zoom={2}
