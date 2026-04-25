@@ -18,7 +18,14 @@ export interface LocationStats {
   anonymized: number;
   firstYear: number | null;
   lastYear: number | null;
+  /** ISO string of the earliest find at this location, or null when
+   *  no finds carry a recorded date. Used by the detail panel to show
+   *  "Datum prvního nálezu". */
+  firstFoundAt: string | null;
   firstFindId: number | null;
+  /** ID of the latest find at this location (by id, mirroring
+   *  firstFindId). Used by the detail panel's "Poslední nález" link. */
+  lastFindId: number | null;
   states: Array<{ state: FindState; count: number }>;
   yearly: Array<{ year: number; count: number }>;
 }
@@ -76,7 +83,9 @@ const EMPTY_STATS: LocationStats = {
   anonymized: 0,
   firstYear: null,
   lastYear: null,
+  firstFoundAt: null,
   firstFindId: null,
+  lastFindId: null,
   states: [],
   yearly: [],
 };
@@ -179,7 +188,9 @@ export async function listLocations(
       anonymized: bigint;
       first_year: number | null;
       last_year: number | null;
+      first_found_at: Date | null;
       first_find_id: number | null;
+      last_find_id: number | null;
     }>
   >`
     SELECT
@@ -188,7 +199,9 @@ export async function listLocations(
       COUNT(*) FILTER (WHERE f.is_anonymized = true) AS anonymized,
       EXTRACT(YEAR FROM MIN(f.found_at))::int AS first_year,
       EXTRACT(YEAR FROM MAX(f.found_at))::int AS last_year,
-      MIN(f.id) AS first_find_id
+      MIN(f.found_at) AS first_found_at,
+      MIN(f.id) AS first_find_id,
+      MAX(f.id) AS last_find_id
     FROM "locations" l
     LEFT JOIN "finds" f ON f.location_id = l.id
     WHERE l.id IN (${Prisma.join(ids)})
@@ -201,7 +214,9 @@ export async function listLocations(
       anonymized: Number(r.anonymized),
       firstYear: r.first_year ?? null,
       lastYear: r.last_year ?? null,
+      firstFoundAt: r.first_found_at ? r.first_found_at.toISOString() : null,
       firstFindId: r.first_find_id ?? null,
+      lastFindId: r.last_find_id ?? null,
       states: [],
       yearly: [],
     });
@@ -294,20 +309,21 @@ export async function listLocations(
   }
 
   // ------------------------------------------------------------ sort
-  // `id` is the default — keeps the historical ordering visitors are
-  // used to. `code` is locale-aware (Czech collation). `finds` sorts
-  // by descending total — anonymized rows have stats=0 so they fall
-  // to the bottom, which is fine: their counts are private.
-  const sort: LocationSort = filter.sort ?? "id";
+  // `finds` is the default — most-active locations float to the top,
+  // matching what visitors usually want. `code` is locale-aware
+  // (Czech collation); `id` keeps the historical ordering.
+  // Anonymized rows have stats=0 so they fall to the bottom under
+  // `finds` sort, which is fine: their counts are private.
+  const sort: LocationSort = filter.sort ?? "finds";
   if (sort === "code") {
     const collator = new Intl.Collator("cs", { sensitivity: "base" });
     items.sort((a, b) => collator.compare(a.code, b.code));
-  } else if (sort === "finds") {
+  } else if (sort === "id") {
+    items.sort((a, b) => a.id - b.id);
+  } else {
     items.sort(
       (a, b) => b.stats.total - a.stats.total || a.id - b.id,
     );
-  } else {
-    items.sort((a, b) => a.id - b.id);
   }
 
   return items;

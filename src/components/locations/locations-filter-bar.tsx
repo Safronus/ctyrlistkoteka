@@ -7,10 +7,12 @@ import type { LocationSort } from "@/lib/queries/locations";
 const INPUT_CLS =
   "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
 
+// Order matters — first entry is the dropdown's default visible option.
+// Mirrors the server default in parseSort/listLocations ("finds").
 const SORT_LABELS: Record<LocationSort, string> = {
+  finds: "Podle počtu nálezů",
   id: "Podle ID",
   code: "Abecedně",
-  finds: "Podle počtu nálezů",
 };
 
 export function LocationsFilterBar({
@@ -53,7 +55,7 @@ export function LocationsFilterBar({
   const hasAny =
     current.q ||
     current.city ||
-    current.sort !== "id" ||
+    current.sort !== "finds" ||
     current.showAnonymized ||
     current.showGone;
 
@@ -114,7 +116,7 @@ export function LocationsFilterBar({
           <select
             value={current.sort}
             onChange={(e) =>
-              update("sort", e.currentTarget.value === "id" ? "" : e.currentTarget.value)
+              update("sort", e.currentTarget.value === "finds" ? "" : e.currentTarget.value)
             }
             className={`${INPUT_CLS} w-full`}
           >

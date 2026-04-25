@@ -10,6 +10,7 @@ import {
   formatAreaM2,
   formatCount,
   formatLocationId,
+  formatShortDateCs,
   FINDS,
 } from "@/lib/format";
 
@@ -217,10 +218,13 @@ function StatsPanel({ location }: { location: LocationListItem }) {
           <div className="space-y-3">
             <SummaryRow
               total={stats.total}
-              anonymized={stats.anonymized}
-              firstYear={stats.firstYear}
-              lastYear={stats.lastYear}
-              areaM2={location.polygonAreaM2}
+              firstFoundAt={stats.firstFoundAt}
+            />
+
+            <DetailLinks
+              firstFindId={stats.firstFindId}
+              lastFindId={stats.lastFindId}
+              locationId={location.id}
             />
 
             {stats.states.length > 0 && (
@@ -287,20 +291,6 @@ function StatsPanel({ location }: { location: LocationListItem }) {
               </div>
             )}
 
-            {stats.firstFindId !== null && (
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  První nález
-                </h3>
-                <Link
-                  href={`/sbirka/${stats.firstFindId}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
-                >
-                  #{stats.firstFindId} →
-                </Link>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -310,39 +300,59 @@ function StatsPanel({ location }: { location: LocationListItem }) {
 
 function SummaryRow({
   total,
-  anonymized,
-  firstYear,
-  lastYear,
-  areaM2,
+  firstFoundAt,
 }: {
   total: number;
-  anonymized: number;
-  firstYear: number | null;
-  lastYear: number | null;
-  areaM2: number | null;
+  firstFoundAt: string | null;
 }) {
   return (
     <dl className="grid grid-cols-2 gap-3 text-sm">
       <Stat label="Celkem nálezů" value={String(total)} />
       <Stat
-        label="Anonymizovaných"
-        value={anonymized > 0 ? String(anonymized) : "—"}
-      />
-      <Stat
-        label="Rozsah let"
-        value={
-          firstYear !== null && lastYear !== null
-            ? firstYear === lastYear
-              ? String(firstYear)
-              : `${firstYear}–${lastYear}`
-            : "—"
-        }
-      />
-      <Stat
-        label="Plocha lokality"
-        value={areaM2 !== null ? formatAreaM2(areaM2) : "—"}
+        label="Datum prvního nálezu"
+        value={firstFoundAt ? formatShortDateCs(new Date(firstFoundAt)) : "—"}
       />
     </dl>
+  );
+}
+
+function DetailLinks({
+  firstFindId,
+  lastFindId,
+  locationId,
+}: {
+  firstFindId: number | null;
+  lastFindId: number | null;
+  locationId: number;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {firstFindId !== null && (
+        <Link
+          href={`/sbirka/${firstFindId}`}
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+        >
+          První nález #{firstFindId} →
+        </Link>
+      )}
+      {lastFindId !== null && lastFindId !== firstFindId && (
+        <Link
+          href={`/sbirka/${lastFindId}`}
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+        >
+          Poslední nález #{lastFindId} →
+        </Link>
+      )}
+      <Link
+        href={`/sbirka?loc=${locationId}`}
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+      >
+        Vše ve sbírce →
+      </Link>
+    </div>
   );
 }
 

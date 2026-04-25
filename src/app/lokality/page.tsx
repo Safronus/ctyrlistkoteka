@@ -27,10 +27,11 @@ function pickString(v: string | string[] | undefined): string | undefined {
   return v;
 }
 
-const SORT_VALUES: readonly LocationSort[] = ["id", "code", "finds"];
+const SORT_VALUES: readonly LocationSort[] = ["finds", "id", "code"];
 
 function parseSort(v: string | undefined): LocationSort {
-  return SORT_VALUES.find((s) => s === v) ?? "id";
+  // "finds" is the default — keep it stable with listLocations().
+  return SORT_VALUES.find((s) => s === v) ?? "finds";
 }
 
 export default async function LokalityPage({ searchParams }: PageProps) {
