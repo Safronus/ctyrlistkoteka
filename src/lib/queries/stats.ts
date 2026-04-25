@@ -22,6 +22,10 @@ export interface StatsTotals {
    *  the user gifted away. Reused on the page header to highlight the
    *  share of the collection that left the archive. */
   donatedFinds: number;
+  /** Distinct finds tagged with the LOST state. */
+  lostFinds: number;
+  /** Distinct finds tagged with the NO_PHOTO state. */
+  noPhotoFinds: number;
   /** Locations where at least one location_map is flagged anonymized.
    *  Mirrors the same "any anonymized map → whole location is private"
    *  rule used in `listLocations`, so the number on /statistiky lines
@@ -153,6 +157,8 @@ export async function getCollectionStats(): Promise<CollectionStats> {
         photographed: bigint;
         anonymized: bigint;
         donated_finds: bigint;
+        lost_finds: bigint;
+        no_photo_finds: bigint;
         anonymized_locations: bigint;
         gone_locations: bigint;
         first_year: number | null;
@@ -166,6 +172,10 @@ export async function getCollectionStats(): Promise<CollectionStats> {
         (SELECT COUNT(*) FROM finds WHERE is_anonymized = true) AS anonymized,
         (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
            WHERE state = 'DONATED') AS donated_finds,
+        (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
+           WHERE state = 'LOST') AS lost_finds,
+        (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
+           WHERE state = 'NO_PHOTO') AS no_photo_finds,
         (SELECT COUNT(DISTINCT location_id) FROM location_maps
            WHERE is_anonymized = true) AS anonymized_locations,
         (SELECT COUNT(*) FROM locations
@@ -325,6 +335,8 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     photographed: t ? Number(t.photographed) : 0,
     anonymized: t ? Number(t.anonymized) : 0,
     donatedFinds: t ? Number(t.donated_finds) : 0,
+    lostFinds: t ? Number(t.lost_finds) : 0,
+    noPhotoFinds: t ? Number(t.no_photo_finds) : 0,
     anonymizedLocations: t ? Number(t.anonymized_locations) : 0,
     goneLocations: t ? Number(t.gone_locations) : 0,
     firstYear: t?.first_year ?? null,

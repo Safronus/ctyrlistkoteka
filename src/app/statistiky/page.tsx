@@ -4,8 +4,10 @@ import {
   EyeOff,
   Gift,
   HelpCircle,
+  ImageOff,
   MapPin,
   MapPinOff,
+  Search,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -54,6 +56,16 @@ export default async function StatistikyPage() {
               icon: Gift,
               label: "darováno",
               value: fmt.format(totals.donatedFinds),
+            },
+            {
+              icon: Search,
+              label: "ztracených",
+              value: fmt.format(totals.lostFinds),
+            },
+            {
+              icon: ImageOff,
+              label: "bez fotky",
+              value: fmt.format(totals.noPhotoFinds),
             },
           ]}
         />
