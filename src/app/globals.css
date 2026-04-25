@@ -32,18 +32,30 @@
 }
 
 /* -------- Clover (default) — green-tinted neutrals -------------- */
+/* Mint/sage character: surfaces clearly tinted enough to read as
+   "the green theme" at first glance, but lightness stays high so
+   black text still hits WCAG AAA on every card. The chroma values
+   below are deliberately stronger than v1 — that version was so
+   subtle visitors couldn't tell it apart from the neutral light
+   theme. */
 [data-theme="clover"] {
-  --color-white: oklch(0.995 0.008 145);
-  --color-gray-50: oklch(0.965 0.022 145);
-  --color-gray-100: oklch(0.935 0.032 145);
-  --color-gray-200: oklch(0.875 0.04 145);
-  --color-gray-300: oklch(0.795 0.04 145);
-  --color-gray-400: oklch(0.675 0.04 145);
-  --color-gray-500: oklch(0.555 0.04 145);
-  --color-gray-600: oklch(0.455 0.04 145);
-  --color-gray-700: oklch(0.365 0.04 145);
-  --color-gray-800: oklch(0.275 0.035 145);
-  --color-gray-900: oklch(0.18 0.03 145);
+  --color-white: oklch(0.98 0.026 145);
+  --color-gray-50: oklch(0.94 0.045 145);
+  --color-gray-100: oklch(0.89 0.058 145);
+  --color-gray-200: oklch(0.82 0.07 145);
+  --color-gray-300: oklch(0.74 0.06 145);
+  --color-gray-400: oklch(0.62 0.055 145);
+  --color-gray-500: oklch(0.5 0.05 145);
+  --color-gray-600: oklch(0.42 0.045 145);
+  --color-gray-700: oklch(0.34 0.04 145);
+  --color-gray-800: oklch(0.25 0.035 145);
+  --color-gray-900: oklch(0.17 0.03 145);
+
+  /* Brand hovers (brand-50/100) need to feel distinct from the now-
+     also-green gray scale — bump saturation so a "hover:bg-brand-50"
+     reads as an active state and not just another mint surface. */
+  --color-brand-50: oklch(0.92 0.11 145);
+  --color-brand-100: oklch(0.86 0.16 145);
 }
 
 /* -------- Light — neutral default Tailwind grays ---------------- */
