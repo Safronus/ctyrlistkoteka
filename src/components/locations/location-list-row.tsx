@@ -9,8 +9,9 @@ import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
 import {
   formatAreaM2,
   formatCount,
+  formatDateTimeCs,
   formatLocationId,
-  formatShortDateCs,
+  formatTimeSinceCs,
   FINDS,
 } from "@/lib/format";
 
@@ -204,7 +205,6 @@ function StatsPanel({ location }: { location: LocationListItem }) {
   }
 
   const { stats } = location;
-  const yearMax = stats.yearly.reduce((m, y) => Math.max(m, y.count), 0);
   const stateMax = stats.states.reduce((m, s) => Math.max(m, s.count), 0);
 
   return (
@@ -214,84 +214,50 @@ function StatsPanel({ location }: { location: LocationListItem }) {
           Pro tuto lokalitu zatím nejsou žádné nálezy.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="space-y-3">
-            <SummaryRow
-              total={stats.total}
-              firstFoundAt={stats.firstFoundAt}
-            />
+        <div className="space-y-4">
+          <SummaryRow
+            total={stats.total}
+            firstFoundAt={stats.firstFoundAt}
+            lastFoundAt={stats.lastFoundAt}
+          />
 
-            <DetailLinks
-              firstFindId={stats.firstFindId}
-              lastFindId={stats.lastFindId}
-              locationId={location.id}
-            />
+          <DetailLinks
+            firstFindId={stats.firstFindId}
+            lastFindId={stats.lastFindId}
+            locationId={location.id}
+          />
 
-            {stats.states.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Stavy nálezů
-                </h3>
-                <ul className="space-y-1.5">
-                  {stats.states.map((s) => (
-                    <li key={s.state} className="flex items-center gap-2">
-                      <span
-                        className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${STATE_BADGE[s.state]}`}
-                      >
-                        {STATE_LABELS[s.state]}
-                      </span>
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
-                        <div
-                          className="h-full rounded-full bg-brand-500"
-                          style={{
-                            width: stateMax > 0
-                              ? `${(s.count / stateMax) * 100}%`
-                              : "0%",
-                          }}
-                        />
-                      </div>
-                      <span className="w-10 shrink-0 text-right font-mono text-xs tabular-nums text-gray-600">
-                        {s.count}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            {stats.yearly.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Nálezy podle let
-                </h3>
-                <ul className="space-y-1.5">
-                  {stats.yearly.map((y) => (
-                    <li key={y.year} className="flex items-center gap-2">
-                      <span className="w-12 shrink-0 font-mono text-xs text-gray-600">
-                        {y.year}
-                      </span>
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
-                        <div
-                          className="h-full rounded-full bg-brand-500"
-                          style={{
-                            width: yearMax > 0
-                              ? `${(y.count / yearMax) * 100}%`
-                              : "0%",
-                          }}
-                        />
-                      </div>
-                      <span className="w-10 shrink-0 text-right font-mono text-xs tabular-nums text-gray-600">
-                        {y.count}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-          </div>
+          {stats.states.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Stavy nálezů
+              </h3>
+              <ul className="space-y-1.5">
+                {stats.states.map((s) => (
+                  <li key={s.state} className="flex items-center gap-2">
+                    <span
+                      className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${STATE_BADGE[s.state]}`}
+                    >
+                      {STATE_LABELS[s.state]}
+                    </span>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-brand-500"
+                        style={{
+                          width: stateMax > 0
+                            ? `${(s.count / stateMax) * 100}%`
+                            : "0%",
+                        }}
+                      />
+                    </div>
+                    <span className="w-10 shrink-0 text-right font-mono text-xs tabular-nums text-gray-600">
+                      {s.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -301,16 +267,26 @@ function StatsPanel({ location }: { location: LocationListItem }) {
 function SummaryRow({
   total,
   firstFoundAt,
+  lastFoundAt,
 }: {
   total: number;
   firstFoundAt: string | null;
+  lastFoundAt: string | null;
 }) {
+  const first = firstFoundAt ? new Date(firstFoundAt) : null;
+  const last = lastFoundAt ? new Date(lastFoundAt) : null;
   return (
-    <dl className="grid grid-cols-2 gap-3 text-sm">
+    <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
       <Stat label="Celkem nálezů" value={String(total)} />
       <Stat
-        label="Datum prvního nálezu"
-        value={firstFoundAt ? formatShortDateCs(new Date(firstFoundAt)) : "—"}
+        label="První nález"
+        value={first ? formatDateTimeCs(first) : "—"}
+        sub={first ? formatTimeSinceCs(first) : null}
+      />
+      <Stat
+        label="Poslední nález"
+        value={last ? formatDateTimeCs(last) : "—"}
+        sub={last ? formatTimeSinceCs(last) : null}
       />
     </dl>
   );
@@ -356,11 +332,20 @@ function DetailLinks({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string | null;
+}) {
   return (
     <div className="rounded-md border border-gray-200 bg-white p-3">
       <dt className="text-xs font-medium text-gray-500">{label}</dt>
-      <dd className="mt-1 text-lg font-semibold text-gray-900">{value}</dd>
+      <dd className="mt-1 text-sm font-semibold text-gray-900">{value}</dd>
+      {sub && <dd className="mt-0.5 text-xs text-gray-500">{sub}</dd>}
     </div>
   );
 }

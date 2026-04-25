@@ -20,8 +20,11 @@ export interface LocationStats {
   lastYear: number | null;
   /** ISO string of the earliest find at this location, or null when
    *  no finds carry a recorded date. Used by the detail panel to show
-   *  "Datum prvního nálezu". */
+   *  "Datum prvního nálezu" + relative time since. */
   firstFoundAt: string | null;
+  /** ISO string of the latest find at this location. Mirrors
+   *  firstFoundAt for "Datum posledního nálezu". */
+  lastFoundAt: string | null;
   firstFindId: number | null;
   /** ID of the latest find at this location (by id, mirroring
    *  firstFindId). Used by the detail panel's "Poslední nález" link. */
@@ -84,6 +87,7 @@ const EMPTY_STATS: LocationStats = {
   firstYear: null,
   lastYear: null,
   firstFoundAt: null,
+  lastFoundAt: null,
   firstFindId: null,
   lastFindId: null,
   states: [],
@@ -189,6 +193,7 @@ export async function listLocations(
       first_year: number | null;
       last_year: number | null;
       first_found_at: Date | null;
+      last_found_at: Date | null;
       first_find_id: number | null;
       last_find_id: number | null;
     }>
@@ -200,6 +205,7 @@ export async function listLocations(
       EXTRACT(YEAR FROM MIN(f.found_at))::int AS first_year,
       EXTRACT(YEAR FROM MAX(f.found_at))::int AS last_year,
       MIN(f.found_at) AS first_found_at,
+      MAX(f.found_at) AS last_found_at,
       MIN(f.id) AS first_find_id,
       MAX(f.id) AS last_find_id
     FROM "locations" l
@@ -215,6 +221,7 @@ export async function listLocations(
       firstYear: r.first_year ?? null,
       lastYear: r.last_year ?? null,
       firstFoundAt: r.first_found_at ? r.first_found_at.toISOString() : null,
+      lastFoundAt: r.last_found_at ? r.last_found_at.toISOString() : null,
       firstFindId: r.first_find_id ?? null,
       lastFindId: r.last_find_id ?? null,
       states: [],
