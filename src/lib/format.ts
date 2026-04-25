@@ -21,6 +21,23 @@ export function formatShortDateCs(date: Date | null | undefined): string {
 }
 
 /**
+ * Compact datetime ("12. 5. 2023 14:23:45") for cramped layouts like
+ * the grid card. Mirrors formatDateTimeCs but uses numeric month and
+ * drops the "v" word so the whole string fits in a tile column.
+ */
+export function formatShortDateTimeCs(date: Date | null | undefined): string {
+  if (!date) return "—";
+  return new Intl.DateTimeFormat("cs-CZ", {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
+/**
  * Long Czech date with full wall-clock time. Used on the find detail page
  * where the EXIF capture time matters. Returns "—" for missing inputs.
  */

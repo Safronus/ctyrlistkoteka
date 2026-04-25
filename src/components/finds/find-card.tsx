@@ -2,42 +2,67 @@ import Link from "next/link";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
-import { formatShortDateCs } from "@/lib/format";
+import { formatLocationId, formatShortDateTimeCs } from "@/lib/format";
+import { formatGpsApple } from "@/lib/gpsFormat";
 
 export function FindCard({ find }: { find: PublicFind }) {
-  const title = `Nález č. ${find.id}`;
-  const locationName = find.location?.displayName ?? find.location?.code ?? "Bez lokality";
   const altText = find.isAnonymized
-    ? `Anonymizovaný nález č. ${find.id}`
-    : `${title} – ${locationName}`;
+    ? `Anonymizovaný nález #${find.id}`
+    : `Nález #${find.id}`;
 
   return (
     <Link
       href={`/sbirka/${find.id}`}
       className="group block overflow-hidden rounded-lg border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm"
     >
-      <FindThumbnail
-        image={find.primaryImage}
-        alt={altText}
-        className="aspect-square"
-      />
-      <div className="space-y-1.5 p-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="font-medium text-gray-900 group-hover:text-brand-700">
+      <div className="relative">
+        <FindThumbnail
+          image={find.primaryImage}
+          alt={altText}
+          className="aspect-square"
+        />
+        {/* State badges overlaid on the photo so the descriptor row below
+            stays clean. Each badge keeps its own background color from
+            STATE_BADGE, plus a soft shadow for legibility on busy photos. */}
+        {find.states.length > 0 && (
+          <div className="pointer-events-none absolute inset-x-2 top-2">
+            <StateBadges states={find.states} className="drop-shadow-sm" />
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-1 p-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+          <p className="font-semibold text-gray-900 group-hover:text-brand-700">
             #{find.id}
           </p>
           <p className="text-xs text-gray-500">
-            {formatShortDateCs(find.foundAt)}
+            {formatShortDateTimeCs(find.foundAt)}
           </p>
         </div>
-        <p
-          className="truncate text-sm text-gray-600"
-          title={locationName}
-        >
-          {locationName}
-        </p>
-        {find.states.length > 0 && (
-          <StateBadges states={find.states} />
+
+        {!find.isAnonymized && find.coordinates && (
+          <p className="truncate font-mono text-xs text-gray-500">
+            {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
+          </p>
+        )}
+
+        {find.isAnonymized ? (
+          <p className="truncate text-xs text-gray-500">
+            Anonymizovaná lokalita
+          </p>
+        ) : find.location ? (
+          <p
+            className="truncate text-xs text-gray-600"
+            title={find.location.code}
+          >
+            {find.location.code}{" "}
+            <span className="font-mono text-gray-500">
+              {formatLocationId(find.location.id)}
+            </span>
+          </p>
+        ) : (
+          <p className="text-xs text-gray-500">Bez lokality</p>
         )}
       </div>
     </Link>
