@@ -27,6 +27,14 @@ export interface LocationListItem {
   cadastralArea: string;
   locationType: string | null;
   thumbnailUrl: string | null;
+  /** True when every location-map row for this Location is anonymized
+   *  (and at least one exists). Identifying fields are then hidden in
+   *  the UI just like for anonymized finds. */
+  isAnonymized: boolean;
+  /** Polygon area in square meters when a polygon is recorded, otherwise
+   *  null. Computed via PostGIS ST_Area on the geography casting so the
+   *  number is real m² rather than square degrees. */
+  polygonAreaM2: number | null;
   stats: LocationStats;
 }
 
@@ -80,23 +88,53 @@ export async function listLocations(
       cadastralArea: true,
       locationType: true,
     },
-    orderBy: [{ cadastralArea: "asc" }, { code: "asc" }],
+    orderBy: { id: "asc" },
   });
 
   if (locations.length === 0) return [];
 
   const ids = locations.map((l) => l.id);
 
-  // ------------------------------------------------------------ thumbnails
+  // ------------------------------------------------------------ thumbnails + anonymization status
+  // Pull every map (anonymized too) so we can both pick a public thumbnail
+  // and decide whether the location is "fully anonymized" — i.e. has maps,
+  // but none of them are public.
   const maps = await prisma.locationMap.findMany({
-    where: { locationId: { in: ids }, isAnonymized: false },
-    select: { locationId: true, imagePath: true },
+    where: { locationId: { in: ids } },
+    select: { locationId: true, imagePath: true, isAnonymized: true },
     orderBy: [{ locationId: "asc" }, { id: "asc" }],
   });
   const thumbByLoc = new Map<number, string>();
+  const hasPublicMap = new Set<number>();
+  const hasAnyMap = new Set<number>();
   for (const m of maps) {
-    if (!thumbByLoc.has(m.locationId)) {
-      thumbByLoc.set(m.locationId, m.imagePath);
+    hasAnyMap.add(m.locationId);
+    if (!m.isAnonymized) {
+      hasPublicMap.add(m.locationId);
+      if (!thumbByLoc.has(m.locationId)) {
+        thumbByLoc.set(m.locationId, m.imagePath);
+      }
+    }
+  }
+  const isAnonymizedLoc = (locId: number) =>
+    hasAnyMap.has(locId) && !hasPublicMap.has(locId);
+
+  // ------------------------------------------------------------ polygon areas (PostGIS)
+  const areaRows = await prisma.$queryRaw<
+    Array<{ id: number; area_m2: number | null }>
+  >`
+    SELECT id,
+           CASE WHEN polygon IS NOT NULL
+                THEN ST_Area(polygon::geography)
+                ELSE NULL
+           END AS area_m2
+    FROM "locations"
+    WHERE id IN (${Prisma.join(ids)})
+  `;
+  const areaByLoc = new Map<number, number>();
+  for (const r of areaRows) {
+    if (r.area_m2 !== null && Number.isFinite(r.area_m2)) {
+      areaByLoc.set(r.id, r.area_m2);
     }
   }
 
@@ -182,6 +220,8 @@ export async function listLocations(
     cadastralArea: l.cadastralArea,
     locationType: l.locationType,
     thumbnailUrl: thumbByLoc.get(l.id) ?? null,
+    isAnonymized: isAnonymizedLoc(l.id),
+    polygonAreaM2: areaByLoc.get(l.id) ?? null,
     stats: totalsByLoc.get(l.id) ?? EMPTY_STATS,
   }));
 }

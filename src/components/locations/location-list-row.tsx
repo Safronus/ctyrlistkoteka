@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Lock } from "lucide-react";
 import type { LocationListItem } from "@/lib/queries/locations";
 import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
-import { formatLocationId } from "@/lib/format";
-import { formatCount, FINDS } from "@/lib/format";
+import {
+  formatAreaM2,
+  formatCount,
+  formatLocationId,
+  FINDS,
+} from "@/lib/format";
 
 export function LocationListRow({ location }: { location: LocationListItem }) {
   const [open, setOpen] = useState(false);
-
-  const subtitle = [location.cadastralArea, location.locationType]
-    .filter(Boolean)
-    .join(" · ");
 
   return (
     <div>
@@ -23,57 +23,12 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
         aria-expanded={open}
         className="flex w-full items-stretch gap-4 p-3 text-left transition hover:bg-brand-50"
       >
-        {location.thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={location.thumbnailUrl}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            decoding="async"
-            className="h-20 w-20 shrink-0 rounded-md border border-gray-200 object-cover sm:h-24 sm:w-24"
-          />
-        ) : (
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 text-2xl text-gray-300 sm:h-24 sm:w-24">
-            🍀
-          </div>
-        )}
-
+        <RowThumb location={location} />
         <div className="flex min-w-0 flex-1 flex-col justify-between gap-1">
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-mono text-xs text-gray-500">
-              {formatLocationId(location.id)}
-            </span>
-            <span
-              className="truncate text-sm font-semibold text-gray-900"
-              title={location.code}
-            >
-              {location.code}
-            </span>
-            {location.displayName && location.displayName !== location.code && (
-              <span
-                className="truncate text-sm text-gray-500"
-                title={location.displayName}
-              >
-                ({location.displayName})
-              </span>
-            )}
-          </div>
-
-          {subtitle && (
-            <p className="truncate text-xs text-gray-500">{subtitle}</p>
-          )}
-
-          <p className="text-sm font-medium text-brand-700">
-            {formatCount(location.stats.total, FINDS)}
-            {location.stats.anonymized > 0 && (
-              <span className="ml-2 text-xs text-purple-600">
-                ({location.stats.anonymized} anonymizovaných)
-              </span>
-            )}
-          </p>
+          <RowTitle location={location} />
+          <RowMeta location={location} />
+          <RowCount location={location} />
         </div>
-
         <div
           aria-hidden
           className="flex shrink-0 items-center text-gray-400"
@@ -91,7 +46,116 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+//  Row pieces
+
+function RowThumb({ location }: { location: LocationListItem }) {
+  if (location.isAnonymized) {
+    return (
+      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-purple-200 bg-purple-50 text-purple-400 sm:h-24 sm:w-24">
+        <Lock className="h-7 w-7" aria-hidden />
+        <span className="sr-only">Anonymizovaná lokalita</span>
+      </div>
+    );
+  }
+  if (location.thumbnailUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={location.thumbnailUrl}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="h-20 w-20 shrink-0 rounded-md border border-gray-200 object-cover sm:h-24 sm:w-24"
+      />
+    );
+  }
+  return (
+    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 text-2xl text-gray-300 sm:h-24 sm:w-24">
+      🍀
+    </div>
+  );
+}
+
+function RowTitle({ location }: { location: LocationListItem }) {
+  if (location.isAnonymized) {
+    return (
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <span className="font-mono text-xs text-gray-500">
+          {formatLocationId(location.id)}
+        </span>
+        <span className="text-sm font-semibold text-purple-700">
+          Anonymizovaná lokalita
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2">
+      <span className="font-mono text-xs text-gray-500">
+        {formatLocationId(location.id)}
+      </span>
+      <span
+        className="truncate text-sm font-semibold text-gray-900"
+        title={location.code}
+      >
+        {location.code}
+      </span>
+      {location.displayName && location.displayName !== location.code && (
+        <span
+          className="truncate text-sm text-gray-500"
+          title={location.displayName}
+        >
+          ({location.displayName})
+        </span>
+      )}
+    </div>
+  );
+}
+
+function RowMeta({ location }: { location: LocationListItem }) {
+  if (location.isAnonymized) return null;
+  const parts = [
+    location.cadastralArea,
+    location.locationType,
+    location.polygonAreaM2 !== null
+      ? `Plocha ${formatAreaM2(location.polygonAreaM2)}`
+      : null,
+  ].filter(Boolean);
+  if (parts.length === 0) return null;
+  return (
+    <p className="truncate text-xs text-gray-500">{parts.join(" · ")}</p>
+  );
+}
+
+function RowCount({ location }: { location: LocationListItem }) {
+  return (
+    <p className="text-sm font-medium text-brand-700">
+      {formatCount(location.stats.total, FINDS)}
+      {!location.isAnonymized && location.stats.anonymized > 0 && (
+        <span className="ml-2 text-xs text-purple-600">
+          ({location.stats.anonymized} anonymizovaných)
+        </span>
+      )}
+    </p>
+  );
+}
+
+// ---------------------------------------------------------------------------
+//  Stats panel
+
 function StatsPanel({ location }: { location: LocationListItem }) {
+  if (location.isAnonymized) {
+    return (
+      <div className="border-t border-purple-200 bg-purple-50 px-3 py-4 text-sm text-purple-900 sm:px-6">
+        Detail anonymizované lokality se nezobrazuje. Vidíš jen souhrnný
+        počet nálezů.
+      </div>
+    );
+  }
+
   const { stats } = location;
   const yearMax = stats.yearly.reduce((m, y) => Math.max(m, y.count), 0);
   const stateMax = stats.states.reduce((m, s) => Math.max(m, s.count), 0);
@@ -110,6 +174,7 @@ function StatsPanel({ location }: { location: LocationListItem }) {
               anonymized={stats.anonymized}
               firstYear={stats.firstYear}
               lastYear={stats.lastYear}
+              areaM2={location.polygonAreaM2}
             />
 
             {stats.states.length > 0 && (
@@ -201,11 +266,13 @@ function SummaryRow({
   anonymized,
   firstYear,
   lastYear,
+  areaM2,
 }: {
   total: number;
   anonymized: number;
   firstYear: number | null;
   lastYear: number | null;
+  areaM2: number | null;
 }) {
   return (
     <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -223,6 +290,10 @@ function SummaryRow({
               : `${firstYear}–${lastYear}`
             : "—"
         }
+      />
+      <Stat
+        label="Plocha lokality"
+        value={areaM2 !== null ? formatAreaM2(areaM2) : "—"}
       />
     </dl>
   );

@@ -85,3 +85,26 @@ export const YEARS = ["rok", "roky", "let"] as const;
 export function formatLocationId(id: number): string {
   return `#${String(id).padStart(5, "0")}`;
 }
+
+/**
+ * Czech-formatted area string. Picks a unit that keeps the number
+ * readable: m² for small plots, ha for fields, km² for the rare big
+ * polygon. Two decimal places for the larger units, integer for m².
+ */
+export function formatAreaM2(m2: number): string {
+  if (m2 >= 1_000_000) {
+    const km2 = m2 / 1_000_000;
+    return `${new Intl.NumberFormat("cs-CZ", {
+      maximumFractionDigits: 2,
+    }).format(km2)} km²`;
+  }
+  if (m2 >= 10_000) {
+    const ha = m2 / 10_000;
+    return `${new Intl.NumberFormat("cs-CZ", {
+      maximumFractionDigits: 2,
+    }).format(ha)} ha`;
+  }
+  return `${new Intl.NumberFormat("cs-CZ", {
+    maximumFractionDigits: 0,
+  }).format(Math.round(m2))} m²`;
+}
