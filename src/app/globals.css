@@ -1,9 +1,27 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------- */
+/*  Theme system                                                    */
+/*                                                                  */
+/*  Three themes: clover (default — green-tinted neutrals), light   */
+/*  (default Tailwind grays), dark (inverted scale + brand bumped). */
+/*  Components keep using regular Tailwind utilities (bg-white,     */
+/*  bg-gray-50, text-gray-900, bg-brand-50 …); we just override     */
+/*  the underlying CSS variables Tailwind reads, so the same class  */
+/*  resolves to a different colour per theme without touching every */
+/*  component.                                                      */
+/*                                                                  */
+/*  The `data-theme` attribute is set by an inline script in        */
+/*  RootLayout BEFORE first paint, so there's no flash on reload.   */
+/* ---------------------------------------------------------------- */
+
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
+  /* Brand — vibrant clover green. The default values below are picked
+     up when no [data-theme] is set; clover overrides match these so
+     hue stays consistent. */
   --color-brand-50: oklch(0.97 0.03 145);
   --color-brand-100: oklch(0.93 0.07 145);
   --color-brand-200: oklch(0.86 0.12 145);
@@ -13,12 +31,86 @@
   --color-brand-900: oklch(0.28 0.09 145);
 }
 
+/* -------- Clover (default) — green-tinted neutrals -------------- */
+[data-theme="clover"] {
+  --color-white: oklch(0.995 0.008 145);
+  --color-gray-50: oklch(0.965 0.022 145);
+  --color-gray-100: oklch(0.935 0.032 145);
+  --color-gray-200: oklch(0.875 0.04 145);
+  --color-gray-300: oklch(0.795 0.04 145);
+  --color-gray-400: oklch(0.675 0.04 145);
+  --color-gray-500: oklch(0.555 0.04 145);
+  --color-gray-600: oklch(0.455 0.04 145);
+  --color-gray-700: oklch(0.365 0.04 145);
+  --color-gray-800: oklch(0.275 0.035 145);
+  --color-gray-900: oklch(0.18 0.03 145);
+}
+
+/* -------- Light — neutral default Tailwind grays ---------------- */
+[data-theme="light"] {
+  --color-white: oklch(1 0 0);
+  --color-gray-50: oklch(0.985 0 0);
+  --color-gray-100: oklch(0.967 0 0);
+  --color-gray-200: oklch(0.928 0 0);
+  --color-gray-300: oklch(0.871 0 0);
+  --color-gray-400: oklch(0.708 0 0);
+  --color-gray-500: oklch(0.554 0 0);
+  --color-gray-600: oklch(0.439 0 0);
+  --color-gray-700: oklch(0.371 0 0);
+  --color-gray-800: oklch(0.269 0 0);
+  --color-gray-900: oklch(0.211 0 0);
+}
+
+/* -------- Dark — inverted scale + brand/accent shifted to suit -- */
+[data-theme="dark"] {
+  /* "white" surfaces become near-black; "gray-50" / "gray-100" lift
+     slightly so cards still feel layered on the page. */
+  --color-white: oklch(0.16 0 0);
+  --color-gray-50: oklch(0.20 0 0);
+  --color-gray-100: oklch(0.24 0 0);
+  --color-gray-200: oklch(0.30 0 0);
+  --color-gray-300: oklch(0.40 0 0);
+  --color-gray-400: oklch(0.55 0 0);
+  --color-gray-500: oklch(0.68 0 0);
+  --color-gray-600: oklch(0.78 0 0);
+  --color-gray-700: oklch(0.86 0 0);
+  --color-gray-800: oklch(0.93 0 0);
+  --color-gray-900: oklch(0.97 0 0);
+
+  /* Brand — re-tune so hover surfaces (brand-50) are dark-tinted and
+     emphasised text (brand-700) remains readable on dark cards. */
+  --color-brand-50: oklch(0.22 0.06 145);
+  --color-brand-100: oklch(0.27 0.09 145);
+  --color-brand-200: oklch(0.34 0.12 145);
+  --color-brand-500: oklch(0.66 0.18 145);
+  --color-brand-600: oklch(0.58 0.18 145);
+  --color-brand-700: oklch(0.78 0.13 145);
+  --color-brand-900: oklch(0.88 0.08 145);
+
+  /* Anonymized — purple stays purple, just inverted lightness. */
+  --color-purple-50: oklch(0.22 0.06 305);
+  --color-purple-100: oklch(0.27 0.08 305);
+  --color-purple-200: oklch(0.34 0.10 305);
+  --color-purple-400: oklch(0.66 0.18 305);
+  --color-purple-600: oklch(0.74 0.16 305);
+  --color-purple-800: oklch(0.86 0.10 305);
+  --color-purple-900: oklch(0.92 0.06 305);
+
+  /* Former locations — rose. */
+  --color-rose-50: oklch(0.22 0.06 12);
+  --color-rose-100: oklch(0.27 0.08 12);
+  --color-rose-200: oklch(0.34 0.10 12);
+  --color-rose-800: oklch(0.86 0.10 12);
+}
+
 html,
 body {
   height: 100%;
 }
 
 body {
+  /* `bg-white` follows the theme: pure white in light, faint-green in
+     clover, near-black in dark. */
   @apply bg-white text-gray-900 antialiased;
   font-family: var(--font-sans);
 }
