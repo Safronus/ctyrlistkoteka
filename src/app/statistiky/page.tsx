@@ -70,6 +70,11 @@ export default async function StatistikyPage() {
               label: "bez fotky",
               value: fmt.format(totals.noPhotoFinds),
             },
+            {
+              icon: EyeOff,
+              label: "anonymizovaných",
+              value: fmt.format(totals.anonymized),
+            },
           ]}
         />
         <TotalCard
