@@ -365,7 +365,7 @@ function MonthDayHeatmap({
         odpovídá podílu vůči maximálnímu dni ({max}).
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-[11px] tabular-nums">
+        <table className="mx-auto border-collapse text-[11px] tabular-nums">
           <thead>
             <tr>
               <th className="sticky left-0 z-10 bg-white p-1 text-left text-gray-500">
@@ -394,10 +394,13 @@ function MonthDayHeatmap({
                   </th>
                   {days.map((d) => {
                     if (d > monthMax) {
+                      // Non-existent dates render with no border so they
+                      // visually disappear into the card surface — only
+                      // the "×" mark hints they exist.
                       return (
                         <td
                           key={d}
-                          className="w-7 border border-gray-100 text-center text-gray-300"
+                          className="w-7 text-center text-gray-300"
                           aria-hidden
                         >
                           ×
