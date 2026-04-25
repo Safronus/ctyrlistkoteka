@@ -39,12 +39,17 @@
    subtle visitors couldn't tell it apart from the neutral light
    theme. */
 [data-theme="clover"] {
-  --color-white: oklch(0.98 0.026 145);
-  --color-gray-50: oklch(0.94 0.045 145);
-  --color-gray-100: oklch(0.89 0.058 145);
-  --color-gray-200: oklch(0.82 0.07 145);
-  --color-gray-300: oklch(0.74 0.06 145);
-  --color-gray-400: oklch(0.62 0.055 145);
+  /* Cards / body — almost white with a faint mint wash. */
+  --color-white: oklch(0.985 0.022 145);
+  /* Page / muted surface (footer, stat panels, expanded detail
+     section). Sits midway between `white` above and the original
+     v2 mint at oklch(0.94 …) — visible green identity but less
+     "drowned in mint" than before. */
+  --color-gray-50: oklch(0.965 0.034 145);
+  --color-gray-100: oklch(0.92 0.05 145);
+  --color-gray-200: oklch(0.85 0.062 145);
+  --color-gray-300: oklch(0.76 0.06 145);
+  --color-gray-400: oklch(0.63 0.055 145);
   --color-gray-500: oklch(0.5 0.05 145);
   --color-gray-600: oklch(0.42 0.045 145);
   --color-gray-700: oklch(0.34 0.04 145);
