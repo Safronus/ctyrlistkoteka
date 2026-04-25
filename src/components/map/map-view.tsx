@@ -55,7 +55,10 @@ export function MapView({
         maxZoom={19}
       />
       <ImageOverlays overlays={data.overlays} />
-      <LocationPolygons locations={data.locations} />
+      <LocationPolygons
+        locations={data.locations}
+        focusLocationId={focusLocationId}
+      />
       <FindMarkers markers={data.markers} />
       {bounds && <FitBounds bounds={bounds} maxZoom={maxFitZoom} />}
       <Legend

@@ -45,11 +45,23 @@ export interface MapData {
 }
 
 export async function getMapData(): Promise<MapData> {
+  // A location is anonymized if at least one of its maps carries the
+  // is_anonymized flag (matching /lokality logic). Everything keyed off
+  // such a location — polygons, markers, overlays — must be omitted from
+  // the public payload entirely.
+  const anonLocRows = await prisma.locationMap.findMany({
+    where: { isAnonymized: true },
+    select: { locationId: true },
+    distinct: ["locationId"],
+  });
+  const anonLocIds = new Set(anonLocRows.map((r) => r.locationId));
+
   type MarkerRow = {
     id: number;
     lat: number | null;
     lng: number | null;
     is_anonymized: boolean;
+    location_id: number | null;
     location_name: string | null;
     found_at: Date | null;
   };
@@ -59,6 +71,7 @@ export async function getMapData(): Promise<MapData> {
            ST_Y(f.coordinates)::float8 AS lat,
            ST_X(f.coordinates)::float8 AS lng,
            f.is_anonymized,
+           f.location_id,
            COALESCE(l.display_name, l.code) AS location_name,
            f.found_at
     FROM finds f
@@ -70,6 +83,10 @@ export async function getMapData(): Promise<MapData> {
   const markers: MapMarker[] = [];
   for (const r of markerRows) {
     if (r.lat === null || r.lng === null) continue;
+    // Drop markers from anonymized locations — keeping them would let the
+    // hidden polygon's spot be reverse-engineered from the GPS dots even
+    // though the polygon itself is gone.
+    if (r.location_id !== null && anonLocIds.has(r.location_id)) continue;
     const lat = r.is_anonymized
       ? Math.round(r.lat * factor) / factor
       : r.lat;
@@ -109,17 +126,19 @@ export async function getMapData(): Promise<MapData> {
     GROUP BY l.id
   `;
 
-  const locations: MapLocation[] = locRows.map((r) => ({
-    id: r.id,
-    code: r.code,
-    displayName: r.display_name,
-    centerLat: r.center_lat,
-    centerLng: r.center_lng,
-    polygon: r.polygon_geojson
-      ? (JSON.parse(r.polygon_geojson) as GeoJSON.Polygon)
-      : null,
-    findCount: Number(r.find_count),
-  }));
+  const locations: MapLocation[] = locRows
+    .filter((r) => !anonLocIds.has(r.id))
+    .map((r) => ({
+      id: r.id,
+      code: r.code,
+      displayName: r.display_name,
+      centerLat: r.center_lat,
+      centerLng: r.center_lng,
+      polygon: r.polygon_geojson
+        ? (JSON.parse(r.polygon_geojson) as GeoJSON.Polygon)
+        : null,
+      findCount: Number(r.find_count),
+    }));
 
   const mapRows = await prisma.locationMap.findMany({
     where: {
