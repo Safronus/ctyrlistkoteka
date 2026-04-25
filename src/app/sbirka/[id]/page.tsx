@@ -41,14 +41,14 @@ export async function generateMetadata({
   // Anonymized finds must not be indexed and must not leak data in meta tags.
   if (find.isAnonymized) {
     return {
-      title: `Nález č. ${find.id}`,
-      description: `Anonymizovaný nález č. ${find.id}.`,
+      title: `Nález #${find.id}`,
+      description: `Anonymizovaný nález #${find.id}.`,
       robots: { index: false, follow: false },
     };
   }
   const locationName =
     find.location?.displayName ?? find.location?.code ?? "bez lokality";
-  const title = `Nález č. ${find.id} – ${locationName}`;
+  const title = `Nález #${find.id} – ${locationName}`;
   const description = `Čtyřlístkový nález, lokalita ${locationName}.`;
   return {
     title,
@@ -67,10 +67,6 @@ export default async function FindDetailPage({ params }: PageProps) {
   if (!Number.isInteger(numId) || numId <= 0) notFound();
   const find = await getFindById(numId);
   if (!find) notFound();
-
-  const locationLabel = find.isAnonymized
-    ? "Anonymizovaná lokalita"
-    : (find.location?.displayName ?? find.location?.code ?? "Bez lokality");
 
   // Each find has at most one main photo (ORIGINAL) and at most one crop
   // (CROP). If imports leave duplicates behind, we still pick a single
@@ -91,21 +87,27 @@ export default async function FindDetailPage({ params }: PageProps) {
       </nav>
 
       <header className="space-y-3">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Nález č. {find.id}
-        </h1>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
-          <span>{formatDateTimeCs(find.foundAt)}</span>
-          <span aria-hidden>·</span>
-          <span>{locationLabel}</span>
+        {/* Title row: ID on the left, state badges (Darovaný, Anonymizovaný,
+            …) flush right. Multiple states stack here when a find carries
+            more than one — e.g. anonymized + donated. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Nález #{find.id}
+          </h1>
+          {find.states.length > 0 && <StateBadges states={find.states} />}
         </div>
-        {find.states.length > 0 && <StateBadges states={find.states} />}
-        {!find.isAnonymized && find.coordinates && (
-          <GpsValue
-            lat={find.coordinates.lat}
-            lng={find.coordinates.lng}
-          />
-        )}
+
+        {/* Meta row: datetime on the left, GPS on the right (when shown). */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-gray-600">
+          <span>{formatDateTimeCs(find.foundAt)}</span>
+          {!find.isAnonymized && find.coordinates && (
+            <GpsValue
+              lat={find.coordinates.lat}
+              lng={find.coordinates.lng}
+            />
+          )}
+        </div>
+
         {!find.isAnonymized && find.notes && (
           <p className="whitespace-pre-wrap rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
             {find.notes}
@@ -116,7 +118,7 @@ export default async function FindDetailPage({ params }: PageProps) {
       <ImageGallery
         image={mainImage}
         cropImage={cropImage}
-        altBase={`Nález č. ${find.id}`}
+        altBase={`Nález #${find.id}`}
       />
 
       {find.isAnonymized && (
