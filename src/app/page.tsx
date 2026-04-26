@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ListIcon, MapPin } from "lucide-react";
 import { getHomePageData, type HomePageData } from "@/lib/queries/home";
+import { getWatermarkMeta } from "@/lib/queries/watermark";
 import {
   formatDateCs,
   formatLocationId,
@@ -24,7 +25,10 @@ const COUNTRIES = ["země", "země", "zemí"] as const;
 const NF_CS = new Intl.NumberFormat("cs-CZ");
 
 export default async function HomePage() {
-  const data = await getHomePageData();
+  const [data, watermark] = await Promise.all([
+    getHomePageData(),
+    getWatermarkMeta(),
+  ]);
   const { totals } = data;
 
   return (
@@ -42,6 +46,23 @@ export default async function HomePage() {
         <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
           Čtyřlístkotéka
         </h1>
+        {watermark && (
+          // The same brand watermark that gets baked into every find
+          // photo. Served via /api/watermark from DATA_DIR (the file is
+          // outside public/ — see src/lib/queries/watermark.ts). Plain
+          // <img> mirrors FindThumbnail's pattern; we skip Next/Image
+          // because Nginx serves the bytes directly in production and
+          // the optimizer would just add latency.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={watermark.src}
+            alt=""
+            aria-hidden
+            width={watermark.width}
+            height={watermark.height}
+            className="mx-auto mt-4 h-20 w-auto opacity-70 sm:h-24"
+          />
+        )}
         <p className="mx-auto mt-3 max-w-2xl text-base text-gray-600 sm:text-lg">
           Veřejná prezentace soukromé sbírky čtyřlístků — tisíce nálezů,
           zaznamenaných lokalit a GPS souřadnic.

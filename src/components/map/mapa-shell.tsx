@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ListIcon, X } from "lucide-react";
+import { Info, ListIcon, X } from "lucide-react";
 import { MapLoader } from "./map-loader";
 import { MapSidebar } from "./map-sidebar";
 import type { MapData } from "@/lib/queries/map";
@@ -88,6 +88,25 @@ export function MapaShell({
         showLocations={showLocations}
         showFinds={showFinds}
       />
+
+      {/* GPS-accuracy notice. Pinned bottom-left so it sits above OSM
+          attribution but stays clear of the sidebar (right) and zoom
+          controls (top-left). Only relevant when the find dots are
+          actually drawn — hidden when the layer is off or empty. */}
+      {showFinds && mapData.findCoords.length > 0 && (
+        <div
+          role="status"
+          className="pointer-events-none absolute bottom-6 left-3 z-[400] max-w-xs rounded-md border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-900 shadow-md"
+        >
+          <p className="flex items-start gap-1.5">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span>
+              Pozice nálezů jsou orientační — mohou se lišit od reálné
+              polohy kvůli odchylce GPS.
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* Toggle pill — hidden when the sidebar itself is open since it
           carries its own close button. */}
