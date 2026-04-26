@@ -806,11 +806,43 @@ async function phaseFinds(
       }
     }
 
+    // Upsert keyed by (findId, imageType): one ORIGINAL + one CROP per
+    // find is the project convention (CLAUDE.md filename convention).
+    // The previous lookup-by-sha1 created a new row every time the
+    // source's content changed (re-encoded JPEG, different camera
+    // export, watermark experiment), instead of updating the existing
+    // row's sha1/paths. That left ~139 zombie rows in production for
+    // finds 15903–16044 — visible only as duplicate find_images entries
+    // pointing to orphan WebP files.
     const existing = await ctx.prisma.findImage.findFirst({
-      where: { findId: f.parsed.findId, originalSha1: sha1 },
+      where: { findId: f.parsed.findId, imageType: f.imageType },
     });
-    if (!existing) {
-      // Make the first image per find primary
+    if (existing) {
+      // Only write when something actually changed — minimises DB churn
+      // on the common "same file, same content" sync.
+      const changed =
+        existing.originalSha1 !== sha1 ||
+        existing.originalFilename !== f.filename ||
+        existing.webPath !== image.webPath ||
+        existing.thumbPath !== image.thumbPath ||
+        existing.width !== image.width ||
+        existing.height !== image.height;
+      if (changed) {
+        await ctx.prisma.findImage.update({
+          where: { id: existing.id },
+          data: {
+            originalFilename: f.filename,
+            originalSha1: sha1,
+            webPath: image.webPath,
+            thumbPath: image.thumbPath,
+            width: image.width,
+            height: image.height,
+          },
+        });
+      }
+    } else {
+      // First image of this type for the find — make it primary when no
+      // sibling already claims that flag.
       const hasAnyPrimary = await ctx.prisma.findImage.findFirst({
         where: { findId: f.parsed.findId, isPrimary: true },
       });
