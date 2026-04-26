@@ -97,6 +97,17 @@ export function CloverFactCard() {
         <p className="mt-2 font-serif text-sm italic leading-relaxed text-gray-700">
           {text.text}
         </p>
+
+        {/* Fact number stamped diagonally in the bottom-right corner.
+            Uses the original JSON `id` (1–200) — stable across visits
+            so each fact has a fixed "#N" identity even though the
+            on-disk shuffle changes the rotation order. */}
+        <span
+          aria-hidden
+          className="absolute bottom-2 right-3 rotate-[8deg] font-serif text-xs italic text-gray-400"
+        >
+          #{text.id}
+        </span>
       </aside>
     </div>
   );

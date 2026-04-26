@@ -39,14 +39,19 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-      {/* Hero. Up to lg the layout is the same centered stack as
-          before; on lg+ the title sits in a left column with the
-          pinned-paper "Drobnost o čtyřlístcích" card pushed to the
-          right column. The card stacks below on smaller screens
-          (handled by CloverFactCard's own justify rules) and the
-          centered hero block keeps its symmetry there. */}
-      <section className="lg:flex lg:items-center lg:gap-8">
-        <div className="text-center lg:flex-1">
+      {/* Hero, three-tier composition:
+          1. Title centered across the full width.
+          2. Trio row — clover logo · pinned-paper fact · watermark
+             smiley — flexed in a centered row on lg+, stacked on
+             smaller screens (paper card sits between the two brand
+             marks, balanced on each side).
+          3. Intro paragraph + "naposledy doplněno" line, centered. */}
+      <section>
+        <h1 className="text-center text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+          Čtyřlístkotéka
+        </h1>
+
+        <div className="mt-6 flex flex-col items-center justify-center gap-6 sm:gap-8 lg:flex-row">
           <Image
             src="/clover.png"
             alt=""
@@ -54,12 +59,10 @@ export default async function HomePage() {
             width={1024}
             height={1024}
             priority
-            className="mx-auto h-32 w-32 sm:h-40 sm:w-40"
+            className="h-28 w-28 shrink-0 sm:h-32 sm:w-32"
           />
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-            Čtyřlístkotéka
-          </h1>
-          {watermark && (
+          <CloverFactCard />
+          {watermark ? (
             // The same brand watermark that gets baked into every find
             // photo. Served via /api/watermark from DATA_DIR (the file
             // is outside public/ — see src/lib/queries/watermark.ts).
@@ -73,23 +76,25 @@ export default async function HomePage() {
               aria-hidden
               width={watermark.width}
               height={watermark.height}
-              className="mx-auto mt-4 h-20 w-auto opacity-70 sm:h-24"
+              className="h-28 w-auto shrink-0 opacity-70 sm:h-32"
             />
+          ) : (
+            // Reserve symmetry on lg even when the watermark file isn't
+            // available locally so the trio doesn't visually shift.
+            <div className="hidden lg:block lg:h-32 lg:w-32 lg:shrink-0" />
           )}
-          <p className="mx-auto mt-3 max-w-2xl text-base text-gray-600 sm:text-lg">
-            Veřejná prezentace soukromé sbírky čtyřlístků — tisíce nálezů,
-            zaznamenaných lokalit a GPS souřadnic.
+        </div>
+
+        <p className="mx-auto mt-6 max-w-2xl text-center text-base text-gray-600 sm:text-lg">
+          Veřejná prezentace soukromé sbírky čtyřlístků — tisíce nálezů,
+          zaznamenaných lokalit a GPS souřadnic.
+        </p>
+        {totals.latestFoundAt && (
+          <p className="mt-2 text-center text-xs text-gray-400">
+            Naposledy doplněno{" "}
+            {formatShortDateCs(new Date(totals.latestFoundAt))}
           </p>
-          {totals.latestFoundAt && (
-            <p className="mt-2 text-xs text-gray-400">
-              Naposledy doplněno{" "}
-              {formatShortDateCs(new Date(totals.latestFoundAt))}
-            </p>
-          )}
-        </div>
-        <div className="mt-8 lg:mt-0 lg:w-80 lg:shrink-0">
-          <CloverFactCard />
-        </div>
+        )}
       </section>
 
       <section className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
