@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ListIcon, MapPin } from "lucide-react";
 import { getHomePageData, type HomePageData } from "@/lib/queries/home";
+import { getRandomFindShowcase } from "@/lib/queries/random-find";
 import { getWatermarkMeta } from "@/lib/queries/watermark";
 import {
   formatDateCs,
@@ -14,6 +15,7 @@ import {
   YEARS,
 } from "@/lib/format";
 import { FindThumbnail } from "@/components/finds/find-thumbnail";
+import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
 
 // Must be a literal for Next.js static analysis. Matches HOME_REVALIDATE in
 // src/lib/constants.ts (1 hour).
@@ -25,9 +27,10 @@ const COUNTRIES = ["země", "země", "zemí"] as const;
 const NF_CS = new Intl.NumberFormat("cs-CZ");
 
 export default async function HomePage() {
-  const [data, watermark] = await Promise.all([
+  const [data, watermark, randomFind] = await Promise.all([
     getHomePageData(),
     getWatermarkMeta(),
+    getRandomFindShowcase(),
   ]);
   const { totals } = data;
 
@@ -122,12 +125,14 @@ export default async function HomePage() {
         />
       </section>
 
-      {data.latestFind && <LatestFindSection latestFind={data.latestFind} />}
-
       <HighlightsSection
         highlights={data.highlights}
         recentMonthly={data.recentMonthly}
       />
+
+      {data.latestFind && <LatestFindSection latestFind={data.latestFind} />}
+
+      <RandomFindShowcaseWidget initial={randomFind} />
     </div>
   );
 }
