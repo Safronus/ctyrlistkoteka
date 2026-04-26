@@ -334,14 +334,21 @@ async function main(): Promise<void> {
             // Re-encode WebP from the original HEIC/JPEG, overwriting any
             // previous (potentially corrupted) variants. Done before
             // watermarking so the doodle gets composed over a clean photo.
-            // Search both finds/ (ORIGINAL) and crops/ (CROP) — sync.ts
-            // walks both, and the imageType column tells us which is
-            // which but the basename is enough to locate either.
+            //
+            // ORIG and CROP can share the same basename (the user keeps
+            // them parallel) but live in different roots — picking by
+            // imageType is the only reliable way to disambiguate.
+            // Earlier passes that searched both directories would find
+            // the ORIG file for both rows and silently double-encode.
             const dataDir = process.env.DATA_DIR ?? "./data";
+            const sourceRoot =
+              img.imageType === ImageType.CROP
+                ? join(dataDir, "crops")
+                : join(dataDir, "finds");
             await regenerateFromSource(
               img.originalFilename,
               img.originalSha1,
-              [join(dataDir, "finds"), join(dataDir, "crops")],
+              [sourceRoot],
               generatedDir,
             );
           }
