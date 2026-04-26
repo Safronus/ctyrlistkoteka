@@ -81,7 +81,24 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
   const where: Prisma.FindWhereInput = {};
   const and: Prisma.FindWhereInput[] = [];
 
-  if (f.locationId) and.push({ locationId: f.locationId });
+  if (f.locationId) {
+    // When the requested location is a parent (has children declared via
+    // data/meta/LokaceHierarchie.json), include every direct child in the
+    // filter so the parent's "Vše ve sbírce" link surfaces every find
+    // across the group. Max depth is 2 (enforced in sync.ts), so a single
+    // findMany covers all descendants. For leaf locations this returns
+    // an empty child set and the WHERE collapses to plain equality.
+    const childRows = await prisma.location.findMany({
+      where: { parentId: f.locationId },
+      select: { id: true },
+    });
+    if (childRows.length === 0) {
+      and.push({ locationId: f.locationId });
+    } else {
+      const ids = [f.locationId, ...childRows.map((r) => r.id)];
+      and.push({ locationId: { in: ids } });
+    }
+  }
   if (f.state) and.push({ states: { some: { state: f.state } } });
   if (f.year) {
     const from = new Date(Date.UTC(f.year, 0, 1));
