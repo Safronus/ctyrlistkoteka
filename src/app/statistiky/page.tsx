@@ -82,6 +82,16 @@ export default async function StatistikyPage() {
         <TotalCard
           label="lokalit"
           value={fmt.format(totals.locations)}
+          cornerLeft={{
+            icon: Globe2,
+            label: "států",
+            value: fmt.format(stats.byCountry.length),
+          }}
+          cornerRight={{
+            icon: Building2,
+            label: "měst",
+            value: fmt.format(stats.byCity.length),
+          }}
           subStats={[
             {
               icon: EyeOff,
@@ -92,16 +102,6 @@ export default async function StatistikyPage() {
               icon: MapPinOff,
               label: "zaniklých",
               value: fmt.format(totals.goneLocations),
-            },
-            {
-              icon: Building2,
-              label: "měst",
-              value: fmt.format(stats.byCity.length),
-            },
-            {
-              icon: Globe2,
-              label: "států",
-              value: fmt.format(stats.byCountry.length),
             },
           ]}
         />
@@ -160,16 +160,44 @@ interface SubStat {
 function TotalCard({
   label,
   value,
+  cornerLeft,
+  cornerRight,
   subStats = [],
 }: {
   label: string;
   value: string;
+  /** Optional secondary metric in the top-left corner — same visual
+   *  weight as the centred main number but slightly smaller, so it
+   *  reads as a peer rather than a sub-stat. */
+  cornerLeft?: SubStat;
+  /** Mirrors `cornerLeft` on the right. Both corners stay aligned via
+   *  a 3-column grid when set; the bottom subStats row spans the full
+   *  card so the visual hierarchy is "peer numbers → main → details". */
+  cornerRight?: SubStat;
   subStats?: readonly SubStat[];
 }) {
+  const hasCorners = !!(cornerLeft || cornerRight);
   return (
-    <div className="flex flex-col items-center rounded-xl border border-gray-200 bg-white p-6 text-center">
-      <p className="text-4xl font-bold text-brand-700">{value}</p>
-      <p className="mt-1 text-sm text-gray-500">{label}</p>
+    <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
+      {hasCorners ? (
+        <div className="grid grid-cols-3 items-start gap-2">
+          {cornerLeft ? (
+            <CornerStat stat={cornerLeft} align="left" />
+          ) : (
+            <div />
+          )}
+          <MainNumber value={value} label={label} />
+          {cornerRight ? (
+            <CornerStat stat={cornerRight} align="right" />
+          ) : (
+            <div />
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center">
+          <MainNumber value={value} label={label} />
+        </div>
+      )}
       {subStats.length > 0 && (
         <ul className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-gray-100 pt-3 text-xs text-gray-600">
           {subStats.map((s) => {
@@ -190,6 +218,38 @@ function TotalCard({
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+function MainNumber({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex flex-col items-center">
+      <p className="text-4xl font-bold text-brand-700">{value}</p>
+      <p className="mt-1 text-sm text-gray-500">{label}</p>
+    </div>
+  );
+}
+
+function CornerStat({
+  stat,
+  align,
+}: {
+  stat: SubStat;
+  align: "left" | "right";
+}) {
+  const Icon = stat.icon;
+  const positionCls =
+    align === "left" ? "items-start text-left" : "items-end text-right";
+  return (
+    <div className={`flex flex-col ${positionCls}`}>
+      <p className="text-2xl font-bold tabular-nums text-brand-700">
+        {stat.value}
+      </p>
+      <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-gray-500">
+        <Icon className="h-3.5 w-3.5 text-brand-700" aria-hidden />
+        {stat.label}
+      </p>
     </div>
   );
 }
