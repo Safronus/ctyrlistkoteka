@@ -42,6 +42,9 @@ export interface HomeTotals {
 export interface HomeHighlights {
   /** Year of the user's first find — anchors the "od roku N" tagline. */
   firstYear: number | null;
+  /** ISO timestamp of the user's earliest find. Drives the precise
+   *  "before X years, Y days, Z hours" hint below the headline year. */
+  firstFoundAt: string | null;
   /** Single calendar day with the most finds. Mirrors the `peaks.day`
    *  bucket used on /statistiky. */
   peakDay: { startsAt: string; count: number } | null;
@@ -87,6 +90,7 @@ export async function getHomePageData(): Promise<HomePageData> {
         locations: bigint;
         first_year: number | null;
         last_year: number | null;
+        first_found_at: Date | null;
         latest_found_at: Date | null;
       }>
     >`
@@ -95,6 +99,7 @@ export async function getHomePageData(): Promise<HomePageData> {
         (SELECT COUNT(*) FROM locations) AS locations,
         (SELECT EXTRACT(YEAR FROM MIN(found_at))::int FROM finds) AS first_year,
         (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year,
+        (SELECT MIN(found_at) FROM finds) AS first_found_at,
         (SELECT MAX(found_at) FROM finds) AS latest_found_at
     `,
 
@@ -244,6 +249,7 @@ export async function getHomePageData(): Promise<HomePageData> {
   const topLocRow = topLocRows[0];
   const highlights: HomeHighlights = {
     firstYear: c?.first_year ?? null,
+    firstFoundAt: c?.first_found_at ? c.first_found_at.toISOString() : null,
     peakDay: peakDayRow
       ? {
           startsAt: peakDayRow.bucket.toISOString(),

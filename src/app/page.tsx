@@ -7,6 +7,7 @@ import {
   formatDateCs,
   formatLocationId,
   formatShortDateCs,
+  formatTimeSinceCs,
   pluralCs,
   FINDS,
   LOCATIONS,
@@ -230,8 +231,14 @@ function HighlightsSection({
           label="Sbírka začala"
           value={highlights.firstYear ? `${highlights.firstYear}` : "—"}
           hint={
-            highlights.firstYear
-              ? `Před ${pluralCs(new Date().getFullYear() - highlights.firstYear, YEARS)}`
+            // Precise to hours so the card visibly ticks forward across
+            // ISR refreshes (revalidate = 1 h). formatTimeSinceCs already
+            // lowercases "před"; capitalise it so the hint reads as a
+            // standalone sentence under the headline year.
+            highlights.firstFoundAt
+              ? capitalise(
+                  formatTimeSinceCs(new Date(highlights.firstFoundAt)),
+                )
               : null
           }
         />
@@ -269,6 +276,10 @@ function HighlightsSection({
       </div>
     </section>
   );
+}
+
+function capitalise(s: string): string {
+  return s.length === 0 ? s : s[0]!.toUpperCase() + s.slice(1);
 }
 
 function HighlightCard({
