@@ -241,9 +241,21 @@ function MapLink({ location }: { location: LocationListItem }) {
 }
 
 function RowCount({ location }: { location: LocationListItem }) {
+  // Master locations whose finds physically live on their sub-parts (e.g.
+  // RATIBOŘ_POLE001 with 0 own finds but 953 across 001a–001g) would
+  // otherwise read "0 nálezů" in the header — misleading. Headline the
+  // aggregate when this row has visible children; the expanded panel
+  // still breaks it down into "vlastní" vs. "vč. dílčích částí".
+  const hasChildren = location.childCount > 0;
+  const headline = hasChildren ? location.aggregateTotal : location.stats.total;
   return (
     <p className="text-sm font-medium text-brand-700">
-      {formatCount(location.stats.total, FINDS)}
+      {formatCount(headline, FINDS)}
+      {hasChildren && (
+        <span className="ml-2 text-xs font-normal text-gray-500">
+          (vč. dílčích částí)
+        </span>
+      )}
       {location.stats.anonymized > 0 && (
         <span className="ml-2 text-xs text-purple-600">
           ({location.stats.anonymized} anonymizovaných)
@@ -342,17 +354,18 @@ function SummaryRow({
 }) {
   const first = firstFoundAt ? new Date(firstFoundAt) : null;
   const last = lastFoundAt ? new Date(lastFoundAt) : null;
-  // For a parent location, the count under its own name is only part of
-  // the picture — the sub-parts add up to the "true" total. We surface
-  // the aggregate as the sub-line so the visitor sees both: own count
-  // (headline) and combined count incl. sub-parts (sub).
-  const totalSub =
-    childCount > 0
-      ? `Včetně dílčích částí: ${formatCount(aggregateTotal, FINDS)}`
-      : null;
+  // Headline = aggregate when there are children, so a master location
+  // with 0 own finds doesn't misleadingly read "0". The sub-line then
+  // breaks the aggregate into own + parts so the visitor still sees both
+  // numbers.
+  const hasChildren = childCount > 0;
+  const headline = hasChildren ? aggregateTotal : total;
+  const totalSub = hasChildren
+    ? `Vlastní: ${total} · Z dílčích částí: ${aggregateTotal - total}`
+    : null;
   return (
     <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-      <Stat label="Celkem nálezů" value={String(total)} sub={totalSub} />
+      <Stat label="Celkem nálezů" value={String(headline)} sub={totalSub} />
       <Stat
         label="První nález"
         value={first ? formatDateTimeCs(first) : "—"}
