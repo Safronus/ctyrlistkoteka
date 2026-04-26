@@ -35,11 +35,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   trivia: "Drobnosti",
 };
 
-/** Custom event the temporary debug bar dispatches to force a specific
- *  fact id on screen. Listed centrally so the debug bar and the card
- *  agree on the contract. Remove together when the debug UI goes away. */
-const DEBUG_EVENT = "clover-fact-force";
-
 interface VibeStyles {
   paperBg: string;
   paperRing: string;
@@ -135,10 +130,6 @@ function vibeFor(text: CloverText): VibeStyles {
  * SSR renders `texts[0]` as a stable fallback; client-side `useEffect`
  * picks a random starting index then advances by one every 2 minutes.
  * Each visit/reload picks a new random start.
- *
- * Listens for a "clover-fact-force" custom event used by the temporary
- * debug bar — this hook is intentionally cheap so it can stay through
- * a few previews and be removed once the visuals are signed off.
  */
 export function CloverFactCard() {
   const [index, setIndex] = useState(0);
@@ -150,18 +141,6 @@ export function CloverFactCard() {
       setIndex((prev) => (prev + 1) % CLOVER_TEXTS.length);
     }, ROTATION_MS);
     return () => clearInterval(i);
-  }, []);
-
-  // Debug-only: jump to a specific id when the debug bar dispatches.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ id?: number }>).detail;
-      if (!detail || typeof detail.id !== "number") return;
-      const idx = CLOVER_TEXTS.findIndex((t) => t.id === detail.id);
-      if (idx >= 0) setIndex(idx);
-    };
-    window.addEventListener(DEBUG_EVENT, handler);
-    return () => window.removeEventListener(DEBUG_EVENT, handler);
   }, []);
 
   const text = CLOVER_TEXTS[index];
