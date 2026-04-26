@@ -243,22 +243,22 @@ function MapLink({ location }: { location: LocationListItem }) {
 function RowCount({ location }: { location: LocationListItem }) {
   // Master locations whose finds physically live on their sub-parts (e.g.
   // RATIBOŘ_POLE001 with 0 own finds but 953 across 001a–001g) would
-  // otherwise read "0 nálezů" in the header — misleading. Headline the
-  // aggregate when this row has visible children; the expanded panel
-  // still breaks it down into "vlastní" vs. "vč. dílčích částí".
+  // otherwise read "0 nálezů" in the header — misleading. Use
+  // aggregateStats which equals stats for leaf locations and the folded
+  // total for parents.
   const hasChildren = location.childCount > 0;
-  const headline = hasChildren ? location.aggregateTotal : location.stats.total;
+  const view = location.aggregateStats;
   return (
     <p className="text-sm font-medium text-brand-700">
-      {formatCount(headline, FINDS)}
+      {formatCount(view.total, FINDS)}
       {hasChildren && (
         <span className="ml-2 text-xs font-normal text-gray-500">
           (vč. dílčích částí)
         </span>
       )}
-      {location.stats.anonymized > 0 && (
+      {view.anonymized > 0 && (
         <span className="ml-2 text-xs text-purple-600">
-          ({location.stats.anonymized} anonymizovaných)
+          ({view.anonymized} anonymizovaných)
         </span>
       )}
     </p>
@@ -277,38 +277,42 @@ function StatsPanel({ location }: { location: LocationListItem }) {
     );
   }
 
-  const { stats } = location;
-  const stateMax = stats.states.reduce((m, s) => Math.max(m, s.count), 0);
+  // The expanded panel renders the *combined* picture (location + every
+  // visible sub-part) — `aggregateStats` equals `stats` for leaves, so the
+  // same code path covers both cases. The own-vs-children split only
+  // surfaces in SummaryRow's sub-line.
+  const view = location.aggregateStats;
+  const stateMax = view.states.reduce((m, s) => Math.max(m, s.count), 0);
 
   return (
     <div className="border-t border-gray-200 bg-gray-50 px-3 py-4 sm:px-6">
-      {stats.total === 0 ? (
+      {view.total === 0 ? (
         <p className="text-sm text-gray-500">
           Pro tuto lokalitu zatím nejsou žádné nálezy.
         </p>
       ) : (
         <div className="space-y-4">
           <SummaryRow
-            total={stats.total}
-            firstFoundAt={stats.firstFoundAt}
-            lastFoundAt={stats.lastFoundAt}
-            aggregateTotal={location.aggregateTotal}
+            ownTotal={location.stats.total}
+            aggregateTotal={view.total}
+            firstFoundAt={view.firstFoundAt}
+            lastFoundAt={view.lastFoundAt}
             childCount={location.childCount}
           />
 
           <DetailLinks
-            firstFindId={stats.firstFindId}
-            lastFindId={stats.lastFindId}
+            firstFindId={view.firstFindId}
+            lastFindId={view.lastFindId}
             locationId={location.id}
           />
 
-          {stats.states.length > 0 && (
+          {view.states.length > 0 && (
             <div>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Stavy nálezů
               </h3>
               <ul className="space-y-1.5">
-                {stats.states.map((s) => (
+                {view.states.map((s) => (
                   <li key={s.state} className="flex items-center gap-2">
                     <span
                       className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${STATE_BADGE[s.state]}`}
@@ -340,32 +344,34 @@ function StatsPanel({ location }: { location: LocationListItem }) {
 }
 
 function SummaryRow({
-  total,
+  ownTotal,
+  aggregateTotal,
   firstFoundAt,
   lastFoundAt,
-  aggregateTotal,
   childCount,
 }: {
-  total: number;
+  ownTotal: number;
+  aggregateTotal: number;
   firstFoundAt: string | null;
   lastFoundAt: string | null;
-  aggregateTotal: number;
   childCount: number;
 }) {
   const first = firstFoundAt ? new Date(firstFoundAt) : null;
   const last = lastFoundAt ? new Date(lastFoundAt) : null;
-  // Headline = aggregate when there are children, so a master location
-  // with 0 own finds doesn't misleadingly read "0". The sub-line then
-  // breaks the aggregate into own + parts so the visitor still sees both
-  // numbers.
+  // Headline shows the combined total (matches the row header); the
+  // sub-line splits it into own vs. children when this is a parent so
+  // the visitor can still see both numbers.
   const hasChildren = childCount > 0;
-  const headline = hasChildren ? aggregateTotal : total;
   const totalSub = hasChildren
-    ? `Vlastní: ${total} · Z dílčích částí: ${aggregateTotal - total}`
+    ? `Vlastní: ${ownTotal} · Z dílčích částí: ${aggregateTotal - ownTotal}`
     : null;
   return (
     <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-      <Stat label="Celkem nálezů" value={String(headline)} sub={totalSub} />
+      <Stat
+        label="Celkem nálezů"
+        value={String(aggregateTotal)}
+        sub={totalSub}
+      />
       <Stat
         label="První nález"
         value={first ? formatDateTimeCs(first) : "—"}

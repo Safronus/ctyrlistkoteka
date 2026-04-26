@@ -74,12 +74,18 @@ export interface LocationListItem {
    *  the showAnonymized / showGone filters). 0 for leaves and for any
    *  non-parent. Used by the "+ N částí" badge in the row header. */
   childCount: number;
-  /** Own `stats.total` plus the sum of every visible child's
-   *  `stats.total`. Equals `stats.total` for locations without children.
-   *  Used as the "true significance" weight for the `finds` sort and
-   *  surfaces in the expanded panel as "Včetně dílčích částí". */
-  aggregateTotal: number;
+  /** Own stats — what's physically attached to this Location row. For a
+   *  master location whose finds live entirely on its sub-parts (e.g.
+   *  RATIBOŘ_POLE001 with 0 own finds, 953 across 001a–001g) this reads 0.
+   *  Use `aggregateStats` instead when displaying the parent's "true"
+   *  picture. */
   stats: LocationStats;
+  /** Stats folded across this location and every visible sub-part —
+   *  totals, year range, first/last find timestamps + IDs, state
+   *  breakdown and yearly bins all merged. Equals `stats` for locations
+   *  without children, so call sites that don't care about the split can
+   *  read `aggregateStats` unconditionally. */
+  aggregateStats: LocationStats;
 }
 
 export interface LocationFilter {
@@ -349,11 +355,19 @@ export async function listLocations(
         distanceFromDefault: null,
         parentId: null,
         childCount: 0,
-        aggregateTotal: 0,
         stats: EMPTY_STATS,
+        aggregateStats: EMPTY_STATS,
       };
     }
     const stats = totalsByLoc.get(l.id) ?? EMPTY_STATS;
+    // Seed aggregateStats from own stats with fresh arrays — the fold
+    // pass below mutates `aggregateStats` so we must not share refs back
+    // to `stats` (or to the EMPTY_STATS singleton).
+    const aggregateStats: LocationStats = {
+      ...stats,
+      states: [...stats.states],
+      yearly: [...stats.yearly],
+    };
     return {
       id: l.id,
       code: l.code,
@@ -368,8 +382,8 @@ export async function listLocations(
       distanceFromDefault: distByLoc.get(l.id) ?? null,
       parentId: l.parentId,
       childCount: 0,
-      aggregateTotal: stats.total,
       stats,
+      aggregateStats,
     };
   });
 
@@ -384,27 +398,28 @@ export async function listLocations(
   }
 
   // ------------------------------------------------------------ hierarchy aggregates
-  // Now that the visible set is final, fold every visible child's totals
-  // into its parent so the parent row carries the "incl. sub-parts" count
-  // displayed in the expanded panel and used as the `finds` sort weight.
-  // We only count children that are actually in `items` — a child filtered
-  // out by showAnonymized/showGone shouldn't influence the parent's badge.
+  // Now that the visible set is final, fold every visible child's full
+  // stats into its parent so the parent's expanded panel shows the
+  // "incl. sub-parts" picture (totals, year range, first/last find,
+  // state breakdown). We only count children that are actually in
+  // `items` — a child filtered out by showAnonymized/showGone shouldn't
+  // influence the parent's badge.
   const byId = new Map(items.map((it) => [it.id, it]));
   for (const item of items) {
     if (item.parentId === null) continue;
     const parent = byId.get(item.parentId);
     if (!parent) continue; // parent filtered out — child stands alone
     parent.childCount += 1;
-    parent.aggregateTotal += item.stats.total;
+    foldStats(parent.aggregateStats, item.stats);
   }
 
   // ------------------------------------------------------------ sort
   // `finds` is the default — most-active locations float to the top,
   // matching what visitors usually want. `code` is locale-aware
   // (Czech collation); `id` keeps the historical ordering.
-  // The `finds` sort uses `aggregateTotal` so a parent with many small
-  // sub-parts ranks by its true significance (the sub-parts are then
-  // reinserted right under it via interleaveChildren — see below).
+  // The `finds` sort uses `aggregateStats.total` so a parent with many
+  // small sub-parts ranks by its true significance (the sub-parts are
+  // then reinserted right under it via interleaveChildren — see below).
   // Anonymized rows have stats=0 so they fall to the bottom under
   // `finds` sort, which is fine: their counts are private.
   const sort: LocationSort = filter.sort ?? "finds";
@@ -425,11 +440,77 @@ export async function listLocations(
     });
   } else {
     items.sort(
-      (a, b) => b.aggregateTotal - a.aggregateTotal || a.id - b.id,
+      (a, b) =>
+        b.aggregateStats.total - a.aggregateStats.total || a.id - b.id,
     );
   }
 
   return interleaveChildren(items);
+}
+
+/** Mutates `into` to absorb `from`'s totals, year range, first/last find
+ *  and state/yearly bins. Used during the parent/child aggregation pass:
+ *  every visible child's stats get folded into the parent's
+ *  `aggregateStats` so the expanded panel renders the combined picture
+ *  exactly like a regular location's panel — no separate "parent" UI
+ *  branch needed downstream. */
+function foldStats(into: LocationStats, from: LocationStats): void {
+  into.total += from.total;
+  into.anonymized += from.anonymized;
+  into.firstYear = minNullable(into.firstYear, from.firstYear);
+  into.lastYear = maxNullable(into.lastYear, from.lastYear);
+  into.firstFoundAt = minIso(into.firstFoundAt, from.firstFoundAt);
+  into.lastFoundAt = maxIso(into.lastFoundAt, from.lastFoundAt);
+  into.firstFindId = minNullable(into.firstFindId, from.firstFindId);
+  into.lastFindId = maxNullable(into.lastFindId, from.lastFindId);
+
+  // States: merge by enum, sum counts, sort by count desc to mirror the
+  // ordering the per-location SQL produced.
+  const stateMap = new Map<FindState, number>();
+  for (const s of into.states) {
+    stateMap.set(s.state, (stateMap.get(s.state) ?? 0) + s.count);
+  }
+  for (const s of from.states) {
+    stateMap.set(s.state, (stateMap.get(s.state) ?? 0) + s.count);
+  }
+  into.states = Array.from(stateMap, ([state, count]) => ({ state, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Yearly bins: merge by year, sum counts, sort by year asc.
+  const yearMap = new Map<number, number>();
+  for (const y of into.yearly) {
+    yearMap.set(y.year, (yearMap.get(y.year) ?? 0) + y.count);
+  }
+  for (const y of from.yearly) {
+    yearMap.set(y.year, (yearMap.get(y.year) ?? 0) + y.count);
+  }
+  into.yearly = Array.from(yearMap, ([year, count]) => ({ year, count }))
+    .sort((a, b) => a.year - b.year);
+}
+
+function minNullable(a: number | null, b: number | null): number | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return a < b ? a : b;
+}
+
+function maxNullable(a: number | null, b: number | null): number | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return a > b ? a : b;
+}
+
+// ISO 8601 timestamps sort lexicographically — no need to re-parse Dates.
+function minIso(a: string | null, b: string | null): string | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return a < b ? a : b;
+}
+
+function maxIso(a: string | null, b: string | null): string | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return a > b ? a : b;
 }
 
 /** After sorting, lift every child row out of its current position and
