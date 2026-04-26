@@ -94,6 +94,23 @@ const MetaSchema = z.object({
 type Meta = z.infer<typeof MetaSchema>;
 
 // --------------------------------------------------------------------------
+//  LokaceHierarchie.json schema
+// --------------------------------------------------------------------------
+// Standalone optional file, intentionally separate from
+// LokaceStavyPoznamky.json (the user explicitly wants those concerns
+// kept apart). Top-level shape: { parent_code: [child_code, ...] }.
+// Validation rules — enforced in phaseHierarchy:
+//   1. Both parent and every child must exist in the locations table.
+//   2. A child can have at most one parent.
+//   3. Max depth 2: a parent declared in this file must not itself
+//      appear as someone else's child.
+//   4. No self-references (a code can't be its own parent).
+// Violations are logged and skipped — they never fail the whole sync.
+
+const HierarchySchema = z.record(z.string(), z.array(z.string()));
+type Hierarchy = z.infer<typeof HierarchySchema>;
+
+// --------------------------------------------------------------------------
 //  Logging
 // --------------------------------------------------------------------------
 
@@ -185,6 +202,30 @@ async function readJsonMeta(path: string): Promise<Meta> {
   const raw = await readFile(path, "utf8");
   const parsed = JSON.parse(raw) as unknown;
   return MetaSchema.parse(parsed);
+}
+
+/**
+ * Reads `data/meta/LokaceHierarchie.json` if it exists. Returns null when
+ * the file is missing — hierarchy is opt-in and most installations won't
+ * declare any. Parse errors propagate so the operator gets a clean
+ * failure instead of silently dropping the relationships.
+ */
+async function readHierarchy(path: string): Promise<Hierarchy | null> {
+  try {
+    const raw = await readFile(path, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    return HierarchySchema.parse(parsed);
+  } catch (err) {
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code: string }).code === "ENOENT"
+    ) {
+      return null;
+    }
+    throw err;
+  }
 }
 
 async function readExifSafe(path: string): Promise<{
@@ -910,6 +951,148 @@ async function phaseMeta(ctx: Context, meta: Meta) {
 }
 
 // --------------------------------------------------------------------------
+//  Hierarchy phase — apply LokaceHierarchie.json into Location.parent_id
+// --------------------------------------------------------------------------
+
+/**
+ * Walks `data/meta/LokaceHierarchie.json` (when present) and writes
+ * `Location.parent_id` accordingly. Idempotent: running it again with
+ * the same JSON is a no-op, and removing an entry from the file unsets
+ * the previous link on the next run.
+ *
+ * The skip strategy is intentionally lenient — every individual rule
+ * violation logs and skips that one relationship, never aborting. The
+ * sync script as a whole is meant to converge the DB toward whatever
+ * the on-disk metadata says, not to gatekeep edits.
+ */
+async function phaseHierarchy(
+  ctx: Context,
+  hierarchy: Hierarchy | null,
+): Promise<void> {
+  if (!hierarchy) {
+    ctx.log.log({ event: "hierarchy.skipped_missing_file", level: "info" });
+    return;
+  }
+
+  // Build a code → id index for the locations currently in the DB.
+  // We need these resolutions both for validation (does the parent /
+  // child code exist?) and for the WHERE clauses below.
+  const rows = await ctx.prisma.location.findMany({
+    select: { id: true, code: true },
+  });
+  const idByCode = new Map<string, number>();
+  for (const r of rows) idByCode.set(r.code, r.id);
+
+  // First pass: validate each (parent, children[]) entry. Anything that
+  // fails goes to the failures log and is dropped before we touch the
+  // database. We collect the *resolved* parent_id → child_id[] map so
+  // the second pass is pure SQL.
+  const resolved = new Map<number, number[]>(); // parent_id → [child_id, ...]
+  const declaredParents = new Set<number>(); // for cycle / depth check
+  const claimedChildren = new Set<number>(); // 1 child → 1 parent
+
+  for (const [parentCode, childCodes] of Object.entries(hierarchy)) {
+    const parentId = idByCode.get(parentCode);
+    if (parentId === undefined) {
+      ctx.log.failure({
+        file: "meta/LokaceHierarchie.json",
+        reason: "hierarchy_parent_missing",
+        details: parentCode,
+      });
+      continue;
+    }
+    declaredParents.add(parentId);
+
+    const validChildIds: number[] = [];
+    for (const childCode of childCodes) {
+      if (childCode === parentCode) {
+        ctx.log.failure({
+          file: "meta/LokaceHierarchie.json",
+          reason: "hierarchy_self_reference",
+          details: parentCode,
+        });
+        continue;
+      }
+      const childId = idByCode.get(childCode);
+      if (childId === undefined) {
+        ctx.log.failure({
+          file: "meta/LokaceHierarchie.json",
+          reason: "hierarchy_child_missing",
+          details: `${parentCode} → ${childCode}`,
+        });
+        continue;
+      }
+      if (claimedChildren.has(childId)) {
+        ctx.log.failure({
+          file: "meta/LokaceHierarchie.json",
+          reason: "hierarchy_duplicate_child",
+          details: `${childCode} declared under more than one parent`,
+        });
+        continue;
+      }
+      claimedChildren.add(childId);
+      validChildIds.push(childId);
+    }
+    if (validChildIds.length > 0) resolved.set(parentId, validChildIds);
+  }
+
+  // Depth check: a location declared as parent must NOT itself appear
+  // as someone's child. We do this after the per-entry pass because
+  // both sides come from the same JSON map and we need the full picture.
+  for (const parentId of declaredParents) {
+    if (claimedChildren.has(parentId)) {
+      ctx.log.failure({
+        file: "meta/LokaceHierarchie.json",
+        reason: "hierarchy_depth_exceeded",
+        details: `location ${parentId} is both a parent and a child — flatten the JSON`,
+      });
+      // Drop everything claiming this parent — we can't trust the
+      // direction without the user resolving the ambiguity.
+      resolved.delete(parentId);
+    }
+  }
+
+  if (ctx.opts.dryRun) {
+    let totalChildren = 0;
+    for (const arr of resolved.values()) totalChildren += arr.length;
+    ctx.log.log({
+      event: "hierarchy.plan",
+      level: "info",
+      would_set_parents: resolved.size,
+      would_link_children: totalChildren,
+    });
+    return;
+  }
+
+  // Second pass: clear every parent_id that points at one of the
+  // parents we're about to (re)write — that frees up children which
+  // were unlinked in the latest JSON edit. Then bulk-set the new links.
+  // This makes the operation idempotent even when the JSON shrinks.
+  if (resolved.size > 0) {
+    await ctx.prisma.location.updateMany({
+      where: { parentId: { in: [...resolved.keys()] } },
+      data: { parentId: null },
+    });
+    for (const [parentId, childIds] of resolved.entries()) {
+      await ctx.prisma.location.updateMany({
+        where: { id: { in: childIds } },
+        data: { parentId },
+      });
+    }
+  }
+
+  let appliedChildren = 0;
+  for (const arr of resolved.values()) appliedChildren += arr.length;
+  ctx.log.log({
+    event: "hierarchy.done",
+    level: "info",
+    parents: resolved.size,
+    children_linked: appliedChildren,
+    failures_logged: ctx.log.failures,
+  });
+}
+
+// --------------------------------------------------------------------------
 //  Prune phase — warn about DB records without a filesystem match
 // --------------------------------------------------------------------------
 
@@ -1177,9 +1360,41 @@ async function main() {
       });
     }
 
+    // Hierarchy file is independent — its own JSON, its own loader. We
+    // read it eagerly so a malformed file fails fast (before any
+    // expensive image work), even though we only apply it during the
+    // meta phase below.
+    const hierarchyPath = join(dataDir, "meta", "LokaceHierarchie.json");
+    let hierarchy: Hierarchy | null = null;
+    try {
+      hierarchy = await readHierarchy(hierarchyPath);
+      if (hierarchy) {
+        log.log({
+          event: "hierarchy.loaded",
+          level: "info",
+          parents: Object.keys(hierarchy).length,
+          children: Object.values(hierarchy).reduce(
+            (acc, arr) => acc + arr.length,
+            0,
+          ),
+        });
+      }
+    } catch (err: unknown) {
+      log.log({
+        event: "hierarchy.invalid",
+        level: "warn",
+        path: hierarchyPath,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
     const runMaps = opts.only === null || opts.only === "maps";
     const runFinds = opts.only === null || opts.only === "finds";
-    const runMeta = (opts.only === null || opts.only === "meta") && meta !== null;
+    // Hierarchy and main meta share the same scope flag — both are
+    // declarative side-channels keyed by code, both need locations to
+    // already be in place. Either file may be absent; the phase
+    // functions handle the null case gracefully.
+    const runMeta = opts.only === null || opts.only === "meta";
 
     let mapToLocation = new Map<number, number>();
     if (runMaps) {
@@ -1198,8 +1413,9 @@ async function main() {
       allFinds = await phaseFinds(ctx, mapToLocation);
     }
 
-    if (runMeta && meta) {
-      await phaseMeta(ctx, meta);
+    if (runMeta) {
+      if (meta) await phaseMeta(ctx, meta);
+      await phaseHierarchy(ctx, hierarchy);
     }
 
     if (runFinds) {

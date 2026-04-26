@@ -24,7 +24,7 @@ enum FindState {
   NO_GPS
   NO_PHOTO
   LOCATION_MISSING // nález není přiřazen k žádné lokalitě (BEZLOKACE)
-  LOCATION_GONE    // lokalita existovala, ale fyzicky zanikla (LOKACE-NEEXISTUJE) — kód lokality má prefix "NEEXISTUJE-"
+  LOCATION_GONE // lokalita existovala, ale fyzicky zanikla (LOKACE-NEEXISTUJE) — kód lokality má prefix "NEEXISTUJE-"
   NOT_PICKED
 }
 
@@ -38,28 +38,38 @@ enum ImageType {
 // ============================================================
 
 model Location {
-  id                 Int      @id // MAP_ID z názvu souboru lokační mapy (shoduje se s klíči v LokaceStavyPoznamky.json "lokace")
-  code               String   @unique @db.VarChar(150) // "RATIBOŘ_POLE001f", "HLUBOKÁ NAD VLTAVOU_GOLFCLUB001", "NEEXISTUJE-ZLÍN_JSVAHY-JAVOROVÁ002"
-  codeTransliterated String   @map("code_transliterated") @db.VarChar(150) // ASCII-safe forma z toAsciiCode() — convenience, ne přirozený klíč
-  cadastralArea      String   @map("cadastral_area") @db.VarChar(100) // "RATIBOŘ"; fallback = celý code
-  locationType       String?  @map("location_type") @db.VarChar(100) // "POLE", "JSVAHY-UTB-U5-Z" — může chybět pro HOŠŤÁLKOVÁ001
-  number             Int?     @db.SmallInt // 000–999, může být null pro RATIBOŘ_DOMA-JALOVEC
-  subpart            String?  @db.Char(1) // "a", "f", …
-  displayName        String   @map("display_name") @db.VarChar(500) // z popisu mapy (může být dlouhý)
-  description        String?  @db.Text
+  id                 Int     @id // MAP_ID z názvu souboru lokační mapy (shoduje se s klíči v LokaceStavyPoznamky.json "lokace")
+  code               String  @unique @db.VarChar(150) // "RATIBOŘ_POLE001f", "HLUBOKÁ NAD VLTAVOU_GOLFCLUB001", "NEEXISTUJE-ZLÍN_JSVAHY-JAVOROVÁ002"
+  codeTransliterated String  @map("code_transliterated") @db.VarChar(150) // ASCII-safe forma z toAsciiCode() — convenience, ne přirozený klíč
+  cadastralArea      String  @map("cadastral_area") @db.VarChar(100) // "RATIBOŘ"; fallback = celý code
+  locationType       String? @map("location_type") @db.VarChar(100) // "POLE", "JSVAHY-UTB-U5-Z" — může chybět pro HOŠŤÁLKOVÁ001
+  number             Int?    @db.SmallInt // 000–999, může být null pro RATIBOŘ_DOMA-JALOVEC
+  subpart            String? @db.Char(1) // "a", "f", …
+  displayName        String  @map("display_name") @db.VarChar(500) // z popisu mapy (může být dlouhý)
+  description        String? @db.Text
 
   // PostGIS geometry (raw SQL pro čtení/zápis)
-  centerPoint        Unsupported("geometry(Point, 4326)")? @map("center_point")
-  polygon            Unsupported("geometry(Polygon, 4326)")?
+  centerPoint Unsupported("geometry(Point, 4326)")?   @map("center_point")
+  polygon     Unsupported("geometry(Polygon, 4326)")?
 
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  // Optional 2-level hierarchy. Subparts of a master location (e.g. the
+  // 7 fragments of RATIBOŘ_POLE001 shown as 001a..001g) declare their
+  // parent through data/meta/LokaceHierarchie.json — the subpart letter
+  // ALONE isn't a reliable hierarchy signal because some 001a/001b pairs
+  // are peers, not children. Max depth 2 is enforced by the sync script.
+  parentId Int?       @map("parent_id")
+  parent   Location?  @relation("LocationParent", fields: [parentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  children Location[] @relation("LocationParent")
 
-  maps               LocationMap[]
-  finds              Find[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  maps  LocationMap[]
+  finds Find[]
 
   @@index([cadastralArea])
   @@index([locationType])
+  @@index([parentId])
   @@map("locations")
 }
 
@@ -68,28 +78,28 @@ model Location {
 // ============================================================
 
 model LocationMap {
-  id               Int      @id // MAP_ID z názvu souboru (1–99999)
-  locationId       Int      @map("location_id")
-  location         Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  id         Int      @id // MAP_ID z názvu souboru (1–99999)
+  locationId Int      @map("location_id")
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
-  locationCode     String   @map("location_code") @db.VarChar(150) // pro rychlé propojení
-  description      String?  @db.VarChar(500) // lidsky čitelný popis z názvu
-  centerLat        Float    @map("center_lat") // GPS střed z názvu
-  centerLng        Float    @map("center_lng")
-  zoom             Int      @db.SmallInt // OSM zoom level
+  locationCode String  @map("location_code") @db.VarChar(150) // pro rychlé propojení
+  description  String? @db.VarChar(500) // lidsky čitelný popis z názvu
+  centerLat    Float   @map("center_lat") // GPS střed z názvu
+  centerLng    Float   @map("center_lng")
+  zoom         Int     @db.SmallInt // OSM zoom level
 
-  imagePath        String   @map("image_path") @db.VarChar(500) // cesta k souboru na disku
-  imageBounds      Json?    @map("image_bounds") // [[swLat, swLng], [neLat, neLng]]
-  imageWidth       Int?     @map("image_width") // rozměry obrázku v px
-  imageHeight      Int?     @map("image_height")
+  imagePath   String @map("image_path") @db.VarChar(500) // cesta k souboru na disku
+  imageBounds Json?  @map("image_bounds") // [[swLat, swLng], [neLat, neLng]]
+  imageWidth  Int?   @map("image_width") // rozměry obrázku v px
+  imageHeight Int?   @map("image_height")
 
-  hasPolygon       Boolean  @default(false) @map("has_polygon") // AOI_POLYGON v metadatech
-  isAnonymized     Boolean  @default(false) @map("is_anonymized") // z metadat souboru
-  originalFilename String   @map("original_filename") @db.VarChar(500)
+  hasPolygon       Boolean @default(false) @map("has_polygon") // AOI_POLYGON v metadatech
+  isAnonymized     Boolean @default(false) @map("is_anonymized") // z metadat souboru
+  originalFilename String  @map("original_filename") @db.VarChar(500)
 
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  finds            Find[]
+  finds Find[]
 
   @@index([locationId])
   @@index([locationCode])
@@ -101,24 +111,24 @@ model LocationMap {
 // ============================================================
 
 model Find {
-  id           Int          @id // ID z názvu souboru, NE autoincrement
-  locationId   Int?         @map("location_id")
-  location     Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  mapId        Int?         @map("map_id")
-  map          LocationMap? @relation(fields: [mapId], references: [id], onDelete: SetNull)
+  id         Int          @id // ID z názvu souboru, NE autoincrement
+  locationId Int?         @map("location_id")
+  location   Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  mapId      Int?         @map("map_id")
+  map        LocationMap? @relation(fields: [mapId], references: [id], onDelete: SetNull)
 
-  foundAt      DateTime?    @map("found_at") @db.Timestamptz(6) // z EXIF DateTimeOriginal, plný timestamp včetně H:M:S
-  leafCount    Int          @default(4) @map("leaf_count") @db.SmallInt
-  notes        String?      @db.Text // z JSON poznamky
-  isAnonymized Boolean      @default(false) @map("is_anonymized") // z JSON anonymizace + filename
+  foundAt      DateTime? @map("found_at") @db.Timestamptz(6) // z EXIF DateTimeOriginal, plný timestamp včetně H:M:S
+  leafCount    Int       @default(4) @map("leaf_count") @db.SmallInt
+  notes        String?   @db.Text // z JSON poznamky
+  isAnonymized Boolean   @default(false) @map("is_anonymized") // z JSON anonymizace + filename
 
-  coordinates  Unsupported("geometry(Point, 4326)")?
+  coordinates Unsupported("geometry(Point, 4326)")?
 
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  images       FindImage[]
-  states       FindStateAssignment[]
+  images FindImage[]
+  states FindStateAssignment[]
 
   @@index([locationId])
   @@index([mapId])
@@ -133,9 +143,9 @@ model Find {
 // ============================================================
 
 model FindImage {
-  id               Int       @id @default(autoincrement())
-  findId           Int       @map("find_id")
-  find             Find      @relation(fields: [findId], references: [id], onDelete: Cascade)
+  id     Int  @id @default(autoincrement())
+  findId Int  @map("find_id")
+  find   Find @relation(fields: [findId], references: [id], onDelete: Cascade)
 
   imageType        ImageType @default(ORIGINAL) @map("image_type") // ORIGINAL nebo CROP
   originalFilename String    @map("original_filename") @db.VarChar(500)
@@ -143,12 +153,12 @@ model FindImage {
   webPath          String    @map("web_path") @db.VarChar(500) // /generated/web/{sha}.webp
   thumbPath        String    @map("thumb_path") @db.VarChar(500) // /generated/thumb/{sha}.webp
 
-  width            Int
-  height           Int
-  isPrimary        Boolean   @default(false) @map("is_primary")
-  sortOrder        Int       @default(0) @map("sort_order") @db.SmallInt
+  width     Int
+  height    Int
+  isPrimary Boolean @default(false) @map("is_primary")
+  sortOrder Int     @default(0) @map("sort_order") @db.SmallInt
 
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([findId])
   @@index([isPrimary])
