@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   Building2,
+  Calendar,
+  CalendarDays,
+  CalendarRange,
+  Clock,
   Compass,
   EyeOff,
   Gift,
@@ -11,6 +15,7 @@ import {
   MapPin,
   MapPinOff,
   Search,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -28,6 +33,7 @@ import {
   type FindHighlight,
   type LocationPoint,
   type MonthDayPoint,
+  type PeakBucket,
   type YearlyPoint,
 } from "@/lib/queries/stats";
 import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
@@ -124,6 +130,9 @@ export default async function StatistikyPage() {
             )}
         </section>
       )}
+
+      <PeakBucketsSection peaks={stats.peaks} />
+
 
       {topLocations.length > 0 && <TopLocationsCard rows={topLocations} />}
 
@@ -956,4 +965,174 @@ function DistanceStatsSection({
       />
     </section>
   );
+}
+
+// ---------------------------------------------------------------------------
+//  Peak buckets — busiest hour / day / week / month / year
+// ---------------------------------------------------------------------------
+
+type PeakGranularity = "hour" | "day" | "week" | "month" | "year";
+
+function PeakBucketsSection({
+  peaks,
+}: {
+  peaks: {
+    hour: PeakBucket | null;
+    day: PeakBucket | null;
+    week: PeakBucket | null;
+    month: PeakBucket | null;
+    year: PeakBucket | null;
+  };
+}) {
+  // Render nothing when every bucket is null (collection empty / every
+  // find lacks a `found_at`). The section header would dangle otherwise.
+  const anyPeak =
+    peaks.hour || peaks.day || peaks.week || peaks.month || peaks.year;
+  if (!anyPeak) return null;
+
+  const cards: ReadonlyArray<{
+    granularity: PeakGranularity;
+    label: string;
+    icon: LucideIcon;
+    peak: PeakBucket | null;
+  }> = [
+    { granularity: "hour", label: "Nejvíc za hodinu", icon: Clock, peak: peaks.hour },
+    { granularity: "day", label: "Nejvíc za den", icon: Calendar, peak: peaks.day },
+    {
+      granularity: "week",
+      label: "Nejvíc za týden",
+      icon: CalendarRange,
+      peak: peaks.week,
+    },
+    {
+      granularity: "month",
+      label: "Nejvíc za měsíc",
+      icon: CalendarDays,
+      peak: peaks.month,
+    },
+    {
+      granularity: "year",
+      label: "Nejvíc za rok",
+      icon: Sparkles,
+      peak: peaks.year,
+    },
+  ];
+  return (
+    <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      {cards.map(({ granularity, label, icon, peak }) => (
+        <PeakBucketCard
+          key={granularity}
+          granularity={granularity}
+          label={label}
+          icon={icon}
+          peak={peak}
+        />
+      ))}
+    </section>
+  );
+}
+
+function PeakBucketCard({
+  granularity,
+  label,
+  icon: Icon,
+  peak,
+}: {
+  granularity: PeakGranularity;
+  label: string;
+  icon: LucideIcon;
+  peak: PeakBucket | null;
+}) {
+  return (
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-brand-700" aria-hidden />
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          {label}
+        </h3>
+      </div>
+      {peak ? (
+        <>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
+            {peak.count}
+            <span className="ml-1 text-sm font-normal text-gray-500">
+              {czechFinds(peak.count)}
+            </span>
+          </p>
+          <p className="mt-1 text-xs leading-snug text-gray-600">
+            {formatPeakBucket(peak.startsAt, granularity)}
+          </p>
+        </>
+      ) : (
+        <p className="mt-2 text-sm text-gray-400">—</p>
+      )}
+    </div>
+  );
+}
+
+/** Czech grammatical number for "nález": 1 → nález, 2-4 → nálezy, else → nálezů. */
+function czechFinds(n: number): string {
+  if (n === 1) return "nález";
+  if (n >= 2 && n <= 4) return "nálezy";
+  return "nálezů";
+}
+
+/** Format the bucket timestamp for the user. Each granularity gets its
+ *  most natural Czech wording — hour expands to a one-hour window,
+ *  week to a Mon→Sun range, year/month/day to their canonical forms. */
+function formatPeakBucket(
+  isoStart: string,
+  granularity: PeakGranularity,
+): string {
+  const start = new Date(isoStart);
+  const intl = (opts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat("cs-CZ", opts).format(start);
+
+  switch (granularity) {
+    case "hour": {
+      const day = intl({ day: "numeric", month: "long", year: "numeric" });
+      const h = start.getHours();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${day}, ${pad(h)}:00–${pad(h)}:59`;
+    }
+    case "day":
+      return intl({
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    case "week": {
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      const sameMonth =
+        start.getFullYear() === end.getFullYear() &&
+        start.getMonth() === end.getMonth();
+      const sameYear = start.getFullYear() === end.getFullYear();
+      // "1.–7. června 2024" when single month, "29. května–4. června 2024"
+      // when crossing months, or full both-sides when crossing years.
+      const startFmt = sameMonth
+        ? new Intl.DateTimeFormat("cs-CZ", { day: "numeric" }).format(start)
+        : sameYear
+          ? new Intl.DateTimeFormat("cs-CZ", {
+              day: "numeric",
+              month: "long",
+            }).format(start)
+          : new Intl.DateTimeFormat("cs-CZ", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            }).format(start);
+      const endFmt = new Intl.DateTimeFormat("cs-CZ", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(end);
+      return `${startFmt}–${endFmt}`;
+    }
+    case "month":
+      return intl({ month: "long", year: "numeric" });
+    case "year":
+      return intl({ year: "numeric" });
+  }
 }

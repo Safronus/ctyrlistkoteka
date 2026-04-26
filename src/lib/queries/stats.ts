@@ -157,6 +157,27 @@ export interface CollectionStats {
    *  centre. Excludes anonymized finds and finds without GPS. Empty
    *  when MAP 00001 isn't on disk. */
   byDistance: DistanceBucket[];
+  /** Peak buckets — when the collection saw the largest spike at each
+   *  granularity. `null` when the collection is empty (or every find
+   *  has a NULL `found_at`, which can't be bucketed). Bucket boundaries
+   *  follow Postgres `date_trunc()`: hour = wall-clock hour, day =
+   *  midnight-to-midnight, week = ISO week (Mon → Sun), month =
+   *  calendar month, year = calendar year. */
+  peaks: {
+    hour: PeakBucket | null;
+    day: PeakBucket | null;
+    week: PeakBucket | null;
+    month: PeakBucket | null;
+    year: PeakBucket | null;
+  };
+}
+
+export interface PeakBucket {
+  /** ISO timestamp at the start of the bucket. The UI formats it
+   *  per-granularity ("červen 2021" for month, "14:00–14:59" for hour). */
+  startsAt: string;
+  /** Number of finds whose `found_at` falls inside the bucket. */
+  count: number;
 }
 
 export async function getCollectionStats(): Promise<CollectionStats> {
@@ -187,6 +208,11 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     monthDayRows,
     distanceRows,
     geoLocRows,
+    peakHourRow,
+    peakDayRow,
+    peakWeekRow,
+    peakMonthRow,
+    peakYearRow,
   ] = await Promise.all([
     prisma.$queryRaw<
       Array<{
@@ -448,6 +474,41 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       )
       GROUP BY l.id, l.code, l.cadastral_area, l.center_point
     `,
+
+    // Peak buckets — busiest hour / day / week / month / year. Each
+    // query truncates `found_at` to its granularity, groups, and picks
+    // the row with the highest count (ties broken by earliest bucket so
+    // the chosen result is deterministic across runs).
+    //
+    // We trust Postgres' wall-clock interpretation of `found_at`: the
+    // user records local timestamps, and the calendar-bucket queries
+    // elsewhere on this page (byHour, byMonthOfYear, …) already use
+    // the same naive treatment.
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('hour', found_at) AS bucket, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
+    `,
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('day', found_at) AS bucket, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
+    `,
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('week', found_at) AS bucket, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
+    `,
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('month', found_at) AS bucket, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
+    `,
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('year', found_at) AS bucket, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
+    `,
   ]);
 
   const t = totalsRow[0];
@@ -533,7 +594,26 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       bucket: r.bucket,
       count: Number(r.count),
     })),
+    peaks: {
+      hour: toPeakBucket(peakHourRow),
+      day: toPeakBucket(peakDayRow),
+      week: toPeakBucket(peakWeekRow),
+      month: toPeakBucket(peakMonthRow),
+      year: toPeakBucket(peakYearRow),
+    },
   };
+}
+
+/** Lift the single-row LIMIT 1 raw-query result to a PeakBucket, or
+ *  null when the query returned nothing (collection empty / every find
+ *  has NULL `found_at`). Date → ISO so the value travels through
+ *  Server → Client serialization unchanged. */
+function toPeakBucket(
+  rows: ReadonlyArray<{ bucket: Date; count: bigint }>,
+): PeakBucket | null {
+  const r = rows[0];
+  if (!r) return null;
+  return { startsAt: r.bucket.toISOString(), count: Number(r.count) };
 }
 
 /** Splits the per-location aggregate into the three geo breakdowns the
