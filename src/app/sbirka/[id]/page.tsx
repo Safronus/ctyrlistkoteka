@@ -108,8 +108,8 @@ export default async function FindDetailPage({ params }: PageProps) {
       >
         <BackToSbirkaLink />
         <div className="flex items-center gap-3">
-          <AdjacentLink direction="prev" id={adjacent.prevId} />
-          <AdjacentLink direction="next" id={adjacent.nextId} />
+          <AdjacentLink direction="prev" id={adjacent.prevId} hellish={hellish} />
+          <AdjacentLink direction="next" id={adjacent.nextId} hellish={hellish} />
         </div>
       </nav>
 
@@ -378,28 +378,32 @@ function Panel({
 function AdjacentLink({
   direction,
   id,
+  hellish = false,
 }: {
   direction: "prev" | "next";
   id: number | null;
+  /** When the surrounding page is the hellish #666 variant, the chip
+   *  needs red/light colours to stay readable on the dark gradient. */
+  hellish?: boolean;
 }) {
   const label =
     direction === "prev" ? `← Předchozí #${id}` : `Další #${id} →`;
   const placeholder = direction === "prev" ? "← Předchozí" : "Další →";
+  const disabledCls = hellish
+    ? "rounded-md border border-red-900/50 px-2 py-1 text-red-300/40"
+    : "rounded-md border border-gray-200 px-2 py-1 text-gray-300";
+  const activeCls = hellish
+    ? "rounded-md border border-red-900/60 px-2 py-1 text-red-200 transition hover:border-red-500/70 hover:text-red-100 hover:bg-red-950/40"
+    : "rounded-md border border-gray-200 px-2 py-1 text-gray-700 transition hover:border-brand-200 hover:text-brand-700";
   if (id === null) {
     return (
-      <span
-        aria-disabled="true"
-        className="rounded-md border border-gray-200 px-2 py-1 text-gray-300"
-      >
+      <span aria-disabled="true" className={disabledCls}>
         {placeholder}
       </span>
     );
   }
   return (
-    <Link
-      href={`/sbirka/${id}`}
-      className="rounded-md border border-gray-200 px-2 py-1 text-gray-700 transition hover:border-brand-200 hover:text-brand-700"
-    >
+    <Link href={`/sbirka/${id}`} className={activeCls}>
       {label}
     </Link>
   );
