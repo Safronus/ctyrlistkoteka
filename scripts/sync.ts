@@ -30,6 +30,11 @@ import {
 import { splitLocationCode, toAsciiCode } from "../src/lib/locationCode";
 import { parseRanges } from "../src/lib/parseRanges";
 import { JSON_STATE_MAP } from "../src/lib/stateMapping";
+import type { WatermarkSpec } from "../src/lib/images";
+import {
+  DEFAULT_WATERMARK_OPTIONS,
+  getWatermarkBuffer,
+} from "../src/lib/watermark";
 
 // --------------------------------------------------------------------------
 //  CLI
@@ -753,6 +758,10 @@ async function phaseFinds(
       generatedDir: ctx.generatedDir,
       forceRegen: ctx.opts.forceRegen,
       sha1,
+      // Bake the watermark into newly-encoded variants. The cached
+      // fast-path inside generateWebPVariants ignores `watermark` —
+      // re-watermarking an existing WebP requires --force-regen.
+      watermark: ctx.watermark,
     });
     const exif = await readExifSafe(f.path);
     const locationId = mapToLocation.get(f.parsed.mapNumber) ?? null;
@@ -1303,6 +1312,12 @@ interface Context {
   log: Logger;
   dataDir: string;
   generatedDir: string;
+  /** Watermark to bake into newly-encoded find/crop WebPs. Null when no
+   *  PNG was found at $DATA_DIR/meta/VODOZNAK_BezJmena.png — we don't
+   *  abort the sync, we just produce un-watermarked variants. Existing
+   *  files (skipped via the mtime fast-path or the WebP-cache fast-path)
+   *  keep whatever watermark state they were last encoded with. */
+  watermark: WatermarkSpec | null;
 }
 
 function countBy<T extends string>(values: readonly T[]): Record<T, number> {
@@ -1325,8 +1340,38 @@ async function main() {
     join(logsDir, `sync-failures-${ts}.jsonl`),
   );
 
+  // Watermark: optional, loaded once. Missing file is fine — we just
+  // generate bare WebPs (e.g. dev environments without the asset).
+  // Loaded BEFORE sync.start so the chosen state is part of the run log.
+  const watermarkPath = join(dataDir, "meta", "VODOZNAK_BezJmena.png");
+  let watermark: WatermarkSpec | null = null;
+  try {
+    const buffer = await getWatermarkBuffer(
+      watermarkPath,
+      DEFAULT_WATERMARK_OPTIONS,
+    );
+    watermark = { buffer, options: DEFAULT_WATERMARK_OPTIONS };
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") {
+      log.log({
+        event: "watermark.invalid",
+        level: "warn",
+        path: watermarkPath,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   const prisma = new PrismaClient();
-  const ctx: Context = { opts, prisma, log, dataDir, generatedDir };
+  const ctx: Context = {
+    opts,
+    prisma,
+    log,
+    dataDir,
+    generatedDir,
+    watermark,
+  };
 
   log.log({
     event: "sync.start",
@@ -1335,6 +1380,14 @@ async function main() {
     only: opts.only,
     data_dir: dataDir,
     generated_dir: generatedDir,
+    watermark: watermark
+      ? {
+          path: watermarkPath,
+          width_ratio: DEFAULT_WATERMARK_OPTIONS.widthRatio,
+          opacity: DEFAULT_WATERMARK_OPTIONS.opacity,
+          rotation: DEFAULT_WATERMARK_OPTIONS.rotation,
+        }
+      : null,
   });
 
   try {

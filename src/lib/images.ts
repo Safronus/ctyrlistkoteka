@@ -4,6 +4,7 @@ import { createReadStream } from "node:fs";
 import { mkdir, readFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { THUMB_QUALITY, THUMB_SIZE, WEB_QUALITY, WEB_SIZE } from "./constants";
+import { compositeWatermarkOnto, type WatermarkOptions } from "./watermark";
 
 export interface GeneratedImage {
   sha1: string;
@@ -16,6 +17,19 @@ export interface GeneratedImage {
   height: number;
   /** Format detected from magic bytes ("heic" / "jpeg" / "png" / "unknown"). */
   sourceFormat: string;
+}
+
+/** Pre-loaded watermark plus the options to render it with. The buffer is
+ *  the alpha-masked PNG returned by `getWatermarkBuffer`; callers should
+ *  load it once per sync run and pass the same value to every variant
+ *  generation so the encode side can reuse it.
+ *
+ *  When omitted (or null) on a generation call, the variant is encoded
+ *  bare — the cached fast-path also returns bare metadata. The script
+ *  layer (sync.ts) decides whether to thread a watermark through. */
+export interface WatermarkSpec {
+  buffer: Buffer;
+  options?: WatermarkOptions;
 }
 
 /** Public URL the browser uses. Nginx aliases /generated/ → $GENERATED_DIR. */
@@ -95,8 +109,13 @@ export async function generateWebPVariants(params: {
   generatedDir: string;
   forceRegen?: boolean;
   sha1?: string;
+  /** Optional watermark to bake into both variants. The fast-path
+   *  (cached files on disk) ignores this — once a WebP exists we trust
+   *  whatever watermark state it was written with. To re-watermark, the
+   *  caller must pass `forceRegen: true`. */
+  watermark?: WatermarkSpec | null;
 }): Promise<GeneratedImage> {
-  const { sourcePath, generatedDir, forceRegen = false } = params;
+  const { sourcePath, generatedDir, forceRegen = false, watermark } = params;
   const sha1 = params.sha1 ?? (await sha1File(sourcePath));
 
   // Filesystem paths used to write/check existence:
@@ -151,27 +170,18 @@ export async function generateWebPVariants(params: {
   // the DB; nothing in the WebP needs them.
   const pipeline = sharp(pixelBuffer, { failOn: "none" }).rotate(); // auto-orient via EXIF before strip
 
-  const webBuf = await pipeline
-    .clone()
-    .resize({
-      width: WEB_SIZE,
-      height: WEB_SIZE,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .webp({ quality: WEB_QUALITY })
-    .toBuffer({ resolveWithObject: true });
-
-  const thumbBuf = await pipeline
-    .clone()
-    .resize({
-      width: THUMB_SIZE,
-      height: THUMB_SIZE,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .webp({ quality: THUMB_QUALITY })
-    .toBuffer({ resolveWithObject: true });
+  const webBuf = await encodeVariant(
+    pipeline,
+    WEB_SIZE,
+    WEB_QUALITY,
+    watermark ?? null,
+  );
+  const thumbBuf = await encodeVariant(
+    pipeline,
+    THUMB_SIZE,
+    THUMB_QUALITY,
+    watermark ?? null,
+  );
 
   const fs = await import("node:fs/promises");
   await Promise.all([
@@ -187,6 +197,46 @@ export async function generateWebPVariants(params: {
     height: webBuf.info.height,
     sourceFormat: format,
   };
+}
+
+/**
+ * Resizes the source pipeline to the target edge length, applies the
+ * watermark when one is provided, and encodes the result as WebP. When
+ * `watermark` is null the resize and encode happen in a single sharp
+ * pass (fastest path). When set, we materialise the resized image into
+ * an intermediate buffer to learn its true dimensions, then composite
+ * the watermark in position before encoding — sharp can't expose the
+ * post-resize size mid-pipeline without first executing it.
+ */
+async function encodeVariant(
+  pipeline: import("sharp").Sharp,
+  size: number,
+  quality: number,
+  watermark: WatermarkSpec | null,
+): Promise<{ data: Buffer; info: import("sharp").OutputInfo }> {
+  const resizePipeline = pipeline.clone().resize({
+    width: size,
+    height: size,
+    fit: "inside",
+    withoutEnlargement: true,
+  });
+  if (!watermark) {
+    return await resizePipeline
+      .webp({ quality })
+      .toBuffer({ resolveWithObject: true });
+  }
+  const sharp = require("sharp") as typeof import("sharp");
+  const resized = await resizePipeline.toBuffer({ resolveWithObject: true });
+  const composited = await compositeWatermarkOnto(
+    sharp(resized.data),
+    resized.info.width,
+    resized.info.height,
+    watermark.buffer,
+    watermark.options,
+  );
+  return await composited
+    .webp({ quality })
+    .toBuffer({ resolveWithObject: true });
 }
 
 /**
