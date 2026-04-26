@@ -59,6 +59,26 @@ export function CloverFactCard() {
 
   const categoryLabel = CATEGORY_LABELS[text.category] ?? text.category;
 
+  // Author entries get a clover-themed paper variant: emerald gradient
+  // background, green thumbtack, BONUS badge with the kind override
+  // ("Rada autora" / "Báseň autora" / …). The dual rendering lives in
+  // small className unions rather than a separate component so layout,
+  // tilt, and ID badge stay identical and the DOM diff between rotations
+  // is minimal.
+  const isAuthor = text.author === true;
+  const paperBg = isAuthor
+    ? "bg-gradient-to-br from-emerald-50 via-emerald-50/80 to-emerald-100/70"
+    : "bg-[#fffdf7]";
+  const paperRing = isAuthor
+    ? "ring-1 ring-emerald-200/70"
+    : "ring-1 ring-amber-200/60";
+  const pinDisc = isAuthor
+    ? "bg-emerald-600 ring-2 ring-emerald-300"
+    : "bg-rose-500 ring-2 ring-rose-300";
+  const pinDot = isAuthor ? "bg-emerald-200" : "bg-rose-200";
+  const titleColor = isAuthor ? "text-emerald-900" : "text-gray-900";
+  const textColor = isAuthor ? "text-emerald-950/80" : "text-gray-700";
+
   return (
     // The wrapper isolates the rotation from the rest of the layout so
     // adjacent flex/grid math doesn't see a slightly-taller bounding
@@ -67,44 +87,65 @@ export function CloverFactCard() {
     <div className="flex justify-center lg:justify-end">
       <aside
         aria-live="polite"
-        aria-label="Drobnost o čtyřlístcích"
-        className="relative w-72 max-w-full -rotate-[2deg] rounded-sm bg-[#fffdf7] p-5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] ring-1 ring-amber-200/60 sm:w-80"
+        aria-label={
+          isAuthor ? "Bonusová drobnost autora" : "Drobnost o čtyřlístcích"
+        }
+        className={`relative w-72 max-w-full -rotate-[2deg] rounded-sm p-5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] sm:w-80 ${paperBg} ${paperRing}`}
       >
         {/* Faux thumbtack — small disc with a darker centre, hovering
             slightly above the top edge of the paper. Rotates with the
             paper (it's "pinned" to it, not to the wall). */}
         <span
           aria-hidden
-          className="absolute -top-3 right-6 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 shadow-[0_2px_4px_rgba(0,0,0,0.25)] ring-2 ring-rose-300"
+          className={`absolute -top-3 right-6 inline-flex h-5 w-5 items-center justify-center rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.25)] ${pinDisc}`}
         >
-          <span className="h-1.5 w-1.5 rounded-full bg-rose-200" />
+          <span className={`h-1.5 w-1.5 rounded-full ${pinDot}`} />
         </span>
 
         <div className="flex items-baseline justify-between gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500">
-            {categoryLabel}
-          </p>
-          <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ring-1 ${SOURCE_TONE[text.source_type]}`}
+          <p
+            className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${
+              isAuthor ? "text-emerald-700" : "text-gray-500"
+            }`}
           >
-            {SOURCE_LABELS[text.source_type]}
-          </span>
+            {isAuthor && text.kind ? text.kind : categoryLabel}
+          </p>
+          {isAuthor ? (
+            <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+              Bonus
+            </span>
+          ) : (
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ring-1 ${SOURCE_TONE[text.source_type]}`}
+            >
+              {SOURCE_LABELS[text.source_type]}
+            </span>
+          )}
         </div>
 
-        <h3 className="mt-1.5 font-serif text-base font-semibold text-gray-900">
+        <h3
+          className={`mt-1.5 font-serif text-base font-semibold ${titleColor}`}
+        >
           {text.title}
         </h3>
-        <p className="mt-2 font-serif text-sm italic leading-relaxed text-gray-700">
+        <p
+          // Author rhymes/rady use newlines we want preserved (whitespace-pre-line)
+          // so the báseň keeps its line breaks. Regular entries flow as
+          // a single paragraph and the property is harmless there.
+          className={`mt-2 whitespace-pre-line font-serif text-sm italic leading-relaxed ${textColor}`}
+        >
           {text.text}
         </p>
 
         {/* Fact number stamped diagonally in the bottom-right corner.
-            Uses the original JSON `id` (1–200) — stable across visits
-            so each fact has a fixed "#N" identity even though the
-            on-disk shuffle changes the rotation order. */}
+            Uses the original JSON `id` — stable across visits so each
+            fact has a fixed "#N" identity even though the on-disk
+            shuffle changes the rotation order. */}
         <span
           aria-hidden
-          className="absolute bottom-2 right-3 rotate-[8deg] font-serif text-xs italic text-gray-400"
+          className={`absolute bottom-2 right-3 rotate-[8deg] font-serif text-xs italic ${
+            isAuthor ? "text-emerald-700/60" : "text-gray-400"
+          }`}
         >
           #{text.id}
         </span>

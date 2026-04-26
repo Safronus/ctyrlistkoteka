@@ -16,6 +16,13 @@ export interface CloverText {
   title: string;
   text: string;
   source_type: CloverTextSource;
+  /** When true the entry is authored by the project owner; the home
+   *  card swaps to a clover-themed paper variant with a BONUS badge.
+   *  Optional — most entries are general lore/facts and omit it. */
+  author?: boolean;
+  /** Visible label for author entries (e.g. "Rada autora", "Báseň
+   *  autora"). Ignored when `author` is falsy. */
+  kind?: string;
 }
 
 export const CLOVER_TEXTS: ReadonlyArray<CloverText> =

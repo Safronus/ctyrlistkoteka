@@ -27,6 +27,14 @@ interface CloverText {
   title: string;
   text: string;
   source_type: "fact" | "lore" | "creative";
+  /** Marks an entry as authored by the project owner — the home-page
+   *  rotator renders these with a clover-themed paper variant and a
+   *  BONUS badge. Optional; default `false`. */
+  author?: boolean;
+  /** Visible label override for author entries
+   *  ("Báseň autora", "Rada autora", "Hláška autora", "Fakt autora",
+   *  "Fakt o autorovi"). Ignored when `author` is falsy. */
+  kind?: string;
 }
 
 interface CloverTextsFile {
@@ -91,18 +99,17 @@ function shuffle<T>(items: ReadonlyArray<T>, rng: () => number): T[] {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const input = args.input;
+  // Default to the repo-tracked source so re-running the shuffle after
+  // editing texts is a one-liner (`pnpm tsx scripts/shuffle-clover-texts.ts`).
+  // The original Downloads JSON stays untouched as a backup; the canonical
+  // editing target is `src/data/clover-texts.source.json`.
+  const input =
+    args.input ??
+    resolve(__dirname, "..", "src", "data", "clover-texts.source.json");
   const output =
     args.output ??
     resolve(__dirname, "..", "src", "data", "clover-texts.shuffled.json");
   const seedString = args.seed ?? "ctyrlistkoteka-v1";
-
-  if (!input) {
-    console.error(
-      "Usage: tsx scripts/shuffle-clover-texts.ts --input <path> [--output <path>] [--seed <string>]",
-    );
-    process.exit(1);
-  }
 
   const raw = readFileSync(resolve(input), "utf-8");
   const parsed = JSON.parse(raw) as CloverTextsFile;
