@@ -12,6 +12,8 @@
  *   pnpm watermark --watermark /path/to/custom.png --find-id 42
  *   pnpm watermark --all --skip-thumbs    # web only
  *   pnpm watermark --all --reset          # ignore sentinel, redo everything
+ *   pnpm watermark --find-id 1 --regenerate   # re-encode WebP from source first
+ *   pnpm watermark --find-id 1 --regen-only   # regen without applying the mark
  *
  * Idempotence: a sentinel file `$GENERATED_DIR/.watermarked.json` tracks
  * the SHA-1s already processed during a `--all` run. Re-running skips
@@ -19,12 +21,19 @@
  * the sentinel because it's a manual one-off (e.g. the verification on
  * find #1 the user requested), but does write the SHA-1s in so the
  * subsequent `--all` run skips them.
+ *
+ * `--regenerate` is the cleanest way to iterate on watermark parameters:
+ * it locates the original file in DATA_DIR/finds (recursive walk,
+ * matching `original_filename`), re-encodes the WebP from source via
+ * generateWebPVariants(forceRegen: true), and only then composites the
+ * watermark. Use it whenever a previous broken run baked artifacts in.
  */
 
-import { readFile, rename, stat, writeFile } from "node:fs/promises";
+import { readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageType, PrismaClient } from "@prisma/client";
 import { WEB_QUALITY, THUMB_QUALITY } from "../src/lib/constants";
+import { generateWebPVariants } from "../src/lib/images";
 import {
   DEFAULT_WATERMARK_OPTIONS,
   compositeWatermarkOnto,
@@ -40,6 +49,8 @@ interface Args {
   skipThumbs: boolean;
   reset: boolean;
   dryRun: boolean;
+  regenerate: boolean;
+  regenOnly: boolean;
   webQuality: number;
   thumbQuality: number;
 }
@@ -54,6 +65,8 @@ function parseArgs(argv: string[]): Args {
     skipThumbs: false,
     reset: false,
     dryRun: false,
+    regenerate: false,
+    regenOnly: false,
     webQuality: WEB_QUALITY,
     thumbQuality: THUMB_QUALITY,
   };
@@ -79,7 +92,11 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--skip-thumbs") args.skipThumbs = true;
     else if (a === "--reset") args.reset = true;
     else if (a === "--dry-run") args.dryRun = true;
-    else if (a === "--web-quality") args.webQuality = parseInt(need(a), 10);
+    else if (a === "--regenerate") args.regenerate = true;
+    else if (a === "--regen-only") {
+      args.regenerate = true;
+      args.regenOnly = true;
+    } else if (a === "--web-quality") args.webQuality = parseInt(need(a), 10);
     else if (a === "--thumb-quality")
       args.thumbQuality = parseInt(need(a), 10);
     else if (a === "--help" || a === "-h") {
@@ -87,7 +104,12 @@ function parseArgs(argv: string[]): Args {
         "Usage: pnpm watermark [--find-id N | --all] [--watermark PATH]\n" +
           "                     [--width-ratio 0.20] [--opacity 0.40] [--margin-ratio 0.02]\n" +
           "                     [--skip-thumbs] [--reset] [--dry-run]\n" +
-          "                     [--web-quality 85] [--thumb-quality 80]",
+          "                     [--regenerate | --regen-only]\n" +
+          "                     [--web-quality 85] [--thumb-quality 80]\n\n" +
+          "  --regenerate   Re-encode WebP from the original file before watermarking.\n" +
+          "                 Use this when iterating on watermark parameters or after a\n" +
+          "                 botched run baked artifacts in.\n" +
+          "  --regen-only   Same regen, but skip the watermark step (recovery only).",
       );
       process.exit(0);
     } else {
@@ -134,6 +156,57 @@ async function writeSentinel(path: string, set: Set<string>): Promise<void> {
 function webUrlToFsPath(url: string, generatedDir: string): string {
   const stripped = url.replace(/^\/generated\//, "");
   return join(generatedDir, stripped);
+}
+
+/** Walks DATA_DIR/finds recursively to locate the source file matching a
+ *  basename. find_images stores only the basename (no path) so we rely on
+ *  the filename being unique under the finds tree — sync.ts enforces
+ *  this when importing. Returns null when the file isn't on disk
+ *  (e.g. user moved or deleted the original). */
+async function findSourceFile(
+  rootDir: string,
+  filename: string,
+): Promise<string | null> {
+  const stack: string[] = [rootDir];
+  while (stack.length > 0) {
+    const dir = stack.pop()!;
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw e;
+    }
+    for (const e of entries) {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) stack.push(full);
+      else if (e.isFile() && e.name === filename) return full;
+    }
+  }
+  return null;
+}
+
+async function regenerateFromSource(
+  filename: string,
+  expectedSha1: string,
+  finduploadDir: string,
+  generatedDir: string,
+): Promise<void> {
+  const src = await findSourceFile(finduploadDir, filename);
+  if (!src) {
+    throw new Error(
+      `original not found in ${finduploadDir} (basename: ${filename})`,
+    );
+  }
+  // Pass expected sha1 to avoid re-hashing — we trust the DB row.
+  // forceRegen overrides the "fast path" cache so the existing (possibly
+  // corrupted) WebP gets overwritten cleanly.
+  await generateWebPVariants({
+    sourcePath: src,
+    generatedDir,
+    forceRegen: true,
+    sha1: expectedSha1,
+  });
 }
 
 async function applyWatermarkInPlace(
@@ -205,6 +278,7 @@ async function main(): Promise<void> {
         findId: true,
         imageType: true,
         originalSha1: true,
+        originalFilename: true,
         webPath: true,
         thumbPath: true,
       },
@@ -243,32 +317,52 @@ async function main(): Promise<void> {
 
       try {
         if (args.dryRun) {
+          const regenNote = args.regenerate ? " [+regen]" : "";
+          const wmNote = args.regenOnly ? " [no-mark]" : "";
           console.log(
-            `[dry] find ${String(img.findId).padStart(5, "0")} ${tag} ` +
+            `[dry] find ${String(img.findId).padStart(5, "0")} ${tag}${regenNote}${wmNote} ` +
               `web=${webFs}${args.skipThumbs ? "" : ` thumb=${thumbFs}`}`,
           );
         } else {
-          const w = await applyWatermarkInPlace(
-            webFs,
-            watermarkBuf,
-            args.options,
-            args.webQuality,
-          );
-          let extra = "";
-          if (!args.skipThumbs) {
-            const t = await applyWatermarkInPlace(
-              thumbFs,
+          if (args.regenerate) {
+            // Re-encode WebP from the original HEIC/JPEG, overwriting any
+            // previous (potentially corrupted) variants. Done before
+            // watermarking so the doodle gets composed over a clean photo.
+            await regenerateFromSource(
+              img.originalFilename,
+              img.originalSha1,
+              join(process.env.DATA_DIR ?? "./data", "finds"),
+              generatedDir,
+            );
+          }
+          if (args.regenOnly) {
+            console.log(
+              `↻ find ${String(img.findId).padStart(5, "0")} ${tag} regenerated`,
+            );
+          } else {
+            const w = await applyWatermarkInPlace(
+              webFs,
               watermarkBuf,
               args.options,
-              args.thumbQuality,
+              args.webQuality,
             );
-            extra = ` (thumb ${t.width}×${t.height})`;
+            let extra = "";
+            if (!args.skipThumbs) {
+              const t = await applyWatermarkInPlace(
+                thumbFs,
+                watermarkBuf,
+                args.options,
+                args.thumbQuality,
+              );
+              extra = ` (thumb ${t.width}×${t.height})`;
+            }
+            const regenPrefix = args.regenerate ? "↻ " : "";
+            console.log(
+              `${regenPrefix}✓ find ${String(img.findId).padStart(5, "0")} ${tag} ` +
+                `${w.width}×${w.height}${extra}`,
+            );
+            processed.add(img.originalSha1);
           }
-          console.log(
-            `✓ find ${String(img.findId).padStart(5, "0")} ${tag} ` +
-              `${w.width}×${w.height}${extra}`,
-          );
-          processed.add(img.originalSha1);
         }
         done += 1;
       } catch (err) {
