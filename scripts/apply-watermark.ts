@@ -89,6 +89,8 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--opacity") args.options.opacity = parseFloat(need(a));
     else if (a === "--margin-ratio")
       args.options.marginRatio = parseFloat(need(a));
+    else if (a === "--rotation")
+      args.options.rotation = parseFloat(need(a));
     else if (a === "--skip-thumbs") args.skipThumbs = true;
     else if (a === "--reset") args.reset = true;
     else if (a === "--dry-run") args.dryRun = true;
@@ -102,7 +104,8 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--help" || a === "-h") {
       console.log(
         "Usage: pnpm watermark [--find-id N | --all] [--watermark PATH]\n" +
-          "                     [--width-ratio 0.20] [--opacity 0.40] [--margin-ratio 0.02]\n" +
+          "                     [--width-ratio 0.10] [--opacity 0.40] [--margin-ratio 0.02]\n" +
+          "                     [--rotation 45]    (degrees, CCW positive)\n" +
           "                     [--skip-thumbs] [--reset] [--dry-run]\n" +
           "                     [--regenerate | --regen-only]\n" +
           "                     [--web-quality 85] [--thumb-quality 80]\n\n" +
@@ -257,7 +260,8 @@ async function main(): Promise<void> {
   console.log(
     `options   : width=${(args.options.widthRatio * 100).toFixed(1)}% ` +
       `opacity=${(args.options.opacity * 100).toFixed(0)}% ` +
-      `margin=${(args.options.marginRatio * 100).toFixed(1)}%`,
+      `margin=${(args.options.marginRatio * 100).toFixed(1)}% ` +
+      `rotation=${args.options.rotation.toFixed(0)}° (CCW)`,
   );
   console.log(
     `targets   : ${args.skipThumbs ? "web only" : "web + thumb"}`,

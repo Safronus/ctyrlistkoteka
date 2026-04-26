@@ -16,7 +16,10 @@ import { readFile } from "node:fs/promises";
 
 export interface WatermarkOptions {
   /** Width of the rendered watermark as a fraction of image width.
-   *  0.20 → watermark spans 20% of the image's bottom edge. */
+   *  0.10 → watermark spans 10% of the image's bottom edge. Note: this
+   *  is the *pre-rotation* width; rotating expands the bounding box, so
+   *  the on-screen footprint along the bottom edge ends up roughly
+   *  widthRatio · |cos(rotation)| + heightOfDoodle · |sin(rotation)|. */
   widthRatio: number;
   /** Multiplier applied to the luminance-derived alpha. 0.0 = invisible,
    *  1.0 = full luminance contrast (very dark). 0.4 was the picked
@@ -25,12 +28,18 @@ export interface WatermarkOptions {
   /** Padding from the image's right + bottom edges, as a fraction of
    *  image width. */
   marginRatio: number;
+  /** Rotation in degrees, **counter-clockwise positive** to match the
+   *  Czech UX wording ("doleva" = left). 0 = no rotation. The rotated
+   *  bounding box still anchors to the bottom-right corner with the
+   *  configured margin. */
+  rotation: number;
 }
 
 export const DEFAULT_WATERMARK_OPTIONS: WatermarkOptions = {
-  widthRatio: 0.2,
+  widthRatio: 0.1,
   opacity: 0.4,
   marginRatio: 0.02,
+  rotation: 45,
 };
 
 /** Cached pre-processed watermark (luminance-masked + opacity-baked).
@@ -125,8 +134,22 @@ export async function compositeWatermarkOnto(
   const targetW = Math.max(1, Math.round(width * opts.widthRatio));
   const margin = Math.max(0, Math.round(width * opts.marginRatio));
 
-  const resized = await sharp(watermarkSourceBuffer)
-    .resize({ width: targetW, withoutEnlargement: false })
+  // Resize first, then rotate. Rotating after resize keeps the doodle's
+  // pre-rotation extent equal to widthRatio of the image, which matches
+  // the user's mental model. Sharp rotates clockwise for positive angles,
+  // so we negate `rotation` (which is CCW-positive in our public API).
+  let wmPipeline = sharp(watermarkSourceBuffer).resize({
+    width: targetW,
+    withoutEnlargement: false,
+  });
+  if (opts.rotation !== 0) {
+    wmPipeline = wmPipeline.rotate(-opts.rotation, {
+      // Transparent fill for the corners introduced by rotation —
+      // anything else would draw a coloured triangle around the doodle.
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    });
+  }
+  const resized = await wmPipeline
     .png()
     .toBuffer({ resolveWithObject: true });
 
