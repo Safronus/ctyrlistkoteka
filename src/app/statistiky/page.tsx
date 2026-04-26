@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
+  Building2,
   Compass,
   EyeOff,
   Gift,
+  Globe2,
   HelpCircle,
   ImageOff,
   MapPin,
@@ -90,6 +92,16 @@ export default async function StatistikyPage() {
               icon: MapPinOff,
               label: "zaniklých",
               value: fmt.format(totals.goneLocations),
+            },
+            {
+              icon: Building2,
+              label: "měst",
+              value: fmt.format(stats.byCity.length),
+            },
+            {
+              icon: Globe2,
+              label: "států",
+              value: fmt.format(stats.byCountry.length),
             },
           ]}
         />
