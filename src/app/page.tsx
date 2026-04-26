@@ -104,6 +104,8 @@ export default async function HomePage() {
         />
       </section>
 
+      <DonatedShowcase count={totals.donated} />
+
       <section className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <NavCard
           href="/sbirka"
@@ -135,8 +137,6 @@ export default async function HomePage() {
       {data.latestFind && <LatestFindSection latestFind={data.latestFind} />}
 
       <RandomFindShowcaseWidget initial={randomFind} />
-
-      <DonatedShowcase count={totals.donated} />
     </div>
   );
 }
