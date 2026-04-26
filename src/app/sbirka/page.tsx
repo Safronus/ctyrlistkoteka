@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { FindState } from "@prisma/client";
 import { CollectionProgressBanner } from "@/components/finds/collection-progress-banner";
 import { FilterBar } from "@/components/finds/filter-bar";
+import { RememberSbirkaSearch } from "@/components/finds/sbirka-back-link";
 import { FindGrid } from "@/components/finds/find-grid";
 import { FindList } from "@/components/finds/find-list";
 import {
@@ -104,6 +105,7 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+      <RememberSbirkaSearch />
       <header className="space-y-2">
         <h1 className="text-3xl font-bold text-gray-900">Sbírka nálezů</h1>
         <p className="text-gray-600">

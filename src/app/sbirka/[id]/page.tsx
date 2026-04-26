@@ -5,6 +5,7 @@ import { MapPin } from "lucide-react";
 import { ImageType } from "@prisma/client";
 import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
+import { BackToSbirkaLink } from "@/components/finds/sbirka-back-link";
 import { StateBadges } from "@/components/finds/state-badges";
 import {
   formatDateTimeCs,
@@ -94,9 +95,7 @@ export default async function FindDetailPage({ params }: PageProps) {
         aria-label="Navigace mezi nálezy"
         className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500"
       >
-        <Link href="/sbirka" className="hover:text-brand-700">
-          ← Zpět na sbírku
-        </Link>
+        <BackToSbirkaLink />
         <div className="flex items-center gap-3">
           <AdjacentLink direction="prev" id={adjacent.prevId} />
           <AdjacentLink direction="next" id={adjacent.nextId} />

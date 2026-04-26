@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { FilterOptions } from "@/lib/queries/finds";
 import { STATE_LABELS } from "@/lib/stateLabels";
 import type { FindState } from "@prisma/client";
@@ -25,6 +25,25 @@ export function FilterBar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+
+  // The search box must reflect URL changes that originate outside this
+  // component (browser back/forward, the "Zrušit filtry" button, deep
+  // links). `defaultValue` was uncontrolled and ignored prop updates,
+  // which was visible after the detail-page round-trip — the list
+  // behind the box looked filtered while the box itself was empty.
+  // The local `qInput` state is the input's source of truth; an effect
+  // resyncs it whenever `current.q` changes from the outside.
+  const [qInput, setQInput] = useState(current.q);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    setQInput(current.q);
+  }, [current.q]);
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    [],
+  );
 
   const update = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -65,22 +84,14 @@ export function FilterBar({
           </span>
           <input
             type="search"
-            defaultValue={current.q}
+            value={qInput}
             placeholder="Poznámka nebo lokalita…"
             className={`${INPUT_CLS} w-full`}
             onChange={(e) => {
-              // Lightweight debounce via input buffering the user types in.
               const v = e.currentTarget.value;
-              window.clearTimeout(
-                (e.currentTarget as HTMLInputElement & {
-                  _t?: ReturnType<typeof setTimeout>;
-                })._t,
-              );
-              (
-                e.currentTarget as HTMLInputElement & {
-                  _t?: ReturnType<typeof setTimeout>;
-                }
-              )._t = setTimeout(() => update("q", v), 250);
+              setQInput(v);
+              if (debounceRef.current) clearTimeout(debounceRef.current);
+              debounceRef.current = setTimeout(() => update("q", v), 250);
             }}
           />
         </label>
