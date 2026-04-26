@@ -3,6 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { ImageType } from "@prisma/client";
+import {
+  DetailVibeOverlay,
+  isHellishFind,
+} from "@/components/finds/detail-vibe-overlay";
 import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { BackToSbirkaLink } from "@/components/finds/sbirka-back-link";
@@ -89,11 +93,18 @@ export default async function FindDetailPage({ params }: PageProps) {
   const cropImage =
     find.images.find((i) => i.imageType === ImageType.CROP) ?? null;
 
-  return (
+  // #111 and #666 get special atmospheric overlays — see CLAUDE.md /
+  // detail-vibe-overlay.tsx for the contract. Everything else renders
+  // unchanged. The overlay is full-viewport `position: fixed` so it
+  // sits on top of the article without affecting layout.
+  const hellish = isHellishFind(find.id);
+  const detail = (
     <article className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <nav
         aria-label="Navigace mezi nálezy"
-        className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500"
+        className={`flex flex-wrap items-center justify-between gap-3 text-sm ${
+          hellish ? "text-red-300/80" : "text-gray-500"
+        }`}
       >
         <BackToSbirkaLink />
         <div className="flex items-center gap-3">
@@ -211,6 +222,19 @@ export default async function FindDetailPage({ params }: PageProps) {
         )}
       </Panel>
     </article>
+  );
+
+  return (
+    <>
+      <DetailVibeOverlay id={find.id} />
+      {hellish ? (
+        <div className="min-h-screen bg-gradient-to-br from-gray-950 via-red-950/85 to-black">
+          {detail}
+        </div>
+      ) : (
+        detail
+      )}
+    </>
   );
 }
 
