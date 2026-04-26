@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { MapPin } from "lucide-react";
 import { ImageType } from "@prisma/client";
 import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
@@ -186,6 +187,20 @@ export default async function FindDetailPage({ params }: PageProps) {
           <>
             <KeyValue label="Kód lokality" value={find.location.code} />
             <KeyValue label="Popis lokality" value={find.location.displayName} />
+            {/* Anonymized rows still get a link — the location row already
+                acknowledges its existence above; the map page focuses on
+                the *default* location for anonymized finds (per
+                find.location.id, which is overridden server-side), so we
+                don't leak anything we wouldn't already show. */}
+            <div className="pt-1">
+              <Link
+                href={`/mapa?focus=${find.location.id}`}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+              >
+                <MapPin className="h-3.5 w-3.5" aria-hidden />
+                <span>Zobrazit na mapě</span>
+              </Link>
+            </div>
           </>
         ) : (
           <p className="text-sm text-gray-600">
