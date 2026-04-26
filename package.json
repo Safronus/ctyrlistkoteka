@@ -14,7 +14,8 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx scripts/seed.ts",
     "sync": "tsx scripts/sync.ts",
-    "generate-images": "tsx scripts/generate-images.ts"
+    "generate-images": "tsx scripts/generate-images.ts",
+    "watermark": "tsx scripts/apply-watermark.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
