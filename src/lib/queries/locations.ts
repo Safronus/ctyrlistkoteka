@@ -66,6 +66,19 @@ export interface LocationListItem {
    *  number could leak position), when MAP 00001 isn't on disk, or when
    *  the location has no recorded centre. */
   distanceFromDefault: number | null;
+  /** When set, this row is a sub-part of another location (parent_id FK
+   *  declared via data/meta/LokaceHierarchie.json). The list view uses
+   *  it to indent the row under its parent. */
+  parentId: number | null;
+  /** How many *visible* sub-parts this location has (i.e. counted after
+   *  the showAnonymized / showGone filters). 0 for leaves and for any
+   *  non-parent. Used by the "+ N částí" badge in the row header. */
+  childCount: number;
+  /** Own `stats.total` plus the sum of every visible child's
+   *  `stats.total`. Equals `stats.total` for locations without children.
+   *  Used as the "true significance" weight for the `finds` sort and
+   *  surfaces in the expanded panel as "Včetně dílčích částí". */
+  aggregateTotal: number;
   stats: LocationStats;
 }
 
@@ -143,6 +156,7 @@ export async function listLocations(
       displayName: true,
       cadastralArea: true,
       locationType: true,
+      parentId: true,
     },
     orderBy: { id: "asc" },
   });
@@ -318,6 +332,9 @@ export async function listLocations(
   let items: LocationListItem[] = locations.map((l) => {
     const gone = isFormerLocation(l.code);
     if (isAnonymizedLoc(l.id)) {
+      // Anonymized locations don't expose their parent link either —
+      // surfacing it would reveal which sub-parts belong to a hidden
+      // master location, defeating the anonymization.
       return {
         id: l.id,
         code: l.code,
@@ -330,9 +347,13 @@ export async function listLocations(
         polygonAreaM2: null,
         coordinates: null,
         distanceFromDefault: null,
+        parentId: null,
+        childCount: 0,
+        aggregateTotal: 0,
         stats: EMPTY_STATS,
       };
     }
+    const stats = totalsByLoc.get(l.id) ?? EMPTY_STATS;
     return {
       id: l.id,
       code: l.code,
@@ -345,7 +366,10 @@ export async function listLocations(
       polygonAreaM2: areaByLoc.get(l.id) ?? null,
       coordinates: coordsByLoc.get(l.id) ?? null,
       distanceFromDefault: distByLoc.get(l.id) ?? null,
-      stats: totalsByLoc.get(l.id) ?? EMPTY_STATS,
+      parentId: l.parentId,
+      childCount: 0,
+      aggregateTotal: stats.total,
+      stats,
     };
   });
 
@@ -359,10 +383,28 @@ export async function listLocations(
     items = items.filter((it) => !it.isGone);
   }
 
+  // ------------------------------------------------------------ hierarchy aggregates
+  // Now that the visible set is final, fold every visible child's totals
+  // into its parent so the parent row carries the "incl. sub-parts" count
+  // displayed in the expanded panel and used as the `finds` sort weight.
+  // We only count children that are actually in `items` — a child filtered
+  // out by showAnonymized/showGone shouldn't influence the parent's badge.
+  const byId = new Map(items.map((it) => [it.id, it]));
+  for (const item of items) {
+    if (item.parentId === null) continue;
+    const parent = byId.get(item.parentId);
+    if (!parent) continue; // parent filtered out — child stands alone
+    parent.childCount += 1;
+    parent.aggregateTotal += item.stats.total;
+  }
+
   // ------------------------------------------------------------ sort
   // `finds` is the default — most-active locations float to the top,
   // matching what visitors usually want. `code` is locale-aware
   // (Czech collation); `id` keeps the historical ordering.
+  // The `finds` sort uses `aggregateTotal` so a parent with many small
+  // sub-parts ranks by its true significance (the sub-parts are then
+  // reinserted right under it via interleaveChildren — see below).
   // Anonymized rows have stats=0 so they fall to the bottom under
   // `finds` sort, which is fine: their counts are private.
   const sort: LocationSort = filter.sort ?? "finds";
@@ -383,9 +425,68 @@ export async function listLocations(
     });
   } else {
     items.sort(
-      (a, b) => b.stats.total - a.stats.total || a.id - b.id,
+      (a, b) => b.aggregateTotal - a.aggregateTotal || a.id - b.id,
     );
   }
 
-  return items;
+  return interleaveChildren(items);
+}
+
+/** After sorting, lift every child row out of its current position and
+ *  reinsert it immediately after its parent. Children are grouped under
+ *  their parent in code-collation order so the sequence stays stable
+ *  regardless of the chosen top-level sort. Orphaned children (parent
+ *  filtered out) keep their sorted position — they behave as standalone
+ *  rows from the visitor's POV. */
+function interleaveChildren(
+  items: LocationListItem[],
+): LocationListItem[] {
+  const collator = new Intl.Collator("cs", { sensitivity: "base" });
+  const childrenByParent = new Map<number, LocationListItem[]>();
+  const ids = new Set(items.map((it) => it.id));
+
+  for (const it of items) {
+    if (it.parentId === null) continue;
+    if (!ids.has(it.parentId)) continue; // keep orphans in place
+    const list = childrenByParent.get(it.parentId);
+    if (list) list.push(it);
+    else childrenByParent.set(it.parentId, [it]);
+  }
+  for (const list of childrenByParent.values()) {
+    list.sort((a, b) => collator.compare(a.code, b.code));
+  }
+
+  // Rebuild the array in two passes:
+  // 1. Walk the original sorted order and emit each row that is either a
+  //    parent (has at least one visible child) or "free-standing"
+  //    (parentId null OR parent filtered out).
+  // 2. After emitting a parent, splice its children right after it.
+  // Orphaned children are emitted at their original sorted position — they
+  // never get attached to anyone.
+  const out: LocationListItem[] = [];
+  const placed = new Set<number>();
+  for (const it of items) {
+    if (it.parentId !== null && ids.has(it.parentId)) {
+      // child of a visible parent — skip; we'll splice it after its parent
+      continue;
+    }
+    out.push(it);
+    placed.add(it.id);
+    const kids = childrenByParent.get(it.id);
+    if (kids) {
+      for (const k of kids) {
+        out.push(k);
+        placed.add(k.id);
+      }
+    }
+  }
+  // Safety net: if for any reason something didn't get placed (e.g. a
+  // future bug introduces multi-level hierarchy that the helper wasn't
+  // designed for), append it so the row count never silently shrinks.
+  if (out.length !== items.length) {
+    for (const it of items) {
+      if (!placed.has(it.id)) out.push(it);
+    }
+  }
+  return out;
 }

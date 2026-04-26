@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, HelpCircle, MapPin } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  CornerDownRight,
+  HelpCircle,
+  Layers,
+  MapPin,
+} from "lucide-react";
 import type { LocationListItem } from "@/lib/queries/locations";
 import { GpsValue } from "@/components/finds/gps-value";
 import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
@@ -31,6 +38,11 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
     }
   };
 
+  // Hierarchy flag — only set for visible (non-anonymized) sub-parts. The
+  // listLocations() query already nulls parentId on anonymized rows so
+  // their parent association can't be inferred.
+  const isChild = !location.isAnonymized && location.parentId !== null;
+
   // Anonymizace má přednost před zaniklou — privacy je tvrdší. Pokud
   // by lokalita byla obojí, render se chová jako anonymizovaná.
   const tone = location.isAnonymized
@@ -38,6 +50,13 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
     : location.isGone
       ? "bg-rose-50/60 hover:bg-rose-100/60 focus:bg-rose-100/60"
       : "hover:bg-brand-50 focus:bg-brand-50";
+
+  // Visual nesting: a left border + extra left padding telegraphs the
+  // parent/child relationship in the flat list. Tinted brand-50 keeps the
+  // child distinguishable from a regular row even before hover.
+  const indent = isChild
+    ? "border-l-4 border-brand-200 bg-brand-50/40 pl-6 sm:pl-10"
+    : "";
 
   return (
     <div>
@@ -47,11 +66,11 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
         onClick={toggle}
         onKeyDown={onKeyDown}
         aria-expanded={open}
-        className={`flex w-full cursor-pointer items-stretch gap-4 p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${tone}`}
+        className={`flex w-full cursor-pointer items-stretch gap-4 p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${tone} ${indent}`}
       >
         <RowThumb location={location} />
         <div className="flex min-w-0 flex-1 flex-col justify-between gap-1">
-          <RowTitle location={location} />
+          <RowTitle location={location} isChild={isChild} />
           {!location.isAnonymized && (
             <>
               <RowMeta location={location} />
@@ -131,9 +150,24 @@ function RowThumb({ location }: { location: LocationListItem }) {
   );
 }
 
-function RowTitle({ location }: { location: LocationListItem }) {
+function RowTitle({
+  location,
+  isChild,
+}: {
+  location: LocationListItem;
+  isChild: boolean;
+}) {
+  // Parent badge: only shown for non-anonymized rows that actually have at
+  // least one visible child after the showAnonymized/showGone filters.
+  const showPartsBadge = !location.isAnonymized && location.childCount > 0;
   return (
     <div className="flex flex-wrap items-baseline gap-x-2">
+      {isChild && (
+        <CornerDownRight
+          className="h-3.5 w-3.5 shrink-0 self-center text-brand-500"
+          aria-label="Dílčí část lokality"
+        />
+      )}
       <span className="font-mono text-xs text-gray-500">
         {formatLocationId(location.id)}
       </span>
@@ -153,6 +187,19 @@ function RowTitle({ location }: { location: LocationListItem }) {
             ({location.displayName})
           </span>
         )}
+      {showPartsBadge && (
+        <span
+          className="inline-flex items-center gap-1 rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-800"
+          title="Lokalita je rozdělena na dílčí části"
+        >
+          <Layers className="h-3 w-3" aria-hidden />+ {location.childCount}{" "}
+          {location.childCount === 1
+            ? "část"
+            : location.childCount < 5
+              ? "části"
+              : "částí"}
+        </span>
+      )}
       {location.isAnonymized && (
         <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800">
           Anonymizovaná
@@ -233,6 +280,8 @@ function StatsPanel({ location }: { location: LocationListItem }) {
             total={stats.total}
             firstFoundAt={stats.firstFoundAt}
             lastFoundAt={stats.lastFoundAt}
+            aggregateTotal={location.aggregateTotal}
+            childCount={location.childCount}
           />
 
           <DetailLinks
@@ -282,16 +331,28 @@ function SummaryRow({
   total,
   firstFoundAt,
   lastFoundAt,
+  aggregateTotal,
+  childCount,
 }: {
   total: number;
   firstFoundAt: string | null;
   lastFoundAt: string | null;
+  aggregateTotal: number;
+  childCount: number;
 }) {
   const first = firstFoundAt ? new Date(firstFoundAt) : null;
   const last = lastFoundAt ? new Date(lastFoundAt) : null;
+  // For a parent location, the count under its own name is only part of
+  // the picture — the sub-parts add up to the "true" total. We surface
+  // the aggregate as the sub-line so the visitor sees both: own count
+  // (headline) and combined count incl. sub-parts (sub).
+  const totalSub =
+    childCount > 0
+      ? `Včetně dílčích částí: ${formatCount(aggregateTotal, FINDS)}`
+      : null;
   return (
     <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-      <Stat label="Celkem nálezů" value={String(total)} />
+      <Stat label="Celkem nálezů" value={String(total)} sub={totalSub} />
       <Stat
         label="První nález"
         value={first ? formatDateTimeCs(first) : "—"}
