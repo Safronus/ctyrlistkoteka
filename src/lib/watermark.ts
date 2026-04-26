@@ -62,20 +62,29 @@ async function loadAndMaskWatermark(
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  // Luminance-as-alpha pass. Walking the raw RGBA buffer in-place is
-  // safe because we own the buffer (sharp returned a fresh allocation).
-  // The `?? 0` defaults satisfy `noUncheckedIndexedAccess` — `data` is
-  // contiguous so the values can't actually be undefined at runtime.
+  // Combined alpha = original_alpha · ink_density · opacity.
+  //   - For a transparent-bg PNG (alpha = 0 outside the ink): the
+  //     bounding-box stays invisible because the original_alpha factor
+  //     zeroes it out. Without this, RGB = (0,0,0) on transparent
+  //     pixels would be misread as fully-black ink.
+  //   - For a flat white-bg PNG (alpha = 255 everywhere): the
+  //     ink-density factor (1 − max(R,G,B)/255) collapses white to
+  //     transparent, keeping ink opaque.
+  //
+  // `?? 0` satisfies `noUncheckedIndexedAccess`; the buffer is
+  // contiguous so values can't actually be undefined at runtime.
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i] ?? 0;
     const g = data[i + 1] ?? 0;
     const b = data[i + 2] ?? 0;
-    // max(R,G,B) is closest to 255 for white, 0 for black — using max
-    // (not avg) preserves cleaner edges on the doodle's anti-aliased
-    // strokes without graying them.
+    const a = data[i + 3] ?? 0;
+    // max(R,G,B) — peak channel — best preserves the doodle's
+    // anti-aliased stroke edges without graying them.
     const lum = r > g ? (r > b ? r : b) : g > b ? g : b;
-    const baseAlpha = 255 - lum;
-    data[i + 3] = Math.round(baseAlpha * opacity);
+    const inkDensity = 255 - lum;
+    // Multiply original alpha (0..255) by ink density (0..255) by
+    // opacity (0..1), divide by 255 once to keep the result in 0..255.
+    data[i + 3] = Math.round((a * inkDensity * opacity) / 255);
   }
 
   return await sharp(data, {
