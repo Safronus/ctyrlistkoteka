@@ -223,23 +223,97 @@ function LocationMapsGallery({ maps }: { maps: readonly PublicLocationMap[] }) {
           key={m.id}
           className="overflow-hidden rounded-md border border-gray-200 bg-gray-50"
         >
-          {/* Served by Nginx, no Next.js optimizer (docs/architecture.md). */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={m.imageUrl}
-            alt={m.description ?? "Mapa lokality"}
-            loading="lazy"
-            decoding="async"
-            className="h-auto w-full"
-          />
+          {/* Wrapper is `relative` so the find's GPS marker can be
+              positioned absolutely on top of the lazy-loaded image. */}
+          <div className="relative">
+            {/* Served by Nginx, no Next.js optimizer (docs/architecture.md). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={m.imageUrl}
+              alt={m.description ?? "Mapa lokality"}
+              loading="lazy"
+              decoding="async"
+              className="block h-auto w-full"
+            />
+            {m.marker?.kind === "inside" && (
+              <FindLocationMarker
+                xFrac={m.marker.xFrac}
+                yFrac={m.marker.yFrac}
+              />
+            )}
+          </div>
           {m.description && (
-            <figcaption className="px-3 py-2 text-xs text-gray-600">
+            <figcaption className="px-3 pt-2 text-xs text-gray-600">
               {m.description}
             </figcaption>
+          )}
+          {m.marker?.kind === "outside" && (
+            <p className="px-3 pb-2 pt-1 text-xs text-gray-500">
+              GPS nálezu leží mimo zachycenou plochu této lokační mapy.
+            </p>
+          )}
+          {m.marker?.kind === "no-gps" && (
+            <p className="px-3 pb-2 pt-1 text-xs text-gray-500">
+              Nález nemá zaznamenané GPS souřadnice — pozici nelze na mapu
+              vykreslit.
+            </p>
           )}
         </figure>
       ))}
     </div>
+  );
+}
+
+/** Pin marker overlaid on a location-map image at the find's GPS.
+ *  Anchors so the visual "tip" of the clover sits on the actual point —
+ *  bottom centre via translate(-50%, -100%). White stroke + drop-shadow
+ *  guarantees visibility on grass / pavement / dark roof alike. */
+function FindLocationMarker({
+  xFrac,
+  yFrac,
+}: {
+  xFrac: number;
+  yFrac: number;
+}) {
+  return (
+    <span
+      role="img"
+      aria-label="Pozice nálezu na mapě"
+      className="pointer-events-none absolute z-10"
+      style={{
+        left: `${xFrac * 100}%`,
+        top: `${yFrac * 100}%`,
+        transform: "translate(-50%, -100%)",
+        filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
+      }}
+    >
+      <svg
+        viewBox="0 0 32 40"
+        width={32}
+        height={40}
+        aria-hidden
+        focusable={false}
+      >
+        {/* Pin base — a teardrop ending in a sharp tip at (16, 40),
+            so the bottom-centre anchor lands right on the GPS point. */}
+        <path
+          d="M16 40 L8 26 A12 12 0 1 1 24 26 Z"
+          fill="#fff"
+          stroke="#fff"
+          strokeWidth={2}
+        />
+        {/* Four-leaf clover inside the pin head — four overlapping
+            circles in the brand colour. Stem omitted: at 32 px the
+            silhouette is more legible without it. */}
+        <g fill="#15803d">
+          <circle cx={16} cy={11} r={5} />
+          <circle cx={11} cy={16} r={5} />
+          <circle cx={21} cy={16} r={5} />
+          <circle cx={16} cy={21} r={5} />
+          <circle cx={16} cy={16} r={3} fill="#0f6e34" />
+        </g>
+      </svg>
+    </span>
   );
 }
 

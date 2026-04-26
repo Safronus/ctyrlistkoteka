@@ -454,6 +454,18 @@ export interface PublicLocationMap {
   imageWidth: number | null;
   imageHeight: number | null;
   description: string | null;
+  /** Where to draw the find's GPS marker on top of this map.
+   *  - `inside` → render the icon at (xFrac, yFrac) in image coordinates
+   *  - `outside` → the find's GPS falls beyond the map's recorded bounds,
+   *     show a one-line note instead of a marker
+   *  - `no-gps` → the find has no GPS recorded — note instead of marker
+   *  - `null`  → marker logic doesn't apply (anonymized find, or the
+   *     map row predates `imageBounds` and we can't place the pin) */
+  marker:
+    | { kind: "inside"; xFrac: number; yFrac: number }
+    | { kind: "outside" }
+    | { kind: "no-gps" }
+    | null;
 }
 
 export interface PublicFindDetail extends PublicFind {
@@ -479,7 +491,9 @@ export async function getFindById(
   // the substitution.
   if (hydrated.isAnonymized) {
     const placeholder = await fetchPublicLocation(DEFAULT_LOCATION_ID);
-    const placeholderMaps = await fetchLocationMaps(DEFAULT_LOCATION_ID);
+    // Pass `null` coordinates so no marker is computed — anonymized
+    // finds never expose a position, even on the placeholder map.
+    const placeholderMaps = await fetchLocationMaps(DEFAULT_LOCATION_ID, null);
     return {
       ...hydrated,
       location: placeholder,
@@ -489,7 +503,7 @@ export async function getFindById(
 
   // Non-anonymized: show whatever maps we have for this location.
   const locationMaps = hydrated.location
-    ? await fetchLocationMaps(hydrated.location.id)
+    ? await fetchLocationMaps(hydrated.location.id, hydrated.coordinates)
     : [];
   return { ...hydrated, locationMaps };
 }
@@ -512,6 +526,11 @@ async function fetchPublicLocation(
 
 async function fetchLocationMaps(
   locationId: number,
+  /** Find's GPS for marker placement. `null` skips the calculation:
+   *  - the find has no GPS, OR
+   *  - we're loading the placeholder map for an anonymized find (the
+   *    caller is responsible for not passing real coordinates here). */
+  coordinates: { lat: number; lng: number } | null,
 ): Promise<PublicLocationMap[]> {
   const maps = await prisma.locationMap.findMany({
     where: { locationId, isAnonymized: false },
@@ -521,6 +540,7 @@ async function fetchLocationMaps(
       imageWidth: true,
       imageHeight: true,
       description: true,
+      imageBounds: true,
     },
     orderBy: { id: "asc" },
   });
@@ -530,7 +550,53 @@ async function fetchLocationMaps(
     imageWidth: m.imageWidth,
     imageHeight: m.imageHeight,
     description: m.description,
+    marker: computeMarker(coordinates, m.imageBounds),
   }));
+}
+
+/** Linear interpolation of (lat, lng) into the map's image rectangle.
+ *  `imageBounds` is `[[swLat, swLng], [neLat, neLng]]` per
+ *  `computeMapBounds()` in src/lib/images.ts. The math is equirectangular,
+ *  matching the way the bounds were produced — sub-pixel error at sub-km
+ *  map sizes (Web Mercator nonlinearity is negligible there). */
+function computeMarker(
+  coordinates: { lat: number; lng: number } | null,
+  imageBounds: unknown,
+): PublicLocationMap["marker"] {
+  if (coordinates === null) return { kind: "no-gps" };
+  if (!Array.isArray(imageBounds) || imageBounds.length !== 2) return null;
+  const [sw, ne] = imageBounds as [unknown, unknown];
+  if (
+    !Array.isArray(sw) ||
+    sw.length !== 2 ||
+    !Array.isArray(ne) ||
+    ne.length !== 2
+  ) {
+    return null;
+  }
+  const swLat = Number(sw[0]);
+  const swLng = Number(sw[1]);
+  const neLat = Number(ne[0]);
+  const neLng = Number(ne[1]);
+  if (
+    !Number.isFinite(swLat) ||
+    !Number.isFinite(swLng) ||
+    !Number.isFinite(neLat) ||
+    !Number.isFinite(neLng) ||
+    neLat === swLat ||
+    neLng === swLng
+  ) {
+    return null;
+  }
+  const xFrac = (coordinates.lng - swLng) / (neLng - swLng);
+  // Lat grows northward but image y grows downward — flip.
+  const yFrac = 1 - (coordinates.lat - swLat) / (neLat - swLat);
+  // Inclusive boundary check: a find sitting exactly on the edge counts
+  // as inside (renders with the pin tip on the edge), not as outside.
+  if (xFrac < 0 || xFrac > 1 || yFrac < 0 || yFrac > 1) {
+    return { kind: "outside" };
+  }
+  return { kind: "inside", xFrac, yFrac };
 }
 
 /** IDs of all known finds — used by generateStaticParams for the detail page. */
