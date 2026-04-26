@@ -17,6 +17,10 @@ export interface HomeLatestFind {
   isAnonymized: boolean;
   /** Null when the find is anonymized — code/displayName must not leak. */
   location: { id: number; code: string; displayName: string } | null;
+  /** Raw GPS, *only* for non-anonymized finds. The SQL query already
+   *  hard-NULLs the value for anonymized rows so a leak via this field
+   *  isn't possible. Null also when the find simply has no GPS recorded. */
+  coordinates: { lat: number; lng: number } | null;
   /** Photo of the find. The image itself doesn't reveal identity, so it
    *  is shown for anonymized finds too — same rule the /sbirka grid
    *  follows. Null when the find has no image (e.g. NO_PHOTO state).
@@ -79,6 +83,7 @@ export async function getHomePageData(): Promise<HomePageData> {
   const [
     countsRows,
     latestFindRow,
+    latestCoordRows,
     peakDayRows,
     topLocRows,
     monthlyRows,
@@ -129,6 +134,23 @@ export async function getHomePageData(): Promise<HomePageData> {
         },
       },
     }),
+
+    // Raw GPS for the latest find. The Prisma query above can't reach
+    // the PostGIS `coordinates` column (it's `Unsupported("geometry")`),
+    // so we read it via raw SQL and hard-NULL it for anonymized rows on
+    // the server side. No `is_anonymized = false` filter on the WHERE
+    // because we still want a row back when the latest find is
+    // anonymized (so the latestFind card itself renders) — the CASE
+    // wipes the lat/lng instead.
+    prisma.$queryRaw<Array<{ lat: number | null; lng: number | null }>>`
+      SELECT
+        CASE WHEN is_anonymized = false AND coordinates IS NOT NULL
+             THEN ST_Y(coordinates)::float8 END AS lat,
+        CASE WHEN is_anonymized = false AND coordinates IS NOT NULL
+             THEN ST_X(coordinates)::float8 END AS lng
+      FROM finds
+      WHERE id = (SELECT MAX(id) FROM finds)
+    `,
 
     prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
       SELECT date_trunc('day', found_at) AS bucket, COUNT(*) AS count
@@ -235,12 +257,17 @@ export async function getHomePageData(): Promise<HomePageData> {
   };
 
   const lf = latestFindRow;
+  const latestCoord = latestCoordRows[0];
   const latestFind: HomeLatestFind | null = lf
     ? {
         id: lf.id,
         foundAt: lf.foundAt ? lf.foundAt.toISOString() : null,
         isAnonymized: lf.isAnonymized,
         location: lf.isAnonymized ? null : lf.location,
+        coordinates:
+          latestCoord && latestCoord.lat !== null && latestCoord.lng !== null
+            ? { lat: latestCoord.lat, lng: latestCoord.lng }
+            : null,
         primaryImage: lf.images[0] ?? null,
       }
     : null;

@@ -6,6 +6,7 @@ import { getRandomFindShowcase } from "@/lib/queries/random-find";
 import { getWatermarkMeta } from "@/lib/queries/watermark";
 import {
   formatDateCs,
+  formatDateTimeCs,
   formatLocationId,
   formatShortDateCs,
   formatTimeSinceCs,
@@ -14,6 +15,7 @@ import {
   LOCATIONS,
   YEARS,
 } from "@/lib/format";
+import { formatGpsApple } from "@/lib/gpsFormat";
 import { FindThumbnail } from "@/components/finds/find-thumbnail";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
 
@@ -193,13 +195,13 @@ function LatestFindSection({
           className="aspect-square w-full shrink-0 rounded-lg sm:w-32"
         />
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="text-2xl font-bold text-gray-900 group-hover:text-brand-700">
               #{latestFind.id}
             </span>
             {foundAtDate && (
               <span className="text-sm text-gray-500">
-                {formatDateCs(foundAtDate)}
+                {formatDateTimeCs(foundAtDate)}
               </span>
             )}
           </div>
@@ -217,6 +219,14 @@ function LatestFindSection({
             </p>
           ) : (
             <p className="mt-1 text-sm text-gray-500">Bez lokality</p>
+          )}
+          {latestFind.coordinates && (
+            <p className="mt-1 truncate font-mono text-xs text-gray-500">
+              {formatGpsApple(
+                latestFind.coordinates.lat,
+                latestFind.coordinates.lng,
+              )}
+            </p>
           )}
           <p className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-700">
             Detail nálezu
