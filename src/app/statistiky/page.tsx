@@ -31,6 +31,7 @@ import {
   type CountryPoint,
   type DistanceBucket,
   type FindHighlight,
+  type JubileeFind,
   type LocationPoint,
   type MonthDayPoint,
   type PeakBucket,
@@ -132,6 +133,8 @@ export default async function StatistikyPage() {
       )}
 
       <PeakBucketsSection peaks={stats.peaks} />
+
+      <JubileeFindsSection jubilees={stats.jubilees} />
 
 
       {topLocations.length > 0 && <TopLocationsCard rows={topLocations} />}
@@ -1135,4 +1138,70 @@ function formatPeakBucket(
     case "year":
       return intl({ year: "numeric" });
   }
+}
+
+// ---------------------------------------------------------------------------
+//  Jubilee finds — every 1000th + 111/1111/11111 + 666/6666
+// ---------------------------------------------------------------------------
+
+function JubileeFindsSection({
+  jubilees,
+}: {
+  jubilees: readonly JubileeFind[];
+}) {
+  if (jubilees.length === 0) return null;
+  return (
+    <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-5">
+      <header>
+        <h2 className="text-lg font-semibold text-gray-900">
+          Jubilejní nálezy
+        </h2>
+        <p className="text-sm text-gray-500">
+          Každý tisící nález ve sbírce, plus speciální čísla 111, 1111,
+          11111, 666 a 6666.
+        </p>
+      </header>
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {jubilees.map((j) => (
+          <li key={j.id}>
+            <JubileeCard find={j} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function JubileeCard({ find }: { find: JubileeFind }) {
+  const date = find.foundAt ? new Date(find.foundAt) : null;
+  return (
+    <Link
+      href={`/sbirka/${find.id}`}
+      className="flex h-full flex-col gap-1 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm transition hover:border-brand-200 hover:bg-brand-50 hover:shadow-sm"
+    >
+      <span className="font-mono text-base font-semibold text-brand-700">
+        {formatLocationId(find.id)}
+      </span>
+      {find.isAnonymized ? (
+        <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800 self-start">
+          <HelpCircle className="h-3 w-3" aria-hidden />
+          Anonymizovaný
+        </span>
+      ) : (
+        <>
+          <span className="text-xs text-gray-500">
+            {date ? formatDateTimeCs(date) : "Datum neznámé"}
+          </span>
+          {find.location && (
+            <span
+              className="truncate font-mono text-xs text-gray-700"
+              title={find.location.displayName}
+            >
+              {find.location.code}
+            </span>
+          )}
+        </>
+      )}
+    </Link>
+  );
 }

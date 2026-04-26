@@ -8,11 +8,33 @@
  * (shown on the map) so it's fine to list them.
  */
 
-import { FindState } from "@prisma/client";
+import { FindState, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_LOCATION_ID } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import { isFormerLocation } from "@/lib/locationCode";
+
+/** Hard ceiling for jubilee ID generation. The collection currently sits
+ *  near 17 000; one million covers ~30 years of growth at 30 k/year and
+ *  keeps the candidate list under ~1010 IDs (cheap WHERE id IN(...)
+ *  against a primary key). The Set + sort below dedupes the overlap
+ *  between rules — e.g. 1000 hits both "multiple of 1000" and nothing
+ *  else, so it appears once. */
+const JUBILEE_MAX_ID = 1_000_000;
+
+const JUBILEE_CANDIDATE_IDS: ReadonlyArray<number> = (() => {
+  const set = new Set<number>();
+  // Repunits ≥ 111 (the user excluded #1 and #11 — first find has its
+  // own dedicated card on the page, and 11 isn't a milestone they care
+  // about). Generated as 111, 1111, 11111, … via *10 + 1.
+  for (let r = 111; r <= JUBILEE_MAX_ID; r = r * 10 + 1) set.add(r);
+  // Two specific six-numbers — the rule isn't "all sixes", just these.
+  if (666 <= JUBILEE_MAX_ID) set.add(666);
+  if (6666 <= JUBILEE_MAX_ID) set.add(6666);
+  // Every 1000th find.
+  for (let m = 1000; m <= JUBILEE_MAX_ID; m += 1000) set.add(m);
+  return Array.from(set).sort((a, b) => a - b);
+})();
 
 export interface StatsTotals {
   finds: number;
@@ -170,6 +192,10 @@ export interface CollectionStats {
     month: PeakBucket | null;
     year: PeakBucket | null;
   };
+  /** Existing jubilee finds (every 1000th + 111/1111/11111 + 666/6666),
+   *  sorted by ID. Missing IDs are silently skipped — gaps in the
+   *  sequence don't render as placeholders. */
+  jubilees: JubileeFind[];
 }
 
 export interface PeakBucket {
@@ -178,6 +204,20 @@ export interface PeakBucket {
   startsAt: string;
   /** Number of finds whose `found_at` falls inside the bucket. */
   count: number;
+}
+
+/** Find at a "milestone" position in the sequence — every 1000th find,
+ *  three repunits (111, 1111, 11111) and the two devil-numbers
+ *  (666, 6666). Renders as a clickable list on /statistiky.
+ *
+ *  Anonymized milestones still appear in the list (the ID itself isn't
+ *  private), but their `foundAt` and `location` are stripped per
+ *  CLAUDE.md §6 — only the headline ID + a privacy badge surface. */
+export interface JubileeFind {
+  id: number;
+  foundAt: string | null;
+  isAnonymized: boolean;
+  location: { code: string; displayName: string } | null;
 }
 
 export async function getCollectionStats(): Promise<CollectionStats> {
@@ -213,6 +253,7 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     peakWeekRow,
     peakMonthRow,
     peakYearRow,
+    jubileeRows,
   ] = await Promise.all([
     prisma.$queryRaw<
       Array<{
@@ -509,6 +550,32 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
     `,
+
+    // Jubilee finds — every 1000th, three repunits (111, 1111, 11111),
+    // and the two devil-numbers (666, 6666). The `WHERE id IN (...)`
+    // filter against a primary key returns only existing rows, so any
+    // missing ID is silently skipped (the user fills gaps later as
+    // collection grows).
+    prisma.$queryRaw<
+      Array<{
+        id: number;
+        found_at: Date | null;
+        is_anonymized: boolean;
+        location_id: number | null;
+        location_code: string | null;
+        location_display_name: string | null;
+      }>
+    >`
+      SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
+             CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
+             CASE WHEN f.is_anonymized THEN NULL
+                  ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+             END AS location_display_name
+      FROM finds f
+      LEFT JOIN locations l ON l.id = f.location_id
+      WHERE f.id IN (${Prisma.join(JUBILEE_CANDIDATE_IDS)})
+      ORDER BY f.id ASC
+    `,
   ]);
 
   const t = totalsRow[0];
@@ -601,6 +668,21 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       month: toPeakBucket(peakMonthRow),
       year: toPeakBucket(peakYearRow),
     },
+    jubilees: jubileeRows.map((r) => ({
+      id: r.id,
+      foundAt: r.found_at ? r.found_at.toISOString() : null,
+      isAnonymized: r.is_anonymized,
+      // location is always null for anonymized rows — the SQL CASE
+      // clause already redacts code/displayName, so this just normalises
+      // the shape downstream.
+      location:
+        !r.is_anonymized && r.location_id !== null && r.location_code
+          ? {
+              code: r.location_code,
+              displayName: r.location_display_name ?? r.location_code,
+            }
+          : null,
+    })),
   };
 }
 
