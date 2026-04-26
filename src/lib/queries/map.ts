@@ -40,6 +40,7 @@ export async function getMapData(): Promise<MapData> {
     id: number;
     code: string;
     display_name: string;
+    parent_id: number | null;
     center_lat: number | null;
     center_lng: number | null;
     polygon_geojson: string | null;
@@ -50,6 +51,7 @@ export async function getMapData(): Promise<MapData> {
     SELECT l.id,
            l.code,
            l.display_name,
+           l.parent_id,
            ST_Y(l.center_point)::float8 AS center_lat,
            ST_X(l.center_point)::float8 AS center_lng,
            ST_AsGeoJSON(l.polygon) AS polygon_geojson,
@@ -59,19 +61,39 @@ export async function getMapData(): Promise<MapData> {
     GROUP BY l.id
   `;
 
-  const locations: MapLocation[] = locRows
-    .filter((r) => !anonLocIds.has(r.id))
-    .map((r) => ({
+  const visibleRows = locRows.filter((r) => !anonLocIds.has(r.id));
+
+  // When a parent location has its own polygon (e.g. RATIBOŘ_POLE001
+  // covering its 7 sub-parts 001a–001g), drawing the child polygons on
+  // top of it just adds visual noise — the parent already encloses the
+  // same area. We collect the set of *visible* parents that have a
+  // polygon, then null out any child whose parent is in that set.
+  // Anonymized parents are excluded from the set, so their visible
+  // children keep their own polygons.
+  const visibleParentsWithPolygon = new Set<number>();
+  for (const r of visibleRows) {
+    if (r.polygon_geojson !== null) {
+      visibleParentsWithPolygon.add(r.id);
+    }
+  }
+
+  const locations: MapLocation[] = visibleRows.map((r) => {
+    const hideChildPolygon =
+      r.parent_id !== null && visibleParentsWithPolygon.has(r.parent_id);
+    const polygon =
+      hideChildPolygon || r.polygon_geojson === null
+        ? null
+        : (JSON.parse(r.polygon_geojson) as GeoJSON.Polygon);
+    return {
       id: r.id,
       code: r.code,
       displayName: r.display_name,
       centerLat: r.center_lat,
       centerLng: r.center_lng,
-      polygon: r.polygon_geojson
-        ? (JSON.parse(r.polygon_geojson) as GeoJSON.Polygon)
-        : null,
+      polygon,
       findCount: Number(r.find_count),
-    }));
+    };
+  });
 
   return { locations };
 }
