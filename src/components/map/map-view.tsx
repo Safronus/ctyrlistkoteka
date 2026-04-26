@@ -6,6 +6,7 @@ import { useEffect, useMemo } from "react";
 import "leaflet/dist/leaflet.css";
 import { LocationPolygons } from "./location-polygons";
 import { LocationDots } from "./location-dots";
+import { FindDotsLayer } from "./find-dots-layer";
 import type { MapData } from "@/lib/queries/map";
 
 // Fallback view — Czech Republic bbox when no data is available.
@@ -15,9 +16,13 @@ const CZ_ZOOM = 7;
 export function MapView({
   data,
   focusLocationId,
+  showLocations,
+  showFinds,
 }: {
   data: MapData;
   focusLocationId: number | null;
+  showLocations: boolean;
+  showFinds: boolean;
 }) {
   // When focusing one location, ignore the wide auto-fit and zoom in on
   // that location's polygon (preferred — shows AOI shape) or its centre
@@ -51,14 +56,21 @@ export function MapView({
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         maxZoom={19}
       />
-      <LocationPolygons
-        locations={data.locations}
-        focusLocationId={focusLocationId}
-      />
-      <LocationDots
-        locations={data.locations}
-        focusLocationId={focusLocationId}
-      />
+      {showLocations && (
+        <>
+          <LocationPolygons
+            locations={data.locations}
+            focusLocationId={focusLocationId}
+          />
+          <LocationDots
+            locations={data.locations}
+            focusLocationId={focusLocationId}
+          />
+        </>
+      )}
+      {showFinds && data.findCoords.length > 0 && (
+        <FindDotsLayer coords={data.findCoords} />
+      )}
       {bounds && (
         <FitBounds
           bounds={bounds}

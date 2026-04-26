@@ -51,8 +51,10 @@ export function LocationDots({
             center={[l.centerLat, l.centerLng]}
             radius={focused ? 9 : 6}
             pathOptions={{
-              color: focused ? "#9a3412" : "#4d9748",
-              fillColor: focused ? "#fb923c" : "#4d9748",
+              // Match LocationPolygons — dark blue for the locations
+              // layer so it contrasts with the green find-dot overlay.
+              color: focused ? "#9a3412" : "#1e40af",
+              fillColor: focused ? "#fb923c" : "#1e40af",
               fillOpacity: focused ? 0.7 : 0.5,
               weight: focused ? 3 : 2,
             }}

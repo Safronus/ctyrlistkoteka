@@ -19,10 +19,20 @@ export function MapSidebar({
   locations,
   focusId,
   onSelect,
+  showLocations,
+  onToggleLocations,
+  showFinds,
+  onToggleFinds,
+  findCount,
 }: {
   locations: readonly LocationListItem[];
   focusId: number | null;
   onSelect: (id: number) => void;
+  showLocations: boolean;
+  onToggleLocations: (v: boolean) => void;
+  showFinds: boolean;
+  onToggleFinds: (v: boolean) => void;
+  findCount: number;
 }) {
   const [q, setQ] = useState("");
 
@@ -48,6 +58,25 @@ export function MapSidebar({
 
   return (
     <>
+      <div className="border-b border-gray-200 p-3">
+        <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          Vrstvy
+        </h3>
+        <div className="space-y-1">
+          <LayerToggle
+            label="Lokace"
+            count={locations.length}
+            checked={showLocations}
+            onChange={onToggleLocations}
+          />
+          <LayerToggle
+            label="Nálezy"
+            count={findCount}
+            checked={showFinds}
+            onChange={onToggleFinds}
+          />
+        </div>
+      </div>
       <div className="border-b border-gray-200 p-3">
         <div className="relative">
           <Search
@@ -81,6 +110,35 @@ export function MapSidebar({
         )}
       </ul>
     </>
+  );
+}
+
+function LayerToggle({
+  label,
+  count,
+  checked,
+  onChange,
+}: {
+  label: string;
+  count: number;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-2 rounded px-1 py-1 text-sm text-gray-700 hover:bg-gray-50">
+      <span className="inline-flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+        />
+        <span>{label}</span>
+      </span>
+      <span className="font-mono text-xs text-gray-500">
+        ({count.toLocaleString("cs-CZ")})
+      </span>
+    </label>
   );
 }
 

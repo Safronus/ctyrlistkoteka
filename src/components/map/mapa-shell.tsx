@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ListIcon, X } from "lucide-react";
 import { MapLoader } from "./map-loader";
 import { MapSidebar } from "./map-sidebar";
@@ -10,13 +10,21 @@ import type { LocationListItem } from "@/lib/queries/locations";
 /**
  * Wraps the Leaflet map and the right-hand sidebar in a single client
  * component so they can share state: which location is currently
- * focused, and whether the sidebar is open. Server data flows in once
- * via props; everything interactive is local.
+ * focused, whether the sidebar is open, and which overlay layers are
+ * visible. Server data flows in once via props; everything interactive
+ * is local.
  */
 // Default location to focus when the URL doesn't specify one. Matches
 // "lokalita 00001" — typically ZLÍN_JSVAHY-UTB-U5-001. Falls back to the
 // first available location if id 1 doesn't exist anymore.
 const DEFAULT_FOCUS_ID = 1;
+
+// localStorage keys for visitor-level layer preferences. CLAUDE.md §3
+// allows localStorage for UI preferences — toggling map overlays
+// qualifies. SSR can't read localStorage, so the first paint always
+// shows the default (ON); the effect below rehydrates after mount.
+const LS_KEY_LOCATIONS = "mapa.layers.locations";
+const LS_KEY_FINDS = "mapa.layers.finds";
 
 export function MapaShell({
   mapData,
@@ -41,9 +49,45 @@ export function MapaShell({
   // though we still focus the default location on the map.
   const [sidebarOpen, setSidebarOpen] = useState(urlFocusId !== null);
 
+  const [showLocations, setShowLocations] = useState(true);
+  const [showFinds, setShowFinds] = useState(true);
+
+  // Rehydrate visitor preferences after mount. Wrapped in try/catch
+  // because localStorage can throw in private mode / when disabled.
+  useEffect(() => {
+    try {
+      const sl = window.localStorage.getItem(LS_KEY_LOCATIONS);
+      if (sl === "false") setShowLocations(false);
+      const sf = window.localStorage.getItem(LS_KEY_FINDS);
+      if (sf === "false") setShowFinds(false);
+    } catch {
+      /* localStorage unavailable — keep defaults */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LS_KEY_LOCATIONS, String(showLocations));
+    } catch {
+      /* ignore */
+    }
+  }, [showLocations]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LS_KEY_FINDS, String(showFinds));
+    } catch {
+      /* ignore */
+    }
+  }, [showFinds]);
+
   return (
     <div className="relative h-full w-full">
-      <MapLoader data={mapData} focusLocationId={focusId} />
+      <MapLoader
+        data={mapData}
+        focusLocationId={focusId}
+        showLocations={showLocations}
+        showFinds={showFinds}
+      />
 
       {/* Toggle pill — hidden when the sidebar itself is open since it
           carries its own close button. */}
@@ -81,6 +125,11 @@ export function MapaShell({
             locations={sidebarLocations}
             focusId={focusId}
             onSelect={setFocusId}
+            showLocations={showLocations}
+            onToggleLocations={setShowLocations}
+            showFinds={showFinds}
+            onToggleFinds={setShowFinds}
+            findCount={mapData.findCoords.length}
           />
         </aside>
       )}

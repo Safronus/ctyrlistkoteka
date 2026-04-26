@@ -60,10 +60,13 @@ export function LocationPolygons({
       style={(feature) => {
         const id = (feature?.properties as { id?: number } | undefined)?.id;
         const focused = id != null && id === focusLocationId;
+        // Non-focused polygons render in dark blue so the (also-clover-
+        // green) find dots painted by FindDotsLayer stay visually
+        // distinct. Focused polygon keeps its orange highlight.
         return {
-          color: focused ? "#9a3412" : "#4d9748",
+          color: focused ? "#9a3412" : "#1e40af",
           weight: focused ? 3 : 2,
-          fillColor: focused ? "#fb923c" : "#4d9748",
+          fillColor: focused ? "#fb923c" : "#3b82f6",
           fillOpacity: focused ? 0.3 : 0.15,
         };
       }}
