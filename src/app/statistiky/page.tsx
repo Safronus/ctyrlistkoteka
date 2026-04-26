@@ -85,12 +85,12 @@ export default async function StatistikyPage() {
           cornerLeft={{
             icon: Globe2,
             label: "států",
-            value: fmt.format(stats.byCountry.length),
+            value: fmt.format(stats.countryCount),
           }}
           cornerRight={{
             icon: Building2,
             label: "měst",
-            value: fmt.format(stats.byCity.length),
+            value: fmt.format(stats.cityCount),
           }}
           subStats={[
             {

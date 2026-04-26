@@ -134,6 +134,14 @@ export interface CollectionStats {
    *  with `NEEXISTUJE-`) are also dropped so the table doesn't list a
    *  ghost row alongside the still-existing version of the city. */
   byCity: CategoryPoint[];
+  /** Total distinct cities that host any non-anonymized, non-former
+   *  location (regardless of whether finds have been recorded yet).
+   *  Larger than or equal to `byCity.length`. */
+  cityCount: number;
+  /** Total distinct countries that host any non-anonymized location
+   *  with GPS (regardless of finds). Larger than or equal to
+   *  `byCountry.length`. */
+  countryCount: number;
   locationTypes: CategoryPoint[];
   states: CategoryPoint[];
   /** Hour of day (0..23). Includes only hours that have data. */
@@ -543,6 +551,13 @@ function buildGeoBreakdowns(
 ): {
   byCountry: CountryPoint[];
   byCity: CategoryPoint[];
+  /** Total number of distinct cities that host at least one real
+   *  (non-anonymized, non-former) location, even if its finds are
+   *  still zero. Used by the corner card on /statistiky. */
+  cityCount: number;
+  /** Total number of distinct countries that host at least one
+   *  non-anonymized location with GPS, even if no finds yet. */
+  countryCount: number;
 } {
   const countryAcc = new Map<string, { name: string; count: number }>();
   const cityAcc = new Map<string, number>();
@@ -553,7 +568,14 @@ function buildGeoBreakdowns(
     // country breakdown — they were physically *somewhere* — but the
     // city tally would otherwise list rows like "NEEXISTUJE-ZLÍN" next
     // to "ZLÍN", which is misleading. Drop them here.
-    if (c > 0 && !isFormerLocation(r.code)) {
+    //
+    // No c > 0 gate: a city is registered as soon as a real (non-vanished)
+    // location exists there, even if it has zero finds yet. The same
+    // holds for countries — geoLocRows comes from a LEFT JOIN so empty
+    // locations contribute count = 0 (still bumps the dictionary entry).
+    // The byCity / byCountry arrays returned to the table renderer then
+    // re-filter to count > 0 so empty places don't clutter the breakdown.
+    if (!isFormerLocation(r.code)) {
       const cityKey = r.cadastral || r.code;
       cityAcc.set(cityKey, (cityAcc.get(cityKey) ?? 0) + c);
     }
@@ -568,13 +590,21 @@ function buildGeoBreakdowns(
     }
   }
 
+  // Card counts include zero-find cities/countries; the breakdown
+  // tables only show places that already have at least one find so
+  // they stay informative rather than padded with "0 nálezů" rows.
+  const cityCount = cityAcc.size;
+  const countryCount = countryAcc.size;
+
   const byCountry: CountryPoint[] = [...countryAcc.entries()]
+    .filter(([, v]) => v.count > 0)
     .map(([code, v]) => ({ code, name: v.name, count: v.count }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
 
   const byCity: CategoryPoint[] = [...cityAcc.entries()]
+    .filter(([, count]) => count > 0)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
 
-  return { byCountry, byCity };
+  return { byCountry, byCity, cityCount, countryCount };
 }
