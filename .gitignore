@@ -22,7 +22,10 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Data (nepatří do gitu, jsou na VPS / lokálně)
-data/
+# Pattern is rooted (/data/) so it only matches the project-root data
+# tree of user assets — nested paths like src/data/ for bundled
+# build-time JSON stay tracked.
+/data/
 public/generated/
 /var/
 

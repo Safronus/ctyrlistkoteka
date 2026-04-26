@@ -18,6 +18,7 @@ import {
 import { formatGpsApple } from "@/lib/gpsFormat";
 import { FindThumbnail } from "@/components/finds/find-thumbnail";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
+import { CloverFactCard } from "@/components/home/clover-fact-card";
 
 // Must be a literal for Next.js static analysis. Matches HOME_REVALIDATE in
 // src/lib/constants.ts (1 hour).
@@ -38,45 +39,57 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-      <section className="text-center">
-        <Image
-          src="/clover.png"
-          alt=""
-          aria-hidden
-          width={1024}
-          height={1024}
-          priority
-          className="mx-auto h-32 w-32 sm:h-40 sm:w-40"
-        />
-        <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-          Čtyřlístkotéka
-        </h1>
-        {watermark && (
-          // The same brand watermark that gets baked into every find
-          // photo. Served via /api/watermark from DATA_DIR (the file is
-          // outside public/ — see src/lib/queries/watermark.ts). Plain
-          // <img> mirrors FindThumbnail's pattern; we skip Next/Image
-          // because Nginx serves the bytes directly in production and
-          // the optimizer would just add latency.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={watermark.src}
+      {/* Hero. Up to lg the layout is the same centered stack as
+          before; on lg+ the title sits in a left column with the
+          pinned-paper "Drobnost o čtyřlístcích" card pushed to the
+          right column. The card stacks below on smaller screens
+          (handled by CloverFactCard's own justify rules) and the
+          centered hero block keeps its symmetry there. */}
+      <section className="lg:flex lg:items-center lg:gap-8">
+        <div className="text-center lg:flex-1">
+          <Image
+            src="/clover.png"
             alt=""
             aria-hidden
-            width={watermark.width}
-            height={watermark.height}
-            className="mx-auto mt-4 h-20 w-auto opacity-70 sm:h-24"
+            width={1024}
+            height={1024}
+            priority
+            className="mx-auto h-32 w-32 sm:h-40 sm:w-40"
           />
-        )}
-        <p className="mx-auto mt-3 max-w-2xl text-base text-gray-600 sm:text-lg">
-          Veřejná prezentace soukromé sbírky čtyřlístků — tisíce nálezů,
-          zaznamenaných lokalit a GPS souřadnic.
-        </p>
-        {totals.latestFoundAt && (
-          <p className="mt-2 text-xs text-gray-400">
-            Naposledy doplněno {formatShortDateCs(new Date(totals.latestFoundAt))}
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+            Čtyřlístkotéka
+          </h1>
+          {watermark && (
+            // The same brand watermark that gets baked into every find
+            // photo. Served via /api/watermark from DATA_DIR (the file
+            // is outside public/ — see src/lib/queries/watermark.ts).
+            // Plain <img> mirrors FindThumbnail's pattern; we skip
+            // Next/Image because Nginx serves the bytes directly in
+            // production and the optimizer would just add latency.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={watermark.src}
+              alt=""
+              aria-hidden
+              width={watermark.width}
+              height={watermark.height}
+              className="mx-auto mt-4 h-20 w-auto opacity-70 sm:h-24"
+            />
+          )}
+          <p className="mx-auto mt-3 max-w-2xl text-base text-gray-600 sm:text-lg">
+            Veřejná prezentace soukromé sbírky čtyřlístků — tisíce nálezů,
+            zaznamenaných lokalit a GPS souřadnic.
           </p>
-        )}
+          {totals.latestFoundAt && (
+            <p className="mt-2 text-xs text-gray-400">
+              Naposledy doplněno{" "}
+              {formatShortDateCs(new Date(totals.latestFoundAt))}
+            </p>
+          )}
+        </div>
+        <div className="mt-8 lg:mt-0 lg:w-80 lg:shrink-0">
+          <CloverFactCard />
+        </div>
       </section>
 
       <section className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
