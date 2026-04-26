@@ -1,9 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ListIcon, MapPin } from "lucide-react";
 import { getHomePageData, type HomePageData } from "@/lib/queries/home";
 import {
-  formatCount,
   formatDateCs,
   formatLocationId,
   formatShortDateCs,
@@ -108,11 +107,6 @@ export default async function HomePage() {
         highlights={data.highlights}
         recentMonthly={data.recentMonthly}
       />
-
-      <p className="mt-8 text-center text-xs text-gray-400">
-        {formatCount(totals.finds, FINDS)} ·{" "}
-        {formatCount(totals.locations, LOCATIONS)}
-      </p>
     </div>
   );
 }
@@ -252,29 +246,58 @@ function HighlightsSection({
           hint={peakDay ? formatDateCs(new Date(peakDay.startsAt)) : null}
         />
         {top ? (
-          <Link
-            href={`/sbirka?location=${top.id}`}
-            className="group rounded-xl border border-gray-200 bg-white p-4 transition hover:border-brand-200 hover:shadow-sm"
-          >
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              Top lokalita
-            </p>
-            <p
-              className="mt-1 truncate text-base font-semibold text-gray-900 group-hover:text-brand-700"
-              title={top.code}
-            >
-              {top.code}
-            </p>
-            <p className="mt-0.5 text-xs text-gray-500">
-              {NF_CS.format(top.count)} {pluralCs(top.count, FINDS)}
-            </p>
-          </Link>
+          <TopLocationCard location={top} />
         ) : (
           <HighlightCard label="Top lokalita" value="—" hint={null} />
         )}
         <SparklineCard data={recentMonthly} />
       </div>
     </section>
+  );
+}
+
+function TopLocationCard({
+  location,
+}: {
+  location: NonNullable<HomePageData["highlights"]["topLocation"]>;
+}) {
+  return (
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        Top lokalita
+      </p>
+      <p
+        className="mt-1 truncate text-base font-semibold text-gray-900"
+        title={location.code}
+      >
+        {location.code}
+      </p>
+      <p className="mt-0.5 text-xs text-gray-500">
+        {NF_CS.format(location.count)} {pluralCs(location.count, FINDS)}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {/* /sbirka's `loc` filter folds parent → children automatically
+            (see buildWhere in src/lib/queries/finds.ts), so a parent
+            location surfaces every find across its sub-parts. */}
+        <Link
+          href={`/sbirka?loc=${location.id}`}
+          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+        >
+          <ListIcon className="h-3.5 w-3.5" aria-hidden />
+          <span>Ukázat nálezy</span>
+        </Link>
+        {/* Mirrors MapLink in src/components/locations/location-list-row.tsx
+            — same /mapa?focus deep-link pattern so behaviour matches the
+            location list on /lokality exactly. */}
+        <Link
+          href={`/mapa?focus=${location.id}`}
+          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+        >
+          <MapPin className="h-3.5 w-3.5" aria-hidden />
+          <span>Ukázat na mapě</span>
+        </Link>
+      </div>
+    </div>
   );
 }
 
