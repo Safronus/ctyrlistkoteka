@@ -12,7 +12,18 @@ type Format = "apple" | "verbose";
  *   apple:   49°21'46.8"N 17°53'42.0"E   (Apple Maps style, suffix dir)
  *   verbose: N 49° 21' 56.530" E 17° 53' 21.120"  (prefix dir, more decimals)
  */
-export function GpsValue({ lat, lng }: { lat: number; lng: number }) {
+export function GpsValue({
+  lat,
+  lng,
+  tone = "default",
+}: {
+  lat: number;
+  lng: number;
+  /** "default" — gray-on-white (used in /lokality and the regular
+   *  find-detail header). "dark" — red-tinted, used by the hellish
+   *  #666 detail where the surrounding background is dark. */
+  tone?: "default" | "dark";
+}) {
   const [format, setFormat] = useState<Format>("apple");
 
   // Defensive stopPropagation — when the GPS row sits inside another
@@ -27,18 +38,27 @@ export function GpsValue({ lat, lng }: { lat: number; lng: number }) {
       ? formatGpsApple(lat, lng)
       : formatGpsVerbose(lat, lng);
 
+  const labelCls =
+    tone === "dark"
+      ? "text-xs font-medium uppercase tracking-wide text-red-300/80"
+      : "text-xs font-medium uppercase tracking-wide text-gray-500";
+  const valueCls =
+    tone === "dark" ? "font-mono text-red-100" : "font-mono text-gray-800";
+  const btnCls =
+    tone === "dark"
+      ? "rounded p-1 text-red-300/70 transition hover:bg-red-900/40 hover:text-red-100"
+      : "rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-brand-700";
+
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
-        GPS
-      </span>
-      <span className="font-mono text-gray-800">{text}</span>
+      <span className={labelCls}>GPS</span>
+      <span className={valueCls}>{text}</span>
       <button
         type="button"
         onClick={cycle}
         aria-label="Přepnout formát GPS"
         title="Přepnout formát GPS"
-        className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-brand-700"
+        className={btnCls}
       >
         <RefreshCw className="h-3.5 w-3.5" />
       </button>

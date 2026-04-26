@@ -118,7 +118,11 @@ export default async function FindDetailPage({ params }: PageProps) {
             …) flush right. Multiple states stack here when a find carries
             more than one — e.g. anonymized + donated. */}
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1
+            className={`text-3xl font-bold ${
+              hellish ? "text-red-100" : "text-gray-900"
+            }`}
+          >
             Nález #{find.id}
           </h1>
           {find.states.length > 0 && <StateBadges states={find.states} />}
@@ -127,20 +131,31 @@ export default async function FindDetailPage({ params }: PageProps) {
         {/* Meta row: datetime on the left, GPS + distance on the right.
             Distance trails the GPS pair so the eye keeps the cardinal
             "how far from home" number adjacent to the absolute coords. */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-gray-600">
+        <div
+          className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm ${
+            hellish ? "text-red-200/90" : "text-gray-600"
+          }`}
+        >
           <span>{formatDateTimeCs(find.foundAt)}</span>
           {!find.isAnonymized && find.coordinates && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <GpsValue
                 lat={find.coordinates.lat}
                 lng={find.coordinates.lng}
+                tone={hellish ? "dark" : "default"}
               />
               {find.distanceFromDefault !== null && (
                 <span
-                  className="text-xs text-gray-500"
+                  className={`text-xs ${
+                    hellish ? "text-red-300/80" : "text-gray-500"
+                  }`}
                   title="Vzdušná vzdálenost od GPS středu lokační mapy 00001"
                 >
-                  <span className="font-mono tabular-nums text-gray-800">
+                  <span
+                    className={`font-mono tabular-nums ${
+                      hellish ? "text-red-100" : "text-gray-800"
+                    }`}
+                  >
                     {formatDistance(find.distanceFromDefault)}
                   </span>{" "}
                   od MAP 00001
