@@ -280,21 +280,45 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       GROUP BY 1 ORDER BY 1
     `,
 
-    // Top 10 locations by find count, dropping anonymized locations
-    // (their code/name/findCount can't be exposed publicly per
-    // CLAUDE.md §6).
+    // Top 10 locations by find count.
+    // - Anonymized locations are dropped (their code/name/findCount can't
+    //   be exposed publicly per CLAUDE.md §6).
+    // - Sub-parts (parent_id IS NOT NULL) are folded into their parent so
+    //   a master location's row shows the combined "true" total — the
+    //   table is a leaderboard of *places*, not internal sub-divisions.
+    //   When a parent itself is anonymized, its non-anonymized children
+    //   stand alone instead of evaporating into an invisible aggregate.
+    // - The `bucket` CTE picks the right key per find: parent's id when
+    //   the find sits in a visible-parent sub-part, otherwise the find's
+    //   own location_id. We then GROUP BY that bucket id.
     prisma.$queryRaw<
       Array<{ id: number; code: string; name: string; count: bigint }>
     >`
+      WITH anon AS (
+        SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
+      ),
+      bucket AS (
+        SELECT f.id AS find_id,
+               CASE
+                 WHEN l.parent_id IS NOT NULL
+                      AND l.parent_id NOT IN (SELECT location_id FROM anon)
+                 THEN l.parent_id
+                 ELSE f.location_id
+               END AS bucket_id
+        FROM finds f
+        LEFT JOIN locations l ON l.id = f.location_id
+      )
       SELECT l.id,
              l.code,
              COALESCE(NULLIF(l.display_name, ''), l.code) AS name,
-             COUNT(f.id) AS count
+             COUNT(b.find_id) AS count
       FROM locations l
-      LEFT JOIN finds f ON f.location_id = l.id
-      WHERE l.id NOT IN (
-        SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
-      )
+      LEFT JOIN bucket b ON b.bucket_id = l.id
+      WHERE l.id NOT IN (SELECT location_id FROM anon)
+        AND NOT (
+          l.parent_id IS NOT NULL
+          AND l.parent_id NOT IN (SELECT location_id FROM anon)
+        )
       GROUP BY l.id, l.code, l.display_name
       ORDER BY count DESC, l.id
       LIMIT 10
