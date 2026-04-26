@@ -161,29 +161,31 @@ function webUrlToFsPath(url: string, generatedDir: string): string {
   return join(generatedDir, stripped);
 }
 
-/** Walks DATA_DIR/finds recursively to locate the source file matching a
- *  basename. find_images stores only the basename (no path) so we rely on
- *  the filename being unique under the finds tree — sync.ts enforces
- *  this when importing. Returns null when the file isn't on disk
- *  (e.g. user moved or deleted the original). */
+/** Walks the given root directories recursively to locate a source file
+ *  by basename. find_images stores only the basename (no path) so we
+ *  rely on the filename being unique across the searched roots —
+ *  sync.ts enforces this when importing. Returns null when the file
+ *  isn't on disk (e.g. user moved or deleted the original). */
 async function findSourceFile(
-  rootDir: string,
+  rootDirs: ReadonlyArray<string>,
   filename: string,
 ): Promise<string | null> {
-  const stack: string[] = [rootDir];
-  while (stack.length > 0) {
-    const dir = stack.pop()!;
-    let entries;
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code === "ENOENT") continue;
-      throw e;
-    }
-    for (const e of entries) {
-      const full = join(dir, e.name);
-      if (e.isDirectory()) stack.push(full);
-      else if (e.isFile() && e.name === filename) return full;
+  for (const root of rootDirs) {
+    const stack: string[] = [root];
+    while (stack.length > 0) {
+      const dir = stack.pop()!;
+      let entries;
+      try {
+        entries = await readdir(dir, { withFileTypes: true });
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === "ENOENT") continue;
+        throw e;
+      }
+      for (const e of entries) {
+        const full = join(dir, e.name);
+        if (e.isDirectory()) stack.push(full);
+        else if (e.isFile() && e.name === filename) return full;
+      }
     }
   }
   return null;
@@ -192,13 +194,13 @@ async function findSourceFile(
 async function regenerateFromSource(
   filename: string,
   expectedSha1: string,
-  finduploadDir: string,
+  searchRoots: ReadonlyArray<string>,
   generatedDir: string,
 ): Promise<void> {
-  const src = await findSourceFile(finduploadDir, filename);
+  const src = await findSourceFile(searchRoots, filename);
   if (!src) {
     throw new Error(
-      `original not found in ${finduploadDir} (basename: ${filename})`,
+      `source not found in [${searchRoots.join(", ")}] (basename: ${filename})`,
     );
   }
   // Pass expected sha1 to avoid re-hashing — we trust the DB row.
@@ -332,10 +334,14 @@ async function main(): Promise<void> {
             // Re-encode WebP from the original HEIC/JPEG, overwriting any
             // previous (potentially corrupted) variants. Done before
             // watermarking so the doodle gets composed over a clean photo.
+            // Search both finds/ (ORIGINAL) and crops/ (CROP) — sync.ts
+            // walks both, and the imageType column tells us which is
+            // which but the basename is enough to locate either.
+            const dataDir = process.env.DATA_DIR ?? "./data";
             await regenerateFromSource(
               img.originalFilename,
               img.originalSha1,
-              join(process.env.DATA_DIR ?? "./data", "finds"),
+              [join(dataDir, "finds"), join(dataDir, "crops")],
               generatedDir,
             );
           }

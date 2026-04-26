@@ -38,7 +38,11 @@ export interface WatermarkOptions {
 export const DEFAULT_WATERMARK_OPTIONS: WatermarkOptions = {
   widthRatio: 0.1,
   opacity: 0.4,
-  marginRatio: 0.02,
+  // 0.5% of width — tight to the corner. The post-rotation .trim() pass
+  // (see compositeWatermarkOnto) removes the transparent padding the
+  // rotation adds, so this margin applies to the doodle's actual visible
+  // bounding box rather than to a much larger transparent rectangle.
+  marginRatio: 0.005,
   rotation: 45,
 };
 
@@ -134,10 +138,14 @@ export async function compositeWatermarkOnto(
   const targetW = Math.max(1, Math.round(width * opts.widthRatio));
   const margin = Math.max(0, Math.round(width * opts.marginRatio));
 
-  // Resize first, then rotate. Rotating after resize keeps the doodle's
-  // pre-rotation extent equal to widthRatio of the image, which matches
-  // the user's mental model. Sharp rotates clockwise for positive angles,
-  // so we negate `rotation` (which is CCW-positive in our public API).
+  // Resize first, then rotate, then trim the transparent padding the
+  // rotation introduces so the visible doodle hugs whatever corner we
+  // drop it into. Without the trim the post-rotation buffer is the
+  // diagonal bounding box (≈ √2 × the doodle), which made the watermark
+  // sit far from the edge even at margin 0.
+  //
+  // Sharp rotates clockwise for positive angles, so we negate
+  // `rotation` (which is CCW-positive in our public API).
   let wmPipeline = sharp(watermarkSourceBuffer).resize({
     width: targetW,
     withoutEnlargement: false,
@@ -148,6 +156,16 @@ export async function compositeWatermarkOnto(
       // anything else would draw a coloured triangle around the doodle.
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     });
+  }
+  // Trim the all-transparent border (threshold = 1 keeps any pixel with
+  // alpha > 1, i.e. only true transparent rows/cols are removed). Wrap
+  // in a try/catch because sharp.trim() throws if there's nothing to
+  // trim — that shouldn't happen for our masked PNG, but a safety net is
+  // cheap.
+  try {
+    wmPipeline = wmPipeline.trim({ threshold: 1 });
+  } catch {
+    // ignore — original buffer continues unchanged
   }
   const resized = await wmPipeline
     .png()
