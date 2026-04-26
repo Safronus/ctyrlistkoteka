@@ -135,9 +135,151 @@ export default async function HomePage() {
       {data.latestFind && <LatestFindSection latestFind={data.latestFind} />}
 
       <RandomFindShowcaseWidget initial={randomFind} />
+
+      <DonatedShowcase count={totals.donated} />
     </div>
   );
 }
+
+/**
+ * "Field of dispersing clovers". A static cluster on the left (the
+ * collection) feeds a continuous stream of leaves drifting rightward
+ * with rotation, fade, and shrink — implying clovers being given away.
+ * The animation is an 8-second CSS keyframe loop; each leaf is offset
+ * along the timeline by a negative `animation-delay`, so at any instant
+ * the viewer sees leaves at every stage of the journey.
+ *
+ * Layered with the hand-underlined count above; together they read as
+ * a single "X clovers left the archive" statement.
+ */
+function DonatedShowcase({ count }: { count: number }) {
+  const DRIFTERS = 16;
+  const LOOP_S = 8;
+
+  return (
+    <section className="mt-12 text-center">
+      {/* The keyframe + cluster offsets are co-located here because
+          this is the only consumer. React 19 hoists/deduplicates style
+          tags so re-renders don't bloat the head. */}
+      <style>{`
+        @keyframes ctyr-drift {
+          0%   { transform: translate(82px, var(--y0)) rotate(0deg)  scale(0.7);  opacity: 0; }
+          12%  { opacity: 0.95; }
+          70%  { opacity: 0.55; }
+          100% { transform: translate(540px, calc(var(--y0) - 10px)) rotate(45deg) scale(0.5); opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          /* Freeze the field — leaves stay where they would have been
+             at one third of the loop, which gives a visually coherent
+             still image instead of all leaves bunched at the start. */
+          .ctyr-drifter {
+            animation-play-state: paused !important;
+          }
+        }
+      `}</style>
+
+      <p className="text-base text-gray-700 sm:text-lg">
+        Komu už putovalo štěstí:{" "}
+        <span className="relative inline-block">
+          <span className="text-2xl font-bold text-brand-700 sm:text-3xl">
+            {NF_CS.format(count)}
+          </span>
+          {/* Hand-drawn squiggle under the number — bezier waves vary so
+              it doesn't look machine-perfect. Width spans the parent. */}
+          <svg
+            viewBox="0 0 80 8"
+            preserveAspectRatio="none"
+            className="absolute -bottom-1.5 left-0 h-2 w-full text-brand-600"
+            aria-hidden
+          >
+            <path
+              d="M1 5 Q 10 1, 20 4 T 40 4 T 60 4 T 79 4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </span>{" "}
+        čtyřlístků.
+      </p>
+
+      <svg
+        viewBox="0 0 600 110"
+        preserveAspectRatio="xMidYMid meet"
+        className="mx-auto mt-4 h-28 w-full max-w-2xl sm:h-32"
+        aria-hidden
+      >
+        {/* Static cluster — the "collection" anchor. Six overlapping
+            clovers at slightly varied positions/sizes for depth. */}
+        {STATIC_CLUSTER.map((c, i) => (
+          <g
+            key={`s${i}`}
+            transform={`translate(${c.x} ${c.y}) scale(${c.s})`}
+            opacity={c.o}
+          >
+            <CloverShape />
+          </g>
+        ))}
+
+        {/* Animated drifters. Each starts at the cluster (CSS keyframe
+            origin) and ends ~450 px to the right with rotation. */}
+        {Array.from({ length: DRIFTERS }, (_, i) => {
+          // Vary start Y within the cluster so leaves don't track the
+          // exact same path. Modular arithmetic keeps the result
+          // deterministic so SSR markup is stable.
+          const yJitter = (i * 17) % 28 - 14;
+          const delay = -((i / DRIFTERS) * LOOP_S);
+          return (
+            <g
+              key={`d${i}`}
+              className="ctyr-drifter"
+              style={
+                {
+                  animation: `ctyr-drift ${LOOP_S}s linear infinite`,
+                  animationDelay: `${delay.toFixed(2)}s`,
+                  transformOrigin: "center",
+                  transformBox: "fill-box",
+                  "--y0": `${52 + yJitter}px`,
+                } as React.CSSProperties
+              }
+            >
+              <CloverShape />
+            </g>
+          );
+        })}
+      </svg>
+    </section>
+  );
+}
+
+/** Clover drawn at origin (0, 0) so callers can position it via a
+ *  parent `<g transform>` or CSS transform without offset gymnastics. */
+function CloverShape() {
+  return (
+    <g fill="#15803d">
+      <circle cx={0} cy={-5} r={4} />
+      <circle cx={-5} cy={0} r={4} />
+      <circle cx={5} cy={0} r={4} />
+      <circle cx={0} cy={5} r={4} />
+      <circle cx={0} cy={0} r={2.5} fill="#0f6e34" />
+    </g>
+  );
+}
+
+const STATIC_CLUSTER: ReadonlyArray<{
+  x: number;
+  y: number;
+  s: number;
+  o: number;
+}> = [
+  { x: 82, y: 52, s: 1.0, o: 1.0 },
+  { x: 70, y: 58, s: 0.85, o: 0.95 },
+  { x: 92, y: 46, s: 0.8, o: 0.9 },
+  { x: 76, y: 42, s: 0.7, o: 0.85 },
+  { x: 96, y: 62, s: 0.82, o: 0.95 },
+  { x: 65, y: 48, s: 0.65, o: 0.8 },
+];
 
 function StatCard({ value, label }: { value: string; label: string }) {
   return (

@@ -34,6 +34,10 @@ export interface HomeTotals {
   locations: number;
   cities: number;
   countries: number;
+  /** Distinct finds tagged with the DONATED state — the count behind
+   *  the "rozcházející se lístky" showcase at the bottom of the home
+   *  page. Same definition as `donatedFinds` on /statistiky. */
+  donated: number;
   /** Inclusive count of distinct calendar years that contain at least
    *  one find — same definition as the existing `yearsSpan` on the home
    *  stat card, kept stable for the card label's pluralisation. */
@@ -93,6 +97,7 @@ export async function getHomePageData(): Promise<HomePageData> {
       Array<{
         finds: bigint;
         locations: bigint;
+        donated: bigint;
         first_year: number | null;
         last_year: number | null;
         first_found_at: Date | null;
@@ -102,6 +107,8 @@ export async function getHomePageData(): Promise<HomePageData> {
       SELECT
         (SELECT COUNT(*) FROM finds) AS finds,
         (SELECT COUNT(*) FROM locations) AS locations,
+        (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
+           WHERE state = 'DONATED') AS donated,
         (SELECT EXTRACT(YEAR FROM MIN(found_at))::int FROM finds) AS first_year,
         (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year,
         (SELECT MIN(found_at) FROM finds) AS first_found_at,
@@ -252,6 +259,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     locations: c ? Number(c.locations) : 0,
     cities: cityKeys.size,
     countries: countryKeys.size,
+    donated: c ? Number(c.donated) : 0,
     yearsSpan,
     latestFoundAt: c?.latest_found_at ? c.latest_found_at.toISOString() : null,
   };
