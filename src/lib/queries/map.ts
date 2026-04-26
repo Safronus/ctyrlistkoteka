@@ -63,17 +63,30 @@ export async function getMapData(): Promise<MapData> {
 
   const visibleRows = locRows.filter((r) => !anonLocIds.has(r.id));
 
-  // When a parent location has its own polygon (e.g. RATIBOŘ_POLE001
-  // covering its 7 sub-parts 001a–001g), drawing the child polygons on
-  // top of it just adds visual noise — the parent already encloses the
-  // same area. We collect the set of *visible* parents that have a
-  // polygon, then null out any child whose parent is in that set.
-  // Anonymized parents are excluded from the set, so their visible
-  // children keep their own polygons.
+  // Single pass over the visible rows builds two derived structures:
+  //
+  //   visibleParentsWithPolygon — IDs of parents that own a polygon, so
+  //   we can hide their children's polygons later (they'd just stack on
+  //   the same area: e.g. RATIBOŘ_POLE001 over its 7 sub-parts 001a–g).
+  //   Anonymized parents are absent from visibleRows already, so their
+  //   visible children keep their own polygons.
+  //
+  //   childFindsByParent — sum of every visible child's find count
+  //   keyed by parent_id. The popup on the parent's polygon/dot then
+  //   reflects the total area's activity (own + sub-parts), not just
+  //   the parent's own row which is often zero.
   const visibleParentsWithPolygon = new Set<number>();
+  const childFindsByParent = new Map<number, number>();
   for (const r of visibleRows) {
     if (r.polygon_geojson !== null) {
       visibleParentsWithPolygon.add(r.id);
+    }
+    if (r.parent_id !== null) {
+      const c = Number(r.find_count);
+      childFindsByParent.set(
+        r.parent_id,
+        (childFindsByParent.get(r.parent_id) ?? 0) + c,
+      );
     }
   }
 
@@ -84,6 +97,12 @@ export async function getMapData(): Promise<MapData> {
       hideChildPolygon || r.polygon_geojson === null
         ? null
         : (JSON.parse(r.polygon_geojson) as GeoJSON.Polygon);
+    // Parent rows fold their visible children's find counts in. Leaves
+    // (no children) end up with childFindsByParent.get === undefined →
+    // ?? 0 → unchanged. Children themselves keep their own count, so
+    // their popup stays correct too.
+    const ownCount = Number(r.find_count);
+    const findCount = ownCount + (childFindsByParent.get(r.id) ?? 0);
     return {
       id: r.id,
       code: r.code,
@@ -91,7 +110,7 @@ export async function getMapData(): Promise<MapData> {
       centerLat: r.center_lat,
       centerLng: r.center_lng,
       polygon,
-      findCount: Number(r.find_count),
+      findCount,
     };
   });
 
