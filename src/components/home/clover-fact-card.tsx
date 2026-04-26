@@ -1,7 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CLOVER_TEXTS, type CloverTextSource } from "@/lib/cloverTexts";
+import {
+  CLOVER_TEXTS,
+  type CloverText,
+  type CloverTextSource,
+} from "@/lib/cloverTexts";
 
 const ROTATION_MS = 120_000;
 
@@ -30,17 +35,110 @@ const CATEGORY_LABELS: Record<string, string> = {
   trivia: "Drobnosti",
 };
 
+/** Custom event the temporary debug bar dispatches to force a specific
+ *  fact id on screen. Listed centrally so the debug bar and the card
+ *  agree on the contract. Remove together when the debug UI goes away. */
+const DEBUG_EVENT = "clover-fact-force";
+
+interface VibeStyles {
+  paperBg: string;
+  paperRing: string;
+  titleColor: string;
+  textColor: string;
+  categoryColor: string;
+  badgeBg: string;
+  badgeText: string;
+  pinBody: string;
+  pinAccent: string;
+  idColor: string;
+  /** Decoration overlay on the paper — sparkles for happy, smoke for
+   *  demonic. Pure visual flourish; aria-hidden. */
+  decoration?: "happy" | "demonic";
+}
+
+const AUTHOR_DEFAULT: VibeStyles = {
+  paperBg: "bg-gradient-to-br from-emerald-50 via-emerald-50/80 to-emerald-100/70",
+  paperRing: "ring-1 ring-emerald-200/70",
+  titleColor: "text-emerald-900",
+  textColor: "text-emerald-950/80",
+  categoryColor: "text-emerald-700",
+  badgeBg: "bg-emerald-600",
+  badgeText: "text-white",
+  // Clover pin filled brand-green with a darker centre.
+  pinBody: "fill-emerald-600",
+  pinAccent: "fill-emerald-800",
+  idColor: "text-emerald-700/60",
+};
+
+const VIBE_HAPPY: VibeStyles = {
+  paperBg: "bg-gradient-to-br from-amber-50 via-emerald-50/70 to-amber-100/70",
+  paperRing: "ring-1 ring-amber-300/70",
+  titleColor: "text-emerald-900",
+  textColor: "text-emerald-950/85",
+  categoryColor: "text-emerald-700",
+  badgeBg: "bg-amber-500",
+  badgeText: "text-amber-950",
+  pinBody: "fill-emerald-600",
+  pinAccent: "fill-emerald-800",
+  idColor: "text-amber-700/70",
+  decoration: "happy",
+};
+
+const VIBE_DEMONIC: VibeStyles = {
+  paperBg: "bg-gradient-to-br from-gray-900 via-red-950 to-black",
+  paperRing: "ring-1 ring-red-900/60",
+  titleColor: "text-red-100",
+  textColor: "text-red-200/80",
+  categoryColor: "text-red-300/80",
+  badgeBg: "bg-red-700",
+  badgeText: "text-white",
+  pinBody: "", // unused — demonic uses a custom "666" disc instead of clover
+  pinAccent: "",
+  idColor: "text-red-400/60",
+  decoration: "demonic",
+};
+
+const REGULAR: VibeStyles = {
+  paperBg: "bg-[#fffdf7]",
+  paperRing: "ring-1 ring-amber-200/60",
+  titleColor: "text-gray-900",
+  textColor: "text-gray-700",
+  categoryColor: "text-gray-500",
+  // Regular entries don't use the badge fields below — kept for type
+  // shape parity. The component branches on isAuthor before reading.
+  badgeBg: "",
+  badgeText: "",
+  // Pin for regular entries stays the rose disc — set on the element
+  // directly rather than via these clover-pin tokens.
+  pinBody: "",
+  pinAccent: "",
+  idColor: "text-gray-400",
+};
+
+function vibeFor(text: CloverText): VibeStyles {
+  const isAuthor = text.author === true;
+  if (!isAuthor) return REGULAR;
+  if (text.vibe === "demonic") return VIBE_DEMONIC;
+  if (text.vibe === "happy") return VIBE_HAPPY;
+  return AUTHOR_DEFAULT;
+}
+
 /**
  * Pinned-paper note next to the home-page hero with a rotating clover
- * curiosity. The 200 texts live in a once-shuffled JSON bundle (see
- * scripts/shuffle-clover-texts.ts); on every visit the client picks a
- * random starting index — *not* localStorage-cursored — and then
- * advances by one every two minutes. Reload counts as a fresh visit
- * and lands on a new random text. No interactivity beyond that.
+ * curiosity. Three rendering modes:
+ *  - Regular text (cream paper, rose thumbtack, source-type badge)
+ *  - Author bonus (emerald paper, clover-shaped pin, "BONUS" badge)
+ *  - Vibe overrides on top of author: "happy" festive amber/emerald
+ *    blend for the poem at #111, "demonic" dark/red treatment for the
+ *    clickable #666 entry that links to the matching find detail.
  *
- * SSR renders the first array entry as a stable fallback; the random
- * pick happens in `useEffect`, so non-JS visitors still see one valid
- * text and JS visitors briefly glimpse it before hydration swaps.
+ * SSR renders `texts[0]` as a stable fallback; client-side `useEffect`
+ * picks a random starting index then advances by one every 2 minutes.
+ * Each visit/reload picks a new random start.
+ *
+ * Listens for a "clover-fact-force" custom event used by the temporary
+ * debug bar — this hook is intentionally cheap so it can stay through
+ * a few previews and be removed once the visuals are signed off.
  */
 export function CloverFactCard() {
   const [index, setIndex] = useState(0);
@@ -54,102 +152,202 @@ export function CloverFactCard() {
     return () => clearInterval(i);
   }, []);
 
+  // Debug-only: jump to a specific id when the debug bar dispatches.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ id?: number }>).detail;
+      if (!detail || typeof detail.id !== "number") return;
+      const idx = CLOVER_TEXTS.findIndex((t) => t.id === detail.id);
+      if (idx >= 0) setIndex(idx);
+    };
+    window.addEventListener(DEBUG_EVENT, handler);
+    return () => window.removeEventListener(DEBUG_EVENT, handler);
+  }, []);
+
   const text = CLOVER_TEXTS[index];
   if (!text) return null;
 
+  const isAuthor = text.author === true;
+  const styles = vibeFor(text);
   const categoryLabel = CATEGORY_LABELS[text.category] ?? text.category;
 
-  // Author entries get a clover-themed paper variant: emerald gradient
-  // background, green thumbtack, BONUS badge with the kind override
-  // ("Rada autora" / "Báseň autora" / …). The dual rendering lives in
-  // small className unions rather than a separate component so layout,
-  // tilt, and ID badge stay identical and the DOM diff between rotations
-  // is minimal.
-  const isAuthor = text.author === true;
-  const paperBg = isAuthor
-    ? "bg-gradient-to-br from-emerald-50 via-emerald-50/80 to-emerald-100/70"
-    : "bg-[#fffdf7]";
-  const paperRing = isAuthor
-    ? "ring-1 ring-emerald-200/70"
-    : "ring-1 ring-amber-200/60";
-  const pinDisc = isAuthor
-    ? "bg-emerald-600 ring-2 ring-emerald-300"
-    : "bg-rose-500 ring-2 ring-rose-300";
-  const pinDot = isAuthor ? "bg-emerald-200" : "bg-rose-200";
-  const titleColor = isAuthor ? "text-emerald-900" : "text-gray-900";
-  const textColor = isAuthor ? "text-emerald-950/80" : "text-gray-700";
+  const card = (
+    <aside
+      aria-live="polite"
+      aria-label={
+        isAuthor ? "Bonusová drobnost autora" : "Drobnost o čtyřlístcích"
+      }
+      className={`relative w-72 max-w-full -rotate-[2deg] rounded-sm p-5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] sm:w-80 ${styles.paperBg} ${styles.paperRing} ${
+        text.link
+          ? "transition-transform duration-300 hover:scale-[1.02] hover:shadow-[0_12px_32px_-12px_rgba(220,38,38,0.55)]"
+          : ""
+      }`}
+    >
+      {/* Pin variant: clover for author entries, "666" disc for the
+          demonic vibe, rose disc for regular entries. */}
+      {styles.decoration === "demonic" ? (
+        <DemonicPin />
+      ) : isAuthor ? (
+        <CloverPin bodyClass={styles.pinBody} accentClass={styles.pinAccent} />
+      ) : (
+        <RosePin />
+      )}
+
+      <div className="flex items-baseline justify-between gap-2">
+        <p
+          className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${styles.categoryColor}`}
+        >
+          {isAuthor && text.kind ? text.kind : categoryLabel}
+        </p>
+        {isAuthor ? (
+          <span
+            className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-sm ${styles.badgeBg} ${styles.badgeText}`}
+          >
+            Bonus
+          </span>
+        ) : (
+          <span
+            className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ring-1 ${SOURCE_TONE[text.source_type]}`}
+          >
+            {SOURCE_LABELS[text.source_type]}
+          </span>
+        )}
+      </div>
+
+      <h3
+        className={`mt-1.5 font-serif text-base font-semibold ${styles.titleColor}`}
+      >
+        {text.title}
+      </h3>
+      <p
+        className={`mt-2 whitespace-pre-line font-serif text-sm italic leading-relaxed ${styles.textColor}`}
+      >
+        {text.text}
+      </p>
+
+      {/* Decorative sparkles for the happy vibe — three small SVG stars
+          scattered diagonally so they read as confetti rather than UI
+          chrome. Aria-hidden; purely decorative. */}
+      {styles.decoration === "happy" && <HappySparkles />}
+
+      <span
+        aria-hidden
+        className={`absolute bottom-2 right-3 rotate-[8deg] font-serif text-xs italic ${styles.idColor}`}
+      >
+        #{text.id}
+      </span>
+
+      {text.link && (
+        <span
+          aria-hidden
+          className="absolute bottom-2 left-3 -rotate-[2deg] text-[10px] font-medium tracking-wider text-red-300/80"
+        >
+          → klikni pro detail
+        </span>
+      )}
+    </aside>
+  );
 
   return (
-    // The wrapper isolates the rotation from the rest of the layout so
-    // adjacent flex/grid math doesn't see a slightly-taller bounding
-    // box. `aria-live="polite"` lets screen readers announce the new
-    // text on rotation without interrupting the user.
     <div className="flex justify-center lg:justify-end">
-      <aside
-        aria-live="polite"
-        aria-label={
-          isAuthor ? "Bonusová drobnost autora" : "Drobnost o čtyřlístcích"
-        }
-        className={`relative w-72 max-w-full -rotate-[2deg] rounded-sm p-5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] sm:w-80 ${paperBg} ${paperRing}`}
-      >
-        {/* Faux thumbtack — small disc with a darker centre, hovering
-            slightly above the top edge of the paper. Rotates with the
-            paper (it's "pinned" to it, not to the wall). */}
-        <span
-          aria-hidden
-          className={`absolute -top-3 right-6 inline-flex h-5 w-5 items-center justify-center rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.25)] ${pinDisc}`}
+      {text.link ? (
+        <Link
+          href={text.link}
+          className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 rounded-sm"
+          aria-label={`Otevřít detail nálezu — ${text.title}`}
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${pinDot}`} />
-        </span>
-
-        <div className="flex items-baseline justify-between gap-2">
-          <p
-            className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${
-              isAuthor ? "text-emerald-700" : "text-gray-500"
-            }`}
-          >
-            {isAuthor && text.kind ? text.kind : categoryLabel}
-          </p>
-          {isAuthor ? (
-            <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
-              Bonus
-            </span>
-          ) : (
-            <span
-              className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ring-1 ${SOURCE_TONE[text.source_type]}`}
-            >
-              {SOURCE_LABELS[text.source_type]}
-            </span>
-          )}
-        </div>
-
-        <h3
-          className={`mt-1.5 font-serif text-base font-semibold ${titleColor}`}
-        >
-          {text.title}
-        </h3>
-        <p
-          // Author rhymes/rady use newlines we want preserved (whitespace-pre-line)
-          // so the báseň keeps its line breaks. Regular entries flow as
-          // a single paragraph and the property is harmless there.
-          className={`mt-2 whitespace-pre-line font-serif text-sm italic leading-relaxed ${textColor}`}
-        >
-          {text.text}
-        </p>
-
-        {/* Fact number stamped diagonally in the bottom-right corner.
-            Uses the original JSON `id` — stable across visits so each
-            fact has a fixed "#N" identity even though the on-disk
-            shuffle changes the rotation order. */}
-        <span
-          aria-hidden
-          className={`absolute bottom-2 right-3 rotate-[8deg] font-serif text-xs italic ${
-            isAuthor ? "text-emerald-700/60" : "text-gray-400"
-          }`}
-        >
-          #{text.id}
-        </span>
-      </aside>
+          {card}
+        </Link>
+      ) : (
+        card
+      )}
     </div>
+  );
+}
+
+/** Clover-shaped pin head replacing the rose disc on author bonuses.
+ *  Four overlapping leaves + darker centre, sized to match the previous
+ *  pin's ~20×20 footprint. The drop-shadow makes it read as a 3D pin
+ *  resting on the paper. */
+function CloverPin({
+  bodyClass,
+  accentClass,
+}: {
+  bodyClass: string;
+  accentClass: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className="absolute -top-3 right-6 inline-block drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)]"
+    >
+      <svg width={22} height={22} viewBox="0 0 24 24">
+        <g className={bodyClass}>
+          <circle cx={12} cy={6} r={4.5} />
+          <circle cx={6} cy={12} r={4.5} />
+          <circle cx={18} cy={12} r={4.5} />
+          <circle cx={12} cy={18} r={4.5} />
+        </g>
+        <circle cx={12} cy={12} r={2.5} className={accentClass} />
+      </svg>
+    </span>
+  );
+}
+
+/** Rose-coloured disc thumbtack used for non-author texts. Same look as
+ *  before the clover-pin refactor so the regular paper variant keeps
+ *  its established style. */
+function RosePin() {
+  return (
+    <span
+      aria-hidden
+      className="absolute -top-3 right-6 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 shadow-[0_2px_4px_rgba(0,0,0,0.25)] ring-2 ring-rose-300"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-rose-200" />
+    </span>
+  );
+}
+
+/** Demonic marker — black disc with a small red "666" stamped in. Sits
+ *  in the same position as the clover/rose pins so the rotation between
+ *  variants doesn't visually jump. */
+function DemonicPin() {
+  return (
+    <span
+      aria-hidden
+      className="absolute -top-3 right-6 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black shadow-[0_2px_6px_rgba(220,38,38,0.6)] ring-2 ring-red-700"
+    >
+      <span className="font-serif text-[8px] font-bold leading-none text-red-500">
+        666
+      </span>
+    </span>
+  );
+}
+
+/** Three confetti-style sparkle stars in the corners of the happy
+ *  variant. The sizes/positions are deliberately asymmetric so the
+ *  paper feels celebratory rather than gridded. */
+function HappySparkles() {
+  return (
+    <>
+      <Sparkle className="absolute left-3 top-2 h-3 w-3 text-amber-400/80" />
+      <Sparkle className="absolute right-2 top-9 h-2.5 w-2.5 text-amber-300/70" />
+      <Sparkle className="absolute bottom-8 left-5 h-2 w-2 text-emerald-400/70" />
+    </>
+  );
+}
+
+function Sparkle({ className }: { className: string }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 12 12"
+      className={className}
+      fill="currentColor"
+    >
+      {/* Four-point star — two crossing diamonds give a cleaner "twinkle"
+          shape than a five-point star at this size. */}
+      <path d="M6 0 L7 5 L12 6 L7 7 L6 12 L5 7 L0 6 L5 5 Z" />
+    </svg>
   );
 }

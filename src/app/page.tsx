@@ -19,6 +19,7 @@ import { formatGpsApple } from "@/lib/gpsFormat";
 import { FindThumbnail } from "@/components/finds/find-thumbnail";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
+import { CloverFactDebugBar } from "@/components/home/clover-fact-debug-bar";
 
 // Must be a literal for Next.js static analysis. Matches HOME_REVALIDATE in
 // src/lib/constants.ts (1 hour).
@@ -95,6 +96,12 @@ export default async function HomePage() {
             {formatShortDateCs(new Date(totals.latestFoundAt))}
           </p>
         )}
+        {/* TODO(remove-debug): provisional debug bar to preview each
+            BONUS variant on demand. Strip both this line and
+            src/components/home/clover-fact-debug-bar.tsx (and the
+            DEBUG_EVENT listener in clover-fact-card.tsx) once the
+            visuals are signed off. */}
+        <CloverFactDebugBar />
       </section>
 
       <section className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

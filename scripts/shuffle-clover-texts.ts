@@ -32,9 +32,16 @@ interface CloverText {
    *  BONUS badge. Optional; default `false`. */
   author?: boolean;
   /** Visible label override for author entries
-   *  ("Báseň autora", "Rada autora", "Hláška autora", "Fakt autora",
-   *  "Fakt o autorovi"). Ignored when `author` is falsy. */
+   *  ("Báseň autora", "Rada autora", …). Ignored when `author` falsy. */
   kind?: string;
+  /** Optional theme override beyond the standard "author" treatment.
+   *  "happy" → festive sun-tinted gradient (used for the celebratory
+   *  poem at #111). "demonic" → dark/red-tinted gradient with a
+   *  hellish marker (used for the special #666 "Záhadný nález"). */
+  vibe?: "happy" | "demonic";
+  /** When set, the entire paper card becomes a link to this URL. Used
+   *  by the #666 entry to deep-link to the find detail. */
+  link?: string;
 }
 
 interface CloverTextsFile {

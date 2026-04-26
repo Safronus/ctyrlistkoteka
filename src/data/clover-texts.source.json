@@ -1,7 +1,7 @@
 {
   "$schema": "Databáze textů o čtyřlístcích pro Čtyřlístkotéku",
   "meta": {
-    "version": "2.1",
+    "version": "2.2",
     "created": "2026-04",
     "language": "cs",
     "description": "Sbírka 200 krátkých textů o jeteli, čtyřlístcích a mnoholístcích. Každý text označen typem zdroje.",
@@ -22,7 +22,7 @@
       "lore": "Lidová tradice, folklór, pověra nebo nedoložená anekdota",
       "creative": "Poezie, parafráze, kreativní text nebo lidová říkanka"
     },
-    "extended": "2026-04 — added 9 author entries (poem at #111, old #111 moved to #201, new #202–#209)"
+    "extended": "2026-04 — added 9 author entries (poem at #111, old #111 → #201, new #202–#209). 2026-04b — added #210 (Benefice 2025), #666 (Záhadný nález — demonic, clickable to /sbirka/666). #111 tagged with vibe=happy for the festive paper variant."
   },
   "texts": [
     {
@@ -802,7 +802,8 @@
       "text": "Čtyřlístek štěstí přináší,\njeho lístky radost dají.\nKdyž najdeš ten první,\nštěstí k tobě jistě se nakloní.",
       "source_type": "creative",
       "author": true,
-      "kind": "Báseň autora"
+      "kind": "Báseň autora",
+      "vibe": "happy"
     },
     {
       "id": 112,
@@ -1505,6 +1506,26 @@
       "source_type": "fact",
       "author": true,
       "kind": "Fakt o autorovi"
+    },
+    {
+      "id": 210,
+      "category": "culture",
+      "title": "Benefice 2025",
+      "text": "Darovaný čtyřlístek přináší štěstí obdarovanému, ne utržený nálezci. Proto v roce 2025 autor v rámci benefice prodal čtyřlístky za více jak 10 000 Kč. Poděkování patří všem přispěvatelům !!!",
+      "source_type": "fact",
+      "author": true,
+      "kind": "Fakt autora"
+    },
+    {
+      "id": 666,
+      "category": "trivia",
+      "title": "Záhadný nález",
+      "text": "Ne všechny čtyřlístky, které jsou vidět na fotkách nálezů, jsem našel a utrhl :-((( Nález číslo 666 se nepodařilo pořádně vyfotit !!! Náhoda? :)",
+      "source_type": "fact",
+      "author": true,
+      "kind": "Záhadný nález",
+      "vibe": "demonic",
+      "link": "/sbirka/666"
     }
   ]
 }
