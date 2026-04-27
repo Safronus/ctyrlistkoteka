@@ -129,6 +129,59 @@
   .theme-invertible {
     filter: invert(1);
   }
+
+  /* -------- Clover-fact card paper variants -------- */
+  /* The card's inline Tailwind sets the light/clover paper bg + ring +
+     text colors. In dark theme the literal `#fffdf7` cream and the
+     emerald/amber-50 gradients read as overly bright squares against
+     near-black page surfaces, and the inverted gray-900/700 text loses
+     contrast on them. These overrides re-tone each variant — paper to
+     a dim warm/forest/festive surface, text to legible pale tints —
+     keyed on the `data-fact-vibe` attribute the component sets. The
+     demonic vibe is already dark and stays untouched. */
+  [data-fact-vibe="regular"] {
+    background-color: oklch(0.20 0.012 80);
+  }
+  [data-fact-vibe="author"] {
+    background-image: linear-gradient(
+      to bottom right,
+      oklch(0.24 0.07 145),
+      oklch(0.20 0.05 145 / 0.9),
+      oklch(0.17 0.07 145 / 0.85)
+    );
+  }
+  [data-fact-vibe="author"] [data-fact-cat] {
+    color: oklch(0.78 0.08 145);
+  }
+  [data-fact-vibe="author"] [data-fact-title] {
+    color: oklch(0.94 0.05 145);
+  }
+  [data-fact-vibe="author"] [data-fact-body] {
+    color: oklch(0.86 0.04 145 / 0.92);
+  }
+  [data-fact-vibe="author"] [data-fact-id] {
+    color: oklch(0.78 0.06 145 / 0.7);
+  }
+  [data-fact-vibe="happy"] {
+    background-image: linear-gradient(
+      to bottom right,
+      oklch(0.26 0.07 80),
+      oklch(0.22 0.05 145 / 0.85),
+      oklch(0.24 0.08 80 / 0.85)
+    );
+  }
+  [data-fact-vibe="happy"] [data-fact-cat] {
+    color: oklch(0.80 0.08 145);
+  }
+  [data-fact-vibe="happy"] [data-fact-title] {
+    color: oklch(0.94 0.05 145);
+  }
+  [data-fact-vibe="happy"] [data-fact-body] {
+    color: oklch(0.90 0.05 80 / 0.92);
+  }
+  [data-fact-vibe="happy"] [data-fact-id] {
+    color: oklch(0.82 0.10 75 / 0.75);
+  }
 }
 
 html,

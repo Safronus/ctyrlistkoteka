@@ -119,6 +119,15 @@ function vibeFor(text: CloverText): VibeStyles {
   return AUTHOR_DEFAULT;
 }
 
+type VibeKey = "regular" | "author" | "happy" | "demonic";
+
+function vibeKeyFor(text: CloverText): VibeKey {
+  if (text.author !== true) return "regular";
+  if (text.vibe === "demonic") return "demonic";
+  if (text.vibe === "happy") return "happy";
+  return "author";
+}
+
 /**
  * Pinned-paper note next to the home-page hero with a rotating clover
  * curiosity. Three rendering modes:
@@ -169,6 +178,11 @@ export function CloverFactCard() {
 
   const isAuthor = text.author === true;
   const styles = vibeFor(text);
+  // `data-fact-vibe` lets dark-theme CSS in globals.css re-tone the
+  // paper bg + descendant text colors per variant. The inline Tailwind
+  // utilities below set the light/clover look; the override rules win
+  // by specificity (attribute selector chain beats single utility class).
+  const vibeKey = vibeKeyFor(text);
   const categoryLabel = CATEGORY_LABELS[text.category] ?? text.category;
 
   const card = (
@@ -177,6 +191,7 @@ export function CloverFactCard() {
       aria-label={
         isAuthor ? "Bonusová drobnost autora" : "Drobnost o čtyřlístcích"
       }
+      data-fact-vibe={vibeKey}
       className={`relative w-72 max-w-full -rotate-[2deg] rounded-sm p-5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] sm:w-80 ${styles.paperBg} ${styles.paperRing} ${
         text.link
           ? "transition-transform duration-300 hover:scale-[1.02] hover:shadow-[0_12px_32px_-12px_rgba(220,38,38,0.55)]"
@@ -195,6 +210,7 @@ export function CloverFactCard() {
 
       <div className="flex items-baseline justify-between gap-2">
         <p
+          data-fact-cat
           className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${styles.categoryColor}`}
         >
           {isAuthor && text.kind ? text.kind : categoryLabel}
@@ -215,11 +231,13 @@ export function CloverFactCard() {
       </div>
 
       <h3
+        data-fact-title
         className={`mt-1.5 font-serif text-base font-semibold ${styles.titleColor}`}
       >
         {text.title}
       </h3>
       <p
+        data-fact-body
         className={`mt-2 whitespace-pre-line font-serif text-sm italic leading-relaxed ${styles.textColor}`}
       >
         {text.text}
@@ -237,6 +255,7 @@ export function CloverFactCard() {
           so it never collides with the absolute corner items above. */}
       <p
         aria-hidden
+        data-fact-id
         className={`mt-3 select-none text-center text-[10px] opacity-70 ${styles.idColor}`}
         title={`Další lísteček za ${mmss}`}
       >
@@ -246,6 +265,7 @@ export function CloverFactCard() {
 
       <span
         aria-hidden
+        data-fact-id
         className={`absolute bottom-2 right-3 rotate-[8deg] font-serif text-xs italic ${styles.idColor}`}
       >
         #{text.id}
