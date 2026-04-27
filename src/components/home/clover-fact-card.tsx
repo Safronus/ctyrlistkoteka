@@ -192,7 +192,7 @@ export function CloverFactCard() {
         isAuthor ? "Bonusová drobnost autora" : "Drobnost o čtyřlístcích"
       }
       data-fact-vibe={vibeKey}
-      className={`relative w-72 max-w-full -rotate-[2deg] rounded-sm p-5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] sm:w-80 ${styles.paperBg} ${styles.paperRing} ${
+      className={`relative w-72 max-w-full -rotate-[2deg] rounded-sm p-5 pb-3 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] sm:w-80 ${styles.paperBg} ${styles.paperRing} ${
         text.link
           ? "transition-transform duration-300 hover:scale-[1.02] hover:shadow-[0_12px_32px_-12px_rgba(220,38,38,0.55)]"
           : ""
@@ -266,7 +266,7 @@ export function CloverFactCard() {
       <span
         aria-hidden
         data-fact-id
-        className={`absolute bottom-2 right-2 origin-bottom-right -rotate-[30deg] font-serif text-xs italic ${styles.idColor}`}
+        className={`absolute bottom-3 right-3 origin-bottom-right -rotate-[30deg] font-serif text-xs italic ${styles.idColor}`}
       >
         #{text.id}
       </span>
