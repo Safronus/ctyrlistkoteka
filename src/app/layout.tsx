@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
+import { Github, Linkedin } from "lucide-react";
 import { NavLink } from "@/components/nav-link";
 import { ThemeScript } from "@/components/theme-script";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -110,6 +111,30 @@ export default function RootLayout({
                 className="h-5 w-5"
               />
               <span className="font-medium text-gray-700">Safronus</span>
+              {/* The LinkedIn slug carries Czech diacritics — JSX/React
+                  serialises the href verbatim and the browser
+                  percent-encodes on navigation, so leaving the literal
+                  characters in is fine and most readable in source. */}
+              <a
+                href="https://www.linkedin.com/in/petr-žáček-9a2473b7/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="LinkedIn profil autora"
+                title="LinkedIn"
+                className="ml-1 rounded p-1 text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
+              >
+                <Linkedin className="h-4 w-4" aria-hidden />
+              </a>
+              <a
+                href="https://github.com/Safronus"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="GitHub profil autora"
+                title="GitHub"
+                className="rounded p-1 text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
+              >
+                <Github className="h-4 w-4" aria-hidden />
+              </a>
             </span>
           </div>
         </footer>
