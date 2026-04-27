@@ -151,14 +151,32 @@ function SidebarRow({
   focused: boolean;
   onSelect: (id: number) => void;
 }) {
+  // Sub-part indent + parent "+ N částí" badge mirror /lokality so the
+  // hierarchy reads the same on both pages. Anonymized rows aren't on
+  // /mapa, so we don't have to guard the parent association — the
+  // listLocations() query already nulled parentId on those rows.
+  const isChild = location.parentId !== null;
+  const hasParts = location.childCount > 0;
+
   const tone = location.isGone ? "bg-rose-50/60" : "";
   const focusedTone = focused ? "ring-2 ring-inset ring-brand-500" : "";
+  const indent = isChild
+    ? "border-l-4 border-brand-200 bg-brand-50/40 pl-5"
+    : "pl-3";
+
+  // Parents fold their visible children's totals in via `aggregateStats`,
+  // so the count next to a master location shows the combined "true"
+  // activity (own + sub-parts). Leaves have aggregateStats === stats so
+  // the read is identical for them.
+  const findsTotal = hasParts
+    ? location.aggregateStats.total
+    : location.stats.total;
 
   return (
     <button
       type="button"
       onClick={() => onSelect(location.id)}
-      className={`flex w-full items-start gap-2 px-3 py-2 text-left transition hover:bg-brand-50 focus:bg-brand-50 focus:outline-none ${tone} ${focusedTone}`}
+      className={`flex w-full items-start gap-2 py-2 pr-3 text-left transition hover:bg-brand-50 focus:bg-brand-50 focus:outline-none ${tone} ${focusedTone} ${indent}`}
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2">
@@ -176,6 +194,19 @@ function SidebarRow({
               Zaniklá
             </span>
           )}
+          {hasParts && (
+            <span
+              className="rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-800"
+              title={`${location.childCount} sub-části`}
+            >
+              + {location.childCount}{" "}
+              {location.childCount === 1
+                ? "část"
+                : location.childCount < 5
+                  ? "části"
+                  : "částí"}
+            </span>
+          )}
         </div>
         {location.displayName && location.displayName !== location.code && (
           <p
@@ -187,7 +218,7 @@ function SidebarRow({
         )}
         <p className="mt-1 flex flex-wrap gap-x-2 text-xs text-gray-500">
           <span className="font-medium text-brand-700">
-            {formatCount(location.stats.total, FINDS)}
+            {formatCount(findsTotal, FINDS)}
           </span>
           {location.polygonAreaM2 !== null && (
             <span>· {formatAreaM2(location.polygonAreaM2)}</span>
