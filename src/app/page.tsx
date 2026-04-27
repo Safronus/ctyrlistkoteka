@@ -76,7 +76,7 @@ export default async function HomePage() {
               aria-hidden
               width={watermark.width}
               height={watermark.height}
-              className="h-28 w-auto shrink-0 opacity-70 sm:h-32"
+              className="theme-invertible h-28 w-auto shrink-0 opacity-70 sm:h-32"
             />
           ) : (
             // Reserve symmetry on lg even when the watermark file isn't

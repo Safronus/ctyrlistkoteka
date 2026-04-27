@@ -68,7 +68,7 @@ export default function RootLayout({
                 aria-hidden
                 width={20}
                 height={20}
-                className="h-5 w-5"
+                className="theme-invertible h-5 w-5"
               />
               <span className="font-medium text-gray-700">Safronus</span>
               {/* The LinkedIn slug carries Czech diacritics — JSX/React

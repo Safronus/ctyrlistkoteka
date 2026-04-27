@@ -120,6 +120,15 @@
   --color-rose-100: oklch(0.27 0.08 12);
   --color-rose-200: oklch(0.34 0.10 12);
   --color-rose-800: oklch(0.86 0.10 12);
+
+  /* Black-line logo / watermark needs to flip to white silhouette on
+     near-black surfaces, otherwise it disappears. The image file itself
+     is black-on-transparent, so a simple invert is enough — opt-in via
+     the `theme-invertible` class so we don't accidentally invert
+     anything tonal. */
+  .theme-invertible {
+    filter: invert(1);
+  }
 }
 
 html,
