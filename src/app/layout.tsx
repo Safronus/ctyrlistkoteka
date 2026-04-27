@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Image from "next/image";
-import Link from "next/link";
 import { Github, Linkedin } from "lucide-react";
-import { NavLink } from "@/components/nav-link";
+import { MainNav } from "@/components/main-nav";
 import { ThemeScript } from "@/components/theme-script";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/constants";
 import "./globals.css";
 
@@ -51,45 +49,7 @@ export default function RootLayout({
     <html lang="cs" className={inter.variable} data-theme="clover">
       <body className="flex min-h-screen flex-col">
         <ThemeScript />
-        <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
-          <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-lg font-semibold text-brand-700"
-            >
-              <Image
-                src="/clover.png"
-                alt=""
-                aria-hidden
-                width={36}
-                height={36}
-                priority
-                className="h-9 w-9"
-              />
-              <span>{SITE_NAME}</span>
-            </Link>
-            <div className="flex items-center gap-3">
-              <ul className="flex flex-wrap items-center gap-1">
-                <li>
-                  <NavLink href="/">Domů</NavLink>
-                </li>
-                <li>
-                  <NavLink href="/sbirka">Sbírka</NavLink>
-                </li>
-                <li>
-                  <NavLink href="/lokality">Lokality</NavLink>
-                </li>
-                <li>
-                  <NavLink href="/mapa">Mapa</NavLink>
-                </li>
-                <li>
-                  <NavLink href="/statistiky">Statistiky</NavLink>
-                </li>
-              </ul>
-              <ThemeToggle />
-            </div>
-          </nav>
-        </header>
+        <MainNav />
 
         <main className="flex-1">{children}</main>
 
