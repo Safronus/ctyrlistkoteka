@@ -9,6 +9,7 @@ import {
 } from "@/lib/cloverTexts";
 
 const ROTATION_MS = 120_000;
+const TICK_MS = 1_000;
 
 const SOURCE_LABELS: Record<CloverTextSource, string> = {
   fact: "fakt",
@@ -133,18 +134,38 @@ function vibeFor(text: CloverText): VibeStyles {
  */
 export function CloverFactCard() {
   const [index, setIndex] = useState(0);
+  const [remainingMs, setRemainingMs] = useState(ROTATION_MS);
 
+  // Single 1 s interval drives both the visible countdown and the
+  // rotation flip. Using a wall-clock target (`nextAt`) instead of a
+  // tick counter means the timer stays correct after the tab was
+  // backgrounded — `setInterval` is throttled while hidden, but on
+  // resume we just observe a smaller `remaining` and either advance
+  // straight to the next text or keep counting down from there.
   useEffect(() => {
     if (CLOVER_TEXTS.length === 0) return;
     setIndex(Math.floor(Math.random() * CLOVER_TEXTS.length));
-    const i = setInterval(() => {
-      setIndex((prev) => (prev + 1) % CLOVER_TEXTS.length);
-    }, ROTATION_MS);
-    return () => clearInterval(i);
+    let nextAt = Date.now() + ROTATION_MS;
+    setRemainingMs(ROTATION_MS);
+
+    const tick = setInterval(() => {
+      const remaining = nextAt - Date.now();
+      if (remaining <= 0) {
+        setIndex((prev) => (prev + 1) % CLOVER_TEXTS.length);
+        nextAt = Date.now() + ROTATION_MS;
+        setRemainingMs(ROTATION_MS);
+      } else {
+        setRemainingMs(remaining);
+      }
+    }, TICK_MS);
+    return () => clearInterval(tick);
   }, []);
 
   const text = CLOVER_TEXTS[index];
   if (!text) return null;
+
+  const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
+  const mmss = `${Math.floor(totalSec / 60)}:${(totalSec % 60).toString().padStart(2, "0")}`;
 
   const isAuthor = text.author === true;
   const styles = vibeFor(text);
@@ -208,6 +229,20 @@ export function CloverFactCard() {
           scattered diagonally so they read as confetti rather than UI
           chrome. Aria-hidden; purely decorative. */}
       {styles.decoration === "happy" && <HappySparkles />}
+
+      {/* Tiny countdown until the next lísteček. Styled as a quiet
+          paper-margin annotation rather than a UI counter — italic
+          serif label, monospace digits, muted to the variant's
+          `idColor`. Sits in the flow at the very bottom of the card,
+          so it never collides with the absolute corner items above. */}
+      <p
+        aria-hidden
+        className={`mt-3 select-none text-center text-[10px] opacity-70 ${styles.idColor}`}
+        title={`Další lísteček za ${mmss}`}
+      >
+        <span className="font-serif italic">další za </span>
+        <span className="font-mono tracking-wider">{mmss}</span>
+      </p>
 
       <span
         aria-hidden
