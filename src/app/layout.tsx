@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Image from "next/image";
-import { Github, Linkedin } from "lucide-react";
+import { Github, Linkedin, Sparkles } from "lucide-react";
 import { MainNav } from "@/components/main-nav";
 import { ThemeScript } from "@/components/theme-script";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/constants";
@@ -94,6 +94,34 @@ export default function RootLayout({
                 className="rounded p-1 text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
               >
                 <Github className="h-4 w-4" aria-hidden />
+              </a>
+            </span>
+            <span aria-hidden>·</span>
+            {/* AI-assistance credit. Sparkles icon nods at the "AI"
+                flavour without being too cute; both anchors open in
+                a new tab so the visitor can read up on Anthropic /
+                Claude Code without losing their place here. */}
+            <span className="inline-flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-amber-500" aria-hidden />
+              <span>s asistencí</span>
+              <a
+                href="https://www.anthropic.com/claude"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Claude od Anthropic"
+                className="font-medium text-gray-700 underline-offset-2 hover:text-brand-700 hover:underline"
+              >
+                Claude Opus 4.7
+              </a>
+              <span className="text-gray-400">přes</span>
+              <a
+                href="https://claude.com/claude-code"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Claude Code"
+                className="font-medium text-gray-700 underline-offset-2 hover:text-brand-700 hover:underline"
+              >
+                Claude Code
               </a>
             </span>
           </div>
