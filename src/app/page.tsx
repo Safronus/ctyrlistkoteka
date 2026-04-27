@@ -198,8 +198,15 @@ function DonatedShowcase({ count }: { count: number }) {
 
       <p className="text-base text-gray-700 sm:text-lg">
         Komu už putovalo štěstí:{" "}
-        <span className="relative inline-block">
-          <span className="text-2xl font-bold text-brand-700 sm:text-3xl">
+        {/* The count itself doubles as a link to the donated-filter
+            view of /sbirka. Aria-label spells the destination out so
+            screen readers don't just hear a bare number. */}
+        <Link
+          href="/sbirka?state=DONATED"
+          className="relative inline-block transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded-sm"
+          aria-label={`${NF_CS.format(count)} darovaných čtyřlístků — zobrazit ve sbírce`}
+        >
+          <span className="text-2xl font-bold text-brand-700 hover:text-brand-800 sm:text-3xl">
             {NF_CS.format(count)}
           </span>
           {/* Hand-drawn squiggle under the number — bezier waves vary so
@@ -218,7 +225,7 @@ function DonatedShowcase({ count }: { count: number }) {
               strokeLinecap="round"
             />
           </svg>
-        </span>{" "}
+        </Link>{" "}
         čtyřlístků.
       </p>
 
