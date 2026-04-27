@@ -1180,7 +1180,11 @@ function JubileeCard({ find }: { find: JubileeFind }) {
       className="flex h-full flex-col gap-1 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm transition hover:border-brand-200 hover:bg-brand-50 hover:shadow-sm"
     >
       <span className="font-mono text-base font-semibold text-brand-700">
-        {formatLocationId(find.id)}
+        {/* Jubilee headlines read better without zero-padding — #111
+            instead of #00111 keeps the milestone visually clean. The
+            rest of the site still uses formatLocationId() for IDs that
+            sit in tabular contexts where alignment matters. */}
+        #{find.id}
       </span>
       {find.isAnonymized ? (
         <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800 self-start">
