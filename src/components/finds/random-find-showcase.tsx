@@ -18,9 +18,14 @@ const ROTATION_MS = 60_000;
  * mounted the widget polls `/api/random-find` every minute, on tab
  * focus, and on manual click of "Další".
  *
- * `ImageGallery` carries the lupa interaction — hover/focus on the
- * magnifier swaps the ORIGINAL photo with the CROP, identical to the
- * find detail page.
+ * Layout is a vertical stack — metadata header row above, full-width
+ * photo below, hint underneath. `ImageGallery` carries the lupa
+ * interaction (hover/focus on the magnifier swaps ORIGINAL ↔ CROP).
+ *
+ * A thin countdown bar overlays the bottom edge of the photo and
+ * drains left-to-right over `ROTATION_MS`, then resets when the find
+ * changes (via React `key` on the bar — the new element re-runs the
+ * CSS animation from full).
  */
 export function RandomFindShowcaseWidget({
   initial,
@@ -70,7 +75,21 @@ export function RandomFindShowcaseWidget({
   const foundAtDate = find.foundAt ? new Date(find.foundAt) : null;
 
   return (
-    <section className="mt-8">
+    <section className="mt-8" aria-live="polite">
+      <style>{`
+        @keyframes ctyr-rf-countdown {
+          from { transform: scaleX(1); }
+          to   { transform: scaleX(0); }
+        }
+        .ctyr-rf-countdown-fill {
+          transform-origin: left center;
+          animation: ctyr-rf-countdown ${ROTATION_MS}ms linear forwards;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ctyr-rf-countdown-fill { animation: none; transform: scaleX(1); }
+        }
+      `}</style>
+
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Náhodný nález
@@ -89,50 +108,67 @@ export function RandomFindShowcaseWidget({
           <span>Další</span>
         </button>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
+
+      {/* Metadata header — single horizontal row above the photo so the
+          photo can claim the full container width below. Wraps on
+          narrow viewports; "Detail nálezu" floats to the right via
+          `ml-auto`. */}
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 px-1">
+        <span className="text-2xl font-bold text-gray-900">
+          #{find.id}
+        </span>
+        {foundAtDate && (
+          <span className="text-sm text-gray-500">
+            {formatDateCs(foundAtDate)}
+          </span>
+        )}
+        {find.isAnonymized ? (
+          <span className="text-sm text-gray-500">Anonymizovaná lokalita</span>
+        ) : find.location ? (
+          <span
+            className="truncate text-sm text-gray-700"
+            title={find.location.code}
+          >
+            {find.location.code}{" "}
+            <span className="font-mono text-xs text-gray-500">
+              {formatLocationId(find.location.id)}
+            </span>
+          </span>
+        ) : (
+          <span className="text-sm text-gray-500">Bez lokality</span>
+        )}
+        <Link
+          href={`/sbirka/${find.id}`}
+          className="ml-auto inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
+        >
+          Detail nálezu
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
+      </div>
+
+      <div className="relative">
         <ImageGallery
           image={find.primaryImage}
           cropImage={find.cropImage}
           altBase={altBase}
         />
-        <aside className="space-y-2 rounded-xl border border-gray-200 bg-white p-4 sm:w-64">
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-gray-900">
-              #{find.id}
-            </span>
-            {foundAtDate && (
-              <span className="text-sm text-gray-500">
-                {formatDateCs(foundAtDate)}
-              </span>
-            )}
-          </div>
-          {find.isAnonymized ? (
-            <p className="text-sm text-gray-500">Anonymizovaná lokalita</p>
-          ) : find.location ? (
-            <p
-              className="truncate text-sm text-gray-700"
-              title={find.location.code}
-            >
-              {find.location.code}{" "}
-              <span className="font-mono text-xs text-gray-500">
-                {formatLocationId(find.location.id)}
-              </span>
-            </p>
-          ) : (
-            <p className="text-sm text-gray-500">Bez lokality</p>
-          )}
-          <Link
-            href={`/sbirka/${find.id}`}
-            className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
-          >
-            Detail nálezu
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
-          <p className="pt-1 text-[11px] text-gray-400">
-            Mění se každou minutu
-          </p>
-        </aside>
+        {/* Countdown overlay strip at the bottom of the photo. The
+            `key` is bumped whenever the find changes, so the inner
+            fill remounts and the CSS animation restarts at scaleX=1.
+            The strip itself is non-interactive (decorative only). */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-1.5 overflow-hidden bg-black/20"
+          title="Čas do další rotace"
+        >
+          <div
+            key={find.id}
+            className="ctyr-rf-countdown-fill h-full bg-brand-500"
+          />
+        </div>
       </div>
+
+      <p className="mt-2 text-xs text-gray-400">Mění se každou minutu</p>
     </section>
   );
 }
