@@ -256,7 +256,7 @@ export function CloverFactCard() {
       <p
         aria-hidden
         data-fact-id
-        className={`mt-3 select-none text-center text-[10px] opacity-70 ${styles.idColor}`}
+        className={`mt-1.5 select-none text-center text-[10px] opacity-70 ${styles.idColor}`}
         title={`Další lísteček za ${mmss}`}
       >
         <span className="font-serif italic">další za </span>
@@ -266,7 +266,7 @@ export function CloverFactCard() {
       <span
         aria-hidden
         data-fact-id
-        className={`absolute bottom-2 right-3 rotate-[8deg] font-serif text-xs italic ${styles.idColor}`}
+        className={`absolute bottom-2 right-3 -rotate-45 font-serif text-xs italic ${styles.idColor}`}
       >
         #{text.id}
       </span>

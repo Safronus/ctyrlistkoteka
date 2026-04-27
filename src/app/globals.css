@@ -182,6 +182,14 @@
   [data-fact-vibe="happy"] [data-fact-id] {
     color: oklch(0.82 0.10 75 / 0.75);
   }
+
+  /* Home-page hero title — match the header brand on dark surfaces so
+     "Čtyřlístkotéka" reads as a single visual unit with the sticky
+     header instead of as a competing white headline. Light/clover
+     keep the default `text-gray-900`. */
+  .ctyr-hero-title {
+    color: var(--color-brand-700);
+  }
 }
 
 html,

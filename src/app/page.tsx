@@ -47,7 +47,7 @@ export default async function HomePage() {
              marks, balanced on each side).
           3. Intro paragraph + "naposledy doplněno" line, centered. */}
       <section>
-        <h1 className="text-center text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+        <h1 className="ctyr-hero-title text-center text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
           Čtyřlístkotéka
         </h1>
 
