@@ -427,10 +427,11 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     // thoroughly-worked meadow. Anonymized rows are kept (their density
     // tells a story about the collection too) but their code/name is
     // nulled here so the public payload never carries identifying text.
-    // We don't fold sub-parts into parents the way the by-count query
-    // does — density is per-polygon-area, and the parent's polygon area
-    // typically describes its own ground, so mixing in children's
-    // counts would inflate the number.
+    // The polygon column lives on `locations` (geometry(Polygon, 4326)),
+    // not on `location_maps` — see prisma/schema.prisma. We don't fold
+    // sub-parts into parents the way the by-count query does — density
+    // is per-polygon-area, and the parent's polygon typically describes
+    // its own ground, so mixing in children's counts would inflate it.
     prisma.$queryRaw<
       Array<{
         id: number;
@@ -445,22 +446,16 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       WITH anon AS (
         SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
       ),
-      areas AS (
-        SELECT location_id,
-               ST_Area(polygon::geography) AS area_m2
-        FROM location_maps
-        WHERE polygon IS NOT NULL
-      ),
-      max_area AS (
-        SELECT location_id, MAX(area_m2) AS area_m2
-        FROM areas
-        GROUP BY location_id
-      ),
       counts AS (
         SELECT location_id, COUNT(*) AS cnt
         FROM finds
         WHERE location_id IS NOT NULL
         GROUP BY location_id
+      ),
+      areas AS (
+        SELECT id, ST_Area(polygon::geography)::float8 AS area_m2
+        FROM locations
+        WHERE polygon IS NOT NULL
       )
       SELECT l.id,
              CASE WHEN l.id IN (SELECT location_id FROM anon)
@@ -470,10 +465,10 @@ export async function getCollectionStats(): Promise<CollectionStats> {
              END AS name,
              c.cnt AS count,
              a.area_m2 AS area_m2,
-             (c.cnt::float / a.area_m2 * 100) AS density,
+             (c.cnt::float8 / a.area_m2 * 100) AS density,
              (l.id IN (SELECT location_id FROM anon)) AS is_anonymized
       FROM locations l
-      JOIN max_area a ON a.location_id = l.id
+      JOIN areas a ON a.id = l.id
       JOIN counts c ON c.location_id = l.id
       WHERE c.cnt >= 10
         AND a.area_m2 > 0
