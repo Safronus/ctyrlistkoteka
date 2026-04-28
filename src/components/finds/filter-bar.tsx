@@ -7,7 +7,7 @@ import { STATE_LABELS } from "@/lib/stateLabels";
 import type { FindState } from "@prisma/client";
 
 const INPUT_CLS =
-  "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+  "rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
 
 export function FilterBar({
   options,

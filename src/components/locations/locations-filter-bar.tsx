@@ -12,7 +12,7 @@ import {
 import type { LocationSort } from "@/lib/queries/locations";
 
 const INPUT_CLS =
-  "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+  "rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
 
 // Order matches the segmented control left→right. `finds` is also the
 // server default in parseSort/listLocations.
@@ -139,10 +139,37 @@ export function LocationsFilterBar({
         </label>
       </div>
 
-      <div className="mt-3">
-        <span className="mb-1 block text-xs font-medium text-gray-700">
-          Řazení
-        </span>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-gray-700">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={current.showAnonymized}
+              onChange={(e) => toggleFlag("showAnon", e.currentTarget.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+            />
+            <span>Zobrazit anonymizované</span>
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={current.showGone}
+              onChange={(e) => toggleFlag("showGone", e.currentTarget.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+            />
+            <span>Zobrazit zaniklé</span>
+          </label>
+          {hasAny && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="text-sm text-brand-700 hover:underline"
+            >
+              Zrušit filtry
+            </button>
+          )}
+        </div>
+
         <div
           role="group"
           aria-label="Řazení"
@@ -172,36 +199,6 @@ export function LocationsFilterBar({
             );
           })}
         </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-gray-700">
-        <label className="inline-flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={current.showAnonymized}
-            onChange={(e) => toggleFlag("showAnon", e.currentTarget.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-          />
-          <span>Zobrazit anonymizované</span>
-        </label>
-        <label className="inline-flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={current.showGone}
-            onChange={(e) => toggleFlag("showGone", e.currentTarget.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-          />
-          <span>Zobrazit zaniklé</span>
-        </label>
-        {hasAny && (
-          <button
-            type="button"
-            onClick={clearAll}
-            className="ml-auto text-sm text-brand-700 hover:underline"
-          >
-            Zrušit filtry
-          </button>
-        )}
       </div>
     </div>
   );
