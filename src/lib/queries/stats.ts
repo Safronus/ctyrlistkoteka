@@ -3,12 +3,20 @@
  * performance — at 17k rows we don't need materialized views yet, but the
  * shape is prepared for them (docs/data-schema.md).
  *
- * Anonymization note: these queries return *counts only*, no per-find data
- * or notes leave the server. Location names in `topLocations` are public
- * (shown on the map) so it's fine to list them.
+ * The page calls one fetcher per visible section instead of a single
+ * mega-query, which lets `<Suspense>` boundaries on /statistiky stream
+ * each card in as it finishes rather than blocking the whole render on
+ * the slowest query. Common upstream rows (totals, geo locations) are
+ * memoised through React's `cache()` so two parallel fetchers in the
+ * same request still hit Postgres exactly once.
+ *
+ * Anonymization note: these queries return *counts only*, no per-find
+ * data or notes leave the server. Location names in `topLocations` are
+ * public (shown on the map) so it's fine to list them.
  */
 
-import { FindState, Prisma } from "@prisma/client";
+import { cache } from "react";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_LOCATION_ID } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
@@ -150,76 +158,6 @@ export interface FarthestFindHighlight extends FindHighlight {
   distanceMeters: number;
 }
 
-export interface CollectionStats {
-  totals: StatsTotals;
-  /** Earliest find by ID, or null if the collection is empty. */
-  firstFind: FindHighlight | null;
-  /** Latest find by ID, mirroring firstFind. */
-  lastFind: FindHighlight | null;
-  /** Non-anonymized find with the largest great-circle distance from the
-   *  default LocationMap's centre. Null when the default map or any
-   *  qualifying find with GPS is missing. */
-  farthestFind: FarthestFindHighlight | null;
-  monthly: MonthlyPoint[];
-  yearly: YearlyPoint[];
-  topLocations: LocationPoint[];
-  /** Top-N locations ranked by find density (own finds / own polygon
-   *  area, expressed per 100 m²). Filtered to locations that have both
-   *  a polygon and at least 10 own finds — without the floor a single
-   *  find on a tiny patch would beat a thoroughly worked meadow. */
-  topLocationsByDensity: LocationDensityPoint[];
-  /** Find counts grouped by country (resolved from each non-anonymized
-   *  location's GPS centre). Anonymized locations are excluded — their
-   *  precise GPS must not leave the server. */
-  byCountry: CountryPoint[];
-  /** Find counts grouped by `cadastralArea` ("city/town"). Same
-   *  anonymization rule as `byCountry`; vanished places (codes prefixed
-   *  with `NEEXISTUJE-`) are also dropped so the table doesn't list a
-   *  ghost row alongside the still-existing version of the city. */
-  byCity: CategoryPoint[];
-  /** Total distinct cities that host any non-anonymized, non-former
-   *  location (regardless of whether finds have been recorded yet).
-   *  Larger than or equal to `byCity.length`. */
-  cityCount: number;
-  /** Total distinct countries that host any non-anonymized location
-   *  with GPS (regardless of finds). Larger than or equal to
-   *  `byCountry.length`. */
-  countryCount: number;
-  locationTypes: CategoryPoint[];
-  states: CategoryPoint[];
-  /** Hour of day (0..23). Includes only hours that have data. */
-  byHour: CalendarPoint[];
-  /** Day of week (1=Monday … 7=Sunday). Includes only DoWs with data. */
-  byDayOfWeek: CalendarPoint[];
-  /** Month of year (1=January … 12=December). Includes only months with data. */
-  byMonthOfYear: CalendarPoint[];
-  /** Month×day heatmap, year-independent. Sparse: only cells that
-   *  have at least one find. */
-  byMonthDay: MonthDayPoint[];
-  /** Decade-bucketed distance histogram from the default LocationMap's
-   *  centre. Excludes anonymized finds and finds without GPS. Empty
-   *  when MAP 00001 isn't on disk. */
-  byDistance: DistanceBucket[];
-  /** Peak buckets — when the collection saw the largest spike at each
-   *  granularity. `null` when the collection is empty (or every find
-   *  has a NULL `found_at`, which can't be bucketed). Bucket boundaries
-   *  follow Postgres `date_trunc()`: hour = wall-clock hour, day =
-   *  midnight-to-midnight, week = ISO week (Mon → Sun), month =
-   *  calendar month, year = calendar year. */
-  peaks: {
-    minute: PeakBucket | null;
-    hour: PeakBucket | null;
-    day: PeakBucket | null;
-    week: PeakBucket | null;
-    month: PeakBucket | null;
-    year: PeakBucket | null;
-  };
-  /** Existing jubilee finds (every 1000th + 111/1111/11111 + 666/6666),
-   *  sorted by ID. Missing IDs are silently skipped — gaps in the
-   *  sequence don't render as placeholders. */
-  jubilees: JubileeFind[];
-}
-
 export interface PeakBucket {
   /** ISO timestamp at the start of the bucket. The UI formats it
    *  per-granularity ("červen 2021" for month, "14:00–14:59" for hour). */
@@ -242,81 +180,199 @@ export interface JubileeFind {
   location: { code: string; displayName: string } | null;
 }
 
-export async function getCollectionStats(): Promise<CollectionStats> {
-  type HighlightRow = {
-    id: number;
-    found_at: Date | null;
-    is_anonymized: boolean;
-    location_id: number | null;
-    location_code: string | null;
-    location_display_name: string | null;
+// ---------------------------------------------------------------------------
+// Per-section result shapes. The /statistiky page used to fetch one
+// monolithic blob and block the entire render on the slowest query;
+// each section now has its own fetcher so the page can wrap each one
+// in `<Suspense>` and stream them in as they finish.
+
+export interface StatsTotalsResult {
+  totals: StatsTotals;
+  /** Total distinct countries that host any non-anonymized location
+   *  with GPS (regardless of finds). Sourced from the same geo rows
+   *  as `byCountry`, so both fetchers share the cached query. */
+  countryCount: number;
+  /** Total distinct cities that host any non-anonymized, non-former
+   *  location (regardless of finds). */
+  cityCount: number;
+}
+
+export interface StatsHighlightsResult {
+  /** Earliest find by ID. */
+  firstFind: FindHighlight | null;
+  /** Latest find by ID. */
+  lastFind: FindHighlight | null;
+  /** Non-anonymized find with the largest great-circle distance from
+   *  the default LocationMap's centre. Null when MAP 00001 isn't on
+   *  disk or no qualifying find exists. */
+  farthestFind: FarthestFindHighlight | null;
+}
+
+export interface StatsPeaksResult {
+  minute: PeakBucket | null;
+  hour: PeakBucket | null;
+  day: PeakBucket | null;
+  week: PeakBucket | null;
+  month: PeakBucket | null;
+  year: PeakBucket | null;
+}
+
+export interface StatsJubileesResult {
+  jubilees: JubileeFind[];
+}
+
+export interface StatsTopLocationsResult {
+  topLocations: LocationPoint[];
+  topLocationsByDensity: LocationDensityPoint[];
+}
+
+export interface StatsGeoResult {
+  byCountry: CountryPoint[];
+  byCity: CategoryPoint[];
+}
+
+export interface StatsCalendarResult {
+  byHour: CalendarPoint[];
+  byDayOfWeek: CalendarPoint[];
+  byMonthOfYear: CalendarPoint[];
+  yearly: YearlyPoint[];
+  /** Sparse month×day heatmap. */
+  byMonthDay: MonthDayPoint[];
+  /** First year with at least one find — drives the year axis on the
+   *  yearly chart so empty leading years render as zero columns. */
+  firstYear: number | null;
+}
+
+export interface StatsDistanceResult {
+  byDistance: DistanceBucket[];
+}
+
+// ---------------------------------------------------------------------------
+// Shared raw-row types — declared once so the cached helpers and the
+// individual fetchers share the same Prisma typing for `$queryRaw`.
+
+type HighlightRow = {
+  id: number;
+  found_at: Date | null;
+  is_anonymized: boolean;
+  location_id: number | null;
+  location_code: string | null;
+  location_display_name: string | null;
+};
+
+type FarthestRow = HighlightRow & { dist_m: number | null };
+
+type TotalsRow = {
+  finds: bigint;
+  locations: bigint;
+  photographed: bigint;
+  anonymized: bigint;
+  donated_finds: bigint;
+  lost_finds: bigint;
+  no_photo_finds: bigint;
+  anonymized_locations: bigint;
+  gone_locations: bigint;
+  first_year: number | null;
+  last_year: number | null;
+};
+
+type GeoLocRow = {
+  id: number;
+  code: string;
+  cadastral: string;
+  lat: number | null;
+  lng: number | null;
+  count: bigint;
+};
+
+// ---------------------------------------------------------------------------
+// Cached helpers — called by more than one fetcher (e.g. totals + geo
+// both need country/city tallies; totals + calendar both need first
+// year). React's `cache()` memoises the return value across the
+// current request, so the underlying SQL still runs exactly once even
+// when multiple sections render in parallel.
+
+const fetchTotalsRow = cache(async (): Promise<TotalsRow | undefined> => {
+  const rows = await prisma.$queryRaw<TotalsRow[]>`
+    SELECT
+      (SELECT COUNT(*) FROM finds) AS finds,
+      (SELECT COUNT(*) FROM locations) AS locations,
+      (SELECT COUNT(DISTINCT find_id) FROM find_images) AS photographed,
+      (SELECT COUNT(*) FROM finds WHERE is_anonymized = true) AS anonymized,
+      (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
+         WHERE state = 'DONATED') AS donated_finds,
+      (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
+         WHERE state = 'LOST') AS lost_finds,
+      (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
+         WHERE state = 'NO_PHOTO') AS no_photo_finds,
+      (SELECT COUNT(DISTINCT location_id) FROM location_maps
+         WHERE is_anonymized = true) AS anonymized_locations,
+      (SELECT COUNT(*) FROM locations
+         WHERE code LIKE 'NEEXISTUJE-%') AS gone_locations,
+      (SELECT EXTRACT(YEAR FROM MIN(found_at))::int FROM finds) AS first_year,
+      (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year
+  `;
+  return rows[0];
+});
+
+const fetchGeoLocRows = cache(async (): Promise<GeoLocRow[]> => {
+  // Per-location aggregates with GPS — feeds the country/city tables
+  // and the world bubble map, plus the cityCount/countryCount fields
+  // on the totals card. Anonymized locations are filtered out (their
+  // precise coordinates are private per CLAUDE.md §6).
+  return prisma.$queryRaw<GeoLocRow[]>`
+    SELECT
+      l.id,
+      l.code,
+      l.cadastral_area AS cadastral,
+      CASE WHEN l.center_point IS NOT NULL
+           THEN ST_Y(l.center_point)::float8
+      END AS lat,
+      CASE WHEN l.center_point IS NOT NULL
+           THEN ST_X(l.center_point)::float8
+      END AS lng,
+      COUNT(f.id) AS count
+    FROM locations l
+    LEFT JOIN finds f ON f.location_id = l.id
+    WHERE l.id NOT IN (
+      SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
+    )
+    GROUP BY l.id, l.code, l.cadastral_area, l.center_point
+  `;
+});
+
+// ---------------------------------------------------------------------------
+// Per-section public fetchers — each one wraps the queries it needs in
+// its own `Promise.all`. Run them from the page in parallel inside
+// separate `<Suspense>` boundaries to stream sections as they finish.
+
+export async function getStatsTotals(): Promise<StatsTotalsResult> {
+  const [totalsRow, geoRows] = await Promise.all([
+    fetchTotalsRow(),
+    fetchGeoLocRows(),
+  ]);
+  const t = totalsRow;
+  const totals: StatsTotals = {
+    finds: t ? Number(t.finds) : 0,
+    locations: t ? Number(t.locations) : 0,
+    photographed: t ? Number(t.photographed) : 0,
+    anonymized: t ? Number(t.anonymized) : 0,
+    donatedFinds: t ? Number(t.donated_finds) : 0,
+    lostFinds: t ? Number(t.lost_finds) : 0,
+    noPhotoFinds: t ? Number(t.no_photo_finds) : 0,
+    anonymizedLocations: t ? Number(t.anonymized_locations) : 0,
+    goneLocations: t ? Number(t.gone_locations) : 0,
+    firstYear: t?.first_year ?? null,
+    lastYear: t?.last_year ?? null,
   };
+  const { countryCount, cityCount } = buildGeoBreakdowns(geoRows);
+  return { totals, countryCount, cityCount };
+}
 
-  type FarthestRow = HighlightRow & { dist_m: number | null };
-
-  const [
-    totalsRow,
-    firstFindRow,
-    lastFindRow,
-    farthestFindRow,
-    monthlyRows,
-    yearlyRows,
-    topLocRows,
-    topDensityRows,
-    typeRows,
-    stateRows,
-    hourRows,
-    dowRows,
-    monthRows,
-    monthDayRows,
-    distanceRows,
-    geoLocRows,
-    peakMinuteRow,
-    peakHourRow,
-    peakDayRow,
-    peakWeekRow,
-    peakMonthRow,
-    peakYearRow,
-    jubileeRows,
-  ] = await Promise.all([
-    prisma.$queryRaw<
-      Array<{
-        finds: bigint;
-        locations: bigint;
-        photographed: bigint;
-        anonymized: bigint;
-        donated_finds: bigint;
-        lost_finds: bigint;
-        no_photo_finds: bigint;
-        anonymized_locations: bigint;
-        gone_locations: bigint;
-        first_year: number | null;
-        last_year: number | null;
-      }>
-    >`
-      SELECT
-        (SELECT COUNT(*) FROM finds) AS finds,
-        (SELECT COUNT(*) FROM locations) AS locations,
-        (SELECT COUNT(DISTINCT find_id) FROM find_images) AS photographed,
-        (SELECT COUNT(*) FROM finds WHERE is_anonymized = true) AS anonymized,
-        (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
-           WHERE state = 'DONATED') AS donated_finds,
-        (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
-           WHERE state = 'LOST') AS lost_finds,
-        (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
-           WHERE state = 'NO_PHOTO') AS no_photo_finds,
-        (SELECT COUNT(DISTINCT location_id) FROM location_maps
-           WHERE is_anonymized = true) AS anonymized_locations,
-        (SELECT COUNT(*) FROM locations
-           WHERE code LIKE 'NEEXISTUJE-%') AS gone_locations,
-        (SELECT EXTRACT(YEAR FROM MIN(found_at))::int FROM finds) AS first_year,
-        (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year
-    `,
-
-    // Earliest / latest find by ID (mirrors the user's MAP_ID
-    // chronology). The CASE-anonymise pattern keeps location info
-    // out of the payload for is_anonymized=true rows so we never
-    // ship something that has to be re-redacted client-side.
+export async function getStatsHighlights(): Promise<StatsHighlightsResult> {
+  const [firstFindRow, lastFindRow, farthestFindRow] = await Promise.all([
+    // Earliest find by ID. The CASE-anonymise pattern keeps location
+    // info out of the payload for is_anonymized=true rows.
     prisma.$queryRaw<HighlightRow[]>`
       SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
              CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
@@ -328,7 +384,6 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       ORDER BY f.id ASC
       LIMIT 1
     `,
-
     prisma.$queryRaw<HighlightRow[]>`
       SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
              CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
@@ -340,12 +395,9 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       ORDER BY f.id DESC
       LIMIT 1
     `,
-
     // Farthest non-anonymized find from the default LocationMap's GPS
-    // centre. ST_DistanceSphere returns metres on a spherical Earth
-    // (within ~0.3 % of the geodetic answer — fine for a card label).
-    // The CTE makes the reference point optional: if MAP 00001 isn't on
-    // disk we still return zero rows instead of crashing.
+    // centre. The CTE makes the reference point optional: if MAP 00001
+    // isn't on disk we still return zero rows instead of crashing.
     prisma.$queryRaw<FarthestRow[]>`
       WITH ref AS (
         SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
@@ -366,30 +418,130 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       ORDER BY dist_m DESC NULLS LAST
       LIMIT 1
     `,
+  ]);
 
-    prisma.$queryRaw<Array<{ month: Date; count: bigint }>>`
-      SELECT date_trunc('month', found_at)::date AS month, COUNT(*) AS count
+  const farthestRow = farthestFindRow[0];
+  const farthestBase =
+    farthestRow && farthestRow.dist_m !== null ? toHighlight(farthestRow) : null;
+  const farthestFind: FarthestFindHighlight | null =
+    farthestBase && farthestRow && farthestRow.dist_m !== null
+      ? { ...farthestBase, distanceMeters: Number(farthestRow.dist_m) }
+      : null;
+
+  return {
+    firstFind: toHighlight(firstFindRow[0]),
+    lastFind: toHighlight(lastFindRow[0]),
+    farthestFind,
+  };
+}
+
+export async function getStatsPeaks(): Promise<StatsPeaksResult> {
+  // Peak buckets — busiest minute / hour / day / week / month / year.
+  // Each query truncates `found_at` to its granularity, groups, and
+  // picks the row with the highest count (ties broken by earliest
+  // bucket so the chosen result is deterministic across runs).
+  const [
+    peakMinuteRow,
+    peakHourRow,
+    peakDayRow,
+    peakWeekRow,
+    peakMonthRow,
+    peakYearRow,
+  ] = await Promise.all([
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('minute', found_at) AS bucket, COUNT(*) AS count
       FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1 ORDER BY 1
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
     `,
-
-    prisma.$queryRaw<Array<{ year: number; count: bigint }>>`
-      SELECT EXTRACT(YEAR FROM found_at)::int AS year, COUNT(*) AS count
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('hour', found_at) AS bucket, COUNT(*) AS count
       FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1 ORDER BY 1
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
     `,
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('day', found_at) AS bucket, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
+    `,
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('week', found_at) AS bucket, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
+    `,
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('month', found_at) AS bucket, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
+    `,
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('year', found_at) AS bucket, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
+    `,
+  ]);
 
+  return {
+    minute: toPeakBucket(peakMinuteRow),
+    hour: toPeakBucket(peakHourRow),
+    day: toPeakBucket(peakDayRow),
+    week: toPeakBucket(peakWeekRow),
+    month: toPeakBucket(peakMonthRow),
+    year: toPeakBucket(peakYearRow),
+  };
+}
+
+export async function getStatsJubilees(): Promise<StatsJubileesResult> {
+  // Jubilee finds — every 1000th, three repunits (111, 1111, 11111),
+  // and the two devil-numbers (666, 6666). The `WHERE id IN (...)`
+  // filter against a primary key returns only existing rows, so any
+  // missing ID is silently skipped (the user fills gaps later as the
+  // collection grows).
+  const rows = await prisma.$queryRaw<
+    Array<{
+      id: number;
+      found_at: Date | null;
+      is_anonymized: boolean;
+      location_id: number | null;
+      location_code: string | null;
+      location_display_name: string | null;
+    }>
+  >`
+    SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
+           CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
+           CASE WHEN f.is_anonymized THEN NULL
+                ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+           END AS location_display_name
+    FROM finds f
+    LEFT JOIN locations l ON l.id = f.location_id
+    WHERE f.id IN (${Prisma.join(JUBILEE_CANDIDATE_IDS)})
+    ORDER BY f.id ASC
+  `;
+  return {
+    jubilees: rows.map((r) => ({
+      id: r.id,
+      foundAt: r.found_at ? r.found_at.toISOString() : null,
+      isAnonymized: r.is_anonymized,
+      // location is always null for anonymized rows — the SQL CASE
+      // clause already redacts code/displayName, so this just normalises
+      // the shape downstream.
+      location:
+        !r.is_anonymized && r.location_id !== null && r.location_code
+          ? {
+              code: r.location_code,
+              displayName: r.location_display_name ?? r.location_code,
+            }
+          : null,
+    })),
+  };
+}
+
+export async function getStatsTopLocations(): Promise<StatsTopLocationsResult> {
+  const [topLocRows, topDensityRows] = await Promise.all([
     // Top 10 locations by find count.
     // - Anonymized locations are dropped (their code/name/findCount can't
     //   be exposed publicly per CLAUDE.md §6).
     // - Sub-parts (parent_id IS NOT NULL) are folded into their parent so
-    //   a master location's row shows the combined "true" total — the
-    //   table is a leaderboard of *places*, not internal sub-divisions.
-    //   When a parent itself is anonymized, its non-anonymized children
-    //   stand alone instead of evaporating into an invisible aggregate.
-    // - The `bucket` CTE picks the right key per find: parent's id when
-    //   the find sits in a visible-parent sub-part, otherwise the find's
-    //   own location_id. We then GROUP BY that bucket id.
+    //   a master location's row shows the combined "true" total.
     prisma.$queryRaw<
       Array<{ id: number; code: string; name: string; count: bigint }>
     >`
@@ -422,18 +574,12 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       ORDER BY count DESC, l.id
       LIMIT 10
     `,
-
     // Top 10 locations by find density (own finds per 100 m² of own
-    // polygon). Only locations with a polygon and ≥ 10 own finds — the
-    // 10-find floor stops a single find on a tiny patch from beating a
-    // thoroughly-worked meadow. Anonymized rows are kept (their density
-    // tells a story about the collection too) but their code/name is
-    // nulled here so the public payload never carries identifying text.
-    // The polygon column lives on `locations` (geometry(Polygon, 4326)),
-    // not on `location_maps` — see prisma/schema.prisma. We don't fold
-    // sub-parts into parents the way the by-count query does — density
-    // is per-polygon-area, and the parent's polygon typically describes
-    // its own ground, so mixing in children's counts would inflate it.
+    // polygon). Only locations with a polygon and ≥ 10 own finds.
+    // Anonymized rows are kept (their density tells a story too) but
+    // their code/name is nulled here so the public payload never
+    // carries identifying text. The polygon column lives on
+    // `locations`, not on `location_maps` — see prisma/schema.prisma.
     prisma.$queryRaw<
       Array<{
         id: number;
@@ -477,244 +623,8 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       ORDER BY density DESC, l.id
       LIMIT 10
     `,
-
-    prisma.$queryRaw<Array<{ type: string; count: bigint }>>`
-      SELECT l.location_type AS type, COUNT(f.id) AS count
-      FROM locations l
-      LEFT JOIN finds f ON f.location_id = l.id
-      GROUP BY l.location_type
-      ORDER BY count DESC
-    `,
-
-    prisma.$queryRaw<Array<{ state: FindState; count: bigint }>>`
-      SELECT state, COUNT(DISTINCT find_id) AS count
-      FROM find_state_assignments
-      GROUP BY state
-      ORDER BY count DESC
-    `,
-
-    // Calendar axes — ignore time zone offsets (use the find's local
-    // wall-clock the user recorded). Anonymization-stripped foundAt
-    // is fine because `is_anonymized` doesn't affect the timestamp.
-    prisma.$queryRaw<Array<{ hour: number; count: bigint }>>`
-      SELECT EXTRACT(HOUR FROM found_at)::int AS hour, COUNT(*) AS count
-      FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1 ORDER BY 1
-    `,
-    // Postgres DOW: 0=Sunday … 6=Saturday. Convert to ISO 1=Mon … 7=Sun
-    // so the result is naturally ordered for a Czech week.
-    prisma.$queryRaw<Array<{ dow: number; count: bigint }>>`
-      SELECT EXTRACT(ISODOW FROM found_at)::int AS dow, COUNT(*) AS count
-      FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1 ORDER BY 1
-    `,
-    prisma.$queryRaw<Array<{ month: number; count: bigint }>>`
-      SELECT EXTRACT(MONTH FROM found_at)::int AS month, COUNT(*) AS count
-      FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1 ORDER BY 1
-    `,
-    // Year-independent month×day heatmap. Returns sparse — only cells
-    // that have any finds; the page fills the rest with zeros.
-    prisma.$queryRaw<
-      Array<{ month: number; day: number; count: bigint }>
-    >`
-      SELECT EXTRACT(MONTH FROM found_at)::int AS month,
-             EXTRACT(DAY FROM found_at)::int AS day,
-             COUNT(*) AS count
-      FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1, 2
-      ORDER BY 1, 2
-    `,
-
-    // Decade-bucketed distance histogram from the default LocationMap.
-    // Anonymized finds and finds without GPS are excluded — same rule
-    // as the farthest-find query. Returns sparse (zero buckets are
-    // omitted); the page fills them with zeros for a stable axis.
-    prisma.$queryRaw<Array<{ bucket: number; count: bigint }>>`
-      WITH ref AS (
-        SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
-        FROM location_maps
-        WHERE id = ${DEFAULT_LOCATION_ID}
-      ),
-      distances AS (
-        SELECT ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref)) AS dist_m
-        FROM finds f
-        WHERE f.is_anonymized = false
-          AND f.coordinates IS NOT NULL
-          AND (SELECT pt FROM ref) IS NOT NULL
-      )
-      SELECT
-        CASE
-          WHEN dist_m < 10        THEN 0
-          WHEN dist_m < 100       THEN 1
-          WHEN dist_m < 1000      THEN 2
-          WHEN dist_m < 10000     THEN 3
-          WHEN dist_m < 100000    THEN 4
-          WHEN dist_m < 1000000   THEN 5
-          WHEN dist_m < 10000000  THEN 6
-          ELSE                         7
-        END AS bucket,
-        COUNT(*) AS count
-      FROM distances
-      GROUP BY bucket
-      ORDER BY bucket
-    `,
-
-    // Per-location aggregates with GPS — feeds the country/city tables
-    // and the world bubble map. Anonymized locations are filtered out
-    // (their precise coordinates are private per CLAUDE.md §6); a
-    // separate aggregate would be required to surface their finds at a
-    // coarser country level, and we deliberately don't add one here —
-    // privacy beats completeness on a public stats page.
-    prisma.$queryRaw<
-      Array<{
-        id: number;
-        code: string;
-        cadastral: string;
-        lat: number | null;
-        lng: number | null;
-        count: bigint;
-      }>
-    >`
-      SELECT
-        l.id,
-        l.code,
-        l.cadastral_area AS cadastral,
-        CASE WHEN l.center_point IS NOT NULL
-             THEN ST_Y(l.center_point)::float8
-        END AS lat,
-        CASE WHEN l.center_point IS NOT NULL
-             THEN ST_X(l.center_point)::float8
-        END AS lng,
-        COUNT(f.id) AS count
-      FROM locations l
-      LEFT JOIN finds f ON f.location_id = l.id
-      WHERE l.id NOT IN (
-        SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
-      )
-      GROUP BY l.id, l.code, l.cadastral_area, l.center_point
-    `,
-
-    // Peak buckets — busiest hour / day / week / month / year. Each
-    // query truncates `found_at` to its granularity, groups, and picks
-    // the row with the highest count (ties broken by earliest bucket so
-    // the chosen result is deterministic across runs).
-    //
-    // We trust Postgres' wall-clock interpretation of `found_at`: the
-    // user records local timestamps, and the calendar-bucket queries
-    // elsewhere on this page (byHour, byMonthOfYear, …) already use
-    // the same naive treatment.
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('minute', found_at) AS bucket, COUNT(*) AS count
-      FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
-    `,
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('hour', found_at) AS bucket, COUNT(*) AS count
-      FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
-    `,
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('day', found_at) AS bucket, COUNT(*) AS count
-      FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
-    `,
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('week', found_at) AS bucket, COUNT(*) AS count
-      FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
-    `,
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('month', found_at) AS bucket, COUNT(*) AS count
-      FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
-    `,
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('year', found_at) AS bucket, COUNT(*) AS count
-      FROM finds WHERE found_at IS NOT NULL
-      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
-    `,
-
-    // Jubilee finds — every 1000th, three repunits (111, 1111, 11111),
-    // and the two devil-numbers (666, 6666). The `WHERE id IN (...)`
-    // filter against a primary key returns only existing rows, so any
-    // missing ID is silently skipped (the user fills gaps later as
-    // collection grows).
-    prisma.$queryRaw<
-      Array<{
-        id: number;
-        found_at: Date | null;
-        is_anonymized: boolean;
-        location_id: number | null;
-        location_code: string | null;
-        location_display_name: string | null;
-      }>
-    >`
-      SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
-             CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
-             CASE WHEN f.is_anonymized THEN NULL
-                  ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
-             END AS location_display_name
-      FROM finds f
-      LEFT JOIN locations l ON l.id = f.location_id
-      WHERE f.id IN (${Prisma.join(JUBILEE_CANDIDATE_IDS)})
-      ORDER BY f.id ASC
-    `,
   ]);
-
-  const t = totalsRow[0];
-  const totals: StatsTotals = {
-    finds: t ? Number(t.finds) : 0,
-    locations: t ? Number(t.locations) : 0,
-    photographed: t ? Number(t.photographed) : 0,
-    anonymized: t ? Number(t.anonymized) : 0,
-    donatedFinds: t ? Number(t.donated_finds) : 0,
-    lostFinds: t ? Number(t.lost_finds) : 0,
-    noPhotoFinds: t ? Number(t.no_photo_finds) : 0,
-    anonymizedLocations: t ? Number(t.anonymized_locations) : 0,
-    goneLocations: t ? Number(t.gone_locations) : 0,
-    firstYear: t?.first_year ?? null,
-    lastYear: t?.last_year ?? null,
-  };
-
-  const highlight = (row: HighlightRow | undefined): FindHighlight | null => {
-    if (!row) return null;
-    return {
-      id: row.id,
-      foundAt: row.found_at ? row.found_at.toISOString() : null,
-      isAnonymized: row.is_anonymized,
-      location:
-        !row.is_anonymized && row.location_id !== null && row.location_code
-          ? {
-              id: row.location_id,
-              code: row.location_code,
-              displayName: row.location_display_name ?? row.location_code,
-            }
-          : null,
-    };
-  };
-
-  const farthestRow = farthestFindRow[0];
-  const farthestBase =
-    farthestRow && farthestRow.dist_m !== null ? highlight(farthestRow) : null;
-  const farthestFind: FarthestFindHighlight | null =
-    farthestBase && farthestRow && farthestRow.dist_m !== null
-      ? { ...farthestBase, distanceMeters: Number(farthestRow.dist_m) }
-      : null;
-
   return {
-    totals,
-    firstFind: highlight(firstFindRow[0]),
-    lastFind: highlight(lastFindRow[0]),
-    farthestFind,
-    monthly: monthlyRows.map((r) => ({
-      month: r.month.toISOString().slice(0, 7),
-      count: Number(r.count),
-    })),
-    yearly: yearlyRows.map((r) => ({
-      year: r.year,
-      count: Number(r.count),
-    })),
     topLocations: topLocRows.map((r) => ({
       id: r.id,
       code: r.code,
@@ -730,19 +640,64 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       densityPer100m2: Number(r.density),
       isAnonymized: r.is_anonymized,
     })),
-    ...buildGeoBreakdowns(geoLocRows),
-    locationTypes: typeRows.map((r) => ({
-      name: r.type,
-      count: Number(r.count),
-    })),
-    states: stateRows.map((r) => ({
-      name: r.state,
-      count: Number(r.count),
-    })),
+  };
+}
+
+export async function getStatsGeo(): Promise<StatsGeoResult> {
+  const rows = await fetchGeoLocRows();
+  const { byCountry, byCity } = buildGeoBreakdowns(rows);
+  return { byCountry, byCity };
+}
+
+export async function getStatsCalendar(): Promise<StatsCalendarResult> {
+  // Calendar axes — ignore time zone offsets (use the find's local
+  // wall-clock the user recorded). Anonymization-stripped foundAt is
+  // fine because `is_anonymized` doesn't affect the timestamp.
+  const [yearlyRows, hourRows, dowRows, monthRows, monthDayRows, totalsRow] =
+    await Promise.all([
+      prisma.$queryRaw<Array<{ year: number; count: bigint }>>`
+        SELECT EXTRACT(YEAR FROM found_at)::int AS year, COUNT(*) AS count
+        FROM finds WHERE found_at IS NOT NULL
+        GROUP BY 1 ORDER BY 1
+      `,
+      prisma.$queryRaw<Array<{ hour: number; count: bigint }>>`
+        SELECT EXTRACT(HOUR FROM found_at)::int AS hour, COUNT(*) AS count
+        FROM finds WHERE found_at IS NOT NULL
+        GROUP BY 1 ORDER BY 1
+      `,
+      // Postgres DOW: 0=Sunday … 6=Saturday. Convert to ISO 1=Mon … 7=Sun
+      // so the result is naturally ordered for a Czech week.
+      prisma.$queryRaw<Array<{ dow: number; count: bigint }>>`
+        SELECT EXTRACT(ISODOW FROM found_at)::int AS dow, COUNT(*) AS count
+        FROM finds WHERE found_at IS NOT NULL
+        GROUP BY 1 ORDER BY 1
+      `,
+      prisma.$queryRaw<Array<{ month: number; count: bigint }>>`
+        SELECT EXTRACT(MONTH FROM found_at)::int AS month, COUNT(*) AS count
+        FROM finds WHERE found_at IS NOT NULL
+        GROUP BY 1 ORDER BY 1
+      `,
+      // Year-independent month×day heatmap. Returns sparse — only cells
+      // that have any finds; the page fills the rest with zeros.
+      prisma.$queryRaw<Array<{ month: number; day: number; count: bigint }>>`
+        SELECT EXTRACT(MONTH FROM found_at)::int AS month,
+               EXTRACT(DAY FROM found_at)::int AS day,
+               COUNT(*) AS count
+        FROM finds WHERE found_at IS NOT NULL
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+      `,
+      fetchTotalsRow(),
+    ]);
+  return {
     byHour: hourRows.map((r) => ({ key: r.hour, count: Number(r.count) })),
     byDayOfWeek: dowRows.map((r) => ({ key: r.dow, count: Number(r.count) })),
     byMonthOfYear: monthRows.map((r) => ({
       key: r.month,
+      count: Number(r.count),
+    })),
+    yearly: yearlyRows.map((r) => ({
+      year: r.year,
       count: Number(r.count),
     })),
     byMonthDay: monthDayRows.map((r) => ({
@@ -750,33 +705,71 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       day: r.day,
       count: Number(r.count),
     })),
-    byDistance: distanceRows.map((r) => ({
+    firstYear: totalsRow?.first_year ?? null,
+  };
+}
+
+export async function getStatsDistance(): Promise<StatsDistanceResult> {
+  // Decade-bucketed distance histogram from the default LocationMap.
+  // Anonymized finds and finds without GPS are excluded — same rule as
+  // the farthest-find query. Returns sparse (zero buckets are omitted);
+  // the page fills them with zeros for a stable axis.
+  const rows = await prisma.$queryRaw<
+    Array<{ bucket: number; count: bigint }>
+  >`
+    WITH ref AS (
+      SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
+      FROM location_maps
+      WHERE id = ${DEFAULT_LOCATION_ID}
+    ),
+    distances AS (
+      SELECT ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref)) AS dist_m
+      FROM finds f
+      WHERE f.is_anonymized = false
+        AND f.coordinates IS NOT NULL
+        AND (SELECT pt FROM ref) IS NOT NULL
+    )
+    SELECT
+      CASE
+        WHEN dist_m < 10        THEN 0
+        WHEN dist_m < 100       THEN 1
+        WHEN dist_m < 1000      THEN 2
+        WHEN dist_m < 10000     THEN 3
+        WHEN dist_m < 100000    THEN 4
+        WHEN dist_m < 1000000   THEN 5
+        WHEN dist_m < 10000000  THEN 6
+        ELSE                         7
+      END AS bucket,
+      COUNT(*) AS count
+    FROM distances
+    GROUP BY bucket
+    ORDER BY bucket
+  `;
+  return {
+    byDistance: rows.map((r) => ({
       bucket: r.bucket,
       count: Number(r.count),
     })),
-    peaks: {
-      minute: toPeakBucket(peakMinuteRow),
-      hour: toPeakBucket(peakHourRow),
-      day: toPeakBucket(peakDayRow),
-      week: toPeakBucket(peakWeekRow),
-      month: toPeakBucket(peakMonthRow),
-      year: toPeakBucket(peakYearRow),
-    },
-    jubilees: jubileeRows.map((r) => ({
-      id: r.id,
-      foundAt: r.found_at ? r.found_at.toISOString() : null,
-      isAnonymized: r.is_anonymized,
-      // location is always null for anonymized rows — the SQL CASE
-      // clause already redacts code/displayName, so this just normalises
-      // the shape downstream.
-      location:
-        !r.is_anonymized && r.location_id !== null && r.location_code
-          ? {
-              code: r.location_code,
-              displayName: r.location_display_name ?? r.location_code,
-            }
-          : null,
-    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Local helpers shared by multiple fetchers above.
+
+function toHighlight(row: HighlightRow | undefined): FindHighlight | null {
+  if (!row) return null;
+  return {
+    id: row.id,
+    foundAt: row.found_at ? row.found_at.toISOString() : null,
+    isAnonymized: row.is_anonymized,
+    location:
+      !row.is_anonymized && row.location_id !== null && row.location_code
+        ? {
+            id: row.location_id,
+            code: row.location_code,
+            displayName: row.location_display_name ?? row.location_code,
+          }
+        : null,
   };
 }
 
@@ -793,17 +786,11 @@ function toPeakBucket(
 }
 
 /** Splits the per-location aggregate into the three geo breakdowns the
- *  stats page needs. Pulled out so `getCollectionStats`'s `return` block
- *  stays a flat shape literal. */
+ *  stats page needs. `getStatsTotals` reads cityCount/countryCount;
+ *  `getStatsGeo` reads byCountry/byCity. Both share the cached
+ *  `fetchGeoLocRows()` so the heavy LEFT JOIN runs once per request. */
 function buildGeoBreakdowns(
-  rows: ReadonlyArray<{
-    id: number;
-    code: string;
-    cadastral: string;
-    lat: number | null;
-    lng: number | null;
-    count: bigint;
-  }>,
+  rows: ReadonlyArray<GeoLocRow>,
 ): {
   byCountry: CountryPoint[];
   byCity: CategoryPoint[];

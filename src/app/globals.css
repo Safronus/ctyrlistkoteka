@@ -192,6 +192,17 @@
   }
 }
 
+/* Tailwind's `animate-pulse` doesn't auto-disable on
+   `prefers-reduced-motion`. Skeletons (and any other pulse-driven
+   placeholder) still need to read as a placeholder without the fade
+   animation, so freeze them at full opacity for users who opt out of
+   motion. Top-level rule, applies in every theme. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse {
+    animation: none;
+  }
+}
+
 html,
 body {
   height: 100%;

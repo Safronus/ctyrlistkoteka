@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -25,7 +26,14 @@ import {
   formatTimeSinceCs,
 } from "@/lib/format";
 import {
-  getCollectionStats,
+  getStatsCalendar,
+  getStatsDistance,
+  getStatsGeo,
+  getStatsHighlights,
+  getStatsJubilees,
+  getStatsPeaks,
+  getStatsTopLocations,
+  getStatsTotals,
   type CalendarPoint,
   type CategoryPoint,
   type CountryPoint,
@@ -38,6 +46,16 @@ import {
 } from "@/lib/queries/stats";
 import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
 import { TopLocationsCard } from "@/components/stats/top-locations-card";
+import {
+  CalendarSkeleton,
+  DistanceSkeleton,
+  GeoSkeleton,
+  HighlightsSkeleton,
+  JubileesSkeleton,
+  PeaksSkeleton,
+  TopLocationsSkeleton,
+  TotalsSkeleton,
+} from "@/components/stats/skeletons";
 
 export const metadata: Metadata = {
   title: "Statistiky",
@@ -47,11 +65,19 @@ export const metadata: Metadata = {
 // Matches STATS_REVALIDATE in src/lib/constants.ts (6 hours).
 export const revalidate = 21600;
 
-export default async function StatistikyPage() {
-  const stats = await getCollectionStats();
-  const { totals, firstFind, lastFind, farthestFind, topLocations, topLocationsByDensity } = stats;
-  const fmt = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 });
-
+/**
+ * /statistiky renders eight independent sections; each one fetches its
+ * own data and is wrapped in a `<Suspense>` boundary so the page
+ * streams sections in as they finish instead of blocking on the slowest
+ * SQL query. The order is identical to the pre-streaming layout —
+ * Totals → Highlights → Peaks → Jubilees → TopLocations → Geo →
+ * Calendar → Distance — but visually the user now sees a header +
+ * skeletons immediately and watches the cards fill in over the next
+ * couple of seconds, instead of staring at a blank page for the full
+ * cold-cache duration. ISR (`revalidate = 21600`) still caches the
+ * fully-streamed output for warm-cache visitors.
+ */
+export default function StatistikyPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <header>
@@ -59,110 +85,166 @@ export default async function StatistikyPage() {
         <p className="mt-2 text-gray-600">Souhrn sbírky.</p>
       </header>
 
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <TotalCard
-          label="nálezů"
-          value={fmt.format(totals.finds)}
-          subStats={[
-            {
-              icon: Gift,
-              label: "darováno",
-              value: fmt.format(totals.donatedFinds),
-            },
-            {
-              icon: Search,
-              label: "ztracených",
-              value: fmt.format(totals.lostFinds),
-            },
-            {
-              icon: ImageOff,
-              label: "bez fotky",
-              value: fmt.format(totals.noPhotoFinds),
-            },
-            {
-              icon: EyeOff,
-              label: "anonymizovaných",
-              value: fmt.format(totals.anonymized),
-            },
-          ]}
-        />
-        <TotalCard
-          label="lokalit"
-          value={fmt.format(totals.locations)}
-          cornerLeft={{
-            icon: Globe2,
-            label: "států",
-            value: fmt.format(stats.countryCount),
-          }}
-          cornerRight={{
-            icon: Building2,
-            label: "měst",
-            value: fmt.format(stats.cityCount),
-          }}
-          subStats={[
-            {
-              icon: EyeOff,
-              label: "anonymizovaných",
-              value: fmt.format(totals.anonymizedLocations),
-            },
-            {
-              icon: MapPinOff,
-              label: "zaniklých",
-              value: fmt.format(totals.goneLocations),
-            },
-          ]}
-        />
-      </section>
-
-      {(firstFind || lastFind || farthestFind) && (
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {firstFind && <FindHighlightCard label="První nález" find={firstFind} />}
-          {lastFind && lastFind.id !== firstFind?.id && (
-            <FindHighlightCard label="Poslední nález" find={lastFind} />
-          )}
-          {farthestFind &&
-            farthestFind.id !== firstFind?.id &&
-            farthestFind.id !== lastFind?.id && (
-              <FindHighlightCard
-                label="Nejvzdálenější nález"
-                find={farthestFind}
-                distanceMeters={farthestFind.distanceMeters}
-              />
-            )}
-        </section>
-      )}
-
-      <PeakBucketsSection peaks={stats.peaks} />
-
-      <JubileeFindsSection jubilees={stats.jubilees} />
-
-
-      {topLocations.length > 0 && (
-        <TopLocationsCard
-          byCount={topLocations}
-          byDensity={topLocationsByDensity}
-        />
-      )}
-
-      <GeoStatsSection
-        byCountry={stats.byCountry}
-        byCity={stats.byCity}
-      />
-
-      <CalendarStatsSection
-        byHour={stats.byHour}
-        byDayOfWeek={stats.byDayOfWeek}
-        byMonthOfYear={stats.byMonthOfYear}
-        yearly={stats.yearly}
-        firstYear={stats.totals.firstYear}
-        byMonthDay={stats.byMonthDay}
-      />
-
-      {stats.byDistance.length > 0 && (
-        <DistanceStatsSection byDistance={stats.byDistance} />
-      )}
+      <Suspense fallback={<TotalsSkeleton />}>
+        <TotalsSection />
+      </Suspense>
+      <Suspense fallback={<HighlightsSkeleton />}>
+        <HighlightsSection />
+      </Suspense>
+      <Suspense fallback={<PeaksSkeleton />}>
+        <PeaksSection />
+      </Suspense>
+      <Suspense fallback={<JubileesSkeleton />}>
+        <JubileesSection />
+      </Suspense>
+      <Suspense fallback={<TopLocationsSkeleton />}>
+        <TopLocationsSection />
+      </Suspense>
+      <Suspense fallback={<GeoSkeleton />}>
+        <GeoSection />
+      </Suspense>
+      <Suspense fallback={<CalendarSkeleton />}>
+        <CalendarSection />
+      </Suspense>
+      <Suspense fallback={<DistanceSkeleton />}>
+        <DistanceSection />
+      </Suspense>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Async section wrappers — each one calls its own fetcher and renders
+// the existing presentational component(s). Suspense unwraps the
+// promise to show the skeleton while the fetcher is in flight.
+
+async function TotalsSection() {
+  const { totals, countryCount, cityCount } = await getStatsTotals();
+  const fmt = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 });
+  return (
+    <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <TotalCard
+        label="nálezů"
+        value={fmt.format(totals.finds)}
+        subStats={[
+          {
+            icon: Gift,
+            label: "darováno",
+            value: fmt.format(totals.donatedFinds),
+          },
+          {
+            icon: Search,
+            label: "ztracených",
+            value: fmt.format(totals.lostFinds),
+          },
+          {
+            icon: ImageOff,
+            label: "bez fotky",
+            value: fmt.format(totals.noPhotoFinds),
+          },
+          {
+            icon: EyeOff,
+            label: "anonymizovaných",
+            value: fmt.format(totals.anonymized),
+          },
+        ]}
+      />
+      <TotalCard
+        label="lokalit"
+        value={fmt.format(totals.locations)}
+        cornerLeft={{
+          icon: Globe2,
+          label: "států",
+          value: fmt.format(countryCount),
+        }}
+        cornerRight={{
+          icon: Building2,
+          label: "měst",
+          value: fmt.format(cityCount),
+        }}
+        subStats={[
+          {
+            icon: EyeOff,
+            label: "anonymizovaných",
+            value: fmt.format(totals.anonymizedLocations),
+          },
+          {
+            icon: MapPinOff,
+            label: "zaniklých",
+            value: fmt.format(totals.goneLocations),
+          },
+        ]}
+      />
+    </section>
+  );
+}
+
+async function HighlightsSection() {
+  const { firstFind, lastFind, farthestFind } = await getStatsHighlights();
+  if (!firstFind && !lastFind && !farthestFind) return null;
+  return (
+    <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {firstFind && <FindHighlightCard label="První nález" find={firstFind} />}
+      {lastFind && lastFind.id !== firstFind?.id && (
+        <FindHighlightCard label="Poslední nález" find={lastFind} />
+      )}
+      {farthestFind &&
+        farthestFind.id !== firstFind?.id &&
+        farthestFind.id !== lastFind?.id && (
+          <FindHighlightCard
+            label="Nejvzdálenější nález"
+            find={farthestFind}
+            distanceMeters={farthestFind.distanceMeters}
+          />
+        )}
+    </section>
+  );
+}
+
+async function PeaksSection() {
+  const peaks = await getStatsPeaks();
+  return <PeakBucketsSection peaks={peaks} />;
+}
+
+async function JubileesSection() {
+  const { jubilees } = await getStatsJubilees();
+  return <JubileeFindsSection jubilees={jubilees} />;
+}
+
+async function TopLocationsSection() {
+  const { topLocations, topLocationsByDensity } = await getStatsTopLocations();
+  if (topLocations.length === 0) return null;
+  return (
+    <TopLocationsCard
+      byCount={topLocations}
+      byDensity={topLocationsByDensity}
+    />
+  );
+}
+
+async function GeoSection() {
+  const { byCountry, byCity } = await getStatsGeo();
+  return <GeoStatsSection byCountry={byCountry} byCity={byCity} />;
+}
+
+async function CalendarSection() {
+  const data = await getStatsCalendar();
+  return (
+    <CalendarStatsSection
+      byHour={data.byHour}
+      byDayOfWeek={data.byDayOfWeek}
+      byMonthOfYear={data.byMonthOfYear}
+      yearly={data.yearly}
+      firstYear={data.firstYear}
+      byMonthDay={data.byMonthDay}
+    />
+  );
+}
+
+async function DistanceSection() {
+  const { byDistance } = await getStatsDistance();
+  if (byDistance.length === 0) return null;
+  return <DistanceStatsSection byDistance={byDistance} />;
 }
 
 // ---------------------------------------------------------------------------
