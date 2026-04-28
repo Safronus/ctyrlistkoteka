@@ -41,6 +41,10 @@ test-results/
 *.swp
 .DS_Store
 
+# Claude Code — per-machine local permissions / settings (obsahují
+# absolutní cesty k profilu uživatele, není to citlivé, ale ani sdílené).
+.claude/settings.local.json
+
 # Prisma generated
 prisma/generated/
 
