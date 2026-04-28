@@ -59,7 +59,7 @@ export default async function HomePage() {
             width={1024}
             height={1024}
             priority
-            className="h-28 w-28 shrink-0 sm:h-32 sm:w-32"
+            className="h-28 w-28 shrink-0 sm:h-32 sm:w-32 lg:-mr-2"
           />
           <CloverFactCard />
           {watermark ? (
@@ -124,7 +124,7 @@ export default async function HomePage() {
 
       <DonatedShowcase count={totals.donated} />
 
-      <section className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <NavCard
           href="/sbirka"
           title="Sbírka"
@@ -232,7 +232,7 @@ function DonatedShowcase({ count }: { count: number }) {
       <svg
         viewBox="0 0 600 110"
         preserveAspectRatio="xMidYMid meet"
-        className="mx-auto mt-4 h-28 w-full max-w-2xl sm:h-32"
+        className="mx-auto mt-1.5 h-28 w-full max-w-2xl sm:h-32"
         aria-hidden
       >
         {/* Static cluster — the "collection" anchor. Six overlapping
