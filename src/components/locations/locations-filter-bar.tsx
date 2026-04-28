@@ -2,20 +2,47 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
+import {
+  ArrowDownAZ,
+  ArrowDownNarrowWide,
+  Compass,
+  Globe,
+  Hash,
+} from "lucide-react";
 import type { LocationSort } from "@/lib/queries/locations";
 
 const INPUT_CLS =
   "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
 
-// Order matters — first entry is the dropdown's default visible option.
-// Mirrors the server default in parseSort/listLocations ("finds").
-const SORT_LABELS: Record<LocationSort, string> = {
-  finds: "Podle počtu nálezů",
-  id: "Podle ID",
-  code: "Abecedně",
-  "dist-asc": "Od nejbližší (MAP 00001)",
-  "dist-desc": "Od nejvzdálenější (MAP 00001)",
-};
+// Order matches the segmented control left→right. `finds` is also the
+// server default in parseSort/listLocations.
+const SORT_OPTIONS: ReadonlyArray<{
+  value: LocationSort;
+  label: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    value: "finds",
+    label: "Nejvíce nálezů",
+    icon: <ArrowDownNarrowWide className="h-4 w-4" />,
+  },
+  { value: "id", label: "Podle ID", icon: <Hash className="h-4 w-4" /> },
+  {
+    value: "code",
+    label: "Abecedně",
+    icon: <ArrowDownAZ className="h-4 w-4" />,
+  },
+  {
+    value: "dist-asc",
+    label: "Nejbližší",
+    icon: <Compass className="h-4 w-4" />,
+  },
+  {
+    value: "dist-desc",
+    label: "Nejvzdálenější",
+    icon: <Globe className="h-4 w-4" />,
+  },
+];
 
 export function LocationsFilterBar({
   cities,
@@ -67,7 +94,7 @@ export function LocationsFilterBar({
         isPending ? "opacity-60" : ""
       }`}
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">
             Hledat
@@ -110,25 +137,41 @@ export function LocationsFilterBar({
             ))}
           </select>
         </label>
+      </div>
 
-        <label>
-          <span className="mb-1 block text-xs font-medium text-gray-700">
-            Řazení
-          </span>
-          <select
-            value={current.sort}
-            onChange={(e) =>
-              update("sort", e.currentTarget.value === "finds" ? "" : e.currentTarget.value)
-            }
-            className={`${INPUT_CLS} w-full`}
-          >
-            {(Object.keys(SORT_LABELS) as LocationSort[]).map((s) => (
-              <option key={s} value={s}>
-                {SORT_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="mt-3">
+        <span className="mb-1 block text-xs font-medium text-gray-700">
+          Řazení
+        </span>
+        <div
+          role="group"
+          aria-label="Řazení"
+          className="inline-flex max-w-full overflow-x-auto rounded-md border border-gray-300 bg-white"
+        >
+          {SORT_OPTIONS.map((opt, i) => {
+            const active = opt.value === current.sort;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() =>
+                  update("sort", opt.value === "finds" ? "" : opt.value)
+                }
+                aria-pressed={active}
+                className={`flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-sm transition ${
+                  i > 0 ? "border-l border-gray-300" : ""
+                } ${
+                  active
+                    ? "bg-brand-600 text-white"
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {opt.icon}
+                <span>{opt.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-gray-700">
