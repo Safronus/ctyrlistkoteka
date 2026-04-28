@@ -92,7 +92,7 @@ export default async function HomePage() {
                 src={watermark.src}
                 alt=""
                 aria-hidden
-                className="theme-invertible absolute -bottom-4 -left-4 z-10 h-14 w-14 rotate-[15deg] object-contain opacity-70 lg:hidden"
+                className="theme-invertible absolute -bottom-7 -left-4 z-10 h-14 w-14 rotate-[15deg] object-contain opacity-70 lg:hidden"
               />
             )}
           </div>

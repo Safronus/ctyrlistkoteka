@@ -86,11 +86,11 @@ export default function RootLayout({
                 <Linkedin className="h-4 w-4" aria-hidden />
               </a>
               <a
-                href="https://github.com/Safronus"
+                href="https://github.com/Safronus/ctyrlistkoteka"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="GitHub profil autora"
-                title="GitHub"
+                aria-label="Zdrojový kód aplikace na GitHubu"
+                title="Zdrojový kód na GitHubu"
                 className="rounded p-1 text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
               >
                 <Github className="h-4 w-4" aria-hidden />
