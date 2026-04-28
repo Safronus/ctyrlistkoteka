@@ -2,12 +2,14 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { ChevronDown } from "lucide-react";
 import type { FilterOptions } from "@/lib/queries/finds";
 import { STATE_LABELS } from "@/lib/stateLabels";
 import type { FindState } from "@prisma/client";
 
 const INPUT_CLS =
-  "rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
+  "h-10 rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
+const SELECT_CLS = `${INPUT_CLS} cursor-pointer appearance-none pr-10`;
 
 export function FilterBar({
   options,
@@ -100,54 +102,72 @@ export function FilterBar({
           <span className="mb-1 block text-xs font-medium text-gray-700">
             Lokalita
           </span>
-          <select
-            value={current.locationId}
-            onChange={(e) => update("loc", e.currentTarget.value)}
-            className={`${INPUT_CLS} w-full`}
-          >
-            <option value="">Všechny</option>
-            {options.locations.map((l) => (
-              <option key={l.id} value={String(l.id)}>
-                {l.label}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={current.locationId}
+              onChange={(e) => update("loc", e.currentTarget.value)}
+              className={`${SELECT_CLS} w-full`}
+            >
+              <option value="">Všechny</option>
+              {options.locations.map((l) => (
+                <option key={l.id} value={String(l.id)}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              aria-hidden
+            />
+          </div>
         </label>
 
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">
             Stav
           </span>
-          <select
-            value={current.state}
-            onChange={(e) => update("state", e.currentTarget.value)}
-            className={`${INPUT_CLS} w-full`}
-          >
-            <option value="">Všechny</option>
-            {options.states.map((s) => (
-              <option key={s} value={s}>
-                {STATE_LABELS[s as FindState]}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={current.state}
+              onChange={(e) => update("state", e.currentTarget.value)}
+              className={`${SELECT_CLS} w-full`}
+            >
+              <option value="">Všechny</option>
+              {options.states.map((s) => (
+                <option key={s} value={s}>
+                  {STATE_LABELS[s as FindState]}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              aria-hidden
+            />
+          </div>
         </label>
 
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">
             Rok
           </span>
-          <select
-            value={current.year}
-            onChange={(e) => update("year", e.currentTarget.value)}
-            className={`${INPUT_CLS} w-full`}
-          >
-            <option value="">Vše</option>
-            {options.years.map((y) => (
-              <option key={y} value={String(y)}>
-                {y}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={current.year}
+              onChange={(e) => update("year", e.currentTarget.value)}
+              className={`${SELECT_CLS} w-full`}
+            >
+              <option value="">Vše</option>
+              {options.years.map((y) => (
+                <option key={y} value={String(y)}>
+                  {y}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              aria-hidden
+            />
+          </div>
         </label>
       </div>
 

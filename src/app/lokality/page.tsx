@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LocationsFilterBar } from "@/components/locations/locations-filter-bar";
+import { LocationsToolbar } from "@/components/locations/locations-toolbar";
 import { LocationListRow } from "@/components/locations/location-list-row";
 import {
   listCadastralAreas,
@@ -70,9 +71,20 @@ export default async function LokalityPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      <LocationsFilterBar
-        cities={cities}
-        current={{ q, city, sort, showAnonymized, showGone }}
+      <LocationsFilterBar cities={cities} current={{ q, city }} />
+
+      <LocationsToolbar
+        current={{
+          sort,
+          showAnonymized,
+          showGone,
+          hasFilters:
+            !!q ||
+            !!city ||
+            sort !== "finds" ||
+            showAnonymized ||
+            showGone,
+        }}
       />
 
       {locations.length === 0 ? (
