@@ -130,21 +130,17 @@ function CountList({ rows }: { rows: readonly LocationPoint[] }) {
   return (
     <ol className="space-y-2">
       {rows.map((r, i) => (
-        <li
+        <Row
           key={r.id}
-          className="flex items-center gap-3 rounded-md border border-gray-100 bg-gray-50 p-3"
-        >
-          <Rank n={i + 1} />
-          <div className="min-w-0 flex-1">
-            <Identity id={r.id} code={r.code} name={r.name} />
-            <Bar
-              value={r.count}
-              max={max}
-              valueLabel={r.count.toLocaleString("cs-CZ")}
-            />
-          </div>
-          <MapButton id={r.id} />
-        </li>
+          rank={i + 1}
+          id={r.id}
+          code={r.code}
+          name={r.name}
+          isAnonymized={false}
+          value={r.count}
+          max={max}
+          valueLabel={r.count.toLocaleString("cs-CZ")}
+        />
       ))}
     </ol>
   );
@@ -155,32 +151,82 @@ function DensityList({ rows }: { rows: readonly LocationDensityPoint[] }) {
   return (
     <ol className="space-y-2">
       {rows.map((r, i) => (
-        <li
+        <Row
           key={r.id}
-          className="flex items-center gap-3 rounded-md border border-gray-100 bg-gray-50 p-3"
-        >
-          <Rank n={i + 1} />
-          <div className="min-w-0 flex-1">
-            <Identity
-              id={r.id}
-              code={r.code}
-              name={r.name}
-              isAnonymized={r.isAnonymized}
-            />
-            <p className="mt-0.5 text-[11px] text-gray-500">
-              {r.count.toLocaleString("cs-CZ")} čtyřlístků ·{" "}
-              {formatAreaM2(r.areaM2)}
-            </p>
-            <Bar
-              value={r.densityPer100m2}
-              max={max}
-              valueLabel={formatDensityPer100m2(r.densityPer100m2)}
-            />
-          </div>
-          {!r.isAnonymized && <MapButton id={r.id} />}
-        </li>
+          rank={i + 1}
+          id={r.id}
+          code={r.code}
+          name={r.name}
+          isAnonymized={r.isAnonymized}
+          value={r.densityPer100m2}
+          max={max}
+          valueLabel={formatDensityPer100m2(r.densityPer100m2)}
+          suffix={`${r.count.toLocaleString("cs-CZ")} čtyřlístků · ${formatAreaM2(r.areaM2)}`}
+        />
       ))}
     </ol>
+  );
+}
+
+/**
+ * One row of either leaderboard. Layout is a top header strip (rank +
+ * identity on the left, map button pinned to the top-right corner)
+ * with the bar drawn full-width below — that keeps the bar's value
+ * label out of the same column as the map button so labels like
+ * "15,2 / 100 m²" no longer wrap onto a second line. The optional
+ * `suffix` is appended to the second line in parentheses after the
+ * location's own name; when no name is shown, it stands alone. Used
+ * by the density list to fold the previous "count · area" third line
+ * into the row, so density rows match the count rows in height.
+ */
+function Row({
+  rank,
+  id,
+  code,
+  name,
+  isAnonymized,
+  value,
+  max,
+  valueLabel,
+  suffix,
+}: {
+  rank: number;
+  id: number;
+  code: string | null;
+  name: string | null;
+  isAnonymized: boolean;
+  value: number;
+  max: number;
+  valueLabel: string;
+  suffix?: string;
+}) {
+  const nameVisible =
+    !isAnonymized && !!name && !!code && name !== code;
+  const showSecondLine = nameVisible || !!suffix;
+  return (
+    <li className="space-y-2 rounded-md border border-gray-100 bg-gray-50 p-3">
+      <div className="flex items-start gap-3">
+        <Rank n={rank} />
+        <div className="min-w-0 flex-1">
+          <Identity
+            id={id}
+            code={code}
+            isAnonymized={isAnonymized}
+          />
+          {showSecondLine && (
+            <p className="mt-0.5 truncate text-xs text-gray-500">
+              {nameVisible && <span title={name ?? undefined}>{name}</span>}
+              {nameVisible && suffix && " "}
+              {suffix && (
+                <span>{nameVisible ? `(${suffix})` : suffix}</span>
+              )}
+            </p>
+          )}
+        </div>
+        {!isAnonymized && <MapButton id={id} />}
+      </div>
+      <Bar value={value} max={max} valueLabel={valueLabel} />
+    </li>
   );
 }
 
@@ -195,13 +241,11 @@ function Rank({ n }: { n: number }) {
 function Identity({
   id,
   code,
-  name,
-  isAnonymized = false,
+  isAnonymized,
 }: {
   id: number;
   code: string | null;
-  name: string | null;
-  isAnonymized?: boolean;
+  isAnonymized: boolean;
 }) {
   if (isAnonymized) {
     return (
@@ -217,21 +261,14 @@ function Identity({
     );
   }
   return (
-    <>
-      <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className="font-mono text-xs text-gray-500">
-          {formatLocationId(id)}
-        </span>
-        <span className="truncate text-sm font-semibold text-gray-900">
-          {code ?? ""}
-        </span>
-      </div>
-      {name && code && name !== code && (
-        <p className="truncate text-xs text-gray-500" title={name}>
-          {name}
-        </p>
-      )}
-    </>
+    <div className="flex flex-wrap items-baseline gap-x-2">
+      <span className="font-mono text-xs text-gray-500">
+        {formatLocationId(id)}
+      </span>
+      <span className="truncate text-sm font-semibold text-gray-900">
+        {code ?? ""}
+      </span>
+    </div>
   );
 }
 
@@ -245,14 +282,14 @@ function Bar({
   valueLabel: string;
 }) {
   return (
-    <div className="mt-1 flex items-center gap-2">
+    <div className="flex items-center gap-2">
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
         <div
           className="h-full rounded-full bg-brand-500"
           style={{ width: max > 0 ? `${(value / max) * 100}%` : "0%" }}
         />
       </div>
-      <span className="w-24 shrink-0 text-right font-mono text-xs tabular-nums text-gray-600">
+      <span className="shrink-0 whitespace-nowrap font-mono text-xs tabular-nums text-gray-600">
         {valueLabel}
       </span>
     </div>
