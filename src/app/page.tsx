@@ -52,10 +52,10 @@ export default async function HomePage() {
         </h1>
 
         <div className="mt-6 flex flex-col items-center justify-center gap-4 sm:gap-5 lg:flex-row">
-          {/* Standalone clover — sm+ only. On phone-narrow viewports we
-              switch to a tiny decorative overlay on the card itself
-              (see below) instead of stacking a full-size icon above the
-              card, which made the page feel needlessly tall. */}
+          {/* Standalone clover — lg+ only (full horizontal trio). Below
+              lg we switch to compact decorative overlays directly on
+              the card so the page doesn't pad out vertically with two
+              extra full-size icons. */}
           <Image
             src="/clover.png"
             alt=""
@@ -63,13 +63,13 @@ export default async function HomePage() {
             width={1024}
             height={1024}
             priority
-            className="hidden shrink-0 sm:block sm:h-32 sm:w-32 lg:-mr-2"
+            className="hidden shrink-0 lg:-mr-2 lg:block lg:h-32 lg:w-32"
           />
-          {/* Card + phone-only decorative overlays. The wrapper is
-              `relative` so the overlays anchor to the card; on sm+ the
-              overlays are hidden via `sm:hidden` and the standalone
-              icons take over. Both phone overlays use the same h-14
-              square so they read as a balanced pair flanking the card. */}
+          {/* Card + below-lg decorative overlays. The wrapper is
+              `relative` so the overlays anchor to the card; on lg+
+              `lg:hidden` removes them and the standalone icons take
+              over. Both overlays use the same h-14 square so they
+              read as a balanced pair on the card. */}
           <div className="relative">
             <CloverFactCard />
             <Image
@@ -79,15 +79,19 @@ export default async function HomePage() {
               width={1024}
               height={1024}
               priority
-              className="absolute -left-4 -top-4 z-10 h-14 w-14 -rotate-12 sm:hidden"
+              className="absolute -left-4 -top-4 z-10 h-14 w-14 -rotate-12 lg:hidden"
             />
             {watermark && (
+              // The watermark sits along the bottom edge between the
+              // centred countdown line and the right-corner #ID stamp,
+              // not at the corner — putting it at -right-4 overlapped
+              // the rotated #ID glyphs.
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={watermark.src}
                 alt=""
                 aria-hidden
-                className="theme-invertible absolute -bottom-4 -right-4 z-10 h-14 w-14 rotate-[15deg] object-contain opacity-70 sm:hidden"
+                className="theme-invertible absolute -bottom-3 right-16 z-10 h-14 w-14 rotate-[15deg] object-contain opacity-70 lg:hidden"
               />
             )}
           </div>
@@ -102,7 +106,7 @@ export default async function HomePage() {
               aria-hidden
               width={watermark.width}
               height={watermark.height}
-              className="theme-invertible hidden w-auto shrink-0 rotate-[15deg] opacity-70 sm:block sm:h-32"
+              className="theme-invertible hidden w-auto shrink-0 rotate-[15deg] opacity-70 lg:block lg:h-32"
             />
           ) : (
             // Reserve symmetry on lg even when the watermark file isn't
