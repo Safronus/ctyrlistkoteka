@@ -10,6 +10,7 @@
 import { FindState, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_LOCATION_ID } from "@/lib/constants";
+import { countryFromCoords } from "@/lib/geo";
 import { isFormerLocation } from "@/lib/locationCode";
 import { paddedIdMatches, parseIdQuery } from "@/lib/search";
 
@@ -97,6 +98,12 @@ export interface LocationListItem {
 export interface LocationFilter {
   q?: string;
   cadastralArea?: string;
+  /** ISO 3166-1 numeric code (string), as produced by `countryFromCoords`.
+   *  Filters the result to locations whose center point falls inside that
+   *  country's polygon. Anonymized locations have no public coordinates,
+   *  so they're dropped under any country filter regardless of their
+   *  actual position. */
+  country?: string;
   sort?: LocationSort;
   /** When false, locations whose every map is anonymized are dropped from
    *  the result. Default is `false` (hidden). */
@@ -115,6 +122,47 @@ export async function listCadastralAreas(): Promise<string[]> {
     orderBy: { cadastralArea: "asc" },
   });
   return rows.map((r) => r.cadastralArea).filter((v) => v.length > 0);
+}
+
+/** Distinct countries hosting at least one non-anonymized location with
+ *  a recorded center point, derived via `countryFromCoords`. Sorted by
+ *  Czech-collated name for the country dropdown. Anonymized locations
+ *  are excluded — listing a country that's only inhabited by a private
+ *  location would leak its rough position. */
+export async function listCountries(): Promise<
+  Array<{ code: string; name: string }>
+> {
+  const maps = await prisma.locationMap.findMany({
+    select: { locationId: true, isAnonymized: true },
+  });
+  const anonIds = new Set<number>();
+  for (const m of maps) {
+    if (m.isAnonymized) anonIds.add(m.locationId);
+  }
+
+  const rows = await prisma.$queryRaw<
+    Array<{ id: number; lat: number; lng: number }>
+  >`
+    SELECT id,
+           ST_Y(center_point)::float8 AS lat,
+           ST_X(center_point)::float8 AS lng
+    FROM "locations"
+    WHERE center_point IS NOT NULL
+  `;
+
+  const byCode = new Map<string, string>();
+  for (const r of rows) {
+    if (anonIds.has(r.id)) continue;
+    const country = countryFromCoords(r.lat, r.lng);
+    // Skip the "Jinde" sentinel — there's nothing useful to filter by
+    // when the polygon dataset can't place the point in any country.
+    if (country.code === "??") continue;
+    byCode.set(country.code, country.name);
+  }
+
+  return [...byCode.entries()]
+    .map(([code, name]) => ({ code, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "cs"));
 }
 
 const EMPTY_STATS: LocationStats = {
@@ -408,6 +456,19 @@ export async function listLocations(
   }
   if (filter.showGone !== true) {
     items = items.filter((it) => !it.isGone);
+  }
+  // Country filter runs against the same point-in-polygon check that
+  // /statistiky uses for its breakdown, so the dropdown's options match
+  // the row outcomes. Locations without public coordinates (anonymized
+  // or center missing) drop out — they can't be confirmed to belong.
+  if (filter.country) {
+    items = items.filter((it) => {
+      if (!it.coordinates) return false;
+      return (
+        countryFromCoords(it.coordinates.lat, it.coordinates.lng).code ===
+        filter.country
+      );
+    });
   }
 
   // ------------------------------------------------------------ hierarchy aggregates

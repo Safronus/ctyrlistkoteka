@@ -10,10 +10,12 @@ const SELECT_CLS = `${INPUT_CLS} cursor-pointer appearance-none pr-10`;
 
 export function LocationsFilterBar({
   cities,
+  countries,
   current,
 }: {
   cities: readonly string[];
-  current: { q: string; city: string };
+  countries: ReadonlyArray<{ code: string; name: string }>;
+  current: { q: string; city: string; country: string };
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -35,8 +37,8 @@ export function LocationsFilterBar({
         isPending ? "opacity-60" : ""
       }`}
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="sm:col-span-2 lg:col-span-2">
           <span className="mb-1 block text-xs font-medium text-gray-700">
             Hledat
           </span>
@@ -59,6 +61,30 @@ export function LocationsFilterBar({
               )._t = setTimeout(() => update("q", v), 250);
             }}
           />
+        </label>
+
+        <label>
+          <span className="mb-1 block text-xs font-medium text-gray-700">
+            Stát
+          </span>
+          <div className="relative">
+            <select
+              value={current.country}
+              onChange={(e) => update("country", e.currentTarget.value)}
+              className={`${SELECT_CLS} w-full`}
+            >
+              <option value="">Všechny</option>
+              {countries.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              aria-hidden
+            />
+          </div>
         </label>
 
         <label>

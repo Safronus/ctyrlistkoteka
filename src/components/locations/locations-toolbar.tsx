@@ -110,7 +110,7 @@ export function LocationsToolbar({
       <div
         role="group"
         aria-label="Řazení"
-        className="inline-flex max-w-full overflow-x-auto rounded-md border border-gray-300 bg-white"
+        className="inline-flex h-9 max-w-full overflow-x-auto rounded-md border border-gray-300 bg-white"
       >
         {SORT_OPTIONS.map((opt, i) => {
           const active = opt.value === current.sort;
@@ -122,7 +122,7 @@ export function LocationsToolbar({
                 update("sort", opt.value === "finds" ? "" : opt.value)
               }
               aria-pressed={active}
-              className={`flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-sm transition ${
+              className={`flex shrink-0 items-center gap-1.5 px-3 text-sm transition ${
                 i > 0 ? "border-l border-gray-300" : ""
               } ${
                 active
@@ -156,7 +156,7 @@ function ToggleButton({
       type="button"
       onClick={onClick}
       aria-pressed={pressed}
-      className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition ${
+      className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition ${
         pressed
           ? "border-brand-600 bg-brand-600 text-white shadow-sm"
           : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"

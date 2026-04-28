@@ -4,6 +4,7 @@ import { LocationsToolbar } from "@/components/locations/locations-toolbar";
 import { LocationListRow } from "@/components/locations/location-list-row";
 import {
   listCadastralAreas,
+  listCountries,
   listLocations,
   type LocationSort,
 } from "@/lib/queries/locations";
@@ -45,16 +46,19 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const q = pickString(sp.q) ?? "";
   const city = pickString(sp.city) ?? "";
+  const country = pickString(sp.country) ?? "";
   const sort = parseSort(pickString(sp.sort));
   // Both visibility toggles are opt-in — empty/absent means hidden.
   const showAnonymized = pickString(sp.showAnon) === "1";
   const showGone = pickString(sp.showGone) === "1";
 
-  const [cities, locations] = await Promise.all([
+  const [cities, countries, locations] = await Promise.all([
     listCadastralAreas(),
+    listCountries(),
     listLocations({
       q: q || undefined,
       cadastralArea: city || undefined,
+      country: country || undefined,
       sort,
       showAnonymized,
       showGone,
@@ -71,7 +75,11 @@ export default async function LokalityPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      <LocationsFilterBar cities={cities} current={{ q, city }} />
+      <LocationsFilterBar
+        cities={cities}
+        countries={countries}
+        current={{ q, city, country }}
+      />
 
       <LocationsToolbar
         current={{
@@ -81,6 +89,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
           hasFilters:
             !!q ||
             !!city ||
+            !!country ||
             sort !== "finds" ||
             showAnonymized ||
             showGone,
