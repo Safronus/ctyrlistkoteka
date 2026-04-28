@@ -82,16 +82,17 @@ export default async function HomePage() {
               className="absolute -left-4 -top-4 z-10 h-14 w-14 -rotate-12 lg:hidden"
             />
             {watermark && (
-              // The watermark sits along the bottom edge between the
-              // centred countdown line and the right-corner #ID stamp,
-              // not at the corner — putting it at -right-4 overlapped
-              // the rotated #ID glyphs.
+              // Anchor the watermark at the bottom-left corner peeking
+              // outside the card, mirroring the clover overlay at
+              // top-left. Both decorations now sit as a vertical pair
+              // on the left while the right side stays free for the
+              // structured corner items (pin, badge, #ID, countdown).
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={watermark.src}
                 alt=""
                 aria-hidden
-                className="theme-invertible absolute -bottom-3 right-16 z-10 h-14 w-14 rotate-[15deg] object-contain opacity-70 lg:hidden"
+                className="theme-invertible absolute -bottom-4 -left-4 z-10 h-14 w-14 rotate-[15deg] object-contain opacity-70 lg:hidden"
               />
             )}
           </div>
