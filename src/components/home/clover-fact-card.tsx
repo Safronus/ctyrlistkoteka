@@ -160,7 +160,16 @@ export function CloverFactCard() {
     const tick = setInterval(() => {
       const remaining = nextAt - Date.now();
       if (remaining <= 0) {
-        setIndex((prev) => (prev + 1) % CLOVER_TEXTS.length);
+        // Random advance — pick any index OTHER than the current one,
+        // so two consecutive rotations never land on the same text.
+        // Uniform distribution across the remaining N-1 entries by
+        // sampling an offset in [1, N-1] and adding it modulo N.
+        setIndex((prev) => {
+          if (CLOVER_TEXTS.length <= 1) return prev;
+          const offset =
+            1 + Math.floor(Math.random() * (CLOVER_TEXTS.length - 1));
+          return (prev + offset) % CLOVER_TEXTS.length;
+        });
         nextAt = Date.now() + ROTATION_MS;
         setRemainingMs(ROTATION_MS);
       } else {
