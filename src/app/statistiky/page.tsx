@@ -12,7 +12,6 @@ import {
   Globe2,
   HelpCircle,
   ImageOff,
-  MapPin,
   MapPinOff,
   Search,
   Sparkles,
@@ -32,12 +31,12 @@ import {
   type DistanceBucket,
   type FindHighlight,
   type JubileeFind,
-  type LocationPoint,
   type MonthDayPoint,
   type PeakBucket,
   type YearlyPoint,
 } from "@/lib/queries/stats";
 import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
+import { TopLocationsCard } from "@/components/stats/top-locations-card";
 
 export const metadata: Metadata = {
   title: "Statistiky",
@@ -49,7 +48,7 @@ export const revalidate = 21600;
 
 export default async function StatistikyPage() {
   const stats = await getCollectionStats();
-  const { totals, firstFind, lastFind, farthestFind, topLocations } = stats;
+  const { totals, firstFind, lastFind, farthestFind, topLocations, topLocationsByDensity } = stats;
   const fmt = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 });
 
   return (
@@ -137,7 +136,12 @@ export default async function StatistikyPage() {
       <JubileeFindsSection jubilees={stats.jubilees} />
 
 
-      {topLocations.length > 0 && <TopLocationsCard rows={topLocations} />}
+      {topLocations.length > 0 && (
+        <TopLocationsCard
+          byCount={topLocations}
+          byDensity={topLocationsByDensity}
+        />
+      )}
 
       <GeoStatsSection
         byCountry={stats.byCountry}
@@ -340,70 +344,6 @@ function FindHighlightCard({
         </Link>
       </div>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-//  Top locations
-
-function TopLocationsCard({ rows }: { rows: readonly LocationPoint[] }) {
-  const max = rows.reduce((m, r) => Math.max(m, r.count), 0);
-  return (
-    <section className="rounded-xl border border-gray-200 bg-white p-5">
-      <header className="mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">
-          TOP {rows.length} lokalit
-        </h2>
-        <p className="text-sm text-gray-500">Nejpilnější místa nálezů</p>
-      </header>
-      <ol className="space-y-2">
-        {rows.map((r, i) => (
-          <li
-            key={r.id}
-            className="flex items-center gap-3 rounded-md border border-gray-100 bg-gray-50 p-3"
-          >
-            <span className="w-6 shrink-0 text-center font-mono text-sm font-semibold text-brand-700">
-              {i + 1}.
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-mono text-xs text-gray-500">
-                  {formatLocationId(r.id)}
-                </span>
-                <span className="truncate text-sm font-semibold text-gray-900">
-                  {r.code}
-                </span>
-              </div>
-              {r.name && r.name !== r.code && (
-                <p className="truncate text-xs text-gray-500" title={r.name}>
-                  {r.name}
-                </p>
-              )}
-              <div className="mt-1 flex items-center gap-2">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
-                  <div
-                    className="h-full rounded-full bg-brand-500"
-                    style={{
-                      width: max > 0 ? `${(r.count / max) * 100}%` : "0%",
-                    }}
-                  />
-                </div>
-                <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums text-gray-600">
-                  {r.count}
-                </span>
-              </div>
-            </div>
-            <Link
-              href={`/mapa?focus=${r.id}`}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
-            >
-              <MapPin className="h-3.5 w-3.5" aria-hidden />
-              <span className="hidden sm:inline">Mapa</span>
-            </Link>
-          </li>
-        ))}
-      </ol>
-    </section>
   );
 }
 

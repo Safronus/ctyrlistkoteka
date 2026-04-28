@@ -16,6 +16,7 @@ import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
 import {
   formatAreaM2,
   formatCount,
+  formatDensityPer100m2,
   formatDateTimeCs,
   formatDistance,
   formatLocationId,
@@ -216,12 +217,21 @@ function RowTitle({
 
 function RowMeta({ location }: { location: LocationListItem }) {
   // Druhý řádek: celý kód lokality (font-mono, ne split části — uživatel
-  // viděl jen `cadastral · type` a chtěl celý code) + plocha polygonu.
+  // viděl jen `cadastral · type` a chtěl celý code) + plocha polygonu +
+  // hustota nálezů (jen pokud máme polygon i vlastní nálezy).
   return (
     <p className="truncate text-xs text-gray-500">
       <span className="font-mono">{location.code}</span>
       {location.polygonAreaM2 !== null && (
         <> · {`Plocha ${formatAreaM2(location.polygonAreaM2)}`}</>
+      )}
+      {location.densityPer100m2 !== null && (
+        <>
+          {" · "}
+          <span title="Hustota nálezů — vlastních čtyřlístků na 100 m² polygonu">
+            {`Hustota ${formatDensityPer100m2(location.densityPer100m2)}`}
+          </span>
+        </>
       )}
     </p>
   );

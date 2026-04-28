@@ -57,6 +57,12 @@ export interface LocationListItem {
    *  null. Computed via PostGIS ST_Area on the geography casting so the
    *  number is real m² rather than square degrees. */
   polygonAreaM2: number | null;
+  /** Find density expressed as clovers per 100 m², computed from this
+   *  location's *own* finds and *own* polygon area. Null when either
+   *  side is missing (no polygon, anonymized, no finds). The unit is
+   *  per 100 m² rather than per m² so the typical figure lands on a
+   *  readable 1–100 range; see formatDensityPer100m2. */
+  densityPer100m2: number | null;
   /** GPS center point recorded in the location-map filename (decoded from
    *  ST_Y/ST_X of center_point). Null when the location has no recorded
    *  center yet. */
@@ -351,6 +357,7 @@ export async function listLocations(
         isAnonymized: true,
         isGone: gone,
         polygonAreaM2: null,
+        densityPer100m2: null,
         coordinates: null,
         distanceFromDefault: null,
         parentId: null,
@@ -368,6 +375,11 @@ export async function listLocations(
       states: [...stats.states],
       yearly: [...stats.yearly],
     };
+    const polygonAreaM2 = areaByLoc.get(l.id) ?? null;
+    const densityPer100m2 =
+      polygonAreaM2 !== null && polygonAreaM2 > 0 && stats.total > 0
+        ? (stats.total / polygonAreaM2) * 100
+        : null;
     return {
       id: l.id,
       code: l.code,
@@ -377,7 +389,8 @@ export async function listLocations(
       thumbnailUrl: thumbByLoc.get(l.id) ?? null,
       isAnonymized: false,
       isGone: gone,
-      polygonAreaM2: areaByLoc.get(l.id) ?? null,
+      polygonAreaM2,
+      densityPer100m2,
       coordinates: coordsByLoc.get(l.id) ?? null,
       distanceFromDefault: distByLoc.get(l.id) ?? null,
       parentId: l.parentId,

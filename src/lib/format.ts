@@ -237,3 +237,17 @@ export function formatAreaM2(m2: number): string {
     maximumFractionDigits: 0,
   }).format(Math.round(m2))} m²`;
 }
+
+/** Formats a clovers/area density as a per-100 m² figure. We picked the
+ *  100 m² unit so the typical landscape (areas in 100s–1000s of m² with
+ *  10s–100s of finds) lands on a humanly-readable 1–100ish range —
+ *  per-m² values would be 0.0X with little visual contrast, per-ha
+ *  values would compress smaller plots into the same digit. Returns
+ *  e.g. "12,3 / 100 m²". */
+export function formatDensityPer100m2(density: number): string {
+  const fractionDigits = density >= 10 ? 1 : 2;
+  return `${new Intl.NumberFormat("cs-CZ", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: fractionDigits,
+  }).format(density)} / 100 m²`;
+}

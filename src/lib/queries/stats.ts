@@ -80,6 +80,22 @@ export interface LocationPoint {
   count: number;
 }
 
+/** A leaderboard row for the "TOP by density" view on /statistiky. Same
+ *  identifier rules as `LocationPoint`, plus the polygon area, the
+ *  density figure expressed as clovers per 100 m² (so the typical
+ *  number is 1–100ish), and an isAnonymized flag — anonymized rows
+ *  drop their code/name on the server so the client can render a
+ *  "Anonymizovaná lokalita" placeholder without re-redacting. */
+export interface LocationDensityPoint {
+  id: number;
+  code: string | null;
+  name: string | null;
+  count: number;
+  areaM2: number;
+  densityPer100m2: number;
+  isAnonymized: boolean;
+}
+
 /** Calendar-axis aggregations independent of the year. */
 export interface CalendarPoint {
   /** 0–23 for hour, 1–7 (mon–sun) for dow, 1–12 for month. */
@@ -147,6 +163,11 @@ export interface CollectionStats {
   monthly: MonthlyPoint[];
   yearly: YearlyPoint[];
   topLocations: LocationPoint[];
+  /** Top-N locations ranked by find density (own finds / own polygon
+   *  area, expressed per 100 m²). Filtered to locations that have both
+   *  a polygon and at least 10 own finds — without the floor a single
+   *  find on a tiny patch would beat a thoroughly worked meadow. */
+  topLocationsByDensity: LocationDensityPoint[];
   /** Find counts grouped by country (resolved from each non-anonymized
    *  location's GPS centre). Anonymized locations are excluded — their
    *  precise GPS must not leave the server. */
@@ -240,6 +261,7 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     monthlyRows,
     yearlyRows,
     topLocRows,
+    topDensityRows,
     typeRows,
     stateRows,
     hourRows,
@@ -396,6 +418,66 @@ export async function getCollectionStats(): Promise<CollectionStats> {
         )
       GROUP BY l.id, l.code, l.display_name
       ORDER BY count DESC, l.id
+      LIMIT 10
+    `,
+
+    // Top 10 locations by find density (own finds per 100 m² of own
+    // polygon). Only locations with a polygon and ≥ 10 own finds — the
+    // 10-find floor stops a single find on a tiny patch from beating a
+    // thoroughly-worked meadow. Anonymized rows are kept (their density
+    // tells a story about the collection too) but their code/name is
+    // nulled here so the public payload never carries identifying text.
+    // We don't fold sub-parts into parents the way the by-count query
+    // does — density is per-polygon-area, and the parent's polygon area
+    // typically describes its own ground, so mixing in children's
+    // counts would inflate the number.
+    prisma.$queryRaw<
+      Array<{
+        id: number;
+        code: string | null;
+        name: string | null;
+        count: bigint;
+        area_m2: number;
+        density: number;
+        is_anonymized: boolean;
+      }>
+    >`
+      WITH anon AS (
+        SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
+      ),
+      areas AS (
+        SELECT location_id,
+               ST_Area(polygon::geography) AS area_m2
+        FROM location_maps
+        WHERE polygon IS NOT NULL
+      ),
+      max_area AS (
+        SELECT location_id, MAX(area_m2) AS area_m2
+        FROM areas
+        GROUP BY location_id
+      ),
+      counts AS (
+        SELECT location_id, COUNT(*) AS cnt
+        FROM finds
+        WHERE location_id IS NOT NULL
+        GROUP BY location_id
+      )
+      SELECT l.id,
+             CASE WHEN l.id IN (SELECT location_id FROM anon)
+                  THEN NULL ELSE l.code END AS code,
+             CASE WHEN l.id IN (SELECT location_id FROM anon)
+                  THEN NULL ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+             END AS name,
+             c.cnt AS count,
+             a.area_m2 AS area_m2,
+             (c.cnt::float / a.area_m2 * 100) AS density,
+             (l.id IN (SELECT location_id FROM anon)) AS is_anonymized
+      FROM locations l
+      JOIN max_area a ON a.location_id = l.id
+      JOIN counts c ON c.location_id = l.id
+      WHERE c.cnt >= 10
+        AND a.area_m2 > 0
+      ORDER BY density DESC, l.id
       LIMIT 10
     `,
 
@@ -636,6 +718,15 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       code: r.code,
       name: r.name,
       count: Number(r.count),
+    })),
+    topLocationsByDensity: topDensityRows.map((r) => ({
+      id: r.id,
+      code: r.code,
+      name: r.name,
+      count: Number(r.count),
+      areaM2: Number(r.area_m2),
+      densityPer100m2: Number(r.density),
+      isAnonymized: r.is_anonymized,
     })),
     ...buildGeoBreakdowns(geoLocRows),
     locationTypes: typeRows.map((r) => ({
