@@ -70,6 +70,8 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
   const filters: FindFilters = {
     q: pickString(sp.q) ?? undefined,
     locationId: parseInt(pickString(sp.loc)),
+    cadastralArea: pickString(sp.city) || undefined,
+    country: pickString(sp.country) || undefined,
     state: parseState(pickString(sp.state)),
     year: parseInt(pickString(sp.year)),
   };
@@ -86,6 +88,8 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
   const hasFilters = !!(
     filters.q ||
     filters.locationId ||
+    filters.cadastralArea ||
+    filters.country ||
     filters.state ||
     filters.year
   );
@@ -94,6 +98,8 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     const params = new URLSearchParams();
     if (filters.q) params.set("q", filters.q);
     if (filters.locationId) params.set("loc", String(filters.locationId));
+    if (filters.cadastralArea) params.set("city", filters.cadastralArea);
+    if (filters.country) params.set("country", filters.country);
     if (filters.state) params.set("state", filters.state);
     if (filters.year) params.set("year", String(filters.year));
     if (sort !== "desc") params.set("sort", sort);
@@ -127,6 +133,8 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
         current={{
           q: filters.q ?? "",
           locationId: filters.locationId ? String(filters.locationId) : "",
+          city: filters.cadastralArea ?? "",
+          country: filters.country ?? "",
           state: filters.state ?? "",
           year: filters.year ? String(filters.year) : "",
         }}

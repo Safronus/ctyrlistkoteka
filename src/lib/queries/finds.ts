@@ -9,6 +9,8 @@ import { FindState, Prisma, type ImageType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { anonymize } from "@/lib/anonymize";
 import { DEFAULT_LOCATION_ID } from "@/lib/constants";
+import { countryFromCoords } from "@/lib/geo";
+import { listCadastralAreas, listCountries } from "@/lib/queries/locations";
 import { parseIdQuery } from "@/lib/search";
 
 export interface PublicImage {
@@ -56,6 +58,13 @@ export interface PublicFind {
 export interface FindFilters {
   q?: string;
   locationId?: number;
+  /** Cadastral area name as it appears in `locations.cadastral_area`.
+   *  Filters finds whose location is registered in that municipality. */
+  cadastralArea?: string;
+  /** ISO 3166-1 numeric code (string) — same key used by /lokality and
+   *  the choropleth on /statistiky. Filters finds whose location's
+   *  center point falls inside that country's polygon. */
+  country?: string;
   state?: FindState;
   year?: number;
 }
@@ -96,6 +105,25 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
       and.push({ locationId: f.locationId });
     } else {
       const ids = [f.locationId, ...childRows.map((r) => r.id)];
+      and.push({ locationId: { in: ids } });
+    }
+  }
+  if (f.cadastralArea) {
+    and.push({ location: { cadastralArea: f.cadastralArea } });
+  }
+  if (f.country) {
+    // Country lookup runs against the location's center point — same
+    // resolver /statistiky and /lokality use, so the dropdown options
+    // and outcomes stay in sync. We pre-resolve the matching location
+    // IDs here so the WHERE stays a plain `locationId IN (…)` and
+    // doesn't drag PostGIS into the find query.
+    const ids = await locationIdsInCountry(f.country);
+    if (ids.length === 0) {
+      // No locations match this country — short-circuit to an empty set.
+      // `id: -1` is impossible (find IDs are positive integers from the
+      // user's filename numbering), so the AND collapses to false.
+      and.push({ id: -1 });
+    } else {
       and.push({ locationId: { in: ids } });
     }
   }
@@ -647,18 +675,40 @@ export async function getIndexableFinds(): Promise<
   });
 }
 
+/** Returns location IDs whose center point falls inside the given
+ *  country's polygon. Used by `buildWhere` to express `country = X` as
+ *  a plain `locationId IN (…)` condition without dragging PostGIS into
+ *  the main find query. The locations table is small (~128 rows), so
+ *  this scan is cheap. */
+async function locationIdsInCountry(country: string): Promise<number[]> {
+  const rows = await prisma.$queryRaw<
+    Array<{ id: number; lat: number; lng: number }>
+  >`
+    SELECT id,
+           ST_Y(center_point)::float8 AS lat,
+           ST_X(center_point)::float8 AS lng
+    FROM "locations"
+    WHERE center_point IS NOT NULL
+  `;
+  return rows
+    .filter((r) => countryFromCoords(r.lat, r.lng).code === country)
+    .map((r) => r.id);
+}
+
 /** Options for the /sbirka filter bar. Cached aggregations. */
 export interface FilterOptions {
   locations: Array<{ id: number; label: string }>;
+  cities: string[];
+  countries: Array<{ code: string; name: string }>;
   states: FindState[];
   years: number[];
 }
 
 export async function getFilterOptions(): Promise<FilterOptions> {
-  const [locations, yearRows] = await Promise.all([
+  const [locations, yearRows, cities, countries] = await Promise.all([
     prisma.location.findMany({
       select: { id: true, code: true, displayName: true },
-      orderBy: { displayName: "asc" },
+      orderBy: { code: "asc" },
     }),
     prisma.$queryRaw<Array<{ year: number }>>`
       SELECT DISTINCT EXTRACT(YEAR FROM found_at)::int AS year
@@ -666,13 +716,24 @@ export async function getFilterOptions(): Promise<FilterOptions> {
       WHERE found_at IS NOT NULL
       ORDER BY year DESC
     `,
+    listCadastralAreas(),
+    listCountries(),
   ]);
 
   return {
     locations: locations.map((l) => ({
       id: l.id,
-      label: l.displayName || l.code,
+      // Code is the formal identifier; displayName is the human note. Show
+      // both so visitors can recognize a location either way — the code
+      // matches what they see on /lokality and on filenames, the
+      // displayName describes the place.
+      label:
+        l.displayName && l.displayName.trim() && l.displayName !== l.code
+          ? `${l.code} — ${l.displayName}`
+          : l.code,
     })),
+    cities,
+    countries,
     states: Object.values(FindState),
     years: yearRows.map((r) => r.year),
   };

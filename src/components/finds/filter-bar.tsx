@@ -19,6 +19,8 @@ export function FilterBar({
   current: {
     q: string;
     locationId: string;
+    city: string;
+    country: string;
     state: string;
     year: string;
   };
@@ -71,7 +73,12 @@ export function FilterBar({
   };
 
   const hasAny =
-    current.q || current.locationId || current.state || current.year;
+    current.q ||
+    current.locationId ||
+    current.city ||
+    current.country ||
+    current.state ||
+    current.year;
 
   return (
     <div
@@ -79,8 +86,8 @@ export function FilterBar({
         isPending ? "opacity-60" : ""
       }`}
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <label className="lg:col-span-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="sm:col-span-2 lg:col-span-2">
           <span className="mb-1 block text-xs font-medium text-gray-700">
             Hledat
           </span>
@@ -99,6 +106,54 @@ export function FilterBar({
         </label>
 
         <label>
+          <span className="mb-1 block text-xs font-medium text-gray-700">
+            Stát
+          </span>
+          <div className="relative">
+            <select
+              value={current.country}
+              onChange={(e) => update("country", e.currentTarget.value)}
+              className={`${SELECT_CLS} w-full`}
+            >
+              <option value="">Všechny</option>
+              {options.countries.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              aria-hidden
+            />
+          </div>
+        </label>
+
+        <label>
+          <span className="mb-1 block text-xs font-medium text-gray-700">
+            Město
+          </span>
+          <div className="relative">
+            <select
+              value={current.city}
+              onChange={(e) => update("city", e.currentTarget.value)}
+              className={`${SELECT_CLS} w-full`}
+            >
+              <option value="">Všechna</option>
+              {options.cities.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              aria-hidden
+            />
+          </div>
+        </label>
+
+        <label className="sm:col-span-2 lg:col-span-2">
           <span className="mb-1 block text-xs font-medium text-gray-700">
             Lokalita
           </span>
