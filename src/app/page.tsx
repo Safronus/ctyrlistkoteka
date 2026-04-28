@@ -52,6 +52,10 @@ export default async function HomePage() {
         </h1>
 
         <div className="mt-6 flex flex-col items-center justify-center gap-4 sm:gap-5 lg:flex-row">
+          {/* Standalone clover — sm+ only. On phone-narrow viewports we
+              switch to a tiny decorative overlay on the card itself
+              (see below) instead of stacking a full-size icon above the
+              card, which made the page feel needlessly tall. */}
           <Image
             src="/clover.png"
             alt=""
@@ -59,13 +63,35 @@ export default async function HomePage() {
             width={1024}
             height={1024}
             priority
-            className="h-28 w-28 shrink-0 sm:h-32 sm:w-32 lg:-mr-2"
+            className="hidden shrink-0 sm:block sm:h-32 sm:w-32 lg:-mr-2"
           />
-          <CloverFactCard />
+          {/* Card + phone-only decorative overlays. The wrapper is
+              `relative` so the overlays anchor to the card; on sm+ the
+              overlays are hidden via `sm:hidden` and the standalone
+              icons take over. Both phone overlays use the same h-14
+              square so they read as a balanced pair flanking the card. */}
+          <div className="relative">
+            <CloverFactCard />
+            <Image
+              src="/clover.png"
+              alt=""
+              aria-hidden
+              width={1024}
+              height={1024}
+              priority
+              className="absolute -left-4 -top-4 z-10 h-14 w-14 -rotate-12 sm:hidden"
+            />
+            {watermark && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={watermark.src}
+                alt=""
+                aria-hidden
+                className="theme-invertible absolute -bottom-4 -right-4 z-10 h-14 w-14 rotate-[15deg] object-contain opacity-70 sm:hidden"
+              />
+            )}
+          </div>
           {watermark ? (
-            // The same brand watermark that gets baked into every find
-            // photo. Served via /api/watermark from DATA_DIR (the file
-            // is outside public/ — see src/lib/queries/watermark.ts).
             // Plain <img> mirrors FindThumbnail's pattern; we skip
             // Next/Image because Nginx serves the bytes directly in
             // production and the optimizer would just add latency.
@@ -76,7 +102,7 @@ export default async function HomePage() {
               aria-hidden
               width={watermark.width}
               height={watermark.height}
-              className="theme-invertible h-28 w-auto shrink-0 rotate-[15deg] opacity-70 sm:h-32"
+              className="theme-invertible hidden w-auto shrink-0 rotate-[15deg] opacity-70 sm:block sm:h-32"
             />
           ) : (
             // Reserve symmetry on lg even when the watermark file isn't
