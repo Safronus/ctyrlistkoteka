@@ -193,14 +193,18 @@ function SidebarRow({
 
   // Two sibling controls instead of nesting buttons (HTML forbids that
   // and screen readers handle siblings cleanly). The main row button
-  // takes flex-1 so the toggle sits flush with the right edge; both
-  // share the row's tone/focus/indent styling for visual continuity.
+  // takes flex-1 + min-w-0 so it can shrink below its content's
+  // intrinsic width — without min-w-0 the long sub-part description
+  // ("…hlavní ultimátní naleziště (levá hrana)") would push the row
+  // wider than the sidebar and the toggle would slide off-screen.
   return (
-    <div className={`flex items-stretch ${tone} ${focusedTone}`}>
+    <div
+      className={`flex w-full items-stretch overflow-hidden ${tone} ${focusedTone}`}
+    >
       <button
         type="button"
         onClick={() => onSelect(location.id)}
-        className={`flex flex-1 items-start gap-2 py-2 text-left transition hover:bg-brand-50 focus:bg-brand-50 focus:outline-none ${indent} ${showPolygonToggle ? "pr-1" : "pr-3"}`}
+        className={`flex min-w-0 flex-1 items-start gap-2 py-2 text-left transition hover:bg-brand-50 focus:bg-brand-50 focus:outline-none ${indent} ${showPolygonToggle ? "pr-1" : "pr-3"}`}
       >
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2">
