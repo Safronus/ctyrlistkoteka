@@ -127,6 +127,10 @@ function ModeButton({
 
 function CountList({ rows }: { rows: readonly LocationPoint[] }) {
   const max = rows.reduce((m, r) => Math.max(m, r.count), 0);
+  // Reserve enough room in the value column for "100 000" (cs-CZ
+  // formats six-digit counts with a space) so every bar in the table
+  // ends at the same x — no per-row jitter when ranks 1–10 differ in
+  // magnitude.
   return (
     <ol className="space-y-2">
       {rows.map((r, i) => (
@@ -140,6 +144,7 @@ function CountList({ rows }: { rows: readonly LocationPoint[] }) {
           value={r.count}
           max={max}
           valueLabel={r.count.toLocaleString("cs-CZ")}
+          labelWidthClass="w-20"
         />
       ))}
     </ol>
@@ -148,6 +153,8 @@ function CountList({ rows }: { rows: readonly LocationPoint[] }) {
 
 function DensityList({ rows }: { rows: readonly LocationDensityPoint[] }) {
   const max = rows.reduce((m, r) => Math.max(m, r.densityPer100m2), 0);
+  // Reserve room for the longest five-significant-digit density label
+  // (e.g. "12,345 / 100 m²") so all bars end at the same x.
   return (
     <ol className="space-y-2">
       {rows.map((r, i) => (
@@ -161,6 +168,7 @@ function DensityList({ rows }: { rows: readonly LocationDensityPoint[] }) {
           value={r.densityPer100m2}
           max={max}
           valueLabel={formatDensityPer100m2(r.densityPer100m2)}
+          labelWidthClass="w-32"
           suffix={`${r.count.toLocaleString("cs-CZ")} čtyřlístků · ${formatAreaM2(r.areaM2)}`}
         />
       ))}
@@ -188,6 +196,7 @@ function Row({
   value,
   max,
   valueLabel,
+  labelWidthClass,
   suffix,
 }: {
   rank: number;
@@ -198,6 +207,7 @@ function Row({
   value: number;
   max: number;
   valueLabel: string;
+  labelWidthClass: string;
   suffix?: string;
 }) {
   const nameVisible =
@@ -225,7 +235,12 @@ function Row({
         </div>
         {!isAnonymized && <MapButton id={id} />}
       </div>
-      <Bar value={value} max={max} valueLabel={valueLabel} />
+      <Bar
+        value={value}
+        max={max}
+        valueLabel={valueLabel}
+        labelWidthClass={labelWidthClass}
+      />
     </li>
   );
 }
@@ -276,10 +291,16 @@ function Bar({
   value,
   max,
   valueLabel,
+  labelWidthClass,
 }: {
   value: number;
   max: number;
   valueLabel: string;
+  /** Fixed width on the value column so every bar in the table ends at
+   *  the same x coordinate — without it `flex-1` would let rows with
+   *  shorter labels grow their bars and the visual ranking would lie
+   *  about the underlying numbers. */
+  labelWidthClass: string;
 }) {
   return (
     <div className="flex items-center gap-2">
@@ -289,7 +310,9 @@ function Bar({
           style={{ width: max > 0 ? `${(value / max) * 100}%` : "0%" }}
         />
       </div>
-      <span className="shrink-0 whitespace-nowrap font-mono text-xs tabular-nums text-gray-600">
+      <span
+        className={`shrink-0 whitespace-nowrap text-right font-mono text-xs tabular-nums text-gray-600 ${labelWidthClass}`}
+      >
         {valueLabel}
       </span>
     </div>

@@ -207,6 +207,7 @@ export interface CollectionStats {
    *  midnight-to-midnight, week = ISO week (Mon → Sun), month =
    *  calendar month, year = calendar year. */
   peaks: {
+    minute: PeakBucket | null;
     hour: PeakBucket | null;
     day: PeakBucket | null;
     week: PeakBucket | null;
@@ -270,6 +271,7 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     monthDayRows,
     distanceRows,
     geoLocRows,
+    peakMinuteRow,
     peakHourRow,
     peakDayRow,
     peakWeekRow,
@@ -603,6 +605,11 @@ export async function getCollectionStats(): Promise<CollectionStats> {
     // elsewhere on this page (byHour, byMonthOfYear, …) already use
     // the same naive treatment.
     prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
+      SELECT date_trunc('minute', found_at) AS bucket, COUNT(*) AS count
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
+    `,
+    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
       SELECT date_trunc('hour', found_at) AS bucket, COUNT(*) AS count
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
@@ -748,6 +755,7 @@ export async function getCollectionStats(): Promise<CollectionStats> {
       count: Number(r.count),
     })),
     peaks: {
+      minute: toPeakBucket(peakMinuteRow),
       hour: toPeakBucket(peakHourRow),
       day: toPeakBucket(peakDayRow),
       week: toPeakBucket(peakWeekRow),

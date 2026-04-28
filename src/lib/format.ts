@@ -243,11 +243,10 @@ export function formatAreaM2(m2: number): string {
  *  10s–100s of finds) lands on a humanly-readable 1–100ish range —
  *  per-m² values would be 0.0X with little visual contrast, per-ha
  *  values would compress smaller plots into the same digit. Returns
- *  e.g. "12,3 / 100 m²". */
+ *  e.g. "12,345 / 100 m²" — five significant digits regardless of
+ *  scale, so a readable column width can be reserved up-front. */
 export function formatDensityPer100m2(density: number): string {
-  const fractionDigits = density >= 10 ? 1 : 2;
   return `${new Intl.NumberFormat("cs-CZ", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: fractionDigits,
+    maximumSignificantDigits: 5,
   }).format(density)} / 100 m²`;
 }

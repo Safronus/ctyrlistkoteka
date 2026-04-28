@@ -15,6 +15,7 @@ import {
   MapPinOff,
   Search,
   Sparkles,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -914,12 +915,13 @@ function DistanceStatsSection({
 //  Peak buckets — busiest hour / day / week / month / year
 // ---------------------------------------------------------------------------
 
-type PeakGranularity = "hour" | "day" | "week" | "month" | "year";
+type PeakGranularity = "minute" | "hour" | "day" | "week" | "month" | "year";
 
 function PeakBucketsSection({
   peaks,
 }: {
   peaks: {
+    minute: PeakBucket | null;
     hour: PeakBucket | null;
     day: PeakBucket | null;
     week: PeakBucket | null;
@@ -930,7 +932,12 @@ function PeakBucketsSection({
   // Render nothing when every bucket is null (collection empty / every
   // find lacks a `found_at`). The section header would dangle otherwise.
   const anyPeak =
-    peaks.hour || peaks.day || peaks.week || peaks.month || peaks.year;
+    peaks.minute ||
+    peaks.hour ||
+    peaks.day ||
+    peaks.week ||
+    peaks.month ||
+    peaks.year;
   if (!anyPeak) return null;
 
   const cards: ReadonlyArray<{
@@ -939,6 +946,12 @@ function PeakBucketsSection({
     icon: LucideIcon;
     peak: PeakBucket | null;
   }> = [
+    {
+      granularity: "minute",
+      label: "Nejvíc za minutu",
+      icon: Timer,
+      peak: peaks.minute,
+    },
     { granularity: "hour", label: "Nejvíc za hodinu", icon: Clock, peak: peaks.hour },
     { granularity: "day", label: "Nejvíc za den", icon: Calendar, peak: peaks.day },
     {
@@ -961,7 +974,7 @@ function PeakBucketsSection({
     },
   ];
   return (
-    <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
       {cards.map(({ granularity, label, icon, peak }) => (
         <PeakBucketCard
           key={granularity}
@@ -1032,6 +1045,14 @@ function formatPeakBucket(
     new Intl.DateTimeFormat("cs-CZ", opts).format(start);
 
   switch (granularity) {
+    case "minute": {
+      // Single-minute window — render as "den, HH:MM" without an end
+      // bound (a minute is a minute, the second-resolution range
+      // would just clutter without informing).
+      const day = intl({ day: "numeric", month: "long", year: "numeric" });
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${day}, ${pad(start.getHours())}:${pad(start.getMinutes())}`;
+    }
     case "hour": {
       const day = intl({ day: "numeric", month: "long", year: "numeric" });
       const h = start.getHours();
