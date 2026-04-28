@@ -266,7 +266,7 @@ export function CloverFactCard() {
       <span
         aria-hidden
         data-fact-id
-        className={`absolute bottom-3 right-3 origin-bottom-right -rotate-[30deg] font-serif text-xs italic ${styles.idColor}`}
+        className={`absolute bottom-4 right-1 origin-bottom-right -rotate-[30deg] font-serif text-xs italic ${styles.idColor}`}
       >
         #{text.id}
       </span>

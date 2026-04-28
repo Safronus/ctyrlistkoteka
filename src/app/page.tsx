@@ -51,7 +51,7 @@ export default async function HomePage() {
           Čtyřlístkotéka
         </h1>
 
-        <div className="mt-6 flex flex-col items-center justify-center gap-6 sm:gap-8 lg:flex-row">
+        <div className="mt-6 flex flex-col items-center justify-center gap-4 sm:gap-5 lg:flex-row">
           <Image
             src="/clover.png"
             alt=""
