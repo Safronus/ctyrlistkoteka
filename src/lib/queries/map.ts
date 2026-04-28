@@ -16,6 +16,12 @@ export interface MapLocation {
   id: number;
   code: string;
   displayName: string;
+  /** Parent location ID when this row is a sub-part (e.g.
+   *  RATIBOŘ_POLE001a's parent is RATIBOŘ_POLE001), otherwise null. The
+   *  client uses this to decide whether a polygon is "default-hidden"
+   *  — child polygons stay off until the user opts them in via the
+   *  sidebar toggle, since they'd otherwise stack on the parent's. */
+  parentId: number | null;
   centerLat: number | null;
   centerLng: number | null;
   polygon: GeoJSON.Polygon | null;
@@ -81,24 +87,12 @@ export async function getMapData(): Promise<MapData> {
 
   const visibleRows = locRows.filter((r) => !anonLocIds.has(r.id));
 
-  // Single pass over the visible rows builds two derived structures:
-  //
-  //   visibleParentsWithPolygon — IDs of parents that own a polygon, so
-  //   we can hide their children's polygons later (they'd just stack on
-  //   the same area: e.g. RATIBOŘ_POLE001 over its 7 sub-parts 001a–g).
-  //   Anonymized parents are absent from visibleRows already, so their
-  //   visible children keep their own polygons.
-  //
-  //   childFindsByParent — sum of every visible child's find count
-  //   keyed by parent_id. The popup on the parent's polygon/dot then
-  //   reflects the total area's activity (own + sub-parts), not just
-  //   the parent's own row which is often zero.
-  const visibleParentsWithPolygon = new Set<number>();
+  // Sum of every visible child's find count keyed by parent_id. The
+  // popup on the parent's polygon/dot then reflects the total area's
+  // activity (own + sub-parts), not just the parent's own row which is
+  // often zero. Children keep their own count.
   const childFindsByParent = new Map<number, number>();
   for (const r of visibleRows) {
-    if (r.polygon_geojson !== null) {
-      visibleParentsWithPolygon.add(r.id);
-    }
     if (r.parent_id !== null) {
       const c = Number(r.find_count);
       childFindsByParent.set(
@@ -108,23 +102,23 @@ export async function getMapData(): Promise<MapData> {
     }
   }
 
+  // We send every available polygon — including children of polygon
+  // parents — so the client can opt-in via the sidebar toggle. Default
+  // child-polygon hiding now lives in the client (see MapaShell), and
+  // can be overridden per-row or pre-seeded by `?focus=<child>` deep
+  // links from /statistiky.
   const locations: MapLocation[] = visibleRows.map((r) => {
-    const hideChildPolygon =
-      r.parent_id !== null && visibleParentsWithPolygon.has(r.parent_id);
     const polygon =
-      hideChildPolygon || r.polygon_geojson === null
+      r.polygon_geojson === null
         ? null
         : (JSON.parse(r.polygon_geojson) as GeoJSON.Polygon);
-    // Parent rows fold their visible children's find counts in. Leaves
-    // (no children) end up with childFindsByParent.get === undefined →
-    // ?? 0 → unchanged. Children themselves keep their own count, so
-    // their popup stays correct too.
     const ownCount = Number(r.find_count);
     const findCount = ownCount + (childFindsByParent.get(r.id) ?? 0);
     return {
       id: r.id,
       code: r.code,
       displayName: r.display_name,
+      parentId: r.parent_id,
       centerLat: r.center_lat,
       centerLng: r.center_lng,
       polygon,

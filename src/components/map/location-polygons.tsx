@@ -8,9 +8,16 @@ import type { MapLocation } from "@/lib/queries/map";
 export function LocationPolygons({
   locations,
   focusLocationId,
+  enabledChildPolygonIds,
 }: {
   locations: readonly MapLocation[];
   focusLocationId?: number | null;
+  /** IDs of child locations whose polygons the user explicitly opted in
+   *  via the sidebar toggle (or whose `?focus=` deep link auto-enabled
+   *  them). Top-level locations always render their polygons; children
+   *  only when present in this set so they don't stack on the parent
+   *  by default. */
+  enabledChildPolygonIds: ReadonlySet<number>;
 }) {
   const map = useMap();
   // Layer ref by location id, populated by onEachFeature so we can later
@@ -20,6 +27,9 @@ export function LocationPolygons({
   const features: GeoJSON.Feature[] = locations
     .filter((l): l is MapLocation & { polygon: GeoJSON.Polygon } =>
       l.polygon !== null,
+    )
+    .filter(
+      (l) => l.parentId === null || enabledChildPolygonIds.has(l.id),
     )
     .map((l) => ({
       type: "Feature" as const,

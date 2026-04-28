@@ -25,11 +25,13 @@ export function MapLoader({
   focusLocationId,
   showLocations,
   showFinds,
+  enabledChildPolygonIds,
 }: {
   data: MapData;
   focusLocationId?: number | null;
   showLocations: boolean;
   showFinds: boolean;
+  enabledChildPolygonIds: ReadonlySet<number>;
 }) {
   return (
     <MapView
@@ -37,6 +39,7 @@ export function MapLoader({
       focusLocationId={focusLocationId ?? null}
       showLocations={showLocations}
       showFinds={showFinds}
+      enabledChildPolygonIds={enabledChildPolygonIds}
     />
   );
 }

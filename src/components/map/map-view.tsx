@@ -18,11 +18,13 @@ export function MapView({
   focusLocationId,
   showLocations,
   showFinds,
+  enabledChildPolygonIds,
 }: {
   data: MapData;
   focusLocationId: number | null;
   showLocations: boolean;
   showFinds: boolean;
+  enabledChildPolygonIds: ReadonlySet<number>;
 }) {
   // When focusing one location, ignore the wide auto-fit and zoom in on
   // that location's polygon (preferred — shows AOI shape) or its centre
@@ -61,6 +63,7 @@ export function MapView({
           <LocationPolygons
             locations={data.locations}
             focusLocationId={focusLocationId}
+            enabledChildPolygonIds={enabledChildPolygonIds}
           />
           <LocationDots
             locations={data.locations}

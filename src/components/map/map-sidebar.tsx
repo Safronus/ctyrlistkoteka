@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Eye, EyeOff, Search } from "lucide-react";
 import type { LocationListItem } from "@/lib/queries/locations";
 import { formatAreaM2, formatCount, formatLocationId, FINDS } from "@/lib/format";
 import { paddedIdMatches, parseIdQuery } from "@/lib/search";
@@ -24,6 +24,8 @@ export function MapSidebar({
   showFinds,
   onToggleFinds,
   findCount,
+  enabledChildPolygonIds,
+  onToggleChildPolygon,
 }: {
   locations: readonly LocationListItem[];
   focusId: number | null;
@@ -33,6 +35,13 @@ export function MapSidebar({
   showFinds: boolean;
   onToggleFinds: (v: boolean) => void;
   findCount: number;
+  /** IDs of child locations whose polygons are currently visible. */
+  enabledChildPolygonIds: ReadonlySet<number>;
+  /** Toggle the polygon visibility for one child location. Independent
+   *  from the focus selection — picking a row in the list also enables
+   *  its polygon, but the user can flip individual children on/off
+   *  here without changing the focused location. */
+  onToggleChildPolygon: (id: number) => void;
 }) {
   const [q, setQ] = useState("");
 
@@ -104,6 +113,8 @@ export function MapSidebar({
                 location={l}
                 focused={focusId === l.id}
                 onSelect={onSelect}
+                polygonEnabled={enabledChildPolygonIds.has(l.id)}
+                onTogglePolygon={onToggleChildPolygon}
               />
             </li>
           ))
@@ -146,10 +157,14 @@ function SidebarRow({
   location,
   focused,
   onSelect,
+  polygonEnabled,
+  onTogglePolygon,
 }: {
   location: LocationListItem;
   focused: boolean;
   onSelect: (id: number) => void;
+  polygonEnabled: boolean;
+  onTogglePolygon: (id: number) => void;
 }) {
   // Sub-part indent + parent "+ N částí" badge mirror /lokality so the
   // hierarchy reads the same on both pages. Anonymized rows aren't on
@@ -157,6 +172,10 @@ function SidebarRow({
   // listLocations() query already nulled parentId on those rows.
   const isChild = location.parentId !== null;
   const hasParts = location.childCount > 0;
+  // The polygon toggle only makes sense on child rows that actually
+  // have a polygon recorded — top-level locations are always shown,
+  // and a child without a polygon has nothing to switch on.
+  const showPolygonToggle = isChild && location.polygonAreaM2 !== null;
 
   const tone = location.isGone ? "bg-rose-50/60" : "";
   const focusedTone = focused ? "ring-2 ring-inset ring-brand-500" : "";
@@ -172,59 +191,93 @@ function SidebarRow({
     ? location.aggregateStats.total
     : location.stats.total;
 
+  // Two sibling controls instead of nesting buttons (HTML forbids that
+  // and screen readers handle siblings cleanly). The main row button
+  // takes flex-1 so the toggle sits flush with the right edge; both
+  // share the row's tone/focus/indent styling for visual continuity.
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(location.id)}
-      className={`flex w-full items-start gap-2 py-2 pr-3 text-left transition hover:bg-brand-50 focus:bg-brand-50 focus:outline-none ${tone} ${focusedTone} ${indent}`}
-    >
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-mono text-xs text-gray-500">
-            {formatLocationId(location.id)}
-          </span>
-          <span
-            className="truncate text-sm font-semibold text-gray-900"
-            title={location.code}
-          >
-            {location.code}
-          </span>
-          {location.isGone && (
-            <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
-              Zaniklá
+    <div className={`flex items-stretch ${tone} ${focusedTone}`}>
+      <button
+        type="button"
+        onClick={() => onSelect(location.id)}
+        className={`flex flex-1 items-start gap-2 py-2 text-left transition hover:bg-brand-50 focus:bg-brand-50 focus:outline-none ${indent} ${showPolygonToggle ? "pr-1" : "pr-3"}`}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span className="font-mono text-xs text-gray-500">
+              {formatLocationId(location.id)}
             </span>
-          )}
-          {hasParts && (
             <span
-              className="rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-800"
-              title={`${location.childCount} sub-části`}
+              className="truncate text-sm font-semibold text-gray-900"
+              title={location.code}
             >
-              + {location.childCount}{" "}
-              {location.childCount === 1
-                ? "část"
-                : location.childCount < 5
-                  ? "části"
-                  : "částí"}
+              {location.code}
             </span>
+            {location.isGone && (
+              <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
+                Zaniklá
+              </span>
+            )}
+            {hasParts && (
+              <span
+                className="rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-800"
+                title={`${location.childCount} sub-části`}
+              >
+                + {location.childCount}{" "}
+                {location.childCount === 1
+                  ? "část"
+                  : location.childCount < 5
+                    ? "části"
+                    : "částí"}
+              </span>
+            )}
+          </div>
+          {location.displayName && location.displayName !== location.code && (
+            <p
+              className="truncate text-xs text-gray-500"
+              title={location.displayName}
+            >
+              {location.displayName}
+            </p>
           )}
-        </div>
-        {location.displayName && location.displayName !== location.code && (
-          <p
-            className="truncate text-xs text-gray-500"
-            title={location.displayName}
-          >
-            {location.displayName}
+          <p className="mt-1 flex flex-wrap gap-x-2 text-xs text-gray-500">
+            <span className="font-medium text-brand-700">
+              {formatCount(findsTotal, FINDS)}
+            </span>
+            {location.polygonAreaM2 !== null && (
+              <span>· {formatAreaM2(location.polygonAreaM2)}</span>
+            )}
           </p>
-        )}
-        <p className="mt-1 flex flex-wrap gap-x-2 text-xs text-gray-500">
-          <span className="font-medium text-brand-700">
-            {formatCount(findsTotal, FINDS)}
-          </span>
-          {location.polygonAreaM2 !== null && (
-            <span>· {formatAreaM2(location.polygonAreaM2)}</span>
+        </div>
+      </button>
+      {showPolygonToggle && (
+        <button
+          type="button"
+          onClick={() => onTogglePolygon(location.id)}
+          aria-pressed={polygonEnabled}
+          aria-label={
+            polygonEnabled
+              ? "Skrýt polygon této části"
+              : "Zobrazit polygon této části"
+          }
+          title={
+            polygonEnabled
+              ? "Skrýt polygon této části"
+              : "Zobrazit polygon této části"
+          }
+          className={`flex shrink-0 items-center justify-center px-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500 ${
+            polygonEnabled
+              ? "text-brand-700 hover:bg-brand-100"
+              : "text-gray-400 hover:bg-brand-50 hover:text-brand-700"
+          }`}
+        >
+          {polygonEnabled ? (
+            <Eye className="h-4 w-4" aria-hidden />
+          ) : (
+            <EyeOff className="h-4 w-4" aria-hidden />
           )}
-        </p>
-      </div>
-    </button>
+        </button>
+      )}
+    </div>
   );
 }

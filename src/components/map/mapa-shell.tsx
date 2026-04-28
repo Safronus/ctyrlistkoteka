@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Info, ListIcon, X } from "lucide-react";
 import { MapLoader } from "./map-loader";
 import { MapSidebar } from "./map-sidebar";
@@ -52,6 +52,56 @@ export function MapaShell({
   const [showLocations, setShowLocations] = useState(true);
   const [showFinds, setShowFinds] = useState(true);
 
+  // Children of polygon-owning parents are hidden by default — they'd
+  // stack on top of the parent's polygon and clutter the view. The
+  // sidebar exposes a per-row toggle and any deep link into a child
+  // location (`/mapa?focus=<child-id>`) is auto-enabled, so the visitor
+  // arriving from /statistiky's TOP-by-density row sees the polygon
+  // they came for instead of an empty parent shape.
+  const sidebarById = useMemo(
+    () => new Map(sidebarLocations.map((l) => [l.id, l])),
+    [sidebarLocations],
+  );
+  const isChild = useCallback(
+    (id: number) => (sidebarById.get(id)?.parentId ?? null) !== null,
+    [sidebarById],
+  );
+  const [enabledChildPolygonIds, setEnabledChildPolygonIds] = useState<
+    Set<number>
+  >(() => {
+    const set = new Set<number>();
+    if (urlFocusId !== null) {
+      const loc = sidebarLocations.find((l) => l.id === urlFocusId);
+      if (loc && loc.parentId !== null) set.add(urlFocusId);
+    }
+    return set;
+  });
+  const handleSelectLocation = useCallback(
+    (id: number) => {
+      setFocusId(id);
+      // Auto-enable the polygon when the user picks a child row, so
+      // the focus animation lands on a visible shape rather than a
+      // blank centre point — matches the deep-link behaviour above.
+      if (isChild(id)) {
+        setEnabledChildPolygonIds((prev) => {
+          if (prev.has(id)) return prev;
+          const next = new Set(prev);
+          next.add(id);
+          return next;
+        });
+      }
+    },
+    [isChild],
+  );
+  const handleToggleChildPolygon = useCallback((id: number) => {
+    setEnabledChildPolygonIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   // Rehydrate visitor preferences after mount. Wrapped in try/catch
   // because localStorage can throw in private mode / when disabled.
   useEffect(() => {
@@ -87,6 +137,7 @@ export function MapaShell({
         focusLocationId={focusId}
         showLocations={showLocations}
         showFinds={showFinds}
+        enabledChildPolygonIds={enabledChildPolygonIds}
       />
 
       {/* GPS-accuracy notice. Pinned bottom-left so it sits above OSM
@@ -143,12 +194,14 @@ export function MapaShell({
           <MapSidebar
             locations={sidebarLocations}
             focusId={focusId}
-            onSelect={setFocusId}
+            onSelect={handleSelectLocation}
             showLocations={showLocations}
             onToggleLocations={setShowLocations}
             showFinds={showFinds}
             onToggleFinds={setShowFinds}
             findCount={mapData.findCoords.length}
+            enabledChildPolygonIds={enabledChildPolygonIds}
+            onToggleChildPolygon={handleToggleChildPolygon}
           />
         </aside>
       )}
