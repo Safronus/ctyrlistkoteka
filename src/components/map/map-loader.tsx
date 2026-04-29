@@ -24,29 +24,38 @@ const MapView = dynamic(
 export function MapLoader({
   data,
   focusLocationId,
+  initialFitLocationId,
   showLocations,
   showFinds,
   showGone,
   enabledChildPolygonIds,
   highlightFind,
+  onSelectLocation,
+  onDeselectLocation,
 }: {
   data: MapData;
   focusLocationId?: number | null;
+  initialFitLocationId: number | null;
   showLocations: boolean;
   showFinds: boolean;
   showGone: boolean;
   enabledChildPolygonIds: ReadonlySet<number>;
   highlightFind: HighlightFind | null;
+  onSelectLocation: (id: number) => void;
+  onDeselectLocation: () => void;
 }) {
   return (
     <MapView
       data={data}
       focusLocationId={focusLocationId ?? null}
+      initialFitLocationId={initialFitLocationId}
       showLocations={showLocations}
       showFinds={showFinds}
       showGone={showGone}
       enabledChildPolygonIds={enabledChildPolygonIds}
       highlightFind={highlightFind}
+      onSelectLocation={onSelectLocation}
+      onDeselectLocation={onDeselectLocation}
     />
   );
 }

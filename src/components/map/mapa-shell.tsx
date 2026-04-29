@@ -43,17 +43,23 @@ export function MapaShell({
    *  stays on this one row. */
   highlightFind: HighlightFind | null;
 }) {
-  // Default focus picks DEFAULT_FOCUS_ID when present in the data;
-  // otherwise the first location; otherwise null (no data at all).
-  // When deep-linking a find, the location it belongs to wins over the
-  // generic default so the sidebar list highlights the right row too.
-  const fallbackFocusId =
+  // Selection (focus) and initial centering are deliberately separate:
+  //   - On a bare /mapa visit the map should *centre* on location 00001
+  //     so visitors land on familiar territory, but nothing is selected
+  //     yet — no orange highlight, no popup.
+  //   - Deep links (`?focus=N` from /lokality, `?find=N` from /sbirka)
+  //     do select the target location, since the visitor explicitly
+  //     asked to see it.
+  // `initialFitLocationId` drives the first fitBounds; `focusId` drives
+  // the highlight + subsequent re-fits when the user picks a row.
+  const initialFitLocationId =
     highlightFind?.locationId ??
+    urlFocusId ??
     mapData.locations.find((l) => l.id === DEFAULT_FOCUS_ID)?.id ??
     mapData.locations[0]?.id ??
     null;
   const [focusId, setFocusId] = useState<number | null>(
-    urlFocusId ?? fallbackFocusId,
+    urlFocusId ?? highlightFind?.locationId ?? null,
   );
   // Sidebar auto-opens when the URL explicitly carried ?focus=N or
   // ?find=N (deep-link from /lokality or /sbirka). A bare /mapa visit
@@ -138,6 +144,13 @@ export function MapaShell({
     },
     [isChild, isGone],
   );
+  const handleDeselectLocation = useCallback(() => {
+    // Plain "click outside" — drop the highlight without re-fitting the
+    // viewport (the user is already where they want to be, they just
+    // want the orange selection gone).
+    setFocusId(null);
+  }, []);
+
   const handleToggleChildPolygon = useCallback((id: number) => {
     setEnabledChildPolygonIds((prev) => {
       const next = new Set(prev);
@@ -200,11 +213,14 @@ export function MapaShell({
       <MapLoader
         data={mapData}
         focusLocationId={focusId}
+        initialFitLocationId={initialFitLocationId}
         showLocations={showLocations}
         showFinds={showFinds}
         showGone={showGone}
         enabledChildPolygonIds={enabledChildPolygonIds}
         highlightFind={highlightFind}
+        onSelectLocation={handleSelectLocation}
+        onDeselectLocation={handleDeselectLocation}
       />
 
       {/* GPS-accuracy notice. Pinned bottom-left so it sits above OSM

@@ -1,8 +1,8 @@
 "use client";
 
-import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { type LatLngBoundsExpression } from "leaflet";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import { LocationPolygons } from "./location-polygons";
 import { LocationDots } from "./location-dots";
@@ -18,25 +18,37 @@ const CZ_ZOOM = 7;
 export function MapView({
   data,
   focusLocationId,
+  initialFitLocationId,
   showLocations,
   showFinds,
   showGone,
   enabledChildPolygonIds,
   highlightFind,
+  onSelectLocation,
+  onDeselectLocation,
 }: {
   data: MapData;
   focusLocationId: number | null;
+  /** Location id used for the very first fit on mount when nothing is
+   *  selected yet — typically MAP 00001. Lets `/mapa` open centred on
+   *  familiar territory without painting an orange "selected" highlight. */
+  initialFitLocationId: number | null;
   showLocations: boolean;
   showFinds: boolean;
   showGone: boolean;
   enabledChildPolygonIds: ReadonlySet<number>;
   highlightFind: HighlightFind | null;
+  onSelectLocation: (id: number) => void;
+  /** Fired when the visitor clicks empty map space — drops the highlight
+   *  without re-fitting the viewport. */
+  onDeselectLocation: () => void;
 }) {
   // When highlighting a single find from /sbirka, the visitor wants to
   // see that point at street level — bypass the location-polygon fit
   // and synthesise a small bbox around the find's coords. Otherwise the
   // existing focus rules apply: location polygon (preferred) or a tiny
-  // box around its centre point.
+  // box around its centre point. Without focus, fall back to the
+  // initial-fit location (default 00001) instead of the wide world.
   const bounds = useMemo(() => {
     if (highlightFind) {
       const d = 0.0002; // ~22 m — lands fitBounds at a street-level zoom
@@ -45,15 +57,17 @@ export function MapView({
         [highlightFind.lat + d, highlightFind.lng + d],
       ] as LatLngBoundsExpression;
     }
-    if (focusLocationId !== null) {
-      const focused = data.locations.find((l) => l.id === focusLocationId);
-      if (focused) {
-        const fb = focusBounds(focused);
+    const targetId =
+      focusLocationId ?? initialFitLocationId ?? null;
+    if (targetId !== null) {
+      const target = data.locations.find((l) => l.id === targetId);
+      if (target) {
+        const fb = focusBounds(target);
         if (fb) return fb;
       }
     }
     return computeBounds(data);
-  }, [data, focusLocationId, highlightFind]);
+  }, [data, focusLocationId, initialFitLocationId, highlightFind]);
 
   // Tighter maxZoom when focusing — for a single small AOI we want detail,
   // not a 14-zoom city overview. The highlight goes one tighter so the
@@ -98,11 +112,13 @@ export function MapView({
             enabledChildPolygonIds={enabledChildPolygonIds}
             showGone={showGone}
             suppressPopupAutoOpen={highlightFind !== null}
+            onSelect={onSelectLocation}
           />
           <LocationDots
             locations={data.locations}
             focusLocationId={focusLocationId}
             showGone={showGone}
+            onSelect={onSelectLocation}
           />
         </>
       )}
@@ -113,6 +129,7 @@ export function MapView({
         />
       )}
       {highlightFind && <HighlightFindMarker find={highlightFind} />}
+      <BackgroundClickHandler onDeselect={onDeselectLocation} />
       {bounds && (
         <FitBounds
           bounds={bounds}
@@ -127,9 +144,9 @@ export function MapView({
 }
 
 /**
- * Auto-fits the map. `focusKey` forces a re-fit whenever the user picks
- * a new location from the sidebar — without it, useEffect deps wouldn't
- * change because `bounds` array identity stays the same shape.
+ * Auto-fits the map on initial mount and whenever the visitor picks a
+ * new location. Deselecting (focusKey → null) intentionally does NOT
+ * refit — the map stays where the user was, just without the highlight.
  */
 function FitBounds({
   bounds,
@@ -138,15 +155,44 @@ function FitBounds({
 }: {
   bounds: LatLngBoundsExpression;
   maxZoom: number;
-  /** Identity token to force a re-fit when the visitor picks a new
-   *  location or follows a new ?find=N deep link. The value itself
-   *  doesn't matter — only that React sees a change. */
+  /** Identity token. On mount, FitBounds always fits once (the initial
+   *  centring on MAP 00001 or a deep-linked location). After mount, it
+   *  refits only when the key changes to a non-null value. */
   focusKey: number | string | null;
 }) {
   const map = useMap();
+  const didMountRef = useRef(false);
   useEffect(() => {
+    if (!didMountRef.current) {
+      // First effect run after MapContainer mounts — always fit so the
+      // viewport lands on the initial location (or deep-link target).
+      didMountRef.current = true;
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom });
+      return;
+    }
+    if (focusKey === null) return; // deselect — leave the viewport alone
     map.fitBounds(bounds, { padding: [40, 40], maxZoom });
-  }, [map, bounds, maxZoom, focusKey]);
+    // bounds intentionally left out of deps: a focusKey change is the
+    // signal we want; bounds reference can swing as the user toggles
+    // gone/finds layers and we don't want each toggle to refit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, focusKey, maxZoom]);
+  return null;
+}
+
+/**
+ * Listens for clicks on empty map space and forwards them as a deselect
+ * signal. Layer click handlers (polygons, dots) call
+ * L.DomEvent.stopPropagation so their picks never reach this fallback.
+ */
+function BackgroundClickHandler({
+  onDeselect,
+}: {
+  onDeselect: () => void;
+}) {
+  useMapEvents({
+    click: () => onDeselect(),
+  });
   return null;
 }
 

@@ -56,6 +56,12 @@ export function HighlightFindMarker({ find }: { find: HighlightFind }) {
       position={[find.lat, find.lng]}
       icon={icon}
       keyboard={false}
+      eventHandlers={{
+        // Don't let clicks on this marker reach the map's background
+        // handler — clicking the highlighted find shouldn't deselect
+        // the location it belongs to.
+        click: (e) => L.DomEvent.stopPropagation(e),
+      }}
     >
       <Popup>
         <div>

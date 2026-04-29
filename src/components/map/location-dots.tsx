@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { CircleMarker, useMap } from "react-leaflet";
-import type { CircleMarker as LCircleMarker } from "leaflet";
+import L, { type CircleMarker as LCircleMarker } from "leaflet";
 import type { MapLocation } from "@/lib/queries/map";
 
 /**
@@ -15,12 +15,14 @@ export function LocationDots({
   locations,
   focusLocationId,
   showGone,
+  onSelect,
 }: {
   locations: readonly MapLocation[];
   focusLocationId: number | null;
   /** Mirror the polygon-layer toggle: hide former-location dots when
    *  the visitor has the Zaniklé layer off. */
   showGone: boolean;
+  onSelect?: (id: number) => void;
 }) {
   const map = useMap();
   const layerRefs = useRef<Map<number, LCircleMarker>>(new Map());
@@ -86,6 +88,13 @@ export function LocationDots({
                   </div>`,
                 );
                 layerRefs.current.set(l.id, layer);
+              },
+              click: (e) => {
+                // Stop the click from reaching the map's background
+                // handler — otherwise the deselect would fire right
+                // after the select.
+                L.DomEvent.stopPropagation(e);
+                onSelect?.(l.id);
               },
               remove: () => {
                 layerRefs.current.delete(l.id);

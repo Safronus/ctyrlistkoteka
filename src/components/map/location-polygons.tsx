@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { GeoJSON as GeoJSONLayer, useMap } from "react-leaflet";
-import type { Layer, LatLngBounds, LatLng } from "leaflet";
+import L, { type Layer, type LatLngBounds, type LatLng } from "leaflet";
 import type { MapLocation } from "@/lib/queries/map";
 
 export function LocationPolygons({
@@ -11,6 +11,7 @@ export function LocationPolygons({
   enabledChildPolygonIds,
   showGone,
   suppressPopupAutoOpen = false,
+  onSelect,
 }: {
   locations: readonly MapLocation[];
   focusLocationId?: number | null;
@@ -29,6 +30,10 @@ export function LocationPolygons({
    *  own popup. Used by /mapa's `?find=N` deep-link so the highlighted
    *  find's popup wins instead of being clobbered by the polygon's. */
   suppressPopupAutoOpen?: boolean;
+  /** Click handler — fired when the visitor clicks a polygon directly
+   *  on the map. The wrapper stops the click from reaching the map's
+   *  background handler so it doesn't deselect right after selecting. */
+  onSelect?: (id: number) => void;
 }) {
   const map = useMap();
   // Layer ref by location id, populated by onEachFeature so we can later
@@ -153,6 +158,12 @@ export function LocationPolygons({
             <span style="color:#6b7280;font-size:12px">${props.findCount} nálezů</span>
           </div>`,
         );
+        layer.on("click", (e) => {
+          // Stop the click from reaching the map's background handler —
+          // otherwise the deselect would fire right after the select.
+          L.DomEvent.stopPropagation(e);
+          onSelect?.(props.id);
+        });
         layerRefs.current.set(props.id, layer);
       }}
     />
