@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { GeoJSON as GeoJSONLayer, useMap } from "react-leaflet";
-import type { Layer } from "leaflet";
+import type { Layer, LatLngBounds, LatLng } from "leaflet";
 import type { MapLocation } from "@/lib/queries/map";
 
 export function LocationPolygons({
@@ -58,13 +58,32 @@ export function LocationPolygons({
     if (focusLocationId == null) return;
     if (suppressPopupAutoOpen) return;
     const layer = layerRefs.current.get(focusLocationId);
-    if (!layer || typeof (layer as Layer & { openPopup?: () => void }).openPopup !== "function") {
-      return;
+    if (!layer) return;
+    type PopupLayer = Layer & {
+      openPopup: (latlng?: [number, number]) => void;
+      getBounds?: () => LatLngBounds;
+      getCenter?: () => LatLng;
+    };
+    const popupLayer = layer as PopupLayer;
+    if (typeof popupLayer.openPopup !== "function") return;
+    // Anchor the popup above the polygon — its tip lands on the north
+    // edge mid-point so the popup body extends UP from the top of the
+    // shape rather than covering its centre. Falls back to the layer's
+    // default anchor (centre) if bounds/center accessors aren't there.
+    let anchor: [number, number] | undefined;
+    try {
+      const bounds = popupLayer.getBounds?.();
+      const center = popupLayer.getCenter?.();
+      if (bounds && center) {
+        anchor = [bounds.getNorth(), center.lng];
+      }
+    } catch {
+      /* polygon may not be fully initialised yet — fall through to default */
     }
     // FitBounds animates ~250 ms; wait for moveend (or fall back after a
     // short timeout in case it already fired by the time we attached).
     const open = () => {
-      (layer as Layer & { openPopup: () => void }).openPopup();
+      popupLayer.openPopup(anchor);
     };
     map.once("moveend", open);
     const t = setTimeout(open, 800);

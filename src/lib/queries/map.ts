@@ -42,6 +42,15 @@ export interface MapData {
    *  — no popups, no clicks). Tuples instead of objects to keep the
    *  initial JSON payload small (17k → ~150 KB gzipped). */
   findCoords: ReadonlyArray<readonly [number, number]>;
+  /** Total find count in the DB. Used by the Vrstvy card to surface
+   *  the gap between "what /sbirka shows" and "what's on the map" —
+   *  anonymized finds and finds without GPS never enter `findCoords`,
+   *  so their absence on the map needs a one-line explanation. */
+  findCountTotal: number;
+  /** Number of locations whose every map carries the is_anonymized
+   *  flag. Hidden from /mapa entirely; the sidebar header surfaces the
+   *  count so visitors know there are private spots they can't browse. */
+  anonymizedLocationCount: number;
 }
 
 export async function getMapData(): Promise<MapData> {
@@ -137,5 +146,15 @@ export async function getMapData(): Promise<MapData> {
     (r) => [r.lat, r.lng] as readonly [number, number],
   );
 
-  return { locations, findCoords };
+  // Total finds + anonymized location count let the Vrstvy card and
+  // sidebar header explain the "missing on map vs total" gap that a
+  // visitor would otherwise read as a bug.
+  const findCountTotal = await prisma.find.count();
+
+  return {
+    locations,
+    findCoords,
+    findCountTotal,
+    anonymizedLocationCount: anonLocIds.size,
+  };
 }

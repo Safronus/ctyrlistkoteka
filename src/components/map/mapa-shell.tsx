@@ -265,6 +265,7 @@ export function MapaShell({
             onSelect={handleSelectLocation}
             enabledChildPolygonIds={enabledChildPolygonIds}
             onToggleChildPolygon={handleToggleChildPolygon}
+            anonymizedLocationCount={mapData.anonymizedLocationCount}
           />
         </aside>
       )}
@@ -283,6 +284,7 @@ export function MapaShell({
           locationCount={activeLocationCount}
           goneCount={goneLocationCount}
           findCount={mapData.findCoords.length}
+          findCountTotal={mapData.findCountTotal}
         />
         <LocationLegend />
       </div>
@@ -332,6 +334,7 @@ function LayerToggleCard({
   locationCount,
   goneCount,
   findCount,
+  findCountTotal,
 }: {
   showLocations: boolean;
   onToggleLocations: (v: boolean) => void;
@@ -342,7 +345,12 @@ function LayerToggleCard({
   locationCount: number;
   goneCount: number;
   findCount: number;
+  findCountTotal: number;
 }) {
+  // Visitors comparing the home page (e.g. "1 735 nálezů") with this
+  // count saw the difference and assumed a bug; calling out the gap
+  // explains it: anonymized + GPS-less finds aren't on the map.
+  const hiddenFinds = Math.max(0, findCountTotal - findCount);
   return (
     <div className="rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm shadow-md">
       <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -355,18 +363,28 @@ function LayerToggleCard({
           checked={showLocations}
           onChange={onToggleLocations}
         />
-        <ToggleRow
-          label="Zaniklé"
-          count={goneCount}
-          checked={showGone}
-          onChange={onToggleGone}
-          disabled={!showLocations}
-        />
+        {/* Zaniklé as a visual sub-row of Lokace — indented and tied
+         *  to its parent by a left rule, matching the master/detail
+         *  semantic. Goes muted when the parent toggle is off. */}
+        <div className="ml-2 border-l border-gray-200 pl-2">
+          <ToggleRow
+            label="Zaniklé"
+            count={goneCount}
+            checked={showGone}
+            onChange={onToggleGone}
+            disabled={!showLocations}
+          />
+        </div>
         <ToggleRow
           label="Nálezy"
           count={findCount}
           checked={showFinds}
           onChange={onToggleFinds}
+          subtitle={
+            hiddenFinds > 0
+              ? `+ ${hiddenFinds.toLocaleString("cs-CZ")} skrytých (anonym./bez GPS)`
+              : undefined
+          }
         />
       </div>
     </div>
@@ -379,6 +397,7 @@ function ToggleRow({
   checked,
   onChange,
   disabled = false,
+  subtitle,
 }: {
   label: string;
   count: number;
@@ -388,28 +407,39 @@ function ToggleRow({
    *  Used by the Zaniklé sub-toggle so it visually defers to the Lokace
    *  master switch — flipping Lokace off greys out the gone sub-control. */
   disabled?: boolean;
+  /** Optional small line shown under the label — e.g. "+ 36 skrytých"
+   *  on the Nálezy row when anonymized / no-GPS finds aren't on the
+   *  map. Aligns with the checkbox column above. */
+  subtitle?: string;
 }) {
   return (
     <label
-      className={`flex items-center justify-between gap-2 rounded px-1 py-0.5 text-sm ${
+      className={`block rounded px-1 py-0.5 text-sm ${
         disabled
           ? "cursor-not-allowed text-gray-400"
           : "cursor-pointer text-gray-700 hover:bg-gray-50"
       }`}
     >
-      <span className="inline-flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={checked}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
-        />
-        <span>{label}</span>
+      <span className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={checked}
+            disabled={disabled}
+            onChange={(e) => onChange(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+          />
+          <span>{label}</span>
+        </span>
+        <span className="font-mono text-xs text-gray-500">
+          ({count.toLocaleString("cs-CZ")})
+        </span>
       </span>
-      <span className="font-mono text-xs text-gray-500">
-        ({count.toLocaleString("cs-CZ")})
-      </span>
+      {subtitle && (
+        <span className="ml-6 mt-0.5 block text-[11px] text-gray-500">
+          {subtitle}
+        </span>
+      )}
     </label>
   );
 }

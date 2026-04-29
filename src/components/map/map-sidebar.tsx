@@ -23,6 +23,7 @@ export function MapSidebar({
   onSelect,
   enabledChildPolygonIds,
   onToggleChildPolygon,
+  anonymizedLocationCount,
 }: {
   locations: readonly LocationListItem[];
   focusId: number | null;
@@ -34,6 +35,10 @@ export function MapSidebar({
    *  its polygon, but the user can flip individual children on/off
    *  here without changing the focused location. */
   onToggleChildPolygon: (id: number) => void;
+  /** Locations whose every map is anonymized — they're filtered out of
+   *  `locations` upstream, but the count is shown next to the header so
+   *  visitors know there are private spots they can't browse. */
+  anonymizedLocationCount: number;
 }) {
   const [q, setQ] = useState("");
 
@@ -62,6 +67,15 @@ export function MapSidebar({
       <div className="border-b border-gray-200 px-3 py-2">
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
           Lokality ({locations.length.toLocaleString("cs-CZ")})
+          {anonymizedLocationCount > 0 && (
+            <span
+              className="ml-1 normal-case tracking-normal text-gray-400"
+              title="Anonymizované lokality nejsou na mapě a nelze je zobrazit"
+            >
+              + {anonymizedLocationCount.toLocaleString("cs-CZ")}{" "}
+              anonymizovaných
+            </span>
+          )}
         </h3>
       </div>
       <div className="border-b border-gray-200 p-3">

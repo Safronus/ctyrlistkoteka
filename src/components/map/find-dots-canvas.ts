@@ -63,7 +63,24 @@ const FindDotsLayer = L.Layer.extend({
     this._canvas = canvas;
     this._sprite = createSprite(this._dpr);
 
-    map.getPanes().overlayPane.appendChild(canvas);
+    // Custom pane keyed at z-index 550 — above overlayPane (400, where
+    // location polygons + dots live) and below markerPane (600, where
+    // the highlight marker lives). Without it, every polygon re-render
+    // appended a fresh SVG to overlayPane and ended up painted on top
+    // of the find canvas, hiding the green dots whenever the focus or
+    // child-polygon set changed.
+    const PANE_NAME = "ctyr-find-dots";
+    if (!map.getPane(PANE_NAME)) {
+      map.createPane(PANE_NAME);
+    }
+    const pane = map.getPane(PANE_NAME);
+    if (pane) {
+      pane.style.zIndex = "550";
+      pane.style.pointerEvents = "none";
+      pane.appendChild(canvas);
+    } else {
+      map.getPanes().overlayPane.appendChild(canvas);
+    }
     map.on("moveend", this._reset, this);
     map.on("resize", this._reset, this);
     map.on("zoomanim", this._animateZoom, this);
