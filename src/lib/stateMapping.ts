@@ -11,12 +11,20 @@ import { FindState } from "@prisma/client";
  *   BEZGPS            → NO_GPS
  *   BEZFOTKY          → NO_PHOTO
  *   DAROVANÝ          → DONATED
+ *   ZTRACENÝ          → LOST
+ *   NEUTRŽEN          → NOT_PICKED
+ *   BEZLOKACE         → LOCATION_MISSING
  *   LOKACE-NEEXISTUJE → LOCATION_GONE  (the location existed but is no
  *                                       longer there — distinct from
  *                                       BEZLOKACE = LOCATION_MISSING)
  *
- * Legacy transliterated tokens are kept as fallbacks so any historical
- * files that happen to have been through the old tooling still import.
+ * Each token is registered both with and without diacritics — visitors
+ * occasionally save files from systems that strip the háček/čárka, and
+ * the JSON `stavy` mapping is also ASCII-only, so accepting both forms
+ * keeps a filename consistent with whatever the JSON would have called
+ * the same find. Legacy transliterated tokens are kept as fallbacks so
+ * any historical files that happen to have been through the old tooling
+ * still import.
  */
 export const FILENAME_STATE_MAP: ReadonlyMap<string, FindState> = new Map([
   ["NORMÁLNÍ", FindState.NORMAL],
@@ -24,6 +32,11 @@ export const FILENAME_STATE_MAP: ReadonlyMap<string, FindState> = new Map([
   ["BEZFOTKY", FindState.NO_PHOTO],
   ["DAROVANÝ", FindState.DONATED],
   ["DAROVANY", FindState.DONATED],
+  ["ZTRACENÝ", FindState.LOST],
+  ["ZTRACENY", FindState.LOST],
+  ["NEUTRŽEN", FindState.NOT_PICKED],
+  ["NEUTRZEN", FindState.NOT_PICKED],
+  ["BEZLOKACE", FindState.LOCATION_MISSING],
   ["LOKACE-NEEXISTUJE", FindState.LOCATION_GONE],
   // Legacy transliterated forms — kept for compatibility.
   ["NORMA_LNI_", FindState.NORMAL],
