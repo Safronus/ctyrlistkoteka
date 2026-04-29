@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MapPin } from "lucide-react";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
@@ -6,6 +7,7 @@ import {
   formatDateTimeCs,
   formatDistance,
   formatLocationId,
+  formatLocationOffset,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
 
@@ -37,71 +39,104 @@ function FindListRow({ find }: { find: PublicFind }) {
     ? `Anonymizovaný nález #${find.id}`
     : `Nález #${find.id}`;
 
-  return (
-    <Link
-      href={`/sbirka/${find.id}`}
-      className="group flex items-stretch gap-4 p-3 transition hover:bg-brand-50"
-    >
-      <FindThumbnail
-        image={find.primaryImage}
-        alt={altText}
-        className="h-24 w-24 shrink-0 rounded-md sm:h-28 sm:w-28"
-      />
+  // The map deep-link only makes sense when the find has a public GPS
+  // point to focus on. Anonymized finds expose at most coarsened coords
+  // — pinning them precisely on the map would defeat anonymization.
+  const showMapLink = !find.isAnonymized && find.coordinates !== null;
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        {/* Title row: #ID + #LocId - CODE (description), datetime right. */}
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <FindTitle find={find} />
-          <span className="shrink-0 text-xs text-gray-500">
-            {formatDateTimeCs(find.foundAt)}
-          </span>
+  return (
+    <div className="group flex items-stretch transition hover:bg-brand-50">
+      <Link
+        href={`/sbirka/${find.id}`}
+        className="flex min-w-0 flex-1 items-stretch gap-4 p-3"
+      >
+        <FindThumbnail
+          image={find.primaryImage}
+          alt={altText}
+          className="h-24 w-24 shrink-0 rounded-md sm:h-28 sm:w-28"
+        />
+
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          {/* Title row: #ID + #LocId - CODE (description), datetime right. */}
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <FindTitle find={find} />
+            <span className="shrink-0 text-xs text-gray-500">
+              {formatDateTimeCs(find.foundAt)}
+            </span>
+          </div>
+
+          {!find.isAnonymized && find.coordinates && (
+            <p className="font-mono text-xs text-gray-500">
+              {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
+              {find.locationOffset && (
+                <>
+                  {" · "}
+                  <span
+                    className="text-gray-600"
+                    title={
+                      find.locationOffset.mode === "polygon"
+                        ? "Vzdušná vzdálenost od hrany polygonu lokace (0 = uvnitř AOI)"
+                        : "Vzdušná vzdálenost od GPS středu lokační mapy"
+                    }
+                  >
+                    {formatLocationOffset(find.locationOffset)}
+                  </span>
+                </>
+              )}
+              {find.distanceFromDefault !== null && (
+                <>
+                  {" · "}
+                  <span
+                    className="text-gray-600"
+                    title="Vzdušná vzdálenost od GPS středu lokační mapy 00001"
+                  >
+                    {formatDistance(find.distanceFromDefault)} od MAP 00001
+                  </span>
+                </>
+              )}
+            </p>
+          )}
+
+          {find.notes && (
+            <p className="line-clamp-2 text-sm text-gray-600">{find.notes}</p>
+          )}
+
+          {find.states.length > 0 && (
+            <div className="mt-auto self-end">
+              <StateBadges states={find.states} />
+            </div>
+          )}
         </div>
 
-        {!find.isAnonymized && find.coordinates && (
-          <p className="font-mono text-xs text-gray-500">
-            {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
-            {find.distanceFromDefault !== null && (
-              <>
-                {" · "}
-                <span
-                  className="text-gray-600"
-                  title="Vzdušná vzdálenost od GPS středu lokační mapy 00001"
-                >
-                  {formatDistance(find.distanceFromDefault)} od MAP 00001
-                </span>
-              </>
-            )}
-          </p>
-        )}
-
-        {find.notes && (
-          <p className="line-clamp-2 text-sm text-gray-600">{find.notes}</p>
-        )}
-
-        {find.states.length > 0 && (
-          <div className="mt-auto self-end">
-            <StateBadges states={find.states} />
+        {/* Location map thumbnail — kept off small screens to preserve room
+         *  for the title text. Hidden entirely for anonymized finds. */}
+        {find.locationThumbUrl && (
+          <div className="hidden shrink-0 sm:block">
+            {/* Served by Nginx; Next Image optimizer not needed. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={find.locationThumbUrl}
+              alt=""
+              aria-hidden
+              loading="lazy"
+              decoding="async"
+              className="h-24 w-24 rounded-md border border-gray-200 object-cover sm:h-28 sm:w-28"
+            />
           </div>
         )}
-      </div>
+      </Link>
 
-      {/* Location map thumbnail — kept off small screens to preserve room
-       *  for the title text. Hidden entirely for anonymized finds. */}
-      {find.locationThumbUrl && (
-        <div className="hidden shrink-0 sm:block">
-          {/* Served by Nginx; Next Image optimizer not needed. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={find.locationThumbUrl}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            decoding="async"
-            className="h-24 w-24 rounded-md border border-gray-200 object-cover sm:h-28 sm:w-28"
-          />
-        </div>
+      {showMapLink && (
+        <Link
+          href={`/mapa?find=${find.id}`}
+          className="flex shrink-0 items-center justify-center border-l border-gray-100 px-3 text-gray-400 transition hover:bg-brand-100 hover:text-brand-700 focus:bg-brand-100 focus:text-brand-700 focus:outline-none"
+          aria-label="Zobrazit nález na mapě"
+          title="Zobrazit nález na mapě"
+        >
+          <MapPin className="h-5 w-5" aria-hidden />
+        </Link>
       )}
-    </Link>
+    </div>
   );
 }
 

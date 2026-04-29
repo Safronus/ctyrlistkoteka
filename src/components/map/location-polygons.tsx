@@ -9,6 +9,7 @@ export function LocationPolygons({
   locations,
   focusLocationId,
   enabledChildPolygonIds,
+  suppressPopupAutoOpen = false,
 }: {
   locations: readonly MapLocation[];
   focusLocationId?: number | null;
@@ -18,6 +19,10 @@ export function LocationPolygons({
    *  only when present in this set so they don't stack on the parent
    *  by default. */
   enabledChildPolygonIds: ReadonlySet<number>;
+  /** When true, the focused polygon stays styled but doesn't pop its
+   *  own popup. Used by /mapa's `?find=N` deep-link so the highlighted
+   *  find's popup wins instead of being clobbered by the polygon's. */
+  suppressPopupAutoOpen?: boolean;
 }) {
   const map = useMap();
   // Layer ref by location id, populated by onEachFeature so we can later
@@ -39,6 +44,7 @@ export function LocationPolygons({
 
   useEffect(() => {
     if (focusLocationId == null) return;
+    if (suppressPopupAutoOpen) return;
     const layer = layerRefs.current.get(focusLocationId);
     if (!layer || typeof (layer as Layer & { openPopup?: () => void }).openPopup !== "function") {
       return;
@@ -54,7 +60,7 @@ export function LocationPolygons({
       map.off("moveend", open);
       clearTimeout(t);
     };
-  }, [focusLocationId, map, features.length]);
+  }, [focusLocationId, map, features.length, suppressPopupAutoOpen]);
 
   if (features.length === 0) return null;
 

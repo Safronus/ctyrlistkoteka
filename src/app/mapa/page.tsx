@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getMapData } from "@/lib/queries/map";
 import { listLocations } from "@/lib/queries/locations";
+import { getHighlightFind } from "@/lib/queries/finds";
 import { MapaShell } from "@/components/map/mapa-shell";
 
 export const metadata: Metadata = {
@@ -29,14 +30,17 @@ export default async function MapaPage({ searchParams }: PageProps) {
   // sensible default focus.
   const urlFocusId =
     focusRaw && /^\d+$/.test(focusRaw) ? Number(focusRaw) : null;
+  const findRaw = pickString(sp.find);
+  const findId = findRaw && /^\d+$/.test(findRaw) ? Number(findRaw) : null;
 
   // Sidebar lists only locations actually visible on the map — anonymized
   // ones aren't there and showing them with no click target was useless.
   // Former (NEEXISTUJE-) locations stay; their polygons are still on the
   // map.
-  const [data, sidebarLocations] = await Promise.all([
+  const [data, sidebarLocations, highlightFind] = await Promise.all([
     getMapData(),
     listLocations({ showAnonymized: false, showGone: true }),
+    findId !== null ? getHighlightFind(findId) : Promise.resolve(null),
   ]);
 
   return (
@@ -46,6 +50,7 @@ export default async function MapaPage({ searchParams }: PageProps) {
           mapData={data}
           sidebarLocations={sidebarLocations}
           urlFocusId={urlFocusId}
+          highlightFind={highlightFind}
         />
       </div>
     </div>

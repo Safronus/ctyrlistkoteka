@@ -15,6 +15,7 @@ import {
   formatDateTimeCs,
   formatDistance,
   formatLocationId,
+  formatLocationOffset,
 } from "@/lib/format";
 import { isFormerLocation } from "@/lib/locationCode";
 import {
@@ -144,6 +145,26 @@ export default async function FindDetailPage({ params }: PageProps) {
                 lng={find.coordinates.lng}
                 tone={hellish ? "dark" : "default"}
               />
+              {find.locationOffset && (
+                <span
+                  className={`text-xs ${
+                    hellish ? "text-red-300/80" : "text-gray-500"
+                  }`}
+                  title={
+                    find.locationOffset.mode === "polygon"
+                      ? "Vzdušná vzdálenost od hrany polygonu lokace (0 = uvnitř AOI)"
+                      : "Vzdušná vzdálenost od GPS středu lokační mapy"
+                  }
+                >
+                  <span
+                    className={`font-mono tabular-nums ${
+                      hellish ? "text-red-100" : "text-gray-800"
+                    }`}
+                  >
+                    {formatLocationOffset(find.locationOffset)}
+                  </span>
+                </span>
+              )}
               {find.distanceFromDefault !== null && (
                 <span
                   className={`text-xs ${

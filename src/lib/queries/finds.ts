@@ -53,6 +53,20 @@ export interface PublicFind {
    *  to null for anonymized finds so the value can't be used to
    *  triangulate their position. */
   distanceFromDefault: number | null;
+  /** Offset of the find's GPS from its own location. When the location
+   *  has a polygon, this is the great-circle distance to the nearest
+   *  polygon edge — 0 when the point is inside the AOI, positive when
+   *  outside. When the location has only a center point (no polygon),
+   *  it falls back to the great-circle distance from that center. The
+   *  `mode` lets the UI pick the right wording so visitors don't read
+   *  "120 m from center" as a misplacement bug.
+   *
+   *  Null when the find is anonymized, has no GPS, or its location has
+   *  neither a polygon nor a center point. */
+  locationOffset: {
+    meters: number;
+    mode: "polygon" | "center";
+  } | null;
 }
 
 export interface FindFilters {
@@ -221,30 +235,59 @@ async function hydrate(
       lat: number | null;
       lng: number | null;
       dist_m: number | null;
+      loc_offset_m: number | null;
+      loc_offset_mode: "polygon" | "center" | null;
     }>
   >`
     WITH ref AS (
       SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
       FROM location_maps WHERE id = ${DEFAULT_LOCATION_ID}
     )
-    SELECT id,
-           ST_Y(coordinates)::float8 AS lat,
-           ST_X(coordinates)::float8 AS lng,
-           CASE WHEN is_anonymized = false
+    SELECT f.id,
+           ST_Y(f.coordinates)::float8 AS lat,
+           ST_X(f.coordinates)::float8 AS lng,
+           CASE WHEN f.is_anonymized = false
                   AND (SELECT pt FROM ref) IS NOT NULL
-                THEN ST_DistanceSphere(coordinates, (SELECT pt FROM ref))::float8
-           END AS dist_m
-    FROM finds
-    WHERE id IN (${Prisma.join(ids)}) AND coordinates IS NOT NULL
+                THEN ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref))::float8
+           END AS dist_m,
+           CASE WHEN f.is_anonymized = false THEN
+                CASE
+                  WHEN l.polygon IS NOT NULL
+                    THEN ST_Distance(f.coordinates::geography, l.polygon::geography)::float8
+                  WHEN l.center_point IS NOT NULL
+                    THEN ST_DistanceSphere(f.coordinates, l.center_point)::float8
+                  ELSE NULL
+                END
+           END AS loc_offset_m,
+           CASE WHEN f.is_anonymized = false THEN
+                CASE
+                  WHEN l.polygon IS NOT NULL THEN 'polygon'
+                  WHEN l.center_point IS NOT NULL THEN 'center'
+                  ELSE NULL
+                END
+           END AS loc_offset_mode
+    FROM finds f
+    LEFT JOIN locations l ON l.id = f.location_id
+    WHERE f.id IN (${Prisma.join(ids)}) AND f.coordinates IS NOT NULL
   `;
   const coordsMap = new Map<number, { lat: number; lng: number }>();
   const distMap = new Map<number, number>();
+  const offsetMap = new Map<
+    number,
+    { meters: number; mode: "polygon" | "center" }
+  >();
   for (const c of coordRows) {
     if (c.lat !== null && c.lng !== null) {
       coordsMap.set(c.id, { lat: c.lat, lng: c.lng });
     }
     if (c.dist_m !== null) {
       distMap.set(c.id, c.dist_m);
+    }
+    if (c.loc_offset_m !== null && c.loc_offset_mode !== null) {
+      offsetMap.set(c.id, {
+        meters: c.loc_offset_m,
+        mode: c.loc_offset_mode,
+      });
     }
   }
 
@@ -277,6 +320,7 @@ async function hydrate(
       // surface a distance that could be used to back-derive the
       // anonymized find's position.
       distanceFromDefault: distMap.get(r.id) ?? null,
+      locationOffset: offsetMap.get(r.id) ?? null,
     };
   });
 }
@@ -673,6 +717,68 @@ export async function getIndexableFinds(): Promise<
     select: { id: true, updatedAt: true },
     orderBy: { id: "asc" },
   });
+}
+
+/** Slim payload used by /mapa's `?find=N` deep-link to highlight a single
+ *  find. Anonymized finds intentionally resolve to `null` — their coords
+ *  are coarsened or hidden, so pinning them precisely on the map would
+ *  defeat the anonymization. */
+export interface HighlightFind {
+  id: number;
+  lat: number;
+  lng: number;
+  locationId: number | null;
+  offset: { meters: number; mode: "polygon" | "center" } | null;
+}
+
+export async function getHighlightFind(
+  id: number,
+): Promise<HighlightFind | null> {
+  const row = await prisma.find.findUnique({
+    where: { id },
+    select: { id: true, isAnonymized: true, locationId: true },
+  });
+  if (!row || row.isAnonymized) return null;
+
+  const coordRows = await prisma.$queryRaw<
+    Array<{
+      lat: number | null;
+      lng: number | null;
+      loc_offset_m: number | null;
+      loc_offset_mode: "polygon" | "center" | null;
+    }>
+  >`
+    SELECT ST_Y(f.coordinates)::float8 AS lat,
+           ST_X(f.coordinates)::float8 AS lng,
+           CASE
+             WHEN l.polygon IS NOT NULL
+               THEN ST_Distance(f.coordinates::geography, l.polygon::geography)::float8
+             WHEN l.center_point IS NOT NULL
+               THEN ST_DistanceSphere(f.coordinates, l.center_point)::float8
+             ELSE NULL
+           END AS loc_offset_m,
+           CASE
+             WHEN l.polygon IS NOT NULL THEN 'polygon'
+             WHEN l.center_point IS NOT NULL THEN 'center'
+             ELSE NULL
+           END AS loc_offset_mode
+    FROM finds f
+    LEFT JOIN locations l ON l.id = f.location_id
+    WHERE f.id = ${id} AND f.coordinates IS NOT NULL
+  `;
+  const c = coordRows[0];
+  if (!c || c.lat === null || c.lng === null) return null;
+
+  return {
+    id: row.id,
+    lat: c.lat,
+    lng: c.lng,
+    locationId: row.locationId,
+    offset:
+      c.loc_offset_m !== null && c.loc_offset_mode !== null
+        ? { meters: c.loc_offset_m, mode: c.loc_offset_mode }
+        : null,
+  };
 }
 
 /** Returns location IDs whose center point falls inside the given

@@ -7,7 +7,9 @@ import "leaflet/dist/leaflet.css";
 import { LocationPolygons } from "./location-polygons";
 import { LocationDots } from "./location-dots";
 import { FindDotsLayer } from "./find-dots-layer";
+import { HighlightFindMarker } from "./highlight-find-marker";
 import type { MapData } from "@/lib/queries/map";
+import type { HighlightFind } from "@/lib/queries/finds";
 
 // Fallback view — Czech Republic bbox when no data is available.
 const CZ_CENTER: [number, number] = [49.8, 15.5];
@@ -19,18 +21,28 @@ export function MapView({
   showLocations,
   showFinds,
   enabledChildPolygonIds,
+  highlightFind,
 }: {
   data: MapData;
   focusLocationId: number | null;
   showLocations: boolean;
   showFinds: boolean;
   enabledChildPolygonIds: ReadonlySet<number>;
+  highlightFind: HighlightFind | null;
 }) {
-  // When focusing one location, ignore the wide auto-fit and zoom in on
-  // that location's polygon (preferred — shows AOI shape) or its centre
-  // point (fallback — synthesise a tiny ~80 m bbox so the view isn't
-  // scrolled to a single pixel).
+  // When highlighting a single find from /sbirka, the visitor wants to
+  // see that point at street level — bypass the location-polygon fit
+  // and synthesise a small bbox around the find's coords. Otherwise the
+  // existing focus rules apply: location polygon (preferred) or a tiny
+  // box around its centre point.
   const bounds = useMemo(() => {
+    if (highlightFind) {
+      const d = 0.0002; // ~22 m — lands fitBounds at a street-level zoom
+      return [
+        [highlightFind.lat - d, highlightFind.lng - d],
+        [highlightFind.lat + d, highlightFind.lng + d],
+      ] as LatLngBoundsExpression;
+    }
     if (focusLocationId !== null) {
       const focused = data.locations.find((l) => l.id === focusLocationId);
       if (focused) {
@@ -39,11 +51,13 @@ export function MapView({
       }
     }
     return computeBounds(data);
-  }, [data, focusLocationId]);
+  }, [data, focusLocationId, highlightFind]);
 
   // Tighter maxZoom when focusing — for a single small AOI we want detail,
-  // not a 14-zoom city overview.
-  const maxFitZoom = focusLocationId !== null ? 19 : 14;
+  // not a 14-zoom city overview. The highlight goes one tighter so the
+  // pulsing marker fills the viewport.
+  const maxFitZoom =
+    highlightFind !== null ? 19 : focusLocationId !== null ? 19 : 14;
 
   return (
     <MapContainer
@@ -64,6 +78,7 @@ export function MapView({
             locations={data.locations}
             focusLocationId={focusLocationId}
             enabledChildPolygonIds={enabledChildPolygonIds}
+            suppressPopupAutoOpen={highlightFind !== null}
           />
           <LocationDots
             locations={data.locations}
@@ -74,11 +89,14 @@ export function MapView({
       {showFinds && data.findCoords.length > 0 && (
         <FindDotsLayer coords={data.findCoords} />
       )}
+      {highlightFind && <HighlightFindMarker find={highlightFind} />}
       {bounds && (
         <FitBounds
           bounds={bounds}
           maxZoom={maxFitZoom}
-          focusKey={focusLocationId}
+          focusKey={
+            highlightFind !== null ? `find-${highlightFind.id}` : focusLocationId
+          }
         />
       )}
     </MapContainer>
@@ -97,7 +115,10 @@ function FitBounds({
 }: {
   bounds: LatLngBoundsExpression;
   maxZoom: number;
-  focusKey: number | null;
+  /** Identity token to force a re-fit when the visitor picks a new
+   *  location or follows a new ?find=N deep link. The value itself
+   *  doesn't matter — only that React sees a change. */
+  focusKey: number | string | null;
 }) {
   const map = useMap();
   useEffect(() => {

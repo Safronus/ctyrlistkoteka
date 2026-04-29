@@ -6,6 +6,7 @@ import { MapLoader } from "./map-loader";
 import { MapSidebar } from "./map-sidebar";
 import type { MapData } from "@/lib/queries/map";
 import type { LocationListItem } from "@/lib/queries/locations";
+import type { HighlightFind } from "@/lib/queries/finds";
 
 /**
  * Wraps the Leaflet map and the right-hand sidebar in a single client
@@ -30,27 +31,43 @@ export function MapaShell({
   mapData,
   sidebarLocations,
   urlFocusId,
+  highlightFind,
 }: {
   mapData: MapData;
   sidebarLocations: readonly LocationListItem[];
   urlFocusId: number | null;
+  /** Set when the page received `?find=N` and the find resolved to public
+   *  GPS — the map then renders a single highlighted marker, auto-zooms
+   *  to it, and starts with the bulk Nálezy layer hidden so the focus
+   *  stays on this one row. */
+  highlightFind: HighlightFind | null;
 }) {
   // Default focus picks DEFAULT_FOCUS_ID when present in the data;
   // otherwise the first location; otherwise null (no data at all).
+  // When deep-linking a find, the location it belongs to wins over the
+  // generic default so the sidebar list highlights the right row too.
   const fallbackFocusId =
+    highlightFind?.locationId ??
     mapData.locations.find((l) => l.id === DEFAULT_FOCUS_ID)?.id ??
     mapData.locations[0]?.id ??
     null;
   const [focusId, setFocusId] = useState<number | null>(
     urlFocusId ?? fallbackFocusId,
   );
-  // Sidebar only auto-opens when the URL explicitly carried ?focus=N
-  // (deep-link from /lokality). A bare /mapa visit keeps it closed even
-  // though we still focus the default location on the map.
-  const [sidebarOpen, setSidebarOpen] = useState(urlFocusId !== null);
+  // Sidebar auto-opens when the URL explicitly carried ?focus=N or
+  // ?find=N (deep-link from /lokality or /sbirka). A bare /mapa visit
+  // keeps it closed even though we still focus the default location on
+  // the map.
+  const [sidebarOpen, setSidebarOpen] = useState(
+    urlFocusId !== null || highlightFind !== null,
+  );
 
   const [showLocations, setShowLocations] = useState(true);
-  const [showFinds, setShowFinds] = useState(true);
+  // Highlight mode hides the bulk find layer by default — the visitor
+  // came from a single-find link, the other 17k dots would just drown
+  // the marker they were sent to. They can flip the layer back on in
+  // the sidebar if they want full context; the highlight stays.
+  const [showFinds, setShowFinds] = useState(highlightFind === null);
 
   // Children of polygon-owning parents are hidden by default — they'd
   // stack on top of the parent's polygon and clutter the view. The
@@ -104,16 +121,24 @@ export function MapaShell({
 
   // Rehydrate visitor preferences after mount. Wrapped in try/catch
   // because localStorage can throw in private mode / when disabled.
+  // The Nálezy preference is intentionally skipped under highlight
+  // deep-link — the user just clicked a find from /sbirka and the
+  // forced-off default for the bulk layer is the whole point. They can
+  // still flip it on by hand, and we save that choice so a manual
+  // override survives across reloads.
+  const hasHighlight = highlightFind !== null;
   useEffect(() => {
     try {
       const sl = window.localStorage.getItem(LS_KEY_LOCATIONS);
       if (sl === "false") setShowLocations(false);
-      const sf = window.localStorage.getItem(LS_KEY_FINDS);
-      if (sf === "false") setShowFinds(false);
+      if (!hasHighlight) {
+        const sf = window.localStorage.getItem(LS_KEY_FINDS);
+        if (sf === "false") setShowFinds(false);
+      }
     } catch {
       /* localStorage unavailable — keep defaults */
     }
-  }, []);
+  }, [hasHighlight]);
 
   useEffect(() => {
     try {
@@ -138,6 +163,7 @@ export function MapaShell({
         showLocations={showLocations}
         showFinds={showFinds}
         enabledChildPolygonIds={enabledChildPolygonIds}
+        highlightFind={highlightFind}
       />
 
       {/* GPS-accuracy notice. Pinned bottom-left so it sits above OSM

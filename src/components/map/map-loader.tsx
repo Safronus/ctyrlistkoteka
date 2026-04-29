@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { MapData } from "@/lib/queries/map";
+import type { HighlightFind } from "@/lib/queries/finds";
 
 /**
  * Dynamic import boundary. Leaflet touches `window` on module load, so
@@ -26,12 +27,14 @@ export function MapLoader({
   showLocations,
   showFinds,
   enabledChildPolygonIds,
+  highlightFind,
 }: {
   data: MapData;
   focusLocationId?: number | null;
   showLocations: boolean;
   showFinds: boolean;
   enabledChildPolygonIds: ReadonlySet<number>;
+  highlightFind: HighlightFind | null;
 }) {
   return (
     <MapView
@@ -40,6 +43,7 @@ export function MapLoader({
       showLocations={showLocations}
       showFinds={showFinds}
       enabledChildPolygonIds={enabledChildPolygonIds}
+      highlightFind={highlightFind}
     />
   );
 }

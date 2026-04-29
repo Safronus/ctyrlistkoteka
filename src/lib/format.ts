@@ -220,6 +220,24 @@ export function formatDistance(meters: number): string {
   }).format(km)} km`;
 }
 
+/** Human label for a find's offset from its own location. Visitors
+ *  reading "120 m od MAP 00001" sometimes worry the find is misplaced;
+ *  this label ties the number to whichever reference shape the location
+ *  actually has so the reading is unambiguous. Sub-metre offsets inside
+ *  an AOI collapse to "uvnitř AOI" rather than "0 m od hrany AOI" —
+ *  ST_Distance returns 0 for contained points, but floating-point noise
+ *  occasionally yields a few millimetres. */
+export function formatLocationOffset(offset: {
+  meters: number;
+  mode: "polygon" | "center";
+}): string {
+  if (offset.mode === "polygon") {
+    if (offset.meters < 1) return "uvnitř AOI";
+    return `${formatDistance(offset.meters)} od hrany AOI`;
+  }
+  return `${formatDistance(offset.meters)} od středu mapy`;
+}
+
 export function formatAreaM2(m2: number): string {
   if (m2 >= 1_000_000) {
     const km2 = m2 / 1_000_000;

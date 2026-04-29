@@ -203,6 +203,34 @@
   }
 }
 
+/* /mapa highlight ring — pulses the outer green halo of a deep-linked
+   find marker so it stands out even when the bulk Nálezy layer gets
+   toggled back on. Animates SVG `r` and `stroke-opacity`, both of which
+   Leaflet renders as plain SVG attributes on the path element. */
+@keyframes ctyr-find-pulse {
+  0% {
+    stroke-opacity: 0.9;
+    fill-opacity: 0.25;
+  }
+  60% {
+    stroke-opacity: 0.4;
+    fill-opacity: 0.05;
+  }
+  100% {
+    stroke-opacity: 0.9;
+    fill-opacity: 0.25;
+  }
+}
+.ctyr-find-pulse {
+  animation: ctyr-find-pulse 1.8s ease-in-out infinite;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ctyr-find-pulse {
+    animation: none;
+  }
+}
+
 html,
 body {
   height: 100%;

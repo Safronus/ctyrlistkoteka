@@ -5,6 +5,7 @@ import { StateBadges } from "./state-badges";
 import {
   formatDistance,
   formatLocationId,
+  formatLocationOffset,
   formatShortDateTimeCs,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
@@ -48,6 +49,18 @@ export function FindCard({ find }: { find: PublicFind }) {
         {!find.isAnonymized && find.coordinates && (
           <p className="truncate font-mono text-xs text-gray-500">
             {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
+          </p>
+        )}
+        {!find.isAnonymized && find.locationOffset && (
+          <p
+            className="truncate text-xs text-gray-500"
+            title={
+              find.locationOffset.mode === "polygon"
+                ? "Vzdušná vzdálenost od hrany polygonu lokace (0 = uvnitř AOI)"
+                : "Vzdušná vzdálenost od GPS středu lokační mapy"
+            }
+          >
+            {formatLocationOffset(find.locationOffset)}
           </p>
         )}
         {!find.isAnonymized && find.distanceFromDefault !== null && (
