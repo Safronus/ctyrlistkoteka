@@ -35,7 +35,7 @@ export default async function HomePage() {
     getWatermarkMeta(),
     getRandomFindShowcase(),
   ]);
-  const { totals } = data;
+  const { totals, highlights } = data;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
@@ -120,10 +120,29 @@ export default async function HomePage() {
           Veřejná prezentace soukromé sbírky čtyřlístků — tisíce nálezů,
           zaznamenaných lokalit a GPS souřadnic.
         </p>
-        {totals.latestFoundAt && (
-          <p className="mt-2 text-center text-xs text-gray-400">
-            Naposledy doplněno{" "}
-            {formatShortDateCs(new Date(totals.latestFoundAt))}
+        {(totals.latestFoundAt || highlights.firstFoundAt) && (
+          <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs text-gray-400">
+            {totals.latestFoundAt && (
+              <span>
+                Poslední aktualizace sbírky:{" "}
+                <span className="text-gray-500">
+                  {formatShortDateCs(new Date(totals.latestFoundAt))}
+                </span>
+              </span>
+            )}
+            {totals.latestFoundAt && highlights.firstFoundAt && (
+              <span aria-hidden className="text-gray-300">
+                ·
+              </span>
+            )}
+            {highlights.firstFoundAt && (
+              <span>
+                První čtyřlístek zaevidován:{" "}
+                <span className="text-gray-500">
+                  {formatShortDateCs(new Date(highlights.firstFoundAt))}
+                </span>
+              </span>
+            )}
           </p>
         )}
       </section>

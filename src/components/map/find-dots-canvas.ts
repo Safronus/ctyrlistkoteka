@@ -14,7 +14,7 @@ import L from "leaflet";
  * never make it into `coords` — the server query already filters them.
  */
 
-type FindCoord = readonly [number, number, number];
+type FindCoord = readonly [number, number, number, number];
 
 // Sprite size in CSS pixels. Small enough to read as a dot at country
 // scale, large enough to recognise the clover shape when zoomed in.
@@ -25,17 +25,22 @@ const SPRITE_PAD = 1;
 const SPRITE_BOX = SPRITE_SIZE + SPRITE_PAD * 2;
 const COLOR = "#15803d";
 const COLOR_CENTRE = "#0f6e34";
-// Alpha applied to finds outside the currently focused location set.
-// Light enough to read as "secondary" while still hinting at density.
+// Alpha applied to finds outside the currently bright set. Light enough
+// to read as "secondary" while still hinting at density.
 const DIM_ALPHA = 0.2;
 
 interface FindDotsLayerOptions extends L.LayerOptions {
   coords: ReadonlyArray<FindCoord>;
   /** Location ids whose finds should paint at full opacity. When null
    *  every find is full-opacity (no focus active). When set, finds with
-   *  matching ids stay vivid; the rest fade to DIM_ALPHA so the spot
-   *  the visitor selected pops out of the surrounding density. */
+   *  matching location ids stay vivid; the rest fade. Lower priority
+   *  than `highlightFindIds` — when both are set, the find-id filter
+   *  takes precedence (the user came from a /sbirka filter, so that's
+   *  the more specific intent). */
   focusFindIds: ReadonlySet<number> | null;
+  /** Find ids to keep bright. Set when /mapa receives /sbirka filter
+   *  params; the resulting set wins over `focusFindIds`. */
+  highlightFindIds: ReadonlySet<number> | null;
 }
 
 // We can't extend L.Layer directly here — `_map` is protected on the
@@ -47,6 +52,7 @@ type FindDotsLayerInstance = {
   _sprite: HTMLCanvasElement;
   _coords: ReadonlyArray<FindCoord>;
   _focusFindIds: ReadonlySet<number> | null;
+  _highlightFindIds: ReadonlySet<number> | null;
   _dpr: number;
   _reset(): void;
   _redraw(): void;
@@ -58,6 +64,7 @@ const FindDotsLayer = L.Layer.extend({
     L.Util.setOptions(this, options);
     this._coords = options.coords;
     this._focusFindIds = options.focusFindIds;
+    this._highlightFindIds = options.highlightFindIds;
   },
 
   onAdd(this: FindDotsLayerInstance, map: L.Map) {
@@ -172,17 +179,29 @@ const FindDotsLayer = L.Layer.extend({
     const sprite = this._sprite;
     const half = SPRITE_BOX / 2;
     const coords = this._coords;
-    const focus = this._focusFindIds;
-    // Two-pass paint when a focus is active: dim ones first so the
-    // bright focused dots end up on top. Single pass otherwise. This
-    // keeps overlapping markers in dense clusters readable instead of
-    // a focused dot disappearing under a later-iterated dim neighbour.
-    if (focus !== null) {
+    // Pick the predicate ONCE before the hot loop:
+    //   highlightFindIds (find IDs) wins when set — that's the more
+    //     specific intent (visitor came from a /sbirka filter)
+    //   focusFindIds (location IDs) is the fallback dim mode
+    //   neither set → all bright, single pass
+    const highlightFinds = this._highlightFindIds;
+    const focusLocs = this._focusFindIds;
+    const isBright: ((c: FindCoord) => boolean) | null =
+      highlightFinds !== null
+        ? (c) => highlightFinds.has(c[3])
+        : focusLocs !== null
+          ? (c) => focusLocs.has(c[2])
+          : null;
+    // Two-pass paint when a dim filter is active: dim ones first so the
+    // bright dots end up on top. Single pass otherwise. This keeps
+    // overlapping markers in dense clusters readable instead of a
+    // bright dot disappearing under a later-iterated dim neighbour.
+    if (isBright !== null) {
       ctx.globalAlpha = DIM_ALPHA;
       for (let i = 0; i < coords.length; i++) {
         const c = coords[i];
         if (!c) continue;
-        if (focus.has(c[2])) continue;
+        if (isBright(c)) continue;
         const lat = c[0];
         const lng = c[1];
         if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) {
@@ -197,7 +216,7 @@ const FindDotsLayer = L.Layer.extend({
       for (let i = 0; i < coords.length; i++) {
         const c = coords[i];
         if (!c) continue;
-        if (!focus.has(c[2])) continue;
+        if (!isBright(c)) continue;
         const lat = c[0];
         const lng = c[1];
         if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) {
@@ -230,13 +249,14 @@ const FindDotsLayer = L.Layer.extend({
 export function createFindDotsLayer(
   coords: ReadonlyArray<FindCoord>,
   focusFindIds: ReadonlySet<number> | null,
+  highlightFindIds: ReadonlySet<number> | null,
 ): L.Layer {
   // L.Layer.extend returns an `any`-typed constructor by design; cast to
   // the typed instance shape we declared above.
   const Ctor = FindDotsLayer as unknown as new (
     options: FindDotsLayerOptions,
   ) => L.Layer;
-  return new Ctor({ coords, focusFindIds });
+  return new Ctor({ coords, focusFindIds, highlightFindIds });
 }
 
 /**

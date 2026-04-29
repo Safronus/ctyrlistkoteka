@@ -238,6 +238,31 @@ export function formatLocationOffset(offset: {
   return `${formatDistance(offset.meters)} od středu mapy`;
 }
 
+/** Tailwind color class for a find's offset, signalling at a glance
+ *  whether the find is well-placed (green: inside AOI / very close),
+ *  in a tolerable range (amber: tens of metres), or far enough that
+ *  the visitor probably wants to double-check (rose: well outside).
+ *  Polygon and centre modes use different thresholds because "far
+ *  from a polygon edge" and "far from a centre point" mean different
+ *  things — a polygon AOI already is the location, a centre point
+ *  is just the photo's anchor. */
+export function locationOffsetToneClass(offset: {
+  meters: number;
+  mode: "polygon" | "center";
+}): string {
+  if (offset.mode === "polygon") {
+    if (offset.meters < 1) return "text-emerald-700 font-medium";
+    if (offset.meters < 10) return "text-emerald-600";
+    if (offset.meters < 50) return "text-amber-600";
+    return "text-rose-600";
+  }
+  // Centre-only locations don't have an AOI to compare against; loosen
+  // the bands so a 60 m offset doesn't read as a problem.
+  if (offset.meters < 50) return "text-emerald-600";
+  if (offset.meters < 200) return "text-amber-600";
+  return "text-rose-600";
+}
+
 export function formatAreaM2(m2: number): string {
   if (m2 >= 1_000_000) {
     const km2 = m2 / 1_000_000;

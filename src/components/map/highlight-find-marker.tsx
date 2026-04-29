@@ -63,11 +63,11 @@ export function HighlightFindMarker({ find }: { find: HighlightFind }) {
         click: (e) => L.DomEvent.stopPropagation(e),
       }}
     >
-      <Popup>
+      <Popup className="ctyr-find-highlight-popup">
         <div>
-          <strong>Nález #{find.id}</strong>
+          <strong style={{ color: "#14532d" }}>Nález #{find.id}</strong>
           {find.offset && (
-            <div style={{ color: "#4b5563", fontSize: 12 }}>
+            <div style={{ color: "#15803d", fontSize: 12 }}>
               {formatLocationOffset(find.offset)}
             </div>
           )}

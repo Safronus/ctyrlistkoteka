@@ -36,15 +36,16 @@ export interface MapLocation {
 
 export interface MapData {
   locations: MapLocation[];
-  /** Tightly-packed `[lat, lng, locationId]` of every non-anonymized
-   *  find that has GPS recorded. The /mapa page paints them as tiny
-   *  clover dots in a single canvas overlay (interactive only as a
-   *  density visualisation — no popups, no clicks). The location id
-   *  lets the canvas dim finds outside the currently focused location
-   *  to 20 % opacity so the active spot's clovers stand out. Finds
-   *  without a location use 0. Tuples instead of objects to keep the
-   *  payload small. */
-  findCoords: ReadonlyArray<readonly [number, number, number]>;
+  /** Tightly-packed `[lat, lng, locationId, findId]` of every
+   *  non-anonymized find that has GPS recorded. The /mapa page paints
+   *  them as tiny clover dots in a single canvas overlay (interactive
+   *  only as a density visualisation — no popups, no clicks). The
+   *  location id lets the canvas dim finds outside the currently
+   *  focused location; the find id supports the orthogonal /sbirka
+   *  filter dim, where only the IDs that match the user's filter stay
+   *  bright. Finds without a location use 0 in slot 2. Tuples instead
+   *  of objects to keep the payload small. */
+  findCoords: ReadonlyArray<readonly [number, number, number, number]>;
   /** Total find count in the DB. Used by the Vrstvy card to surface
    *  the gap between "what /sbirka shows" and "what's on the map" —
    *  anonymized finds and finds without GPS never enter `findCoords`,
@@ -93,15 +94,18 @@ export async function getMapData(): Promise<MapData> {
     `,
     // Per-find coordinates for the canvas density layer. Anonymized
     // finds and finds without GPS are excluded server-side — there's no
-    // client filter that could leak them. Returned as `{lat, lng, lid}`
-    // rows; we tuple-pack just before serialising. `lid` is 0 for finds
-    // without a location so the canvas can use a single typed-array.
+    // client filter that could leak them. Returned as
+    // `{lat, lng, lid, fid}` rows; we tuple-pack just before
+    // serialising. `lid` is 0 for finds without a location so the
+    // canvas can use a single typed-array; `fid` is the find id, used
+    // by the /sbirka-filter dim path.
     prisma.$queryRaw<
-      Array<{ lat: number; lng: number; lid: number | null }>
+      Array<{ lat: number; lng: number; lid: number | null; fid: number }>
     >`
       SELECT ST_Y(coordinates)::float8 AS lat,
              ST_X(coordinates)::float8 AS lng,
-             location_id AS lid
+             location_id AS lid,
+             id AS fid
       FROM finds
       WHERE is_anonymized = false AND coordinates IS NOT NULL
     `,
@@ -151,7 +155,12 @@ export async function getMapData(): Promise<MapData> {
 
   const findCoords = coordRows.map(
     (r) =>
-      [r.lat, r.lng, r.lid ?? 0] as readonly [number, number, number],
+      [r.lat, r.lng, r.lid ?? 0, r.fid] as readonly [
+        number,
+        number,
+        number,
+        number,
+      ],
   );
 
   // Total finds + anonymized location count let the Vrstvy card and

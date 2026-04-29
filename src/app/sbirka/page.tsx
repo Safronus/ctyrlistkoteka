@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Map } from "lucide-react";
 import { FindState } from "@prisma/client";
 import { CollectionProgressBanner } from "@/components/finds/collection-progress-banner";
 import { FilterBar } from "@/components/finds/filter-bar";
@@ -94,6 +96,21 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     filters.year
   );
 
+  // /mapa accepts the same filter param shape (q, loc, city, country,
+  // state, year) — copy the active filters across so the map page can
+  // resolve the same find ID set and dim everything outside it.
+  const buildMapHref = (f: typeof filters) => {
+    const params = new URLSearchParams();
+    if (f.q) params.set("q", f.q);
+    if (f.locationId) params.set("loc", String(f.locationId));
+    if (f.cadastralArea) params.set("city", f.cadastralArea);
+    if (f.country) params.set("country", f.country);
+    if (f.state) params.set("state", f.state);
+    if (f.year) params.set("year", String(f.year));
+    const qs = params.toString();
+    return qs ? `/mapa?${qs}` : "/mapa";
+  };
+
   const buildHref = (p: number) => {
     const params = new URLSearchParams();
     if (filters.q) params.set("q", filters.q);
@@ -139,6 +156,30 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
           year: filters.year ? String(filters.year) : "",
         }}
       />
+
+      {hasFilters && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2 text-sm text-brand-900">
+          <span>
+            Filtr je aktivní —{" "}
+            <strong className="font-semibold">
+              {result.total.toLocaleString("cs-CZ")}
+            </strong>{" "}
+            {result.total === 1
+              ? "nález"
+              : result.total < 5
+                ? "nálezy"
+                : "nálezů"}{" "}
+            odpovídá filtru.
+          </span>
+          <Link
+            href={buildMapHref(filters)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-sm font-medium text-brand-800 shadow-sm transition hover:border-brand-500 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+          >
+            <Map className="h-4 w-4" aria-hidden />
+            <span>Zobrazit na mapě</span>
+          </Link>
+        </div>
+      )}
 
       <ViewSortToolbar view={view} sort={sort} />
 

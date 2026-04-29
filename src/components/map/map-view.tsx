@@ -24,6 +24,7 @@ export function MapView({
   showGone,
   enabledChildPolygonIds,
   highlightFind,
+  highlightFindIds,
   onSelectLocation,
   onDeselectLocation,
 }: {
@@ -38,6 +39,11 @@ export function MapView({
   showGone: boolean;
   enabledChildPolygonIds: ReadonlySet<number>;
   highlightFind: HighlightFind | null;
+  /** Find IDs to keep bright on the canvas — typically populated when
+   *  /mapa receives /sbirka filter params, so the visitor can see the
+   *  filtered set against the dimmed rest. Wins over the location-focus
+   *  dim when both are set. */
+  highlightFindIds: ReadonlySet<number> | null;
   onSelectLocation: (id: number) => void;
   /** Fired when the visitor clicks empty map space — drops the highlight
    *  without re-fitting the viewport. */
@@ -70,10 +76,18 @@ export function MapView({
   }, [data, focusLocationId, initialFitLocationId, highlightFind]);
 
   // Tighter maxZoom when focusing — for a single small AOI we want detail,
-  // not a 14-zoom city overview. The highlight goes one tighter so the
-  // pulsing marker fills the viewport.
+  // not a 14-zoom city overview. The initial-fit location is a single
+  // AOI too (default 00001), so it deserves the close-up zoom; without
+  // this the bare /mapa visit would land at zoom 14, way too zoomed-out
+  // for a small AOI.
   const maxFitZoom =
-    highlightFind !== null ? 19 : focusLocationId !== null ? 19 : 14;
+    highlightFind !== null
+      ? 19
+      : focusLocationId !== null
+        ? 19
+        : initialFitLocationId !== null
+          ? 19
+          : 14;
 
   // Highlight-by-focus: when the visitor picks a sidebar location (or
   // arrives via `?focus=N` from /lokality), build the set of location
@@ -126,6 +140,7 @@ export function MapView({
         <FindDotsLayer
           coords={data.findCoords}
           focusFindIds={focusFindIds}
+          highlightFindIds={highlightFindIds}
         />
       )}
       {highlightFind && <HighlightFindMarker find={highlightFind} />}

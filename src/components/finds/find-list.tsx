@@ -8,6 +8,7 @@ import {
   formatDistance,
   formatLocationId,
   formatLocationOffset,
+  locationOffsetToneClass,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
 
@@ -72,7 +73,7 @@ function FindListRow({ find }: { find: PublicFind }) {
                 <>
                   {" · "}
                   <span
-                    className="text-gray-600"
+                    className={locationOffsetToneClass(find.locationOffset)}
                     title={
                       find.locationOffset.mode === "polygon"
                         ? "Vzdušná vzdálenost od hrany polygonu lokace (0 = uvnitř AOI)"

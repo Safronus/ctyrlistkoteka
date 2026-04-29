@@ -7,6 +7,7 @@ import {
   formatLocationId,
   formatLocationOffset,
   formatShortDateTimeCs,
+  locationOffsetToneClass,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
 
@@ -53,7 +54,7 @@ export function FindCard({ find }: { find: PublicFind }) {
         )}
         {!find.isAnonymized && find.locationOffset && (
           <p
-            className="truncate text-xs text-gray-500"
+            className={`truncate text-xs ${locationOffsetToneClass(find.locationOffset)}`}
             title={
               find.locationOffset.mode === "polygon"
                 ? "Vzdušná vzdálenost od hrany polygonu lokace (0 = uvnitř AOI)"

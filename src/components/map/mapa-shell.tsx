@@ -33,6 +33,7 @@ export function MapaShell({
   sidebarLocations,
   urlFocusId,
   highlightFind,
+  highlightFindIds,
 }: {
   mapData: MapData;
   sidebarLocations: readonly LocationListItem[];
@@ -42,6 +43,10 @@ export function MapaShell({
    *  to it, and starts with the bulk Nálezy layer hidden so the focus
    *  stays on this one row. */
   highlightFind: HighlightFind | null;
+  /** Find IDs to keep bright on the canvas. Pre-resolved server-side
+   *  from /sbirka filter params so the visitor sees their filtered set
+   *  highlighted against the rest of the map. */
+  highlightFindIds: ReadonlySet<number> | null;
 }) {
   // Selection (focus) and initial centering are deliberately separate:
   //   - On a bare /mapa visit the map should *centre* on location 00001
@@ -219,6 +224,7 @@ export function MapaShell({
         showGone={showGone}
         enabledChildPolygonIds={enabledChildPolygonIds}
         highlightFind={highlightFind}
+        highlightFindIds={highlightFindIds}
         onSelectLocation={handleSelectLocation}
         onDeselectLocation={handleDeselectLocation}
       />

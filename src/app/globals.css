@@ -250,6 +250,20 @@
   }
 }
 
+/* Popup that opens for the deep-linked find. Tinted green so the visitor
+   immediately reads it as "the one you came here for" rather than a
+   regular interactive popup. Same brand-green palette the clover sprite
+   uses, dialled down to a card backdrop. */
+.ctyr-find-highlight-popup .leaflet-popup-content-wrapper {
+  background: linear-gradient(135deg, #f0fdf4, #ffffff 70%);
+  border: 1px solid #86efac;
+  box-shadow: 0 6px 18px rgba(21, 128, 61, 0.25);
+}
+.ctyr-find-highlight-popup .leaflet-popup-tip {
+  background: linear-gradient(135deg, #f0fdf4, #ffffff);
+  border: 1px solid #86efac;
+}
+
 html,
 body {
   height: 100%;

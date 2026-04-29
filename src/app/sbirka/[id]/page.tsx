@@ -16,6 +16,7 @@ import {
   formatDistance,
   formatLocationId,
   formatLocationOffset,
+  locationOffsetToneClass,
 } from "@/lib/format";
 import { isFormerLocation } from "@/lib/locationCode";
 import {
@@ -158,7 +159,9 @@ export default async function FindDetailPage({ params }: PageProps) {
                 >
                   <span
                     className={`font-mono tabular-nums ${
-                      hellish ? "text-red-100" : "text-gray-800"
+                      hellish
+                        ? "text-red-100"
+                        : locationOffsetToneClass(find.locationOffset)
                     }`}
                   >
                     {formatLocationOffset(find.locationOffset)}

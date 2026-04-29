@@ -30,6 +30,7 @@ export function MapLoader({
   showGone,
   enabledChildPolygonIds,
   highlightFind,
+  highlightFindIds,
   onSelectLocation,
   onDeselectLocation,
 }: {
@@ -41,6 +42,7 @@ export function MapLoader({
   showGone: boolean;
   enabledChildPolygonIds: ReadonlySet<number>;
   highlightFind: HighlightFind | null;
+  highlightFindIds: ReadonlySet<number> | null;
   onSelectLocation: (id: number) => void;
   onDeselectLocation: () => void;
 }) {
@@ -54,6 +56,7 @@ export function MapLoader({
       showGone={showGone}
       enabledChildPolygonIds={enabledChildPolygonIds}
       highlightFind={highlightFind}
+      highlightFindIds={highlightFindIds}
       onSelectLocation={onSelectLocation}
       onDeselectLocation={onDeselectLocation}
     />

@@ -719,6 +719,27 @@ export async function getIndexableFinds(): Promise<
   });
 }
 
+/** Returns the find IDs that match the given filters. Used by the /mapa
+ *  page when the visitor arrives with /sbirka filter params attached —
+ *  the resulting set drives the canvas dim so only matching finds stay
+ *  bright. Reuses `buildWhere` so the predicate matches /sbirka exactly
+ *  (including country point-in-polygon, location parent/children fold,
+ *  notes search, …).
+ *
+ *  We don't filter out finds without GPS or anonymized rows here: those
+ *  finds aren't in `findCoords` to begin with, so a stray ID in the set
+ *  is harmless — the canvas iterates findCoords, not the set. */
+export async function getFilteredFindIds(
+  filters: FindFilters,
+): Promise<number[]> {
+  const where = await buildWhere(filters);
+  const rows = await prisma.find.findMany({
+    where,
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
 /** Slim payload used by /mapa's `?find=N` deep-link to highlight a single
  *  find. Anonymized finds intentionally resolve to `null` — their coords
  *  are coarsened or hidden, so pinning them precisely on the map would
