@@ -202,21 +202,22 @@ export function MapaShell({
       {sidebarOpen && (
         <aside
           className="absolute right-0 top-0 z-[400] flex h-full w-80 max-w-[90vw] flex-col border-l border-gray-200 bg-white shadow-xl sm:w-96"
-          aria-label="Seznam lokalit"
+          aria-label="Ovládání mapy"
         >
-          <header className="flex items-center justify-between border-b border-gray-200 px-3 py-2">
-            <h2 className="text-sm font-semibold text-gray-900">
-              Lokality ({sidebarLocations.length})
-            </h2>
+          {/* Thin top strip — only the close affordance lives here. The
+           *  Vrstvy and Lokality sections each carry their own header
+           *  inside MapSidebar so they read as peers, not as children
+           *  of a single "Lokality (N)" container. */}
+          <div className="flex items-center justify-end border-b border-gray-200 px-2 py-1">
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
               className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-              aria-label="Zavřít seznam"
+              aria-label="Zavřít panel"
             >
               <X className="h-4 w-4" aria-hidden />
             </button>
-          </header>
+          </div>
           <MapSidebar
             locations={sidebarLocations}
             focusId={focusId}

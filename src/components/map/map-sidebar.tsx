@@ -67,8 +67,12 @@ export function MapSidebar({
 
   return (
     <>
-      <div className="border-b border-gray-200 p-3">
-        <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+      {/* Vrstvy — its own peer section above the Lokality block. The
+       *  panel header doesn't carry "Lokality (N)" anymore, so this
+       *  section reads as a separate control surface, not as something
+       *  nested under the location list. */}
+      <section className="border-b border-gray-200 bg-gray-50/60 px-3 py-2.5">
+        <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
           Vrstvy
         </h3>
         <div className="space-y-1">
@@ -85,41 +89,55 @@ export function MapSidebar({
             onChange={onToggleFinds}
           />
         </div>
-      </div>
-      <div className="border-b border-gray-200 p-3">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-            aria-hidden
-          />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Hledat kód, popis…"
-            className={INPUT_CLS}
-          />
+      </section>
+
+      {/* Lokality — own header, search, and scrollable list. The
+       *  flex-1 + min-h-0 wrapper lets the inner <ul> own the overflow
+       *  scrolling instead of pushing the panel below the viewport. */}
+      <section className="flex min-h-0 flex-1 flex-col">
+        <div className="border-b border-gray-200 px-3 py-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Lokality ({locations.length.toLocaleString("cs-CZ")})
+          </h3>
         </div>
-      </div>
-      <ul className="flex-1 overflow-y-auto">
-        {filtered.length === 0 ? (
-          <li className="p-4 text-center text-sm text-gray-500">
-            Žádné lokality.
-          </li>
-        ) : (
-          filtered.map((l) => (
-            <li key={l.id} className="border-b border-gray-100 last:border-b-0">
-              <SidebarRow
-                location={l}
-                focused={focusId === l.id}
-                onSelect={onSelect}
-                polygonEnabled={enabledChildPolygonIds.has(l.id)}
-                onTogglePolygon={onToggleChildPolygon}
-              />
+        <div className="border-b border-gray-200 p-3">
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              aria-hidden
+            />
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Hledat kód, popis…"
+              className={INPUT_CLS}
+            />
+          </div>
+        </div>
+        <ul className="flex-1 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <li className="p-4 text-center text-sm text-gray-500">
+              Žádné lokality.
             </li>
-          ))
-        )}
-      </ul>
+          ) : (
+            filtered.map((l) => (
+              <li
+                key={l.id}
+                className="border-b border-gray-100 last:border-b-0"
+              >
+                <SidebarRow
+                  location={l}
+                  focused={focusId === l.id}
+                  onSelect={onSelect}
+                  polygonEnabled={enabledChildPolygonIds.has(l.id)}
+                  onTogglePolygon={onToggleChildPolygon}
+                />
+              </li>
+            ))
+          )}
+        </ul>
+      </section>
     </>
   );
 }
