@@ -10,23 +10,26 @@ import { createFindDotsLayer } from "./find-dots-canvas";
  * lives in plain Leaflet — its lifecycle is mount/unmount via `useMap`.
  *
  * `coords` is captured once on mount; redraws happen automatically on
- * map move/zoom/resize. If the array reference changes (e.g. after data
- * refresh) we rebuild the layer by depending on it in useEffect.
+ * map move/zoom/resize. If the array reference or the focus set
+ * changes (e.g. after the user picks a sidebar location) we rebuild
+ * the layer by depending on both in useEffect.
  */
 export function FindDotsLayer({
   coords,
+  focusFindIds,
 }: {
-  coords: ReadonlyArray<readonly [number, number]>;
+  coords: ReadonlyArray<readonly [number, number, number]>;
+  focusFindIds: ReadonlySet<number> | null;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    const layer = createFindDotsLayer(coords);
+    const layer = createFindDotsLayer(coords, focusFindIds);
     layer.addTo(map);
     return () => {
       layer.remove();
     };
-  }, [map, coords]);
+  }, [map, coords, focusFindIds]);
 
   return null;
 }

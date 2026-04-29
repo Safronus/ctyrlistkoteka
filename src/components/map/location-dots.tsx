@@ -74,7 +74,7 @@ export function LocationDots({
               color: ring,
               fillColor: fill,
               fillOpacity: focused ? 0.7 : 0.6,
-              weight: focused ? 3 : 2,
+              weight: focused ? 2 : 1,
             }}
             eventHandlers={{
               add: (e) => {

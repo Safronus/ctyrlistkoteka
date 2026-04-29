@@ -121,7 +121,7 @@ export function LocationPolygons({
         if (focused) {
           return {
             color: "#b45309",
-            weight: 3,
+            weight: 2,
             fillColor: "#fbbf24",
             fillOpacity: 0.45,
           };
@@ -129,14 +129,14 @@ export function LocationPolygons({
         if (gone) {
           return {
             color: "#be123c",
-            weight: 2,
+            weight: 1,
             fillColor: "url(#ctyr-former-stripes)",
             fillOpacity: 0.95,
           };
         }
         return {
           color: "#1e40af",
-          weight: 2,
+          weight: 1,
           fillColor: "#3b82f6",
           fillOpacity: 0.15,
         };

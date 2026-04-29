@@ -61,6 +61,22 @@ export function MapView({
   const maxFitZoom =
     highlightFind !== null ? 19 : focusLocationId !== null ? 19 : 14;
 
+  // Highlight-by-focus: when the visitor picks a sidebar location (or
+  // arrives via `?focus=N` from /lokality), build the set of location
+  // ids whose finds should stay full-opacity on the canvas — the focus
+  // itself plus any direct children, since /sbirka treats
+  // parent-with-children as one logical group. Everything else fades to
+  // 20 % so the picked spot's clovers pop out of the surrounding density.
+  const focusFindIds = useMemo<ReadonlySet<number> | null>(() => {
+    if (focusLocationId === null) return null;
+    const set = new Set<number>();
+    set.add(focusLocationId);
+    for (const loc of data.locations) {
+      if (loc.parentId === focusLocationId) set.add(loc.id);
+    }
+    return set;
+  }, [focusLocationId, data.locations]);
+
   return (
     <MapContainer
       center={CZ_CENTER}
@@ -91,7 +107,10 @@ export function MapView({
         </>
       )}
       {showFinds && data.findCoords.length > 0 && (
-        <FindDotsLayer coords={data.findCoords} />
+        <FindDotsLayer
+          coords={data.findCoords}
+          focusFindIds={focusFindIds}
+        />
       )}
       {highlightFind && <HighlightFindMarker find={highlightFind} />}
       {bounds && (
