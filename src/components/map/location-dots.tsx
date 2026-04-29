@@ -45,17 +45,28 @@ export function LocationDots({
     <>
       {dots.map((l) => {
         const focused = l.id === focusLocationId;
+        // Match LocationPolygons palette: blue for active locations,
+        // red for former (NEEXISTUJE-) locations, orange for the
+        // currently-focused one (focus wins regardless of gone state).
+        const ring = focused
+          ? "#9a3412"
+          : l.isGone
+            ? "#991b1b"
+            : "#1e40af";
+        const fill = focused
+          ? "#fb923c"
+          : l.isGone
+            ? "#dc2626"
+            : "#1e40af";
         return (
           <CircleMarker
             key={l.id}
             center={[l.centerLat, l.centerLng]}
             radius={focused ? 9 : 6}
             pathOptions={{
-              // Match LocationPolygons — dark blue for the locations
-              // layer so it contrasts with the green find-dot overlay.
-              color: focused ? "#9a3412" : "#1e40af",
-              fillColor: focused ? "#fb923c" : "#1e40af",
-              fillOpacity: focused ? 0.7 : 0.5,
+              color: ring,
+              fillColor: fill,
+              fillOpacity: focused ? 0.7 : 0.55,
               weight: focused ? 3 : 2,
             }}
             eventHandlers={{

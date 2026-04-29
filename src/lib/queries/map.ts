@@ -11,6 +11,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import { isFormerLocation } from "@/lib/locationCode";
 
 export interface MapLocation {
   id: number;
@@ -22,6 +23,11 @@ export interface MapLocation {
    *  — child polygons stay off until the user opts them in via the
    *  sidebar toggle, since they'd otherwise stack on the parent's. */
   parentId: number | null;
+  /** True when the location code starts with `NEEXISTUJE-`, marking the
+   *  place as physically gone. The map paints these polygons + dots in
+   *  red with diagonal hatching so visitors can spot vanished places at
+   *  a glance instead of mistaking them for active spots. */
+  isGone: boolean;
   centerLat: number | null;
   centerLng: number | null;
   polygon: GeoJSON.Polygon | null;
@@ -119,6 +125,7 @@ export async function getMapData(): Promise<MapData> {
       code: r.code,
       displayName: r.display_name,
       parentId: r.parent_id,
+      isGone: isFormerLocation(r.code),
       centerLat: r.center_lat,
       centerLng: r.center_lng,
       polygon,

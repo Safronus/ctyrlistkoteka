@@ -13,28 +13,20 @@ const INPUT_CLS =
  * Scrollable list of locations rendered as a control inside the /mapa
  * sidebar. Anonymized locations are filtered out upstream (they aren't
  * on the map, and listing them with no click target was just noise);
- * former locations get a rose tone and a "Zaniklá" badge.
+ * former locations get a rose tone and a "Zaniklá" badge. Layer toggles
+ * (Lokace / Nálezy) live OUTSIDE this panel so they stay visible even
+ * with the panel collapsed — see `LayerToggleCard` in `mapa-shell.tsx`.
  */
 export function MapSidebar({
   locations,
   focusId,
   onSelect,
-  showLocations,
-  onToggleLocations,
-  showFinds,
-  onToggleFinds,
-  findCount,
   enabledChildPolygonIds,
   onToggleChildPolygon,
 }: {
   locations: readonly LocationListItem[];
   focusId: number | null;
   onSelect: (id: number) => void;
-  showLocations: boolean;
-  onToggleLocations: (v: boolean) => void;
-  showFinds: boolean;
-  onToggleFinds: (v: boolean) => void;
-  findCount: number;
   /** IDs of child locations whose polygons are currently visible. */
   enabledChildPolygonIds: ReadonlySet<number>;
   /** Toggle the polygon visibility for one child location. Independent
@@ -66,108 +58,50 @@ export function MapSidebar({
   }, [locations, q]);
 
   return (
-    <>
-      {/* Vrstvy — its own peer section above the Lokality block. The
-       *  panel header doesn't carry "Lokality (N)" anymore, so this
-       *  section reads as a separate control surface, not as something
-       *  nested under the location list. */}
-      <section className="border-b border-gray-200 bg-gray-50/60 px-3 py-2.5">
-        <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-          Vrstvy
+    <section className="flex min-h-0 flex-1 flex-col">
+      <div className="border-b border-gray-200 px-3 py-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          Lokality ({locations.length.toLocaleString("cs-CZ")})
         </h3>
-        <div className="space-y-1">
-          <LayerToggle
-            label="Lokace"
-            count={locations.length}
-            checked={showLocations}
-            onChange={onToggleLocations}
+      </div>
+      <div className="border-b border-gray-200 p-3">
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            aria-hidden
           />
-          <LayerToggle
-            label="Nálezy"
-            count={findCount}
-            checked={showFinds}
-            onChange={onToggleFinds}
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Hledat kód, popis…"
+            className={INPUT_CLS}
           />
         </div>
-      </section>
-
-      {/* Lokality — own header, search, and scrollable list. The
-       *  flex-1 + min-h-0 wrapper lets the inner <ul> own the overflow
-       *  scrolling instead of pushing the panel below the viewport. */}
-      <section className="flex min-h-0 flex-1 flex-col">
-        <div className="border-b border-gray-200 px-3 py-2">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-            Lokality ({locations.length.toLocaleString("cs-CZ")})
-          </h3>
-        </div>
-        <div className="border-b border-gray-200 p-3">
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-              aria-hidden
-            />
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Hledat kód, popis…"
-              className={INPUT_CLS}
-            />
-          </div>
-        </div>
-        <ul className="flex-1 overflow-y-auto">
-          {filtered.length === 0 ? (
-            <li className="p-4 text-center text-sm text-gray-500">
-              Žádné lokality.
+      </div>
+      <ul className="flex-1 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <li className="p-4 text-center text-sm text-gray-500">
+            Žádné lokality.
+          </li>
+        ) : (
+          filtered.map((l) => (
+            <li
+              key={l.id}
+              className="border-b border-gray-100 last:border-b-0"
+            >
+              <SidebarRow
+                location={l}
+                focused={focusId === l.id}
+                onSelect={onSelect}
+                polygonEnabled={enabledChildPolygonIds.has(l.id)}
+                onTogglePolygon={onToggleChildPolygon}
+              />
             </li>
-          ) : (
-            filtered.map((l) => (
-              <li
-                key={l.id}
-                className="border-b border-gray-100 last:border-b-0"
-              >
-                <SidebarRow
-                  location={l}
-                  focused={focusId === l.id}
-                  onSelect={onSelect}
-                  polygonEnabled={enabledChildPolygonIds.has(l.id)}
-                  onTogglePolygon={onToggleChildPolygon}
-                />
-              </li>
-            ))
-          )}
-        </ul>
-      </section>
-    </>
-  );
-}
-
-function LayerToggle({
-  label,
-  count,
-  checked,
-  onChange,
-}: {
-  label: string;
-  count: number;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="flex cursor-pointer items-center justify-between gap-2 rounded px-1 py-1 text-sm text-gray-700 hover:bg-gray-50">
-      <span className="inline-flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-        />
-        <span>{label}</span>
-      </span>
-      <span className="font-mono text-xs text-gray-500">
-        ({count.toLocaleString("cs-CZ")})
-      </span>
-    </label>
+          ))
+        )}
+      </ul>
+    </section>
   );
 }
 

@@ -38,7 +38,12 @@ export function LocationPolygons({
     )
     .map((l) => ({
       type: "Feature" as const,
-      properties: { id: l.id, displayName: l.displayName, findCount: l.findCount },
+      properties: {
+        id: l.id,
+        displayName: l.displayName,
+        findCount: l.findCount,
+        isGone: l.isGone,
+      },
       geometry: l.polygon,
     }));
 
@@ -74,16 +79,39 @@ export function LocationPolygons({
       key={features.length}
       data={collection}
       style={(feature) => {
-        const id = (feature?.properties as { id?: number } | undefined)?.id;
+        const props = feature?.properties as
+          | { id?: number; isGone?: boolean }
+          | undefined;
+        const id = props?.id;
         const focused = id != null && id === focusLocationId;
-        // Non-focused polygons render in dark blue so the (also-clover-
-        // green) find dots painted by FindDotsLayer stay visually
-        // distinct. Focused polygon keeps its orange highlight.
+        const gone = props?.isGone === true;
+        // Active polygons paint dark blue so the clover-green find dots
+        // stay distinct; former (NEEXISTUJE-) polygons paint red with
+        // a diagonal-stripes pattern so visitors can see at a glance
+        // that the place is physically gone. Focus highlight wins over
+        // the gone-state palette so the orange selection is always
+        // unambiguous.
+        if (focused) {
+          return {
+            color: "#9a3412",
+            weight: 3,
+            fillColor: "#fb923c",
+            fillOpacity: 0.3,
+          };
+        }
+        if (gone) {
+          return {
+            color: "#991b1b",
+            weight: 2,
+            fillColor: "url(#ctyr-former-stripes)",
+            fillOpacity: 0.85,
+          };
+        }
         return {
-          color: focused ? "#9a3412" : "#1e40af",
-          weight: focused ? 3 : 2,
-          fillColor: focused ? "#fb923c" : "#3b82f6",
-          fillOpacity: focused ? 0.3 : 0.15,
+          color: "#1e40af",
+          weight: 2,
+          fillColor: "#3b82f6",
+          fillOpacity: 0.15,
         };
       }}
       onEachFeature={(feature, layer) => {

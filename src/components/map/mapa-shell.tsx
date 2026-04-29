@@ -222,16 +222,218 @@ export function MapaShell({
             locations={sidebarLocations}
             focusId={focusId}
             onSelect={handleSelectLocation}
-            showLocations={showLocations}
-            onToggleLocations={setShowLocations}
-            showFinds={showFinds}
-            onToggleFinds={setShowFinds}
-            findCount={mapData.findCoords.length}
             enabledChildPolygonIds={enabledChildPolygonIds}
             onToggleChildPolygon={handleToggleChildPolygon}
           />
         </aside>
       )}
+
+      {/* Layer toggles + colour legend live OUTSIDE the sidebar so they
+       *  stay visible when the panel is collapsed. Stacked top-left
+       *  underneath Leaflet's zoom buttons. */}
+      <div className="absolute left-3 top-20 z-[400] flex flex-col gap-2">
+        <LayerToggleCard
+          showLocations={showLocations}
+          onToggleLocations={setShowLocations}
+          showFinds={showFinds}
+          onToggleFinds={setShowFinds}
+          locationCount={sidebarLocations.length}
+          findCount={mapData.findCoords.length}
+        />
+        <LocationLegend />
+      </div>
+
+      {/* Hidden defs SVG — provides the diagonal-stripes pattern used as
+       *  fill for former-location polygons. Lives in the same document
+       *  as the leaflet-overlay-pane SVG so `fill="url(#…)"` resolves. */}
+      <svg
+        aria-hidden
+        focusable={false}
+        style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}
+      >
+        <defs>
+          <pattern
+            id="ctyr-former-stripes"
+            patternUnits="userSpaceOnUse"
+            width={10}
+            height={10}
+            patternTransform="rotate(45)"
+          >
+            <rect width={10} height={10} fill="#fef2f2" fillOpacity={0.55} />
+            <line
+              x1={0}
+              y1={0}
+              x2={0}
+              y2={10}
+              stroke="#dc2626"
+              strokeWidth={3}
+            />
+          </pattern>
+        </defs>
+      </svg>
     </div>
+  );
+}
+
+function LayerToggleCard({
+  showLocations,
+  onToggleLocations,
+  showFinds,
+  onToggleFinds,
+  locationCount,
+  findCount,
+}: {
+  showLocations: boolean;
+  onToggleLocations: (v: boolean) => void;
+  showFinds: boolean;
+  onToggleFinds: (v: boolean) => void;
+  locationCount: number;
+  findCount: number;
+}) {
+  return (
+    <div className="rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm shadow-md">
+      <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+        Vrstvy
+      </h3>
+      <div className="space-y-0.5">
+        <ToggleRow
+          label="Lokace"
+          count={locationCount}
+          checked={showLocations}
+          onChange={onToggleLocations}
+        />
+        <ToggleRow
+          label="Nálezy"
+          count={findCount}
+          checked={showFinds}
+          onChange={onToggleFinds}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  count,
+  checked,
+  onChange,
+}: {
+  label: string;
+  count: number;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-2 rounded px-1 py-0.5 text-sm text-gray-700 hover:bg-gray-50">
+      <span className="inline-flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+        />
+        <span>{label}</span>
+      </span>
+      <span className="font-mono text-xs text-gray-500">
+        ({count.toLocaleString("cs-CZ")})
+      </span>
+    </label>
+  );
+}
+
+function LocationLegend() {
+  return (
+    <div className="pointer-events-none rounded-md border border-gray-200 bg-white/95 px-2.5 py-2 text-xs shadow-md">
+      <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+        Legenda
+      </h3>
+      <ul className="space-y-1 text-gray-700">
+        <LegendRow swatch={<ActiveSwatch />} label="Aktivní lokalita" />
+        <LegendRow swatch={<FormerSwatch />} label="Zaniklá lokalita" />
+        <LegendRow swatch={<FocusedSwatch />} label="Vybraná lokalita" />
+      </ul>
+    </div>
+  );
+}
+
+function LegendRow({
+  swatch,
+  label,
+}: {
+  swatch: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <li className="flex items-center gap-2">
+      {swatch}
+      <span>{label}</span>
+    </li>
+  );
+}
+
+const SWATCH_W = 22;
+const SWATCH_H = 12;
+
+function ActiveSwatch() {
+  return (
+    <svg
+      width={SWATCH_W}
+      height={SWATCH_H}
+      aria-hidden
+      focusable={false}
+      className="overflow-hidden rounded-sm"
+    >
+      <rect
+        width={SWATCH_W}
+        height={SWATCH_H}
+        fill="#3b82f6"
+        fillOpacity={0.25}
+        stroke="#1e40af"
+        strokeWidth={2}
+      />
+    </svg>
+  );
+}
+
+function FormerSwatch() {
+  return (
+    <svg
+      width={SWATCH_W}
+      height={SWATCH_H}
+      aria-hidden
+      focusable={false}
+      className="overflow-hidden rounded-sm"
+    >
+      <rect
+        width={SWATCH_W}
+        height={SWATCH_H}
+        fill="url(#ctyr-former-stripes)"
+        fillOpacity={0.85}
+        stroke="#991b1b"
+        strokeWidth={2}
+      />
+    </svg>
+  );
+}
+
+function FocusedSwatch() {
+  return (
+    <svg
+      width={SWATCH_W}
+      height={SWATCH_H}
+      aria-hidden
+      focusable={false}
+      className="overflow-hidden rounded-sm"
+    >
+      <rect
+        width={SWATCH_W}
+        height={SWATCH_H}
+        fill="#fb923c"
+        fillOpacity={0.55}
+        stroke="#9a3412"
+        strokeWidth={2}
+      />
+    </svg>
   );
 }
