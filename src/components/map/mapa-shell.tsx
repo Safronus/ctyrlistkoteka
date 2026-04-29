@@ -23,9 +23,10 @@ const DEFAULT_FOCUS_ID = 1;
 // localStorage keys for visitor-level layer preferences. CLAUDE.md §3
 // allows localStorage for UI preferences — toggling map overlays
 // qualifies. SSR can't read localStorage, so the first paint always
-// shows the default (ON); the effect below rehydrates after mount.
+// shows the defaults; the effect below rehydrates after mount.
 const LS_KEY_LOCATIONS = "mapa.layers.locations";
 const LS_KEY_FINDS = "mapa.layers.finds";
+const LS_KEY_GONE = "mapa.layers.gone";
 
 export function MapaShell({
   mapData,
@@ -68,6 +69,10 @@ export function MapaShell({
   // the marker they were sent to. They can flip the layer back on in
   // the sidebar if they want full context; the highlight stays.
   const [showFinds, setShowFinds] = useState(highlightFind === null);
+  // Former (NEEXISTUJE-) locations stay hidden by default — the typical
+  // visitor wants to browse active places. Toggling them on reveals the
+  // red striped polygons + dots; legend swatch matches either way.
+  const [showGone, setShowGone] = useState(false);
 
   // Children of polygon-owning parents are hidden by default — they'd
   // stack on top of the parent's polygon and clutter the view. The
@@ -82,6 +87,23 @@ export function MapaShell({
   const isChild = useCallback(
     (id: number) => (sidebarById.get(id)?.parentId ?? null) !== null,
     [sidebarById],
+  );
+  const isGone = useCallback(
+    (id: number) => sidebarById.get(id)?.isGone === true,
+    [sidebarById],
+  );
+
+  // Counts shown next to each Vrstvy toggle. Keep them aligned with what
+  // the toggle actually shows on the map: "Lokace" only counts active
+  // locations now that "Zaniklé" is its own row, and "Zaniklé" counts
+  // the former ones that toggle reveals.
+  const activeLocationCount = useMemo(
+    () => sidebarLocations.filter((l) => !l.isGone).length,
+    [sidebarLocations],
+  );
+  const goneLocationCount = useMemo(
+    () => sidebarLocations.filter((l) => l.isGone).length,
+    [sidebarLocations],
   );
   const [enabledChildPolygonIds, setEnabledChildPolygonIds] = useState<
     Set<number>
@@ -107,8 +129,14 @@ export function MapaShell({
           return next;
         });
       }
+      // Auto-flip the Zaniklé layer on when the visitor picks a former
+      // location from the sidebar — focusing a hidden polygon would
+      // otherwise zoom the map onto a blank patch with no visual cue.
+      if (isGone(id)) {
+        setShowGone(true);
+      }
     },
-    [isChild],
+    [isChild, isGone],
   );
   const handleToggleChildPolygon = useCallback((id: number) => {
     setEnabledChildPolygonIds((prev) => {
@@ -135,6 +163,11 @@ export function MapaShell({
         const sf = window.localStorage.getItem(LS_KEY_FINDS);
         if (sf === "false") setShowFinds(false);
       }
+      // showGone is opt-in — only flip it on if the user explicitly
+      // saved "true". A missing or "false" key keeps former locations
+      // hidden, matching the default.
+      const sg = window.localStorage.getItem(LS_KEY_GONE);
+      if (sg === "true") setShowGone(true);
     } catch {
       /* localStorage unavailable — keep defaults */
     }
@@ -154,6 +187,13 @@ export function MapaShell({
       /* ignore */
     }
   }, [showFinds]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LS_KEY_GONE, String(showGone));
+    } catch {
+      /* ignore */
+    }
+  }, [showGone]);
 
   return (
     <div className="relative h-full w-full">
@@ -162,6 +202,7 @@ export function MapaShell({
         focusLocationId={focusId}
         showLocations={showLocations}
         showFinds={showFinds}
+        showGone={showGone}
         enabledChildPolygonIds={enabledChildPolygonIds}
         highlightFind={highlightFind}
       />
@@ -237,7 +278,10 @@ export function MapaShell({
           onToggleLocations={setShowLocations}
           showFinds={showFinds}
           onToggleFinds={setShowFinds}
-          locationCount={sidebarLocations.length}
+          showGone={showGone}
+          onToggleGone={setShowGone}
+          locationCount={activeLocationCount}
+          goneCount={goneLocationCount}
           findCount={mapData.findCoords.length}
         />
         <LocationLegend />
@@ -259,13 +303,16 @@ export function MapaShell({
             height={10}
             patternTransform="rotate(45)"
           >
-            <rect width={10} height={10} fill="#fef2f2" fillOpacity={0.55} />
+            {/* Rose-100 backdrop + rose-600 stripes — saturated enough
+             *  to read as "former" against OSM tiles, distinct from
+             *  the amber focus highlight and the blue active polygons. */}
+            <rect width={10} height={10} fill="#ffe4e6" fillOpacity={0.7} />
             <line
               x1={0}
               y1={0}
               x2={0}
               y2={10}
-              stroke="#dc2626"
+              stroke="#e11d48"
               strokeWidth={3}
             />
           </pattern>
@@ -280,14 +327,20 @@ function LayerToggleCard({
   onToggleLocations,
   showFinds,
   onToggleFinds,
+  showGone,
+  onToggleGone,
   locationCount,
+  goneCount,
   findCount,
 }: {
   showLocations: boolean;
   onToggleLocations: (v: boolean) => void;
   showFinds: boolean;
   onToggleFinds: (v: boolean) => void;
+  showGone: boolean;
+  onToggleGone: (v: boolean) => void;
   locationCount: number;
+  goneCount: number;
   findCount: number;
 }) {
   return (
@@ -301,6 +354,13 @@ function LayerToggleCard({
           count={locationCount}
           checked={showLocations}
           onChange={onToggleLocations}
+        />
+        <ToggleRow
+          label="Zaniklé"
+          count={goneCount}
+          checked={showGone}
+          onChange={onToggleGone}
+          disabled={!showLocations}
         />
         <ToggleRow
           label="Nálezy"
@@ -318,20 +378,32 @@ function ToggleRow({
   count,
   checked,
   onChange,
+  disabled = false,
 }: {
   label: string;
   count: number;
   checked: boolean;
   onChange: (v: boolean) => void;
+  /** When true the row reads as muted and the checkbox is non-interactive.
+   *  Used by the Zaniklé sub-toggle so it visually defers to the Lokace
+   *  master switch — flipping Lokace off greys out the gone sub-control. */
+  disabled?: boolean;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-2 rounded px-1 py-0.5 text-sm text-gray-700 hover:bg-gray-50">
+    <label
+      className={`flex items-center justify-between gap-2 rounded px-1 py-0.5 text-sm ${
+        disabled
+          ? "cursor-not-allowed text-gray-400"
+          : "cursor-pointer text-gray-700 hover:bg-gray-50"
+      }`}
+    >
       <span className="inline-flex items-center gap-2">
         <input
           type="checkbox"
           checked={checked}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
         />
         <span>{label}</span>
       </span>
@@ -409,8 +481,8 @@ function FormerSwatch() {
         width={SWATCH_W}
         height={SWATCH_H}
         fill="url(#ctyr-former-stripes)"
-        fillOpacity={0.85}
-        stroke="#991b1b"
+        fillOpacity={0.95}
+        stroke="#be123c"
         strokeWidth={2}
       />
     </svg>
@@ -429,9 +501,9 @@ function FocusedSwatch() {
       <rect
         width={SWATCH_W}
         height={SWATCH_H}
-        fill="#fb923c"
-        fillOpacity={0.55}
-        stroke="#9a3412"
+        fill="#fbbf24"
+        fillOpacity={0.6}
+        stroke="#b45309"
         strokeWidth={2}
       />
     </svg>

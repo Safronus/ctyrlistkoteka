@@ -14,9 +14,13 @@ import type { MapLocation } from "@/lib/queries/map";
 export function LocationDots({
   locations,
   focusLocationId,
+  showGone,
 }: {
   locations: readonly MapLocation[];
   focusLocationId: number | null;
+  /** Mirror the polygon-layer toggle: hide former-location dots when
+   *  the visitor has the Zaniklé layer off. */
+  showGone: boolean;
 }) {
   const map = useMap();
   const layerRefs = useRef<Map<number, LCircleMarker>>(new Map());
@@ -36,27 +40,30 @@ export function LocationDots({
     };
   }, [focusLocationId, map]);
 
-  const dots = locations.filter(
-    (l): l is MapLocation & { centerLat: number; centerLng: number } =>
-      l.polygon === null && l.centerLat !== null && l.centerLng !== null,
-  );
+  const dots = locations
+    .filter(
+      (l): l is MapLocation & { centerLat: number; centerLng: number } =>
+        l.polygon === null && l.centerLat !== null && l.centerLng !== null,
+    )
+    .filter((l) => showGone || !l.isGone);
 
   return (
     <>
       {dots.map((l) => {
         const focused = l.id === focusLocationId;
-        // Match LocationPolygons palette: blue for active locations,
-        // red for former (NEEXISTUJE-) locations, orange for the
-        // currently-focused one (focus wins regardless of gone state).
+        // Three-hue palette mirrors LocationPolygons: blue for active,
+        // rose for former, amber for the currently-focused row. Focus
+        // wins over former so a selected gone location reads as
+        // "you've selected this" rather than "this is also gone".
         const ring = focused
-          ? "#9a3412"
+          ? "#b45309"
           : l.isGone
-            ? "#991b1b"
+            ? "#9f1239"
             : "#1e40af";
         const fill = focused
-          ? "#fb923c"
+          ? "#fbbf24"
           : l.isGone
-            ? "#dc2626"
+            ? "#e11d48"
             : "#1e40af";
         return (
           <CircleMarker
@@ -66,7 +73,7 @@ export function LocationDots({
             pathOptions={{
               color: ring,
               fillColor: fill,
-              fillOpacity: focused ? 0.7 : 0.55,
+              fillOpacity: focused ? 0.7 : 0.6,
               weight: focused ? 3 : 2,
             }}
             eventHandlers={{

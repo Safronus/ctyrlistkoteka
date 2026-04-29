@@ -9,6 +9,7 @@ export function LocationPolygons({
   locations,
   focusLocationId,
   enabledChildPolygonIds,
+  showGone,
   suppressPopupAutoOpen = false,
 }: {
   locations: readonly MapLocation[];
@@ -19,6 +20,11 @@ export function LocationPolygons({
    *  only when present in this set so they don't stack on the parent
    *  by default. */
   enabledChildPolygonIds: ReadonlySet<number>;
+  /** Whether former (NEEXISTUJE-) locations are visible. Default OFF
+   *  via the Vrstvy card on /mapa — toggling this filter here keeps
+   *  gone polygons out of the GeoJSON layer entirely instead of just
+   *  styling them invisibly. */
+  showGone: boolean;
   /** When true, the focused polygon stays styled but doesn't pop its
    *  own popup. Used by /mapa's `?find=N` deep-link so the highlighted
    *  find's popup wins instead of being clobbered by the polygon's. */
@@ -36,6 +42,7 @@ export function LocationPolygons({
     .filter(
       (l) => l.parentId === null || enabledChildPolygonIds.has(l.id),
     )
+    .filter((l) => showGone || !l.isGone)
     .map((l) => ({
       type: "Feature" as const,
       properties: {
@@ -85,26 +92,27 @@ export function LocationPolygons({
         const id = props?.id;
         const focused = id != null && id === focusLocationId;
         const gone = props?.isGone === true;
-        // Active polygons paint dark blue so the clover-green find dots
-        // stay distinct; former (NEEXISTUJE-) polygons paint red with
-        // a diagonal-stripes pattern so visitors can see at a glance
-        // that the place is physically gone. Focus highlight wins over
-        // the gone-state palette so the orange selection is always
-        // unambiguous.
+        // Three palettes, three distinct hues so the visitor can name
+        // each at a glance without consulting the legend:
+        //   active   — blue   (#1e40af / #3b82f6)
+        //   former   — rose   (pink-red border + striped pattern fill)
+        //   focused  — amber  (#b45309 / #fbbf24) — warm but clearly
+        //              not pink, so a focused former location reads as
+        //              "you've selected this", not "this is also gone".
         if (focused) {
           return {
-            color: "#9a3412",
+            color: "#b45309",
             weight: 3,
-            fillColor: "#fb923c",
-            fillOpacity: 0.3,
+            fillColor: "#fbbf24",
+            fillOpacity: 0.45,
           };
         }
         if (gone) {
           return {
-            color: "#991b1b",
+            color: "#be123c",
             weight: 2,
             fillColor: "url(#ctyr-former-stripes)",
-            fillOpacity: 0.85,
+            fillOpacity: 0.95,
           };
         }
         return {

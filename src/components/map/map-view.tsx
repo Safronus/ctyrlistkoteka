@@ -20,6 +20,7 @@ export function MapView({
   focusLocationId,
   showLocations,
   showFinds,
+  showGone,
   enabledChildPolygonIds,
   highlightFind,
 }: {
@@ -27,6 +28,7 @@ export function MapView({
   focusLocationId: number | null;
   showLocations: boolean;
   showFinds: boolean;
+  showGone: boolean;
   enabledChildPolygonIds: ReadonlySet<number>;
   highlightFind: HighlightFind | null;
 }) {
@@ -78,11 +80,13 @@ export function MapView({
             locations={data.locations}
             focusLocationId={focusLocationId}
             enabledChildPolygonIds={enabledChildPolygonIds}
+            showGone={showGone}
             suppressPopupAutoOpen={highlightFind !== null}
           />
           <LocationDots
             locations={data.locations}
             focusLocationId={focusLocationId}
+            showGone={showGone}
           />
         </>
       )}
