@@ -152,9 +152,20 @@ export function MapaShell({
     Set<number>
   >(() => {
     const set = new Set<number>();
-    if (urlFocusId !== null) {
-      const loc = sidebarLocations.find((l) => l.id === urlFocusId);
-      if (loc && loc.parentId !== null) set.add(urlFocusId);
+    // The deep-link target — either the location requested via
+    // `?focus=<id>` or the home location of a `?find=<n>` find — gets
+    // its child polygon opted in by default. Without this, a visitor
+    // arriving from /sbirka onto a find inside a child location would
+    // see only the parent's polygon shell wrapping the AOI they came
+    // for.
+    const targets: Array<number | null> = [
+      urlFocusId,
+      highlightFind?.locationId ?? null,
+    ];
+    for (const id of targets) {
+      if (id === null) continue;
+      const loc = sidebarLocations.find((l) => l.id === id);
+      if (loc && loc.parentId !== null) set.add(id);
     }
     return set;
   });

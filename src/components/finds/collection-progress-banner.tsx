@@ -100,7 +100,7 @@ export function CollectionProgressBanner({
           if (e.target === dialogRef.current) setOpen(false);
         }}
         aria-labelledby="missing-finds-title"
-        className="w-[min(36rem,calc(100vw-2rem))] rounded-xl border border-gray-200 bg-white p-0 text-amber-900 shadow-xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
+        className="fixed left-1/2 top-1/2 w-[min(36rem,calc(100vw-2rem))] max-h-[min(40rem,calc(100vh-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-0 text-amber-900 shadow-xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
           <h2
