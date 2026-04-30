@@ -43,6 +43,17 @@ function getPhotosDir(): string {
   return path.join(generatedDir, PHOTOS_SUBDIR);
 }
 
+/** Normalize to NFC (canonical composed form) + lowercase. macOS APFS
+ *  reports filenames as the user typed them, but rsync between an HFS+
+ *  source and a Linux target can produce NFD (decomposed) on the Linux
+ *  side. Without this, "REYKJAVÍK" stored NFC in the DB would byte-for-
+ *  byte differ from "REYKJAVI<COMBINING ACUTE>K" on disk and the lookup
+ *  would silently miss. NFC is also the form Next.js / Node uses
+ *  internally, so this is a no-op for already-composed strings. */
+function makeKey(s: string): string {
+  return s.normalize("NFC").toLowerCase();
+}
+
 async function loadDirCache(): Promise<DirCache> {
   const dir = getPhotosDir();
   let entries: string[] = [];
@@ -57,11 +68,14 @@ async function loadDirCache(): Promise<DirCache> {
     const ext = path.extname(name).toLowerCase();
     if (!ALLOWED_EXTS.has(ext)) continue;
     // Strip extension first, then strip the `_reálné foto*` suffix to
-    // recover the location-map's basename (the join key).
+    // recover the location-map's basename (the join key). The key is
+    // NFC-normalized + lowercased so a Mac → Linux rsync with NFD
+    // decomposition still matches the DB-stored originalFilename.
     const noExt = name.slice(0, name.length - ext.length);
-    const idx = noExt.indexOf(PHOTO_SUFFIX_PREFIX);
+    const normalized = noExt.normalize("NFC");
+    const idx = normalized.indexOf(PHOTO_SUFFIX_PREFIX);
     if (idx <= 0) continue; // suffix must be present AND not at index 0
-    const baseKey = noExt.slice(0, idx).toLowerCase();
+    const baseKey = normalized.slice(0, idx).toLowerCase();
     // First match wins — if the user accidentally has two photos for one
     // map, the alphabetically earliest one (readdir's natural order on
     // most filesystems) is rendered.
@@ -90,11 +104,15 @@ export async function getLocationMapPhotoUrl(params: {
 }): Promise<string | null> {
   if (params.isAnonymized) return null;
   // Strip extension from `originalFilename` (e.g. ".HEIC" / ".jpg") so
-  // the key matches the suffix-stripped on-disk basename.
+  // the key matches the suffix-stripped on-disk basename. NFC + lower
+  // mirrors the on-disk index — see makeKey() comment.
   const ext = path.extname(params.originalFilename);
-  const baseKey = params.originalFilename
-    .slice(0, params.originalFilename.length - ext.length)
-    .toLowerCase();
+  const baseKey = makeKey(
+    params.originalFilename.slice(
+      0,
+      params.originalFilename.length - ext.length,
+    ),
+  );
   if (!baseKey) return null;
   const cache = await getDirCache();
   const filename = cache.byKey.get(baseKey);

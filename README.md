@@ -155,9 +155,13 @@ Konvence:
 - **Privacy:** anonymizované mapy se neresolvují i kdyby fotka existovala —
   tlačítko se neukáže.
 
-Není potřeba spouštět `pnpm sync` — adresář se čte při každém ISR
-rerenderu (max 1× za 24 h na lokalitu) a indexuje se s 5min TTL caché,
-takže nová fotka se objeví bez `pm2 restart`.
+Není potřeba spouštět `pnpm sync`. Po nahrání nové fotky ale **musíš
+udělat `pm2 restart ctyrlistkoteka`** — detail stránky má `revalidate
+= 86400` (24 h), takže Next.js servíruje cached HTML a SSR se
+nespouští, dokud se cache nezneplatní. Restart proces ISR cache
+zahodí, další request stránku rerenderuje, helper přečte složku a
+tlačítko se objeví. Bez restartu by se fotka ukázala až po 24 h
+přirozené revalidace.
 
 #### Synchronizace fotek z lokálu
 
