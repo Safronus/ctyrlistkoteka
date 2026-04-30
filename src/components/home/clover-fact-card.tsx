@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CLOVER_TEXTS,
   type CloverText,
@@ -10,6 +10,13 @@ import {
 
 const ROTATION_MS = 120_000;
 const TICK_MS = 1_000;
+
+/** Window event name dispatched by the `Drobnosti` highlights tile to
+ *  ask this card to advance to the next text and reset its countdown.
+ *  Exported so the tile can fire the same literal — keeps the two
+ *  components decoupled (no shared context, no lifted state) while still
+ *  agreeing on the wire name. */
+export const CLOVER_FACT_ADVANCE_EVENT = "ctyrlistkoteka:clover-fact-advance";
 
 const SOURCE_LABELS: Record<CloverTextSource, string> = {
   fact: "fakt",
@@ -144,6 +151,11 @@ function vibeKeyFor(text: CloverText): VibeKey {
 export function CloverFactCard() {
   const [index, setIndex] = useState(0);
   const [remainingMs, setRemainingMs] = useState(ROTATION_MS);
+  // `nextAt` lives in a ref so both the auto-rotation tick AND the
+  // external advance event handler can reset it without one stomping
+  // the other's closure. Keeping it as state would force a re-render on
+  // every second, defeating the point of the steady visible countdown.
+  const nextAtRef = useRef<number>(Date.now() + ROTATION_MS);
 
   // Single 1 s interval drives both the visible countdown and the
   // rotation flip. Using a wall-clock target (`nextAt`) instead of a
@@ -154,29 +166,45 @@ export function CloverFactCard() {
   useEffect(() => {
     if (CLOVER_TEXTS.length === 0) return;
     setIndex(Math.floor(Math.random() * CLOVER_TEXTS.length));
-    let nextAt = Date.now() + ROTATION_MS;
+    nextAtRef.current = Date.now() + ROTATION_MS;
     setRemainingMs(ROTATION_MS);
 
+    // Random advance — pick any index OTHER than the current one, so two
+    // consecutive rotations never land on the same text. Uniform across
+    // the remaining N-1 entries by sampling an offset in [1, N-1] and
+    // adding it modulo N. Reused by both the timer expiry and the
+    // external "Další drobnost" button event.
+    const advance = () => {
+      setIndex((prev) => {
+        if (CLOVER_TEXTS.length <= 1) return prev;
+        const offset =
+          1 + Math.floor(Math.random() * (CLOVER_TEXTS.length - 1));
+        return (prev + offset) % CLOVER_TEXTS.length;
+      });
+      nextAtRef.current = Date.now() + ROTATION_MS;
+      setRemainingMs(ROTATION_MS);
+    };
+
     const tick = setInterval(() => {
-      const remaining = nextAt - Date.now();
+      const remaining = nextAtRef.current - Date.now();
       if (remaining <= 0) {
-        // Random advance — pick any index OTHER than the current one,
-        // so two consecutive rotations never land on the same text.
-        // Uniform distribution across the remaining N-1 entries by
-        // sampling an offset in [1, N-1] and adding it modulo N.
-        setIndex((prev) => {
-          if (CLOVER_TEXTS.length <= 1) return prev;
-          const offset =
-            1 + Math.floor(Math.random() * (CLOVER_TEXTS.length - 1));
-          return (prev + offset) % CLOVER_TEXTS.length;
-        });
-        nextAt = Date.now() + ROTATION_MS;
-        setRemainingMs(ROTATION_MS);
+        advance();
       } else {
         setRemainingMs(remaining);
       }
     }, TICK_MS);
-    return () => clearInterval(tick);
+
+    // External trigger from the "Drobnosti" highlights tile. The tile
+    // dispatches a window CustomEvent and we just reuse `advance` so the
+    // visitor-facing behaviour matches an auto-rotation exactly (random
+    // pick + reset countdown).
+    const onAdvance: EventListener = () => advance();
+    window.addEventListener(CLOVER_FACT_ADVANCE_EVENT, onAdvance);
+
+    return () => {
+      clearInterval(tick);
+      window.removeEventListener(CLOVER_FACT_ADVANCE_EVENT, onAdvance);
+    };
   }, []);
 
   const text = CLOVER_TEXTS[index];

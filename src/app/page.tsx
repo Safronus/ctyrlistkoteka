@@ -9,7 +9,6 @@ import {
   formatDateTimeCs,
   formatLocationId,
   formatShortDateTimeCs,
-  formatTimeSinceCs,
   locationDetailHref,
   pluralCs,
   FINDS,
@@ -20,6 +19,8 @@ import { formatGpsApple } from "@/lib/gpsFormat";
 import { FindThumbnail } from "@/components/finds/find-thumbnail";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
+import { CloverFactsStatCard } from "@/components/home/clover-facts-stat-card";
+import { CLOVER_TEXTS } from "@/lib/cloverTexts";
 
 // Must be a literal for Next.js static analysis. Matches HOME_REVALIDATE in
 // src/lib/constants.ts (1 hour).
@@ -500,6 +501,14 @@ function HighlightsSection({
 }) {
   const peakDay = highlights.peakDay;
   const top = highlights.topLocation;
+  // Bundled JSON, evaluated once per render — cheap enough to inline.
+  // Surfacing the breadth of the rotator (count, author bonuses, distinct
+  // categories) was the point of replacing "Sbírka začala" here.
+  const cloverFactsStats = {
+    total: CLOVER_TEXTS.length,
+    bonus: CLOVER_TEXTS.filter((t) => t.author === true).length,
+    categories: new Set(CLOVER_TEXTS.map((t) => t.category)).size,
+  };
 
   return (
     <section className="mt-8">
@@ -507,20 +516,10 @@ function HighlightsSection({
         Zajímavosti
       </h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <HighlightCard
-          label="Sbírka začala"
-          value={highlights.firstYear ? `${highlights.firstYear}` : "—"}
-          hint={
-            // Precise to hours so the card visibly ticks forward across
-            // ISR refreshes (revalidate = 1 h). formatTimeSinceCs already
-            // lowercases "před"; capitalise it so the hint reads as a
-            // standalone sentence under the headline year.
-            highlights.firstFoundAt
-              ? capitalise(
-                  formatTimeSinceCs(new Date(highlights.firstFoundAt)),
-                )
-              : null
-          }
+        <CloverFactsStatCard
+          total={cloverFactsStats.total}
+          bonus={cloverFactsStats.bonus}
+          categories={cloverFactsStats.categories}
         />
         {peakDay ? (
           <PeakDayCard peakDay={peakDay} />
@@ -634,10 +633,6 @@ function PeakDayCard({
       </div>
     </div>
   );
-}
-
-function capitalise(s: string): string {
-  return s.length === 0 ? s : s[0]!.toUpperCase() + s.slice(1);
 }
 
 function HighlightCard({
