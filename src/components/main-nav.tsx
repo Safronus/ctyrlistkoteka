@@ -96,10 +96,16 @@ export function MainNav() {
           id="main-nav-mobile-panel"
           className="border-t border-gray-200 bg-white md:hidden"
         >
-          <ul className="mx-auto flex max-w-7xl flex-col gap-0.5 px-4 py-2 sm:px-6">
+          {/* `items-start` so each row's highlight pill hugs its label
+           *  instead of stretching across the full panel width — that
+           *  full-width fill plus a 0.5-unit gap was making adjacent
+           *  active/hover items appear to overlap on mobile. */}
+          <ul className="mx-auto flex max-w-7xl flex-col items-start gap-1 px-4 py-2 sm:px-6">
             {NAV_ITEMS.map((item) => (
               <li key={item.href}>
-                <NavLink href={item.href}>{item.label}</NavLink>
+                <NavLink href={item.href} variant="compact">
+                  {item.label}
+                </NavLink>
               </li>
             ))}
           </ul>
