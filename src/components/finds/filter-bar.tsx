@@ -30,17 +30,32 @@ export function FilterBar({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  // The search box must reflect URL changes that originate outside this
-  // component (browser back/forward, the "Zrušit filtry" button, deep
-  // links). `defaultValue` was uncontrolled and ignored prop updates,
-  // which was visible after the detail-page round-trip — the list
-  // behind the box looked filtered while the box itself was empty.
-  // The local `qInput` state is the input's source of truth; an effect
-  // resyncs it whenever `current.q` changes from the outside.
+  // The search box must reflect URL changes that originate OUTSIDE
+  // this component (browser back/forward, the "Zrušit filtry" button,
+  // deep links). The local `qInput` state is the input's source of
+  // truth; an effect resyncs it whenever `current.q` changes
+  // externally.
+  //
+  // Crucially, we MUST NOT resync when the URL change came from our
+  // own debounced push — otherwise typing fast drops characters:
+  //
+  //   t=0–150  user types "REYK"  → qInput="REYK", debounce armed
+  //   t=400    debounce fires     → router.push("?q=REYK")
+  //   t=405    user types "J"     → qInput="REYKJ", new debounce armed
+  //   t=420    URL change settles → current.q="REYK" arrives as prop
+  //   t=420    effect runs        → setQInput("REYK"), wipes the "J"
+  //   t=425+   user types "AVIK"  → qInput="REYKAVIK" (J swallowed)
+  //
+  // `lastPushedRef` remembers what we most recently sent to the URL.
+  // If the incoming `current.q` matches it, the round-trip is our
+  // own and we keep the local in-flight value intact.
   const [qInput, setQInput] = useState(current.q);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPushedRef = useRef<string>(current.q);
   useEffect(() => {
+    if (current.q === lastPushedRef.current) return;
     setQInput(current.q);
+    lastPushedRef.current = current.q;
   }, [current.q]);
   useEffect(
     () => () => {
@@ -50,6 +65,7 @@ export function FilterBar({
   );
 
   const update = (key: string, value: string) => {
+    if (key === "q") lastPushedRef.current = value;
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
