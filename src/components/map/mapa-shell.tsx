@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Info, ListIcon, X } from "lucide-react";
+import { ChevronDown, Info, ListIcon, X } from "lucide-react";
 import { MapLoader } from "./map-loader";
 import { MapSidebar } from "./map-sidebar";
 import type { MapData } from "@/lib/queries/map";
@@ -69,10 +69,35 @@ export function MapaShell({
   // Sidebar auto-opens when the URL explicitly carried ?focus=N or
   // ?find=N (deep-link from /lokality or /sbirka). A bare /mapa visit
   // keeps it closed even though we still focus the default location on
-  // the map.
+  // the map. On mobile we override below — the bottom-sheet covers most
+  // of the viewport, so a deep-link arrival should let the visitor SEE
+  // the location first.
   const [sidebarOpen, setSidebarOpen] = useState(
     urlFocusId !== null || highlightFind !== null,
   );
+  // Vrstvy + Legenda are space-hungry on a phone; collapse them by
+  // default below md so the visitor sees the map under the floating
+  // controls. Desktop keeps them expanded since vertical real-estate
+  // is plentiful there.
+  const [layersExpanded, setLayersExpanded] = useState(true);
+  const [legendExpanded, setLegendExpanded] = useState(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+    if (!isDesktop) {
+      setLayersExpanded(false);
+      setLegendExpanded(false);
+      // Mobile deep-link → keep the map clear; visitor came to see the
+      // pinned location, not the list. They can tap the Lokality pill
+      // to open the sheet at any time.
+      if (urlFocusId !== null || highlightFind !== null) {
+        setSidebarOpen(false);
+      }
+    }
+    // Single-shot — initial layout decision based on viewport at mount.
+    // The user can freely toggle afterwards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [showLocations, setShowLocations] = useState(true);
   // Highlight mode hides the bulk find layer by default — the visitor
@@ -267,9 +292,11 @@ export function MapaShell({
           {/* Mobile / narrow tablet (< md): bottom-sheet panel. The
            *  right-side panel would cover the whole map at this width,
            *  so we anchor to the bottom edge instead and cap the height
-           *  so the upper map area + floating controls stay usable. */}
+           *  so the upper map area + floating controls stay usable.
+           *  Capped at half the viewport so the map above the sheet
+           *  stays meaningful — 70vh swallowed almost everything. */}
           <aside
-            className="absolute inset-x-0 bottom-0 z-[400] flex max-h-[70vh] flex-col rounded-t-2xl border border-gray-200 bg-white shadow-2xl md:hidden"
+            className="absolute inset-x-0 bottom-0 z-[400] flex max-h-[50vh] flex-col rounded-t-2xl border border-gray-200 bg-white shadow-2xl md:hidden"
             aria-label="Ovládání mapy"
           >
             <div className="relative flex items-center justify-center border-b border-gray-200 px-2 py-2">
@@ -330,8 +357,14 @@ export function MapaShell({
 
       {/* Layer toggles + colour legend live OUTSIDE the sidebar so they
        *  stay visible when the panel is collapsed. Stacked top-left
-       *  underneath Leaflet's zoom buttons. */}
+       *  underneath Leaflet's zoom buttons. Legenda first so it's the
+       *  closer reference to the polygons being explained; Vrstvy is the
+       *  control surface and sits under it. */}
       <div className="absolute left-3 top-20 z-[400] flex flex-col gap-2">
+        <LocationLegend
+          expanded={legendExpanded}
+          onToggleExpanded={() => setLegendExpanded((v) => !v)}
+        />
         <LayerToggleCard
           showLocations={showLocations}
           onToggleLocations={setShowLocations}
@@ -343,8 +376,9 @@ export function MapaShell({
           goneCount={goneLocationCount}
           findCount={mapData.findCoords.length}
           findCountTotal={mapData.findCountTotal}
+          expanded={layersExpanded}
+          onToggleExpanded={() => setLayersExpanded((v) => !v)}
         />
-        <LocationLegend />
       </div>
 
       {/* Hidden defs SVG — provides the diagonal-stripes pattern used as
@@ -393,6 +427,8 @@ function LayerToggleCard({
   goneCount,
   findCount,
   findCountTotal,
+  expanded,
+  onToggleExpanded,
 }: {
   showLocations: boolean;
   onToggleLocations: (v: boolean) => void;
@@ -404,6 +440,8 @@ function LayerToggleCard({
   goneCount: number;
   findCount: number;
   findCountTotal: number;
+  expanded: boolean;
+  onToggleExpanded: () => void;
 }) {
   // Visitors comparing the home page (e.g. "1 735 nálezů") with this
   // count saw the difference and assumed a bug; calling out the gap
@@ -411,40 +449,56 @@ function LayerToggleCard({
   const hiddenFinds = Math.max(0, findCountTotal - findCount);
   return (
     <div className="rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm shadow-md">
-      <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-        Vrstvy
-      </h3>
-      <div className="space-y-0.5">
-        <ToggleRow
-          label="Lokace"
-          count={locationCount}
-          checked={showLocations}
-          onChange={onToggleLocations}
+      <button
+        type="button"
+        onClick={onToggleExpanded}
+        className="flex w-full items-center justify-between gap-2 rounded text-left"
+        aria-expanded={expanded}
+        aria-label={expanded ? "Sbalit vrstvy" : "Rozbalit vrstvy"}
+      >
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          Vrstvy
+        </h3>
+        <ChevronDown
+          className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
+            expanded ? "" : "-rotate-90"
+          }`}
+          aria-hidden
         />
-        {/* Zaniklé as a visual sub-row of Lokace — indented and tied
-         *  to its parent by a left rule, matching the master/detail
-         *  semantic. Goes muted when the parent toggle is off. */}
-        <div className="ml-2 border-l border-gray-200 pl-2">
+      </button>
+      {expanded && (
+        <div className="mt-1 space-y-0.5">
           <ToggleRow
-            label="Zaniklé"
-            count={goneCount}
-            checked={showGone}
-            onChange={onToggleGone}
-            disabled={!showLocations}
+            label="Lokace"
+            count={locationCount}
+            checked={showLocations}
+            onChange={onToggleLocations}
+          />
+          {/* Zaniklé as a visual sub-row of Lokace — indented and tied
+           *  to its parent by a left rule, matching the master/detail
+           *  semantic. Goes muted when the parent toggle is off. */}
+          <div className="ml-2 border-l border-gray-200 pl-2">
+            <ToggleRow
+              label="Zaniklé"
+              count={goneCount}
+              checked={showGone}
+              onChange={onToggleGone}
+              disabled={!showLocations}
+            />
+          </div>
+          <ToggleRow
+            label="Nálezy"
+            count={findCount}
+            checked={showFinds}
+            onChange={onToggleFinds}
+            subtitle={
+              hiddenFinds > 0
+                ? `+ ${hiddenFinds.toLocaleString("cs-CZ")} skrytých (anonym./bez GPS)`
+                : undefined
+            }
           />
         </div>
-        <ToggleRow
-          label="Nálezy"
-          count={findCount}
-          checked={showFinds}
-          onChange={onToggleFinds}
-          subtitle={
-            hiddenFinds > 0
-              ? `+ ${hiddenFinds.toLocaleString("cs-CZ")} skrytých (anonym./bez GPS)`
-              : undefined
-          }
-        />
-      </div>
+      )}
     </div>
   );
 }
@@ -502,17 +556,39 @@ function ToggleRow({
   );
 }
 
-function LocationLegend() {
+function LocationLegend({
+  expanded,
+  onToggleExpanded,
+}: {
+  expanded: boolean;
+  onToggleExpanded: () => void;
+}) {
   return (
-    <div className="pointer-events-none rounded-md border border-gray-200 bg-white/95 px-2.5 py-2 text-xs shadow-md">
-      <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-        Legenda
-      </h3>
-      <ul className="space-y-1 text-gray-700">
-        <LegendRow swatch={<ActiveSwatch />} label="Aktivní lokalita" />
-        <LegendRow swatch={<FormerSwatch />} label="Zaniklá lokalita" />
-        <LegendRow swatch={<FocusedSwatch />} label="Vybraná lokalita" />
-      </ul>
+    <div className="rounded-md border border-gray-200 bg-white/95 px-2.5 py-2 text-[11px] shadow-md">
+      <button
+        type="button"
+        onClick={onToggleExpanded}
+        className="flex w-full items-center justify-between gap-2 rounded text-left"
+        aria-expanded={expanded}
+        aria-label={expanded ? "Sbalit legendu" : "Rozbalit legendu"}
+      >
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          Legenda
+        </h3>
+        <ChevronDown
+          className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
+            expanded ? "" : "-rotate-90"
+          }`}
+          aria-hidden
+        />
+      </button>
+      {expanded && (
+        <ul className="mt-1 space-y-1 text-gray-700">
+          <LegendRow swatch={<ActiveSwatch />} label="Aktivní lokalita" />
+          <LegendRow swatch={<FormerSwatch />} label="Zaniklá lokalita" />
+          <LegendRow swatch={<FocusedSwatch />} label="Vybraná lokalita" />
+        </ul>
+      )}
     </div>
   );
 }
