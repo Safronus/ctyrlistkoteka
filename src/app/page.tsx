@@ -8,7 +8,7 @@ import {
   formatDateCs,
   formatDateTimeCs,
   formatLocationId,
-  formatShortDateCs,
+  formatShortDateTimeCs,
   formatTimeSinceCs,
   pluralCs,
   FINDS,
@@ -121,29 +121,27 @@ export default async function HomePage() {
           zaznamenaných lokalit a GPS souřadnic.
         </p>
         {(totals.latestFoundAt || highlights.firstFoundAt) && (
-          <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs text-gray-400">
-            {totals.latestFoundAt && (
-              <span>
-                Poslední aktualizace sbírky:{" "}
-                <span className="text-gray-500">
-                  {formatShortDateCs(new Date(totals.latestFoundAt))}
-                </span>
-              </span>
-            )}
-            {totals.latestFoundAt && highlights.firstFoundAt && (
-              <span aria-hidden className="text-gray-300">
-                ·
-              </span>
-            )}
+          <div className="mt-2 text-center text-xs text-gray-400">
+            {/* Two distinct lines on mobile, single line with a dot
+             *  separator from sm up. Order: start of the collection
+             *  first, latest update second — chronological reading. */}
             {highlights.firstFoundAt && (
-              <span>
+              <p>
                 První čtyřlístek zaevidován:{" "}
                 <span className="text-gray-500">
-                  {formatShortDateCs(new Date(highlights.firstFoundAt))}
+                  {formatShortDateTimeCs(new Date(highlights.firstFoundAt))}
                 </span>
-              </span>
+              </p>
             )}
-          </p>
+            {totals.latestFoundAt && (
+              <p>
+                Poslední aktualizace sbírky:{" "}
+                <span className="text-gray-500">
+                  {formatShortDateTimeCs(new Date(totals.latestFoundAt))}
+                </span>
+              </p>
+            )}
+          </div>
         )}
       </section>
 
