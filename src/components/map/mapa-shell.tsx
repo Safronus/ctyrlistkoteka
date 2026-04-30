@@ -356,11 +356,17 @@ export function MapaShell({
       )}
 
       {/* Layer toggles + colour legend live OUTSIDE the sidebar so they
-       *  stay visible when the panel is collapsed. Stacked top-left
-       *  underneath Leaflet's zoom buttons. Legenda first so it's the
+       *  stay visible when the panel is collapsed. Pinned to the top
+       *  edge right next to Leaflet's zoom buttons (which sit at
+       *  ~10px+26px = 36px from the left). Legenda first so it's the
        *  closer reference to the polygons being explained; Vrstvy is the
-       *  control surface and sits under it. */}
-      <div className="absolute left-3 top-20 z-[400] flex flex-col gap-2">
+       *  control surface and sits under it.
+       *
+       *  Width is capped on mobile (w-40 = 10rem) so the column fits
+       *  between the zoom controls and the right-side "Lokality" pill
+       *  on a 375px viewport without overlapping. Desktop drops the
+       *  cap. */}
+      <div className="absolute left-14 top-3 z-[400] flex w-40 flex-col gap-2 md:w-auto md:max-w-xs">
         <LocationLegend
           expanded={legendExpanded}
           onToggleExpanded={() => setLegendExpanded((v) => !v)}
