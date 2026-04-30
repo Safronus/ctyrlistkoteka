@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, RefreshCw } from "lucide-react";
+import { ArrowRight, MapPin, RefreshCw } from "lucide-react";
 import { ImageGallery } from "./image-gallery";
 import {
   formatDateCs,
@@ -137,13 +137,26 @@ export function RandomFindShowcaseWidget({
         ) : (
           <span className="text-sm text-gray-500">Bez lokality</span>
         )}
-        <Link
-          href={`/sbirka/${find.id}`}
-          className="ml-auto inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
-        >
-          Detail nálezu
-          <ArrowRight className="h-4 w-4" aria-hidden />
-        </Link>
+        <div className="ml-auto flex items-center gap-3">
+          {find.hasMapPosition && (
+            <Link
+              href={`/mapa?find=${find.id}`}
+              aria-label="Zobrazit nález na mapě"
+              title="Zobrazit nález na mapě"
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+            >
+              <MapPin className="h-3.5 w-3.5" aria-hidden />
+              <span>Na mapě</span>
+            </Link>
+          )}
+          <Link
+            href={`/sbirka/${find.id}`}
+            className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
+          >
+            Detail nálezu
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </div>
       </div>
 
       <div className="relative">
