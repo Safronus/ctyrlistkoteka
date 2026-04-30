@@ -10,6 +10,7 @@ krok za krokem. Tento README je rychlý katalog.
 | `nginx.conf.template` | `/etc/nginx/sites-available/ctyrlistkoteka` | Kopie při inicializaci. Potom `sudo nginx -t && sudo systemctl reload nginx`. |
 | `nginx-snippets/block-exploits.conf` | `/etc/nginx/snippets/block-exploits.conf` | Drop notorické scanner cesty (`/.env`, `/wp-login.php`, …) — instant 444. Includuje se z hlavního configu. |
 | `nginx-snippets/security-headers.conf` | `/etc/nginx/snippets/security-headers.conf` | HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy. Pro stats subdoménu (a libovolný HTTPS vhost). |
+| `nginx-snippets/security-txt-redirect.conf` | `/etc/nginx/snippets/security-txt-redirect.conf` | Stats vhost: redirect `/security.txt` a `/.well-known/security.txt` na autoritativní kopii na apexu. |
 | `fail2ban-nginx-noscript.conf` | `/etc/fail2ban/jail.d/nginx-noscript.conf` | Jail definice pro nginx-noscript filter. Skládá default ban akci s `blocklist` (logger). |
 | `fail2ban-nginx-noscript-filter.conf` | `/etc/fail2ban/filter.d/nginx-noscript.conf` | Regex pro detekci scanner traffic v nginx access logu. |
 | `fail2ban-sshd.conf` | `/etc/fail2ban/jail.d/sshd.local` | Override default sshd jailu — přidá `blocklist` action k SSH banům, ať i ty padají do TSV. |
@@ -278,6 +279,42 @@ sudo nginx -t && sudo systemctl reload nginx
 curl -sI https://stats.ctyrlistkoteka.cz/ | grep -ciE '^strict-transport-security'
 # Má vrátit 1 (ne 2)
 ```
+
+#### security.txt (RFC 9116)
+
+internet.nl flagne `security.txt` ze stats subdomény, protože GoatCounter
+ho posílá v legacy lokaci (`/security.txt`) a malformed (chybí `Expires`,
+`Contact` není URI). Opravujeme to dvojitě:
+
+1. **Apex vhost** servíruje autoritativní validní kopii v `public/.well-known/security.txt`
+   (Next.js to pickne z `public/` — žádná nginx změna není potřeba).
+
+2. **Stats vhost** přesměrovává na apex. RFC 9116 sekce 4 cross-domain
+   redirect explicitně povoluje:
+
+```bash
+sudo cp deploy/nginx-snippets/security-txt-redirect.conf /etc/nginx/snippets/
+
+# V /etc/nginx/sites-available/stats.ctyrlistkoteka.cz, do server { listen 443 ... } bloku
+# (mimo location / blok) přidej:
+#       include /etc/nginx/snippets/security-txt-redirect.conf;
+sudo nano /etc/nginx/sites-available/stats.ctyrlistkoteka.cz
+
+sudo nginx -t && sudo systemctl reload nginx
+
+# Verifikace — oba bývalé URL přesměrují na apex/.well-known
+curl -sI https://stats.ctyrlistkoteka.cz/security.txt           | head -2
+curl -sI https://stats.ctyrlistkoteka.cz/.well-known/security.txt | head -2
+# Obě má vrátit: HTTP/2 301, location: https://ctyrlistkoteka.cz/.well-known/security.txt
+
+curl -s https://ctyrlistkoteka.cz/.well-known/security.txt
+# Má vypsat čtyři řádky: Contact, Expires, Preferred-Languages, Canonical
+```
+
+> **Renewal:** `Expires` je nastavený na **2027-04-29**. RFC doporučuje
+> < 1 rok, takže po cca 11 měsících (březen 2027) je třeba bumpovat
+> datum v `public/.well-known/security.txt`. Cron-style připomínka
+> přes `/schedule` agent zajistí, že to neuteče.
 
 ## Rollback
 

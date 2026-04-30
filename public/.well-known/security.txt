@@ -1,0 +1,4 @@
+Contact: mailto:safronus@gmail.com
+Expires: 2027-04-29T23:59:59Z
+Preferred-Languages: cs, en
+Canonical: https://ctyrlistkoteka.cz/.well-known/security.txt
