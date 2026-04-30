@@ -29,6 +29,7 @@ import {
   type LocationDetail,
   type LocationDetailFindPreview,
 } from "@/lib/queries/locations";
+import { countryFromCoords } from "@/lib/geo";
 
 interface PageProps {
   params: Promise<{ mapId: string }>;
@@ -214,9 +215,24 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
           <p className="text-base text-gray-700">{base.displayName}</p>
         )}
 
+        {/* Geographic placement under the title: country (point-in-polygon
+            against bundled Natural Earth, no API) + city (cadastralArea
+            parsed from the location-map filename at sync time). The
+            location-type tag — historically e.g. "Pole" / "Park" — is
+            dropped: it duplicated info already implicit in the code and
+            the country line reads cleaner without it. */}
         <p className="text-sm text-gray-500">
-          {base.cadastralArea}
-          {base.locationType ? ` · ${base.locationType}` : ""}
+          {[
+            base.coordinates
+              ? countryFromCoords(
+                  base.coordinates.lat,
+                  base.coordinates.lng,
+                ).name
+              : null,
+            base.cadastralArea || null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       </header>
 
