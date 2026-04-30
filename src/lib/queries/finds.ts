@@ -89,6 +89,13 @@ export interface FindFilters {
   country?: string;
   state?: FindState;
   year?: number;
+  /** Inclusive lower bound on `foundAt`. Day-resolution; the parser
+   *  pins this to UTC midnight. */
+  dateFrom?: Date;
+  /** Inclusive upper bound on `foundAt`. Day-resolution; the WHERE
+   *  builder converts this to "< next-day-UTC-midnight" so the whole
+   *  selected day counts. */
+  dateTo?: Date;
 }
 
 export interface FindListResult {
@@ -154,6 +161,18 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
     const from = new Date(Date.UTC(f.year, 0, 1));
     const to = new Date(Date.UTC(f.year + 1, 0, 1));
     and.push({ foundAt: { gte: from, lt: to } });
+  }
+  if (f.dateFrom || f.dateTo) {
+    const range: Prisma.DateTimeFilter = {};
+    if (f.dateFrom) range.gte = f.dateFrom;
+    if (f.dateTo) {
+      // Day-inclusive on the upper bound: bump to next-day-midnight UTC
+      // so a found_at of e.g. 2024-08-15 23:59:00 still matches `to=2024-08-15`.
+      const next = new Date(f.dateTo);
+      next.setUTCDate(next.getUTCDate() + 1);
+      range.lt = next;
+    }
+    and.push({ foundAt: range });
   }
 
   if (f.q && f.q.trim()) {

@@ -23,6 +23,9 @@ export function FilterBar({
     country: string;
     state: string;
     year: string;
+    /** YYYY-MM-DD or empty. Native `<input type="date">` value shape. */
+    dateFrom: string;
+    dateTo: string;
   };
 }) {
   const router = useRouter();
@@ -94,7 +97,9 @@ export function FilterBar({
     current.city ||
     current.country ||
     current.state ||
-    current.year;
+    current.year ||
+    current.dateFrom ||
+    current.dateTo;
 
   return (
     <div
@@ -239,6 +244,36 @@ export function FilterBar({
               aria-hidden
             />
           </div>
+        </label>
+
+        {/* Date range — `min`/`max` cross-link the two inputs so the
+            native picker can't produce an inverted range. Server still
+            handles the inverted case gracefully (Prisma gte > lt = empty
+            result), but blocking it at the picker is friendlier. */}
+        <label>
+          <span className="mb-1 block text-xs font-medium text-gray-700">
+            Datum od
+          </span>
+          <input
+            type="date"
+            value={current.dateFrom}
+            max={current.dateTo || undefined}
+            onChange={(e) => update("from", e.currentTarget.value)}
+            className={`${INPUT_CLS} w-full`}
+          />
+        </label>
+
+        <label>
+          <span className="mb-1 block text-xs font-medium text-gray-700">
+            Datum do
+          </span>
+          <input
+            type="date"
+            value={current.dateTo}
+            min={current.dateFrom || undefined}
+            onChange={(e) => update("to", e.currentTarget.value)}
+            className={`${INPUT_CLS} w-full`}
+          />
         </label>
       </div>
 
