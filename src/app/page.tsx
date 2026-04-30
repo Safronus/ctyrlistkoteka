@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ListIcon, MapPin } from "lucide-react";
+import { ArrowRight, ExternalLink, ListIcon, MapPin } from "lucide-react";
 import { getHomePageData, type HomePageData } from "@/lib/queries/home";
 import { getRandomFindShowcase } from "@/lib/queries/random-find";
 import { getWatermarkMeta } from "@/lib/queries/watermark";
@@ -10,6 +10,7 @@ import {
   formatLocationId,
   formatShortDateTimeCs,
   formatTimeSinceCs,
+  locationDetailHref,
   pluralCs,
   FINDS,
   LOCATIONS,
@@ -543,12 +544,25 @@ function TopLocationCard({
   location: NonNullable<HomePageData["highlights"]["topLocation"]>;
 }) {
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+    <div className="relative flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+      {/* Discreet shortcut to /lokality/<id> in the corner — same icon
+          shape used on the /lokality list rows and /statistiky leaderboards
+          so the meaning ("open detail") stays consistent across pages.
+          Pinned absolute so the title row keeps its baseline alignment
+          regardless of card height. */}
+      <Link
+        href={locationDetailHref(location.id)}
+        aria-label="Detail lokality"
+        title="Detail lokality"
+        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition hover:bg-brand-50 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500"
+      >
+        <ExternalLink className="h-4 w-4" aria-hidden />
+      </Link>
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
         Top lokalita
       </p>
       <p
-        className="mt-1 truncate text-base font-semibold text-gray-900"
+        className="mt-1 truncate pr-8 text-base font-semibold text-gray-900"
         title={location.code}
       >
         {location.code}
