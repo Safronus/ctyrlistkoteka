@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   CornerDownRight,
+  ExternalLink,
   HelpCircle,
   Layers,
   ListIcon,
@@ -349,6 +350,13 @@ function SummaryGrid({
   const aggregate = base.aggregateStats;
   const own = base.stats;
   const hasChildren = base.childCount > 0;
+  // Single-find lokalities have firstFindId === lastFindId (or just one of
+  // them set). Merge the two slots into one "Nález" field so the panel
+  // doesn't repeat the same row twice with the same date.
+  const singleFind =
+    aggregate.firstFindId !== null &&
+    aggregate.lastFindId !== null &&
+    aggregate.firstFindId === aggregate.lastFindId;
 
   return (
     <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
@@ -362,7 +370,7 @@ function SummaryGrid({
           </span>
         )}
       </Field>
-      {aggregate.firstFoundAt && aggregate.lastFoundAt && (
+      {!singleFind && aggregate.firstFoundAt && aggregate.lastFoundAt && (
         <Field label="Časový rozsah">
           {formatDateCs(new Date(aggregate.firstFoundAt))} –{" "}
           {formatDateCs(new Date(aggregate.lastFoundAt))}
@@ -400,27 +408,72 @@ function SummaryGrid({
           </span>
         </Field>
       )}
-      {aggregate.firstFindId !== null && (
-        <Field label="První nález">
-          <Link
-            href={`/sbirka/${aggregate.firstFindId}`}
-            className="font-mono text-brand-700 hover:underline"
-          >
-            #{aggregate.firstFindId}
-          </Link>
+      {singleFind ? (
+        <Field label="Nález">
+          <FindRefLinks
+            findId={aggregate.firstFindId!}
+            foundAt={aggregate.firstFoundAt}
+          />
         </Field>
-      )}
-      {aggregate.lastFindId !== null && (
-        <Field label="Poslední nález">
-          <Link
-            href={`/sbirka/${aggregate.lastFindId}`}
-            className="font-mono text-brand-700 hover:underline"
-          >
-            #{aggregate.lastFindId}
-          </Link>
-        </Field>
+      ) : (
+        <>
+          {aggregate.firstFindId !== null && (
+            <Field label="První nález">
+              <FindRefLinks
+                findId={aggregate.firstFindId}
+                foundAt={aggregate.firstFoundAt}
+              />
+            </Field>
+          )}
+          {aggregate.lastFindId !== null && (
+            <Field label="Poslední nález">
+              <FindRefLinks
+                findId={aggregate.lastFindId}
+                foundAt={aggregate.lastFoundAt}
+              />
+            </Field>
+          )}
+        </>
       )}
     </dl>
+  );
+}
+
+/** First/last find reference: ID + optional date as a /sbirka deep-link
+ *  plus a small map-pin shortcut to /mapa?find=N. Same shape used in
+ *  both single-find ("Nález") and range ("První nález" / "Poslední
+ *  nález") slots so the visual is consistent. */
+function FindRefLinks({
+  findId,
+  foundAt,
+}: {
+  findId: number;
+  foundAt: string | null;
+}) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+      <Link
+        href={`/sbirka/${findId}`}
+        className="inline-flex items-center gap-1 font-mono text-brand-700 hover:underline"
+        title="Detail nálezu"
+      >
+        #{findId}
+        <ExternalLink className="h-3 w-3" aria-hidden />
+      </Link>
+      {foundAt && (
+        <span className="text-xs text-gray-600">
+          {formatDateCs(new Date(foundAt))}
+        </span>
+      )}
+      <Link
+        href={`/mapa?find=${findId}`}
+        aria-label="Zobrazit nález na mapě"
+        title="Zobrazit nález na mapě"
+        className="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition hover:bg-brand-50 hover:text-brand-700"
+      >
+        <MapPin className="h-3.5 w-3.5" aria-hidden />
+      </Link>
+    </span>
   );
 }
 
