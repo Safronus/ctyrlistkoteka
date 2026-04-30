@@ -51,16 +51,19 @@ case "$cmd" in
     ;;
 
   nginx-deny)
-    # IP banované >= PERMABAN_THRESHOLD × za posledních WINDOW_DAYS dní
+    # IP banované >= PERMABAN_THRESHOLD × za posledních WINDOW_DAYS dní.
+    # Filtrujeme JEN jail=nginx-noscript — `nginx deny` direktiva
+    # blokuje HTTP requesty, takže IP odchycené z SSH (sshd / sshd-logger)
+    # by tam dělaly jen šum. SSH útoky řeší sshd jail nezávisle (firewall ban).
     cutoff=$(date -Iseconds -d "$WINDOW_DAYS days ago")
     {
       echo "# Auto-generated permaban list"
-      echo "# Source: $LOG"
+      echo "# Source: $LOG (filter: jail=nginx-noscript)"
       echo "# Generated: $(date -Iseconds)"
       echo "# Threshold: IPs banned >= ${PERMABAN_THRESHOLD}× in last ${WINDOW_DAYS} days"
       echo "#"
       awk -F'\t' -v cutoff="$cutoff" -v thr="$PERMABAN_THRESHOLD" '
-        $1 >= cutoff { count[$2]++ }
+        $1 >= cutoff && $3 == "nginx-noscript" { count[$2]++ }
         END {
           for (ip in count) if (count[ip] >= thr) print "deny " ip ";"
         }
