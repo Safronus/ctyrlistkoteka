@@ -6,7 +6,7 @@ import { CLOVER_FACT_ADVANCE_EVENT } from "@/components/home/clover-fact-card";
 
 const NF_CS = new Intl.NumberFormat("cs-CZ");
 
-const FACTS = ["drobnost", "drobnosti", "drobností"] as const;
+const CURIOSITIES = ["zajímavost", "zajímavosti", "zajímavostí"] as const;
 const BONUSES = ["bonus", "bonusy", "bonusů"] as const;
 const CATEGORIES = ["kategorie", "kategorie", "kategorií"] as const;
 
@@ -28,10 +28,16 @@ export function CloverFactsStatCard({
   total,
   bonus,
   categories,
+  categoryLabels,
 }: {
   total: number;
   bonus: number;
   categories: number;
+  /** Sorted Czech labels for every distinct category present in the
+   *  rotator dataset — rendered as a wrapping comma-list under the hint
+   *  so the visitor sees what kinds of curiosities the rotator covers
+   *  without having to wait through ~10 rotations. */
+  categoryLabels: readonly string[];
 }) {
   const advance = () => {
     if (typeof window === "undefined") return;
@@ -57,26 +63,35 @@ export function CloverFactsStatCard({
   return (
     <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-        Drobnosti o čtyřlístcích
+        Zajímavosti o čtyřlístcích
       </p>
       <p className="mt-1 truncate text-base font-semibold text-gray-900">
-        {NF_CS.format(total)} {pluralCs(total, FACTS)}
+        {NF_CS.format(total)} {pluralCs(total, CURIOSITIES)}
       </p>
       {hintParts.length > 0 && (
         <p className="mt-0.5 text-xs text-gray-500">
           {hintParts.join(" · ")}
         </p>
       )}
+      {categoryLabels.length > 0 && (
+        // Smaller font + lighter colour than the hint so the list reads
+        // as supporting context rather than a second headline. `leading-snug`
+        // keeps the wrapped lines visually tight when the chip-row would
+        // otherwise add too much vertical drift to the tile.
+        <p className="mt-1.5 text-[11px] leading-snug text-gray-400">
+          {categoryLabels.join(" · ")}
+        </p>
+      )}
       <div className="mt-auto pt-3">
         <button
           type="button"
           onClick={advance}
-          aria-label="Zobrazit jinou drobnost v lístku vedle hrdiny"
-          title="Zobrazí jinou drobnost v lístku vedle hrdiny"
+          aria-label="Zobrazit jinou zajímavost v lístku vedle hrdiny"
+          title="Zobrazí jinou zajímavost v lístku vedle hrdiny"
           className="flex w-full items-center justify-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <Shuffle className="h-3.5 w-3.5" aria-hidden />
-          <span>Další drobnost</span>
+          <span>Další zajímavost</span>
         </button>
       </div>
     </div>

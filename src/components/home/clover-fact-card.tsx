@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
+  CLOVER_CATEGORY_LABELS,
   CLOVER_TEXTS,
   type CloverText,
   type CloverTextSource,
@@ -28,19 +29,6 @@ const SOURCE_TONE: Record<CloverTextSource, string> = {
   fact: "bg-emerald-100 text-emerald-800 ring-emerald-200",
   lore: "bg-amber-100 text-amber-800 ring-amber-200",
   creative: "bg-violet-100 text-violet-800 ring-violet-200",
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  botany: "Botanika",
-  culture: "Kultura",
-  folklore: "Folklór",
-  history: "Historie",
-  literature: "Literatura",
-  mythology: "Mytologie",
-  poetry: "Poezie",
-  records: "Rekordy",
-  science: "Věda",
-  trivia: "Drobnosti",
 };
 
 interface VibeStyles {
@@ -220,7 +208,8 @@ export function CloverFactCard() {
   // utilities below set the light/clover look; the override rules win
   // by specificity (attribute selector chain beats single utility class).
   const vibeKey = vibeKeyFor(text);
-  const categoryLabel = CATEGORY_LABELS[text.category] ?? text.category;
+  const categoryLabel =
+    CLOVER_CATEGORY_LABELS[text.category] ?? text.category;
 
   const card = (
     <aside

@@ -36,3 +36,21 @@ export interface CloverText {
 
 export const CLOVER_TEXTS: ReadonlyArray<CloverText> =
   shuffled.texts as ReadonlyArray<CloverText>;
+
+/** Czech display labels for the `category` keys carried on each
+ *  CloverText. Lives here (not next to the rotator card) so server
+ *  components can translate keys without crossing the use-client
+ *  boundary — the home highlights tile lists the distinct categories
+ *  and needs the labels at SSR time. */
+export const CLOVER_CATEGORY_LABELS: Record<string, string> = {
+  botany: "Botanika",
+  culture: "Kultura",
+  folklore: "Folklór",
+  history: "Historie",
+  literature: "Literatura",
+  mythology: "Mytologie",
+  poetry: "Poezie",
+  records: "Rekordy",
+  science: "Věda",
+  trivia: "Drobnosti",
+};

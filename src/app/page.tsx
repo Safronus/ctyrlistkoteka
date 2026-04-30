@@ -20,7 +20,7 @@ import { FindThumbnail } from "@/components/finds/find-thumbnail";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
 import { CloverFactsStatCard } from "@/components/home/clover-facts-stat-card";
-import { CLOVER_TEXTS } from "@/lib/cloverTexts";
+import { CLOVER_CATEGORY_LABELS, CLOVER_TEXTS } from "@/lib/cloverTexts";
 
 // Must be a literal for Next.js static analysis. Matches HOME_REVALIDATE in
 // src/lib/constants.ts (1 hour).
@@ -503,11 +503,19 @@ function HighlightsSection({
   const top = highlights.topLocation;
   // Bundled JSON, evaluated once per render — cheap enough to inline.
   // Surfacing the breadth of the rotator (count, author bonuses, distinct
-  // categories) was the point of replacing "Sbírka začala" here.
+  // categories incl. the actual category list) was the point of
+  // replacing "Sbírka začala" here.
+  const distinctCategoryKeys = Array.from(
+    new Set(CLOVER_TEXTS.map((t) => t.category)),
+  );
+  const categoryLabels = distinctCategoryKeys
+    .map((key) => CLOVER_CATEGORY_LABELS[key] ?? key)
+    .sort((a, b) => a.localeCompare(b, "cs-CZ"));
   const cloverFactsStats = {
     total: CLOVER_TEXTS.length,
     bonus: CLOVER_TEXTS.filter((t) => t.author === true).length,
-    categories: new Set(CLOVER_TEXTS.map((t) => t.category)).size,
+    categories: distinctCategoryKeys.length,
+    categoryLabels,
   };
 
   return (
@@ -520,6 +528,7 @@ function HighlightsSection({
           total={cloverFactsStats.total}
           bonus={cloverFactsStats.bonus}
           categories={cloverFactsStats.categories}
+          categoryLabels={cloverFactsStats.categoryLabels}
         />
         {peakDay ? (
           <PeakDayCard peakDay={peakDay} />
