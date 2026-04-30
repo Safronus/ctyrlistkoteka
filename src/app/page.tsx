@@ -578,11 +578,31 @@ function HighlightCard({
   );
 }
 
+/** 3-letter Czech month abbreviations indexed 0..11 (Jan..Dec). Used for
+ *  the per-bar labels under the home-page sparkline. */
+const MONTH_ABBR_CS = [
+  "led",
+  "úno",
+  "bře",
+  "dub",
+  "kvě",
+  "čvn",
+  "čvc",
+  "srp",
+  "zář",
+  "říj",
+  "lis",
+  "pro",
+];
+
 /**
  * Mini bar sparkline for the last 12 months. Inline SVG keeps the bundle
- * size of the home page minimal — Recharts is overkill for a 120×40 px
+ * size of the home page minimal — Recharts is overkill for a 120×52 px
  * chart with no axes or interactivity. We render bars (instead of a line)
  * so a single quiet month doesn't visually dent into the previous bar.
+ * Month abbreviations are drawn inside the same SVG so they auto-align
+ * with the bars across viewport sizes; a single centered "from – to"
+ * range line sits flush to the card's bottom edge.
  */
 function SparklineCard({
   data,
@@ -592,20 +612,27 @@ function SparklineCard({
   const total = data.reduce((sum, p) => sum + p.count, 0);
   const max = Math.max(1, ...data.map((p) => p.count));
   const bars = data.length;
-  const W = 120;
-  const H = 40;
+  const VB_W = 120;
+  const BARS_H = 40;
+  const LABEL_GAP = 4;
+  const LABEL_FONT = 8;
+  const VB_H = BARS_H + LABEL_GAP + LABEL_FONT;
   const gap = 2;
-  const barW = (W - gap * (bars - 1)) / bars;
+  const barW = (VB_W - gap * (bars - 1)) / bars;
 
-  const lastLabel = (() => {
-    const last = data.at(-1);
-    if (!last) return "";
-    const [y, m] = last.month.split("-");
+  const formatMonth = (s: string) => {
+    const [y, m] = s.split("-");
     return `${m}/${y}`;
-  })();
+  };
+  const first = data[0];
+  const last = data.at(-1);
+  const rangeLabel =
+    first && last
+      ? `${formatMonth(first.month)} – ${formatMonth(last.month)}`
+      : "";
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
         Posledních 12 měsíců
       </p>
@@ -613,15 +640,15 @@ function SparklineCard({
         {NF_CS.format(total)} {pluralCs(total, FINDS)}
       </p>
       <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="mt-2 h-10 w-full"
+        viewBox={`0 0 ${VB_W} ${VB_H}`}
+        className="mt-2 h-14 w-full"
         role="img"
         aria-label="Měsíční aktivita posledních 12 měsíců"
       >
         {data.map((p, i) => {
-          const h = p.count === 0 ? 0 : (p.count / max) * (H - 2);
+          const h = p.count === 0 ? 0 : (p.count / max) * (BARS_H - 2);
           const x = i * (barW + gap);
-          const y = H - h;
+          const y = BARS_H - h;
           return (
             <rect
               key={p.month}
@@ -635,8 +662,27 @@ function SparklineCard({
             />
           );
         })}
+        {data.map((p, i) => {
+          const m = Number(p.month.split("-")[1] ?? "0") - 1;
+          const xCenter = i * (barW + gap) + barW / 2;
+          return (
+            <text
+              key={`${p.month}-label`}
+              x={xCenter}
+              y={BARS_H + LABEL_GAP + LABEL_FONT - 1}
+              fontSize={LABEL_FONT}
+              textAnchor="middle"
+              fill="#9ca3af"
+              fontWeight={500}
+            >
+              {MONTH_ABBR_CS[m] ?? ""}
+            </text>
+          );
+        })}
       </svg>
-      <p className="mt-1 text-xs text-gray-500">končí {lastLabel}</p>
+      <p className="mt-auto pt-2 text-center text-xs tabular-nums text-gray-500">
+        {rangeLabel}
+      </p>
     </div>
   );
 }
