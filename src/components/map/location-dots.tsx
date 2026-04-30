@@ -15,6 +15,7 @@ export function LocationDots({
   locations,
   focusLocationId,
   showGone,
+  suppressPopupAutoOpen = false,
   onSelect,
 }: {
   locations: readonly MapLocation[];
@@ -22,6 +23,13 @@ export function LocationDots({
   /** Mirror the polygon-layer toggle: hide former-location dots when
    *  the visitor has the Zaniklé layer off. */
   showGone: boolean;
+  /** When true, the focused dot stays styled but doesn't pop its own
+   *  popup. Mirrors the same flag on LocationPolygons — used by /mapa's
+   *  `?find=N` deep-link so the highlighted find's popup wins. Without
+   *  this, a single-find location with only a centre point (no AOI)
+   *  would auto-open its popup and clobber the marker, dismissing the
+   *  highlight in the process. */
+  suppressPopupAutoOpen?: boolean;
   onSelect?: (id: number) => void;
 }) {
   const map = useMap();
@@ -31,6 +39,7 @@ export function LocationDots({
   // animation settles. Same pattern as LocationPolygons.
   useEffect(() => {
     if (focusLocationId == null) return;
+    if (suppressPopupAutoOpen) return;
     const layer = layerRefs.current.get(focusLocationId);
     if (!layer) return;
     const open = () => layer.openPopup();
@@ -40,7 +49,7 @@ export function LocationDots({
       map.off("moveend", open);
       clearTimeout(t);
     };
-  }, [focusLocationId, map]);
+  }, [focusLocationId, map, suppressPopupAutoOpen]);
 
   const dots = locations
     .filter(

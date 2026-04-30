@@ -137,6 +137,7 @@ export function MapView({
             locations={data.locations}
             focusLocationId={focusLocationId}
             showGone={showGone}
+            suppressPopupAutoOpen={highlightFind !== null}
             onSelect={onSelectLocation}
           />
         </>
