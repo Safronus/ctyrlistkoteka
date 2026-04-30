@@ -11,6 +11,7 @@ krok za krokem. Tento README je rychlý katalog.
 | `nginx-snippets/block-exploits.conf` | `/etc/nginx/snippets/block-exploits.conf` | Drop notorické scanner cesty (`/.env`, `/wp-login.php`, …) — instant 444. Includuje se z hlavního configu. |
 | `fail2ban-nginx-noscript.conf` | `/etc/fail2ban/jail.d/nginx-noscript.conf` | Jail definice pro nginx-noscript filter. Skládá default ban akci s `blocklist` (logger). |
 | `fail2ban-nginx-noscript-filter.conf` | `/etc/fail2ban/filter.d/nginx-noscript.conf` | Regex pro detekci scanner traffic v nginx access logu. |
+| `fail2ban-sshd.conf` | `/etc/fail2ban/jail.d/sshd.local` | Override default sshd jailu — přidá `blocklist` action k SSH banům, ať i ty padají do TSV. |
 | `fail2ban-action-blocklist.conf` | `/etc/fail2ban/action.d/blocklist.conf` | Custom action — appendne každý ban do TSV souboru pro long-term audit. |
 | `fail2ban-blocklist-append.sh` | `/usr/local/sbin/` (chmod 755) | Helper, který action volá. |
 | `blocklist-tools.sh` | `/usr/local/sbin/` (chmod 755) | Reporting + generování permaban listu nad TSV. |
@@ -96,9 +97,10 @@ sudo cp deploy/nginx-snippets/block-exploits.conf /etc/nginx/snippets/
 sudo nano /etc/nginx/sites-available/ctyrlistkoteka
 sudo nginx -t && sudo systemctl reload nginx
 
-# 3. fail2ban — filter, jail, custom action, helper
+# 3. fail2ban — filter, jail, sshd override, custom action, helper
 sudo cp deploy/fail2ban-nginx-noscript-filter.conf /etc/fail2ban/filter.d/nginx-noscript.conf
 sudo cp deploy/fail2ban-nginx-noscript.conf        /etc/fail2ban/jail.d/nginx-noscript.conf
+sudo cp deploy/fail2ban-sshd.conf                  /etc/fail2ban/jail.d/sshd.local
 sudo cp deploy/fail2ban-action-blocklist.conf      /etc/fail2ban/action.d/blocklist.conf
 
 sudo cp deploy/fail2ban-blocklist-append.sh /usr/local/sbin/
@@ -112,6 +114,8 @@ sudo cp deploy/logrotate-fail2ban-blocklist.conf /etc/logrotate.d/fail2ban-block
 # 5. Apply
 sudo fail2ban-client reload
 sudo fail2ban-client status nginx-noscript
+sudo fail2ban-client status sshd
+sudo fail2ban-client get sshd actions   # má ukazovat: nftables, blocklist
 ```
 
 Smoke test (z **jiné** IP, ne z home/mobile, kterou máš whitelistovanou):
