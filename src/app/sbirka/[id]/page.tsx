@@ -262,7 +262,10 @@ export default async function FindDetailPage({ params }: PageProps) {
           </p>
         )}
         {find.locationMaps.length > 0 && (
-          <LocationMapsGallery maps={find.locationMaps} />
+          <LocationMapsGallery
+            maps={find.locationMaps}
+            isAnonymized={find.isAnonymized}
+          />
         )}
       </Panel>
     </article>
@@ -282,7 +285,17 @@ export default async function FindDetailPage({ params }: PageProps) {
   );
 }
 
-function LocationMapsGallery({ maps }: { maps: readonly PublicLocationMap[] }) {
+function LocationMapsGallery({
+  maps,
+  isAnonymized = false,
+}: {
+  maps: readonly PublicLocationMap[];
+  /** Anonymized finds get a `?` overlay on the placeholder map so a
+   *  visitor can't mistake the substituted default location for the
+   *  real one. The query layer already strips the marker (`no-gps`)
+   *  and swaps in the placeholder location; this is the visual seal. */
+  isAnonymized?: boolean;
+}) {
   return (
     <div className="space-y-3 pt-2">
       {maps.map((m) => (
@@ -302,24 +315,25 @@ function LocationMapsGallery({ maps }: { maps: readonly PublicLocationMap[] }) {
               decoding="async"
               className="block h-auto w-full"
             />
-            {m.marker?.kind === "inside" && (
+            {!isAnonymized && m.marker?.kind === "inside" && (
               <FindLocationMarker
                 xFrac={m.marker.xFrac}
                 yFrac={m.marker.yFrac}
               />
             )}
+            {isAnonymized && <AnonymizedMapOverlay />}
           </div>
-          {m.description && (
+          {m.description && !isAnonymized && (
             <figcaption className="px-3 pt-2 text-xs text-gray-600">
               {m.description}
             </figcaption>
           )}
-          {m.marker?.kind === "outside" && (
+          {!isAnonymized && m.marker?.kind === "outside" && (
             <p className="px-3 pb-2 pt-1 text-xs text-gray-500">
               GPS nálezu leží mimo zachycenou plochu této lokační mapy.
             </p>
           )}
-          {m.marker?.kind === "no-gps" && (
+          {!isAnonymized && m.marker?.kind === "no-gps" && (
             <p className="px-3 pb-2 pt-1 text-xs text-gray-500">
               Nález nemá zaznamenané GPS souřadnice — pozici nelze na mapu
               vykreslit.
@@ -327,6 +341,29 @@ function LocationMapsGallery({ maps }: { maps: readonly PublicLocationMap[] }) {
           )}
         </figure>
       ))}
+    </div>
+  );
+}
+
+/** Full-image overlay for anonymized finds. Heavy backdrop blur hides
+ *  the placeholder map detail; the giant `?` plus a sub-label make it
+ *  unambiguous that the visible map is not the real find location. */
+function AnonymizedMapOverlay() {
+  return (
+    <div
+      role="img"
+      aria-label="Lokalita anonymizovaného nálezu je skrytá"
+      className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-purple-950/45 backdrop-blur-md"
+    >
+      <span
+        aria-hidden
+        className="select-none text-7xl font-black text-purple-50 drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:text-8xl"
+      >
+        ?
+      </span>
+      <span className="select-none rounded-full bg-purple-50/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-purple-900 shadow-sm">
+        Lokalita skryta
+      </span>
     </div>
   );
 }
