@@ -78,16 +78,16 @@ export function CollectionProgressBanner({
               </>
             )}
           </p>
-          {gaps.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className="mt-1 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-900 shadow-sm transition hover:border-amber-500 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-            >
-              Zobrazit chybějící rozsahy
-            </button>
-          )}
         </div>
+        {gaps.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-900 shadow-sm transition hover:border-amber-500 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+          >
+            Zobrazit chybějící rozsahy
+          </button>
+        )}
       </div>
 
       <dialog
