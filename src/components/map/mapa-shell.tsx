@@ -263,33 +263,69 @@ export function MapaShell({
       )}
 
       {sidebarOpen && (
-        <aside
-          className="absolute right-0 top-0 z-[400] flex h-full w-80 max-w-[90vw] flex-col border-l border-gray-200 bg-white shadow-xl sm:w-96"
-          aria-label="Ovládání mapy"
-        >
-          {/* Thin top strip — only the close affordance lives here. The
-           *  Vrstvy and Lokality sections each carry their own header
-           *  inside MapSidebar so they read as peers, not as children
-           *  of a single "Lokality (N)" container. */}
-          <div className="flex items-center justify-end border-b border-gray-200 px-2 py-1">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-              aria-label="Zavřít panel"
-            >
-              <X className="h-4 w-4" aria-hidden />
-            </button>
-          </div>
-          <MapSidebar
-            locations={sidebarLocations}
-            focusId={focusId}
-            onSelect={handleSelectLocation}
-            enabledChildPolygonIds={enabledChildPolygonIds}
-            onToggleChildPolygon={handleToggleChildPolygon}
-            anonymizedLocationCount={mapData.anonymizedLocationCount}
-          />
-        </aside>
+        <>
+          {/* Mobile / narrow tablet (< md): bottom-sheet panel. The
+           *  right-side panel would cover the whole map at this width,
+           *  so we anchor to the bottom edge instead and cap the height
+           *  so the upper map area + floating controls stay usable. */}
+          <aside
+            className="absolute inset-x-0 bottom-0 z-[400] flex max-h-[70vh] flex-col rounded-t-2xl border border-gray-200 bg-white shadow-2xl md:hidden"
+            aria-label="Ovládání mapy"
+          >
+            <div className="relative flex items-center justify-center border-b border-gray-200 px-2 py-2">
+              {/* Drag-handle pill — purely decorative, signals the sheet
+               *  affordance without committing to a swipe-to-dismiss
+               *  gesture (which Leaflet's pan handler would fight). */}
+              <span
+                aria-hidden
+                className="h-1 w-10 rounded-full bg-gray-300"
+              />
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Zavřít panel"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+            <MapSidebar
+              locations={sidebarLocations}
+              focusId={focusId}
+              onSelect={handleSelectLocation}
+              enabledChildPolygonIds={enabledChildPolygonIds}
+              onToggleChildPolygon={handleToggleChildPolygon}
+              anonymizedLocationCount={mapData.anonymizedLocationCount}
+            />
+          </aside>
+
+          {/* Desktop (md+): right-side panel — same shape as before the
+           *  bottom-sheet split. The two siblings are mutually exclusive
+           *  via Tailwind responsive utilities, so only one ever paints. */}
+          <aside
+            className="absolute right-0 top-0 z-[400] hidden h-full w-96 flex-col border-l border-gray-200 bg-white shadow-xl md:flex"
+            aria-label="Ovládání mapy"
+          >
+            <div className="flex items-center justify-end border-b border-gray-200 px-2 py-1">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Zavřít panel"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+            <MapSidebar
+              locations={sidebarLocations}
+              focusId={focusId}
+              onSelect={handleSelectLocation}
+              enabledChildPolygonIds={enabledChildPolygonIds}
+              onToggleChildPolygon={handleToggleChildPolygon}
+              anonymizedLocationCount={mapData.anonymizedLocationCount}
+            />
+          </aside>
+        </>
       )}
 
       {/* Layer toggles + colour legend live OUTSIDE the sidebar so they
