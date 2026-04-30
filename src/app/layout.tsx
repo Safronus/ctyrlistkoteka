@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Image from "next/image";
-import { Suspense } from "react";
 import { Github, Linkedin, Sparkles } from "lucide-react";
 import { AnniversaryOverlay } from "@/components/anniversary/anniversary-overlay";
 import { MainNav } from "@/components/main-nav";
@@ -66,15 +65,10 @@ export default async function RootLayout({
 
         <main className="flex-1">{children}</main>
 
-        {/* Suspense is required because AnniversaryOverlay reads
-            useSearchParams — Next.js refuses to prerender pages that
-            touch the URL search params without a Suspense boundary. */}
-        <Suspense fallback={null}>
-          <AnniversaryOverlay
-            anniversaries={anniversaries}
-            watermarkSrc={watermark?.src ?? null}
-          />
-        </Suspense>
+        <AnniversaryOverlay
+          anniversaries={anniversaries}
+          watermarkSrc={watermark?.src ?? null}
+        />
 
         <footer className="border-t border-gray-200 bg-gray-50 py-6">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 text-center text-sm text-gray-500 sm:px-6 lg:px-8">

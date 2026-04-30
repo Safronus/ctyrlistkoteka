@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { FallingOverlay, type ParticleKind } from "./falling-overlay";
 import {
   CakeParticle,
@@ -14,18 +13,7 @@ import {
 import { RisingEmbersLayer } from "./rising-embers";
 import type { AnniversaryDates } from "@/lib/queries/anniversaries";
 
-/** Debug override values accepted via `?effect=…`. Used to preview
- *  any of the four anniversary overlays on demand without waiting for
- *  the calendar to roll around. Temporary — keep until the project
- *  owner has verified each variant in production, then strip both this
- *  type and the trigger buttons on the home page. */
-type ForcedVariant = "first" | "j111" | "j666" | "birthday";
-const FORCED_PARAM_VALUES: ReadonlySet<ForcedVariant> = new Set([
-  "first",
-  "j111",
-  "j666",
-  "birthday",
-]);
+type Variant = "first" | "j111" | "j666" | "birthday";
 
 /**
  * Site-wide easter-egg overlay. The server passes the MM-DD strings of
@@ -101,8 +89,6 @@ export function AnniversaryOverlay({
   watermarkSrc: string | null;
 }) {
   const [today, setToday] = useState<string | null>(null);
-  const [forced, setForced] = useState<ForcedVariant | null>(null);
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     let cancelled = false;
@@ -121,44 +107,12 @@ export function AnniversaryOverlay({
     };
   }, []);
 
-  // Debug override — `?effect=first|j111|j666|birthday` lets the
-  // project owner preview any variant on any day. Persisted in
-  // sessionStorage so the override survives client navigation between
-  // pages (the home-page debug buttons set the param, then the visitor
-  // can roam to /sbirka, /mapa, etc. and keep seeing the effect).
-  // `?effect=off` clears the override; useSearchParams re-fires this
-  // effect on every URL change so the toggle reacts immediately.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const KEY = "ctyr-debug-effect";
-    const v = searchParams.get("effect");
-    if (v === "off") {
-      sessionStorage.removeItem(KEY);
-      setForced(null);
-      return;
-    }
-    if (v && FORCED_PARAM_VALUES.has(v as ForcedVariant)) {
-      sessionStorage.setItem(KEY, v);
-      setForced(v as ForcedVariant);
-      return;
-    }
-    const stored = sessionStorage.getItem(KEY);
-    setForced(
-      stored && FORCED_PARAM_VALUES.has(stored as ForcedVariant)
-        ? (stored as ForcedVariant)
-        : null,
-    );
-  }, [searchParams]);
-
   // SSR / first paint: render nothing to avoid hydration mismatch and
   // also to skip work for the 364/365 of visits where no overlay is due.
   if (today === null) return null;
 
-  // Forced variant wins over the calendar so debug previews work even
-  // on a date with its own real anniversary.
-  const variant: ForcedVariant | null =
-    forced ??
-    (today === BIRTHDAY_MD
+  const variant: Variant | null =
+    today === BIRTHDAY_MD
       ? "birthday"
       : anniversaries.firstFindMD && today === anniversaries.firstFindMD
         ? "first"
@@ -166,7 +120,7 @@ export function AnniversaryOverlay({
           ? "j111"
           : anniversaries.jubilee666MD && today === anniversaries.jubilee666MD
             ? "j666"
-            : null);
+            : null;
 
   if (variant === "birthday") return <BirthdayOverlay watermarkSrc={watermarkSrc} />;
   if (variant === "first") return <FirstFindOverlay />;
