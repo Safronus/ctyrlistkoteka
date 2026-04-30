@@ -161,6 +161,7 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
           count={progress.count}
           minFindId={progress.minFindId}
           maxFindId={progress.maxFindId}
+          gaps={progress.gaps}
         />
       )}
 

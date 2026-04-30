@@ -955,25 +955,46 @@ export interface CollectionProgress {
   count: number;
   minFindId: number | null;
   maxFindId: number | null;
+  /** Sequential ID ranges that are missing within `[minFindId, maxFindId]`.
+   *  Each entry covers a contiguous block of unfilled IDs (`start === end`
+   *  for a single missing ID). Empty when the range is dense. */
+  gaps: Array<{ start: number; end: number }>;
 }
 
 /**
  * Range + count of find IDs currently in the DB. Used by /sbirka to flag
  * a back-catalog import that hasn't reached find #1 yet (or that has
- * gaps within its current range). Cheap — one count + a min/max query.
+ * gaps within its current range). Cheap — one count + a min/max query +
+ * one window-function pass over the id column.
  */
 export async function getCollectionProgress(): Promise<CollectionProgress> {
-  const [count, range] = await Promise.all([
+  const [count, range, gapRows] = await Promise.all([
     prisma.find.count(),
     prisma.$queryRaw<Array<{ min_id: number | null; max_id: number | null }>>`
       SELECT MIN(id)::int AS min_id, MAX(id)::int AS max_id FROM finds
     `,
+    // Detect gaps via LAG: for every find whose immediate predecessor by
+    // id is more than 1 step away, the missing chunk is (prev+1 .. id-1).
+    // Returns one row per gap, ordered low→high.
+    prisma.$queryRaw<Array<{ gap_start: number; gap_end: number }>>`
+      SELECT (prev_id + 1)::int AS gap_start, (id - 1)::int AS gap_end
+      FROM (
+        SELECT id, LAG(id) OVER (ORDER BY id) AS prev_id FROM finds
+      ) t
+      WHERE prev_id IS NOT NULL AND id - prev_id > 1
+      ORDER BY gap_start
+    `,
   ]);
   const r = range[0];
   if (count === 0 || !r || r.min_id === null || r.max_id === null) {
-    return { count, minFindId: null, maxFindId: null };
+    return { count, minFindId: null, maxFindId: null, gaps: [] };
   }
-  return { count, minFindId: r.min_id, maxFindId: r.max_id };
+  return {
+    count,
+    minFindId: r.min_id,
+    maxFindId: r.max_id,
+    gaps: gapRows.map((g) => ({ start: g.gap_start, end: g.gap_end })),
+  };
 }
 
 export async function getCollectionTotals(): Promise<{
