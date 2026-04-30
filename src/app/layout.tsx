@@ -5,6 +5,8 @@ import { Github, Linkedin, Sparkles } from "lucide-react";
 import { AnniversaryOverlay } from "@/components/anniversary/anniversary-overlay";
 import { MainNav } from "@/components/main-nav";
 import { ThemeScript } from "@/components/theme-script";
+import { GoatCounterScript } from "@/components/visits/goatcounter-script";
+import { VisitCounter } from "@/components/visits/visit-counter";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/constants";
 import { getAnniversaryDates } from "@/lib/queries/anniversaries";
 import { getWatermarkMeta } from "@/lib/queries/watermark";
@@ -59,6 +61,11 @@ export default async function RootLayout({
   ]);
   return (
     <html lang="cs" className={inter.variable} data-theme="clover">
+      <head>
+        {/* GoatCounter pixel — async, no LCP impact. Hidden when
+            NEXT_PUBLIC_GOATCOUNTER_SITE is unset (e.g. local dev). */}
+        <GoatCounterScript />
+      </head>
       <body className="flex min-h-screen flex-col">
         <ThemeScript />
         <MainNav />
@@ -141,6 +148,8 @@ export default async function RootLayout({
                 Claude Code
               </a>
             </span>
+            <span aria-hidden>·</span>
+            <VisitCounter />
           </div>
         </footer>
       </body>
