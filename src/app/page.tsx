@@ -487,15 +487,11 @@ function HighlightsSection({
               : null
           }
         />
-        <HighlightCard
-          label="Nejlepší den"
-          value={
-            peakDay
-              ? `${NF_CS.format(peakDay.count)} ${pluralCs(peakDay.count, FINDS)}`
-              : "—"
-          }
-          hint={peakDay ? formatDateCs(new Date(peakDay.startsAt)) : null}
-        />
+        {peakDay ? (
+          <PeakDayCard peakDay={peakDay} />
+        ) : (
+          <HighlightCard label="Nejlepší den" value="—" hint={null} />
+        )}
         {top ? (
           <TopLocationCard location={top} />
         ) : (
@@ -526,13 +522,16 @@ function TopLocationCard({
       <p className="mt-0.5 text-xs text-gray-500">
         {NF_CS.format(location.count)} {pluralCs(location.count, FINDS)}
       </p>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-col gap-2">
         {/* /sbirka's `loc` filter folds parent → children automatically
             (see buildWhere in src/lib/queries/finds.ts), so a parent
-            location surfaces every find across its sub-parts. */}
+            location surfaces every find across its sub-parts. Buttons
+            stretch full-width per the home-card design — both actions
+            are equally weighted, no reason to make them auto-sized
+            chips. */}
         <Link
           href={`/sbirka?loc=${location.id}`}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+          className="flex w-full items-center justify-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
         >
           <ListIcon className="h-3.5 w-3.5" aria-hidden />
           <span>Ukázat nálezy</span>
@@ -542,10 +541,45 @@ function TopLocationCard({
             location list on /lokality exactly. */}
         <Link
           href={`/mapa?focus=${location.id}`}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+          className="flex w-full items-center justify-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
         >
           <MapPin className="h-3.5 w-3.5" aria-hidden />
           <span>Ukázat na mapě</span>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/** "Best day" highlight with the same look as HighlightCard plus a
+ *  full-width action button that deep-links into /sbirka pre-filtered
+ *  to that single day via the `from`/`to` date-range params (start =
+ *  end = the peak date, so the inclusive-day-range matches exactly). */
+function PeakDayCard({
+  peakDay,
+}: {
+  peakDay: NonNullable<HomePageData["highlights"]["peakDay"]>;
+}) {
+  const date = new Date(peakDay.startsAt);
+  // Slice the ISO string so the day stays in UTC (matches how the
+  // /sbirka filter parses `from`/`to` — see parseDateOnly there).
+  const isoDay = date.toISOString().slice(0, 10);
+  return (
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        Nejlepší den
+      </p>
+      <p className="mt-1 truncate text-base font-semibold text-gray-900">
+        {NF_CS.format(peakDay.count)} {pluralCs(peakDay.count, FINDS)}
+      </p>
+      <p className="mt-0.5 text-xs text-gray-500">{formatDateCs(date)}</p>
+      <div className="mt-3 flex flex-col gap-2">
+        <Link
+          href={`/sbirka?from=${isoDay}&to=${isoDay}`}
+          className="flex w-full items-center justify-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+        >
+          <ListIcon className="h-3.5 w-3.5" aria-hidden />
+          <span>Ukázat nálezy</span>
         </Link>
       </div>
     </div>
@@ -597,11 +631,11 @@ const MONTH_ABBR_CS = [
 
 /**
  * Mini bar sparkline for the last 12 months. Inline SVG keeps the bundle
- * size of the home page minimal — Recharts is overkill for a 120×52 px
+ * size of the home page minimal — Recharts is overkill for a 120×62 px
  * chart with no axes or interactivity. We render bars (instead of a line)
  * so a single quiet month doesn't visually dent into the previous bar.
- * Month abbreviations are drawn inside the same SVG so they auto-align
- * with the bars across viewport sizes; a single centered "from – to"
+ * Month abbreviations sit under the bars rotated -90° so all 12 fit
+ * without overlap regardless of card width; a centered "from – to"
  * range line sits flush to the card's bottom edge.
  */
 function SparklineCard({
@@ -614,9 +648,10 @@ function SparklineCard({
   const bars = data.length;
   const VB_W = 120;
   const BARS_H = 40;
-  const LABEL_GAP = 4;
-  const LABEL_FONT = 8;
-  const VB_H = BARS_H + LABEL_GAP + LABEL_FONT;
+  const LABEL_GAP = 3;
+  const LABEL_FONT = 7;
+  const LABEL_AREA_H = 18; // vertical room for rotated 3-char labels
+  const VB_H = BARS_H + LABEL_GAP + LABEL_AREA_H;
   const gap = 2;
   const barW = (VB_W - gap * (bars - 1)) / bars;
 
@@ -641,7 +676,7 @@ function SparklineCard({
       </p>
       <svg
         viewBox={`0 0 ${VB_W} ${VB_H}`}
-        className="mt-2 h-14 w-full"
+        className="mt-2 h-20 w-full"
         role="img"
         aria-label="Měsíční aktivita posledních 12 měsíců"
       >
@@ -665,15 +700,18 @@ function SparklineCard({
         {data.map((p, i) => {
           const m = Number(p.month.split("-")[1] ?? "0") - 1;
           const xCenter = i * (barW + gap) + barW / 2;
+          const yMid = BARS_H + LABEL_GAP + LABEL_AREA_H / 2;
           return (
             <text
               key={`${p.month}-label`}
               x={xCenter}
-              y={BARS_H + LABEL_GAP + LABEL_FONT - 1}
+              y={yMid}
               fontSize={LABEL_FONT}
               textAnchor="middle"
+              dominantBaseline="middle"
               fill="#9ca3af"
               fontWeight={500}
+              transform={`rotate(-90 ${xCenter} ${yMid})`}
             >
               {MONTH_ABBR_CS[m] ?? ""}
             </text>
