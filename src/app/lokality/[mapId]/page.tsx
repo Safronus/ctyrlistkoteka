@@ -21,7 +21,6 @@ import {
   pluralCs,
   FINDS,
 } from "@/lib/format";
-import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
 import {
   getAllLocationIds,
   getLocationDetailById,
@@ -29,7 +28,6 @@ import {
   type LocationDetail,
   type LocationDetailFindPreview,
 } from "@/lib/queries/locations";
-import type { FindState } from "@prisma/client";
 
 interface PageProps {
   params: Promise<{ mapId: string }>;
@@ -280,30 +278,6 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
         <SummaryGrid base={base} />
       </Panel>
 
-      {aggregate.states.length > 0 && (
-        <Panel title="Stavy nálezů">
-          <ul className="flex flex-wrap gap-2">
-            {aggregate.states.map((s) => (
-              <li
-                key={s.state}
-                className={`rounded-md px-2 py-0.5 text-xs font-medium ${STATE_BADGE[s.state as FindState]}`}
-              >
-                {STATE_LABELS[s.state as FindState]}
-                <span className="ml-1.5 font-mono tabular-nums">
-                  {s.count.toLocaleString("cs-CZ")}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
-
-      {aggregate.yearly.length > 1 && (
-        <Panel title="Nálezy v čase">
-          <YearlyBars yearly={aggregate.yearly} />
-        </Panel>
-      )}
-
       {(parent || children.length > 0) && (
         <Panel title={isLeaf ? "Související lokalita" : "Dílčí části"}>
           <div className="space-y-2">
@@ -464,61 +438,6 @@ function Field({
       </dt>
       <dd className="text-gray-800">{children}</dd>
     </div>
-  );
-}
-
-function YearlyBars({
-  yearly,
-}: {
-  yearly: ReadonlyArray<{ year: number; count: number }>;
-}) {
-  const max = Math.max(1, ...yearly.map((y) => y.count));
-  const sorted = [...yearly].sort((a, b) => a.year - b.year);
-  const bars = sorted.length;
-  const VB_W = 360;
-  const BARS_H = 60;
-  const LABEL_GAP = 4;
-  const LABEL_FONT = 9;
-  const VB_H = BARS_H + LABEL_GAP + LABEL_FONT + 2;
-  const gap = 2;
-  const barW = (VB_W - gap * (bars - 1)) / bars;
-
-  return (
-    <svg
-      viewBox={`0 0 ${VB_W} ${VB_H}`}
-      className="h-24 w-full"
-      role="img"
-      aria-label="Roční rozložení nálezů"
-    >
-      {sorted.map((p, i) => {
-        const h = p.count === 0 ? 0 : (p.count / max) * (BARS_H - 2);
-        const x = i * (barW + gap);
-        const y = BARS_H - h;
-        return (
-          <g key={p.year}>
-            <rect
-              x={x}
-              y={y}
-              width={barW}
-              height={h || 0.5}
-              rx={1.5}
-              fill="#4d9748"
-              opacity={p.count === 0 ? 0.2 : 0.9}
-            />
-            <text
-              x={x + barW / 2}
-              y={BARS_H + LABEL_GAP + LABEL_FONT}
-              fontSize={LABEL_FONT}
-              textAnchor="middle"
-              fill="#9ca3af"
-              fontWeight={500}
-            >
-              {p.year}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
   );
 }
 
