@@ -9,6 +9,7 @@ krok za krokem. Tento README je rychlý katalog.
 | `ecosystem.config.cjs` | `/var/www/ctyrlistkoteka/deploy/` (git) | PM2 config. Použije `pm2 start` během první instalace a poté `pm2 reload` po každém deployi. |
 | `nginx.conf.template` | `/etc/nginx/sites-available/ctyrlistkoteka` | Kopie při inicializaci. Potom `sudo nginx -t && sudo systemctl reload nginx`. |
 | `nginx-snippets/block-exploits.conf` | `/etc/nginx/snippets/block-exploits.conf` | Drop notorické scanner cesty (`/.env`, `/wp-login.php`, …) — instant 444. Includuje se z hlavního configu. |
+| `nginx-snippets/security-headers.conf` | `/etc/nginx/snippets/security-headers.conf` | HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy. Pro stats subdoménu (a libovolný HTTPS vhost). |
 | `fail2ban-nginx-noscript.conf` | `/etc/fail2ban/jail.d/nginx-noscript.conf` | Jail definice pro nginx-noscript filter. Skládá default ban akci s `blocklist` (logger). |
 | `fail2ban-nginx-noscript-filter.conf` | `/etc/fail2ban/filter.d/nginx-noscript.conf` | Regex pro detekci scanner traffic v nginx access logu. |
 | `fail2ban-sshd.conf` | `/etc/fail2ban/jail.d/sshd.local` | Override default sshd jailu — přidá `blocklist` action k SSH banům, ať i ty padají do TSV. |
@@ -181,6 +182,70 @@ ignoreip = 127.0.0.1/8 ::1 213.194.255.5 195.178.94.0/24
 ```
 A reload: `sudo fail2ban-client reload`. Tvoje home/mobile IP pak fail2ban
 nikdy nezbanuje, ani kdybys náhodou trefil 6× exploit URL.
+
+## stats.ctyrlistkoteka.cz — TLS + security headers
+
+GoatCounter běží v Dockeru za nginx reverse proxy. Subdoména si
+zaslouží stejnou hygienu jako apex.
+
+### TLS
+
+Pokud cert pro `stats.ctyrlistkoteka.cz` ještě nemáš, vyrob ho přes
+certbot — provede automatickou instalaci do nginx vhostu a renew přes
+systemd timer:
+
+```bash
+# Verifikuj, že cert existuje
+sudo ls /etc/letsencrypt/live/stats.ctyrlistkoteka.cz/
+
+# Pokud ne — vystavit (subdoména musí mít A/AAAA záznam u hukot.net)
+sudo certbot --nginx -d stats.ctyrlistkoteka.cz
+```
+
+Certbot ve výchozím nastavení napíše do vhostu `include
+/etc/letsencrypt/options-ssl-nginx.conf`, který obsahuje rozumný TLS
+profil (TLS 1.2/1.3, Mozilla intermediate ciphers, session tickets
+off). Žádné další TLS tweakování není potřeba — ověř to:
+
+```bash
+# Lokálně z VPS
+curl -vI https://stats.ctyrlistkoteka.cz/ 2>&1 | grep -E 'HTTP|TLS|SSL'
+
+# Externě (zvenku, např. z laptopu)
+nmap --script ssl-enum-ciphers -p 443 stats.ctyrlistkoteka.cz
+# nebo SSL Labs:
+# https://www.ssllabs.com/ssltest/analyze.html?d=stats.ctyrlistkoteka.cz
+# Cíl: A nebo A+
+```
+
+### Security headers
+
+Aplikace snippetu na stats vhost:
+
+```bash
+# 1. Zkopíruj snippet
+sudo cp deploy/nginx-snippets/security-headers.conf /etc/nginx/snippets/
+
+# 2. Edituj stats vhost — najdi server { listen 443 ssl; ... } blok
+#    pro stats.ctyrlistkoteka.cz a PŘED location / { ... } přidej:
+#       include /etc/nginx/snippets/security-headers.conf;
+sudo nano /etc/nginx/sites-available/stats   # nebo jiný název
+
+# 3. Apply
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Verifikace, že hlavičky odcházejí:
+
+```bash
+curl -sI https://stats.ctyrlistkoteka.cz/ | grep -iE 'strict-transport|content-type-options|frame-options|referrer|permissions'
+```
+
+Měl bys vidět všech 5 hlaviček. Externí kontrola je
+[securityheaders.com](https://securityheaders.com/?q=stats.ctyrlistkoteka.cz)
+— cíl A nebo A+ (CSP chybí záměrně, GoatCounter dashboard má vlastní
+inline JS; přidávat ho by znamenalo whitelist managment bez velkého
+přínosu — útočník by stejně potřeboval kompromitovat samotnou GC instanci).
 
 ## Rollback
 
