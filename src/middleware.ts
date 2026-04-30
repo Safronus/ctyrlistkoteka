@@ -31,15 +31,32 @@ function buildCsp(nonce: string): string {
   const tileSrc =
     "https://tile.openstreetmap.org https://*.tile.openstreetmap.org";
 
+  // Self-hosted GoatCounter runs on a separate subdomain. Its `count.js`
+  // is loaded as a script (covered by the nonce + 'strict-dynamic' on
+  // script-src) and the actual pageview pings travel as `<img>`/`fetch`/
+  // `sendBeacon` — neither covered by script-src, so we explicitly
+  // allow the GoatCounter origin in both img-src and connect-src.
+  // Resolved from env at request time; `''` when unset means GoatCounter
+  // is disabled for this deployment and the entries collapse harmlessly.
+  const goatCounterOrigin = (() => {
+    const raw = process.env.NEXT_PUBLIC_GOATCOUNTER_SITE;
+    if (!raw) return "";
+    try {
+      return new URL(raw).origin;
+    } catch {
+      return "";
+    }
+  })();
+
   if (isDev) {
     return [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      `img-src 'self' data: blob: ${tileSrc}`,
+      `img-src 'self' data: blob: ${tileSrc} ${goatCounterOrigin}`.trim(),
       "font-src 'self'",
       // ws / wss let the HMR websocket connect.
-      `connect-src 'self' ws: wss: ${tileSrc}`,
+      `connect-src 'self' ws: wss: ${tileSrc} ${goatCounterOrigin}`.trim(),
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -55,9 +72,9 @@ function buildCsp(nonce: string): string {
     // require deeper changes than this CSP pass.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob: ${tileSrc}`,
+    `img-src 'self' data: blob: ${tileSrc} ${goatCounterOrigin}`.trim(),
     "font-src 'self'",
-    `connect-src 'self' ${tileSrc}`,
+    `connect-src 'self' ${tileSrc} ${goatCounterOrigin}`.trim(),
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
