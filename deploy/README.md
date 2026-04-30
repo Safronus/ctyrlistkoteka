@@ -247,6 +247,38 @@ Měl bys vidět všech 5 hlaviček. Externí kontrola je
 inline JS; přidávat ho by znamenalo whitelist managment bez velkého
 přínosu — útočník by stejně potřeboval kompromitovat samotnou GC instanci).
 
+#### Duplicitní hlavičky z GoatCounter upstreamu
+
+Pokud securityheaders.com hlásí *"There was a duplicate
+Strict-Transport-Security header"* (a totéž pro `X-Content-Type-Options`),
+je to proto, že GoatCounter sám posílá vlastní default security
+hlavičky a nginx k nim přidává naše ze snippetu. Browsery to
+tolerují (nejrestriktivnější hodnota vyhrává), ale je čistší
+upstream verzi v nginx schovat a nechat naši jako jediný zdroj pravdy.
+
+V `location /` bloku stats vhostu (`/etc/nginx/sites-available/<stats>`)
+přidej před `proxy_pass`:
+
+```nginx
+location / {
+    proxy_hide_header Strict-Transport-Security;
+    proxy_hide_header X-Content-Type-Options;
+
+    proxy_pass http://127.0.0.1:8090;   # nebo port, na kterém GC běží
+    # ... ostatní proxy_set_header direktivy
+}
+```
+
+`proxy_hide_header` zabrání tomu, aby konkrétní hlavička z upstream
+odpovědi prošla ke klientovi; naše `add_header` v server bloku ji
+nahradí. Apply:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+curl -sI https://stats.ctyrlistkoteka.cz/ | grep -ciE '^strict-transport-security'
+# Má vrátit 1 (ne 2)
+```
+
 ## Rollback
 
 Deploy je fast-forward, ne rebase. Rollback:
