@@ -61,6 +61,11 @@ RESP=$(mktemp)
 trap 'rm -f "$CSV" "$RESP"' EXIT
 
 # Filtruj TSV $1 > LAST_TS; přidej CSV header.
+# Reserved/dokumentační adresy (RFC 5737, RFC 3849) se nikdy nereportují
+# — patří sem mimo jiné 192.0.2.1, kterou jsme používali při smoke testu
+# action chainu, a obecně každá test/dokumentační IP, která by se omylem
+# dostala do TSV. AbuseIPDB by je nejspíš stejně odmítl jako
+# invalidReports, ale lepší je je nevyrobit vůbec.
 {
   echo "IP,Categories,ReportDate,Comment"
   awk -F'\t' -v last="$LAST_TS" '
@@ -73,7 +78,16 @@ trap 'rm -f "$CSV" "$RESP"' EXIT
       if (jail == "nginx-noscript") return "19,21"
       return "15"
     }
-    $1 > last {
+    function is_reserved(ip) {
+      # RFC 5737 — TEST-NET-1/2/3 (192.0.2/24, 198.51.100/24, 203.0.113/24)
+      if (ip ~ /^192\.0\.2\./) return 1
+      if (ip ~ /^198\.51\.100\./) return 1
+      if (ip ~ /^203\.0\.113\./) return 1
+      # RFC 3849 — IPv6 dokumentační prefix (2001:db8::/32)
+      if (ip ~ /^2001:0?[Dd][Bb]8:/) return 1
+      return 0
+    }
+    $1 > last && !is_reserved($2) {
       cmt = "Banned by fail2ban jail=" $3
       if ($4 != "") cmt = cmt " match=" $4
       print $2 "," csv_escape(categories($3)) "," $1 "," csv_escape(cmt)
