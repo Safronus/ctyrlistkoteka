@@ -20,6 +20,9 @@ krok za krokem. Tento README je rychlý katalog.
 | `fail2ban-blocklist-append.sh` | `/usr/local/sbin/` (chmod 755) | Helper, který action volá. |
 | `blocklist-tools.sh` | `/usr/local/sbin/` (chmod 755) | Reporting + generování permaban listu nad TSV. |
 | `logrotate-fail2ban-blocklist.conf` | `/etc/logrotate.d/fail2ban-blocklist` | Měsíční rotace TSV blocklistu, 12 archivů. |
+| `abuseipdb-report.sh` | `/usr/local/sbin/` (chmod 755) | Denní bulk-report nových banů na abuseipdb.com. Čte TSV, mapuje jail→kategorie, POST /api/v2/bulk-report. |
+| `abuseipdb-report.cron` | `/etc/cron.d/abuseipdb-report` | Cron entry — denně 5:30 spouští reportovací skript. |
+| `logrotate-abuseipdb-report.conf` | `/etc/logrotate.d/abuseipdb-report` | Měsíční rotace logu, 6 archivů. |
 | `systemd-sync.service` | `/etc/systemd/system/` | Volitelné: noční auto-sync. |
 | `systemd-sync.timer` | `/etc/systemd/system/` | Zapnout přes `systemctl enable --now ctyrlistkoteka-sync.timer`. |
 | `backup.sh` | (git, spouští se odtud) | Denní `pg_dump` + rotace. Do crontab uživatele `app`. |
@@ -174,6 +177,62 @@ sudo crontab -e
 # Přidej:
 0 4 * * * /usr/local/sbin/blocklist-tools.sh nginx-deny && /usr/sbin/nginx -t && /bin/systemctl reload nginx
 ```
+
+### AbuseIPDB reporting (volitelné)
+
+Denní automatický report nových banů na [abuseipdb.com](https://www.abuseipdb.com/).
+Útočníci se tak přidávají do veřejné databáze a vrací se to do reputace
+celého internetu — plus tvoje vlastní confidence score roste s objemem
+ověřených reportů.
+
+**Před nasazením:** vytvoř si na abuseipdb.com účet (free tier dává 1000
+reportů/den, premium 5000), v *Settings → API* vygeneruj klíč se scope
+`Reporter`.
+
+```bash
+# 1. Ulož API klíč (chmod 600 — pouze root čte)
+echo 'TVŮJ_API_KLÍČ' | sudo tee /etc/abuseipdb-key > /dev/null
+sudo chmod 600 /etc/abuseipdb-key
+sudo chown root:root /etc/abuseipdb-key
+
+# 2. Skript + cron + logrotate
+sudo cp deploy/abuseipdb-report.sh /usr/local/sbin/
+sudo chmod 755 /usr/local/sbin/abuseipdb-report.sh
+sudo chown root:root /usr/local/sbin/abuseipdb-report.sh
+
+sudo cp deploy/abuseipdb-report.cron /etc/cron.d/abuseipdb-report
+sudo cp deploy/logrotate-abuseipdb-report.conf /etc/logrotate.d/abuseipdb-report
+
+# 3. jq dependency
+sudo apt install -y jq
+
+# 4. Smoke test (manuálně, ne čekat na cron)
+sudo /usr/local/sbin/abuseipdb-report.sh
+# Očekávaný výstup:
+#   2026-XX-XXTHH:MM:SS+02:00 Reporting N bans (since: never)
+#   2026-XX-XXTHH:MM:SS+02:00 Saved=N Invalid=0 NewState=...
+
+# 5. Verifikace logu na další dny
+sudo tail -f /var/log/abuseipdb-report.log
+```
+
+**Mapování jail → AbuseIPDB kategorie:**
+
+| Jail | Kategorie | Význam |
+| --- | --- | --- |
+| `sshd`, `sshd-logger` | `18, 22` | Brute-Force, SSH |
+| `nginx-noscript` | `19, 21` | Bad Web Bot, Web App Attack |
+| ostatní (fallback) | `15` | Hacking |
+
+**State a re-run:** skript si pamatuje poslední úspěšně reportovaný ISO
+timestamp v `/var/lib/abuseipdb-report/last-timestamp`. Když ho smažeš,
+příští run reportuje vše od začátku (AbuseIPDB ale stejně vyhazuje
+záznamy starší než 30 dní jako `invalidReports`, takže to tě ban-history
+neporušuje).
+
+**AbuseIPDB rate limit:** 1000 reportů/den (free) by stačilo na ~700 IP
+se 30% rezervou. Pokud bys měl víc traffic, zvaž premium nebo úpravu
+cron periody na 12h s parciálními dávkami.
 
 ### Whitelist vlastní IP
 

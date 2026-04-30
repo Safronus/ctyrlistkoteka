@@ -1,0 +1,9 @@
+# /etc/cron.d/abuseipdb-report
+# Denní report nových fail2ban banů na AbuseIPDB.
+# Čas 5:30 — po nočních zálohách (3:00) a po cronu permaban-listu (4:00),
+# aby se nepotkávaly v IO špičce.
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+30 5 * * * root /usr/local/sbin/abuseipdb-report.sh >> /var/log/abuseipdb-report.log 2>&1
