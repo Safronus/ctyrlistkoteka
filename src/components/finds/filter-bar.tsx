@@ -246,18 +246,25 @@ export function FilterBar({
           </div>
         </label>
 
-        {/* Date range — `min`/`max` cross-link the two inputs so the
-            native picker can't produce an inverted range. Server still
-            handles the inverted case gracefully (Prisma gte > lt = empty
-            result), but blocking it at the picker is friendlier. */}
+        {/* Date range — bounded to the actual span of the collection
+            (oldest find date → newest). When the user hasn't picked a
+            date, the picker pre-fills with the corresponding bound,
+            which doubles as a hint of the range. The cross-link via
+            `min`/`max` between the two inputs prevents the native
+            picker from producing an inverted range; the server still
+            handles inversion gracefully (Prisma gte > lt = empty
+            result) for hand-crafted URLs. */}
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">
             Datum od
           </span>
           <input
             type="date"
-            value={current.dateFrom}
-            max={current.dateTo || undefined}
+            value={current.dateFrom || options.minDate || ""}
+            min={options.minDate || undefined}
+            max={
+              current.dateTo || options.maxDate || undefined
+            }
             onChange={(e) => update("from", e.currentTarget.value)}
             className={`${INPUT_CLS} w-full`}
           />
@@ -269,8 +276,11 @@ export function FilterBar({
           </span>
           <input
             type="date"
-            value={current.dateTo}
-            min={current.dateFrom || undefined}
+            value={current.dateTo || options.maxDate || ""}
+            min={
+              current.dateFrom || options.minDate || undefined
+            }
+            max={options.maxDate || undefined}
             onChange={(e) => update("to", e.currentTarget.value)}
             className={`${INPUT_CLS} w-full`}
           />

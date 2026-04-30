@@ -895,23 +895,35 @@ export interface FilterOptions {
   countries: Array<{ code: string; name: string }>;
   states: FindState[];
   years: number[];
+  /** Earliest `found_at` across the collection, formatted YYYY-MM-DD.
+   *  Drives the lower bound (and default value) of the date-range
+   *  picker. `null` when the collection is empty. */
+  minDate: string | null;
+  /** Latest `found_at`, formatted YYYY-MM-DD. */
+  maxDate: string | null;
 }
 
 export async function getFilterOptions(): Promise<FilterOptions> {
-  const [locations, yearRows, cities, countries] = await Promise.all([
-    prisma.location.findMany({
-      select: { id: true, code: true, displayName: true },
-      orderBy: { code: "asc" },
-    }),
-    prisma.$queryRaw<Array<{ year: number }>>`
-      SELECT DISTINCT EXTRACT(YEAR FROM found_at)::int AS year
-      FROM finds
-      WHERE found_at IS NOT NULL
-      ORDER BY year DESC
-    `,
-    listCadastralAreas(),
-    listCountries(),
-  ]);
+  const [locations, yearRows, cities, countries, dateBounds] =
+    await Promise.all([
+      prisma.location.findMany({
+        select: { id: true, code: true, displayName: true },
+        orderBy: { code: "asc" },
+      }),
+      prisma.$queryRaw<Array<{ year: number }>>`
+        SELECT DISTINCT EXTRACT(YEAR FROM found_at)::int AS year
+        FROM finds
+        WHERE found_at IS NOT NULL
+        ORDER BY year DESC
+      `,
+      listCadastralAreas(),
+      listCountries(),
+      prisma.find.aggregate({
+        _min: { foundAt: true },
+        _max: { foundAt: true },
+        where: { foundAt: { not: null } },
+      }),
+    ]);
 
   return {
     locations: locations.map((l) => ({
@@ -929,6 +941,12 @@ export async function getFilterOptions(): Promise<FilterOptions> {
     countries,
     states: Object.values(FindState),
     years: yearRows.map((r) => r.year),
+    minDate: dateBounds._min.foundAt
+      ? dateBounds._min.foundAt.toISOString().slice(0, 10)
+      : null,
+    maxDate: dateBounds._max.foundAt
+      ? dateBounds._max.foundAt.toISOString().slice(0, 10)
+      : null,
   };
 }
 
