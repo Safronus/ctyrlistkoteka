@@ -11,6 +11,7 @@ krok za krokem. Tento README je rychlý katalog.
 | `nginx-snippets/block-exploits.conf` | `/etc/nginx/snippets/block-exploits.conf` | Drop notorické scanner cesty (`/.env`, `/wp-login.php`, …) — instant 444. Includuje se z hlavního configu. |
 | `nginx-snippets/security-headers.conf` | `/etc/nginx/snippets/security-headers.conf` | HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy. Pro stats subdoménu (a libovolný HTTPS vhost). |
 | `nginx-snippets/security-txt-redirect.conf` | `/etc/nginx/snippets/security-txt-redirect.conf` | Stats vhost: redirect `/security.txt` a `/.well-known/security.txt` na autoritativní kopii na apexu. |
+| `nginx-conf.d/ssl-hardening.conf` | `/etc/nginx/conf.d/ssl-hardening.conf` | Globální `SignatureAlgorithms` — vyřadí SHA-224 (phase-out per internet.nl). Auto-include z http kontextu. |
 | `fail2ban-nginx-noscript.conf` | `/etc/fail2ban/jail.d/nginx-noscript.conf` | Jail definice pro nginx-noscript filter. Skládá default ban akci s `blocklist` (logger). |
 | `fail2ban-nginx-noscript-filter.conf` | `/etc/fail2ban/filter.d/nginx-noscript.conf` | Regex pro detekci scanner traffic v nginx access logu. |
 | `fail2ban-sshd.conf` | `/etc/fail2ban/jail.d/sshd.local` | Override default sshd jailu — přidá `blocklist` action k SSH banům, ať i ty padají do TSV. |
@@ -85,9 +86,10 @@ user inputu by to byla palba na vrabce.
 cd /var/www/ctyrlistkoteka
 git pull
 
-# 1. Nginx exploit-block snippet
+# 1. Nginx exploit-block snippet + global TLS hardening
 sudo mkdir -p /etc/nginx/snippets
 sudo cp deploy/nginx-snippets/block-exploits.conf /etc/nginx/snippets/
+sudo cp deploy/nginx-conf.d/ssl-hardening.conf    /etc/nginx/conf.d/
 
 # 2. Hlavní config — do server bloku přidat:
 #    - na vrchol souboru (mimo server bloky):
