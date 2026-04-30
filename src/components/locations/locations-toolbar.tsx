@@ -6,6 +6,7 @@ import {
   Archive,
   ArrowDownAZ,
   ArrowDownNarrowWide,
+  Camera,
   Compass,
   EyeOff,
   Globe,
@@ -48,6 +49,7 @@ export function LocationsToolbar({
     sort: LocationSort;
     showAnonymized: boolean;
     showGone: boolean;
+    hasRealPhoto: boolean;
     hasFilters: boolean;
   };
 }) {
@@ -65,7 +67,10 @@ export function LocationsToolbar({
     });
   };
 
-  const toggleFlag = (key: "showAnon" | "showGone", on: boolean) => {
+  const toggleFlag = (
+    key: "showAnon" | "showGone" | "hasPhoto",
+    on: boolean,
+  ) => {
     update(key, on ? "1" : "");
   };
 
@@ -95,6 +100,12 @@ export function LocationsToolbar({
           onClick={() => toggleFlag("showGone", !current.showGone)}
           icon={<Archive className="h-4 w-4" />}
           label="Zaniklé"
+        />
+        <ToggleButton
+          pressed={current.hasRealPhoto}
+          onClick={() => toggleFlag("hasPhoto", !current.hasRealPhoto)}
+          icon={<Camera className="h-4 w-4" />}
+          label="S reálnou fotkou"
         />
         {current.hasFilters && (
           <button

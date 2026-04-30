@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
+  Camera,
   ChevronDown,
   ChevronRight,
   CornerDownRight,
@@ -212,6 +213,18 @@ function RowTitle({
       {location.isGone && (
         <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
           Zaniklá
+        </span>
+      )}
+      {location.hasRealPhoto && (
+        // Camera-only chip — the icon carries the meaning, no need to
+        // crowd the title row with another textual badge. `title` covers
+        // hover + screen-reader context.
+        <span
+          className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800"
+          title="Lokalita má reálnou fotku"
+          aria-label="Lokalita má reálnou fotku"
+        >
+          <Camera className="h-3 w-3" aria-hidden />
         </span>
       )}
     </div>

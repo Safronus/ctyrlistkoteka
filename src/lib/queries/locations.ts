@@ -94,6 +94,13 @@ export interface LocationListItem {
    *  without children, so call sites that don't care about the split can
    *  read `aggregateStats` unconditionally. */
   aggregateStats: LocationStats;
+  /** True when at least one of this location's non-anonymized maps has
+   *  a matching real-life photo on disk in
+   *  `${GENERATED_DIR}/location-photos/`. Drives the "Reálná fotka"
+   *  badge on /lokality and the dedicated filter toggle. Anonymized
+   *  locations are forced to `false` (we don't even attempt the lookup
+   *  for them). */
+  hasRealPhoto: boolean;
 }
 
 export interface LocationFilter {
@@ -116,6 +123,34 @@ export interface LocationFilter {
    *  per-location detail page so it can reuse the full stats pipeline
    *  for one row without paying for the whole table scan. */
   id?: number;
+  /** When true, keep only locations that have a real-life photo bound
+   *  to one of their maps (i.e. a matching file in
+   *  `${GENERATED_DIR}/location-photos/`). Wired to the "Reálná fotka"
+   *  toggle on /lokality. */
+  hasRealPhoto?: boolean;
+}
+
+/**
+ * Returns the set of location IDs that have at least one real-life
+ * photo bound to one of their non-anonymized maps. Computed in one
+ * batched DB pull + per-map cache lookup so callers can decorate
+ * arbitrary location lists in O(1). Reused on /lokality (badge +
+ * filter) and /statistiky (totals tile).
+ */
+export async function getLocationIdsWithRealPhotos(): Promise<Set<number>> {
+  const maps = await prisma.locationMap.findMany({
+    where: { isAnonymized: false },
+    select: { locationId: true, originalFilename: true, isAnonymized: true },
+  });
+  const result = new Set<number>();
+  for (const m of maps) {
+    const url = await getLocationMapPhotoUrl({
+      originalFilename: m.originalFilename,
+      isAnonymized: m.isAnonymized,
+    });
+    if (url !== null) result.add(m.locationId);
+  }
+  return result;
 }
 
 /** Returns the alphabetic list of distinct cadastral areas for the city
@@ -239,11 +274,23 @@ export async function listLocations(
   // map that itself isn't anonymized.
   const maps = await prisma.locationMap.findMany({
     where: { locationId: { in: ids } },
-    select: { locationId: true, imagePath: true, isAnonymized: true },
+    select: {
+      locationId: true,
+      imagePath: true,
+      isAnonymized: true,
+      // Needed for the real-photo lookup — the photo on disk is named
+      // after this exact string + suffix, never against `imagePath`
+      // (which is sha1-hashed for cache busting).
+      originalFilename: true,
+    },
     orderBy: [{ locationId: "asc" }, { id: "asc" }],
   });
   const thumbByLoc = new Map<number, string>();
   const hasAnonymizedMap = new Set<number>();
+  // Build the real-photo set in the same pass so list rendering doesn't
+  // need a second DB round-trip. Each lookup hits the TTL-cached photo
+  // directory listing, so the per-map cost is a hashmap query.
+  const realPhotoLocs = new Set<number>();
   for (const m of maps) {
     if (m.isAnonymized) {
       hasAnonymizedMap.add(m.locationId);
@@ -251,6 +298,13 @@ export async function listLocations(
     }
     if (!thumbByLoc.has(m.locationId)) {
       thumbByLoc.set(m.locationId, m.imagePath);
+    }
+    if (!realPhotoLocs.has(m.locationId)) {
+      const url = await getLocationMapPhotoUrl({
+        originalFilename: m.originalFilename,
+        isAnonymized: m.isAnonymized,
+      });
+      if (url !== null) realPhotoLocs.add(m.locationId);
     }
   }
   const isAnonymizedLoc = (locId: number) => hasAnonymizedMap.has(locId);
@@ -418,6 +472,10 @@ export async function listLocations(
         childCount: 0,
         stats: EMPTY_STATS,
         aggregateStats: EMPTY_STATS,
+        // Anonymized locations don't expose photo presence — even the
+        // boolean would leak whether the user has a real-life photo of
+        // a private spot.
+        hasRealPhoto: false,
       };
     }
     const stats = totalsByLoc.get(l.id) ?? EMPTY_STATS;
@@ -451,6 +509,7 @@ export async function listLocations(
       childCount: 0,
       stats,
       aggregateStats,
+      hasRealPhoto: realPhotoLocs.has(l.id),
     };
   });
 
@@ -462,6 +521,13 @@ export async function listLocations(
   }
   if (filter.showGone !== true) {
     items = items.filter((it) => !it.isGone);
+  }
+  // Real-photo filter — keep only rows where the author has uploaded a
+  // matching real-life photo into ${GENERATED_DIR}/location-photos/.
+  // Anonymized rows are forced to false in the assemble step above,
+  // so they never survive this filter regardless of the toggle order.
+  if (filter.hasRealPhoto === true) {
+    items = items.filter((it) => it.hasRealPhoto);
   }
   // Country filter runs against the same point-in-polygon check that
   // /statistiky uses for its breakdown, so the dropdown's options match

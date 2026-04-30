@@ -51,6 +51,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   // Both visibility toggles are opt-in — empty/absent means hidden.
   const showAnonymized = pickString(sp.showAnon) === "1";
   const showGone = pickString(sp.showGone) === "1";
+  const hasRealPhoto = pickString(sp.hasPhoto) === "1";
 
   const [cities, countries, locations] = await Promise.all([
     listCadastralAreas(),
@@ -62,6 +63,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
       sort,
       showAnonymized,
       showGone,
+      hasRealPhoto: hasRealPhoto || undefined,
     }),
   ]);
 
@@ -86,13 +88,15 @@ export default async function LokalityPage({ searchParams }: PageProps) {
           sort,
           showAnonymized,
           showGone,
+          hasRealPhoto,
           hasFilters:
             !!q ||
             !!city ||
             !!country ||
             sort !== "finds" ||
             showAnonymized ||
-            showGone,
+            showGone ||
+            hasRealPhoto,
         }}
       />
 
