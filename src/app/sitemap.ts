@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getIndexableFinds } from "@/lib/queries/finds";
+import { listLocations } from "@/lib/queries/locations";
+import { locationDetailHref } from "@/lib/format";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
@@ -10,7 +12,15 @@ const SITE_URL =
 export const revalidate = 86400;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const finds = await getIndexableFinds();
+  // Locations: include the same set the public list shows. Anonymized
+  // locations are filtered out — their detail page renders only a stub
+  // with `noindex`, so listing them in the sitemap would just waste
+  // crawl budget. Former ("Zaniklá") locations stay indexable since
+  // the detail page itself has full content for them.
+  const [finds, locations] = await Promise.all([
+    getIndexableFinds(),
+    listLocations({ showAnonymized: false, showGone: true }),
+  ]);
 
   const staticEntries: MetadataRoute.Sitemap = [
     {
@@ -26,6 +36,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      url: `${SITE_URL}/lokality`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
       url: `${SITE_URL}/mapa`,
       lastModified: new Date(),
       changeFrequency: "daily",
@@ -39,6 +55,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
+  const locationEntries: MetadataRoute.Sitemap = locations.map((l) => ({
+    url: `${SITE_URL}${locationDetailHref(l.id)}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly",
+    priority: 0.6,
+  }));
+
   const findEntries: MetadataRoute.Sitemap = finds.map((f) => ({
     url: `${SITE_URL}/sbirka/${f.id}`,
     lastModified: f.updatedAt,
@@ -46,5 +69,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.5,
   }));
 
-  return [...staticEntries, ...findEntries];
+  return [...staticEntries, ...locationEntries, ...findEntries];
 }

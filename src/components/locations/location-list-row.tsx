@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   CornerDownRight,
+  ExternalLink,
   HelpCircle,
   Layers,
   MapPin,
@@ -21,6 +22,7 @@ import {
   formatDistance,
   formatLocationId,
   formatTimeSinceCs,
+  locationDetailHref,
   FINDS,
 } from "@/lib/format";
 
@@ -96,6 +98,7 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
               )}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <RowCount location={location} />
+                <DetailLink location={location} />
                 <MapLink location={location} />
               </div>
             </>
@@ -246,6 +249,19 @@ function MapLink({ location }: { location: LocationListItem }) {
     >
       <MapPin className="h-3.5 w-3.5" aria-hidden />
       <span>Zobrazit na mapě</span>
+    </Link>
+  );
+}
+
+function DetailLink({ location }: { location: LocationListItem }) {
+  return (
+    <Link
+      href={locationDetailHref(location.id)}
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+    >
+      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+      <span>Detail lokality</span>
     </Link>
   );
 }

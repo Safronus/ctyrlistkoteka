@@ -111,6 +111,10 @@ export interface LocationFilter {
   /** When false, locations whose code starts with `NEEXISTUJE-` are
    *  dropped from the result. Default is `false` (hidden). */
   showGone?: boolean;
+  /** Restrict the result to a single location by id. Used by the
+   *  per-location detail page so it can reuse the full stats pipeline
+   *  for one row without paying for the whole table scan. */
+  id?: number;
 }
 
 /** Returns the alphabetic list of distinct cadastral areas for the city
@@ -183,6 +187,7 @@ export async function listLocations(
 ): Promise<LocationListItem[]> {
   // ------------------------------------------------------------ filter
   const where: Prisma.LocationWhereInput = {};
+  if (filter.id !== undefined) where.id = filter.id;
   if (filter.cadastralArea) where.cadastralArea = filter.cadastralArea;
   if (filter.q && filter.q.trim()) {
     const q = filter.q.trim();
@@ -644,4 +649,230 @@ function interleaveChildren(
     }
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+//  Per-location detail page
+// ---------------------------------------------------------------------------
+
+/** Static map shipped with a location detail. Mirrors PublicLocationMap
+ *  from the find query but without any find-specific marker — this is
+ *  the location's own map shown for context, not pinned to a single
+ *  find's GPS. */
+export interface LocationDetailMap {
+  id: number;
+  imageUrl: string;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  description: string | null;
+}
+
+/** Compact handle for a related location (parent / sibling / child).
+ *  Anonymized neighbours collapse to `null` upstream so the detail page
+ *  doesn't even know they exist. */
+export interface LocationHandle {
+  id: number;
+  code: string;
+  displayName: string;
+  findCount: number;
+  isGone: boolean;
+}
+
+/** Sibling preview entry — recent finds at this location. The detail
+ *  page shows a small grid; the full list lives at /sbirka?loc=<id>. */
+export interface LocationDetailFindPreview {
+  id: number;
+  foundAt: Date | null;
+  thumbUrl: string | null;
+  isAnonymized: boolean;
+}
+
+export interface LocationDetail {
+  /** Same row shape as the /lokality list. Anonymized location detail
+   *  pages render only a stub — `getLocationDetailById` returns the
+   *  underlying row regardless, leaving the gating to the page. */
+  base: LocationListItem;
+  maps: LocationDetailMap[];
+  parent: LocationHandle | null;
+  children: LocationHandle[];
+  recentFinds: LocationDetailFindPreview[];
+}
+
+/**
+ * Fetches everything the per-location detail page needs in a single
+ * batched call. Reuses listLocations() for the heavy stats pipeline
+ * (filtered to one id) and adds:
+ *   - this location's static maps (PNG overlays from EXIF metadata)
+ *   - parent/children handles for hierarchy navigation
+ *   - a small preview of recent non-anonymized finds (newest first)
+ *
+ * Returns null when the id doesn't exist. Anonymized status is preserved
+ * on `base` so the rendering layer can decide between full detail and
+ * the redacted stub.
+ */
+export async function getLocationDetailById(
+  id: number,
+): Promise<LocationDetail | null> {
+  // showAnonymized + showGone forced on so a private/former location's
+  // ID still resolves to a row — the page renders a stub for those, but
+  // the row itself is needed to know that.
+  const rows = await listLocations({
+    id,
+    showAnonymized: true,
+    showGone: true,
+  });
+  const base = rows[0];
+  if (!base) return null;
+
+  // Anonymized: we still return the bare row so the page can render a
+  // privacy stub, but skip every detail fetch — none of those fields
+  // may be exposed.
+  if (base.isAnonymized) {
+    return { base, maps: [], parent: null, children: [], recentFinds: [] };
+  }
+
+  const [mapRows, parentRow, childRows, recentRows] = await Promise.all([
+    prisma.locationMap.findMany({
+      where: { locationId: id, isAnonymized: false },
+      select: {
+        id: true,
+        imagePath: true,
+        imageWidth: true,
+        imageHeight: true,
+        description: true,
+      },
+      orderBy: { id: "asc" },
+    }),
+    base.parentId !== null
+      ? prisma.location.findUnique({
+          where: { id: base.parentId },
+          select: {
+            id: true,
+            code: true,
+            displayName: true,
+            // Parent's own count is computed below; we only fetch the
+            // identification fields here. `isGone` is derived from `code`
+            // via isFormerLocation() at assembly time.
+          },
+        })
+      : Promise.resolve(null),
+    prisma.location.findMany({
+      where: { parentId: id },
+      select: {
+        id: true,
+        code: true,
+        displayName: true,
+      },
+      orderBy: { id: "asc" },
+    }),
+    // Recent finds preview — own + (when this location is a parent)
+    // every visible sub-part. listLocations already exposes the count
+    // via aggregateStats; we just need lightweight rows here.
+    fetchRecentFindsForLocation(id),
+  ]);
+
+  // Lookup per-handle find counts in one batched query so the parent +
+  // children chips can show "(N nálezů)" without N+1.
+  const handleIds = [
+    ...(parentRow ? [parentRow.id] : []),
+    ...childRows.map((c) => c.id),
+  ];
+  const findCounts = await fetchFindCountsByLocation(handleIds);
+
+  const parent: LocationHandle | null = parentRow
+    ? {
+        id: parentRow.id,
+        code: parentRow.code,
+        displayName: parentRow.displayName,
+        findCount: findCounts.get(parentRow.id) ?? 0,
+        isGone: isFormerLocation(parentRow.code),
+      }
+    : null;
+
+  const children: LocationHandle[] = childRows.map((c) => ({
+    id: c.id,
+    code: c.code,
+    displayName: c.displayName,
+    findCount: findCounts.get(c.id) ?? 0,
+    isGone: isFormerLocation(c.code),
+  }));
+
+  return {
+    base,
+    maps: mapRows.map((m) => ({
+      id: m.id,
+      imageUrl: m.imagePath,
+      imageWidth: m.imageWidth,
+      imageHeight: m.imageHeight,
+      description: m.description,
+    })),
+    parent,
+    children,
+    recentFinds: recentRows,
+  };
+}
+
+async function fetchRecentFindsForLocation(
+  parentLocationId: number,
+): Promise<LocationDetailFindPreview[]> {
+  // Fold parent → children when the requested id has any. Mirrors the
+  // /sbirka filter behaviour so the detail page's "recent finds"
+  // preview matches what visitors see when they click through to the
+  // full list.
+  const childIds = await prisma.location.findMany({
+    where: { parentId: parentLocationId },
+    select: { id: true },
+  });
+  const ids = [parentLocationId, ...childIds.map((c) => c.id)];
+
+  const rows = await prisma.find.findMany({
+    where: { locationId: { in: ids } },
+    select: {
+      id: true,
+      foundAt: true,
+      isAnonymized: true,
+      images: {
+        where: { imageType: "ORIGINAL" },
+        select: { thumbPath: true },
+        take: 1,
+      },
+    },
+    orderBy: { id: "desc" },
+    take: 12,
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    foundAt: r.foundAt,
+    isAnonymized: r.isAnonymized,
+    thumbUrl: r.images[0]?.thumbPath ?? null,
+  }));
+}
+
+async function fetchFindCountsByLocation(
+  ids: readonly number[],
+): Promise<Map<number, number>> {
+  if (ids.length === 0) return new Map();
+  const rows = await prisma.find.groupBy({
+    by: ["locationId"],
+    where: { locationId: { in: ids as number[] } },
+    _count: { _all: true },
+  });
+  const out = new Map<number, number>();
+  for (const r of rows) {
+    if (r.locationId === null) continue;
+    out.set(r.locationId, r._count._all);
+  }
+  return out;
+}
+
+/** Returns every location's id — used by `generateStaticParams` on the
+ *  detail route. Includes anonymized rows so direct URLs to those still
+ *  resolve (with a privacy stub render) instead of 404-ing inconsistently. */
+export async function getAllLocationIds(): Promise<number[]> {
+  const rows = await prisma.location.findMany({
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+  return rows.map((r) => r.id);
 }

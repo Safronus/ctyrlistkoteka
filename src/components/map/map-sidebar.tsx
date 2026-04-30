@@ -1,9 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Eye, EyeOff, Search } from "lucide-react";
+import Link from "next/link";
+import { ExternalLink, Eye, EyeOff, Search } from "lucide-react";
 import type { LocationListItem } from "@/lib/queries/locations";
-import { formatAreaM2, formatCount, formatLocationId, FINDS } from "@/lib/format";
+import {
+  formatAreaM2,
+  formatCount,
+  formatLocationId,
+  locationDetailHref,
+  FINDS,
+} from "@/lib/format";
 import { paddedIdMatches, parseIdQuery } from "@/lib/search";
 
 const INPUT_CLS =
@@ -248,6 +255,17 @@ function SidebarRow({
           )}
         </button>
       )}
+      {/* Deep-link to the per-location detail page. Sibling control next
+          to the focus button (polygon toggle when applicable) so screen
+          readers see three distinct actions, no nested buttons. */}
+      <Link
+        href={locationDetailHref(location.id)}
+        aria-label="Detail lokality"
+        title="Detail lokality"
+        className="flex shrink-0 items-center justify-center px-2 text-gray-400 transition hover:bg-brand-50 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500"
+      >
+        <ExternalLink className="h-4 w-4" aria-hidden />
+      </Link>
     </div>
   );
 }

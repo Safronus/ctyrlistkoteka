@@ -185,6 +185,13 @@ export function formatLocationId(id: number): string {
   return `#${String(id).padStart(5, "0")}`;
 }
 
+/** Canonical URL for the per-location detail page. Mirrors the
+ *  zero-padded display form (`#00001`) without the hash, so the
+ *  query/render side and the link target stay structurally identical. */
+export function locationDetailHref(id: number): string {
+  return `/lokality/${String(id).padStart(5, "0")}`;
+}
+
 /**
  * Czech-formatted area string. Picks a unit that keeps the number
  * readable: m² for small plots, ha for fields, km² for the rare big
