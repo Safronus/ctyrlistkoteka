@@ -197,15 +197,15 @@ export function formatLocationId(id: number): string {
  *   < 1 m      → centimetres (rounded)
  *   < 1 km     → metres (rounded)
  *   < 100 km   → kilometres with one decimal (12.3 km)
- *   ≥ 100 km   → kilometres with two decimals (2 858,12 km)
+ *   ≥ 100 km   → kilometres with three decimals (2 858,123 km)
  *
- * The two-decimal step at the high end exists so finds in the same
+ * The three-decimal step at the high end exists so finds in the same
  * far-away location don't all collapse to the same headline number —
  * a 30 m spread across 2 858 km would otherwise read as identical
  * "2 858 km" for every clover, hiding the per-find variation that the
- * map and detail pages show. Two decimals → ~10 m granularity, which
- * is still well below GPS noise but enough to differentiate adjacent
- * finds in the listing.
+ * map and detail pages show. Three decimals → 1 m granularity, well
+ * inside GPS noise but enough that adjacent finds always read as
+ * distinct values in lists.
  */
 export function formatDistance(meters: number): string {
   if (!Number.isFinite(meters) || meters < 0) return "";
@@ -224,8 +224,8 @@ export function formatDistance(meters: number): string {
     }).format(km)} km`;
   }
   return `${new Intl.NumberFormat("cs-CZ", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
   }).format(km)} km`;
 }
 
