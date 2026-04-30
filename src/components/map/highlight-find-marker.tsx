@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef } from "react";
 import { Marker, Popup } from "react-leaflet";
 import L, { type Marker as LeafletMarker } from "leaflet";
 import type { HighlightFind } from "@/lib/queries/finds";
-import { formatLocationOffset } from "@/lib/format";
+import { formatDateTimeCs, formatLocationOffset } from "@/lib/format";
+import { formatGpsApple } from "@/lib/gpsFormat";
 
 /**
  * Single clover-shaped marker rendered when /mapa receives `?find=N`. The
@@ -23,7 +24,17 @@ import { formatLocationOffset } from "@/lib/format";
  */
 const HIGHLIGHT_BOX = 44;
 
-export function HighlightFindMarker({ find }: { find: HighlightFind }) {
+export function HighlightFindMarker({
+  find,
+  onPopupClose,
+}: {
+  find: HighlightFind;
+  /** Fired when the popup closes (X button, ESC, click outside, …).
+   *  Wired to MapaShell's highlight-dismiss handler so closing the popup
+   *  exits highlight mode in place — the marker disappears, the page
+   *  drops back to normal interaction, but the viewport stays put. */
+  onPopupClose: () => void;
+}) {
   const markerRef = useRef<LeafletMarker | null>(null);
 
   // Icon HTML is captured once per find — a fresh icon would force
@@ -50,6 +61,13 @@ export function HighlightFindMarker({ find }: { find: HighlightFind }) {
     return () => clearTimeout(t);
   }, [find.id]);
 
+  // The location line is "CODE (displayName)" when the two differ, else
+  // just the code — same logic as the /sbirka list title row.
+  const showSecondaryName =
+    find.locationDisplayName !== null &&
+    find.locationDisplayName !== "" &&
+    find.locationDisplayName !== find.locationCode;
+
   return (
     <Marker
       ref={markerRef}
@@ -61,13 +79,46 @@ export function HighlightFindMarker({ find }: { find: HighlightFind }) {
         // handler — clicking the highlighted find shouldn't deselect
         // the location it belongs to.
         click: (e) => L.DomEvent.stopPropagation(e),
+        // Closing the popup exits highlight mode at the current
+        // viewport (no refit) — see prop docstring above.
+        popupclose: () => onPopupClose(),
       }}
     >
       <Popup className="ctyr-find-highlight-popup">
-        <div>
-          <strong style={{ color: "#14532d" }}>Nález #{find.id}</strong>
+        <div style={{ minWidth: 200, lineHeight: 1.35 }}>
+          <strong style={{ color: "#14532d", fontSize: 14 }}>
+            Nález #{find.id}
+          </strong>
+          {find.locationCode && (
+            <div style={{ marginTop: 4, color: "#111827", fontSize: 12 }}>
+              <span style={{ fontFamily: "var(--font-mono, monospace)" }}>
+                {find.locationCode}
+              </span>
+              {showSecondaryName && (
+                <span style={{ color: "#6b7280" }}>
+                  {" "}
+                  ({find.locationDisplayName})
+                </span>
+              )}
+            </div>
+          )}
+          {find.foundAt && (
+            <div style={{ marginTop: 2, color: "#374151", fontSize: 12 }}>
+              {formatDateTimeCs(find.foundAt)}
+            </div>
+          )}
+          <div
+            style={{
+              marginTop: 2,
+              color: "#374151",
+              fontSize: 11,
+              fontFamily: "var(--font-mono, monospace)",
+            }}
+          >
+            {formatGpsApple(find.lat, find.lng)}
+          </div>
           {find.offset && (
-            <div style={{ color: "#15803d", fontSize: 12 }}>
+            <div style={{ marginTop: 4, color: "#15803d", fontSize: 12 }}>
               {formatLocationOffset(find.offset)}
             </div>
           )}

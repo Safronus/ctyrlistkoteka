@@ -764,6 +764,17 @@ export interface HighlightFind {
   lat: number;
   lng: number;
   locationId: number | null;
+  /** Find's recorded time (from EXIF). Surfaced in the highlight popup
+   *  so the visitor can read date+seconds at a glance. Null when the
+   *  find row predates timestamps in the importer. */
+  foundAt: Date | null;
+  /** Code of the find's location (e.g. ZLÍN_JSVAHY-UTB-U5-001), used as
+   *  the primary identifier line in the popup. Null only when the find
+   *  isn't tied to any location row (extremely rare). */
+  locationCode: string | null;
+  /** Human description of the location (`displayName`), used as a
+   *  secondary line under the code when distinct from it. */
+  locationDisplayName: string | null;
   offset: {
     meters: number;
     mode: "polygon" | "center";
@@ -776,7 +787,13 @@ export async function getHighlightFind(
 ): Promise<HighlightFind | null> {
   const row = await prisma.find.findUnique({
     where: { id },
-    select: { id: true, isAnonymized: true, locationId: true },
+    select: {
+      id: true,
+      isAnonymized: true,
+      locationId: true,
+      foundAt: true,
+      location: { select: { code: true, displayName: true } },
+    },
   });
   if (!row || row.isAnonymized) return null;
 
@@ -818,6 +835,9 @@ export async function getHighlightFind(
     lat: c.lat,
     lng: c.lng,
     locationId: row.locationId,
+    foundAt: row.foundAt,
+    locationCode: row.location?.code ?? null,
+    locationDisplayName: row.location?.displayName ?? null,
     offset:
       c.loc_offset_m !== null && c.loc_offset_mode !== null
         ? {

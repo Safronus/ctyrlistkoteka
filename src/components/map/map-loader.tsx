@@ -33,6 +33,7 @@ export function MapLoader({
   highlightFindIds,
   onSelectLocation,
   onDeselectLocation,
+  onHighlightDismiss,
 }: {
   data: MapData;
   focusLocationId?: number | null;
@@ -45,6 +46,7 @@ export function MapLoader({
   highlightFindIds: ReadonlySet<number> | null;
   onSelectLocation: (id: number) => void;
   onDeselectLocation: () => void;
+  onHighlightDismiss: () => void;
 }) {
   return (
     <MapView
@@ -59,6 +61,7 @@ export function MapLoader({
       highlightFindIds={highlightFindIds}
       onSelectLocation={onSelectLocation}
       onDeselectLocation={onDeselectLocation}
+      onHighlightDismiss={onHighlightDismiss}
     />
   );
 }

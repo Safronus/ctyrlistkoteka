@@ -192,6 +192,17 @@ export function MapaShell({
     setFocusId(null);
   }, []);
 
+  const handleHighlightDismiss = useCallback(() => {
+    // Closing the deep-link popup exits highlight mode IN PLACE: drop
+    // both the highlight marker AND the auto-focus on its location, so
+    // FitBounds sees `focusKey === null` and skips the refit. Result:
+    // the viewport stays exactly where the visitor is, but the orange
+    // outline + clover marker disappear and the page is back to normal
+    // interaction.
+    setHighlightCleared(true);
+    setFocusId(null);
+  }, []);
+
   const handleToggleChildPolygon = useCallback((id: number) => {
     setEnabledChildPolygonIds((prev) => {
       const next = new Set(prev);
@@ -263,6 +274,7 @@ export function MapaShell({
         highlightFindIds={highlightFindIds}
         onSelectLocation={handleSelectLocation}
         onDeselectLocation={handleDeselectLocation}
+        onHighlightDismiss={handleHighlightDismiss}
       />
 
       {/* GPS-accuracy notice. Pinned bottom-left so it sits above OSM

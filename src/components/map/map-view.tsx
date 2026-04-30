@@ -27,6 +27,7 @@ export function MapView({
   highlightFindIds,
   onSelectLocation,
   onDeselectLocation,
+  onHighlightDismiss,
 }: {
   data: MapData;
   focusLocationId: number | null;
@@ -48,6 +49,10 @@ export function MapView({
   /** Fired when the visitor clicks empty map space — drops the highlight
    *  without re-fitting the viewport. */
   onDeselectLocation: () => void;
+  /** Fired when the highlighted-find popup closes (X / Esc / outside
+   *  click). Lets MapaShell drop the deep-link highlight and switch to
+   *  normal interaction without panning the viewport. */
+  onHighlightDismiss: () => void;
 }) {
   // When highlighting a single find from /sbirka, the visitor wants to
   // see that point at street level — bypass the location-polygon fit
@@ -143,7 +148,12 @@ export function MapView({
           highlightFindIds={highlightFindIds}
         />
       )}
-      {highlightFind && <HighlightFindMarker find={highlightFind} />}
+      {highlightFind && (
+        <HighlightFindMarker
+          find={highlightFind}
+          onPopupClose={onHighlightDismiss}
+        />
+      )}
       <BackgroundClickHandler onDeselect={onDeselectLocation} />
       {bounds && (
         <FitBounds
