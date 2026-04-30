@@ -236,20 +236,25 @@ export default async function FindDetailPage({ params }: PageProps) {
           <>
             <KeyValue label="Kód lokality" value={find.location.code} />
             <KeyValue label="Popis lokality" value={find.location.displayName} />
-            {/* Anonymized rows still get a link — the location row already
-                acknowledges its existence above; the map page focuses on
-                the *default* location for anonymized finds (per
-                find.location.id, which is overridden server-side), so we
-                don't leak anything we wouldn't already show. */}
-            <div className="pt-1">
-              <Link
-                href={`/mapa?focus=${find.location.id}`}
-                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
-              >
-                <MapPin className="h-3.5 w-3.5" aria-hidden />
-                <span>Zobrazit na mapě</span>
-              </Link>
-            </div>
+            {/* Map deep-link mirrors the row-level icon in /sbirka:
+                `?find=N` highlights the specific find on the canvas
+                (single marker + auto-fit). Only public finds with GPS
+                qualify — anonymized ones never expose a position, so
+                the button is hidden for them. The location-only
+                fallback (`?focus=`) was confusing: visitors arriving
+                from the detail expected to see THIS find, not the
+                whole location dot soup. */}
+            {!find.isAnonymized && find.coordinates && (
+              <div className="pt-1">
+                <Link
+                  href={`/mapa?find=${find.id}`}
+                  className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+                >
+                  <MapPin className="h-3.5 w-3.5" aria-hidden />
+                  <span>Zobrazit na mapě</span>
+                </Link>
+              </div>
+            )}
           </>
         ) : (
           <p className="text-sm text-gray-600">

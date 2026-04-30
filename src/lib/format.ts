@@ -223,16 +223,17 @@ export function formatDistance(meters: number): string {
 /** Human label for a find's offset from its own location. Visitors
  *  reading "120 m od MAP 00001" sometimes worry the find is misplaced;
  *  this label ties the number to whichever reference shape the location
- *  actually has so the reading is unambiguous. Sub-metre offsets inside
- *  an AOI collapse to "uvnitř AOI" rather than "0 m od hrany AOI" —
- *  ST_Distance returns 0 for contained points, but floating-point noise
- *  occasionally yields a few millimetres. */
+ *  actually has so the reading is unambiguous. The `inside` bit is the
+ *  authoritative inside/outside indicator (PostGIS ST_Covers, not a
+ *  metres heuristic) — points sitting < 1 m OUTSIDE the polygon edge
+ *  must still read as "X m od hrany AOI", not "uvnitř AOI". */
 export function formatLocationOffset(offset: {
   meters: number;
   mode: "polygon" | "center";
+  inside: boolean;
 }): string {
   if (offset.mode === "polygon") {
-    if (offset.meters < 1) return "uvnitř AOI";
+    if (offset.inside) return "uvnitř AOI";
     return `${formatDistance(offset.meters)} od hrany AOI`;
   }
   return `${formatDistance(offset.meters)} od středu mapy`;
@@ -249,9 +250,10 @@ export function formatLocationOffset(offset: {
 export function locationOffsetToneClass(offset: {
   meters: number;
   mode: "polygon" | "center";
+  inside: boolean;
 }): string {
   if (offset.mode === "polygon") {
-    if (offset.meters < 1) return "text-emerald-700 font-medium";
+    if (offset.inside) return "text-emerald-700 font-medium";
     if (offset.meters < 10) return "text-emerald-600";
     if (offset.meters < 50) return "text-amber-600";
     return "text-rose-600";

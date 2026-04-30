@@ -54,18 +54,26 @@ export interface PublicFind {
    *  triangulate their position. */
   distanceFromDefault: number | null;
   /** Offset of the find's GPS from its own location. When the location
-   *  has a polygon, this is the great-circle distance to the nearest
+   *  has a polygon, `meters` is the great-circle distance to the nearest
    *  polygon edge — 0 when the point is inside the AOI, positive when
-   *  outside. When the location has only a center point (no polygon),
-   *  it falls back to the great-circle distance from that center. The
-   *  `mode` lets the UI pick the right wording so visitors don't read
-   *  "120 m from center" as a misplacement bug.
+   *  outside — and `inside` is true iff the point is contained by (or
+   *  exactly on) the polygon (via PostGIS ST_Covers). When the location
+   *  has only a center point (no polygon), `meters` falls back to the
+   *  great-circle distance from that center and `inside` is always
+   *  false. The `mode` lets the UI pick the right wording so visitors
+   *  don't read "120 m from center" as a misplacement bug.
+   *
+   *  We separate `inside` from `meters < 1` because ST_Distance can
+   *  legitimately return sub-metre POSITIVE values for points that are
+   *  actually outside the AOI but very close to its edge — collapsing
+   *  those to "uvnitř AOI" misleads visitors (real bug report).
    *
    *  Null when the find is anonymized, has no GPS, or its location has
    *  neither a polygon nor a center point. */
   locationOffset: {
     meters: number;
     mode: "polygon" | "center";
+    inside: boolean;
   } | null;
 }
 
@@ -237,6 +245,7 @@ async function hydrate(
       dist_m: number | null;
       loc_offset_m: number | null;
       loc_offset_mode: "polygon" | "center" | null;
+      loc_offset_inside: boolean | null;
     }>
   >`
     WITH ref AS (
@@ -265,7 +274,10 @@ async function hydrate(
                   WHEN l.center_point IS NOT NULL THEN 'center'
                   ELSE NULL
                 END
-           END AS loc_offset_mode
+           END AS loc_offset_mode,
+           CASE WHEN f.is_anonymized = false AND l.polygon IS NOT NULL
+                THEN ST_Covers(l.polygon::geography, f.coordinates::geography)
+           END AS loc_offset_inside
     FROM finds f
     LEFT JOIN locations l ON l.id = f.location_id
     WHERE f.id IN (${Prisma.join(ids)}) AND f.coordinates IS NOT NULL
@@ -274,7 +286,7 @@ async function hydrate(
   const distMap = new Map<number, number>();
   const offsetMap = new Map<
     number,
-    { meters: number; mode: "polygon" | "center" }
+    { meters: number; mode: "polygon" | "center"; inside: boolean }
   >();
   for (const c of coordRows) {
     if (c.lat !== null && c.lng !== null) {
@@ -287,6 +299,9 @@ async function hydrate(
       offsetMap.set(c.id, {
         meters: c.loc_offset_m,
         mode: c.loc_offset_mode,
+        // `inside` is only meaningful in polygon mode; coalesce to false
+        // for center mode so consumers don't have to guard on `mode`.
+        inside: c.loc_offset_inside === true,
       });
     }
   }
@@ -749,7 +764,11 @@ export interface HighlightFind {
   lat: number;
   lng: number;
   locationId: number | null;
-  offset: { meters: number; mode: "polygon" | "center" } | null;
+  offset: {
+    meters: number;
+    mode: "polygon" | "center";
+    inside: boolean;
+  } | null;
 }
 
 export async function getHighlightFind(
@@ -767,6 +786,7 @@ export async function getHighlightFind(
       lng: number | null;
       loc_offset_m: number | null;
       loc_offset_mode: "polygon" | "center" | null;
+      loc_offset_inside: boolean | null;
     }>
   >`
     SELECT ST_Y(f.coordinates)::float8 AS lat,
@@ -782,7 +802,10 @@ export async function getHighlightFind(
              WHEN l.polygon IS NOT NULL THEN 'polygon'
              WHEN l.center_point IS NOT NULL THEN 'center'
              ELSE NULL
-           END AS loc_offset_mode
+           END AS loc_offset_mode,
+           CASE WHEN l.polygon IS NOT NULL
+                THEN ST_Covers(l.polygon::geography, f.coordinates::geography)
+           END AS loc_offset_inside
     FROM finds f
     LEFT JOIN locations l ON l.id = f.location_id
     WHERE f.id = ${id} AND f.coordinates IS NOT NULL
@@ -797,7 +820,11 @@ export async function getHighlightFind(
     locationId: row.locationId,
     offset:
       c.loc_offset_m !== null && c.loc_offset_mode !== null
-        ? { meters: c.loc_offset_m, mode: c.loc_offset_mode }
+        ? {
+            meters: c.loc_offset_m,
+            mode: c.loc_offset_mode,
+            inside: c.loc_offset_inside === true,
+          }
         : null,
   };
 }
