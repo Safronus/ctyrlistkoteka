@@ -149,6 +149,12 @@ export interface FindHighlight {
   /** Location data is null when the find is anonymized — see CLAUDE.md
    *  §6, the public payload must not leak the location. */
   location: { id: number; code: string; displayName: string } | null;
+  /** Whether the find row carries GPS coordinates. Drives the map
+   *  deep-link button on /statistiky cards — without GPS the
+   *  /mapa?find=N page can't resolve a highlight, so the button
+   *  is hidden. Always true for FarthestFindHighlight (its query
+   *  filter requires coordinates). */
+  hasGps: boolean;
 }
 
 /** A `FindHighlight` extended with great-circle distance — used for the
@@ -178,6 +184,8 @@ export interface JubileeFind {
   foundAt: string | null;
   isAnonymized: boolean;
   location: { code: string; displayName: string } | null;
+  /** Same role as on FindHighlight — gates the map deep-link button. */
+  hasGps: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -258,6 +266,7 @@ type HighlightRow = {
   location_id: number | null;
   location_code: string | null;
   location_display_name: string | null;
+  has_gps: boolean;
 };
 
 type FarthestRow = HighlightRow & { dist_m: number | null };
@@ -378,7 +387,8 @@ export async function getStatsHighlights(): Promise<StatsHighlightsResult> {
              CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
              CASE WHEN f.is_anonymized THEN NULL
                   ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
-             END AS location_display_name
+             END AS location_display_name,
+             (f.coordinates IS NOT NULL) AS has_gps
       FROM finds f
       LEFT JOIN locations l ON l.id = f.location_id
       ORDER BY f.id ASC
@@ -389,7 +399,8 @@ export async function getStatsHighlights(): Promise<StatsHighlightsResult> {
              CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
              CASE WHEN f.is_anonymized THEN NULL
                   ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
-             END AS location_display_name
+             END AS location_display_name,
+             (f.coordinates IS NOT NULL) AS has_gps
       FROM finds f
       LEFT JOIN locations l ON l.id = f.location_id
       ORDER BY f.id DESC
@@ -409,6 +420,7 @@ export async function getStatsHighlights(): Promise<StatsHighlightsResult> {
              CASE WHEN f.is_anonymized THEN NULL
                   ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
              END AS location_display_name,
+             true AS has_gps,
              ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref))::float8 AS dist_m
       FROM finds f
       LEFT JOIN locations l ON l.id = f.location_id
@@ -504,13 +516,15 @@ export async function getStatsJubilees(): Promise<StatsJubileesResult> {
       location_id: number | null;
       location_code: string | null;
       location_display_name: string | null;
+      has_gps: boolean;
     }>
   >`
     SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
            CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
            CASE WHEN f.is_anonymized THEN NULL
                 ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
-           END AS location_display_name
+           END AS location_display_name,
+           (f.coordinates IS NOT NULL) AS has_gps
     FROM finds f
     LEFT JOIN locations l ON l.id = f.location_id
     WHERE f.id IN (${Prisma.join(JUBILEE_CANDIDATE_IDS)})
@@ -531,6 +545,7 @@ export async function getStatsJubilees(): Promise<StatsJubileesResult> {
               displayName: r.location_display_name ?? r.location_code,
             }
           : null,
+      hasGps: r.has_gps === true,
     })),
   };
 }
@@ -770,6 +785,7 @@ function toHighlight(row: HighlightRow | undefined): FindHighlight | null {
             displayName: row.location_display_name ?? row.location_code,
           }
         : null,
+    hasGps: row.has_gps === true,
   };
 }
 

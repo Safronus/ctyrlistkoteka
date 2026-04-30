@@ -13,6 +13,7 @@ import {
   Globe2,
   HelpCircle,
   ImageOff,
+  MapPin,
   MapPinOff,
   Search,
   Sparkles,
@@ -416,15 +417,30 @@ function FindHighlightCard({
         </p>
       )}
 
-      {/* mt-auto + flex justify-center pushes the link to the bottom and
-          centres it horizontally so the two highlight cards line up. */}
-      <div className="mt-auto flex justify-center pt-4">
+      {/* mt-auto pushes the actions to the bottom; flex-wrap keeps the
+          two buttons side-by-side on the typical card width and stacks
+          them gracefully on a narrow column. The map button is hidden
+          for anonymized finds (CLAUDE.md §6 — no precise position) and
+          for finds without GPS (the /mapa?find=N highlight wouldn't
+          resolve). */}
+      <div className="mt-auto flex flex-wrap justify-center gap-2 pt-4">
         <Link
           href={`/sbirka/${find.id}`}
           className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
         >
           Otevřít nález #{find.id} →
         </Link>
+        {!find.isAnonymized && find.hasGps && (
+          <Link
+            href={`/mapa?find=${find.id}`}
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:border-brand-200 hover:text-brand-700 hover:shadow-sm"
+            aria-label={`Zobrazit nález #${find.id} na mapě`}
+            title="Zobrazit na mapě"
+          >
+            <MapPin className="h-4 w-4" aria-hidden />
+            Na mapě
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -1217,38 +1233,57 @@ function JubileeFindsSection({
 
 function JubileeCard({ find }: { find: JubileeFind }) {
   const date = find.foundAt ? new Date(find.foundAt) : null;
+  const showMapLink = !find.isAnonymized && find.hasGps;
+  // Two stacked links inside a wrapping div — same pattern as
+  // /sbirka FindList rows. The wrapper carries the card chrome (border,
+  // bg, hover) so both children share the visual treatment, and keeping
+  // them as siblings (not nested) avoids the "<a> inside <a>" pitfall
+  // and leaves each link area cleanly clickable on its own.
   return (
-    <Link
-      href={`/sbirka/${find.id}`}
-      className="flex h-full flex-col gap-1 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm transition hover:border-brand-200 hover:bg-brand-50 hover:shadow-sm"
-    >
-      <span className="font-mono text-base font-semibold text-brand-700">
-        {/* Jubilee headlines read better without zero-padding — #111
-            instead of #00111 keeps the milestone visually clean. The
-            rest of the site still uses formatLocationId() for IDs that
-            sit in tabular contexts where alignment matters. */}
-        #{find.id}
-      </span>
-      {find.isAnonymized ? (
-        <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800 self-start">
-          <HelpCircle className="h-3 w-3" aria-hidden />
-          Anonymizovaný
+    <div className="flex h-full flex-col rounded-md border border-gray-200 bg-gray-50 transition hover:border-brand-200 hover:bg-brand-50 hover:shadow-sm">
+      <Link
+        href={`/sbirka/${find.id}`}
+        className="flex flex-1 flex-col gap-1 p-3 text-sm"
+      >
+        <span className="font-mono text-base font-semibold text-brand-700">
+          {/* Jubilee headlines read better without zero-padding — #111
+              instead of #00111 keeps the milestone visually clean. The
+              rest of the site still uses formatLocationId() for IDs that
+              sit in tabular contexts where alignment matters. */}
+          #{find.id}
         </span>
-      ) : (
-        <>
-          <span className="text-xs text-gray-500">
-            {date ? formatDateTimeCs(date) : "Datum neznámé"}
+        {find.isAnonymized ? (
+          <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800 self-start">
+            <HelpCircle className="h-3 w-3" aria-hidden />
+            Anonymizovaný
           </span>
-          {find.location && (
-            <span
-              className="truncate font-mono text-xs text-gray-700"
-              title={find.location.displayName}
-            >
-              {find.location.code}
+        ) : (
+          <>
+            <span className="text-xs text-gray-500">
+              {date ? formatDateTimeCs(date) : "Datum neznámé"}
             </span>
-          )}
-        </>
+            {find.location && (
+              <span
+                className="truncate font-mono text-xs text-gray-700"
+                title={find.location.displayName}
+              >
+                {find.location.code}
+              </span>
+            )}
+          </>
+        )}
+      </Link>
+      {showMapLink && (
+        <Link
+          href={`/mapa?find=${find.id}`}
+          className="flex items-center justify-center gap-1 border-t border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-brand-100 hover:text-brand-700"
+          aria-label={`Zobrazit nález #${find.id} na mapě`}
+          title="Zobrazit na mapě"
+        >
+          <MapPin className="h-3.5 w-3.5" aria-hidden />
+          Na mapě
+        </Link>
       )}
-    </Link>
+    </div>
   );
 }
