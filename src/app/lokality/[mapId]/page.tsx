@@ -30,6 +30,7 @@ import {
   type LocationDetailFindPreview,
 } from "@/lib/queries/locations";
 import { countryFromCoords } from "@/lib/geo";
+import { RealPhotoButton } from "@/components/locations/real-photo-button";
 
 interface PageProps {
   params: Promise<{ mapId: string }>;
@@ -262,9 +263,24 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
 
       {/* Maps gallery (PNG overlays from EXIF metadata). One figure per
           map, no find-specific pin — this is just the location for
-          context. Anonymized maps are filtered out upstream. */}
+          context. Anonymized maps are filtered out upstream.
+          The optional real-life photo (when the author uploaded one
+          into ${GENERATED_DIR}/location-photos/) lives behind a button
+          in the panel header — opens a modal with the full image. */}
       {maps.length > 0 && (
-        <Panel title="Mapa lokality">
+        <Panel
+          title="Mapa lokality"
+          rightSlot={(() => {
+            const photoMap = maps.find((m) => m.realPhotoUrl !== null);
+            if (!photoMap || !photoMap.realPhotoUrl) return undefined;
+            return (
+              <RealPhotoButton
+                photoUrl={photoMap.realPhotoUrl}
+                caption={photoMap.description ?? base.code}
+              />
+            );
+          })()}
+        >
           <div className="space-y-3">
             {maps.map((m) => (
               <figure

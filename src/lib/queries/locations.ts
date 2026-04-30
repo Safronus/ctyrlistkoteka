@@ -11,6 +11,7 @@ import { FindState, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_LOCATION_ID } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
+import { getLocationMapPhotoUrl } from "@/lib/locationPhotos";
 import { isFormerLocation } from "@/lib/locationCode";
 import { paddedIdMatches, parseIdQuery } from "@/lib/search";
 
@@ -665,6 +666,11 @@ export interface LocationDetailMap {
   imageWidth: number | null;
   imageHeight: number | null;
   description: string | null;
+  /** Public URL of the optional real-life photo (with the AOI sketched
+   *  on top) bound to this location map, or null when no matching file
+   *  exists in `${GENERATED_DIR}/location-photos/`. Resolved at request
+   *  time via filename match; see src/lib/locationPhotos.ts. */
+  realPhotoUrl: string | null;
 }
 
 /** Compact handle for a related location (parent / sibling / child).
@@ -753,6 +759,11 @@ export async function getLocationDetailById(
           imageWidth: true,
           imageHeight: true,
           description: true,
+          // Needed for the real-photo lookup — `imagePath` is sha1-hashed
+          // for cache-busting, only the original (diacritics + plus
+          // signs) preserves the disk-side filename of the photo.
+          originalFilename: true,
+          isAnonymized: true,
         },
         orderBy: { id: "asc" },
       }),
@@ -850,14 +861,28 @@ export async function getLocationDetailById(
     isGone: isFormerLocation(c.code),
   }));
 
+  // Resolve the real-photo URL (if any) per map in parallel — each
+  // lookup is a hashmap hit against a TTL-cached directory listing, so
+  // running them concurrently just avoids holding up the response on
+  // the very first request after a cache eviction.
+  const photoUrls = await Promise.all(
+    mapRows.map((m) =>
+      getLocationMapPhotoUrl({
+        originalFilename: m.originalFilename,
+        isAnonymized: m.isAnonymized,
+      }),
+    ),
+  );
+
   return {
     base,
-    maps: mapRows.map((m) => ({
+    maps: mapRows.map((m, i) => ({
       id: m.id,
       imageUrl: m.imagePath,
       imageWidth: m.imageWidth,
       imageHeight: m.imageHeight,
       description: m.description,
+      realPhotoUrl: photoUrls[i] ?? null,
     })),
     parent,
     siblings,

@@ -134,6 +134,31 @@ cd /var/www/ctyrlistkoteka && pnpm sync --prune && pm2 restart ctyrlistkoteka
 `--prune` na čistém stavu nemá co mazat, takže nic nepokazí, a chrání před
 zapomenutým úklidem.
 
+### Reálné fotky lokalit (mimo `pnpm sync`)
+
+Detail lokality (`/lokality/<id>`) má v sekci **„Mapa lokality"** v pravém
+horním rohu hlavičky tlačítko **„Reálná fotka"**. Ukáže se jen tehdy, když
+má daná location-map ručně nahranou reálnou fotografii s vyznačeným AOI.
+
+Konvence:
+
+- **Cesta:** `${GENERATED_DIR}/location-photos/`  
+  (na produkci typicky `/var/ctyrlistkoteka/generated/location-photos/`).
+  Složku stačí jednou vytvořit (`mkdir -p`); Nginx ji obslouží přes
+  existující alias `/generated/`.
+- **Název souboru:** stejný jako `originalFilename` u dané mapy (s
+  diakritikou + plus signy, tak jak ji autor pojmenoval lokálně), bez
+  původní přípony, plus suffix `_reálné foto*.png`.
+  Příklad: pro mapu `REYKJAVÍK_MIKLABRAUT001+Island - po cestě…+00057.HEIC`
+  je očekávaná fotka `REYKJAVÍK_MIKLABRAUT001+Island - po cestě…+00057_reálné foto ve střední velikosti.png`.
+- **Formát:** PNG / JPG / JPEG / WebP, doporučená max šířka **1600 px**.
+- **Privacy:** anonymizované mapy se neresolvují i kdyby fotka existovala —
+  tlačítko se neukáže.
+
+Není potřeba spouštět `pnpm sync` — adresář se čte při každém ISR
+rerenderu (max 1× za 24 h na lokalitu) a indexuje se s 5min TTL caché,
+takže nová fotka se objeví bez `pm2 restart`.
+
 ### Automatický sync 2× denně
 
 Je k dispozici systemd timer (šablona `deploy/systemd-sync.timer` +
