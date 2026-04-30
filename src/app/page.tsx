@@ -423,14 +423,30 @@ function LatestFindSection({
           {latestFind.isAnonymized ? (
             <p className="mt-1 text-sm text-gray-500">Anonymizovaná lokalita</p>
           ) : latestFind.location ? (
-            <p
-              className="mt-1 truncate text-sm text-gray-700"
-              title={latestFind.location.code}
-            >
-              {latestFind.location.code}{" "}
+            // Mirrors FindTitle in src/components/finds/find-list.tsx
+            // — same shape (#0042 – CODE (popis)) so the home card and
+            // the /sbirka list speak the same language.
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-sm">
               <span className="font-mono text-xs text-gray-500">
                 {formatLocationId(latestFind.location.id)}
               </span>
+              <span className="text-gray-400">–</span>
+              <span
+                className="truncate text-gray-800"
+                title={latestFind.location.code}
+              >
+                {latestFind.location.code}
+              </span>
+              {latestFind.location.displayName &&
+                latestFind.location.displayName !==
+                  latestFind.location.code && (
+                  <span
+                    className="truncate text-gray-500"
+                    title={latestFind.location.displayName}
+                  >
+                    ({latestFind.location.displayName})
+                  </span>
+                )}
             </p>
           ) : (
             <p className="mt-1 text-sm text-gray-500">Bez lokality</p>
@@ -522,13 +538,15 @@ function TopLocationCard({
       <p className="mt-0.5 text-xs text-gray-500">
         {NF_CS.format(location.count)} {pluralCs(location.count, FINDS)}
       </p>
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-auto flex flex-col gap-2 pt-3">
         {/* /sbirka's `loc` filter folds parent → children automatically
             (see buildWhere in src/lib/queries/finds.ts), so a parent
             location surfaces every find across its sub-parts. Buttons
             stretch full-width per the home-card design — both actions
             are equally weighted, no reason to make them auto-sized
-            chips. */}
+            chips. `mt-auto` pins the action block to the card's
+            bottom edge so neighbouring cards line up regardless of
+            the body content height. */}
         <Link
           href={`/sbirka?loc=${location.id}`}
           className="flex w-full items-center justify-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
@@ -573,7 +591,7 @@ function PeakDayCard({
         {NF_CS.format(peakDay.count)} {pluralCs(peakDay.count, FINDS)}
       </p>
       <p className="mt-0.5 text-xs text-gray-500">{formatDateCs(date)}</p>
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-auto flex flex-col gap-2 pt-3">
         <Link
           href={`/sbirka?from=${isoDay}&to=${isoDay}`}
           className="flex w-full items-center justify-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
