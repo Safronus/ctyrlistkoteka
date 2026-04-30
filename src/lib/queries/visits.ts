@@ -27,6 +27,13 @@ export interface VisitTotal {
 }
 
 export async function getTotalVisits(): Promise<VisitTotal | null> {
+  // Skip during `next build`. Static pages that read this would
+  // otherwise burn one HTTPS round-trip per page render and pin the
+  // build to GoatCounter availability. ISR populates the cache on
+  // the first runtime request anyway — until then the badge renders
+  // its "???" fallback, which is fine for the few seconds it takes.
+  if (process.env.NEXT_PHASE === "phase-production-build") return null;
+
   const base = process.env.GOATCOUNTER_API_URL;
   const key = process.env.GOATCOUNTER_API_KEY;
   if (!base || !key) return null;
