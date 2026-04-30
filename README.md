@@ -159,6 +159,42 @@ Není potřeba spouštět `pnpm sync` — adresář se čte při každém ISR
 rerenderu (max 1× za 24 h na lokalitu) a indexuje se s 5min TTL caché,
 takže nová fotka se objeví bez `pm2 restart`.
 
+#### Synchronizace fotek z lokálu
+
+Fotky bydlí na Macu v iCloudu, na VPS jdou nahrát rsyncem. Zachovej
+trailing slash u source — zkopírují se OBSAHY složky, ne sama složka:
+
+```sh
+# Anonymizovaná verze (pro public dokumentaci)
+rsync -avz --progress --exclude='.DS_Store' \
+  '/Users/<user>/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Mapky lokací/Roztříděné/Reálné fotky/Připravené na web/' \
+  <user>@<host>:/var/ctyrlistkoteka/generated/location-photos/
+```
+
+Při prvním rsyncu vytvoř cílový adresář (jednou stačí):
+
+```sh
+ssh <user>@<host> 'mkdir -p /var/ctyrlistkoteka/generated/location-photos/'
+```
+
+Volitelně ověř, co se nahrálo:
+
+```sh
+ssh <user>@<host> 'ls -la /var/ctyrlistkoteka/generated/location-photos/ | head -20'
+```
+
+> **iCloud on-demand:** soubory ve `Mobile Documents/com~apple~CloudDocs`
+> mají Mac tendenci stahovat až při prvním otevření. Pokud rsync vrátí
+> *Resource temporarily unavailable* pro nějaký soubor, otevři Finder na
+> té cestě, počkej až se modré ikonky šipky překlopí do vyplněných, a
+> rsync znovu spusť. Případně preventivně:
+> `brctl download '/Users/<user>/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Mapky lokací/Roztříděné/Reálné fotky/Připravené na web/'`
+
+> **Bez `--delete`:** rsync defaultně NEMAŽE soubory na VPS, které byly
+> lokálně přejmenované/smazané. Pokud potřebuješ zrcadlo, přidej
+> `--delete` — ale pozor, smaže i to, co ti tam náhodou skončilo přes
+> jiný kanál. Pro řízený úklid raději `ssh ... 'rm /var/ctyrlistkoteka/generated/location-photos/<konkrétní>.png'`.
+
 ### Automatický sync 2× denně
 
 Je k dispozici systemd timer (šablona `deploy/systemd-sync.timer` +
@@ -184,6 +220,104 @@ systemctl list-timers | grep ctyrlistkoteka     # ověř plán
 
 Stav posledního běhu: `journalctl -u ctyrlistkoteka-sync.service -n 200`.
 
+## Bezpečnost — fail2ban + blocklist-tools
+
+Veřejný read-only web bez user-input nepotřebuje WAF, ale **scanner traffic**
+(`/.env`, `/wp-login.php`, brute-force SSH) má smysl odřezávat. Stack je
+dvouvrstvý:
+
+1. **Nginx** dropuje notorické scanner cesty na úrovni HTTP (snippet
+   `block-exploits.conf`) — instant 444, žádný backend overhead.
+2. **fail2ban** banuje opakované útočníky na úrovni firewall a každý
+   ban kopíruje do `/var/log/fail2ban-blocklist.tsv` (append-only audit
+   log). Z TSV se generuje **permaban list** pro nginx `deny` (IP, které
+   se v TSV objevily ≥ 3× za 30 dní) — ten už není pod `bantime`
+   expirací a jede dokud ji ručně nesundáš.
+
+Plný setup (instalace, konfigurace, ssh hardening, AbuseIPDB integrace)
+popisuje [`deploy/README.md`](deploy/README.md) — sekce *Security
+hardening*. Tady níže je jen **denní operativa**.
+
+### Co kde najdeš
+
+| Co | Příkaz |
+| --- | --- |
+| Aktuálně banované IP v jailu | `sudo fail2ban-client status nginx-noscript` (nebo `sshd`, `sshd-logger`) |
+| Souhrn banů (top IP, top jails) | `sudo blocklist-tools.sh stats` |
+| Posledních N banů s důvodem | `sudo blocklist-tools.sh recent 20` |
+| Všechny IP setříděné podle počtu banů | `sudo blocklist-tools.sh ips` |
+| Manuální unban | `sudo fail2ban-client unban <ip>` |
+| Append-only audit log | `sudo less /var/log/fail2ban-blocklist.tsv` |
+
+### Generování permaban listu
+
+`blocklist-tools.sh nginx-deny` projde `/var/log/fail2ban-blocklist.tsv`,
+najde IP které **z `nginx-noscript` jailu** překročily práh (default
+3× za 30 dní), a zapíše je do
+`/etc/nginx/snippets/permaban-list.conf` jako `deny <ip>;`. SSH bany se
+do nginx-deny **záměrně nepromítají** (HTTP `deny` na SSH nemá vliv,
+sshd jail to řeší nezávisle).
+
+```sh
+# Jednorázově
+sudo blocklist-tools.sh nginx-deny
+sudo nginx -t && sudo systemctl reload nginx
+
+# Přísnější varianta (2× za 14 dní)
+sudo PERMABAN_THRESHOLD=2 WINDOW_DAYS=14 blocklist-tools.sh nginx-deny
+
+# Auto-regenerace přes cron (denně 04:00)
+sudo crontab -e
+# 0 4 * * * /usr/local/sbin/blocklist-tools.sh nginx-deny && /usr/sbin/nginx -t && /bin/systemctl reload nginx
+```
+
+Nginx config musí permaban list jednorázově zaincludovat — v
+`/etc/nginx/sites-available/ctyrlistkoteka` v `server { ... }` bloku:
+
+```nginx
+include /etc/nginx/snippets/permaban-list.conf;
+```
+
+### AbuseIPDB reporting
+
+Cron `/etc/cron.d/abuseipdb-report` běží denně 5:30, čte nové bany
+z TSV a posílá je na [abuseipdb.com](https://www.abuseipdb.com/) bulk
+endpoint. Útočníci se přidávají do veřejné databáze, tvoje confidence
+score s objemem reportů roste.
+
+| Co | Kde |
+| --- | --- |
+| Manuální spuštění (smoke test) | `sudo /usr/local/sbin/abuseipdb-report.sh` |
+| Log | `sudo tail -f /var/log/abuseipdb-report.log` |
+| API key (chmod 600) | `/etc/abuseipdb-key` |
+| Stav (poslední timestamp) | `cat /var/lib/abuseipdb-report/last-timestamp` |
+
+Mapování jail → AbuseIPDB kategorie:
+
+| Jail | Kategorie | Význam |
+| --- | --- | --- |
+| `sshd`, `sshd-logger` | 18, 22 | Brute-Force, SSH |
+| `nginx-noscript` | 19, 21 | Bad Web Bot, Web App Attack |
+| ostatní | 15 | Hacking |
+
+Skript si pamatuje poslední úspěšně reportovaný timestamp; když smažeš
+`/var/lib/abuseipdb-report/last-timestamp`, příští run reportuje vše
+(starší než 30 dní AbuseIPDB stejně vyhodí jako `invalidReports`).
+
+### Whitelist vlastní IP
+
+Aby tě fail2ban náhodou nezbanoval (např. když ladíš a omylem trefíš
+6× exploit URL), přidej home/mobile IP do `[DEFAULT]` v
+`/etc/fail2ban/jail.local`:
+
+```ini
+[DEFAULT]
+ignoreip = 127.0.0.1/8 ::1 <vlastní IPv4> <vlastní IPv6/64>
+```
+
+Pak `sudo fail2ban-client reload`. Whitelist je separátní pro
+GoatCounter (Settings → Ignore IPs ve stats subdoméně).
+
 ## Dokumentace
 
 - [`CLAUDE.md`](CLAUDE.md) — závazné pokyny pro práci na projektu
@@ -192,6 +326,7 @@ Stav posledního běhu: `journalctl -u ctyrlistkoteka-sync.service -n 200`.
 - [`docs/filename-convention.md`](docs/filename-convention.md) — konvence názvů souborů (**důležité**)
 - [`docs/sync-workflow.md`](docs/sync-workflow.md) — import dat
 - [`docs/deployment.md`](docs/deployment.md) — deployment na OVH
+- [`deploy/README.md`](deploy/README.md) — katalog produkčních artefaktů + plný security setup
 
 ## Přispívání
 
