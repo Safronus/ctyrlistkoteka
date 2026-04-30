@@ -394,16 +394,23 @@ function LatestFindSection({
     ? `Anonymizovaný nález #${latestFind.id}`
     : `Nález #${latestFind.id}`;
   const foundAtDate = latestFind.foundAt ? new Date(latestFind.foundAt) : null;
+  // Same gating as FindListRow on /sbirka — the map deep-link only
+  // makes sense when the find has a public GPS point. Anonymized
+  // finds expose at most coarsened coords, so pinning them precisely
+  // would defeat anonymization.
+  const showMapLink =
+    !latestFind.isAnonymized && latestFind.coordinates !== null;
 
   return (
     <section className="mt-8">
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
         Poslední nález
       </h2>
-      <Link
-        href={`/sbirka/${latestFind.id}`}
-        className="group flex flex-col gap-4 overflow-hidden rounded-xl border border-gray-200 bg-white p-3 transition hover:border-brand-200 hover:shadow-sm sm:flex-row sm:items-center sm:p-4"
-      >
+      <div className="group flex items-stretch overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm">
+        <Link
+          href={`/sbirka/${latestFind.id}`}
+          className="flex min-w-0 flex-1 flex-col gap-4 p-3 sm:flex-row sm:items-center sm:p-4"
+        >
         <FindThumbnail
           image={latestFind.primaryImage}
           alt={altText}
@@ -468,6 +475,17 @@ function LatestFindSection({
           </p>
         </div>
       </Link>
+      {showMapLink && (
+        <Link
+          href={`/mapa?find=${latestFind.id}`}
+          aria-label="Zobrazit nález na mapě"
+          title="Zobrazit nález na mapě"
+          className="flex shrink-0 items-center justify-center border-l border-gray-100 px-3 text-gray-400 transition hover:bg-brand-100 hover:text-brand-700 focus:bg-brand-100 focus:text-brand-700 focus:outline-none"
+        >
+          <MapPin className="h-5 w-5" aria-hidden />
+        </Link>
+      )}
+      </div>
     </section>
   );
 }

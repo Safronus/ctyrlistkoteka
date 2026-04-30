@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
-import { ImageType } from "@prisma/client";
+import { FindState, ImageType } from "@prisma/client";
 import {
   DetailVibeOverlay,
   isHellishFind,
@@ -88,12 +88,18 @@ export default async function FindDetailPage({ params }: PageProps) {
   // Each find has at most one main photo (ORIGINAL) and at most one crop
   // (CROP). If imports leave duplicates behind, we still pick a single
   // representative for each — the page never shows multiple variants.
-  const mainImage =
-    find.images.find((i) => i.imageType === ImageType.ORIGINAL) ??
-    find.images[0] ??
-    null;
-  const cropImage =
-    find.images.find((i) => i.imageType === ImageType.CROP) ?? null;
+  // Finds tagged NO_PHOTO have no images by definition; force both
+  // slots to null so the gallery renders the placeholder instead of
+  // a stale crop sneaking through and dragging the lupa with it.
+  const isNoPhoto = find.states.includes(FindState.NO_PHOTO);
+  const mainImage = isNoPhoto
+    ? null
+    : (find.images.find((i) => i.imageType === ImageType.ORIGINAL) ??
+      find.images[0] ??
+      null);
+  const cropImage = isNoPhoto
+    ? null
+    : (find.images.find((i) => i.imageType === ImageType.CROP) ?? null);
 
   // #111 and #666 get special atmospheric overlays — see CLAUDE.md /
   // detail-vibe-overlay.tsx for the contract. Everything else renders
