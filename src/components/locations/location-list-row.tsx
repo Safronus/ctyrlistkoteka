@@ -84,12 +84,12 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
                   {location.distanceFromDefault !== null && (
                     <span
                       className="text-xs text-gray-500"
-                      title="Vzdušná vzdálenost od GPS středu lokační mapy 00001"
+                      title="Vzdušná vzdálenost od GPS středu výchozí lokační mapy #00001"
                     >
                       <span className="font-mono tabular-nums text-gray-800">
                         {formatDistance(location.distanceFromDefault)}
                       </span>{" "}
-                      od MAP 00001
+                      od mapy #00001
                     </span>
                   )}
                 </div>

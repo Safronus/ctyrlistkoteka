@@ -407,13 +407,13 @@ function FindHighlightCard({
       {distanceMeters !== undefined && (
         <p
           className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-500"
-          title="Vzdálenost počítaná od GPS středu lokační mapy 00001 (defaultní)"
+          title="Vzdálenost počítaná od GPS středu výchozí lokační mapy #00001"
         >
           <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
           <span className="font-mono tabular-nums text-gray-900">
             {formatDistance(distanceMeters)}
           </span>
-          <span>od MAP 00001</span>
+          <span>od mapy #00001</span>
         </p>
       )}
 

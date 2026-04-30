@@ -67,9 +67,9 @@ export function FindCard({ find }: { find: PublicFind }) {
         {!find.isAnonymized && find.distanceFromDefault !== null && (
           <p
             className="truncate text-xs text-gray-500"
-            title="Vzdušná vzdálenost od GPS středu lokační mapy 00001"
+            title="Vzdušná vzdálenost od GPS středu výchozí lokační mapy #00001"
           >
-            {formatDistance(find.distanceFromDefault)} od MAP 00001
+            {formatDistance(find.distanceFromDefault)} od mapy #00001
           </p>
         )}
 

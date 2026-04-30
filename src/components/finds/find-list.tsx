@@ -89,9 +89,9 @@ function FindListRow({ find }: { find: PublicFind }) {
                   {" · "}
                   <span
                     className="text-gray-600"
-                    title="Vzdušná vzdálenost od GPS středu lokační mapy 00001"
+                    title="Vzdušná vzdálenost od GPS středu výchozí lokační mapy #00001"
                   >
-                    {formatDistance(find.distanceFromDefault)} od MAP 00001
+                    {formatDistance(find.distanceFromDefault)} od mapy #00001
                   </span>
                 </>
               )}

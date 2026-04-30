@@ -173,7 +173,7 @@ export default async function FindDetailPage({ params }: PageProps) {
                   className={`text-xs ${
                     hellish ? "text-red-300/80" : "text-gray-500"
                   }`}
-                  title="Vzdušná vzdálenost od GPS středu lokační mapy 00001"
+                  title="Vzdušná vzdálenost od GPS středu výchozí lokační mapy #00001"
                 >
                   <span
                     className={`font-mono tabular-nums ${
@@ -182,7 +182,7 @@ export default async function FindDetailPage({ params }: PageProps) {
                   >
                     {formatDistance(find.distanceFromDefault)}
                   </span>{" "}
-                  od MAP 00001
+                  od mapy #00001
                 </span>
               )}
             </div>
