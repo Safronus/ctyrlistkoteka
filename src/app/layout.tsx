@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Image from "next/image";
 import { Github, Linkedin, Sparkles } from "lucide-react";
+import { AnniversaryOverlay } from "@/components/anniversary/anniversary-overlay";
 import { MainNav } from "@/components/main-nav";
 import { ThemeScript } from "@/components/theme-script";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/constants";
+import { getAnniversaryDates } from "@/lib/queries/anniversaries";
 import "./globals.css";
 
 const inter = Inter({
@@ -40,11 +42,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // MM-DD strings for the project's three special-find anniversaries
+  // (find #1, #111, #666). The actual today-vs-anniversary check
+  // happens client-side so it stays correct across ISR-cached pages.
+  const anniversaries = await getAnniversaryDates();
   return (
     <html lang="cs" className={inter.variable} data-theme="clover">
       <body className="flex min-h-screen flex-col">
@@ -52,6 +58,8 @@ export default function RootLayout({
         <MainNav />
 
         <main className="flex-1">{children}</main>
+
+        <AnniversaryOverlay anniversaries={anniversaries} />
 
         <footer className="border-t border-gray-200 bg-gray-50 py-6">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 text-center text-sm text-gray-500 sm:px-6 lg:px-8">
