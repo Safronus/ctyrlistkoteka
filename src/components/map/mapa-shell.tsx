@@ -103,6 +103,15 @@ export function MapaShell({
   // the marker they were sent to. They can flip the layer back on in
   // the sidebar if they want full context; the highlight stays.
   const [showFinds, setShowFinds] = useState(highlightFind === null);
+  // Once the visitor explicitly picks a different location (sidebar or
+  // polygon), the URL-driven highlight is no longer the primary subject
+  // and must step aside — otherwise MapView's bounds memo keeps the
+  // viewport zoomed on the highlight find regardless of focusLocationId,
+  // and the FitBounds key (`find-N`) never changes so no refit fires.
+  // Result before this flag: clicking a sidebar row did nothing (or
+  // dropped the visitor on the wrong place).
+  const [highlightCleared, setHighlightCleared] = useState(false);
+  const effectiveHighlightFind = highlightCleared ? null : highlightFind;
   // Former (NEEXISTUJE-) locations stay hidden by default — the typical
   // visitor wants to browse active places. Toggling them on reveals the
   // red striped polygons + dots; legend swatch matches either way.
@@ -152,6 +161,10 @@ export function MapaShell({
   const handleSelectLocation = useCallback(
     (id: number) => {
       setFocusId(id);
+      // Drop the URL-driven highlight as soon as the user picks any
+      // location themselves — see `highlightCleared` declaration above
+      // for why this is needed for bounds/refit to work.
+      setHighlightCleared(true);
       // Auto-enable the polygon when the user picks a child row, so
       // the focus animation lands on a visible shape rather than a
       // blank centre point — matches the deep-link behaviour above.
@@ -246,7 +259,7 @@ export function MapaShell({
         showFinds={showFinds}
         showGone={showGone}
         enabledChildPolygonIds={enabledChildPolygonIds}
-        highlightFind={highlightFind}
+        highlightFind={effectiveHighlightFind}
         highlightFindIds={highlightFindIds}
         onSelectLocation={handleSelectLocation}
         onDeselectLocation={handleDeselectLocation}
