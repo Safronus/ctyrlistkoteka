@@ -27,19 +27,20 @@ export function CloverParticle(size: number): ReactNode {
   );
 }
 
-/** Bold "1" digit — emerald variant for the first-find anniversary.
- *  Styled as inline-flex text so the cap-height aligns with the size
- *  budget instead of leaving white space above the glyph. */
-export function DigitOneParticle(size: number): ReactNode {
+/** Bold "#1" badge — emerald variant for the first-find anniversary.
+ *  Two-character glyph so the wrapping span needs ~1.5× width vs. a
+ *  single digit; font sized down so the visual weight stays close to
+ *  the bare-clover sprites it falls alongside. */
+export function HashOneParticle(size: number): ReactNode {
   return (
     <span
       style={{
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: size,
+        width: size * 1.5,
         height: size,
-        fontSize: size * 0.95,
+        fontSize: size * 0.85,
         fontWeight: 800,
         color: "#15803d",
         textShadow: "0 0 6px rgba(21, 128, 61, 0.45)",
@@ -47,7 +48,7 @@ export function DigitOneParticle(size: number): ReactNode {
         lineHeight: 1,
       }}
     >
-      1
+      #1
     </span>
   );
 }
@@ -130,23 +131,35 @@ export function CakeParticle(size: number): ReactNode {
   );
 }
 
-/** Smiley emoji — birthday variant. Mimics the photo-watermark idea
- *  the project owner uses elsewhere; the overlay scatters the same
- *  motif across the page rather than placing it at a fixed spot. */
-export function SmileyParticle(size: number): ReactNode {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: size,
-        height: size,
-        fontSize: size * 0.95,
-        lineHeight: 1,
-      }}
-    >
-      😊
-    </span>
-  );
+/** Returns a particle renderer that paints the project owner's
+ *  photo watermark (the smiley used as a vodoznak on collection
+ *  photos and on the home-page hero) at the requested size.
+ *  Parameterised by URL because the watermark file lives outside
+ *  `public/` and is served by an API route — the layout passes the
+ *  resolved `/api/watermark` URL down at render time. The factory
+ *  approach keeps the kind list easy to spread/weight while making
+ *  the URL injection explicit. */
+export function makeWatermarkSmileyParticle(src: string) {
+  function WatermarkSmileyParticle(size: number): ReactNode {
+    return (
+      // Plain <img> mirrors the home page — Nginx serves the bytes
+      // and Next/Image's optimizer would just add latency for a tiny
+      // overlay sprite that doesn't need transformation.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        width={size}
+        height={size}
+        className="theme-invertible"
+        style={{
+          width: size,
+          height: size,
+          objectFit: "contain",
+        }}
+      />
+    );
+  }
+  return WatermarkSmileyParticle;
 }

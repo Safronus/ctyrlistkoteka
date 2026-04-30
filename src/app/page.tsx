@@ -203,7 +203,54 @@ export default async function HomePage() {
       {data.latestFind && <LatestFindSection latestFind={data.latestFind} />}
 
       <RandomFindShowcaseWidget initial={randomFind} />
+
+      <AnniversaryDebugRow />
     </div>
+  );
+}
+
+/**
+ * Temporary debug controls for the site-wide anniversary overlays.
+ * Each button just sets a `?effect=…` query that the AnniversaryOverlay
+ * client picks up and forces — useful for previewing each variant on
+ * any day. Remove this block (and the matching `?effect=` reader in
+ * AnniversaryOverlay) once the project owner has signed off on every
+ * variant.
+ */
+function AnniversaryDebugRow() {
+  const buttons: ReadonlyArray<{ effect: string; label: string }> = [
+    { effect: "first", label: "Výročí #1" },
+    { effect: "j111", label: "Výročí #111" },
+    { effect: "j666", label: "Výročí #666" },
+    { effect: "birthday", label: "Narozeniny 23.11." },
+  ];
+  return (
+    <section className="mt-12 rounded-xl border border-dashed border-amber-300 bg-amber-50/60 p-4 text-center">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+        Debug — náhled efektů (dočasné)
+      </h2>
+      <p className="mt-1 text-xs text-amber-700/80">
+        Klikni pro zapnutí, „Vypnout“ pro návrat. Tlačítka odejdou po
+        schválení.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+        {buttons.map((b) => (
+          <Link
+            key={b.effect}
+            href={`/?effect=${b.effect}`}
+            className="inline-flex items-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 transition hover:border-amber-500 hover:bg-amber-100"
+          >
+            {b.label}
+          </Link>
+        ))}
+        <Link
+          href="/?effect=off"
+          className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-500 hover:bg-gray-100"
+        >
+          Vypnout
+        </Link>
+      </div>
+    </section>
   );
 }
 

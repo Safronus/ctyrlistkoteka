@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Image from "next/image";
+import { Suspense } from "react";
 import { Github, Linkedin, Sparkles } from "lucide-react";
 import { AnniversaryOverlay } from "@/components/anniversary/anniversary-overlay";
 import { MainNav } from "@/components/main-nav";
 import { ThemeScript } from "@/components/theme-script";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/constants";
 import { getAnniversaryDates } from "@/lib/queries/anniversaries";
+import { getWatermarkMeta } from "@/lib/queries/watermark";
 import "./globals.css";
 
 const inter = Inter({
@@ -50,7 +52,12 @@ export default async function RootLayout({
   // MM-DD strings for the project's three special-find anniversaries
   // (find #1, #111, #666). The actual today-vs-anniversary check
   // happens client-side so it stays correct across ISR-cached pages.
-  const anniversaries = await getAnniversaryDates();
+  // Watermark URL is needed by the birthday variant (smiley sprite)
+  // and resolves to null when the file isn't on disk in dev.
+  const [anniversaries, watermark] = await Promise.all([
+    getAnniversaryDates(),
+    getWatermarkMeta(),
+  ]);
   return (
     <html lang="cs" className={inter.variable} data-theme="clover">
       <body className="flex min-h-screen flex-col">
@@ -59,7 +66,15 @@ export default async function RootLayout({
 
         <main className="flex-1">{children}</main>
 
-        <AnniversaryOverlay anniversaries={anniversaries} />
+        {/* Suspense is required because AnniversaryOverlay reads
+            useSearchParams — Next.js refuses to prerender pages that
+            touch the URL search params without a Suspense boundary. */}
+        <Suspense fallback={null}>
+          <AnniversaryOverlay
+            anniversaries={anniversaries}
+            watermarkSrc={watermark?.src ?? null}
+          />
+        </Suspense>
 
         <footer className="border-t border-gray-200 bg-gray-50 py-6">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 text-center text-sm text-gray-500 sm:px-6 lg:px-8">
