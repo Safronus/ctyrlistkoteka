@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { EyeOff, MapPin } from "lucide-react";
+import { ExternalLink, EyeOff, MapPin } from "lucide-react";
 import {
   formatAreaM2,
   formatDensityPer100m2,
   formatLocationId,
+  locationDetailHref,
 } from "@/lib/format";
 import type {
   LocationDensityPoint,
@@ -233,7 +234,12 @@ function Row({
             </p>
           )}
         </div>
-        {!isAnonymized && <MapButton id={id} />}
+        {!isAnonymized && (
+          <div className="flex shrink-0 items-start gap-1">
+            <DetailButton id={id} />
+            <MapButton id={id} />
+          </div>
+        )}
       </div>
       <Bar
         value={value}
@@ -323,10 +329,26 @@ function MapButton({ id }: { id: number }) {
   return (
     <Link
       href={`/mapa?focus=${id}`}
+      aria-label="Zobrazit lokalitu na mapě"
+      title="Zobrazit lokalitu na mapě"
       className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
     >
       <MapPin className="h-3.5 w-3.5" aria-hidden />
       <span className="hidden sm:inline">Mapa</span>
+    </Link>
+  );
+}
+
+function DetailButton({ id }: { id: number }) {
+  return (
+    <Link
+      href={locationDetailHref(id)}
+      aria-label="Detail lokality"
+      title="Detail lokality"
+      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+    >
+      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+      <span className="hidden sm:inline">Detail</span>
     </Link>
   );
 }
