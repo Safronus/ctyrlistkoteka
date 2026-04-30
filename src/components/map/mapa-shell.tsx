@@ -201,6 +201,11 @@ export function MapaShell({
     // interaction.
     setHighlightCleared(true);
     setFocusId(null);
+    // Bulk Nálezy layer was suppressed on arrival so the single
+    // highlight could stand out — turning it back on as the visitor
+    // dismisses the popup matches "normal mode" expectations and
+    // surfaces the surrounding find dots they likely came to explore.
+    setShowFinds(true);
   }, []);
 
   const handleToggleChildPolygon = useCallback((id: number) => {
