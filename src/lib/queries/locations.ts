@@ -694,6 +694,11 @@ export interface LocationDetail {
   base: LocationListItem;
   maps: LocationDetailMap[];
   parent: LocationHandle | null;
+  /** Other children of `parent` — i.e. the current location's siblings.
+   *  Empty when `parent` is null (the current location is a top-level
+   *  master). The parent itself is NOT in this list — it's surfaced
+   *  separately via `parent`. */
+  siblings: LocationHandle[];
   children: LocationHandle[];
   recentFinds: LocationDetailFindPreview[];
 }
@@ -728,53 +733,86 @@ export async function getLocationDetailById(
   // privacy stub, but skip every detail fetch — none of those fields
   // may be exposed.
   if (base.isAnonymized) {
-    return { base, maps: [], parent: null, children: [], recentFinds: [] };
+    return {
+      base,
+      maps: [],
+      parent: null,
+      siblings: [],
+      children: [],
+      recentFinds: [],
+    };
   }
 
-  const [mapRows, parentRow, childRows, recentRows] = await Promise.all([
-    prisma.locationMap.findMany({
-      where: { locationId: id, isAnonymized: false },
-      select: {
-        id: true,
-        imagePath: true,
-        imageWidth: true,
-        imageHeight: true,
-        description: true,
-      },
-      orderBy: { id: "asc" },
-    }),
-    base.parentId !== null
-      ? prisma.location.findUnique({
-          where: { id: base.parentId },
-          select: {
-            id: true,
-            code: true,
-            displayName: true,
-            // Parent's own count is computed below; we only fetch the
-            // identification fields here. `isGone` is derived from `code`
-            // via isFormerLocation() at assembly time.
-          },
-        })
-      : Promise.resolve(null),
-    prisma.location.findMany({
-      where: { parentId: id },
-      select: {
-        id: true,
-        code: true,
-        displayName: true,
-      },
-      orderBy: { id: "asc" },
-    }),
-    // Recent finds preview — own + (when this location is a parent)
-    // every visible sub-part. listLocations already exposes the count
-    // via aggregateStats; we just need lightweight rows here.
-    fetchRecentFindsForLocation(id),
-  ]);
+  const [mapRows, parentRow, childRows, parentChildRows, recentRows] =
+    await Promise.all([
+      prisma.locationMap.findMany({
+        where: { locationId: id, isAnonymized: false },
+        select: {
+          id: true,
+          imagePath: true,
+          imageWidth: true,
+          imageHeight: true,
+          description: true,
+        },
+        orderBy: { id: "asc" },
+      }),
+      base.parentId !== null
+        ? prisma.location.findUnique({
+            where: { id: base.parentId },
+            select: {
+              id: true,
+              code: true,
+              displayName: true,
+              // `isGone` derives from `code` via isFormerLocation() at
+              // assembly time; findCount is summed below from the
+              // batched groupBy.
+            },
+          })
+        : Promise.resolve(null),
+      prisma.location.findMany({
+        where: { parentId: id },
+        select: {
+          id: true,
+          code: true,
+          displayName: true,
+        },
+        orderBy: { id: "asc" },
+      }),
+      // Siblings preview — every other child of THIS location's parent.
+      // We fetch the parent's full child set (which includes `base.id`)
+      // and filter `base` out at assembly time; doing it that way also
+      // gives us the per-sibling counts we need to roll up the parent's
+      // aggregate findCount in the same batch.
+      base.parentId !== null
+        ? prisma.location.findMany({
+            where: { parentId: base.parentId },
+            select: {
+              id: true,
+              code: true,
+              displayName: true,
+            },
+            orderBy: { id: "asc" },
+          })
+        : Promise.resolve([] as Array<{
+            id: number;
+            code: string;
+            displayName: string;
+          }>),
+      // Recent finds preview — own + (when this location is a parent)
+      // every visible sub-part. listLocations already exposes the count
+      // via aggregateStats; we just need lightweight rows here.
+      fetchRecentFindsForLocation(id),
+    ]);
 
   // Lookup per-handle find counts in one batched query so the parent +
-  // children chips can show "(N nálezů)" without N+1.
+  // siblings + children chips can show "(N nálezů)" without N+1. The
+  // parent's row is included so we can sum parent-own + every parent's
+  // child to expose an aggregate count on the parent handle (matches
+  // /lokality and the master cards on /statistiky — visitors expect a
+  // master location's count to fold its sub-parts in).
   const handleIds = [
     ...(parentRow ? [parentRow.id] : []),
+    ...parentChildRows.map((c) => c.id),
     ...childRows.map((c) => c.id),
   ];
   const findCounts = await fetchFindCountsByLocation(handleIds);
@@ -784,10 +822,25 @@ export async function getLocationDetailById(
         id: parentRow.id,
         code: parentRow.code,
         displayName: parentRow.displayName,
-        findCount: findCounts.get(parentRow.id) ?? 0,
+        findCount:
+          (findCounts.get(parentRow.id) ?? 0) +
+          parentChildRows.reduce(
+            (sum, c) => sum + (findCounts.get(c.id) ?? 0),
+            0,
+          ),
         isGone: isFormerLocation(parentRow.code),
       }
     : null;
+
+  const siblings: LocationHandle[] = parentChildRows
+    .filter((c) => c.id !== base.id)
+    .map((c) => ({
+      id: c.id,
+      code: c.code,
+      displayName: c.displayName,
+      findCount: findCounts.get(c.id) ?? 0,
+      isGone: isFormerLocation(c.code),
+    }));
 
   const children: LocationHandle[] = childRows.map((c) => ({
     id: c.id,
@@ -807,6 +860,7 @@ export async function getLocationDetailById(
       description: m.description,
     })),
     parent,
+    siblings,
     children,
     recentFinds: recentRows,
   };

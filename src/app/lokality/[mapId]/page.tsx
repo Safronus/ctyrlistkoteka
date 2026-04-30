@@ -166,7 +166,7 @@ function AnonymizedStub({ id }: { id: number }) {
 // ---------------------------------------------------------------------------
 
 function FullDetail({ detail }: { detail: LocationDetail }) {
-  const { base, maps, parent, children, recentFinds } = detail;
+  const { base, maps, parent, siblings, children, recentFinds } = detail;
   const isChild = base.parentId !== null;
   const isLeaf = base.childCount === 0;
   const aggregate = base.aggregateStats;
@@ -279,21 +279,49 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
         <SummaryGrid base={base} />
       </Panel>
 
-      {(parent || children.length > 0) && (
-        <Panel title={isLeaf ? "Související lokalita" : "Dílčí části"}>
-          <div className="space-y-2">
+      {(parent || siblings.length > 0 || children.length > 0) && (
+        <Panel title={isLeaf ? "Související lokality" : "Dílčí části"}>
+          <div className="space-y-3">
             {parent && (
-              <p className="text-xs text-gray-500">Nadřazená lokalita:</p>
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Nadřazená lokalita
+                </p>
+                <HandleRow handle={parent} />
+              </div>
             )}
-            {parent && <HandleRow handle={parent} />}
+            {siblings.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Sourozenecké části ({siblings.length})
+                </p>
+                <ul className="space-y-1">
+                  {siblings.map((s) => (
+                    <li key={s.id}>
+                      <HandleRow handle={s} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {children.length > 0 && (
-              <ul className="space-y-1">
-                {children.map((c) => (
-                  <li key={c.id}>
-                    <HandleRow handle={c} />
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-1.5">
+                {/* When the current node is a master, the panel title
+                    "Dílčí části" already names this section — render the
+                    children list bare to avoid the duplicate header. */}
+                {isChild && (
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    Dílčí části ({children.length})
+                  </p>
+                )}
+                <ul className="space-y-1">
+                  {children.map((c) => (
+                    <li key={c.id}>
+                      <HandleRow handle={c} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         </Panel>
