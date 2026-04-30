@@ -75,18 +75,16 @@ export function MapaShell({
   const [sidebarOpen, setSidebarOpen] = useState(
     urlFocusId !== null || highlightFind !== null,
   );
-  // Vrstvy + Legenda are space-hungry on a phone; collapse them by
-  // default below md so the visitor sees the map under the floating
-  // controls. Desktop keeps them expanded since vertical real-estate
-  // is plentiful there.
+  // Vrstvy is space-hungry on a phone; collapse it by default below md
+  // so the visitor sees the map under the floating control. Desktop
+  // keeps it expanded since vertical real-estate is plentiful there.
+  // (Legenda is now a thin bar at the bottom edge — no collapse needed.)
   const [layersExpanded, setLayersExpanded] = useState(true);
-  const [legendExpanded, setLegendExpanded] = useState(true);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const isDesktop = window.matchMedia("(min-width: 768px)").matches;
     if (!isDesktop) {
       setLayersExpanded(false);
-      setLegendExpanded(false);
       // Mobile deep-link → keep the map clear; visitor came to see the
       // pinned location, not the list. They can tap the Lokality pill
       // to open the sheet at any time.
@@ -355,22 +353,15 @@ export function MapaShell({
         </>
       )}
 
-      {/* Layer toggles + colour legend live OUTSIDE the sidebar so they
-       *  stay visible when the panel is collapsed. Pinned to the top
-       *  edge right next to Leaflet's zoom buttons (which sit at
-       *  ~10px+26px = 36px from the left). Legenda first so it's the
-       *  closer reference to the polygons being explained; Vrstvy is the
-       *  control surface and sits under it.
+      {/* Vrstvy lives OUTSIDE the sidebar so it stays visible when the
+       *  panel is collapsed. Pinned to the top edge right next to
+       *  Leaflet's zoom buttons (~10px+26px = 36px from the left).
        *
-       *  Width is capped on mobile (w-40 = 10rem) so the column fits
+       *  Width is capped on mobile (w-40 = 10rem) so the card fits
        *  between the zoom controls and the right-side "Lokality" pill
        *  on a 375px viewport without overlapping. Desktop drops the
        *  cap. */}
-      <div className="absolute left-14 top-3 z-[400] flex w-40 flex-col gap-2 md:w-auto md:max-w-xs">
-        <LocationLegend
-          expanded={legendExpanded}
-          onToggleExpanded={() => setLegendExpanded((v) => !v)}
-        />
+      <div className="absolute left-14 top-3 z-[400] w-40 md:w-auto md:max-w-xs">
         <LayerToggleCard
           showLocations={showLocations}
           onToggleLocations={setShowLocations}
@@ -386,6 +377,12 @@ export function MapaShell({
           onToggleExpanded={() => setLayersExpanded((v) => !v)}
         />
       </div>
+
+      {/* Legenda — jednořádková lišta u dolního okraje, vizuálně
+       *  sladěná s Leaflet attribution na pravé straně (stejná výška,
+       *  stejný typ pozadí). Zabírá minimum místa a sedí pod
+       *  informačním proužkem o GPS přesnosti. */}
+      <MapLegendBar />
 
       {/* Hidden defs SVG — provides the diagonal-stripes pattern used as
        *  fill for former-location polygons. Lives in the same document
@@ -562,44 +559,23 @@ function ToggleRow({
   );
 }
 
-function LocationLegend({
-  expanded,
-  onToggleExpanded,
-}: {
-  expanded: boolean;
-  onToggleExpanded: () => void;
-}) {
+function MapLegendBar() {
   return (
-    <div className="rounded-md border border-gray-200 bg-white/95 px-2.5 py-2 text-[11px] shadow-md">
-      <button
-        type="button"
-        onClick={onToggleExpanded}
-        className="flex w-full items-center justify-between gap-2 rounded text-left"
-        aria-expanded={expanded}
-        aria-label={expanded ? "Sbalit legendu" : "Rozbalit legendu"}
-      >
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-          Legenda
-        </h3>
-        <ChevronDown
-          className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
-            expanded ? "" : "-rotate-90"
-          }`}
-          aria-hidden
-        />
-      </button>
-      {expanded && (
-        <ul className="mt-1 space-y-1 text-gray-700">
-          <LegendRow swatch={<ActiveSwatch />} label="Aktivní lokalita" />
-          <LegendRow swatch={<FormerSwatch />} label="Zaniklá lokalita" />
-          <LegendRow swatch={<FocusedSwatch />} label="Vybraná lokalita" />
-        </ul>
-      )}
+    <div className="pointer-events-none absolute bottom-0 left-0 z-[400] flex items-center gap-1.5 rounded-tr bg-white/80 px-1.5 py-px text-[11px] leading-none text-gray-700 shadow-sm">
+      <LegendInline swatch={<ActiveSwatch />} label="Aktivní" />
+      <span aria-hidden className="text-gray-300">
+        ·
+      </span>
+      <LegendInline swatch={<FormerSwatch />} label="Zaniklá" />
+      <span aria-hidden className="text-gray-300">
+        ·
+      </span>
+      <LegendInline swatch={<FocusedSwatch />} label="Vybraná" />
     </div>
   );
 }
 
-function LegendRow({
+function LegendInline({
   swatch,
   label,
 }: {
@@ -607,15 +583,15 @@ function LegendRow({
   label: string;
 }) {
   return (
-    <li className="flex items-center gap-2">
+    <span className="inline-flex items-center gap-1">
       {swatch}
       <span>{label}</span>
-    </li>
+    </span>
   );
 }
 
-const SWATCH_W = 22;
-const SWATCH_H = 12;
+const SWATCH_W = 14;
+const SWATCH_H = 8;
 
 function ActiveSwatch() {
   return (
