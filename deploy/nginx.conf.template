@@ -3,7 +3,14 @@
 # Symlink: /etc/nginx/sites-enabled/ctyrlistkoteka
 # Po změně: sudo nginx -t && sudo systemctl reload nginx
 
-# Rate limit zóna pro API (60 req/min/IP)
+# ---------------------------------------------------------------------------
+# Rate-limit zóny. Patří do http {} kontextu — buď do /etc/nginx/nginx.conf
+# (globální) NEBO sem nahoru, kde se loaduje přes `include sites-enabled/*`.
+# Klíče jsou per-IP (binary_remote_addr); zóna `ctyr_main` slouží proti
+# scrape-bot floodu, `api_limit` zachovává původní striktnější limit pro
+# /api/ kde sedí Next.js endpointy se servovou logikou.
+# ---------------------------------------------------------------------------
+limit_req_zone $binary_remote_addr zone=ctyr_main:10m rate=20r/s;
 limit_req_zone $binary_remote_addr zone=api_limit:10m rate=60r/m;
 
 # HTTP → HTTPS redirect (Certbot toto doplní automaticky, ale mít explicitně)
@@ -38,7 +45,7 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    # CSP nastav přes Next.js (lépe kontextově)
+    # CSP nastav přes Next.js (lépe kontextově, viz src/middleware.ts)
 
     # Komprese
     gzip on;
@@ -59,6 +66,14 @@ server {
     access_log /var/log/nginx/ctyrlistkoteka.access.log;
     error_log  /var/log/nginx/ctyrlistkoteka.error.log warn;
 
+    # -----------------------------------------------------------------
+    # Lehká ochrana před scannery — drop notorické exploit cesty (.env,
+    # /wp-login, /.git, …). `include` musí stát PŘED běžnými location
+    # bloky, protože location-match v Nginxu si vybere nejdelší shodu;
+    # tyhle regexy jsou specifičtější, takže se nezasekne na `location /`.
+    # -----------------------------------------------------------------
+    include /etc/nginx/snippets/block-exploits.conf;
+
     # Statické obrázky servíruje Nginx přímo (bypass Next.js)
     location /generated/ {
         alias /var/ctyrlistkoteka/generated/;
@@ -74,7 +89,7 @@ server {
     location = /favicon.ico { access_log off; log_not_found off; }
     location = /robots.txt  { access_log off; log_not_found off; }
 
-    # API rate limit
+    # API rate limit (přísnější — 60 req/min, burst 20)
     location /api/ {
         limit_req zone=api_limit burst=20 nodelay;
         proxy_pass http://127.0.0.1:3000;
@@ -87,8 +102,15 @@ server {
         proxy_set_header Connection        "upgrade";
     }
 
-    # Vše ostatní → Next.js
+    # Vše ostatní → Next.js, s mírnějším rate limitem (20 req/s, burst 40)
+    # Pro běžné prohlížení sbírky/mapy je 20/s pohodlných (typický uživatel
+    # generuje < 5 req/s), botnety hammerujícím desítky/stovky req/s zachytí
+    # 429. `nodelay` posílá burst rovnou bez front, ale překročení burstu
+    # → instant 429 namísto front.
     location / {
+        limit_req zone=ctyr_main burst=40 nodelay;
+        limit_req_status 429;
+
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
