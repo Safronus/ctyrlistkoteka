@@ -23,9 +23,6 @@ export function FilterBar({
     country: string;
     state: string;
     year: string;
-    /** YYYY-MM-DD or empty. Native `<input type="date">` value shape. */
-    dateFrom: string;
-    dateTo: string;
   };
 }) {
   const router = useRouter();
@@ -97,9 +94,7 @@ export function FilterBar({
     current.city ||
     current.country ||
     current.state ||
-    current.year ||
-    current.dateFrom ||
-    current.dateTo;
+    current.year;
 
   return (
     <div
@@ -246,45 +241,6 @@ export function FilterBar({
           </div>
         </label>
 
-        {/* Date range — bounded to the actual span of the collection
-            (oldest find date → newest). When the user hasn't picked a
-            date, the picker pre-fills with the corresponding bound,
-            which doubles as a hint of the range. The cross-link via
-            `min`/`max` between the two inputs prevents the native
-            picker from producing an inverted range; the server still
-            handles inversion gracefully (Prisma gte > lt = empty
-            result) for hand-crafted URLs. */}
-        <label>
-          <span className="mb-1 block text-xs font-medium text-gray-700">
-            Datum od
-          </span>
-          <input
-            type="date"
-            value={current.dateFrom || options.minDate || ""}
-            min={options.minDate || undefined}
-            max={
-              current.dateTo || options.maxDate || undefined
-            }
-            onChange={(e) => update("from", e.currentTarget.value)}
-            className={`${INPUT_CLS} w-full`}
-          />
-        </label>
-
-        <label>
-          <span className="mb-1 block text-xs font-medium text-gray-700">
-            Datum do
-          </span>
-          <input
-            type="date"
-            value={current.dateTo || options.maxDate || ""}
-            min={
-              current.dateFrom || options.minDate || undefined
-            }
-            max={options.maxDate || undefined}
-            onChange={(e) => update("to", e.currentTarget.value)}
-            className={`${INPUT_CLS} w-full`}
-          />
-        </label>
       </div>
 
       {hasAny && (

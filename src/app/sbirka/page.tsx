@@ -174,8 +174,6 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
           country: filters.country ?? "",
           state: filters.state ?? "",
           year: filters.year ? String(filters.year) : "",
-          dateFrom: dateToString(filters.dateFrom),
-          dateTo: dateToString(filters.dateTo),
         }}
       />
 
@@ -203,7 +201,14 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
         </div>
       )}
 
-      <ViewSortToolbar view={view} sort={sort} />
+      <ViewSortToolbar
+        view={view}
+        sort={sort}
+        dateFrom={dateToString(filters.dateFrom)}
+        dateTo={dateToString(filters.dateTo)}
+        minDate={options.minDate}
+        maxDate={options.maxDate}
+      />
 
       {view === "list" ? (
         <FindList finds={result.items} />
