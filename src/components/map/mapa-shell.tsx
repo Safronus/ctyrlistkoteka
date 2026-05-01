@@ -243,14 +243,23 @@ export function MapaShell({
   }, []);
 
   // Resolve the picked row from `mapData.locations` (the source of truth
-  // for polygon/centre data) so the mobile top-sheet renders the same
-  // attributes the bound popup would show on desktop. `sidebarLocations`
-  // could also work but `mapData.locations` already lives client-side
-  // and the find is O(n) in 128 rows.
+  // for polygon/centre data) so the top-sheet renders the same
+  // attributes the bound popup would show. `sidebarLocations` could
+  // also work but `mapData.locations` already lives client-side and the
+  // find is O(n) in 128 rows.
+  //
+  // Suppressed while a find highlight is active: when the visitor
+  // arrives via `?find=N` the HighlightFindMarker carries its own
+  // popup and IS the primary subject. Layering the location top-sheet
+  // on top would just clobber it with information about the polygon
+  // wrapping the find. As soon as the visitor dismisses the highlight
+  // (or picks a different location, which clears it via
+  // setHighlightCleared) the top-sheet is back in play.
   const focusedLocation = useMemo(() => {
     if (focusId === null) return null;
+    if (effectiveHighlightFind !== null) return null;
     return mapData.locations.find((l) => l.id === focusId) ?? null;
-  }, [focusId, mapData.locations]);
+  }, [focusId, mapData.locations, effectiveHighlightFind]);
 
   // When the location top-sheet is shown on mobile, force-collapse
   // Vrstvy. Expanded Vrstvy can grow into the top-sheet's row (~140 px)
