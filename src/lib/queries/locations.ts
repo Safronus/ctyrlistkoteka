@@ -123,6 +123,13 @@ export interface LocationFilter {
    *  per-location detail page so it can reuse the full stats pipeline
    *  for one row without paying for the whole table scan. */
   id?: number;
+  /** Restrict the result to a fixed set of location ids. Used by the
+   *  detail page to pull the requested location *together with* its
+   *  children — the parent → child fold pass below depends on both
+   *  rows being present, so a master location's aggregateStats only
+   *  reflects the sub-parts when its children are part of the same
+   *  result set. Ignored when `id` is set. */
+  idIn?: readonly number[];
   /** When true, keep only locations that have a real-life photo bound
    *  to one of their maps (i.e. a matching file in
    *  `${GENERATED_DIR}/location-photos/`). Wired to the "Reálná fotka"
@@ -224,6 +231,8 @@ export async function listLocations(
   // ------------------------------------------------------------ filter
   const where: Prisma.LocationWhereInput = {};
   if (filter.id !== undefined) where.id = filter.id;
+  else if (filter.idIn && filter.idIn.length > 0)
+    where.id = { in: [...filter.idIn] };
   if (filter.cadastralArea) where.cadastralArea = filter.cadastralArea;
   if (filter.q && filter.q.trim()) {
     const q = filter.q.trim();
@@ -790,15 +799,26 @@ export interface LocationDetail {
 export async function getLocationDetailById(
   id: number,
 ): Promise<LocationDetail | null> {
+  // Children of `id` are fetched alongside the base row so that
+  // listLocations' parent → child fold populates `aggregateStats` for
+  // masters. Without them, a parent's aggregateStats stays equal to
+  // its (often zero) own stats and the SummaryGrid renders "Počet
+  // nálezů: 0" even when the sub-parts hold hundreds.
+  const childIdRows = await prisma.location.findMany({
+    where: { parentId: id },
+    select: { id: true },
+  });
+  const idsForFold = [id, ...childIdRows.map((c) => c.id)];
+
   // showAnonymized + showGone forced on so a private/former location's
   // ID still resolves to a row — the page renders a stub for those, but
   // the row itself is needed to know that.
   const rows = await listLocations({
-    id,
+    idIn: idsForFold,
     showAnonymized: true,
     showGone: true,
   });
-  const base = rows[0];
+  const base = rows.find((r) => r.id === id);
   if (!base) return null;
 
   // Anonymized: we still return the bare row so the page can render a

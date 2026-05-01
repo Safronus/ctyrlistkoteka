@@ -82,6 +82,12 @@ export interface HomeHighlights {
     code: string;
     displayName: string;
     count: number;
+    /** Net picking time across the whole history of this location
+     *  (incl. its sub-parts), summed per (location, day) session.
+     *  Same session math as `peakDay.netMinutes` — see SESSION_GAP_MS
+     *  / SESSION_BASELINE_MS for the constants. Always >= 0; a single
+     *  isolated find still gets the per-session baseline. */
+    netMinutes: number;
   } | null;
 }
 
@@ -316,9 +322,15 @@ export async function getHomePageData(): Promise<HomePageData> {
   // user noted "pár minut" between picks in one place, with > 10–15
   // min meaning a new visit). Two extra round-trips would be wasteful
   // here, so we pull the peak day's rows once and fold the math in JS.
-  const peakNetMinutes = peakDayRow
-    ? await computePeakDayNetMinutes(peakDayRow.bucket)
-    : 0;
+  // The top-location card uses the same math but bucketed by
+  // (location, day) so a multi-day location still respects the
+  // session boundaries.
+  const [peakNetMinutes, topLocNetMinutes] = await Promise.all([
+    peakDayRow ? computePeakDayNetMinutes(peakDayRow.bucket) : Promise.resolve(0),
+    topLocRow
+      ? computeNetMinutesForLocationTree(topLocRow.id)
+      : Promise.resolve(0),
+  ]);
   const highlights: HomeHighlights = {
     firstYear: c?.first_year ?? null,
     firstFoundAt: c?.first_found_at ? c.first_found_at.toISOString() : null,
@@ -337,6 +349,7 @@ export async function getHomePageData(): Promise<HomePageData> {
           code: topLocRow.code,
           displayName: topLocRow.name,
           count: Number(topLocRow.count),
+          netMinutes: topLocNetMinutes,
         }
       : null,
   };
@@ -418,6 +431,63 @@ async function computePeakDayNetMinutes(dayBucket: Date): Promise<number> {
   // EXIF stamp (walking to the spot + scanning).
   totalMs += sessionsCount * SESSION_BASELINE_MS;
 
+  return Math.round(totalMs / 60_000);
+}
+
+/** Total net picking time spent at one location (folding parent →
+ *  children, mirrors the topLocRows CTE), summed per (location, day)
+ *  session. Pull every find that belongs to the location subtree, then
+ *  fold the same SESSION_GAP_MS / SESSION_BASELINE_MS arithmetic the
+ *  peak-day variant uses. Returns 0 when the subtree has no dated
+ *  finds. */
+async function computeNetMinutesForLocationTree(
+  rootLocationId: number,
+): Promise<number> {
+  const rows = await prisma.$queryRaw<
+    Array<{ day: Date; found_at: Date; location_id: number }>
+  >`
+    SELECT date_trunc('day', f.found_at) AS day,
+           f.found_at,
+           f.location_id
+    FROM finds f
+    LEFT JOIN locations l ON l.id = f.location_id
+    WHERE f.found_at IS NOT NULL
+      AND (f.location_id = ${rootLocationId} OR l.parent_id = ${rootLocationId})
+    ORDER BY f.location_id, day, f.found_at ASC
+  `;
+
+  // Bucket by (location_id, day) — sessions are scoped to one place
+  // on one calendar day. Two visits to the same spot on different
+  // days would otherwise merge across the date boundary if the second
+  // happened to start within the gap window.
+  const byBucket = new Map<string, number[]>();
+  for (const r of rows) {
+    const k = `${r.location_id}|${r.day.getTime()}`;
+    const arr = byBucket.get(k);
+    const ts = r.found_at.getTime();
+    if (arr) arr.push(ts);
+    else byBucket.set(k, [ts]);
+  }
+
+  let totalMs = 0;
+  let sessionsCount = 0;
+  for (const ts of byBucket.values()) {
+    if (ts.length === 0) continue;
+    let sessionStart = ts[0]!;
+    let prev = sessionStart;
+    for (let i = 1; i < ts.length; i++) {
+      const cur = ts[i]!;
+      if (cur - prev > SESSION_GAP_MS) {
+        totalMs += prev - sessionStart;
+        sessionsCount += 1;
+        sessionStart = cur;
+      }
+      prev = cur;
+    }
+    totalMs += prev - sessionStart;
+    sessionsCount += 1;
+  }
+  totalMs += sessionsCount * SESSION_BASELINE_MS;
   return Math.round(totalMs / 60_000);
 }
 

@@ -424,9 +424,10 @@ function SummaryGrid({
         <span className="font-mono text-base font-semibold text-brand-700 tabular-nums">
           {aggregate.total.toLocaleString("cs-CZ")}
         </span>
-        {hasChildren && own.total !== aggregate.total && (
+        {hasChildren && (
           <span className="ml-2 text-xs text-gray-500">
-            (vlastních {own.total.toLocaleString("cs-CZ")} + dílčí části)
+            (přímo {own.total.toLocaleString("cs-CZ")} + dílčí části{" "}
+            {(aggregate.total - own.total).toLocaleString("cs-CZ")})
           </span>
         )}
       </Field>

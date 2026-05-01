@@ -558,6 +558,7 @@ function TopLocationCard({
 }: {
   location: NonNullable<HomePageData["highlights"]["topLocation"]>;
 }) {
+  const netLabel = formatDurationMinutes(location.netMinutes);
   return (
     <div className="relative flex flex-col rounded-xl border border-gray-200 bg-white p-3">
       {/* Discreet shortcut to /lokality/<id> in the corner — same icon
@@ -585,6 +586,36 @@ function TopLocationCard({
       <p className="mt-0.5 text-xs text-gray-500">
         {NF_CS.format(location.count)} {pluralCs(location.count, FINDS)}
       </p>
+      {/* Net picking time across this location's full history (folds
+          parent → children). Same session math + baseline as the
+          PeakDayCard, just bucketed per (location, day) instead of
+          one fixed day. flex-1 absorbs the slack above the action
+          buttons so the rate line lands centred regardless of how
+          tall the neighbouring cards grow. */}
+      {netLabel && (
+        <div className="flex flex-1 flex-col items-center justify-center py-1.5 text-center">
+          <p
+            className="font-mono text-base font-semibold tabular-nums text-gray-900"
+            title="Součet trvání jednotlivých 'sezení' v této lokalitě (pauzy delší než 15 min se nezapočítávají)"
+          >
+            {netLabel}
+          </p>
+          <p className="text-[11px] leading-tight text-gray-500">
+            čistý čas sbírání
+          </p>
+          {location.netMinutes > 0 && (
+            <p
+              className="mt-0.5 font-mono text-[11px] leading-tight tabular-nums text-gray-500"
+              title="Průměrný počet čtyřlístků za minutu čistého času v této lokalitě"
+            >
+              {new Intl.NumberFormat("cs-CZ", {
+                maximumFractionDigits: 1,
+              }).format(location.count / location.netMinutes)}{" "}
+              čtyřlístku/min
+            </p>
+          )}
+        </div>
+      )}
       <div className="mt-auto flex flex-col gap-1.5 pt-2">
         {/* /sbirka's `loc` filter folds parent → children automatically
             (see buildWhere in src/lib/queries/finds.ts), so a parent
