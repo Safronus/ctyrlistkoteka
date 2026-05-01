@@ -545,8 +545,16 @@ function Field({
   label: string;
   children: React.ReactNode;
 }) {
+  // Stacked label + value at every breakpoint. The previous mobile
+  // variant used `flex-row + justify-between` to bunch label-left /
+  // value-right, but long values (GPS coordinates, density with its
+  // "(vlastních / 100 m²)" suffix) wrapped under the right-pushed
+  // label and produced the cramped layout the user reported. Stacking
+  // gives the value the full row width on mobile; on sm+ the
+  // SummaryGrid is already a 2-column grid, so each cell still reads
+  // as a tidy label/value pair.
   return (
-    <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start sm:gap-1">
+    <div className="flex flex-col items-start gap-1">
       <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
         {label}
       </dt>
