@@ -355,6 +355,13 @@ export async function getHomePageData(): Promise<HomePageData> {
  *  to the same place. */
 const SESSION_GAP_MS = 15 * 60 * 1000;
 
+/** Time spent before the first find of each session — walking up to
+ *  the spot, scanning the area, etc. Added once per session so a
+ *  single-find session is still credited some duration (otherwise its
+ *  spread is 0 and the find vanishes from "net time"). Kept in sync
+ *  with the same constant on /statistiky aggregate. */
+export const SESSION_BASELINE_MS = 2 * 60 * 1000;
+
 async function computePeakDayNetMinutes(dayBucket: Date): Promise<number> {
   // Pull every find on the peak day with its location + timestamp,
   // sorted so the session walker can stream through each location's
@@ -384,6 +391,7 @@ async function computePeakDayNetMinutes(dayBucket: Date): Promise<number> {
   }
 
   let totalMs = 0;
+  let sessionsCount = 0;
   for (const ts of byLoc.values()) {
     if (ts.length === 0) continue;
     let sessionStart = ts[0]!;
@@ -392,15 +400,23 @@ async function computePeakDayNetMinutes(dayBucket: Date): Promise<number> {
       const cur = ts[i]!;
       if (cur - prev > SESSION_GAP_MS) {
         // Close the current session, open a new one. Single-find
-        // sessions contribute 0 (sessionStart === prev) — there's no
-        // second timestamp to measure picking time against.
+        // sessions contribute 0 timestamp spread — the baseline below
+        // still credits them with the per-session warm-up time.
         totalMs += prev - sessionStart;
+        sessionsCount += 1;
         sessionStart = cur;
       }
       prev = cur;
     }
     totalMs += prev - sessionStart;
+    sessionsCount += 1;
   }
+
+  // Add the per-session baseline once it's known how many sessions
+  // we actually counted — handles single-find sessions and gives
+  // every multi-find session a credit for the time before its first
+  // EXIF stamp (walking to the spot + scanning).
+  totalMs += sessionsCount * SESSION_BASELINE_MS;
 
   return Math.round(totalMs / 60_000);
 }

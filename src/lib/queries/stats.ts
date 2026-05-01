@@ -205,6 +205,35 @@ export interface StatsTotalsResult {
   cityCount: number;
 }
 
+export interface StatsTimeAndPaceResult {
+  /** Estimated total picking time across the whole collection in
+   *  whole minutes. Uses the same session math as the home tile —
+   *  per-location runs broken on > 15 min gaps + 2 min baseline per
+   *  session — so the home "Nejlepší den" rate and this aggregate
+   *  speak the same language. */
+  estimatedMinutes: number;
+  /** Total sessions counted. Surfaced for the README math + so the
+   *  caption under the headline can name how many sessions the
+   *  number folds in. */
+  sessions: number;
+  /** ISO timestamp of the earliest find (the calendar anchor for the
+   *  pace numbers). Null when the collection is empty. */
+  firstFoundAt: string | null;
+  /** Total finds carrying a found_at timestamp — the numerator of
+   *  the calendar pace. Finds without dates are excluded; they have
+   *  no calendar position to attribute. */
+  totalFindsWithDate: number;
+  /** count / elapsed_unit, where elapsed = now − firstFoundAt. Hours
+   *  use 3600 s, days 86 400 s, weeks 7 days, months 30.44 days
+   *  (Julian average), years 365.25 days. Rendered as 1-decimal
+   *  Czech locale on the page. */
+  perHour: number;
+  perDay: number;
+  perWeek: number;
+  perMonth: number;
+  perYear: number;
+}
+
 export interface StatsHighlightsResult {
   /** Earliest find by ID. */
   firstFind: FindHighlight | null;
@@ -376,6 +405,115 @@ export async function getStatsTotals(): Promise<StatsTotalsResult> {
   };
   const { countryCount, cityCount } = buildGeoBreakdowns(geoRows);
   return { totals, countryCount, cityCount };
+}
+
+/** New session opens whenever two consecutive finds inside one
+ *  location are this far apart (15 min). Mirrored from
+ *  src/lib/queries/home.ts so the home tile and the /statistiky
+ *  aggregate use one definition. */
+const STATS_SESSION_GAP_MS = 15 * 60 * 1000;
+/** Per-session warm-up baseline (2 min). Same constant as home page;
+ *  if it ever needs tuning, change both call sites — the README
+ *  documents both. */
+const STATS_SESSION_BASELINE_MS = 2 * 60 * 1000;
+
+export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
+  // Pull every find with a known location + timestamp. ~17k rows ×
+  // (4 + 8) bytes is ~200 KB on the wire; the JS sort + walk runs in
+  // a few ms. Cheaper than asking the DB to compute sessions via
+  // window functions, and the same routine handles the per-day case
+  // on the home tile.
+  const rows = await prisma.$queryRaw<
+    Array<{ location_id: number | null; found_at: Date }>
+  >`
+    SELECT location_id, found_at
+    FROM finds
+    WHERE found_at IS NOT NULL AND location_id IS NOT NULL
+    ORDER BY location_id, found_at ASC
+  `;
+
+  // Bucket by location, then walk each run accumulating session
+  // durations + counting sessions for the baseline credit at the end.
+  const byLoc = new Map<number, number[]>();
+  for (const r of rows) {
+    const arr = byLoc.get(r.location_id as number);
+    const ts = r.found_at.getTime();
+    if (arr) arr.push(ts);
+    else byLoc.set(r.location_id as number, [ts]);
+  }
+
+  let totalMs = 0;
+  let sessions = 0;
+  for (const ts of byLoc.values()) {
+    if (ts.length === 0) continue;
+    let sessionStart = ts[0]!;
+    let prev = sessionStart;
+    for (let i = 1; i < ts.length; i++) {
+      const cur = ts[i]!;
+      if (cur - prev > STATS_SESSION_GAP_MS) {
+        totalMs += prev - sessionStart;
+        sessions += 1;
+        sessionStart = cur;
+      }
+      prev = cur;
+    }
+    totalMs += prev - sessionStart;
+    sessions += 1;
+  }
+  totalMs += sessions * STATS_SESSION_BASELINE_MS;
+  const estimatedMinutes = Math.round(totalMs / 60_000);
+
+  // Calendar anchor + pace. Using all finds with a date for the
+  // numerator (matching the elapsed-since-first scope), not just the
+  // ones we could place in a session — finds with a date but no
+  // location still count toward "stuff that happened in the calendar".
+  const anchor = await prisma.$queryRaw<
+    Array<{ first_found_at: Date | null; total: bigint }>
+  >`
+    SELECT MIN(found_at) AS first_found_at,
+           COUNT(*) FILTER (WHERE found_at IS NOT NULL) AS total
+    FROM finds
+  `;
+  const a = anchor[0];
+  const firstFoundAt = a?.first_found_at ?? null;
+  const totalFindsWithDate = a ? Number(a.total) : 0;
+
+  if (!firstFoundAt || totalFindsWithDate === 0) {
+    return {
+      estimatedMinutes,
+      sessions,
+      firstFoundAt: null,
+      totalFindsWithDate,
+      perHour: 0,
+      perDay: 0,
+      perWeek: 0,
+      perMonth: 0,
+      perYear: 0,
+    };
+  }
+
+  const elapsedSec = (Date.now() - firstFoundAt.getTime()) / 1000;
+  const elapsedHours = elapsedSec / 3600;
+  const elapsedDays = elapsedSec / 86_400;
+  const elapsedWeeks = elapsedDays / 7;
+  // 30.44 = average month length (365.25 / 12); 365.25 = Julian year
+  // accounting for leap years. These are the conventional averages for
+  // calendar-rate reporting; using calendar-month buckets would give
+  // wobbly numbers depending on which month you sample at.
+  const elapsedMonths = elapsedDays / 30.44;
+  const elapsedYears = elapsedDays / 365.25;
+
+  return {
+    estimatedMinutes,
+    sessions,
+    firstFoundAt: firstFoundAt.toISOString(),
+    totalFindsWithDate,
+    perHour: totalFindsWithDate / Math.max(elapsedHours, 1),
+    perDay: totalFindsWithDate / Math.max(elapsedDays, 1),
+    perWeek: totalFindsWithDate / Math.max(elapsedWeeks, 1),
+    perMonth: totalFindsWithDate / Math.max(elapsedMonths, 1),
+    perYear: totalFindsWithDate / Math.max(elapsedYears, 1),
+  };
 }
 
 export async function getStatsHighlights(): Promise<StatsHighlightsResult> {

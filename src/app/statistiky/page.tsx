@@ -34,6 +34,7 @@ import {
   getStatsHighlights,
   getStatsJubilees,
   getStatsPeaks,
+  getStatsTimeAndPace,
   getStatsTopLocations,
   getStatsTotals,
   type CalendarPoint,
@@ -44,6 +45,7 @@ import {
   type JubileeFind,
   type MonthDayPoint,
   type PeakBucket,
+  type StatsTimeAndPaceResult,
   type YearlyPoint,
 } from "@/lib/queries/stats";
 import { getLocationIdsWithRealPhotos } from "@/lib/queries/locations";
@@ -93,6 +95,9 @@ export default function StatistikyPage() {
       </Suspense>
       <Suspense fallback={<HighlightsSkeleton />}>
         <HighlightsSection />
+      </Suspense>
+      <Suspense fallback={<TimeAndPaceSkeleton />}>
+        <TimeAndPaceSection />
       </Suspense>
       <Suspense fallback={<PeaksSkeleton />}>
         <PeaksSection />
@@ -210,6 +215,12 @@ async function HighlightsSection() {
         )}
     </section>
   );
+}
+
+async function TimeAndPaceSection() {
+  const data = await getStatsTimeAndPace();
+  if (data.totalFindsWithDate === 0) return null;
+  return <TimeAndPaceCard data={data} />;
 }
 
 async function PeaksSection() {
@@ -330,6 +341,117 @@ function TotalCard({
       )}
     </div>
   );
+}
+
+function TimeAndPaceCard({ data }: { data: StatsTimeAndPaceResult }) {
+  const fmt = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 });
+  const fmtPace = new Intl.NumberFormat("cs-CZ", {
+    maximumFractionDigits: 1,
+  });
+  const dateFmt = new Intl.DateTimeFormat("cs-CZ", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const totalLabel = formatLongDuration(data.estimatedMinutes);
+  const firstAtLabel = data.firstFoundAt
+    ? dateFmt.format(new Date(data.firstFoundAt))
+    : null;
+
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-6">
+      <header className="mb-4 flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-semibold text-gray-900">
+          Doba sbírání a tempo
+        </h2>
+      </header>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Left half — total estimated picking time. */}
+        <div className="flex flex-col items-center justify-center text-center">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            Odhadovaná doba sbírání
+          </p>
+          <p className="mt-1 text-3xl font-bold text-brand-700">
+            {totalLabel}
+          </p>
+          <p
+            className="mt-1 max-w-xs text-xs text-gray-500"
+            title="Sezení = po sobě jdoucí nálezy v rámci jedné lokality s mezerou ≤ 15 min. Každé sezení dostane 2 min baseline (čas před prvním nálezem)."
+          >
+            součet trvání {fmt.format(data.sessions)}{" "}
+            {data.sessions === 1
+              ? "sezení"
+              : data.sessions < 5
+                ? "sezení"
+                : "sezení"}{" "}
+            + 2 min baseline / sezení
+          </p>
+        </div>
+
+        {/* Right half — calendar pace. */}
+        <div className="flex flex-col">
+          <p className="text-center text-xs font-medium uppercase tracking-wide text-gray-500">
+            Průměrné tempo (od počátku sbírání)
+          </p>
+          <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <PaceCell label="/ hodinu" value={fmtPace.format(data.perHour)} />
+            <PaceCell label="/ den" value={fmtPace.format(data.perDay)} />
+            <PaceCell label="/ týden" value={fmtPace.format(data.perWeek)} />
+            <PaceCell label="/ měsíc" value={fmtPace.format(data.perMonth)} />
+            <PaceCell label="/ rok" value={fmtPace.format(data.perYear)} />
+          </ul>
+          {firstAtLabel && (
+            <p className="mt-3 text-center text-xs text-gray-500">
+              od prvního nálezu — {firstAtLabel}
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PaceCell({ label, value }: { label: string; value: string }) {
+  return (
+    <li className="rounded-md border border-gray-200 bg-gray-50 p-2 text-center">
+      <p className="font-mono text-sm font-semibold tabular-nums text-gray-900">
+        {value}
+      </p>
+      <p className="mt-0.5 text-[11px] text-gray-500">{label}</p>
+    </li>
+  );
+}
+
+function TimeAndPaceSkeleton() {
+  return (
+    <section
+      className="h-44 animate-pulse rounded-xl border border-gray-200 bg-white p-6"
+      aria-hidden
+    />
+  );
+}
+
+/** Formats a minute count as "X dní Y h Z min", omitting zero parts and
+ *  using Czech plural for days. Tuned for /statistiky's "estimated total
+ *  picking time" which lands in the days range; fall-through for short
+ *  durations gracefully reads "Y h Z min" or just "Z min". */
+function formatLongDuration(totalMinutes: number): string {
+  if (totalMinutes <= 0) return "—";
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes - days * 60 * 24) / 60);
+  const minutes = totalMinutes - days * 60 * 24 - hours * 60;
+  const parts: string[] = [];
+  if (days > 0) {
+    parts.push(
+      `${days} ${
+        days === 1 ? "den" : days < 5 ? "dny" : "dní"
+      }`,
+    );
+  }
+  if (hours > 0) parts.push(`${hours} h`);
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes} min`);
+  return parts.join(" ");
 }
 
 function MainNumber({ value, label }: { value: string; label: string }) {

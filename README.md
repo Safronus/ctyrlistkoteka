@@ -322,6 +322,93 @@ ignoreip = 127.0.0.1/8 ::1 <vlastní IPv4> <vlastní IPv6/64>
 Pak `sudo fail2ban-client reload`. Whitelist je separátní pro
 GoatCounter (Settings → Ignore IPs ve stats subdoméně).
 
+## Matematika /statistiky
+
+Některé sekce stránky `/statistiky` (a kartička „Nejlepší den" na hlavní
+stránce) počítají „čistý čas sbírání" a kalendářní tempo. Tady je jak to
+je definované, ať se to dá kdykoliv zpětně ověřit z čísel ve světě.
+
+### Sezení (session)
+
+Pro skupinu nálezů ve **stejné lokalitě**, seřazenou podle `found_at`, se
+otevírá nové sezení, kdykoliv mezi dvěma po sobě jdoucími nálezy uplyne
+**> 15 minut**. Sezení tedy reprezentuje jeden běh sbírání na místě;
+pauza delší než 15 min = nezávislá návštěva, kterou počítáme samostatně.
+
+Algoritmicky (Pseudocode):
+
+```
+sessions := 0
+totalSpread := 0
+for each location L:
+  ts := all foundAt timestamps for finds in L, sorted ascending
+  if ts is empty: continue
+  start := ts[0]
+  prev  := ts[0]
+  for i from 1 to len(ts) - 1:
+    if ts[i] - prev > 15 min:
+      totalSpread += prev - start
+      sessions += 1
+      start := ts[i]
+    prev := ts[i]
+  totalSpread += prev - start
+  sessions += 1
+```
+
+Single-find sezení přispívá do `totalSpread` 0 (z jednoho timestampu nejde
+změřit délku), ale stále se počítá do `sessions` a dostane baseline níže.
+
+### Baseline na sezení
+
+Každému sezení se připočítává **2 minuty před prvním nálezem** —
+chvíle na příchod, rozhlédnutí, zaostření. Bez toho by single-find
+sezení mělo nulovou délku, což realitu nezachycuje. Konstanta žije v
+`SESSION_BASELINE_MS` v `src/lib/queries/home.ts` a duplicitně v
+`src/lib/queries/stats.ts` (stejná hodnota; commit, který by ji měnil,
+musí přepsat obě místa).
+
+### Čistý čas sbírání
+
+```
+estimatedMinutes = round( (totalSpread + sessions × 2 min) / 60 sec )
+```
+
+Na hlavní stránce v dlaždici „Nejlepší den" se to počítá jen pro nálezy
+toho jednoho dne (`date_trunc('day', found_at) = peakDay`). Na
+`/statistiky` v sekci „Doba sbírání a tempo" se to počítá nad **všemi
+nálezy s vyplněným `found_at` a `location_id`** — sezení mohou volně
+přesahovat přes půlnoc, protože matematika groupuje primárně podle
+lokality, ne podle dne.
+
+Nálezy bez `location_id` (vzácně, typicky parse error) jsou z výpočtu
+**vyřazeny** — bez lokality nelze určit, jestli dva nálezy patří do
+stejného sezení.
+
+### Tempo sbírání (kalendářní)
+
+Anchor je `firstFoundAt` = `MIN(found_at)` napříč všemi nálezy.
+Uplynulý čas: `now - firstFoundAt` v sekundách.
+
+Konverze na jednotky:
+
+| Jednotka | Sekund |
+| --- | --- |
+| hodina | 3 600 |
+| den | 86 400 |
+| týden | 7 × 86 400 = 604 800 |
+| měsíc | 30,44 × 86 400 ≈ 2 629 800 (Julian průměr, 365,25 / 12) |
+| rok | 365,25 × 86 400 ≈ 31 557 600 (Julian rok, kompenzuje přestupné) |
+
+Tempo:
+
+```
+perUnit = totalFindsWithDate / (elapsedSeconds / unitSeconds)
+```
+
+Číselně: pro ~17 000 nálezů za ~12 let to dává cca **1 400 / rok**, **120 /
+měsíc**, **27 / týden**, **4 / den**, **0,2 / hod** — minutový pohled by
+v kalendáři byl nesmyslně malý, takže se nezobrazuje.
+
 ## Dokumentace
 
 - [`CLAUDE.md`](CLAUDE.md) — závazné pokyny pro práci na projektu
