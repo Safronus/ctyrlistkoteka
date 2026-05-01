@@ -117,9 +117,30 @@ export function LocationPolygons({
     features,
   };
 
+  // Content fingerprint for the React key — react-leaflet's <GeoJSON>
+  // creates its underlying Leaflet layer ONCE per key and never reads
+  // updates to the `data` prop afterwards. Keying solely by feature
+  // count missed polygon edits that didn't change the count (the rsync-
+  // a-replacement-map case the user reported), so the visitor saw a
+  // stale shape until something else nudged the count. We mix in each
+  // feature's id, ring length, and a couple of representative coords
+  // so any meaningful polygon edit forces a clean remount with the
+  // fresh data. O(features) per render, ~128 entries — cheap.
+  const fingerprint = features
+    .map((f) => {
+      const id = (f.properties as { id?: number })?.id ?? 0;
+      const ring = (f.geometry as GeoJSON.Polygon).coordinates[0] ?? [];
+      const len = ring.length;
+      const head = ring[0]?.map((n) => n.toFixed(5)).join(",") ?? "";
+      const mid =
+        ring[Math.floor(len / 2)]?.map((n) => n.toFixed(5)).join(",") ?? "";
+      return `${id}:${len}:${head}:${mid}`;
+    })
+    .join("|");
+
   return (
     <GeoJSONLayer
-      key={`${features.length}-${enablePopup ? "p" : "np"}`}
+      key={`${enablePopup ? "p" : "np"}-${fingerprint}`}
       data={collection}
       style={(feature) => {
         const props = feature?.properties as
