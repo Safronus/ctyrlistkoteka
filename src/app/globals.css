@@ -264,6 +264,54 @@
   border: 1px solid #86efac;
 }
 
+/* On mobile (below md), dock every Leaflet popup at the very top of the
+   map container instead of letting it anchor above the marker. The
+   overlay controls (Vrstvy at top-left, Lokality pill at top-right,
+   sidebar bottom-sheet) eat most of the lower viewport, so an
+   anchor-positioned popup easily ends up clipped — pinning it to the
+   top edge guarantees the visitor sees it whatever they tapped.
+
+   `.leaflet-container { z-index: auto }` lifts the popup-pane
+   (z-index 700 inside the container) out of the stacking context that
+   the default `z-index: 0` on `.leaflet-container` would otherwise
+   create — without that, the popup at z-700 stays trapped under the
+   floating controls (z-400) on mobile because they're rendered as
+   siblings of the map container in the parent's flow. The override
+   doesn't affect inter-pane layering inside Leaflet itself. */
+.leaflet-container {
+  z-index: auto;
+}
+@media (max-width: 767px) {
+  .leaflet-popup {
+    /* Stretch the popup across the top edge of the map area, ignoring
+       Leaflet's marker-anchored positioning. !important is needed
+       because Leaflet sets `top` and `left` inline on every reposition. */
+    top: 8px !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: none !important;
+    /* Keep the popup above any floating control (z-400 on the layer
+       toggle / Lokality pill) — Leaflet would otherwise let the panes
+       below the popup-pane drift over it on mobile. */
+    z-index: 500 !important;
+  }
+  /* Hide the little arrow that points to the marker — it's
+     meaningless once the popup is detached from its anchor. */
+  .leaflet-popup-tip-container {
+    display: none !important;
+  }
+  .leaflet-popup-content-wrapper {
+    border-radius: 8px;
+  }
+  .leaflet-popup-content {
+    margin: 10px 12px !important;
+  }
+}
+
 html,
 body {
   height: 100%;

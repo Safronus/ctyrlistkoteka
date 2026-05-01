@@ -2,11 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import { GeoJSON as GeoJSONLayer, useMap } from "react-leaflet";
-import { useRouter } from "next/navigation";
 import L, { type Layer, type LatLngBounds, type LatLng } from "leaflet";
 import type { MapLocation } from "@/lib/queries/map";
 import { buildLocationPopupHtml } from "./location-popup";
-import { locationDetailHref } from "@/lib/format";
 
 export function LocationPolygons({
   locations,
@@ -38,21 +36,6 @@ export function LocationPolygons({
    *  background handler so it doesn't deselect right after selecting. */
   onSelect?: (id: number) => void;
 }) {
-  const router = useRouter();
-  // Manual double-click detection. We can't rely on Leaflet's `dblclick`
-  // event when a popup is open on a different location: closing the
-  // outgoing popup eats one of the two clicks the browser needs to fire
-  // a real `dblclick`, so the second click ends up reading as just
-  // "select", and the visitor sees the centering animation but no
-  // navigation. The shared ref tracks the last-clicked id + timestamp;
-  // a second click on the same layer inside the threshold short-circuits
-  // straight to /lokality/<id>. `navigatedAtRef` deduplicates the case
-  // where Leaflet's own `dblclick` ALSO fires alongside our manual
-  // detection — only the first call inside the window navigates.
-  const lastClickRef = useRef<{ id: number; at: number }>({ id: -1, at: 0 });
-  const navigatedAtRef = useRef(0);
-  const DOUBLE_CLICK_MS = 400;
-  const NAVIGATE_DEDUPE_MS = 800;
   const map = useMap();
   // Layer ref by location id, populated by onEachFeature so we can later
   // openPopup() on whichever layer the focus param targets.
@@ -185,35 +168,11 @@ export function LocationPolygons({
             isChild: props.isChild,
           }),
         );
-        const navigateToDetail = () => {
-          const now = Date.now();
-          if (now - navigatedAtRef.current < NAVIGATE_DEDUPE_MS) return;
-          navigatedAtRef.current = now;
-          lastClickRef.current = { id: -1, at: 0 };
-          router.push(locationDetailHref(props.id));
-        };
         layer.on("click", (e) => {
           // Stop the click from reaching the map's background handler —
           // otherwise the deselect would fire right after the select.
           L.DomEvent.stopPropagation(e);
-          const now = Date.now();
-          const last = lastClickRef.current;
-          if (last.id === props.id && now - last.at < DOUBLE_CLICK_MS) {
-            navigateToDetail();
-            return;
-          }
-          lastClickRef.current = { id: props.id, at: now };
           onSelect?.(props.id);
-        });
-        layer.on("dblclick", (e) => {
-          // Belt-and-braces: when Leaflet does fire dblclick (e.g.,
-          // clicking a layer with no popup transition involved), we
-          // still navigate. The dedupe ref makes sure we don't
-          // double-navigate when both the manual click detector AND
-          // dblclick fire for the same gesture.
-          L.DomEvent.stopPropagation(e);
-          (e as L.LeafletMouseEvent).originalEvent?.preventDefault();
-          navigateToDetail();
         });
         layerRefs.current.set(props.id, layer);
       }}

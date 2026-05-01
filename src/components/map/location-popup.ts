@@ -11,10 +11,9 @@ const NF_CS = new Intl.NumberFormat("cs-CZ");
  * also means the markup is portable to the dots layer without dragging
  * an external stylesheet along.
  *
- * The "Detail lokality" / "Ukázat nálezy" links + the "dvojklik" hint
- * give the visitor everything they need to act on the highlighted spot
- * without going back to the sidebar; the dvojklik shortcut mirrors the
- * dblclick handler the polygon/dot layers register on the map.
+ * The "Detail lokality" / "Ukázat nálezy" links give the visitor every
+ * action they need without leaving the popup — the polygon/dot click
+ * handler already selects + centres the location.
  */
 export function buildLocationPopupHtml(params: {
   id: number;
@@ -52,21 +51,25 @@ export function buildLocationPopupHtml(params: {
     ? `<div style="color:#4b5563;font-size:12px;line-height:1.3;margin-top:2px;">${sub}</div>`
     : "";
 
-  // Two-button row: detail page + filtered finds list. Keep the button
-  // styles inline so they don't depend on Tailwind's preflight.
+  // Two compact link buttons: detail page + filtered finds list. Kept
+  // small (11 px font, 3 px vertical padding) so the popup height stays
+  // close to the headline content even on narrow tiles like the example
+  // ZLÍN_JSVAHY-UTB-U5-001 where the longer label "Ukázat nálezy →"
+  // would otherwise wrap. Inline styles so Tailwind's preflight can't
+  // touch them via class collisions inside leaflet-popup-content.
   const linksRow = `
-    <div style="display:flex;gap:6px;margin-top:8px;">
+    <div style="display:flex;gap:5px;margin-top:6px;">
       <a href="${detailHref}"
-         style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;font-weight:500;color:#1f5e1c;text-decoration:none;background:white;">
-        Detail lokality →
+         style="flex:1;display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;border:1px solid #e5e7eb;border-radius:5px;font-size:11px;font-weight:500;color:#1f5e1c;text-decoration:none;background:white;white-space:nowrap;line-height:1.3;">
+        Detail&nbsp;lokality&nbsp;→
       </a>
       <a href="${sbirkaHref}"
-         style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;font-weight:500;color:#1f5e1c;text-decoration:none;background:white;">
-        Ukázat nálezy →
+         style="flex:1;display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;border:1px solid #e5e7eb;border-radius:5px;font-size:11px;font-weight:500;color:#1f5e1c;text-decoration:none;background:white;white-space:nowrap;line-height:1.3;">
+        Ukázat&nbsp;nálezy&nbsp;→
       </a>
     </div>`;
 
-  return `<div style="min-width:220px;font-family:inherit;">
+  return `<div style="min-width:200px;font-family:inherit;">
     <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
       <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#6b7280;">${escapeHtml(idLabel)}</span>
       <strong style="font-size:14px;color:#111827;line-height:1.2;">${escapeHtml(titleText)}</strong>
@@ -78,9 +81,6 @@ export function buildLocationPopupHtml(params: {
       <span style="color:#6b7280;font-size:12px;"> ${pluralFinds(findCount)}</span>
     </div>
     ${linksRow}
-    <div style="margin-top:6px;font-size:11px;color:#9ca3af;line-height:1.3;">
-      Tip: dvojklik na lokalitu otevře detail
-    </div>
   </div>`;
 }
 
