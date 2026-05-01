@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Camera, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import type { FilterOptions } from "@/lib/queries/finds";
 import { STATE_LABELS } from "@/lib/stateLabels";
 import type { FindState } from "@prisma/client";
@@ -23,7 +23,6 @@ export function FilterBar({
     country: string;
     state: string;
     year: string;
-    hasPhoto: boolean;
   };
 }) {
   const router = useRouter();
@@ -95,8 +94,7 @@ export function FilterBar({
     current.city ||
     current.country ||
     current.state ||
-    current.year ||
-    current.hasPhoto;
+    current.year;
 
   return (
     <div
@@ -245,34 +243,15 @@ export function FilterBar({
 
       </div>
 
-      {/* Quick-toggle chip row below the dropdowns. Mirrors the
-          /lokality "S reálnou fotkou" pill — same icon and visual
-          weight, so a visitor browsing both pages reads them as
-          siblings. URL param `hasPhoto=1` is preserved across paging. */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      {hasAny && (
         <button
           type="button"
-          onClick={() => update("hasPhoto", current.hasPhoto ? "" : "1")}
-          aria-pressed={current.hasPhoto}
-          className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition ${
-            current.hasPhoto
-              ? "border-brand-600 bg-brand-600 text-white shadow-sm"
-              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-          }`}
+          onClick={clearAll}
+          className="mt-3 text-sm text-brand-700 hover:underline"
         >
-          <Camera className="h-4 w-4" aria-hidden />
-          <span>S reálnou fotkou</span>
+          Zrušit filtry
         </button>
-        {hasAny && (
-          <button
-            type="button"
-            onClick={clearAll}
-            className="text-sm text-brand-700 hover:underline"
-          >
-            Zrušit filtry
-          </button>
-        )}
-      </div>
+      )}
     </div>
   );
 }

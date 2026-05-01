@@ -178,7 +178,6 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
           country: filters.country ?? "",
           state: filters.state ?? "",
           year: filters.year ? String(filters.year) : "",
-          hasPhoto: filters.hasRealPhoto === true,
         }}
       />
 
@@ -213,6 +212,7 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
         dateTo={dateToString(filters.dateTo)}
         minDate={options.minDate}
         maxDate={options.maxDate}
+        hasPhoto={filters.hasRealPhoto === true}
       />
 
       {view === "list" ? (

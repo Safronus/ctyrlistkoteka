@@ -3,12 +3,13 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import {
-  LayoutGrid,
-  List,
   ArrowDownNarrowWide,
   ArrowUpNarrowWide,
+  Camera,
   Compass,
   Globe,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import type { FindSort } from "@/lib/queries/finds";
 
@@ -24,6 +25,7 @@ export function ViewSortToolbar({
   dateTo,
   minDate,
   maxDate,
+  hasPhoto,
 }: {
   view: FindView;
   sort: FindSort;
@@ -35,6 +37,10 @@ export function ViewSortToolbar({
    *  Null when the collection has no dated finds yet. */
   minDate: string | null;
   maxDate: string | null;
+  /** "S reálnou fotkou" toggle — sits between the view switch and the
+   *  date range so it reads as a quick-narrow filter alongside dates,
+   *  not buried in the FilterBar dropdown stack. URL param: hasPhoto=1. */
+  hasPhoto: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -66,6 +72,25 @@ export function ViewSortToolbar({
         ]}
         onChange={(v) => setParam("view", v, "list")}
       />
+
+      {/* Quick "S reálnou fotkou" toggle — sits between the view
+          switch and the date range so dates + photo presence read as
+          one cluster of fast filters above the sort group. Visual
+          weight matches the Segmented buttons (border + brand-600 bg
+          when active) so the row stays uniform. */}
+      <button
+        type="button"
+        onClick={() => setParam("hasPhoto", hasPhoto ? "" : "1", "")}
+        aria-pressed={hasPhoto}
+        className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition ${
+          hasPhoto
+            ? "border-brand-600 bg-brand-600 text-white"
+            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+        }`}
+      >
+        <Camera className="h-4 w-4" aria-hidden />
+        <span>S reálnou fotkou</span>
+      </button>
 
       {/* Date range — second-stage filtration sitting between view and
           sort. Bounded to the collection's actual span so the picker
