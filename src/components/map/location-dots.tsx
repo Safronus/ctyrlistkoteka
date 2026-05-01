@@ -38,6 +38,15 @@ export function LocationDots({
   const map = useMap();
   const router = useRouter();
   const layerRefs = useRef<Map<number, LCircleMarker>>(new Map());
+  // Manual double-click detection — see LocationPolygons for the
+  // rationale. Closing one popup before opening another can swallow
+  // one click of a real dblclick, so we track timestamps in refs and
+  // navigate when two clicks land on the same dot inside the window.
+  // navigatedAtRef deduplicates against Leaflet's own dblclick.
+  const lastClickRef = useRef<{ id: number; at: number }>({ id: -1, at: 0 });
+  const navigatedAtRef = useRef(0);
+  const DOUBLE_CLICK_MS = 400;
+  const NAVIGATE_DEDUPE_MS = 800;
 
   // When focused, open the focused dot's popup once the map's fit-bounds
   // animation settles. Same pattern as LocationPolygons.
@@ -111,17 +120,35 @@ export function LocationDots({
                 // handler — otherwise the deselect would fire right
                 // after the select.
                 L.DomEvent.stopPropagation(e);
+                const now = Date.now();
+                const last = lastClickRef.current;
+                if (last.id === l.id && now - last.at < DOUBLE_CLICK_MS) {
+                  if (
+                    now - navigatedAtRef.current >= NAVIGATE_DEDUPE_MS
+                  ) {
+                    navigatedAtRef.current = now;
+                    lastClickRef.current = { id: -1, at: 0 };
+                    router.push(locationDetailHref(l.id));
+                  }
+                  return;
+                }
+                lastClickRef.current = { id: l.id, at: now };
                 onSelect?.(l.id);
               },
               dblclick: (e) => {
                 // Mirror the polygon-layer behaviour: dvojklik opens
                 // the detail page. stopPropagation suppresses Leaflet's
                 // map-level doubleClickZoom that would otherwise zoom
-                // in before the navigation finishes; preventDefault uses
-                // the wrapped DOM event since L.DomEvent.preventDefault
-                // is typed against the native Event.
+                // in before the navigation finishes; the dedupe window
+                // means we never navigate twice when both the manual
+                // click detector and Leaflet's dblclick fire for the
+                // same gesture.
                 L.DomEvent.stopPropagation(e);
                 e.originalEvent?.preventDefault();
+                const now = Date.now();
+                if (now - navigatedAtRef.current < NAVIGATE_DEDUPE_MS) return;
+                navigatedAtRef.current = now;
+                lastClickRef.current = { id: -1, at: 0 };
                 router.push(locationDetailHref(l.id));
               },
               remove: () => {
