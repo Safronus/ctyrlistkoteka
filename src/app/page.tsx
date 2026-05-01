@@ -684,6 +684,17 @@ function PeakDayCard({
           <p className="mt-0.5 text-[11px] text-gray-500">
             čistý čas sbírání
           </p>
+          {peakDay.netMinutes > 0 && (
+            <p
+              className="mt-0.5 font-mono text-[11px] tabular-nums text-gray-500"
+              title="Průměrný počet čtyřlístků za minutu čistého času"
+            >
+              {new Intl.NumberFormat("cs-CZ", {
+                maximumFractionDigits: 1,
+              }).format(peakDay.count / peakDay.netMinutes)}{" "}
+              čtyřlístku/min
+            </p>
+          )}
         </div>
       )}
       {/* Keep mt-auto as a fallback: when netLabel is null, the
