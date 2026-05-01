@@ -197,11 +197,15 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
   if (f.q && f.q.trim()) {
     const q = f.q.trim();
     const or: Prisma.FindWhereInput[] = [
-      // Only search inside notes for NON-anonymized finds to avoid
-      // leaking that a secret find matches a keyword.
+      // Notes search runs only against finds that are PUBLIC AND
+      // non-donated. Anonymized → no notes leak. Donated → notes
+      // typically name the recipient, so even surfacing "this find
+      // matches keyword X" reveals private context. Code/displayName
+      // joins on location stay open: those are public attributes.
       {
         AND: [
           { isAnonymized: false },
+          { states: { none: { state: FindState.DONATED } } },
           { notes: { contains: q, mode: "insensitive" } },
         ],
       },
@@ -355,14 +359,21 @@ async function hydrate(
       notes: r.notes,
       coordinates: coordsMap.get(r.id) ?? null,
     });
+    const states = r.states.map((s) => s.state);
+    // Donated finds: notes typically name the recipient or sketch
+    // private context of the gift, so they're hidden EVERYWHERE the
+    // public payload travels (list, card, detail, OG meta) — not just
+    // on the detail page. Centralising the rule here means consumers
+    // never have to remember to guard on state.
+    const notes = states.includes(FindState.DONATED) ? null : safe.notes;
     return {
       id: r.id,
       foundAt: r.foundAt,
-      notes: safe.notes,
+      notes,
       isAnonymized: r.isAnonymized,
       coordinates: safe.coordinates,
       location: r.location,
-      states: r.states.map((s) => s.state),
+      states,
       images,
       primaryImage: images[0] ?? null,
       // Filled in by listFinds via a single bulk LocationMap query — see

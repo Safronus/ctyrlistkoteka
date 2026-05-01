@@ -195,19 +195,15 @@ export default async function FindDetailPage({ params }: PageProps) {
           )}
         </div>
 
-        {/* Notes: hidden for anonymized finds (privacy invariant in
-            CLAUDE.md §6) and for DONATED finds — donation notes
-            typically name the recipient, mention private context of
-            the gift, or both, so the recipient finding their own
-            clover via the home-page lookup shouldn't reveal them
-            publicly either. */}
-        {!find.isAnonymized &&
-          !find.states.includes(FindState.DONATED) &&
-          find.notes && (
-            <p className="whitespace-pre-wrap rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
-              {find.notes}
-            </p>
-          )}
+        {/* Notes are nulled at the query layer for anonymized AND
+            donated finds (see hydrate() in src/lib/queries/finds.ts),
+            so a single truthy guard here covers every privacy rule —
+            no need to re-check states. */}
+        {find.notes && (
+          <p className="whitespace-pre-wrap rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+            {find.notes}
+          </p>
+        )}
       </header>
 
       <ImageGallery
