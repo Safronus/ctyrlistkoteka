@@ -2,10 +2,8 @@
 
 import { useActionState, useId } from "react";
 import { Search, Sparkles } from "lucide-react";
-import {
-  findDonationAction,
-  FIND_DONATION_INITIAL,
-} from "@/lib/actions/findDonation";
+import { findDonationAction } from "@/lib/actions/findDonation";
+import { FIND_DONATION_INITIAL } from "@/lib/actions/findDonationTypes";
 
 /**
  * Form pinned under the home-page "donated-clovers" SVG that lets a

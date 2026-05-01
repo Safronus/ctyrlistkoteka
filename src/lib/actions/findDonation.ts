@@ -3,15 +3,7 @@
 import { redirect } from "next/navigation";
 import { FindState } from "@prisma/client";
 import { prisma } from "@/lib/db";
-
-export interface FindDonationActionState {
-  /** Czech message for the failure case, or null on initial render. On
-   *  success the action redirects, so the success branch never returns
-   *  to the client. */
-  error: string | null;
-}
-
-export const FIND_DONATION_INITIAL: FindDonationActionState = { error: null };
+import type { FindDonationActionState } from "@/lib/actions/findDonationTypes";
 
 /**
  * Server action behind the home-page "Najdi si svůj čtyřlístek" form.
