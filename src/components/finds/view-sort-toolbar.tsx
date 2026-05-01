@@ -73,11 +73,11 @@ export function ViewSortToolbar({
         onChange={(v) => setParam("view", v, "list")}
       />
 
-      {/* Quick "S reálnou fotkou" toggle — sits between the view
-          switch and the date range so dates + photo presence read as
-          one cluster of fast filters above the sort group. Visual
-          weight matches the Segmented buttons (border + brand-600 bg
-          when active) so the row stays uniform. */}
+      {/* Quick "S fotkou daru" toggle — sits between the view switch
+          and the date range so dates + photo presence read as one
+          cluster of fast filters above the sort group. Visual weight
+          matches the Segmented buttons (border + brand-600 bg when
+          active) so the row stays uniform. */}
       <button
         type="button"
         onClick={() => setParam("hasPhoto", hasPhoto ? "" : "1", "")}
@@ -89,7 +89,7 @@ export function ViewSortToolbar({
         }`}
       >
         <Camera className="h-4 w-4" aria-hidden />
-        <span>S reálnou fotkou</span>
+        <span>S fotkou daru</span>
       </button>
 
       {/* Date range — second-stage filtration sitting between view and
