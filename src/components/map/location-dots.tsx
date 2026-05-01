@@ -17,6 +17,7 @@ export function LocationDots({
   focusLocationId,
   showGone,
   suppressPopupAutoOpen = false,
+  enablePopup = true,
   onSelect,
 }: {
   locations: readonly MapLocation[];
@@ -31,6 +32,11 @@ export function LocationDots({
    *  would auto-open its popup and clobber the marker, dismissing the
    *  highlight in the process. */
   suppressPopupAutoOpen?: boolean;
+  /** When false, no Leaflet popup is bound to any dot — used on mobile
+   *  where the page renders its own LocationTopSheet instead. Folded
+   *  into each CircleMarker's React key so a breakpoint resize cleanly
+   *  remounts each marker with the new binding state. */
+  enablePopup?: boolean;
   onSelect?: (id: number) => void;
 }) {
   const map = useMap();
@@ -41,6 +47,7 @@ export function LocationDots({
   useEffect(() => {
     if (focusLocationId == null) return;
     if (suppressPopupAutoOpen) return;
+    if (!enablePopup) return; // popup not bound — top-sheet handles it
     const layer = layerRefs.current.get(focusLocationId);
     if (!layer) return;
     const open = () => layer.openPopup();
@@ -50,7 +57,7 @@ export function LocationDots({
       map.off("moveend", open);
       clearTimeout(t);
     };
-  }, [focusLocationId, map, suppressPopupAutoOpen]);
+  }, [focusLocationId, map, suppressPopupAutoOpen, enablePopup]);
 
   const dots = locations
     .filter(
@@ -79,7 +86,7 @@ export function LocationDots({
             : "#1e40af";
         return (
           <CircleMarker
-            key={l.id}
+            key={`${l.id}-${enablePopup ? "p" : "np"}`}
             center={[l.centerLat, l.centerLng]}
             radius={focused ? 9 : 6}
             pathOptions={{
@@ -91,16 +98,18 @@ export function LocationDots({
             eventHandlers={{
               add: (e) => {
                 const layer = e.target as LCircleMarker;
-                layer.bindPopup(
-                  buildLocationPopupHtml({
-                    id: l.id,
-                    code: l.code,
-                    displayName: l.displayName,
-                    findCount: l.findCount,
-                    isGone: l.isGone,
-                    isChild: l.parentId !== null,
-                  }),
-                );
+                if (enablePopup) {
+                  layer.bindPopup(
+                    buildLocationPopupHtml({
+                      id: l.id,
+                      code: l.code,
+                      displayName: l.displayName,
+                      findCount: l.findCount,
+                      isGone: l.isGone,
+                      isChild: l.parentId !== null,
+                    }),
+                  );
+                }
                 layerRefs.current.set(l.id, layer);
               },
               click: (e) => {

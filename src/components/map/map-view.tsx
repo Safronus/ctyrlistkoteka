@@ -28,6 +28,7 @@ export function MapView({
   onSelectLocation,
   onDeselectLocation,
   onHighlightDismiss,
+  enableLocationPopup,
 }: {
   data: MapData;
   focusLocationId: number | null;
@@ -53,6 +54,10 @@ export function MapView({
    *  click). Lets MapaShell drop the deep-link highlight and switch to
    *  normal interaction without panning the viewport. */
   onHighlightDismiss: () => void;
+  /** Whether the polygon/dot layers should bind a Leaflet popup. Set
+   *  false on mobile where the LocationTopSheet handles surfacing the
+   *  location detail instead. */
+  enableLocationPopup: boolean;
 }) {
   // When highlighting a single find from /sbirka, the visitor wants to
   // see that point at street level — bypass the location-polygon fit
@@ -131,6 +136,7 @@ export function MapView({
             enabledChildPolygonIds={enabledChildPolygonIds}
             showGone={showGone}
             suppressPopupAutoOpen={highlightFind !== null}
+            enablePopup={enableLocationPopup}
             onSelect={onSelectLocation}
           />
           <LocationDots
@@ -138,6 +144,7 @@ export function MapView({
             focusLocationId={focusLocationId}
             showGone={showGone}
             suppressPopupAutoOpen={highlightFind !== null}
+            enablePopup={enableLocationPopup}
             onSelect={onSelectLocation}
           />
         </>

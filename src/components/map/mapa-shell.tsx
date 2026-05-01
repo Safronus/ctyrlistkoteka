@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Info, ListIcon, X } from "lucide-react";
 import { MapLoader } from "./map-loader";
 import { MapSidebar } from "./map-sidebar";
+import { LocationTopSheet } from "./location-top-sheet";
 import type { MapData } from "@/lib/queries/map";
 import type { LocationListItem } from "@/lib/queries/locations";
 import type { HighlightFind } from "@/lib/queries/finds";
@@ -80,6 +81,19 @@ export function MapaShell({
   // keeps it expanded since vertical real-estate is plentiful there.
   // (Legenda is now a thin bar at the bottom edge — no collapse needed.)
   const [layersExpanded, setLayersExpanded] = useState(true);
+  // Reactive viewport flag — drives the location top-sheet on mobile
+  // and the auto-collapse of Vrstvy when that sheet is showing. We need
+  // it to update on resize / orientation change too, so the listener
+  // is wired up below; the previous code only checked once on mount.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const isDesktop = window.matchMedia("(min-width: 768px)").matches;
@@ -228,6 +242,27 @@ export function MapaShell({
     });
   }, []);
 
+  // Resolve the picked row from `mapData.locations` (the source of truth
+  // for polygon/centre data) so the mobile top-sheet renders the same
+  // attributes the bound popup would show on desktop. `sidebarLocations`
+  // could also work but `mapData.locations` already lives client-side
+  // and the find is O(n) in 128 rows.
+  const focusedLocation = useMemo(() => {
+    if (focusId === null) return null;
+    return mapData.locations.find((l) => l.id === focusId) ?? null;
+  }, [focusId, mapData.locations]);
+
+  // When the location top-sheet is shown on mobile, force-collapse
+  // Vrstvy. Expanded Vrstvy can grow into the top-sheet's row (~140 px)
+  // and the sheet covers the controls, which the user explicitly does
+  // not want. The collapse is one-way: we don't auto-expand again on
+  // close because most mobile visitors leave Vrstvy collapsed anyway.
+  useEffect(() => {
+    if (isMobile && focusedLocation !== null) {
+      setLayersExpanded(false);
+    }
+  }, [isMobile, focusedLocation]);
+
   // Rehydrate visitor preferences after mount. Wrapped in try/catch
   // because localStorage can throw in private mode / when disabled.
   // The Nálezy preference is intentionally skipped under highlight
@@ -291,7 +326,19 @@ export function MapaShell({
         onSelectLocation={handleSelectLocation}
         onDeselectLocation={handleDeselectLocation}
         onHighlightDismiss={handleHighlightDismiss}
+        enableLocationPopup={!isMobile}
       />
+
+      {/* Mobile-only top sheet — replaces Leaflet's bound popup on
+          small viewports. Sits below the floating Vrstvy + Lokality
+          controls (top-14) so it never collides with them. Hidden on
+          desktop where the bound popup behaves correctly. */}
+      {isMobile && focusedLocation && (
+        <LocationTopSheet
+          location={focusedLocation}
+          onClose={handleDeselectLocation}
+        />
+      )}
 
       {/* GPS-accuracy notice. Pinned bottom-left so it sits above OSM
           attribution but stays clear of the sidebar (right) and zoom

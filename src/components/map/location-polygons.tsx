@@ -12,6 +12,7 @@ export function LocationPolygons({
   enabledChildPolygonIds,
   showGone,
   suppressPopupAutoOpen = false,
+  enablePopup = true,
   onSelect,
 }: {
   locations: readonly MapLocation[];
@@ -31,6 +32,13 @@ export function LocationPolygons({
    *  own popup. Used by /mapa's `?find=N` deep-link so the highlighted
    *  find's popup wins instead of being clobbered by the polygon's. */
   suppressPopupAutoOpen?: boolean;
+  /** When false, no Leaflet popup is bound to any polygon — used on
+   *  mobile where the page renders its own `LocationTopSheet` instead.
+   *  Default true so desktop callers don't need to opt in. The flag
+   *  is also folded into the GeoJSON layer's React `key` below so a
+   *  resize across the breakpoint cleanly recreates the layer with
+   *  the new binding. */
+  enablePopup?: boolean;
   /** Click handler — fired when the visitor clicks a polygon directly
    *  on the map. The wrapper stops the click from reaching the map's
    *  background handler so it doesn't deselect right after selecting. */
@@ -65,6 +73,7 @@ export function LocationPolygons({
   useEffect(() => {
     if (focusLocationId == null) return;
     if (suppressPopupAutoOpen) return;
+    if (!enablePopup) return; // popup not bound — top-sheet handles it
     const layer = layerRefs.current.get(focusLocationId);
     if (!layer) return;
     type PopupLayer = Layer & {
@@ -99,7 +108,7 @@ export function LocationPolygons({
       map.off("moveend", open);
       clearTimeout(t);
     };
-  }, [focusLocationId, map, features.length, suppressPopupAutoOpen]);
+  }, [focusLocationId, map, features.length, suppressPopupAutoOpen, enablePopup]);
 
   if (features.length === 0) return null;
 
@@ -110,7 +119,7 @@ export function LocationPolygons({
 
   return (
     <GeoJSONLayer
-      key={features.length}
+      key={`${features.length}-${enablePopup ? "p" : "np"}`}
       data={collection}
       style={(feature) => {
         const props = feature?.properties as
@@ -158,16 +167,18 @@ export function LocationPolygons({
           isGone: boolean;
           isChild: boolean;
         };
-        layer.bindPopup(
-          buildLocationPopupHtml({
-            id: props.id,
-            code: props.code,
-            displayName: props.displayName,
-            findCount: props.findCount,
-            isGone: props.isGone,
-            isChild: props.isChild,
-          }),
-        );
+        if (enablePopup) {
+          layer.bindPopup(
+            buildLocationPopupHtml({
+              id: props.id,
+              code: props.code,
+              displayName: props.displayName,
+              findCount: props.findCount,
+              isGone: props.isGone,
+              isChild: props.isChild,
+            }),
+          );
+        }
         layer.on("click", (e) => {
           // Stop the click from reaching the map's background handler —
           // otherwise the deselect would fire right after the select.

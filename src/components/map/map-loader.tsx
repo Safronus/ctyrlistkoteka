@@ -34,6 +34,7 @@ export function MapLoader({
   onSelectLocation,
   onDeselectLocation,
   onHighlightDismiss,
+  enableLocationPopup,
 }: {
   data: MapData;
   focusLocationId?: number | null;
@@ -47,6 +48,10 @@ export function MapLoader({
   onSelectLocation: (id: number) => void;
   onDeselectLocation: () => void;
   onHighlightDismiss: () => void;
+  /** Whether the polygon/dot layers should bind a Leaflet popup. False
+   *  on mobile where MapaShell renders its own LocationTopSheet
+   *  instead — the two would otherwise compete for the screen. */
+  enableLocationPopup: boolean;
 }) {
   return (
     <MapView
@@ -62,6 +67,7 @@ export function MapLoader({
       onSelectLocation={onSelectLocation}
       onDeselectLocation={onDeselectLocation}
       onHighlightDismiss={onHighlightDismiss}
+      enableLocationPopup={enableLocationPopup}
     />
   );
 }
