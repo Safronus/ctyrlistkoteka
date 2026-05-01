@@ -44,21 +44,14 @@ export function CloverFactsStatCard({
     window.dispatchEvent(new CustomEvent(CLOVER_FACT_ADVANCE_EVENT));
   };
 
-  // Hint reads as a comma-list when there's authored content to call
-  // out, otherwise just the category count. Author bonuses get the
-  // emerald BONUS treatment in the rotator card itself, so naming them
-  // here doubles as a hint that the hero card has a richer mode.
-  const hintParts: string[] = [];
-  if (bonus > 0) {
-    hintParts.push(
-      `z toho ${NF_CS.format(bonus)} ${pluralCs(bonus, BONUSES)} autora`,
-    );
-  }
-  if (categories > 0) {
-    hintParts.push(
-      `${NF_CS.format(categories)} ${pluralCs(categories, CATEGORIES)}`,
-    );
-  }
+  // Author bonuses get the emerald BONUS treatment in the rotator card
+  // itself, so naming them here doubles as a hint that the hero card
+  // has a richer mode. The category count + label list moved out of
+  // the hint row into their own block — see the centred section below.
+  const bonusHint =
+    bonus > 0
+      ? `z toho ${NF_CS.format(bonus)} ${pluralCs(bonus, BONUSES)} autora`
+      : null;
 
   return (
     <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3">
@@ -68,20 +61,30 @@ export function CloverFactsStatCard({
       <p className="mt-1 truncate text-base font-semibold text-gray-900">
         {NF_CS.format(total)} {pluralCs(total, CURIOSITIES)}
       </p>
-      {hintParts.length > 0 && (
-        <p className="mt-0.5 text-xs text-gray-500">
-          {hintParts.join(" · ")}
-        </p>
+      {bonusHint && (
+        <p className="mt-0.5 text-xs text-gray-500">{bonusHint}</p>
       )}
-      {categoryLabels.length > 0 && (
-        // Smaller font + lighter colour than the hint so the list reads
-        // as supporting context rather than a second headline. `leading-snug`
-        // keeps the wrapped lines visually tight when the chip-row would
-        // otherwise add too much vertical drift to the tile.
-        <p className="mt-1 text-[11px] leading-snug text-gray-400">
-          {categoryLabels.join(" · ")}
-        </p>
-      )}
+      {/* Categories block — count + labels — vertically centred in the
+          slack between the headline rows above and the "Další zajímavost"
+          button below. flex-1 absorbs the available height, justify-center
+          places the block on the card's vertical midline. Renders empty
+          when there are no categories so the button still pins to the
+          bottom via mt-auto on its wrapper. */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-1 py-1.5 text-center">
+        {categories > 0 && (
+          <p className="text-xs text-gray-500">
+            {NF_CS.format(categories)} {pluralCs(categories, CATEGORIES)}
+          </p>
+        )}
+        {categoryLabels.length > 0 && (
+          // Smaller font + lighter colour than the count so the list
+          // reads as supporting context rather than a second headline.
+          // `leading-snug` keeps the wrapped lines visually tight.
+          <p className="text-[11px] leading-snug text-gray-400">
+            {categoryLabels.join(" · ")}
+          </p>
+        )}
+      </div>
       <div className="mt-auto pt-2">
         <button
           type="button"

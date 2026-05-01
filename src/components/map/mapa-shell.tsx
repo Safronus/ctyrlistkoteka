@@ -367,9 +367,14 @@ export function MapaShell({
 
           {/* Desktop (md+): right-side panel — same shape as before the
            *  bottom-sheet split. The two siblings are mutually exclusive
-           *  via Tailwind responsive utilities, so only one ever paints. */}
+           *  via Tailwind responsive utilities, so only one ever paints.
+           *  At lg+ the panel widens to 36 rem (~1.5× the md width) so
+           *  long location codes + their meta read on one line and the
+           *  hierarchy chips don't fight for space — the map area still
+           *  has plenty of room at typical desktop widths. Tablet (md→lg)
+           *  keeps the snug 24 rem to leave the map navigable. */}
           <aside
-            className="absolute right-0 top-0 z-[400] hidden h-full w-96 flex-col border-l border-gray-200 bg-white shadow-xl md:flex"
+            className="absolute right-0 top-0 z-[400] hidden h-full w-96 flex-col border-l border-gray-200 bg-white shadow-xl md:flex lg:w-[36rem]"
             aria-label="Ovládání mapy"
           >
             <div className="flex items-center justify-end border-b border-gray-200 px-2 py-1">
