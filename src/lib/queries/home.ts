@@ -55,7 +55,17 @@ export interface HomeHighlights {
   firstFoundAt: string | null;
   /** Single calendar day with the most finds. Mirrors the `peaks.day`
    *  bucket used on /statistiky. */
-  peakDay: { startsAt: string; count: number } | null;
+  peakDay: {
+    startsAt: string;
+    count: number;
+    /** ISO string of the FIRST find captured on that day — wall-clock
+     *  time straight from EXIF DateTimeOriginal, no aggregation. Used
+     *  by the home tile to show "od HH:MM". */
+    firstAt: string;
+    /** ISO string of the LAST find captured on that day. Pair with
+     *  firstAt to display the daily harvest window + its duration. */
+    lastAt: string;
+  } | null;
   /** #1 location by find count, with parent/child folding identical to
    *  the /statistiky TOP 10 (so a parent shows the combined total of
    *  its sub-parts). Anonymized locations are excluded. */
@@ -159,8 +169,18 @@ export async function getHomePageData(): Promise<HomePageData> {
       WHERE id = (SELECT MAX(id) FROM finds)
     `,
 
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('day', found_at) AS bucket, COUNT(*) AS count
+    prisma.$queryRaw<
+      Array<{
+        bucket: Date;
+        count: bigint;
+        first_at: Date;
+        last_at: Date;
+      }>
+    >`
+      SELECT date_trunc('day', found_at) AS bucket,
+             COUNT(*) AS count,
+             MIN(found_at) AS first_at,
+             MAX(found_at) AS last_at
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
     `,
@@ -289,6 +309,8 @@ export async function getHomePageData(): Promise<HomePageData> {
       ? {
           startsAt: peakDayRow.bucket.toISOString(),
           count: Number(peakDayRow.count),
+          firstAt: peakDayRow.first_at.toISOString(),
+          lastAt: peakDayRow.last_at.toISOString(),
         }
       : null,
     topLocation: topLocRow

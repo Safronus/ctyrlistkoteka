@@ -286,25 +286,6 @@ function DonatedShowcase({ count }: { count: number }) {
         className="mx-auto mt-1.5 h-28 w-full max-w-2xl sm:h-32"
         aria-hidden
       >
-        {/* Catcher glow — soft radial emerald halo at the right end of
-            the swarm trajectory. Drifters fade out at translate(540, …)
-            with opacity 0, so visually they "land" inside this halo
-            and the form below the SVG reads as their destination. */}
-        <defs>
-          <radialGradient id="ctyr-catcher" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#a7f3d0" stopOpacity="0.9" />
-            <stop offset="60%" stopColor="#86efac" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#86efac" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <ellipse
-          cx="540"
-          cy="55"
-          rx="45"
-          ry="30"
-          fill="url(#ctyr-catcher)"
-        />
-
         {/* Static cluster — the "collection" anchor. Six overlapping
             clovers at slightly varied positions/sizes for depth. */}
         {STATIC_CLUSTER.map((c, i) => (
@@ -645,9 +626,27 @@ function PeakDayCard({
   peakDay: NonNullable<HomePageData["highlights"]["peakDay"]>;
 }) {
   const date = new Date(peakDay.startsAt);
+  const firstAt = new Date(peakDay.firstAt);
+  const lastAt = new Date(peakDay.lastAt);
   // Slice the ISO string so the day stays in UTC (matches how the
   // /sbirka filter parses `from`/`to` — see parseDateOnly there).
   const isoDay = date.toISOString().slice(0, 10);
+  // EXIF DateTimeOriginal is wall-clock at the location (no zone) —
+  // format it in `Europe/Prague` so a CZ-day's harvest doesn't render
+  // as 22:00–05:30 UTC on the page.
+  const timeFmt = new Intl.DateTimeFormat("cs-CZ", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Prague",
+  });
+  const fromTo = `${timeFmt.format(firstAt)}–${timeFmt.format(lastAt)}`;
+  // Duration in minutes — clamped at 0 in case both timestamps land on
+  // the same minute (single-find day, or rapid-fire EXIF clock).
+  const durationMin = Math.max(
+    0,
+    Math.round((lastAt.getTime() - firstAt.getTime()) / 60_000),
+  );
+  const durationLabel = formatDurationMinutes(durationMin);
   return (
     <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -657,6 +656,17 @@ function PeakDayCard({
         {NF_CS.format(peakDay.count)} {pluralCs(peakDay.count, FINDS)}
       </p>
       <p className="mt-0.5 text-xs text-gray-500">{formatDateCs(date)}</p>
+      <p className="mt-0.5 text-xs text-gray-500">
+        <span className="font-mono tabular-nums">{fromTo}</span>
+        {durationLabel && (
+          <>
+            {" · "}
+            <span title="Doba mezi prvním a posledním nálezem v ten den">
+              {durationLabel}
+            </span>
+          </>
+        )}
+      </p>
       <div className="mt-auto flex flex-col gap-2 pt-3">
         <Link
           href={`/sbirka?from=${isoDay}&to=${isoDay}`}
@@ -668,6 +678,19 @@ function PeakDayCard({
       </div>
     </div>
   );
+}
+
+/** Czech-formatted duration in hours+minutes from a raw minute count.
+ *  - 0 min → null (caller hides the chip — would just clutter the row)
+ *  - < 60 → "X min"
+ *  - ≥ 60 → "Y h Z min" (skips "0 min" when whole hours) */
+function formatDurationMinutes(total: number): string | null {
+  if (total <= 0) return null;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} h`;
+  return `${h} h ${m} min`;
 }
 
 function HighlightCard({
