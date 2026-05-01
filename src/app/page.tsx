@@ -647,6 +647,7 @@ function PeakDayCard({
     Math.round((lastAt.getTime() - firstAt.getTime()) / 60_000),
   );
   const durationLabel = formatDurationMinutes(durationMin);
+  const netLabel = formatDurationMinutes(peakDay.netMinutes);
   return (
     <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -667,6 +668,28 @@ function PeakDayCard({
           </>
         )}
       </p>
+      {/* "Net picking time" — sum of within-location session durations,
+          where a session breaks on any > 15 min gap inside one
+          location. flex-1 + items-center centres the block both
+          axes inside the slack between metadata + button (auto-grows
+          with neighbouring cards in the row). */}
+      {netLabel && (
+        <div className="flex flex-1 flex-col items-center justify-center py-3 text-center">
+          <p
+            className="font-mono text-base font-semibold tabular-nums text-gray-900"
+            title="Součet trvání jednotlivých 'sezení' v rámci lokalit (pauzy delší než 15 min se nezapočítávají)"
+          >
+            {netLabel}
+          </p>
+          <p className="mt-0.5 text-[11px] text-gray-500">
+            čistý čas sbírání
+          </p>
+        </div>
+      )}
+      {/* Keep mt-auto as a fallback: when netLabel is null, the
+          flex-1 above is gone and we still want the button pinned to
+          the card's bottom edge so the row stays vertically aligned
+          with sibling cards. */}
       <div className="mt-auto flex flex-col gap-2 pt-3">
         <Link
           href={`/sbirka?from=${isoDay}&to=${isoDay}`}

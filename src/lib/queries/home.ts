@@ -65,6 +65,14 @@ export interface HomeHighlights {
     /** ISO string of the LAST find captured on that day. Pair with
      *  firstAt to display the daily harvest window + its duration. */
     lastAt: string;
+    /** "Net" picking time on that day in MINUTES, summed across each
+     *  location's sessions. A new session starts inside the same
+     *  location whenever there's a gap > SESSION_GAP_MIN between two
+     *  consecutive finds — that's how the user describes their
+     *  workflow (a few minutes between clovers within one bout, longer
+     *  break = independent visit). Single-find sessions contribute 0
+     *  because there's no second timestamp to measure against. */
+    netMinutes: number;
   } | null;
   /** #1 location by find count, with parent/child folding identical to
    *  the /statistiky TOP 10 (so a parent shows the combined total of
@@ -302,6 +310,15 @@ export async function getHomePageData(): Promise<HomePageData> {
 
   const peakDayRow = peakDayRows[0];
   const topLocRow = topLocRows[0];
+  // Net picking time = sum of within-location session durations on the
+  // peak day. A "session" is a run of finds inside one location whose
+  // consecutive gaps stay under SESSION_GAP_MS (chosen at 15 min — the
+  // user noted "pár minut" between picks in one place, with > 10–15
+  // min meaning a new visit). Two extra round-trips would be wasteful
+  // here, so we pull the peak day's rows once and fold the math in JS.
+  const peakNetMinutes = peakDayRow
+    ? await computePeakDayNetMinutes(peakDayRow.bucket)
+    : 0;
   const highlights: HomeHighlights = {
     firstYear: c?.first_year ?? null,
     firstFoundAt: c?.first_found_at ? c.first_found_at.toISOString() : null,
@@ -311,6 +328,7 @@ export async function getHomePageData(): Promise<HomePageData> {
           count: Number(peakDayRow.count),
           firstAt: peakDayRow.first_at.toISOString(),
           lastAt: peakDayRow.last_at.toISOString(),
+          netMinutes: peakNetMinutes,
         }
       : null,
     topLocation: topLocRow
@@ -329,6 +347,62 @@ export async function getHomePageData(): Promise<HomePageData> {
     highlights,
     recentMonthly: padMonthlySparkline(monthlyRows),
   };
+}
+
+/** A new session opens once two consecutive finds inside one location
+ *  are this far apart. 15 min is the upper end of the user's described
+ *  workflow ("pár minut" within one bout); longer = independent visit
+ *  to the same place. */
+const SESSION_GAP_MS = 15 * 60 * 1000;
+
+async function computePeakDayNetMinutes(dayBucket: Date): Promise<number> {
+  // Pull every find on the peak day with its location + timestamp,
+  // sorted so the session walker can stream through each location's
+  // run in one pass. Anonymized state doesn't matter for the math —
+  // we never expose the rows themselves, only the summed minute count.
+  const rows = await prisma.$queryRaw<
+    Array<{ location_id: number | null; found_at: Date }>
+  >`
+    SELECT location_id, found_at
+    FROM finds
+    WHERE found_at IS NOT NULL
+      AND date_trunc('day', found_at) = ${dayBucket}
+    ORDER BY location_id NULLS LAST, found_at ASC
+  `;
+
+  // Bucket timestamps by location. Rows with NULL location_id are
+  // dropped — without a location we can't tell whether two finds
+  // belong to the same picking bout, and forcing them all into one
+  // pseudo-bucket would inflate the duration.
+  const byLoc = new Map<number, number[]>();
+  for (const r of rows) {
+    if (r.location_id === null) continue;
+    const arr = byLoc.get(r.location_id);
+    const ts = r.found_at.getTime();
+    if (arr) arr.push(ts);
+    else byLoc.set(r.location_id, [ts]);
+  }
+
+  let totalMs = 0;
+  for (const ts of byLoc.values()) {
+    if (ts.length === 0) continue;
+    let sessionStart = ts[0]!;
+    let prev = sessionStart;
+    for (let i = 1; i < ts.length; i++) {
+      const cur = ts[i]!;
+      if (cur - prev > SESSION_GAP_MS) {
+        // Close the current session, open a new one. Single-find
+        // sessions contribute 0 (sessionStart === prev) — there's no
+        // second timestamp to measure picking time against.
+        totalMs += prev - sessionStart;
+        sessionStart = cur;
+      }
+      prev = cur;
+    }
+    totalMs += prev - sessionStart;
+  }
+
+  return Math.round(totalMs / 60_000);
 }
 
 /**
