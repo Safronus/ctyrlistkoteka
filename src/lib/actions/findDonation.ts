@@ -30,12 +30,17 @@ export async function findDonationAction(
   if (raw === "") {
     return { error: "Zadej číslo svého nálezu." };
   }
-  if (!/^[1-9]\d*$/.test(raw)) {
+  // Optional leading `#` — recipients copy the number from chat / paper
+  // either way, so we accept both. Leading zeros stay forbidden ("00057"
+  // is a display form, not the wire form). Whitespace inside is rejected.
+  if (!/^#?[1-9]\d*$/.test(raw)) {
     return {
-      error: "Zadej jen číslice — bez nul na začátku a bez znaku #.",
+      error:
+        "Zadej číslice (volitelně s mřížkou na začátku), bez nul na začátku — např. 15234 nebo #15234.",
     };
   }
-  const id = Number.parseInt(raw, 10);
+  const digits = raw.startsWith("#") ? raw.slice(1) : raw;
+  const id = Number.parseInt(digits, 10);
   if (!Number.isInteger(id) || id <= 0 || id > 2_000_000) {
     return { error: "Číslo je mimo rozsah." };
   }

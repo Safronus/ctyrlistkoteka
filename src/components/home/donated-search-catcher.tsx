@@ -49,13 +49,15 @@ export function DonatedSearchCatcher() {
             id={inputId}
             name="id"
             type="text"
+            // `inputMode="numeric"` keeps mobile keyboards on the digit
+            // pad while still allowing `#` entry from physical keyboards.
             inputMode="numeric"
-            // `pattern` cooperates with the server-side regex; the form
-            // also passes noValidate so the friendlier server messages
-            // win over the browser's default tooltip.
-            pattern="[1-9][0-9]*"
+            // `pattern` cooperates with the server-side regex (optional
+            // leading #). The form also passes noValidate so the
+            // friendlier server messages win over the browser default.
+            pattern="#?[1-9][0-9]*"
             autoComplete="off"
-            placeholder="např. 15234"
+            placeholder="např. 15234 nebo #15234"
             aria-invalid={state.error ? true : undefined}
             aria-describedby={state.error ? errorId : undefined}
             className="block w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
