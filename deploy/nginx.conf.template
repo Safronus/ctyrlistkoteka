@@ -74,6 +74,18 @@ server {
     # -----------------------------------------------------------------
     include /etc/nginx/snippets/block-exploits.conf;
 
+    # Anonymizované fotky darů (find-photos) NIKDY neservírovat
+    # přímo — i když soubor leží v /var/ctyrlistkoteka/generated/find-
+    # photos/, jediná legitimní cesta jak vidět obsah je přes server
+    # action `unlockFindPhotos` (Next.js, env var `FIND_PHOTO_UNLOCK_
+    # CODE`), která vrací base64 data URL po ověření kódu. Bez tohoto
+    # bloku by URL guess `…_ANON.jpeg` obešel celou logiku.
+    # Regex location má prioritu nad prefix locations níž, takže se
+    # rule aplikuje dřív než alias na /generated/.
+    location ~* /generated/find-photos/[^/]*_ANON\.(jpe?g|png|webp)$ {
+        return 404;
+    }
+
     # Statické obrázky servíruje Nginx přímo (bypass Next.js)
     location /generated/ {
         alias /var/ctyrlistkoteka/generated/;

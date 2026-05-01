@@ -89,6 +89,7 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     year: parseInt(pickString(sp.year)),
     dateFrom: parseDateOnly(pickString(sp.from)),
     dateTo: parseDateOnly(pickString(sp.to)),
+    hasRealPhoto: pickString(sp.hasPhoto) === "1" ? true : undefined,
   };
   const page = parseInt(pickString(sp.page)) ?? 1;
   const sort = parseSort(pickString(sp.sort));
@@ -108,7 +109,8 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     filters.state ||
     filters.year ||
     filters.dateFrom ||
-    filters.dateTo
+    filters.dateTo ||
+    filters.hasRealPhoto
   );
 
   // /mapa accepts the same filter param shape (q, loc, city, country,
@@ -124,6 +126,7 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     if (f.year) params.set("year", String(f.year));
     if (f.dateFrom) params.set("from", dateToString(f.dateFrom));
     if (f.dateTo) params.set("to", dateToString(f.dateTo));
+    if (f.hasRealPhoto) params.set("hasPhoto", "1");
     const qs = params.toString();
     return qs ? `/mapa?${qs}` : "/mapa";
   };
@@ -138,6 +141,7 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     if (filters.year) params.set("year", String(filters.year));
     if (filters.dateFrom) params.set("from", dateToString(filters.dateFrom));
     if (filters.dateTo) params.set("to", dateToString(filters.dateTo));
+    if (filters.hasRealPhoto) params.set("hasPhoto", "1");
     if (sort !== "desc") params.set("sort", sort);
     if (view !== "list") params.set("view", view);
     if (p > 1) params.set("page", String(p));
@@ -174,6 +178,7 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
           country: filters.country ?? "",
           state: filters.state ?? "",
           year: filters.year ? String(filters.year) : "",
+          hasPhoto: filters.hasRealPhoto === true,
         }}
       />
 

@@ -9,6 +9,11 @@ import { FindState, Prisma, type ImageType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { anonymize } from "@/lib/anonymize";
 import { DEFAULT_LOCATION_ID } from "@/lib/constants";
+import {
+  getFindIdsWithRealPhotos,
+  getFindPhotos,
+  type FindPhotoEntry,
+} from "@/lib/findPhotos";
 import { countryFromCoords } from "@/lib/geo";
 import { listCadastralAreas, listCountries } from "@/lib/queries/locations";
 import { parseIdQuery } from "@/lib/search";
@@ -53,6 +58,15 @@ export interface PublicFind {
    *  to null for anonymized finds so the value can't be used to
    *  triangulate their position. */
   distanceFromDefault: number | null;
+  /** True when the find has at least one donation photo on disk under
+   *  `${GENERATED_DIR}/find-photos/`. Drives the camera badge on the
+   *  /sbirka list rows and the gallery button on the detail page. The
+   *  flag itself is public for non-anonymized finds; anonymized finds
+   *  collapse to `false` regardless so the indicator can't betray that
+   *  hidden donations exist. ANON-suffixed photo files still register
+   *  their parent find as having a photo (so the gallery button can
+   *  show a placeholder + unlock UI). */
+  hasRealPhoto: boolean;
   /** Offset of the find's GPS from its own location. When the location
    *  has a polygon, `meters` is the great-circle distance to the nearest
    *  polygon edge — 0 when the point is inside the AOI, positive when
@@ -96,6 +110,11 @@ export interface FindFilters {
    *  builder converts this to "< next-day-UTC-midnight" so the whole
    *  selected day counts. */
   dateTo?: Date;
+  /** When true, keep only finds that have at least one donation photo
+   *  on disk. Wired to the "S reálnou fotkou" toggle in the FilterBar.
+   *  Applied as a post-filter against the on-disk index because
+   *  `find-photos/` is filesystem-only — no DB column to query. */
+  hasRealPhoto?: boolean;
 }
 
 export interface FindListResult {
@@ -355,8 +374,26 @@ async function hydrate(
       // anonymized find's position.
       distanceFromDefault: distMap.get(r.id) ?? null,
       locationOffset: offsetMap.get(r.id) ?? null,
+      // Decorated by attachRealPhotoFlags after hydration — the on-disk
+      // index isn't in scope here. Anonymized finds force false to keep
+      // the indicator from leaking that hidden donations exist.
+      hasRealPhoto: false,
     };
   });
+}
+
+/** In-place: flips `hasRealPhoto` to true for finds whose ID appears in
+ *  the on-disk index. Anonymized finds stay `false` regardless — the
+ *  badge would tell visitors that a hidden donation exists, which is
+ *  exactly what anonymization is meant to suppress. */
+async function attachRealPhotoFlags(finds: PublicFind[]): Promise<void> {
+  if (finds.length === 0) return;
+  const ids = await getFindIdsWithRealPhotos();
+  if (ids.size === 0) return;
+  for (const f of finds) {
+    if (f.isAnonymized) continue;
+    if (ids.has(f.id)) f.hasRealPhoto = true;
+  }
 }
 
 const LIST_INCLUDE = {
@@ -394,13 +431,22 @@ export async function listFinds(
   const safePage = Math.max(1, page);
 
   if (sort === "dist-asc" || sort === "dist-desc") {
-    return listFindsByDistance(where, safePage, pageSize, sort);
+    return listFindsByDistance(where, safePage, pageSize, sort, filters);
   }
 
+  // The "S reálnou fotkou" filter narrows the WHERE down to the IDs in
+  // the on-disk find-photos index (filesystem only — no DB column).
+  // Apply it before pagination so total + slice both reflect the
+  // filtered set; without this, page totals would still report the
+  // unfiltered count and the toggle would feel broken.
+  const photoWhere = filters.hasRealPhoto
+    ? await mergeRealPhotoFilter(where)
+    : where;
+
   const [total, rows] = await Promise.all([
-    prisma.find.count({ where }),
+    prisma.find.count({ where: photoWhere }),
     prisma.find.findMany({
-      where,
+      where: photoWhere,
       include: LIST_INCLUDE,
       orderBy: { id: sort },
       take: pageSize,
@@ -409,12 +455,29 @@ export async function listFinds(
   ]);
   const items = await hydrate(rows);
   await attachLocationThumbs(items);
+  await attachRealPhotoFlags(items);
   return {
     items,
     total,
     page: safePage,
     pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
+}
+
+/** Mixes the `?hasPhoto=1` filter into the existing WHERE by AND-ing
+ *  in the IDs from the on-disk photo index. Returns a sentinel WHERE
+ *  that matches zero rows when there are no photos at all, so the
+ *  caller's `count` + `findMany` collapse to an empty result. */
+async function mergeRealPhotoFilter(
+  where: Prisma.FindWhereInput,
+): Promise<Prisma.FindWhereInput> {
+  const ids = await getFindIdsWithRealPhotos();
+  if (ids.size === 0) {
+    return { AND: [where, { id: -1 }] };
+  }
+  return {
+    AND: [where, { id: { in: [...ids] }, isAnonymized: false }],
   };
 }
 
@@ -436,9 +499,13 @@ async function listFindsByDistance(
   safePage: number,
   pageSize: number,
   sort: "dist-asc" | "dist-desc",
+  filters: FindFilters,
 ): Promise<FindListResult> {
+  const photoWhere = filters.hasRealPhoto
+    ? await mergeRealPhotoFilter(where)
+    : where;
   const idRows = await prisma.find.findMany({
-    where,
+    where: photoWhere,
     select: { id: true },
   });
   const ids = idRows.map((r) => r.id);
@@ -510,6 +577,7 @@ async function listFindsByDistance(
     .filter((r): r is (typeof pageRows)[number] => r !== undefined);
   const items = await hydrate(ordered);
   await attachLocationThumbs(items);
+  await attachRealPhotoFlags(items);
   return {
     items,
     total,
@@ -576,6 +644,12 @@ export interface PublicLocationMap {
 
 export interface PublicFindDetail extends PublicFind {
   locationMaps: PublicLocationMap[];
+  /** Donation photos bound to this find. Empty array when none on disk
+   *  or when the find is anonymized (we don't want the modal to
+   *  reveal that hidden donations exist). ANON entries carry
+   *  `url: null` — the modal renders a placeholder until the visitor
+   *  unlocks them via the unlockFindPhotos server action. */
+  donationPhotos: readonly FindPhotoEntry[];
 }
 
 export async function getFindById(
@@ -604,14 +678,29 @@ export async function getFindById(
       ...hydrated,
       location: placeholder,
       locationMaps: placeholderMaps,
+      donationPhotos: [],
     };
   }
 
-  // Non-anonymized: show whatever maps we have for this location.
-  const locationMaps = hydrated.location
-    ? await fetchLocationMaps(hydrated.location.id, hydrated.coordinates)
-    : [];
-  return { ...hydrated, locationMaps };
+  // Non-anonymized: show whatever maps we have for this location +
+  // every donation photo bound to this find. The detail page only
+  // queries findPhotos here so the helper's directory cache stays
+  // warm for the matching list query within the same revalidate
+  // window.
+  const [locationMaps, donationPhotos] = await Promise.all([
+    hydrated.location
+      ? fetchLocationMaps(hydrated.location.id, hydrated.coordinates)
+      : Promise.resolve([] as PublicLocationMap[]),
+    getFindPhotos(hydrated.id),
+  ]);
+  // hasRealPhoto is the public flag the list rows already use; mirror it
+  // on the detail so card-equivalent gates (e.g. share buttons) stay
+  // consistent even when the visitor lands directly on /sbirka/N.
+  const detailWithFlag = {
+    ...hydrated,
+    hasRealPhoto: donationPhotos.length > 0,
+  };
+  return { ...detailWithFlag, locationMaps, donationPhotos };
 }
 
 async function fetchPublicLocation(

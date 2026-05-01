@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin } from "lucide-react";
+import { Camera, MapPin } from "lucide-react";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
@@ -102,9 +102,21 @@ function FindListRow({ find }: { find: PublicFind }) {
             <p className="line-clamp-2 text-sm text-gray-600">{find.notes}</p>
           )}
 
-          {find.states.length > 0 && (
-            <div className="mt-auto self-end">
-              <StateBadges states={find.states} />
+          {(find.states.length > 0 || find.hasRealPhoto) && (
+            <div className="mt-auto flex flex-wrap items-center justify-end gap-1.5 self-end">
+              {find.hasRealPhoto && (
+                // Camera badge — same chip as the /lokality list, kept in
+                // its own pill so it reads as "the find has extra
+                // material" rather than as another state badge.
+                <span
+                  className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800"
+                  title="Nález má reálnou fotku daru"
+                  aria-label="Nález má reálnou fotku daru"
+                >
+                  <Camera className="h-3 w-3" aria-hidden />
+                </span>
+              )}
+              {find.states.length > 0 && <StateBadges states={find.states} />}
             </div>
           )}
         </div>

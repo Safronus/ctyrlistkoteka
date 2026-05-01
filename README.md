@@ -199,6 +199,84 @@ ssh <user>@<host> 'ls -la /var/ctyrlistkoteka/generated/location-photos/ | head 
 > `--delete` — ale pozor, smaže i to, co ti tam náhodou skončilo přes
 > jiný kanál. Pro řízený úklid raději `ssh ... 'rm /var/ctyrlistkoteka/generated/location-photos/<konkrétní>.png'`.
 
+### Reálné fotky darů u nálezů (`find-photos/`)
+
+Některé darované nálezy mají reálnou fotku karty / dárkového balíčku
+předaného obdarovanému. Detail nálezu (`/sbirka/<id>`) zobrazí pod
+„lupou pro ořez" tlačítko **Reálné fotky daru**, které otevře modální
+karusel; jeden nález může mít víc fotek (typicky přední + zadní strana).
+Stejný indikátor jako u lokalit (zelená kamera) se objeví u nálezu i
+v listu na `/sbirka` a je k dispozici filtr **„S reálnou fotkou"**.
+Statistika v `/statistiky` má v kartě „nálezů" sub-stat *„darovaných s
+reálnou fotkou"* (průnik DB stavu DONATED a on-disk indexu).
+
+Konvence:
+
+- **Cesta:** `${GENERATED_DIR}/find-photos/`
+  (na produkci typicky `/var/ctyrlistkoteka/generated/find-photos/`).
+  Stejný obecný alias `/generated/` na Nginxu, který už obsluhuje
+  `location-photos`.
+- **Název souboru:** `<findId><slot>_DAR[_ANON].<ext>`, kde:
+  - `findId` — číselné ID nálezu bez padování (např. `16330`).
+  - `slot`   — jedno písmeno `a`, `b`, `c` … pro každou další fotku.
+  - `_DAR`   — povinný marker („dar"). Soubory bez něj se ignorují.
+  - `_ANON`  — volitelný; soubor zůstane na disku, ale veřejný GET
+                vrátí 404 (Nginx regex location, viz
+                `deploy/nginx.conf.template`). Modal pro takové sloty
+                ukáže placeholder s otazníkem a formulář s polem na
+                kód; po ověření vrátí server action base64 data URL.
+  - `<ext>`  — `jpeg`, `jpg`, `png` nebo `webp`.
+  - Příklady: `16330a_DAR.jpeg` (přední strana, veřejná),
+    `16330b_DAR_ANON.jpeg` (zadní strana, anonymizovaná).
+- **Třídění v galerii:** abecedně podle písmena, takže `a` se ukáže
+  jako první.
+- **Privacy / odemčení anonymizovaných fotek:** kód žije v env varu
+  `FIND_PHOTO_UNLOCK_CODE` na VPS (viz `.env.example`). Bez něj modal
+  nahlásí *„Server nemá nakonfigurovaný kód"* a anonymizované sloty
+  zůstanou skryté.
+- **Anonymizovaný nález:** kompletně potlačí indikátor, badge i modal
+  — jakákoli fotka by prozradila existenci ukrytého daru.
+
+Není potřeba spouštět `pnpm sync`. Po nahrání nové fotky **udělej
+`pm2 restart ctyrlistkoteka`** — detail i list mají ISR (24 h),
+restart cache zahodí, další request přečte složku a tlačítko se
+objeví. Bez restartu by se fotka ukázala až po přirozené revalidaci.
+
+#### Synchronizace fotek z lokálu
+
+Stejný recept jako u lokačních fotek, jiná source / target složka.
+Trailing slash u source = kopírujeme OBSAHY, ne sám adresář:
+
+```sh
+# Anonymizovaná verze (pro public dokumentaci)
+rsync -avz --progress --exclude='.DS_Store' \
+  '/Users/<user>/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Fotky pro web/darovane-upload/' \
+  <user>@<host>:/var/ctyrlistkoteka/generated/find-photos/
+```
+
+Při prvním rsyncu vytvoř cílový adresář:
+
+```sh
+ssh <user>@<host> 'mkdir -p /var/ctyrlistkoteka/generated/find-photos/'
+```
+
+Pro nastavení odemykacího kódu (jednou stačí v `/var/ctyrlistkoteka/.env`):
+
+```sh
+ssh <user>@<host> 'echo "FIND_PHOTO_UNLOCK_CODE=NEJAKE_HESLO" >> /var/ctyrlistkoteka/.env && pm2 restart ctyrlistkoteka'
+```
+
+> **iCloud on-demand:** stejně jako u lokačních fotek; když rsync
+> vrátí *Resource temporarily unavailable*, přes Finder soubory
+> stáhni nebo `brctl download` na zdrojovou složku.
+
+> **Anonymizace na úrovni Nginxu:** regex location v
+> `deploy/nginx.conf.template` blokuje `*_ANON.{jpg,jpeg,png,webp}`
+> ještě před aliasem na `/generated/`. Po nasazení nové konfigurace
+> nezapomeň `sudo nginx -t && sudo systemctl reload nginx` — bez
+> reloadu by anonymizovaná fotka byla veřejně stažitelná i když
+> client UI ukáže placeholder.
+
 ### Automatický sync 2× denně
 
 Je k dispozici systemd timer (šablona `deploy/systemd-sync.timer` +

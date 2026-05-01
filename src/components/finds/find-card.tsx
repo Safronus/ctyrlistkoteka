@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Camera } from "lucide-react";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
@@ -34,6 +35,18 @@ export function FindCard({ find }: { find: PublicFind }) {
           <div className="pointer-events-none absolute inset-x-2 top-2">
             <StateBadges states={find.states} className="drop-shadow-sm" />
           </div>
+        )}
+        {find.hasRealPhoto && (
+          // Camera-only chip — same look as the /lokality list. Bottom-
+          // right corner so it doesn't fight with the state badges that
+          // anchor at the top.
+          <span
+            className="pointer-events-none absolute bottom-2 right-2 inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800 drop-shadow-sm"
+            title="Nález má reálnou fotku daru"
+            aria-label="Nález má reálnou fotku daru"
+          >
+            <Camera className="h-3 w-3" aria-hidden />
+          </span>
         )}
       </div>
 

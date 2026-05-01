@@ -49,6 +49,8 @@ import {
   type YearlyPoint,
 } from "@/lib/queries/stats";
 import { getLocationIdsWithRealPhotos } from "@/lib/queries/locations";
+import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
+import { prisma } from "@/lib/db";
 import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
 import { TopLocationsCard } from "@/components/stats/top-locations-card";
 import {
@@ -127,10 +129,31 @@ export default function StatistikyPage() {
 // promise to show the skeleton while the fetcher is in flight.
 
 async function TotalsSection() {
-  const [{ totals, countryCount, cityCount }, realPhotoLocs] = await Promise.all([
-    getStatsTotals(),
-    getLocationIdsWithRealPhotos(),
-  ]);
+  const [{ totals, countryCount, cityCount }, realPhotoLocs, realPhotoFindIds, donatedFindIds] =
+    await Promise.all([
+      getStatsTotals(),
+      getLocationIdsWithRealPhotos(),
+      getFindIdsWithRealPhotos(),
+      // Distinct DONATED, non-anonymized find IDs — pulled separately so
+      // we can intersect with the on-disk find-photos index without
+      // expanding StatsTotals (the photo set lives on the filesystem,
+      // not in DB).
+      prisma.findStateAssignment
+        .findMany({
+          where: {
+            state: "DONATED",
+            find: { isAnonymized: false },
+          },
+          select: { findId: true },
+          distinct: ["findId"],
+        })
+        .then((rows) => new Set(rows.map((r) => r.findId))),
+    ]);
+  // "Darovaných s reálnou fotkou" — sub-category of donatedFinds. Counts
+  // only finds present in BOTH the DB DONATED set and the on-disk
+  // `find-photos/` index.
+  let donatedWithPhoto = 0;
+  for (const id of realPhotoFindIds) if (donatedFindIds.has(id)) donatedWithPhoto += 1;
   const fmt = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 });
   return (
     <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -142,6 +165,16 @@ async function TotalsSection() {
             icon: Gift,
             label: "darováno",
             value: fmt.format(totals.donatedFinds),
+          },
+          {
+            icon: Camera,
+            // Sub-category of "darováno": donated finds with at least
+            // one matching photo in `${GENERATED_DIR}/find-photos/`.
+            // Reads as "of those darovaných, how many have a real
+            // photo of the gift on file." Donated count above is the
+            // superset.
+            label: "darovaných s reálnou fotkou",
+            value: fmt.format(donatedWithPhoto),
           },
           {
             icon: Search,

@@ -214,6 +214,8 @@ export default async function FindDetailPage({ params }: PageProps) {
         image={mainImage}
         cropImage={cropImage}
         altBase={`Nález #${find.id}`}
+        findId={find.id}
+        donationPhotos={find.donationPhotos}
       />
 
       {find.isAnonymized && (
