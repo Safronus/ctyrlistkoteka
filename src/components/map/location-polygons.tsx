@@ -2,8 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import { GeoJSON as GeoJSONLayer, useMap } from "react-leaflet";
+import { useRouter } from "next/navigation";
 import L, { type Layer, type LatLngBounds, type LatLng } from "leaflet";
 import type { MapLocation } from "@/lib/queries/map";
+import { buildLocationPopupHtml } from "./location-popup";
+import { locationDetailHref } from "@/lib/format";
 
 export function LocationPolygons({
   locations,
@@ -35,6 +38,7 @@ export function LocationPolygons({
    *  background handler so it doesn't deselect right after selecting. */
   onSelect?: (id: number) => void;
 }) {
+  const router = useRouter();
   const map = useMap();
   // Layer ref by location id, populated by onEachFeature so we can later
   // openPopup() on whichever layer the focus param targets.
@@ -52,9 +56,11 @@ export function LocationPolygons({
       type: "Feature" as const,
       properties: {
         id: l.id,
+        code: l.code,
         displayName: l.displayName,
         findCount: l.findCount,
         isGone: l.isGone,
+        isChild: l.parentId !== null,
       },
       geometry: l.polygon,
     }));
@@ -149,14 +155,21 @@ export function LocationPolygons({
       onEachFeature={(feature, layer) => {
         const props = feature.properties as {
           id: number;
+          code: string;
           displayName: string;
           findCount: number;
+          isGone: boolean;
+          isChild: boolean;
         };
         layer.bindPopup(
-          `<div>
-            <strong>${escapeHtml(props.displayName)}</strong><br/>
-            <span style="color:#6b7280;font-size:12px">${props.findCount} nálezů</span>
-          </div>`,
+          buildLocationPopupHtml({
+            id: props.id,
+            code: props.code,
+            displayName: props.displayName,
+            findCount: props.findCount,
+            isGone: props.isGone,
+            isChild: props.isChild,
+          }),
         );
         layer.on("click", (e) => {
           // Stop the click from reaching the map's background handler —
@@ -164,17 +177,17 @@ export function LocationPolygons({
           L.DomEvent.stopPropagation(e);
           onSelect?.(props.id);
         });
+        layer.on("dblclick", (e) => {
+          // Stop the map's doubleClickZoom from firing — without this
+          // the viewport zooms in one step before the route change
+          // settles. preventDefault uses the wrapped DOM event since
+          // L.DomEvent.preventDefault is typed against the native Event.
+          L.DomEvent.stopPropagation(e);
+          (e as L.LeafletMouseEvent).originalEvent?.preventDefault();
+          router.push(locationDetailHref(props.id));
+        });
         layerRefs.current.set(props.id, layer);
       }}
     />
   );
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }

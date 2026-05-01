@@ -2,8 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import { CircleMarker, useMap } from "react-leaflet";
+import { useRouter } from "next/navigation";
 import L, { type CircleMarker as LCircleMarker } from "leaflet";
 import type { MapLocation } from "@/lib/queries/map";
+import { buildLocationPopupHtml } from "./location-popup";
+import { locationDetailHref } from "@/lib/format";
 
 /**
  * For locations with no AOI polygon recorded, render a small dot at the
@@ -33,6 +36,7 @@ export function LocationDots({
   onSelect?: (id: number) => void;
 }) {
   const map = useMap();
+  const router = useRouter();
   const layerRefs = useRef<Map<number, LCircleMarker>>(new Map());
 
   // When focused, open the focused dot's popup once the map's fit-bounds
@@ -91,10 +95,14 @@ export function LocationDots({
               add: (e) => {
                 const layer = e.target as LCircleMarker;
                 layer.bindPopup(
-                  `<div>
-                    <strong>${escapeHtml(l.displayName)}</strong><br/>
-                    <span style="color:#6b7280;font-size:12px">${l.findCount} nálezů</span>
-                  </div>`,
+                  buildLocationPopupHtml({
+                    id: l.id,
+                    code: l.code,
+                    displayName: l.displayName,
+                    findCount: l.findCount,
+                    isGone: l.isGone,
+                    isChild: l.parentId !== null,
+                  }),
                 );
                 layerRefs.current.set(l.id, layer);
               },
@@ -105,6 +113,17 @@ export function LocationDots({
                 L.DomEvent.stopPropagation(e);
                 onSelect?.(l.id);
               },
+              dblclick: (e) => {
+                // Mirror the polygon-layer behaviour: dvojklik opens
+                // the detail page. stopPropagation suppresses Leaflet's
+                // map-level doubleClickZoom that would otherwise zoom
+                // in before the navigation finishes; preventDefault uses
+                // the wrapped DOM event since L.DomEvent.preventDefault
+                // is typed against the native Event.
+                L.DomEvent.stopPropagation(e);
+                e.originalEvent?.preventDefault();
+                router.push(locationDetailHref(l.id));
+              },
               remove: () => {
                 layerRefs.current.delete(l.id);
               },
@@ -114,14 +133,5 @@ export function LocationDots({
       })}
     </>
   );
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
