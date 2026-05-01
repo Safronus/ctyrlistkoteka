@@ -20,7 +20,27 @@ import {
  * Missing config is reported back to the modal as `missing-config`
  * instead of silently failing — the author should know they haven't
  * set a code before sharing photos with recipients.
+ *
+ * Brute-force defences (layered with Nginx's ctyr_main zone, 20 r/s
+ * burst 40):
+ *   - 600 ms stall on every failed attempt (`failDelay`) — knocks the
+ *     effective rate well below 2 attempts/sec for a scripted attacker.
+ *   - 256-char hard cap on the submitted code (`MAX_CODE_LENGTH`) —
+ *     any longer payload is rejected as invalid before we even touch
+ *     the secret, so a slow-loris-style oversized POST can't burn CPU.
+ *   - console.warn on invalid attempts so PM2 logs surface activity.
  */
+
+/** Hard cap on the submitted code length. Long enough to allow a
+ *  diceware passphrase, short enough to keep oversized POSTs from
+ *  reaching the constant-time compare path. */
+const MAX_CODE_LENGTH = 256;
+
+/** Per-attempt stall on failure. 600 ms is invisible to a legit
+ *  recipient typing once but caps a brute-forcer at ~1.5 tries/sec
+ *  even from a single IP, well within Nginx's per-IP rate limit. */
+const FAIL_DELAY_MS = 600;
+
 export async function unlockFindPhotos(
   _prev: FindPhotoUnlockState,
   formData: FormData,
@@ -33,7 +53,10 @@ export async function unlockFindPhotos(
   if (!Number.isInteger(findId) || findId <= 0) {
     return { ...FIND_PHOTO_UNLOCK_INITIAL, status: "error" };
   }
-  if (code.length === 0) {
+  if (code.length === 0 || code.length > MAX_CODE_LENGTH) {
+    // Treat oversized inputs as plain "invalid" — telling the user
+    // the cap exists would just guide an attacker to stay under it.
+    await failDelay();
     return { ...FIND_PHOTO_UNLOCK_INITIAL, status: "invalid" };
   }
   const expected = process.env.FIND_PHOTO_UNLOCK_CODE;
@@ -43,6 +66,13 @@ export async function unlockFindPhotos(
   // Constant-time compare — short codes wouldn't reveal much in
   // practice, but the helper is cheap and keeps the policy honest.
   if (!constantTimeEquals(code, expected)) {
+    // PM2 captures stderr — visible via `pm2 logs ctyrlistkoteka`,
+    // so the author can spot scripted brute-force attempts. The find
+    // ID is the only thing logged; the submitted code never is.
+    console.warn(
+      `[findPhotoUnlock] invalid code attempt for findId=${findId}`,
+    );
+    await failDelay();
     return { ...FIND_PHOTO_UNLOCK_INITIAL, status: "invalid" };
   }
 
@@ -80,4 +110,8 @@ function constantTimeEquals(a: string, b: string): boolean {
     diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return diff === 0;
+}
+
+function failDelay(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, FAIL_DELAY_MS));
 }
