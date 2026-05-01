@@ -278,14 +278,12 @@
   z-index: auto;
 }
 
-/* Mobile: hide Leaflet's +/- zoom buttons. Touch devices already have
-   pinch-to-zoom and the buttons just steal the prime top-left corner
-   that Vrstvy slides into instead. Desktop keeps them — on a trackpad
-   or non-pinch laptop they're still the easiest zoom affordance. */
-@media (max-width: 767px) {
-  .leaflet-control-zoom {
-    display: none !important;
-  }
+/* Hide Leaflet's +/- zoom buttons across every viewport. Pinch /
+   trackpad / scroll-wheel zoom covers the gesture, and freeing the
+   prime top-left corner lets Vrstvy land flush in the corner on
+   desktop too — same look as mobile. */
+.leaflet-control-zoom {
+  display: none !important;
 }
 
 html,

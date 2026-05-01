@@ -447,16 +447,15 @@ export function MapaShell({
       )}
 
       {/* Vrstvy lives OUTSIDE the sidebar so it stays visible when the
-       *  panel is collapsed. On desktop it sits right next to Leaflet's
-       *  zoom buttons (~10px+26px = 36px from the left, hence
-       *  md:left-14). On mobile we hide the zoom controls (see
-       *  globals.css) and drop the Vrstvy card flush into the top-left
-       *  corner — pinch-to-zoom replaces the buttons there.
+       *  panel is collapsed. Sits flush in the top-left corner across
+       *  every viewport — Leaflet's +/- zoom buttons are hidden globally
+       *  (see globals.css) since pinch / trackpad / scroll-wheel zoom
+       *  covers the gesture and the corner reads cleaner without them.
        *
        *  Width is capped on mobile (w-40 = 10rem) so the card fits
        *  between the corner and the right-side "Lokality" pill on a
        *  375px viewport without overlapping. Desktop drops the cap. */}
-      <div className="absolute left-3 top-3 z-[400] w-40 md:left-14 md:w-auto md:max-w-xs">
+      <div className="absolute left-3 top-3 z-[400] w-40 md:w-auto md:max-w-xs">
         <LayerToggleCard
           showLocations={showLocations}
           onToggleLocations={setShowLocations}
