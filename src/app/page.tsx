@@ -783,14 +783,13 @@ function SparklineCard({
   const total = data.reduce((sum, p) => sum + p.count, 0);
   const max = Math.max(1, ...data.map((p) => p.count));
   const bars = data.length;
-  const VB_W = 120;
-  const BARS_H = 40;
-  const LABEL_GAP = 3;
-  const LABEL_FONT = 7;
-  const LABEL_AREA_H = 18; // vertical room for rotated 3-char labels
-  const VB_H = BARS_H + LABEL_GAP + LABEL_AREA_H;
+  // Bars-only viewBox — labels live below the SVG in the HTML grid so
+  // they aren't subject to the SVG's non-uniform stretch and stay
+  // readable at every card width.
+  const BAR_VB_W = 120;
+  const BAR_VB_H = 40;
   const gap = 2;
-  const barW = (VB_W - gap * (bars - 1)) / bars;
+  const barW = (BAR_VB_W - gap * (bars - 1)) / bars;
 
   const formatMonth = (s: string) => {
     const [y, m] = s.split("-");
@@ -811,51 +810,54 @@ function SparklineCard({
       <p className="mt-1 truncate text-base font-semibold text-gray-900">
         {NF_CS.format(total)} {pluralCs(total, FINDS)}
       </p>
-      <svg
-        viewBox={`0 0 ${VB_W} ${VB_H}`}
-        className="mt-1.5 h-20 w-full"
-        role="img"
-        aria-label="Měsíční aktivita posledních 12 měsíců"
-      >
-        {data.map((p, i) => {
-          const h = p.count === 0 ? 0 : (p.count / max) * (BARS_H - 2);
-          const x = i * (barW + gap);
-          const y = BARS_H - h;
-          return (
-            <rect
-              key={p.month}
-              x={x}
-              y={y}
-              width={barW}
-              height={h || 0.5}
-              rx={1}
-              fill="#4d9748"
-              opacity={p.count === 0 ? 0.2 : 0.9}
-            />
-          );
-        })}
-        {data.map((p, i) => {
-          const m = Number(p.month.split("-")[1] ?? "0") - 1;
-          const xCenter = i * (barW + gap) + barW / 2;
-          const yMid = BARS_H + LABEL_GAP + LABEL_AREA_H / 2;
-          return (
-            <text
-              key={`${p.month}-label`}
-              x={xCenter}
-              y={yMid}
-              fontSize={LABEL_FONT}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill="#9ca3af"
-              fontWeight={500}
-              transform={`rotate(-90 ${xCenter} ${yMid})`}
-            >
-              {MONTH_ABBR_CS[m] ?? ""}
-            </text>
-          );
-        })}
-      </svg>
-      <p className="mt-auto pt-2 text-center text-xs tabular-nums text-gray-500">
+      {/* Chart absorbs every pixel of remaining vertical space inside
+          the card (flex-1) and stretches its bars over the full width
+          with preserveAspectRatio="none". Together with the HTML
+          label row below, this means the chart no longer letterboxes
+          inside the card the way a single uniform-meet SVG used to. */}
+      <div className="mt-1.5 flex flex-1 flex-col gap-1">
+        <svg
+          viewBox={`0 0 ${BAR_VB_W} ${BAR_VB_H}`}
+          preserveAspectRatio="none"
+          className="w-full flex-1"
+          role="img"
+          aria-label="Měsíční aktivita posledních 12 měsíců"
+        >
+          {data.map((p, i) => {
+            const h = p.count === 0 ? 0 : (p.count / max) * (BAR_VB_H - 1);
+            const x = i * (barW + gap);
+            const y = BAR_VB_H - h;
+            return (
+              <rect
+                key={p.month}
+                x={x}
+                y={y}
+                width={barW}
+                height={h || 0.5}
+                fill="#4d9748"
+                opacity={p.count === 0 ? 0.2 : 0.9}
+              />
+            );
+          })}
+        </svg>
+        <ul
+          aria-hidden
+          className="grid grid-cols-12 gap-px text-center"
+        >
+          {data.map((p) => {
+            const m = Number(p.month.split("-")[1] ?? "0") - 1;
+            return (
+              <li
+                key={p.month}
+                className="text-[9px] font-medium leading-none text-gray-400"
+              >
+                {MONTH_ABBR_CS[m] ?? ""}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      <p className="mt-2 text-center text-xs tabular-nums text-gray-500">
         {rangeLabel}
       </p>
     </div>
