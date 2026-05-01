@@ -532,9 +532,14 @@ async function phaseMaps(
     await ctx.prisma
       .$executeRaw`UPDATE locations SET center_point = ST_SetSRID(ST_MakePoint(${m.parsed.centerLng}, ${m.parsed.centerLat}), 4326) WHERE id = ${location.id}`;
 
-    // Read PNG tEXt once for both AOI polygon (first map for a location
-    // wins — subsequent maps don't overwrite the canonical
-    // Location.polygon) and the AnonymizovanLokace flag.
+    // Read PNG tEXt once for both AOI polygon and the AnonymizovanLokace
+    // flag. When several maps belong to the same location, the AOI from
+    // whichever map is processed last wins — that mirrors the user's
+    // expectation when a map gets replaced via rsync (the new EXIF
+    // AOI_POLYGON should redraw the polygon and recompute area/density).
+    // The previous "first wins, never overwrite" rule meant a re-synced
+    // map silently kept the stale polygon in DB even though every other
+    // page rendered the new PNG.
     const meta = await readMapMetadata(
       m.path,
       bounds,
@@ -557,11 +562,10 @@ async function phaseMaps(
         "POLYGON((" +
         aoi.map(([lng, lat]) => `${lng} ${lat}`).join(", ") +
         "))";
-      // Only set if Location doesn't already have one (first wins).
       await ctx.prisma.$executeRaw`
         UPDATE locations
         SET polygon = ST_GeomFromText(${wkt}, 4326)
-        WHERE id = ${location.id} AND polygon IS NULL
+        WHERE id = ${location.id}
       `;
     }
 
