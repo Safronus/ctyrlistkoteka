@@ -20,6 +20,7 @@ import { FindThumbnail } from "@/components/finds/find-thumbnail";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
 import { CloverFactsStatCard } from "@/components/home/clover-facts-stat-card";
+import { DonatedSearchCatcher } from "@/components/home/donated-search-catcher";
 import { CLOVER_CATEGORY_LABELS, CLOVER_TEXTS } from "@/lib/cloverTexts";
 
 // Must be a literal for Next.js static analysis. Matches HOME_REVALIDATE in
@@ -285,6 +286,25 @@ function DonatedShowcase({ count }: { count: number }) {
         className="mx-auto mt-1.5 h-28 w-full max-w-2xl sm:h-32"
         aria-hidden
       >
+        {/* Catcher glow — soft radial emerald halo at the right end of
+            the swarm trajectory. Drifters fade out at translate(540, …)
+            with opacity 0, so visually they "land" inside this halo
+            and the form below the SVG reads as their destination. */}
+        <defs>
+          <radialGradient id="ctyr-catcher" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#a7f3d0" stopOpacity="0.9" />
+            <stop offset="60%" stopColor="#86efac" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#86efac" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <ellipse
+          cx="540"
+          cy="55"
+          rx="45"
+          ry="30"
+          fill="url(#ctyr-catcher)"
+        />
+
         {/* Static cluster — the "collection" anchor. Six overlapping
             clovers at slightly varied positions/sizes for depth. */}
         {STATIC_CLUSTER.map((c, i) => (
@@ -324,6 +344,12 @@ function DonatedShowcase({ count }: { count: number }) {
           );
         })}
       </svg>
+
+      {/* Recipient lookup — the catcher glow above is the visual hook,
+          this form is where it all lands. Submit goes through a server
+          action that validates format → existence → DONATED state and
+          redirects to /sbirka/<id> on success. */}
+      <DonatedSearchCatcher />
     </section>
   );
 }
