@@ -13,19 +13,19 @@ import type { MapLocation } from "@/lib/queries/map";
 const NF_CS = new Intl.NumberFormat("cs-CZ");
 
 /**
- * Mobile-only "top sheet" surfaced when the visitor selects a location
+ * "Top sheet" card surfaced when the visitor selects a location
  * (sidebar pick, polygon/dot tap, or `?focus=` / `?find=` deep link).
- * Replaces Leaflet's bound popup on small viewports — Leaflet's popup
- * fights the floating Vrstvy / Lokality controls for stacking + edge
- * positioning on mobile, and the workarounds (z-index hops, fixed-top
- * overrides) leak transparent strips and ordering bugs we don't want
- * to keep tracking.
+ * Replaces Leaflet's bound popup at every breakpoint — the popup
+ * fought the floating Vrstvy / Lokality controls for stacking and edge
+ * positioning, and the workarounds (z-index hops, fixed-top overrides)
+ * leaked transparent strips and ordering bugs we don't want to keep
+ * tracking. A regular React card escapes that whole surface.
  *
- * Renders as an absolutely-positioned card BELOW the top control row
- * (top-14, ~56 px from the map's top edge) so it never collides with
- * the layer toggle on the left or the Lokality pill on the right —
- * MapaShell auto-collapses Vrstvy when this sheet is open so the
- * collapsed state's height stays within the gap.
+ * Position-agnostic by design: the outer div carries no `absolute`
+ * placement so MapaShell can drop it into different wrappers — on
+ * mobile a full-width banner below the top control row, on desktop a
+ * flex sibling rendered right next to Vrstvy. Same component, same
+ * close behaviour either way.
  */
 export function LocationTopSheet({
   location,
@@ -41,7 +41,7 @@ export function LocationTopSheet({
     <div
       role="dialog"
       aria-label="Detail vybrané lokality"
-      className="absolute inset-x-2 top-14 z-[450] rounded-lg border border-gray-200 bg-white p-3 shadow-xl"
+      className="rounded-lg border border-gray-200 bg-white p-3 shadow-xl"
     >
       <button
         type="button"
@@ -113,12 +113,12 @@ export function LocationTopSheet({
       </div>
 
       {/* Subtle hint that the top sheet replaces the bound popup —
-          tapping the map background still drops focus + closes this
+          clicking the map background still drops focus + closes this
           sheet via MapaShell's deselect handler, mirroring the popup
           behaviour visitors are used to. */}
       <p className="mt-1.5 flex items-center gap-1 text-[10px] leading-tight text-gray-400">
         <MapPin className="h-3 w-3" aria-hidden />
-        <span>Klepnutím na mapu nebo X panel zavřete</span>
+        <span>Kliknutím na mapu nebo X panel zavřete</span>
       </p>
     </div>
   );

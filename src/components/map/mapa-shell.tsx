@@ -326,18 +326,19 @@ export function MapaShell({
         onSelectLocation={handleSelectLocation}
         onDeselectLocation={handleDeselectLocation}
         onHighlightDismiss={handleHighlightDismiss}
-        enableLocationPopup={!isMobile}
+        enableLocationPopup={false}
       />
 
-      {/* Mobile-only top sheet — replaces Leaflet's bound popup on
-          small viewports. Sits below the floating Vrstvy + Lokality
-          controls (top-14) so it never collides with them. Hidden on
-          desktop where the bound popup behaves correctly. */}
-      {isMobile && focusedLocation && (
-        <LocationTopSheet
-          location={focusedLocation}
-          onClose={handleDeselectLocation}
-        />
+      {/* Mobile placement of the top sheet — full-width banner below
+          the top control row. Hidden on desktop where the sheet
+          renders inside the Vrstvy flex row instead (see below). */}
+      {focusedLocation && (
+        <div className="absolute inset-x-2 top-14 z-[450] md:hidden">
+          <LocationTopSheet
+            location={focusedLocation}
+            onClose={handleDeselectLocation}
+          />
+        </div>
       )}
 
       {/* GPS-accuracy notice. Pinned bottom-left so it sits above OSM
@@ -452,24 +453,41 @@ export function MapaShell({
        *  (see globals.css) since pinch / trackpad / scroll-wheel zoom
        *  covers the gesture and the corner reads cleaner without them.
        *
+       *  On desktop the location top sheet renders as a flex sibling
+       *  to the right of Vrstvy via `hidden md:block`, so an expanded
+       *  layer card and the selected-location card share a single row.
+       *  Mobile gets its own full-width banner below this row (see the
+       *  separate wrapper above) — there's no horizontal room next to
+       *  Vrstvy on a phone.
+       *
        *  Width is capped on mobile (w-40 = 10rem) so the card fits
        *  between the corner and the right-side "Lokality" pill on a
        *  375px viewport without overlapping. Desktop drops the cap. */}
-      <div className="absolute left-3 top-3 z-[400] w-40 md:w-auto md:max-w-xs">
-        <LayerToggleCard
-          showLocations={showLocations}
-          onToggleLocations={setShowLocations}
-          showFinds={showFinds}
-          onToggleFinds={setShowFinds}
-          showGone={showGone}
-          onToggleGone={setShowGone}
-          locationCount={activeLocationCount}
-          goneCount={goneLocationCount}
-          findCount={mapData.findCoords.length}
-          findCountTotal={mapData.findCountTotal}
-          expanded={layersExpanded}
-          onToggleExpanded={() => setLayersExpanded((v) => !v)}
-        />
+      <div className="absolute left-3 top-3 z-[400] flex items-start gap-2">
+        <div className="w-40 shrink-0 md:w-auto md:max-w-xs">
+          <LayerToggleCard
+            showLocations={showLocations}
+            onToggleLocations={setShowLocations}
+            showFinds={showFinds}
+            onToggleFinds={setShowFinds}
+            showGone={showGone}
+            onToggleGone={setShowGone}
+            locationCount={activeLocationCount}
+            goneCount={goneLocationCount}
+            findCount={mapData.findCoords.length}
+            findCountTotal={mapData.findCountTotal}
+            expanded={layersExpanded}
+            onToggleExpanded={() => setLayersExpanded((v) => !v)}
+          />
+        </div>
+        {focusedLocation && (
+          <div className="hidden shrink-0 md:block md:w-80">
+            <LocationTopSheet
+              location={focusedLocation}
+              onClose={handleDeselectLocation}
+            />
+          </div>
+        )}
       </div>
 
       {/* Legenda — jednořádková lišta u dolního okraje, vizuálně
