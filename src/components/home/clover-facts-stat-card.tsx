@@ -61,7 +61,7 @@ export function CloverFactsStatCard({
   }
 
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
         Zajímavosti o čtyřlístcích
       </p>
@@ -78,11 +78,11 @@ export function CloverFactsStatCard({
         // as supporting context rather than a second headline. `leading-snug`
         // keeps the wrapped lines visually tight when the chip-row would
         // otherwise add too much vertical drift to the tile.
-        <p className="mt-1.5 text-[11px] leading-snug text-gray-400">
+        <p className="mt-1 text-[11px] leading-snug text-gray-400">
           {categoryLabels.join(" · ")}
         </p>
       )}
-      <div className="mt-auto pt-3">
+      <div className="mt-auto pt-2">
         <button
           type="button"
           onClick={advance}

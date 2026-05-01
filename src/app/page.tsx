@@ -559,7 +559,7 @@ function TopLocationCard({
   location: NonNullable<HomePageData["highlights"]["topLocation"]>;
 }) {
   return (
-    <div className="relative flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+    <div className="relative flex flex-col rounded-xl border border-gray-200 bg-white p-3">
       {/* Discreet shortcut to /lokality/<id> in the corner — same icon
           shape used on the /lokality list rows and /statistiky leaderboards
           so the meaning ("open detail") stays consistent across pages.
@@ -569,7 +569,7 @@ function TopLocationCard({
         href={locationDetailHref(location.id)}
         aria-label="Detail lokality"
         title="Detail lokality"
-        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition hover:bg-brand-50 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500"
+        className="absolute right-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition hover:bg-brand-50 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500"
       >
         <ExternalLink className="h-4 w-4" aria-hidden />
       </Link>
@@ -585,7 +585,7 @@ function TopLocationCard({
       <p className="mt-0.5 text-xs text-gray-500">
         {NF_CS.format(location.count)} {pluralCs(location.count, FINDS)}
       </p>
-      <div className="mt-auto flex flex-col gap-2 pt-3">
+      <div className="mt-auto flex flex-col gap-1.5 pt-2">
         {/* /sbirka's `loc` filter folds parent → children automatically
             (see buildWhere in src/lib/queries/finds.ts), so a parent
             location surfaces every find across its sub-parts. Buttons
@@ -649,7 +649,7 @@ function PeakDayCard({
   const durationLabel = formatDurationMinutes(durationMin);
   const netLabel = formatDurationMinutes(peakDay.netMinutes);
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
         Nejlepší den
       </p>
@@ -674,19 +674,19 @@ function PeakDayCard({
           axes inside the slack between metadata + button (auto-grows
           with neighbouring cards in the row). */}
       {netLabel && (
-        <div className="flex flex-1 flex-col items-center justify-center py-3 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center py-1.5 text-center">
           <p
             className="font-mono text-base font-semibold tabular-nums text-gray-900"
             title="Součet trvání jednotlivých 'sezení' v rámci lokalit (pauzy delší než 15 min se nezapočítávají)"
           >
             {netLabel}
           </p>
-          <p className="mt-0.5 text-[11px] text-gray-500">
+          <p className="text-[11px] leading-tight text-gray-500">
             čistý čas sbírání
           </p>
           {peakDay.netMinutes > 0 && (
             <p
-              className="mt-0.5 font-mono text-[11px] tabular-nums text-gray-500"
+              className="mt-0.5 font-mono text-[11px] leading-tight tabular-nums text-gray-500"
               title="Průměrný počet čtyřlístků za minutu čistého času"
             >
               {new Intl.NumberFormat("cs-CZ", {
@@ -701,7 +701,7 @@ function PeakDayCard({
           flex-1 above is gone and we still want the button pinned to
           the card's bottom edge so the row stays vertically aligned
           with sibling cards. */}
-      <div className="mt-auto flex flex-col gap-2 pt-3">
+      <div className="mt-auto flex flex-col gap-1.5 pt-2">
         <Link
           href={`/sbirka?from=${isoDay}&to=${isoDay}`}
           className="flex w-full items-center justify-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
@@ -737,7 +737,7 @@ function HighlightCard({
   hint: string | null;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
+    <div className="rounded-xl border border-gray-200 bg-white p-3">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
         {label}
       </p>
@@ -804,7 +804,7 @@ function SparklineCard({
       : "";
 
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
         Posledních 12 měsíců
       </p>
@@ -813,7 +813,7 @@ function SparklineCard({
       </p>
       <svg
         viewBox={`0 0 ${VB_W} ${VB_H}`}
-        className="mt-2 h-20 w-full"
+        className="mt-1.5 h-20 w-full"
         role="img"
         aria-label="Měsíční aktivita posledních 12 měsíců"
       >
