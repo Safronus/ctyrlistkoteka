@@ -1,6 +1,7 @@
 import { Activity } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { readRecentAudit, type AuditAction } from "@/lib/admin/audit";
+import { AuditSubNav } from "./_subnav";
 
 const ACTION_LABELS: Record<AuditAction, string> = {
   "auth.register": "Registrace passkey",
@@ -42,6 +43,8 @@ export default async function AdminAuditPage() {
 
   return (
     <div className="space-y-4">
+      <AuditSubNav active="log" />
+
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
           <Activity className="h-5 w-5 text-brand-600" aria-hidden />
@@ -58,7 +61,7 @@ export default async function AdminAuditPage() {
           Zatím žádné záznamy.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
               <tr>
@@ -104,7 +107,7 @@ export default async function AdminAuditPage() {
                     <td className="whitespace-nowrap px-3 py-1.5 font-mono text-gray-500">
                       {row.ip}
                     </td>
-                    <td className="px-3 py-1.5 font-mono text-[11px] text-gray-500">
+                    <td className="whitespace-nowrap px-3 py-1.5 font-mono text-[11px] text-gray-500">
                       {row.details
                         ? JSON.stringify(row.details)
                         : ""}

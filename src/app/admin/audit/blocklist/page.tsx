@@ -1,0 +1,703 @@
+import {
+  AlertTriangle,
+  Ban,
+  Download,
+  FileWarning,
+  ShieldX,
+} from "lucide-react";
+import { ensureAdminAuth } from "@/lib/admin/guard";
+import {
+  aggregateByIp,
+  computePermabanCandidates,
+  computeStats,
+  DEFAULT_PERMABAN_THRESHOLD,
+  DEFAULT_PERMABAN_WINDOW_DAYS,
+  NGINX_PERMABAN_JAIL,
+  readBlocklistLog,
+  renderNginxDenyConfig,
+  type BlocklistEntry,
+  type BlocklistReadResult,
+  type IpAggregate,
+  type PermabanCandidate,
+} from "@/lib/admin/blocklist";
+import { AuditSubNav } from "../_subnav";
+
+export const dynamic = "force-dynamic";
+
+const RECENT_DEFAULT = 50;
+const IPS_DEFAULT_LIMIT = 100;
+
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function pickString(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+function pickPositiveInt(
+  v: string | string[] | undefined,
+  fallback: number,
+  max?: number,
+): number {
+  const raw = pickString(v);
+  if (!raw) return fallback;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return max ? Math.min(n, max) : n;
+}
+
+export default async function AdminAuditBlocklistPage({
+  searchParams,
+}: PageProps) {
+  await ensureAdminAuth();
+  const sp = await searchParams;
+
+  const recentLimit = pickPositiveInt(sp.recent, RECENT_DEFAULT, 500);
+  const ipsLimit = pickPositiveInt(sp.limit, IPS_DEFAULT_LIMIT, 2000);
+  const threshold = pickPositiveInt(sp.threshold, DEFAULT_PERMABAN_THRESHOLD);
+  const windowDays = pickPositiveInt(
+    sp.window,
+    DEFAULT_PERMABAN_WINDOW_DAYS,
+  );
+  const jail = pickString(sp.jail) ?? NGINX_PERMABAN_JAIL;
+
+  const data = await readBlocklistLog();
+
+  return (
+    <div className="space-y-4">
+      <AuditSubNav active="blocklist" />
+
+      <header className="space-y-1">
+        <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+          <ShieldX className="h-5 w-5 text-brand-600" aria-hidden />
+          Fail2ban blocklist
+        </h1>
+        <p className="text-sm text-gray-500">
+          Statistiky a exporty nad <code>{data.path}</code>. Webapp jen čte;
+          permaban list (nginx <code>deny</code>) nikdy nezapisuje do{" "}
+          <code>/etc/nginx/</code> — vygenerovaný <code>.conf</code> stáhni a
+          aplikuj přes <code>sudo blocklist-tools.sh nginx-deny</code> z
+          Termiusu.
+        </p>
+      </header>
+
+      {data.entries === null ? (
+        <PermissionHint result={data} />
+      ) : (
+        <ReadyView
+          entries={data.entries}
+          mtime={data.mtime}
+          size={data.size}
+          path={data.path}
+          recentLimit={recentLimit}
+          ipsLimit={ipsLimit}
+          threshold={threshold}
+          windowDays={windowDays}
+          jail={jail}
+        />
+      )}
+    </div>
+  );
+}
+
+function PermissionHint({ result }: { result: BlocklistReadResult }) {
+  if (result.error === "missing") {
+    return (
+      <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-600">
+        <p className="font-medium text-gray-900">Log soubor neexistuje</p>
+        <p className="mt-1">
+          <code>{result.path}</code> zatím neexistuje. fail2ban ještě nikoho
+          nebanoval, nebo blocklist akce není aktivní. Zkontroluj{" "}
+          <code>/etc/fail2ban/action.d/</code> a status fail2ban-clientu.
+        </p>
+      </div>
+    );
+  }
+  if (result.error === "permission") {
+    return (
+      <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="flex items-start gap-2">
+          <FileWarning
+            className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+            aria-hidden
+          />
+          <div>
+            <p className="font-medium">
+              Webapp nemůže log přečíst (Permission denied)
+            </p>
+            <p className="mt-0.5 text-xs text-amber-800/90">
+              Soubor <code>{result.path}</code> není přístupný uživateli, pod
+              kterým běží Next.js. Nastav ACL v Termiusu (jednorázově) — drží
+              i přes log-rotate.
+            </p>
+          </div>
+        </div>
+        <pre className="overflow-x-auto rounded-md border border-amber-300 bg-amber-100/60 p-2 font-mono text-[11px] leading-relaxed text-amber-950">
+{`# Zjisti, pod jakým uživatelem běží PM2:
+ps -o user= -p $(pgrep -f 'next-server' | head -1)
+
+# Dej tomu uživateli read právo na log + adresář:
+sudo setfacl -m u:NODE_USER:r ${result.path}
+sudo setfacl -m u:NODE_USER:rx $(dirname ${result.path})
+
+# Aby ACL přežilo logrotate, přidej do logrotate snippetu:
+#   create 644 root adm
+# nebo:
+#   postrotate
+#       setfacl -m u:NODE_USER:r ${result.path}
+#   endscript`}
+        </pre>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+      <p className="font-medium">Log se nepodařilo načíst (I/O chyba)</p>
+      <p className="mt-1">
+        Cesta: <code>{result.path}</code>. Zkus zopakovat; pokud chyba
+        přetrvává, mrkni do <code>journalctl -u fail2ban</code>.
+      </p>
+    </div>
+  );
+}
+
+interface ReadyViewProps {
+  entries: BlocklistEntry[];
+  mtime: string | null;
+  size: number | null;
+  path: string;
+  recentLimit: number;
+  ipsLimit: number;
+  threshold: number;
+  windowDays: number;
+  jail: string;
+}
+
+function ReadyView({
+  entries,
+  mtime,
+  size,
+  path,
+  recentLimit,
+  ipsLimit,
+  threshold,
+  windowDays,
+  jail,
+}: ReadyViewProps) {
+  const stats = computeStats(entries);
+  const aggregates = aggregateByIp(entries);
+  const visibleAggregates = aggregates.slice(0, ipsLimit);
+  const recent = entries.slice(-recentLimit).reverse();
+  const permaban = computePermabanCandidates(entries, {
+    threshold,
+    windowDays,
+    jail,
+  });
+  const permabanPreview = renderNginxDenyConfig(permaban, { sourcePath: path });
+
+  return (
+    <>
+      <SourceMeta mtime={mtime} size={size} path={path} />
+      <StatsBlock stats={stats} />
+      <TopLists
+        topJails={stats.topJails}
+        topIps={stats.topIps}
+        totalIps={stats.uniqueIps}
+      />
+      <PermabanPanel
+        threshold={threshold}
+        windowDays={windowDays}
+        jail={jail}
+        candidates={permaban.candidates}
+        preview={permabanPreview}
+      />
+      <RecentTable rows={recent} limit={recentLimit} total={entries.length} />
+      <IpsTable
+        rows={visibleAggregates}
+        totalRows={aggregates.length}
+        limit={ipsLimit}
+      />
+      <ExportRow
+        threshold={threshold}
+        windowDays={windowDays}
+        jail={jail}
+      />
+    </>
+  );
+}
+
+function SourceMeta({
+  mtime,
+  size,
+  path,
+}: {
+  mtime: string | null;
+  size: number | null;
+  path: string;
+}) {
+  return (
+    <dl className="grid grid-cols-1 gap-2 rounded-xl border border-gray-200 bg-white p-3 text-xs sm:grid-cols-3">
+      <div>
+        <dt className="text-gray-400">Cesta</dt>
+        <dd className="break-all font-mono text-gray-700">{path}</dd>
+      </div>
+      <div>
+        <dt className="text-gray-400">Velikost</dt>
+        <dd className="font-mono tabular-nums text-gray-700">
+          {size !== null ? `${size.toLocaleString("cs-CZ")} B` : "—"}
+        </dd>
+      </div>
+      <div>
+        <dt className="text-gray-400">Změněno</dt>
+        <dd className="font-mono tabular-nums text-gray-700">
+          {mtime
+            ? new Date(mtime).toLocaleString("cs-CZ", {
+                timeZone: "Europe/Prague",
+              })
+            : "—"}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
+function StatsBlock({
+  stats,
+}: {
+  stats: ReturnType<typeof computeStats>;
+}) {
+  return (
+    <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <Stat
+        label="Banů celkem"
+        value={stats.totalBans.toLocaleString("cs-CZ")}
+      />
+      <Stat
+        label="Unikátních IP"
+        value={stats.uniqueIps.toLocaleString("cs-CZ")}
+      />
+      <Stat
+        label="Jails"
+        value={stats.uniqueJails.toLocaleString("cs-CZ")}
+      />
+      <Stat
+        label="Rozsah"
+        value={
+          stats.firstTs && stats.lastTs
+            ? `${formatDate(stats.firstTs)} – ${formatDate(stats.lastTs)}`
+            : "—"
+        }
+        small
+      />
+    </ul>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  small,
+}: {
+  label: string;
+  value: string;
+  small?: boolean;
+}) {
+  return (
+    <li className="rounded-xl border border-gray-200 bg-white p-3">
+      <p className="text-[10px] uppercase tracking-wide text-gray-400">
+        {label}
+      </p>
+      <p
+        className={`mt-1 font-mono tabular-nums text-gray-900 ${
+          small ? "text-xs" : "text-lg font-semibold"
+        }`}
+      >
+        {value}
+      </p>
+    </li>
+  );
+}
+
+function TopLists({
+  topJails,
+  topIps,
+  totalIps,
+}: {
+  topJails: Array<{ key: string; count: number }>;
+  topIps: Array<{ key: string; count: number }>;
+  totalIps: number;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      <RankedList title="TOP 10 jails" items={topJails} valueLabel="banů" />
+      <RankedList
+        title={`TOP 10 IP (z ${totalIps.toLocaleString("cs-CZ")})`}
+        items={topIps}
+        valueLabel="banů"
+        mono
+      />
+    </div>
+  );
+}
+
+function RankedList({
+  title,
+  items,
+  valueLabel,
+  mono,
+}: {
+  title: string;
+  items: Array<{ key: string; count: number }>;
+  valueLabel: string;
+  mono?: boolean;
+}) {
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-4">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {title}
+      </h2>
+      {items.length === 0 ? (
+        <p className="text-xs text-gray-400">žádná data</p>
+      ) : (
+        <ol className="space-y-1 text-xs">
+          {items.map((item, i) => (
+            <li
+              key={item.key}
+              className="flex items-center justify-between gap-3"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="w-5 text-right font-mono tabular-nums text-gray-400">
+                  {i + 1}.
+                </span>
+                <span
+                  className={`truncate ${mono ? "font-mono" : ""} text-gray-800`}
+                  title={item.key}
+                >
+                  {item.key}
+                </span>
+              </span>
+              <span className="font-mono tabular-nums text-gray-700">
+                {item.count.toLocaleString("cs-CZ")} {valueLabel}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+function PermabanPanel({
+  threshold,
+  windowDays,
+  jail,
+  candidates,
+  preview,
+}: {
+  threshold: number;
+  windowDays: number;
+  jail: string;
+  candidates: PermabanCandidate[];
+  preview: string;
+}) {
+  return (
+    <section className="space-y-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <Ban className="h-4 w-4 text-brand-600" aria-hidden />
+          Permaban kandidáti
+        </h2>
+        <span className="text-[11px] text-gray-500">
+          {candidates.length.toLocaleString("cs-CZ")} IP připravených k{" "}
+          <code>nginx deny</code>
+        </span>
+      </header>
+      <form
+        method="get"
+        className="flex flex-wrap items-end gap-2 text-xs text-gray-700"
+      >
+        <label className="flex flex-col">
+          <span className="text-[10px] uppercase tracking-wide text-gray-400">
+            Práh (počet banů)
+          </span>
+          <input
+            type="number"
+            name="threshold"
+            defaultValue={threshold}
+            min={1}
+            className="mt-0.5 w-24 rounded-md border border-gray-300 px-2 py-1 font-mono tabular-nums"
+          />
+        </label>
+        <label className="flex flex-col">
+          <span className="text-[10px] uppercase tracking-wide text-gray-400">
+            Okno (dnů)
+          </span>
+          <input
+            type="number"
+            name="window"
+            defaultValue={windowDays}
+            min={1}
+            className="mt-0.5 w-24 rounded-md border border-gray-300 px-2 py-1 font-mono tabular-nums"
+          />
+        </label>
+        <label className="flex flex-col">
+          <span className="text-[10px] uppercase tracking-wide text-gray-400">
+            Jail
+          </span>
+          <input
+            type="text"
+            name="jail"
+            defaultValue={jail}
+            className="mt-0.5 w-44 rounded-md border border-gray-300 px-2 py-1 font-mono"
+          />
+        </label>
+        <button
+          type="submit"
+          className="rounded-md border border-brand-300 bg-brand-50 px-3 py-1 font-medium text-brand-800 hover:border-brand-400 hover:bg-brand-100"
+        >
+          Přepočítat
+        </button>
+        <a
+          href={`/api/admin/blocklist/export?kind=permaban&threshold=${threshold}&window=${windowDays}&jail=${encodeURIComponent(
+            jail,
+          )}`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1 font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+          download
+        >
+          <Download className="h-3.5 w-3.5" aria-hidden />
+          Stáhnout .conf
+        </a>
+      </form>
+
+      {candidates.length > 0 ? (
+        <pre className="max-h-72 overflow-auto rounded-md border border-gray-200 bg-gray-900 p-3 text-[11px] leading-relaxed text-gray-100">
+          {preview}
+        </pre>
+      ) : (
+        <p className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-500">
+          Žádná IP nepřekročila práh ({threshold}× v posledních {windowDays}{" "}
+          dnech, jail <code>{jail}</code>).
+        </p>
+      )}
+    </section>
+  );
+}
+
+function RecentTable({
+  rows,
+  limit,
+  total,
+}: {
+  rows: BlocklistEntry[];
+  limit: number;
+  total: number;
+}) {
+  return (
+    <section className="space-y-2">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-gray-900">
+          Posledních {Math.min(limit, rows.length).toLocaleString("cs-CZ")} banů
+        </h2>
+        <p className="text-xs text-gray-400">
+          z celkem {total.toLocaleString("cs-CZ")}
+        </p>
+      </header>
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <table className="min-w-full divide-y divide-gray-200 text-xs">
+          <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
+            <tr>
+              <th scope="col" className="px-3 py-2 font-medium">
+                Čas
+              </th>
+              <th scope="col" className="px-3 py-2 font-medium">
+                IP
+              </th>
+              <th scope="col" className="px-3 py-2 font-medium">
+                Jail
+              </th>
+              <th scope="col" className="px-3 py-2 font-medium">
+                Důvod
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r, i) => (
+              <tr key={`${r.ts}-${i}`} className="text-xs">
+                <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-500">
+                  {formatDateTime(r.ts)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-1.5 font-mono text-gray-800">
+                  {r.ip}
+                </td>
+                <td className="whitespace-nowrap px-3 py-1.5 text-gray-700">
+                  {r.jail}
+                </td>
+                <td className="px-3 py-1.5 text-gray-500" title={r.reason}>
+                  {r.reason}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function IpsTable({
+  rows,
+  totalRows,
+  limit,
+}: {
+  rows: IpAggregate[];
+  totalRows: number;
+  limit: number;
+}) {
+  return (
+    <section className="space-y-2">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-gray-900">
+          Všechny IP podle počtu banů
+        </h2>
+        <p className="text-xs text-gray-400">
+          zobrazeno {rows.length.toLocaleString("cs-CZ")} z{" "}
+          {totalRows.toLocaleString("cs-CZ")} (limit {limit})
+        </p>
+      </header>
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <table className="min-w-full divide-y divide-gray-200 text-xs">
+          <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
+            <tr>
+              <th scope="col" className="px-3 py-2 font-medium">
+                IP
+              </th>
+              <th scope="col" className="px-3 py-2 font-medium">
+                Banů
+              </th>
+              <th scope="col" className="px-3 py-2 font-medium">
+                První
+              </th>
+              <th scope="col" className="px-3 py-2 font-medium">
+                Naposledy
+              </th>
+              <th scope="col" className="px-3 py-2 font-medium">
+                Jails
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r) => (
+              <tr key={r.ip}>
+                <td className="whitespace-nowrap px-3 py-1.5 font-mono text-gray-800">
+                  {r.ip}
+                </td>
+                <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-700">
+                  {r.count.toLocaleString("cs-CZ")}
+                </td>
+                <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-500">
+                  {formatDateTime(r.firstSeen)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-500">
+                  {formatDateTime(r.lastSeen)}
+                </td>
+                <td className="px-3 py-1.5 text-gray-700">
+                  {r.jails.join(", ")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function ExportRow({
+  threshold,
+  windowDays,
+  jail,
+}: {
+  threshold: number;
+  windowDays: number;
+  jail: string;
+}) {
+  const items: Array<{ href: string; label: string; hint: string }> = [
+    {
+      href: "/api/admin/blocklist/export?kind=raw",
+      label: "Stáhnout celý log (.tsv)",
+      hint: "1:1 kopie /var/log/fail2ban-blocklist.tsv",
+    },
+    {
+      href: "/api/admin/blocklist/export?kind=ips&format=tsv",
+      label: "IP + počty (.tsv)",
+      hint: "agregát: IP, banů, první/poslední, jails",
+    },
+    {
+      href: "/api/admin/blocklist/export?kind=ips&format=csv",
+      label: "IP + počty (.csv)",
+      hint: "stejně, pro Excel/Numbers",
+    },
+    {
+      href: "/api/admin/blocklist/export?kind=ips&format=json",
+      label: "IP + počty (.json)",
+      hint: "pro vlastní skripty",
+    },
+    {
+      href: `/api/admin/blocklist/export?kind=permaban&threshold=${threshold}&window=${windowDays}&jail=${encodeURIComponent(
+        jail,
+      )}`,
+      label: "Permaban list (.conf)",
+      hint: `IPs ≥ ${threshold}× v ${windowDays} dnech, jail ${jail}`,
+    },
+  ];
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-4">
+      <h2 className="mb-2 inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
+        <Download className="h-4 w-4 text-brand-600" aria-hidden />
+        Exporty
+      </h2>
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {items.map((it) => (
+          <li key={it.href}>
+            <a
+              href={it.href}
+              className="flex items-start justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs transition hover:border-brand-300 hover:bg-brand-50/30"
+              download
+            >
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900">{it.label}</p>
+                <p className="truncate text-gray-500">{it.hint}</p>
+              </div>
+              <Download
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400"
+                aria-hidden
+              />
+            </a>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 flex items-start gap-1.5 text-[11px] text-gray-500">
+        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" aria-hidden />
+        <span>
+          Webapp do <code>/etc/nginx/snippets/</code> nikdy nezapisuje. Stáhni{" "}
+          <code>permaban-list.conf</code> a v Termiusu spusť{" "}
+          <code>sudo blocklist-tools.sh nginx-deny</code>, ten ho instaluje a
+          provede <code>nginx -t && systemctl reload nginx</code>.
+        </span>
+      </p>
+    </section>
+  );
+}
+
+function formatDateTime(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  return d.toLocaleString("cs-CZ", { timeZone: "Europe/Prague" });
+}
+
+function formatDate(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  return d.toLocaleDateString("cs-CZ", { timeZone: "Europe/Prague" });
+}
