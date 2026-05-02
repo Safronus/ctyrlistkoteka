@@ -152,17 +152,10 @@ export async function renameMapDescription(
     return { ok: false, filename: baseName, error: "Soubor neexistuje" };
   }
 
-  // Decompose the on-disk name. The NEEXISTUJE- prefix breaks the
-  // segment count, so editing description is only allowed on live
-  // (non-prefixed) maps. Keep the rule explicit so the user gets a
-  // clear message instead of a generic "expected 6 segments".
-  if (resolved.name.startsWith(NONEXISTENT_PREFIX)) {
-    return {
-      ok: false,
-      filename: resolved.name,
-      error: "Editace popisku není povolena u zaniklých map (obnov je nejdřív)",
-    };
-  }
+  // Decompose the on-disk name. The NEEXISTUJE- prefix sits in front
+  // of the canonical 6-segment basename — strip it before parsing
+  // and stitch it back when rebuilding so editing zaniklé maps works
+  // without an obnov step.
   const dot = resolved.name.lastIndexOf(".");
   if (dot === -1) {
     return {
@@ -173,7 +166,13 @@ export async function renameMapDescription(
   }
   const stem = resolved.name.slice(0, dot);
   const ext = resolved.name.slice(dot);
-  const segments = stem.split("+");
+  let prefix = "";
+  let coreStem = stem;
+  if (stem.startsWith(NONEXISTENT_PREFIX)) {
+    prefix = NONEXISTENT_PREFIX;
+    coreStem = stem.slice(NONEXISTENT_PREFIX.length);
+  }
+  const segments = coreStem.split("+");
   if (segments.length !== 6) {
     return {
       ok: false,
@@ -182,7 +181,7 @@ export async function renameMapDescription(
     };
   }
   segments[1] = newDescription;
-  const newName = segments.join("+") + ext;
+  const newName = prefix + segments.join("+") + ext;
   if (newName === resolved.name) {
     return { ok: true, filename: resolved.name };
   }

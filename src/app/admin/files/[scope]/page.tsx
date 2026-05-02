@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { readMapAnonFlags } from "@/lib/admin/mapAnon";
+import { checkSyncNeeded, type SyncScope } from "@/lib/admin/syncNeeded";
 import {
   analyzeIdRange,
   extractFindId,
@@ -20,6 +21,7 @@ import {
   type RangeAnalysis,
 } from "@/lib/admin/scopes";
 import { FilesListClient } from "../_shared/files-list-client";
+import { SyncNeededBanner } from "../_shared/sync-needed-banner";
 import { deleteCropsBulk } from "../crops/delete-action";
 import { CropsUploadForm } from "../crops/upload-form";
 import { deleteDonationPhotosBulk } from "../donation-photos/delete-action";
@@ -173,6 +175,27 @@ export default async function AdminScopeListPage({
     anonymizedNamesNFC = await readMapAnonFlags();
   }
 
+  // Sync-needed banner. Computed for finds/crops/maps because
+  // sync.ts reads those dirs; meta is checked on the file detail
+  // page (JSON náhled) instead of here. donation/location photos
+  // skip — they live in generated/ and bypass sync entirely.
+  const SYNC_BANNER_CONFIG: Record<
+    string,
+    { preset: SyncScope; label: string }
+  > = {
+    finds: { preset: "finds", label: "Originály nálezů" },
+    crops: { preset: "finds", label: "Výřezy nálezů" },
+    maps: { preset: "maps", label: "Lokační mapy" },
+  };
+  const syncBannerCfg = SYNC_BANNER_CONFIG[scope.slug];
+  const syncBannerProps = syncBannerCfg
+    ? {
+        result: await checkSyncNeeded([syncBannerCfg.preset]),
+        preset: syncBannerCfg.preset,
+        label: syncBannerCfg.label,
+      }
+    : null;
+
   const keepName: ((name: string) => boolean) | undefined =
     onlyNonexistent || onlyAnonymized
       ? (name) => {
@@ -281,6 +304,22 @@ export default async function AdminScopeListPage({
       {scope.slug === "maps" && <MapsUploadForm />}
       {scope.slug === "donation-photos" && <DonationPhotosUploadForm />}
       {scope.slug === "location-photos" && <LocationPhotosUploadForm />}
+
+      {syncBannerProps && (
+        <SyncNeededBanner
+          result={syncBannerProps.result}
+          preset={syncBannerProps.preset}
+          label={syncBannerProps.label}
+        />
+      )}
+
+      {(scope.slug === "donation-photos" ||
+        scope.slug === "location-photos") && (
+        <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600">
+          Reálné fotky se nečtou přes sync — cache se invaliduje
+          automaticky při uploadu/mazání.
+        </p>
+      )}
 
       {range && rangeLabel && (
         <section

@@ -33,13 +33,20 @@ const POLL_INTERVAL_MS = 750;
 
 export function SyncPanel({
   initialStatus,
+  initialPreset,
 }: {
   initialStatus: SyncStatus | null;
+  /** When set (via `?preset=` query), pre-fills the `--only` dropdown.
+   *  Used by the "Spustit sync" shortcut on listings + JSON náhled
+   *  so the user lands with the right scope already selected. */
+  initialPreset?: "finds" | "maps" | "meta" | null;
 }) {
   const [status, setStatus] = useState<SyncStatus | null>(initialStatus);
   const [logBuffer, setLogBuffer] = useState<string>("");
   const [offset, setOffset] = useState<number>(0);
-  const [only, setOnly] = useState<"all" | "maps" | "finds" | "meta">("all");
+  const [only, setOnly] = useState<"all" | "maps" | "finds" | "meta">(
+    initialPreset ?? "all",
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Two-step confirm for "Spustit ostrý sync" — null = idle,

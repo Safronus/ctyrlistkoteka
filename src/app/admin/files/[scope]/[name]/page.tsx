@@ -14,6 +14,7 @@ import {
   type LSPAnalysis,
 } from "@/lib/admin/lokaceStavyAnalysis";
 import { getScope, statScopeFile } from "@/lib/admin/scopes";
+import { checkSyncNeeded } from "@/lib/admin/syncNeeded";
 import {
   LOKACE_STAVY_POZNAMKY_FILENAME,
   type LokaceStavyPoznamky,
@@ -30,6 +31,7 @@ import { DeleteMapButton } from "../../maps/delete-button";
 import { MapDescriptionEditor } from "../../maps/description-editor";
 import { MarkMapNonexistentButton } from "../../maps/mark-nonexistent-button";
 import { MapReplaceDropzone } from "../../maps/replace-dropzone";
+import { SyncNeededBanner } from "../../_shared/sync-needed-banner";
 import { JsonSectionsPreview } from "./json-sections-preview";
 import { LokaceStavyPoznamkyPreview } from "./lokace-stavy-preview";
 
@@ -128,6 +130,16 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
       };
     }
   }
+
+  // Sync-needed banner — relevant only on the LokaceStavyPoznamky.json
+  // detail (data/meta/). Other meta files don't drive sync directly.
+  const metaSyncProps = isMetaJson
+    ? {
+        result: await checkSyncNeeded(["meta"]),
+        preset: "meta" as const,
+        label: "LokaceStavyPoznamky.json",
+      }
+    : null;
 
   return (
     <div className="space-y-4">
@@ -232,11 +244,16 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
       </header>
 
       {scope.slug === "maps" &&
-        !info.name.startsWith("NEEXISTUJE-") &&
         (() => {
           const dot = info.name.lastIndexOf(".");
           const stem = dot === -1 ? info.name : info.name.slice(0, dot);
-          const segs = stem.split("+");
+          // The NEEXISTUJE- prefix sits in front of the canonical
+          // 6-segment basename — strip it before counting so the
+          // editor stays available on zaniklé maps too.
+          const coreStem = stem.startsWith("NEEXISTUJE-")
+            ? stem.slice("NEEXISTUJE-".length)
+            : stem;
+          const segs = coreStem.split("+");
           if (segs.length !== 6) return null;
           return (
             <MapDescriptionEditor
@@ -272,6 +289,14 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
             <code>{`/generated/`}</code> (po sync).
           </div>
         )}
+
+      {metaSyncProps && (
+        <SyncNeededBanner
+          result={metaSyncProps.result}
+          preset={metaSyncProps.preset}
+          label={metaSyncProps.label}
+        />
+      )}
 
       {sectionsPreview &&
         (lspAnalysis && lspPoznamky ? (

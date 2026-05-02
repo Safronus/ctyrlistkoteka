@@ -44,6 +44,43 @@ pnpm dev
 
 Otevři [http://localhost:3000](http://localhost:3000).
 
+## Pokračování na jiném počítači
+
+Vše kromě `.env` a memory adresáře je v repu. Postup:
+
+```bash
+# 1. Klon + Node + pnpm
+git clone https://github.com/Safronus/ctyrlistkoteka.git
+cd ctyrlistkoteka
+nvm install                                         # Node LTS
+corepack enable && corepack prepare pnpm@latest --activate
+pnpm install
+
+# 2. Lokální Postgres + secrets
+cp .env.example .env                                # vyplň hesla pro DB
+docker compose up -d                                # Postgres + PostGIS
+pnpm prisma migrate deploy
+pnpm dev                                            # localhost:3000
+```
+
+Co se přenáší samo:
+- **Repo** (kód, migrations, schema, dokumentace) → GitHub.
+- **Auto-deploy** na VPS → `main` push spustí GitHub Action; nový stroj nic
+  nemění.
+- **Dokumentace** v `docs/` (architektura, sync workflow, admin overview)
+  → cestuje s repem, slouží jako pickup point pro Claude Code i pro tebe.
+
+Co se **NEpřenáší** automaticky:
+- `.env` — soubor s DB heslem, NEXT_PUBLIC_SITE_URL, ADMIN_SECURE_DIR atd.
+  Vyplň podle `.env.example`. Pro lokální dev stačí defaultní `localhost:5432`
+  a ostatní hodnoty z příkladu.
+- **Lokální memory Claude Code** (`~/.claude/projects/<hash>/memory/`) je
+  per-stroj. Buď ho nasynchronizuj přes Dropbox/iCloud, nebo nech vzniknout
+  znovu — `CLAUDE.md` + `docs/admin-overview.md` v repu vrátí Claude do
+  kontextu během 1–2 obratů nové konverzace.
+- **Produkční `.env`** (přihlašovací údaje k VPS) — drž v Termiusu, ne v repu.
+  Repo má jen `.env.example`, který je zveřejnitelný.
+
 ## Příkazy
 
 | Příkaz | Popis |

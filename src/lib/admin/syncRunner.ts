@@ -3,6 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { ADMIN_ROOTS } from "./paths";
 import { atomicWrite, ensureDir, trashTimestamp } from "./atomic";
+import { writeLastSyncSuccess } from "./syncNeeded";
 
 /** State machine for the admin sync runner.
  *
@@ -167,6 +168,19 @@ export async function startRun(opts: StartOptions): Promise<SyncStatus> {
       await atomicWrite(STATUS_FILE, JSON.stringify(final, null, 2));
     } catch (err) {
       console.error("[admin/sync] failed to write final status", { err });
+    }
+    if (final.state === "succeeded") {
+      try {
+        await writeLastSyncSuccess({
+          endedAt: final.endedAt!,
+          args: final.args,
+          runId: final.runId,
+        });
+      } catch (err) {
+        console.error("[admin/sync] failed to write last-success marker", {
+          err,
+        });
+      }
     }
   });
 

@@ -6,9 +6,19 @@ import { SyncPanel } from "./sync-panel";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSyncPage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function AdminSyncPage({ searchParams }: PageProps) {
   await ensureAdminAuth();
   const status = await getStatus();
+  const sp = await searchParams;
+  const presetRaw = Array.isArray(sp.preset) ? sp.preset[0] : sp.preset;
+  const preset =
+    presetRaw === "finds" || presetRaw === "maps" || presetRaw === "meta"
+      ? presetRaw
+      : null;
 
   return (
     <div className="space-y-4">
@@ -36,7 +46,7 @@ export default async function AdminSyncPage() {
         </p>
       </header>
 
-      <SyncPanel initialStatus={status} />
+      <SyncPanel initialStatus={status} initialPreset={preset} />
     </div>
   );
 }
