@@ -9,6 +9,15 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    serverActions: {
+      // Admin upload of find photos: each JPEG after prepare-upload is
+      // typically <1 MB but we let the user batch a session's worth in
+      // one submit. Cap is per-request total, not per-file. The server
+      // action enforces per-file + per-request count limits on top.
+      bodySizeLimit: "200mb",
+    },
+  },
   async headers() {
     return [
       {

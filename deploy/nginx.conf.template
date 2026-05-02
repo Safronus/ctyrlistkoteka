@@ -129,7 +129,13 @@ server {
         deny all;
         error_page 403 = @admin_notfound;
 
-        client_max_body_size 50M;
+        # Sized to match `experimental.serverActions.bodySizeLimit` in
+        # next.config.ts (200 MB). Per-file cap is enforced by the
+        # upload server action (currently 25 MB / file, 50 files /
+        # request). Keeping the two limits aligned prevents silent
+        # 413s where Next.js would have accepted the body but Nginx
+        # blocks it.
+        client_max_body_size 200M;
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;

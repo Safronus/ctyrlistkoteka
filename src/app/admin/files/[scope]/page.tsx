@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { getScope, listScope } from "@/lib/admin/scopes";
+import { FindsUploadForm } from "../finds/upload-form";
 
 const PAGE_SIZE = 100;
 
@@ -92,6 +93,8 @@ export default async function AdminScopeListPage({
           {query ? " v aktuálním filtru" : ""}
         </p>
       </header>
+
+      {scope.slug === "finds" && <FindsUploadForm />}
 
       <form
         action={`/admin/files/${scope.slug}`}
