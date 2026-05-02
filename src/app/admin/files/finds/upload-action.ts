@@ -66,18 +66,55 @@ export async function uploadFinds(
 
   const results: UploadResult[] = [];
   for (const entry of entries) {
+    const index = results.length;
     if (!(entry instanceof File)) {
       results.push({
-        index: results.length,
+        index,
         filename: "?",
         status: "rejected",
         reason: "Položka není soubor",
       });
       continue;
     }
-    results.push(
-      await processOne(entry, results.length, credentialLabel, ip),
-    );
+    // Per-file try/catch turns any unexpected error (atomic write
+    // failure, audit append fault, etc.) into a rejected result row
+    // rather than letting it tear down the whole action and force
+    // the client into Next.js's generic "unexpected response" path.
+    try {
+      results.push(await processOne(entry, index, credentialLabel, ip));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[admin/upload] processOne threw", {
+        file: entry.name,
+        size: entry.size,
+        message,
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      // Fire a best-effort audit row so the failure is visible in the
+      // /admin/audit view too.
+      try {
+        await appendAudit({
+          action: "file.upload",
+          ip,
+          credentialLabel,
+          details: {
+            scope: "finds",
+            file: entry.name,
+            outcome: "error",
+            reason: message,
+          },
+        });
+      } catch {
+        // appendAudit already swallows its own errors; this catch is
+        // belt-and-braces in case the import path itself blew up.
+      }
+      results.push({
+        index,
+        filename: entry.name,
+        status: "rejected",
+        reason: `Server: ${message}`,
+      });
+    }
   }
 
   if (results.some((r) => r.status === "ok")) {
