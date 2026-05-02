@@ -13,144 +13,144 @@ Admin track má hotové fáze 1–7 (passkey + audit, file browser, JSON editor
 gap detector, sync-needed banner, **fail2ban blocklist viewer**). Pickup
 point pro Claude Code = `docs/admin-overview.md`.
 
+**Velký upload 100+ souborů ✅ funguje** (po dlouhém debug session).
+
 ### Dnes (2026-05-03)
 
 - **`/admin/files` landing oprava** (`a56aa70`): počty filtrují skryté
-  soubory (`.DS_Store`, `._*`, atomické `.tmp`); banner nahoře porovnává
-  ID nálezů v originálech vs crops (symetrický rozdíl, ne raw názvy) a
-  ukazuje preview chybějících ID. Karty originálů + crops mají badge
-  s mismatch countem.
-- **Map detail — metadata preview** (`a56aa70`): nový panel na
-  `/admin/files/maps/<name>` s MAP_ID, zoom, GPS středem, popiskem,
-  rozměrem v px (z PNG IHDR — bez sharpu, jen 64KB head read), AOI
-  polygon (počet bodů + GPS bbox + náhled prvních 4 vertices), výpis
-  všech tEXt/iTXt chunků, badge `anonymizovaná`/`zaniklá`.
+  soubory (`.DS_Store`, `._*`, atomické `.tmp`); banner porovnává ID
+  nálezů originály vs crops, badge s mismatch countem.
+- **Map detail — metadata preview** (`a56aa70`): MAP_ID, zoom, GPS,
+  popisek, dim z PNG IHDR (bez sharpu), AOI polygon (počet + bbox +
+  preview vertices), výpis tEXt/iTXt, badge anonymizovaná/zaniklá.
 - **`/admin/audit/blocklist`** (`2fa2a70`) — fail2ban TSV viewer:
-  stats / TOP 10 jails / TOP 10 IP / recent / všechny IP s počty +
-  first/last seen + jails / permaban kandidáti (formulář
-  threshold/window/jail, živý preview `.conf`). Exporty:
-  `/api/admin/blocklist/export?kind=raw|ips|permaban` (TSV/CSV/JSON/conf).
-  **Webapp jen čte, do `/etc/nginx/` nikdy nesahá.** Permission hint
-  pro `setfacl` (chybělo `acl` package — viz pasti).
-- **Audit tabulka horizontální scroll** (`2fa2a70`): wrapper z
-  `overflow-hidden` na `overflow-x-auto`, details cell `whitespace-nowrap`,
-  + `AuditSubNav` (Záznamy / Blocklist) na obou audit stránkách.
-- **Upload — masked Server Components error** (`1c92e49`, `80e8457`):
-  Při uploadu 50 souborů se zobrazila generická produkční hláška
-  "An error occurred in the Server Components render" místo reálné
-  příčiny. **Root cause:** `revalidatePath()` uvnitř server action
-  přibalí rerenderovaný strom listingu do RSC response — jakmile
-  rerender shoří (větší batch → `analyzeIdRange`/`listScope` na
-  17k+ filech?), celá action response je shozena pod maskou.
-  - **Fix v `80e8457`**: action vrací jen `{ results }`, klient volá
-    `router.refresh()` po prvním ok řádku. Action response je teď
-    triviální, listing rerender už nemůže shodit upload.
-  - **Error boundary**: `/admin/files/[scope]/error.tsx` ukáže digest
-    + `pm2 logs … | grep '<digest>'` hint.
-  - **Bonus** (`1c92e49`): structured `error` field v `UploadResponse`,
-    top-level try/catch v actions, console.error s plným stackem.
+  stats / TOP 10 jails+IPs / recent / všechny IP / permaban kandidáti
+  (live preview `.conf`). Exporty `?kind=raw|ips|permaban`. Read-only,
+  do `/etc/nginx/` se nesahá. Permission hint pro `setfacl`.
+- **Audit tabulka horizontal scroll** (`2fa2a70`): `overflow-x-auto` +
+  `whitespace-nowrap` na details cell, `AuditSubNav` (Záznamy / Blocklist).
+- **Upload epic — 5 commitů, plně vyřešeno** (`1c92e49` → `80e8457` →
+  `c7ad4e7` → `2e5d1e9` → `18979de` → `035f136` → `8eacf89`):
+  - **#1 maska RSC erroru:** `revalidatePath()` v server action
+    rerenderuje listing do response payloadu. Při velkém batchi (50
+    files) listing rerender shořel a celá akce vrátila "Server
+    Components render" wrapper bez detailů.
+    Fix: drop `revalidatePath`, klient volá `router.refresh()`.
+  - **#2 client-side encoder:** Server-action RSC encoder v browseru
+    silently failoval na ≥50 file batchích — request **vůbec nešel**
+    do network. Fix: přepnout finds + crops na **REST POST endpoints**
+    `/admin/api/upload/{finds,crops}` přes nativní `fetch()` —
+    browser multipart streaming sidesteppuje RSC encoder.
+  - **#3 undici formData parser:** `request.formData()` v Next.js
+    Node runtime na Safari multipartu padal s "Failed to parse body
+    as FormData". Fix: zaparsovat busboyem (`@/lib/admin/multipart`).
+  - **#4 Web→Node stream bridge dropuje bytes:**
+    `Readable.fromWeb(request.body).pipe(busboy)` ztrácel trailing
+    bytes — busboy hlásil "Unexpected end of form" i když
+    Content-Length sedělo. Fix: bufferovat body předem
+    `busboy.end(await request.arrayBuffer())`.
+  - **#5 záhadný 10MB cap upstream:** Body se zkracovalo z 16 MB na
+    ~10 MB ještě před Next.js (Content-Length sedělo, reálné bytes
+    ne). Nginx config je čistá (200M všude), takže cap je v OVH
+    layeru / HTTP/2 transport buffer / něčem podobném.
+    Workaround: **size-based batching klient-side**, každý batch
+    ≤ `MAX_BATCH_BYTES = 8 MB` (+ stále count cap 50).
+    `splitIntoBatches()` v `upload-form.tsx`.
+  - **#6 mojibake diakritiky:** busboy default `defParamCharset:
+    "latin1"`, takže `NORMÁLNÍ` v filenamu přišlo jako `NORMÃLNÃ` →
+    parser hlásil "Unknown STATE token". Fix: `defParamCharset:
+    "utf8"` v Busboy konfigu.
+  - Bonus: Error boundary `/admin/files/[scope]/error.tsx` ukáže
+    digest + `pm2 logs … | grep '<digest>'` hint.
 
 ### Commity dnes (od staršího k novějšímu)
 
 - `a56aa70` files landing fixes + map metadata preview
 - `2fa2a70` /admin/audit/blocklist + audit horizontal scroll
-- `1c92e49` upload errors → structured response (diagnostic, nestačil)
-- `80e8457` drop revalidatePath, router.refresh on client (skutečný fix)
+- `1c92e49` upload errors → structured response
+- `80e8457` drop revalidatePath, router.refresh on client + error boundary
+- `c7ad4e7` finds + crops upload: server action → REST fetch
+- `2e5d1e9` parse multipart with busboy instead of request.formData()
+- `18979de` buffer body before busboy (drop Web→Node stream pipe)
+- `035f136` size-based batching ≤8 MB (workaround pro 10 MB upstream cap)
+- `8eacf89` busboy `defParamCharset: "utf8"` (Czech diacritics in filename)
 
 ---
 
-## Další krok (čeká na uživatele)
+## Další krok (později, ne kritické)
 
-1. **Deploy `80e8457`** přes GitHub Action.
-2. **Upload 121 souborů** (originály i crops) — měl by projít všechny
-   3 batche (50/50/21).
-3. **Pokud listing pak shoří**: error.tsx ukáže digest. V Termiusu:
-   ```bash
-   pm2 logs ctyrlistkoteka --err --lines 500 | grep '<digest>'
-   ```
-   → najdeme reálnou root-cause render-time chyby.
-4. **Blocklist ACL** (po `apt install acl`):
-   ```bash
-   sudo apt install -y acl
-   sudo setfacl -m u:app:r /var/log/fail2ban-blocklist.tsv
-   # + logrotate snippet postrotate hook (viz UI hint v /admin/audit/blocklist)
-   ```
-   Alternativně `sudo chmod 644 /var/log/fail2ban-blocklist.tsv` + edit
-   logrotate `create 644 root root`.
+1. **`apt install acl` na VPS** + `setfacl -m u:app:r /var/log/fail2ban-blocklist.tsv`
+   → blocklist viewer dostane data z reálného logu místo permission-denied
+   hintu. Případně `chmod 644` a edit logrotate `create 644 root root`.
+2. **Identifikovat 10 MB upstream cap** — viz pasti níže. Až se najde,
+   zvýšit `MAX_BATCH_BYTES` (méně requestů, rychlejší upload).
+   Možné kandidáty: OVH proxy/firewall, HTTP/2 INITIAL_WINDOW_SIZE,
+   `client_body_buffer_size` interakce.
+3. **Cleanup:** unreferenced server actions `uploadFinds`/`uploadCrops`
+   v `src/app/admin/files/{finds,crops}/upload-action.ts` můžeme smazat
+   — nahradily je REST routy.
 
 ---
 
 ## Otevřené nápady (nezadané)
 
-- Pre-pass v dry-run, který načte skutečná `Location.id` z DB místo
-  mapId stand-inu, aby `prune.dryrun_auto` count nebyl přibližný při
-  více mapách na jednu lokaci.
-- E2E Playwright test pro rename flow (set as zaniklá → sync → ověř DB).
-- E2E Playwright test pro upload 100+ souborů (proti regresi
-  Server-Components-render maskovací cesty).
-- Lower `MAX_FILES_PER_REQUEST` z 50 na ~25, pokud i po `80e8457`
-  větší batche selhávají z paměťových důvodů.
-- ECharts/Recharts dashboard pro `/admin` přehled (kolik nálezů
-  přibylo za týden, kdy poslední úspěšný sync, počet anomálií v JSONu).
+- E2E Playwright test pro upload 100+ souborů (regrese guard pro tu
+  6-vrstvou cestu, kterou jsme dnes objevili).
+- Pre-pass v sync dry-run pro reálné `Location.id` z DB.
+- ECharts/Recharts dashboard pro `/admin` přehled.
 
 ---
 
 ## Historicky (zkráceně)
 
-- **Fáze 1 — auth foundation**: passkey/WebAuthn, iron-session
-  (cookie path = `/`), audit log, IP cloak `/admin` 404 pro neautent.
-- **Fáze 2 — file browser**: read-only listing + audit log viewer.
-- **Fáze 3 — JSON editor**: 4 taby (lokace / poznámky / stavy /
-  anonymizace), `formatJsonCompactArrays` pro single-line pole primitiv.
-- **Fáze 4 — uploady**: originály (finds), crops (crops), lokační mapy
-  (s zachováním PNG tEXt + EXIF). Atomický zápis (tmp → fsync → rename),
-  destruktivní operace přes `data/.trash/<ts>/` (auto-prune 30 dní).
-- **Fáze 5 — JSON náhled**: stats banner, find lookup, anomaly detection.
-- **Fáze 6 — reálné fotky**: `<id><slot>_DAR[_ANON].<ext>` (darované),
-  `<mapa>_reálné foto<descriptor>.<ext>` (lokality).
-- **Fáze 7 — sync trigger**: spawn `tsx scripts/sync.ts` jako podproces,
-  state JSON v `data/.admin/state/sync.json` (sdíleno mezi PM2 workery),
-  log v `data/.admin/logs/`, polling 750 ms. Dry-run + ostrý s confirm.
-- **Sync — rename + auto-prune** (2026-05-02, `0b8e214`): admin's
-  "set as zaniklá" mění locationCode v názvu, MAP_ID zůstává.
-  `phaseMaps` dělá byCode → byId → create lookup; rename loguje
-  `maps.location_renamed`, fork loguje `maps.location_forked`.
-  `phasePrune` automaticky maže orphan location_maps + locations
-  na každém syncu (bez `--prune`); finds + generated/ za `--prune`.
-- **Sync-needed banner**: porovnává mtime dirsizes s
-  `last-sync-success.json`. Per-scope. Shortcut `/admin/sync?preset=…`.
-- **Cross-PC bootstrap**: README sekce "Pokračování na jiném počítači",
-  `docs/admin-overview.md` jako pickup point.
+- **Fáze 1–7 admin track**: passkey/audit, file browser, JSON editor +
+  náhled, uploady (originály/crops/maps + reálné fotky darů/lokalit),
+  sync trigger s live logem, ID gap detector, sync-needed banner.
+- **Sync — rename + auto-prune** (`0b8e214`): admin "set as zaniklá"
+  mění locationCode v názvu (mapId zůstává). `phaseMaps` byCode →
+  byId → create lookup; `maps.location_renamed` / `maps.location_forked`.
+  `phasePrune` auto-mažní orphan location_maps + locations bez `--prune`.
+- **Sync-needed banner**: per-scope (finds/maps/meta), shortcut
+  `/admin/sync?preset=…`. mtime dirsizes vs `last-sync-success.json`.
 
 ### Reverted / nahrazeno
 
-- **Skip filter pro NEEXISTUJE-** v `phaseMaps` (commit `bc00764`,
-  2026-05-02): zaniklé lokality se mají normálně zobrazovat na
-  `/lokality`, schema explicitně podporuje `NEEXISTUJE-` v `Location.code`.
-  Nahrazeno rename-aware lookupem v `0b8e214`.
-- **`revalidatePath` v upload actions** (před `80e8457`): masked
-  Server Components render error při velkých batchích. Nahrazeno
-  client-side `router.refresh()`.
+- **Skip filter pro NEEXISTUJE-** (commit `bc00764`): zaniklé lokality
+  se mají normálně zobrazovat na `/lokality`. Nahrazeno rename-aware
+  lookupem (`0b8e214`).
+- **`revalidatePath` v upload actions** (před `80e8457`): masked Server
+  Components render error. Nahrazeno client-side `router.refresh()`.
+- **Server actions pro upload** (před `c7ad4e7`): RSC encoder choke na
+  velkých batchích. Nahrazeno REST `/admin/api/upload/*` přes `fetch()`.
 
 ### Známé pasti (drž v hlavě)
 
 - macOS rsync z iCloudu doručuje názvy v NFD; browser posílá NFC. Vždy
-  normalizuj obě strany (`.normalize("NFC")`) než porovnáváš.
+  normalizuj obě strany (`.normalize("NFC")`).
 - `"use server"` soubory smí exportovat jen `async` funkce. Konstanty
-  + typy patří do `*Types.ts` sourozeneckého souboru.
-- RSC boundary: server komponenta může předat klientské komponentě jen
-  `"use server"` action, ne libovolnou inline arrow funkci. Místo
-  `confirmText: (n) => string` použij `confirmTemplate: string` s `{n}`
-  placeholderem.
-- Iron-session cookie pro admin musí mít `path=/`, jinak `/api/admin/*`
-  dostává unauth requesty.
-- Polling loop musí používat `useRef` pro mutating state (offset),
-  jinak useEffect zachytí starou hodnotu a re-fetchuje stejné bytes.
+  + typy → `*Types.ts` sourozenec.
+- RSC boundary: server komponenta předává klientskému jen `"use
+  server"` action, ne libovolnou inline arrow funkci. `confirmTemplate:
+  string` s `{n}` placeholderem.
+- Iron-session cookie pro admin **musí mít `path=/`**, jinak
+  `/api/admin/*` dostává unauth requesty.
+- Polling loop musí používat `useRef` pro mutating offset.
 - **`revalidatePath()` v server action bundle-uje rerender do RSC
-  response.** Pokud ten rerender shoří, klient vidí jen masked
-  "Server Components render" wrapper bez detailů. Pro mutace co
-  následuje rerender velkého listingu radši `router.refresh()` na
-  klientu po návratu action.
-- Ubuntu 24.04 nemá `acl` package defaultně — `setfacl: command not
-  found` znamená `sudo apt install -y acl` nebo `chmod 644` fallback
-  s logrotate `create 644 …` directivou.
+  response.** Když rerender shoří, klient vidí jen masked "Server
+  Components render". Pro mutace následované rerenderem listingu
+  radši `router.refresh()` na klientu.
+- **Server-action RSC encoder choke** na ≥50 file batchích — request
+  ani neodešel. Pro file uploady použij **REST POST + fetch()**, ne
+  server action. Pod `/admin/api/...` aby dědil nginx 200M cap.
+- **`request.formData()` (undici) padá** na velkých Safari multipart
+  payloadech "Failed to parse body as FormData". Použij **busboy** přes
+  `@/lib/admin/multipart`. **NIKDY** nepoužívej `Readable.fromWeb(body).pipe(busboy)`
+  — drop trailing bytes na velkých streamech. Bufferuj přes
+  `await request.arrayBuffer()` a pak `busboy.end(buffer)`.
+- **busboy default `defParamCharset: "latin1"`** mangluje diakritiku
+  v multipart filenamu. Vždy nastav `defParamCharset: "utf8"`.
+- **Záhadný ~10 MB body cap** mezi browserem a Next.js (možná OVH
+  vrstva nebo HTTP/2 buffer). Workaround: size-based batching ≤8 MB
+  per request. Identifikace cap-u zatím nedořešena — viz "Další krok".
+- Ubuntu 24.04 nemá `acl` defaultně — `setfacl: command not found`
+  → `sudo apt install -y acl` nebo `chmod 644` fallback.
