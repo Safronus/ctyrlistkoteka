@@ -149,25 +149,71 @@ const EXT_TO_MIME: Record<string, string> = {
 
 /** Resolves a scope+filename to an absolute path + stat metadata.
  *  Returns null when the file doesn't exist (caller renders 404).
- *  Throws on path traversal so the API endpoint can surface a 400. */
+ *  Throws on path traversal so the API endpoint can surface a 400.
+ *
+ *  Unicode-tolerant: rsync from macOS delivers NFD-encoded filenames
+ *  to the Linux box, but Safari (and sometimes Chrome) normalize URL
+ *  characters to NFC when fetching subresources via `<img src>` or
+ *  `<a download>`. Top-level page navigation tends to preserve the
+ *  original bytes, so the listing → detail page round-trip works
+ *  byte-for-byte while the same filename in a subresource URL
+ *  arrives at the server in a different normalization form. We try
+ *  the byte-exact path first (cheap, hits in nearly every case
+ *  where the URL came from a hand-typed path or the listing link
+ *  for an ASCII filename), then fall back to a directory scan that
+ *  compares NFC forms — guaranteed to find any name regardless of
+ *  which side normalized. */
 export async function statScopeFile(
   scope: ScopeDef,
   filename: string,
 ): Promise<FileInfo | null> {
-  const abs = safeJoin(scope.rootKey, filename);
-  let stat;
+  const root = ADMIN_ROOTS[scope.rootKey];
+  // safeJoin is the source of traversal protection — keep it on the
+  // hot path even when we end up resolving via readdir below, because
+  // the requested name still has to refer to *this* root.
+  const direct = safeJoin(scope.rootKey, filename);
+  const requestedBase = path.basename(direct);
+
+  let stat: Awaited<ReturnType<typeof fs.stat>> | null = null;
+  let absolutePath = direct;
+  let resolvedName = requestedBase;
+
   try {
-    stat = await fs.stat(abs);
+    stat = await fs.stat(direct);
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw err;
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
   }
+
+  if (!stat) {
+    const requestedNFC = requestedBase.normalize("NFC");
+    let names: string[];
+    try {
+      names = await fs.readdir(root);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw err;
+    }
+    const match = names.find((n) => n.normalize("NFC") === requestedNFC);
+    if (!match) return null;
+    resolvedName = match;
+    absolutePath = path.join(root, match);
+    try {
+      stat = await fs.stat(absolutePath);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw err;
+    }
+  }
+
   if (!stat.isFile()) return null;
-  const ext = path.extname(filename).toLowerCase();
+  const ext = path.extname(resolvedName).toLowerCase();
   return {
     scope: scope.slug,
-    name: path.basename(filename),
-    absolutePath: abs,
+    // Return the on-disk form so callers building URLs back to this
+    // file (e.g. <img src>) round-trip through whatever normalization
+    // the browser applies and still resolve correctly here.
+    name: resolvedName,
+    absolutePath,
     size: stat.size,
     mtime: stat.mtime.toISOString(),
     contentType: EXT_TO_MIME[ext] ?? "application/octet-stream",

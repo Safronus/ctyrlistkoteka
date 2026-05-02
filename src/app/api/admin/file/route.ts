@@ -53,6 +53,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return new NextResponse("Not found", { status: 404 });
   }
   if (!info) {
+    // Log the requested name as both UTF-8 string and hex bytes so a
+    // future Unicode-mismatch regression (rsync delivering some other
+    // normalization, a new browser quirk) is debuggable from PM2 logs
+    // without needing to reproduce in a console.
+    console.warn("[admin/file] not found", {
+      scope: scopeSlug,
+      name,
+      nameHex: Buffer.from(name, "utf8").toString("hex"),
+    });
     return new NextResponse("Not found", { status: 404 });
   }
   if (info.size > MAX_BYTES) {
