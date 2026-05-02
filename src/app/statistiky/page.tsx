@@ -170,6 +170,7 @@ async function TotalsSection() {
           icon: Gift,
           label: "darováno",
           value: fmt.format(totals.donatedFinds),
+          href: "/sbirka?state=DONATED",
         }}
         subStats={[
           {
@@ -178,6 +179,7 @@ async function TotalsSection() {
             // one matching photo in `${GENERATED_DIR}/find-photos/`.
             label: "Darované s fotkou",
             value: fmt.format(donatedWithPhoto),
+            href: "/sbirka?state=DONATED&hasPhoto=1",
           },
           {
             icon: Search,
@@ -214,16 +216,21 @@ async function TotalsSection() {
             icon: EyeOff,
             label: "anonymizovaných",
             value: fmt.format(totals.anonymizedLocations),
+            // No /lokality filter for anonymized rows on the public
+            // surface (the toggle is gated to the author's session),
+            // so this stat stays static.
           },
           {
             icon: MapPinOff,
             label: "zaniklých",
             value: fmt.format(totals.goneLocations),
+            href: "/lokality?showGone=1",
           },
           {
             icon: Camera,
             label: "s reálnou fotkou",
             value: fmt.format(realPhotoLocs.size),
+            href: "/lokality?hasPhoto=1",
           },
         ]}
       />
@@ -312,6 +319,11 @@ interface SubStat {
   icon: LucideIcon;
   label: string;
   value: string;
+  /** When set, the stat renders as a Link to the corresponding
+   *  filtered list page (/sbirka or /lokality). Stats without an href
+   *  stay plain — anonymized + no-photo numbers don't have a useful
+   *  filtered destination. */
+  href?: string;
 }
 
 function TotalCard({
@@ -359,17 +371,37 @@ function TotalCard({
         <ul className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-gray-100 pt-3 text-xs text-gray-600">
           {subStats.map((s) => {
             const Icon = s.icon;
-            return (
-              <li
-                key={s.label}
-                className="inline-flex items-center gap-1.5"
-                title={`${s.label}: ${s.value}`}
-              >
+            // Two render variants: a plain <span> row or, when `href`
+            // is set, a Link to the corresponding filtered list page.
+            // Linked rows use the same layout but pick up underline +
+            // brand-700 on hover so the affordance is visible.
+            const inner = (
+              <>
                 <Icon className="h-3.5 w-3.5 text-brand-700" aria-hidden />
                 <span className="font-mono font-semibold tabular-nums text-gray-900">
                   {s.value}
                 </span>
                 <span className="text-gray-500">{s.label}</span>
+              </>
+            );
+            return (
+              <li
+                key={s.label}
+                title={`${s.label}: ${s.value}`}
+                className="inline-flex"
+              >
+                {s.href ? (
+                  <Link
+                    href={s.href}
+                    className="inline-flex items-center gap-1.5 rounded transition hover:text-brand-700 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    {inner}
+                  </span>
+                )}
               </li>
             );
           })}
@@ -509,8 +541,8 @@ function CornerStat({
   const Icon = stat.icon;
   const positionCls =
     align === "left" ? "items-start text-left" : "items-end text-right";
-  return (
-    <div className={`flex flex-col ${positionCls}`}>
+  const inner = (
+    <>
       <p className="text-2xl font-bold tabular-nums text-brand-700">
         {stat.value}
       </p>
@@ -518,8 +550,22 @@ function CornerStat({
         <Icon className="h-3.5 w-3.5 text-brand-700" aria-hidden />
         {stat.label}
       </p>
-    </div>
+    </>
   );
+  // Linked variant gets a subtle hover treatment on the label row so
+  // the affordance is visible without making the big number itself
+  // jump on hover. The wrapper stays a flex column either way.
+  if (stat.href) {
+    return (
+      <Link
+        href={stat.href}
+        className={`flex flex-col rounded transition ${positionCls} hover:[&_p:last-child]:text-brand-700 hover:[&_p:last-child]:underline focus:outline-none focus:ring-2 focus:ring-brand-500/40`}
+      >
+        {inner}
+      </Link>
+    );
+  }
+  return <div className={`flex flex-col ${positionCls}`}>{inner}</div>;
 }
 
 function FindHighlightCard({
