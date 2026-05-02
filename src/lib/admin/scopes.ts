@@ -128,10 +128,25 @@ export interface ScopeEntry {
 /** Lists files in a scope. Returns at most `limit` entries with
  *  filename matching `query` (case-insensitive substring). Sorts by
  *  filename ascending — predictable order beats mtime here because
- *  the user is usually looking for a specific find ID. */
+ *  the user is usually looking for a specific find ID.
+ *
+ *  Hidden files (anything starting with `.`) are stripped before any
+ *  other filter — that covers OS metadata noise (.DS_Store, ._*
+ *  resource forks) and in-flight atomic-write temp files
+ *  (.foo.<pid>.<rand>.tmp). The admin layer should never surface
+ *  these to the user.
+ *
+ *  When `duplicatesOnly` is set, only entries that share their
+ *  NFC-normalised name with at least one sibling on disk are kept.
+ *  Useful for the "find Unicode duplicates" cleanup workflow. */
 export async function listScope(
   scope: ScopeDef,
-  opts: { query?: string; offset?: number; limit?: number } = {},
+  opts: {
+    query?: string;
+    offset?: number;
+    limit?: number;
+    duplicatesOnly?: boolean;
+  } = {},
 ): Promise<{ total: number; entries: ScopeEntry[] }> {
   const root = ADMIN_ROOTS[scope.rootKey];
   let names: string[];
@@ -143,6 +158,17 @@ export async function listScope(
     }
     throw err;
   }
+  names = names.filter((n) => !n.startsWith("."));
+
+  if (opts.duplicatesOnly) {
+    const counts = new Map<string, number>();
+    for (const n of names) {
+      const key = n.normalize("NFC");
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    names = names.filter((n) => (counts.get(n.normalize("NFC")) ?? 0) > 1);
+  }
+
   const q = opts.query?.trim().toLowerCase();
   const filtered = q
     ? names.filter((n) => n.toLowerCase().includes(q))

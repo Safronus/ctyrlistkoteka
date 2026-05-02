@@ -39,21 +39,42 @@ function isImageName(name: string): boolean {
   return /\.(jpe?g|png|webp|heic|heif|gif)$/i.test(name);
 }
 
-/** Highlights NFC-equivalent duplicate groups: a yellow dot on a row
- *  means another row has the same NFC-normalised name (different
- *  bytes, same visible filename). Built once per render so the dot
- *  rendering is O(1). */
-function buildDuplicateMap(entries: ScopeEntry[]): Set<string> {
-  const counts = new Map<string, number>();
+interface DuplicateInfo {
+  /** All entries that share an NFC-normalised name with at least one
+   *  sibling — used to render the "duplikát" badge. For 43 dup pairs
+   *  this contains 86 names. */
+  flagged: Set<string>;
+  /** The subset that the auto-select shortcut would mark for trash:
+   *  every entry except the OLDEST in each NFC group. For 43 pairs
+   *  this contains 43 names. The button label uses this size so the
+   *  number matches what actually gets selected. */
+  trashCandidates: Set<string>;
+}
+
+/** Analyses entries for NFC-equivalent duplicate groups. The return
+ *  value separates "files involved in any dup group" (badge) from
+ *  "files that would be auto-selected for deletion" (button count) —
+ *  conflating the two was the bug where the button said 86 but only
+ *  43 rows actually got ticked. */
+function analyzeDuplicates(entries: ScopeEntry[]): DuplicateInfo {
+  const groups = new Map<string, ScopeEntry[]>();
   for (const e of entries) {
     const key = e.name.normalize("NFC");
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const arr = groups.get(key) ?? [];
+    arr.push(e);
+    groups.set(key, arr);
   }
-  const dups = new Set<string>();
-  for (const e of entries) {
-    if ((counts.get(e.name.normalize("NFC")) ?? 0) > 1) dups.add(e.name);
+  const flagged = new Set<string>();
+  const trashCandidates = new Set<string>();
+  for (const [, group] of groups) {
+    if (group.length < 2) continue;
+    for (const e of group) flagged.add(e.name);
+    group.sort((a, b) => Date.parse(a.mtime) - Date.parse(b.mtime));
+    // Keep the oldest (presumed original from rsync), trash the rest
+    // (presumed NFC-collision uploads from the admin form).
+    for (const e of group.slice(1)) trashCandidates.add(e.name);
   }
-  return dups;
+  return { flagged, trashCandidates };
 }
 
 export function MapsListClient({ entries, scopeSlug }: Props) {
@@ -63,7 +84,10 @@ export function MapsListClient({ entries, scopeSlug }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const duplicates = useMemo(() => buildDuplicateMap(entries), [entries]);
+  const { flagged, trashCandidates } = useMemo(
+    () => analyzeDuplicates(entries),
+    [entries],
+  );
 
   const toggle = (name: string) => {
     setSelected((prev) => {
@@ -87,26 +111,10 @@ export function MapsListClient({ entries, scopeSlug }: Props) {
   };
 
   const selectDuplicatesNewest = () => {
-    // Group entries by NFC-equivalent name. Within each group of >1
-    // entries, mark every entry except the OLDEST (smallest mtime)
-    // for deletion — the oldest is most likely the original from
-    // the rsync/sync pipeline; recent NFC-collision uploads are the
-    // ones to clean up.
-    const groups = new Map<string, ScopeEntry[]>();
-    for (const e of entries) {
-      const key = e.name.normalize("NFC");
-      const arr = groups.get(key) ?? [];
-      arr.push(e);
-      groups.set(key, arr);
-    }
-    const toRemove = new Set<string>();
-    for (const [, group] of groups) {
-      if (group.length < 2) continue;
-      group.sort((a, b) => Date.parse(a.mtime) - Date.parse(b.mtime));
-      // Keep the first (oldest), trash the rest.
-      for (const e of group.slice(1)) toRemove.add(e.name);
-    }
-    setSelected(toRemove);
+    // Re-use the precomputed trash candidate set rather than walking
+    // the entries again — keeps the button count and the actual
+    // selection in lockstep.
+    setSelected(new Set(trashCandidates));
   };
 
   const onConfirmDelete = () => {
@@ -153,10 +161,7 @@ export function MapsListClient({ entries, scopeSlug }: Props) {
     });
   };
 
-  const dupCount = useMemo(
-    () => Array.from(duplicates).length,
-    [duplicates],
-  );
+  const dupCount = trashCandidates.size;
 
   return (
     <div className="space-y-2">
@@ -287,7 +292,7 @@ export function MapsListClient({ entries, scopeSlug }: Props) {
           const href = `/admin/files/${scopeSlug}/${encodeURIComponent(e.name)}`;
           const isImg = isImageName(e.name);
           const isSelected = selected.has(e.name);
-          const isDup = duplicates.has(e.name);
+          const isDup = flagged.has(e.name);
           return (
             <li
               key={e.name}

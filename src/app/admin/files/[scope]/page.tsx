@@ -68,24 +68,38 @@ export default async function AdminScopeListPage({
   const query = pickString(sp.q) ?? "";
   const page = pickInt(pickString(sp.page), 1);
   const pageSize = pickPageSize(pickString(sp.size));
+  const duplicatesOnly = pickString(sp.dups) === "1";
   const offset = (page - 1) * pageSize;
 
   const { total, entries } = await listScope(scope, {
     query: query || undefined,
     offset,
     limit: pageSize,
+    duplicatesOnly,
   });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const buildHref = (
-    overrides: Partial<{ q: string; page: number; size: number }>,
+    overrides: Partial<{
+      q: string;
+      page: number;
+      size: number;
+      dups: boolean;
+    }>,
   ) => {
-    const merged = { q: query, page, size: pageSize, ...overrides };
+    const merged = {
+      q: query,
+      page,
+      size: pageSize,
+      dups: duplicatesOnly,
+      ...overrides,
+    };
     const usp = new URLSearchParams();
     if (merged.q) usp.set("q", merged.q);
     if (merged.page > 1) usp.set("page", String(merged.page));
     if (merged.size !== DEFAULT_PAGE_SIZE)
       usp.set("size", String(merged.size));
+    if (merged.dups) usp.set("dups", "1");
     const qs = usp.toString();
     return qs ? `/admin/files/${scope.slug}?${qs}` : `/admin/files/${scope.slug}`;
   };
@@ -135,12 +149,13 @@ export default async function AdminScopeListPage({
             className="block w-full rounded-md border border-gray-300 bg-white py-1.5 pl-9 pr-3 text-sm shadow-sm placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
           />
         </div>
-        {/* Carry the current page size through a search submit so the
-            user doesn't bounce back to the default 100 every time
-            they refine the filter. */}
+        {/* Carry the current page size + duplicates filter through a
+            search submit so the user doesn't bounce back to defaults
+            every time they refine the filter. */}
         {pageSize !== DEFAULT_PAGE_SIZE && (
           <input type="hidden" name="size" value={String(pageSize)} />
         )}
+        {duplicatesOnly && <input type="hidden" name="dups" value="1" />}
         <button
           type="submit"
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
@@ -149,24 +164,44 @@ export default async function AdminScopeListPage({
         </button>
       </form>
 
-      {total > PAGE_SIZE_OPTIONS[0] && (
-        <div className="flex items-center justify-end gap-1 text-xs text-gray-500">
-          <span>Na stránku:</span>
-          {PAGE_SIZE_OPTIONS.map((n) => (
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-500">
+        <div className="flex items-center gap-2">
+          {duplicatesOnly ? (
             <Link
-              key={n}
-              href={buildHref({ size: n, page: 1 })}
-              className={
-                n === pageSize
-                  ? "rounded bg-gray-200 px-1.5 py-0.5 font-semibold text-gray-900"
-                  : "rounded px-1.5 py-0.5 hover:bg-gray-100 hover:text-gray-700"
-              }
+              href={buildHref({ dups: false, page: 1 })}
+              className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 font-medium text-amber-900 hover:bg-amber-100"
             >
-              {n}
+              <span aria-hidden>×</span>
+              Zrušit filtr duplikátů
             </Link>
-          ))}
+          ) : (
+            <Link
+              href={buildHref({ dups: true, page: 1 })}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
+            >
+              Filtr: jen duplikáty
+            </Link>
+          )}
         </div>
-      )}
+        {total > PAGE_SIZE_OPTIONS[0] && (
+          <div className="flex items-center gap-1">
+            <span>Na stránku:</span>
+            {PAGE_SIZE_OPTIONS.map((n) => (
+              <Link
+                key={n}
+                href={buildHref({ size: n, page: 1 })}
+                className={
+                  n === pageSize
+                    ? "rounded bg-gray-200 px-1.5 py-0.5 font-semibold text-gray-900"
+                    : "rounded px-1.5 py-0.5 hover:bg-gray-100 hover:text-gray-700"
+                }
+              >
+                {n}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
 
       {entries.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
