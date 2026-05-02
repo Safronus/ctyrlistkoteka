@@ -5,7 +5,7 @@ import {
   verifyRegistrationResponse,
   RP_ID,
   RP_NAME,
-  EXPECTED_ORIGIN,
+  getExpectedOrigin,
 } from "@/lib/admin/webauthn";
 import {
   addCredential,
@@ -91,7 +91,7 @@ export async function finishRegistrationAction(
     verification = await verifyRegistrationResponse({
       response,
       expectedChallenge,
-      expectedOrigin: EXPECTED_ORIGIN,
+      expectedOrigin: await getExpectedOrigin(),
       expectedRPID: RP_ID,
       requireUserVerification: false,
     });

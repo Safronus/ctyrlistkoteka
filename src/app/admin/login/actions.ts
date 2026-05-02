@@ -5,7 +5,7 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
   RP_ID,
-  EXPECTED_ORIGIN,
+  getExpectedOrigin,
 } from "@/lib/admin/webauthn";
 import {
   findCredentialById,
@@ -87,7 +87,7 @@ export async function finishAuthenticationAction(
     verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge,
-      expectedOrigin: EXPECTED_ORIGIN,
+      expectedOrigin: await getExpectedOrigin(),
       expectedRPID: RP_ID,
       credential: {
         id: credential.id,
