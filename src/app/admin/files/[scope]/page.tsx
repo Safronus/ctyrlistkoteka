@@ -11,6 +11,7 @@ import {
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { getScope, listScope } from "@/lib/admin/scopes";
 import { FindsUploadForm } from "../finds/upload-form";
+import { MapsListClient } from "../maps/maps-list-client";
 import { MapsUploadForm } from "../maps/upload-form";
 
 const PAGE_SIZE = 100;
@@ -130,6 +131,11 @@ export default async function AdminScopeListPage({
             ? "Adresář je prázdný (nebo neexistuje)."
             : "Žádný soubor neodpovídá filtru."}
         </div>
+      ) : scope.slug === "maps" ? (
+        // Maps get the bulk-select listing because the user
+        // periodically needs to clean up Unicode-duplicate uploads.
+        // Other scopes keep the simpler read-only listing for now.
+        <MapsListClient entries={entries} scopeSlug={scope.slug} />
       ) : (
         <ul className="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white">
           {entries.map((e) => {

@@ -1,10 +1,10 @@
 "use server";
 
-import { promises as fs } from "node:fs";
 import { revalidatePath } from "next/cache";
 import { atomicWrite } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { safeBaseName, safeJoin } from "@/lib/admin/paths";
+import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
   getAdminSession,
   getRequestIp,
@@ -205,22 +205,18 @@ async function processOne(
     return reject(index, baseName, (err as Error).message, ip, credentialLabel);
   }
 
-  // Existence check — the upload action is intentionally NOT a
-  // replace. Replacing an existing find photo is a separate flow
-  // (phase 4+) that copies the original to data/.trash/<ts>/ first.
-  try {
-    await fs.access(absolutePath);
+  // Unicode-aware existence check. Byte-exact fs.access misses NFD
+  // (rsync from macOS) vs NFC (browser-normalised) collisions and
+  // would silently produce duplicates with the same visible name.
+  const existing = await resolveDiskPath("findOriginals", baseName);
+  if (existing) {
     return reject(
       index,
       baseName,
-      "Soubor s tímto jménem už existuje (replace zatím není podporován)",
+      `Soubor s tímto jménem už existuje (na disku jako "${existing.name}", replace zatím není podporován)`,
       ip,
       credentialLabel,
     );
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      throw err;
-    }
   }
 
   await atomicWrite(absolutePath, data);

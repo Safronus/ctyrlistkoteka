@@ -33,3 +33,15 @@ export async function atomicWrite(
 export async function ensureDir(dirPath: string): Promise<void> {
   await fs.mkdir(dirPath, { recursive: true });
 }
+
+/** UTC timestamp suitable for naming a trash bucket directory.
+ *  Format: `YYYYMMDDTHHmmss`. Sortable, filename-safe, sub-second
+ *  collision risk only for genuinely concurrent batches (which the
+ *  single-user admin doesn't generate). */
+export function trashTimestamp(): string {
+  return new Date()
+    .toISOString()
+    .replace(/[-:.]/g, "")
+    .replace(/Z$/, "")
+    .slice(0, 15);
+}

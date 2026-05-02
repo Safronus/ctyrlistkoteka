@@ -1,10 +1,10 @@
 "use server";
 
-import { promises as fs } from "node:fs";
 import { revalidatePath } from "next/cache";
 import { atomicWrite } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { safeBaseName, safeJoin } from "@/lib/admin/paths";
+import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
   getAdminSession,
   getRequestIp,
@@ -198,19 +198,20 @@ async function processOne(
     return reject(index, baseName, (err as Error).message, ip, credentialLabel);
   }
 
-  try {
-    await fs.access(absolutePath);
+  // Unicode-aware existence check. A byte-exact `fs.access` would
+  // miss the case where disk has the NFD form (rsync from macOS) and
+  // the upload arrives in NFC (browser-normalised) — the upload
+  // would create a duplicate file with the same visible name but
+  // different bytes. resolveDiskPath does the NFC-aware scan.
+  const existing = await resolveDiskPath("locationMaps", baseName);
+  if (existing) {
     return reject(
       index,
       baseName,
-      "Soubor s tímto jménem už existuje (replace zatím není podporován)",
+      `Soubor s tímto jménem už existuje (na disku jako "${existing.name}", replace zatím není podporován)`,
       ip,
       credentialLabel,
     );
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      throw err;
-    }
   }
 
   await atomicWrite(absolutePath, data);

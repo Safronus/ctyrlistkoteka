@@ -2,6 +2,47 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ADMIN_ROOTS, type AdminRootKey, safeJoin } from "./paths";
 
+/** Resolves a requested filename to its actual on-disk basename
+ *  inside the given root, accounting for Unicode normalization drift
+ *  (the rsync-from-macOS NFD vs the browser-normalised NFC mismatch
+ *  documented in MEMORY/project_filename_unicode_nfc.md). Returns the
+ *  absolute path + the disk-form name on hit, null on miss.
+ *
+ *  Used as the single source of truth for "does this file exist
+ *  under this scope root?" — both the file streaming endpoint, the
+ *  upload existence check, and the delete actions go through it, so
+ *  duplicate detection and rename-target lookup behave identically.
+ *
+ *  Fast path is a byte-exact `fs.access`; the slow path (NFC-aware
+ *  directory scan) only runs on miss. Throws via `safeJoin` on path
+ *  traversal so callers can map that to a 400/404 as appropriate. */
+export async function resolveDiskPath(
+  rootKey: AdminRootKey,
+  requestedName: string,
+): Promise<{ name: string; absolutePath: string } | null> {
+  const root = ADMIN_ROOTS[rootKey];
+  const direct = safeJoin(rootKey, requestedName);
+  const baseName = path.basename(direct);
+
+  try {
+    await fs.access(direct);
+    return { name: baseName, absolutePath: direct };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+  }
+
+  const requestedNFC = baseName.normalize("NFC");
+  let names: string[];
+  try {
+    names = await fs.readdir(root);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+  const match = names.find((n) => n.normalize("NFC") === requestedNFC);
+  return match ? { name: match, absolutePath: path.join(root, match) } : null;
+}
+
 /** URL-friendly slugs admin pages use to refer to a scope. Must stay
  *  stable over time — they appear in routes, query params, and the
  *  audit log. Mapped → AdminRootKey at the file boundary. */
@@ -173,53 +214,24 @@ export async function statScopeFile(
   scope: ScopeDef,
   filename: string,
 ): Promise<FileInfo | null> {
-  const root = ADMIN_ROOTS[scope.rootKey];
-  // safeJoin is the source of traversal protection — keep it on the
-  // hot path even when we end up resolving via readdir below, because
-  // the requested name still has to refer to *this* root.
-  const direct = safeJoin(scope.rootKey, filename);
-  const requestedBase = path.basename(direct);
-
-  let stat: Awaited<ReturnType<typeof fs.stat>> | null = null;
-  let absolutePath = direct;
-  let resolvedName = requestedBase;
-
+  const resolved = await resolveDiskPath(scope.rootKey, filename);
+  if (!resolved) return null;
+  let stat;
   try {
-    stat = await fs.stat(direct);
+    stat = await fs.stat(resolved.absolutePath);
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
   }
-
-  if (!stat) {
-    const requestedNFC = requestedBase.normalize("NFC");
-    let names: string[];
-    try {
-      names = await fs.readdir(root);
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-      throw err;
-    }
-    const match = names.find((n) => n.normalize("NFC") === requestedNFC);
-    if (!match) return null;
-    resolvedName = match;
-    absolutePath = path.join(root, match);
-    try {
-      stat = await fs.stat(absolutePath);
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-      throw err;
-    }
-  }
-
   if (!stat.isFile()) return null;
-  const ext = path.extname(resolvedName).toLowerCase();
+  const ext = path.extname(resolved.name).toLowerCase();
   return {
     scope: scope.slug,
     // Return the on-disk form so callers building URLs back to this
     // file (e.g. <img src>) round-trip through whatever normalization
     // the browser applies and still resolve correctly here.
-    name: resolvedName,
-    absolutePath,
+    name: resolved.name,
+    absolutePath: resolved.absolutePath,
     size: stat.size,
     mtime: stat.mtime.toISOString(),
     contentType: EXT_TO_MIME[ext] ?? "application/octet-stream",
