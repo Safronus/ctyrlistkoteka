@@ -406,22 +406,19 @@ async function phaseMaps(
   ctx: Context,
 ): Promise<{ maps: MapFileInfo[]; mapToLocation: Map<number, number> }> {
   const dir = join(ctx.dataDir, "maps");
-  const allFiles = await listFiles(dir);
-  // Files renamed via the admin "Označit jako zaniklou" flow carry
-  // a `NEEXISTUJE-` prefix. They're kept on disk as historical record
-  // but skipped from the upsert path: the location is gone, so the
-  // associated location_map / locations rows must not get re-bound to
-  // a fake "NEEXISTUJE-…" location code. Orphan rows from previous
-  // syncs remain until `--prune` runs.
-  const NONEXISTENT_PREFIX = "NEEXISTUJE-";
-  const nonexistent = allFiles.filter((f) => f.startsWith(NONEXISTENT_PREFIX));
-  const files = allFiles.filter((f) => !f.startsWith(NONEXISTENT_PREFIX));
+  const files = await listFiles(dir);
+  // NEEXISTUJE- prefixed files are processed normally — the schema
+  // explicitly supports the prefix on Location.code (see prisma
+  // schema comment), and the admin's rename-as-zaniklá flow expects
+  // sync to update DB to match the new filename. The natural upsert
+  // by mapId will re-point the existing location_map at the new
+  // (NEEXISTUJE-…) location; the old location becomes orphan and is
+  // cleaned up later in phasePrune.
   ctx.log.log({
     event: "maps.scan",
     level: "info",
     dir,
     count: files.length,
-    skipped_nonexistent: nonexistent.length,
   });
 
   const maps: MapFileInfo[] = [];
@@ -492,36 +489,113 @@ async function phaseMaps(
       height: mapImg.height,
     });
 
-    // Upsert by code — multiple maps may share a location. The first map
-    // encountered for a code creates the Location row (with id=its mapId);
-    // later maps with the same code reuse that row's id.
-    // Wrapped in try/catch so a unique-violation (typically NFC vs NFD
-    // mismatch between a renamed filename and the DB code) names the
-    // exact file and parsed code instead of bubbling out anonymously.
+    // Locate (or create) the Location row this map belongs to. The
+    // simple "upsert by code" approach can't handle the rename case:
+    // when only the locationCode in a filename changes (e.g.
+    // `ZLIN_NSTR.png` → `NEEXISTUJE-ZLIN_NSTR.png`, same MAP_ID), the
+    // new code isn't in DB yet so upsert tries to CREATE with id=mapId
+    // — but that PK is already held by the old row keyed by the old
+    // code. Instead, do a 1- or 2-step lookup:
+    //
+    //   1. byCode: existing row already keyed under this code → just
+    //      update its denormalised fields.
+    //   2. byId: PK already taken by a row with a *different* code →
+    //      this is a rename. Update that row's code in place, unless
+    //      another map on disk still uses the old code (a "fork": some
+    //      map files were renamed, others weren't), in which case we
+    //      create a fresh Location with a new PK and let the old row
+    //      stay attached to the un-renamed sibling map.
+    //   3. neither: brand-new Location, plain create.
+    //
+    // The catch wrapper preserves the old NFC/NFD diagnostic — those
+    // errors can still surface on the rename-rename path if codes
+    // differ only by Unicode form.
     let location: { id: number };
     try {
-      location = await ctx.prisma.location.upsert({
+      const byCode = await ctx.prisma.location.findUnique({
         where: { code: m.parsed.locationCode },
-        create: {
-          id: m.parsed.mapId,
-          code: m.parsed.locationCode,
-          codeTransliterated: toAsciiCode(m.parsed.locationCode),
-          cadastralArea: parts.cadastralArea,
-          locationType: parts.locationType,
-          number: parts.number,
-          subpart: parts.subpart,
-          displayName,
-        },
-        update: {
-          codeTransliterated: toAsciiCode(m.parsed.locationCode),
-          cadastralArea: parts.cadastralArea,
-          locationType: parts.locationType,
-          number: parts.number,
-          subpart: parts.subpart,
-          displayName,
-        },
         select: { id: true },
       });
+
+      const locationData = {
+        codeTransliterated: toAsciiCode(m.parsed.locationCode),
+        cadastralArea: parts.cadastralArea,
+        locationType: parts.locationType,
+        number: parts.number,
+        subpart: parts.subpart,
+        displayName,
+      };
+
+      if (byCode) {
+        location = await ctx.prisma.location.update({
+          where: { id: byCode.id },
+          data: locationData,
+          select: { id: true },
+        });
+      } else {
+        const byId = await ctx.prisma.location.findUnique({
+          where: { id: m.parsed.mapId },
+          select: { id: true, code: true },
+        });
+        if (byId) {
+          // PK collision under a different code → this is a rename
+          // (file's locationCode changed, MAP_ID stayed the same).
+          // If any other map on disk still claims the old code, we
+          // can't move the row — split off a fresh Location instead.
+          const stillUsed = maps.some(
+            (other) =>
+              other.parsed.mapId !== m.parsed.mapId &&
+              other.parsed.locationCode === byId.code,
+          );
+          if (stillUsed) {
+            const max = await ctx.prisma.location.aggregate({
+              _max: { id: true },
+            });
+            const newId = (max._max.id ?? 0) + 1;
+            location = await ctx.prisma.location.create({
+              data: {
+                id: newId,
+                code: m.parsed.locationCode,
+                ...locationData,
+              },
+              select: { id: true },
+            });
+            ctx.log.log({
+              event: "maps.location_forked",
+              level: "info",
+              file: m.filename,
+              old_code: byId.code,
+              new_code: m.parsed.locationCode,
+              kept_id: byId.id,
+              fresh_id: newId,
+              note: "old code still in use by another map — created new Location row",
+            });
+          } else {
+            location = await ctx.prisma.location.update({
+              where: { id: m.parsed.mapId },
+              data: { code: m.parsed.locationCode, ...locationData },
+              select: { id: true },
+            });
+            ctx.log.log({
+              event: "maps.location_renamed",
+              level: "info",
+              file: m.filename,
+              old_code: byId.code,
+              new_code: m.parsed.locationCode,
+              location_id: byId.id,
+            });
+          }
+        } else {
+          location = await ctx.prisma.location.create({
+            data: {
+              id: m.parsed.mapId,
+              code: m.parsed.locationCode,
+              ...locationData,
+            },
+            select: { id: true },
+          });
+        }
+      }
     } catch (err) {
       const codeBytes = Buffer.from(m.parsed.locationCode, "utf8")
         .toString("hex");
@@ -1189,12 +1263,52 @@ async function phasePrune(
     orphan_maps: orphanMaps.length,
   });
 
-  if (!ctx.opts.prune) {
+  // Auto-prune for maps + locations on every sync (no --prune flag
+  // required). Renaming a map file in admin must reflect 1:1 in DB:
+  // the old code disappears, the new one shows up. Same for hand
+  // deletions on disk. Find rows + generated/ WebPs stay behind
+  // --prune — those are riskier (a missing find file could be a
+  // temporary rsync glitch, not a deliberate delete).
+  if (ctx.opts.dryRun) {
     ctx.log.log({
-      event: "prune.skipped",
+      event: "prune.dryrun_auto",
       level: "info",
-      note: "pass --prune to actually delete",
+      note: "auto-prune of orphan maps+locations skipped (--dry-run)",
+      would_delete_maps: orphanMaps.length,
+      would_delete_locations: orphanLocations.length,
     });
+  } else {
+    if (orphanMaps.length > 0) {
+      await ctx.prisma.locationMap.deleteMany({
+        where: { id: { in: orphanMaps } },
+      });
+      ctx.log.log({
+        event: "prune.auto_maps",
+        level: "info",
+        deleted: orphanMaps.length,
+      });
+    }
+    if (orphanLocations.length > 0) {
+      await ctx.prisma.location.deleteMany({
+        where: { id: { in: orphanLocations } },
+      });
+      ctx.log.log({
+        event: "prune.auto_locations",
+        level: "info",
+        deleted: orphanLocations.length,
+      });
+    }
+  }
+
+  if (!ctx.opts.prune) {
+    if (orphanFinds.length > 0) {
+      ctx.log.log({
+        event: "prune.skipped_finds",
+        level: "info",
+        note: "pass --prune to delete orphan finds + free generated/",
+        orphan_finds: orphanFinds.length,
+      });
+    }
     return;
   }
 
@@ -1202,34 +1316,18 @@ async function phasePrune(
     ctx.log.log({
       event: "prune.dryrun",
       level: "info",
-      note: "no deletions performed (--dry-run)",
+      note: "no find deletions performed (--dry-run)",
       would_delete_finds: orphanFinds.length,
-      would_delete_locations: orphanLocations.length,
-      would_delete_maps: orphanMaps.length,
     });
     // Still scan generated/ so the user sees what would be freed.
     await pruneGeneratedFiles(ctx);
     return;
   }
 
-  // Order: maps first, then finds, then locations. Cascades:
-  //   - LocationMap delete: nulls find.map_id (Find.map = onDelete: SetNull)
-  //   - Find delete: cascades to FindImage rows
-  //   - Location delete: cascades to remaining LocationMap rows for that
-  //     location (they should already be gone if we deleted them above, so
-  //     this is a no-op unless the orphan-location set diverged)
-  if (orphanMaps.length > 0) {
-    await ctx.prisma.locationMap.deleteMany({
-      where: { id: { in: orphanMaps } },
-    });
-  }
+  // Find delete cascades to FindImage rows. Maps + locations were
+  // already cleaned above.
   if (orphanFinds.length > 0) {
     await ctx.prisma.find.deleteMany({ where: { id: { in: orphanFinds } } });
-  }
-  if (orphanLocations.length > 0) {
-    await ctx.prisma.location.deleteMany({
-      where: { id: { in: orphanLocations } },
-    });
   }
 
   // After DB is consistent with disk, drop generated/ files no DB row
