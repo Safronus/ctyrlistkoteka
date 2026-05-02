@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { atomicWrite } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
+import { parseMultipartRequest, type MultipartFile } from "@/lib/admin/multipart";
 import { safeBaseName, safeJoin } from "@/lib/admin/paths";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
@@ -21,9 +22,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** REST POST endpoint for crop uploads — see finds/route.ts for the
- *  rationale. Same parser flexibility as the server-action variant
- *  (full convention or short `<id>.jpg` form), same JPEG signature
- *  check, same atomic write. */
+ *  rationale (busboy instead of `request.formData()`). Crops accept
+ *  the full 6-segment filename convention OR the short `<id>.jpg`
+ *  shortcut, otherwise identical to the finds variant. */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const session = await getAdminSession();
   if (!isAuthenticated(session)) {
@@ -33,12 +34,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const ip = await getRequestIp();
   await touchSession();
 
-  let formData: FormData;
+  let parsed;
   try {
-    formData = await request.formData();
+    parsed = await parseMultipartRequest(request, {
+      maxFileSize: MAX_FILE_BYTES + 1,
+      maxFiles: MAX_FILES_PER_REQUEST,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[admin/crops-upload] formData parse failed", {
+    console.error("[admin/crops-upload] multipart parse failed", {
+      contentType: request.headers.get("content-type"),
+      contentLength: request.headers.get("content-length"),
       message,
       stack: err instanceof Error ? err.stack : undefined,
     });
@@ -48,11 +54,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const entries = formData.getAll("files");
-  if (entries.length === 0) {
+  const fileEntries = parsed.files.filter((f) => f.fieldName === "files");
+  if (fileEntries.length === 0) {
     return NextResponse.json<UploadResponse>({ results: [] });
   }
-  if (entries.length > MAX_FILES_PER_REQUEST) {
+  if (fileEntries.length > MAX_FILES_PER_REQUEST) {
     return NextResponse.json<UploadResponse>(
       {
         results: [],
@@ -63,24 +69,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const results: UploadResult[] = [];
-  for (const entry of entries) {
+  for (const entry of fileEntries) {
     const index = results.length;
-    if (!(entry instanceof File)) {
-      results.push({
-        index,
-        filename: "?",
-        status: "rejected",
-        reason: "Položka není soubor",
-      });
-      continue;
-    }
     try {
       results.push(await processOne(entry, index, credentialLabel, ip));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[admin/crops-upload] processOne threw", {
-        file: entry.name,
-        size: entry.size,
+        file: entry.filename,
+        size: entry.data.byteLength,
         message,
         stack: err instanceof Error ? err.stack : undefined,
       });
@@ -91,7 +88,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           credentialLabel,
           details: {
             scope: "crops",
-            file: entry.name,
+            file: entry.filename,
             outcome: "error",
             reason: message,
           },
@@ -101,7 +98,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
       results.push({
         index,
-        filename: entry.name,
+        filename: entry.filename,
         status: "rejected",
         reason: `Server: ${message}`,
       });
@@ -118,12 +115,12 @@ function looksLikeJpeg(buf: Uint8Array): boolean {
 }
 
 async function processOne(
-  file: File,
+  file: MultipartFile,
   index: number,
   credentialLabel: string,
   ip: string,
 ): Promise<UploadResult> {
-  const rawName = file.name;
+  const rawName = file.filename;
 
   let baseName: string;
   try {
@@ -132,24 +129,23 @@ async function processOne(
     return reject(index, rawName, (err as Error).message, ip, credentialLabel);
   }
 
-  if (file.size > MAX_FILE_BYTES) {
+  const data = file.data;
+  if (data.byteLength > MAX_FILE_BYTES) {
     return reject(
       index,
       baseName,
       `Soubor je větší než ${(MAX_FILE_BYTES / (1024 * 1024)).toFixed(0)} MB`,
       ip,
       credentialLabel,
-      { size: file.size },
+      { size: data.byteLength },
     );
   }
-  if (file.size === 0) {
+  if (data.byteLength === 0) {
     return reject(index, baseName, "Prázdný soubor", ip, credentialLabel);
   }
 
   // Crops accept the full 6-segment convention OR the short `<id>.jpg`
-  // form (see scripts/apply-watermark.ts: ORIG and CROP can share the
-  // same basename, but admin-uploaded crops sometimes only have an
-  // ID known).
+  // form (per scripts/apply-watermark.ts).
   let findId: number;
   let ext: string;
   const parsed = parseFindFilename(baseName);
@@ -180,8 +176,6 @@ async function processOne(
     );
   }
 
-  const arrayBuffer = await file.arrayBuffer();
-  const data = Buffer.from(arrayBuffer);
   if (!looksLikeJpeg(data)) {
     return reject(
       index,
@@ -189,16 +183,6 @@ async function processOne(
       "Soubor nezačíná JPEG signaturou (FF D8 FF)",
       ip,
       credentialLabel,
-    );
-  }
-  if (data.byteLength > MAX_FILE_BYTES) {
-    return reject(
-      index,
-      baseName,
-      `Soubor je větší než ${(MAX_FILE_BYTES / (1024 * 1024)).toFixed(0)} MB`,
-      ip,
-      credentialLabel,
-      { size: data.byteLength },
     );
   }
 

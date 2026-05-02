@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { atomicWrite } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
+import { parseMultipartRequest, type MultipartFile } from "@/lib/admin/multipart";
 import { safeBaseName, safeJoin } from "@/lib/admin/paths";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
@@ -20,20 +21,15 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** REST POST endpoint that accepts multipart/form-data containing
- *  one or more `files` entries and writes them under `data/finds/`.
+/** REST POST endpoint that accepts multipart/form-data with one or
+ *  more `files` parts and writes them under `data/finds/`.
  *
- *  This replaces the find-upload server action: client-side encoders
- *  for server actions silently choked on ~50-file batches (request
- *  never went over the wire, error surfaced as the masked production
- *  "Server Components render" wrapper). A plain fetch + native
- *  multipart sidesteps that entire pipeline — the browser streams
- *  the body without buffering everything as ArrayBuffer first.
- *
- *  Auth-gated identically: failed sessions get a 404 to avoid
- *  disclosing the endpoint to scanners. Per-file processing mirrors
- *  the server-action variant verbatim — same parser, same JPEG
- *  signature check, same atomic write, same audit rows. */
+ *  Body parsing goes through busboy (`@/lib/admin/multipart`) instead
+ *  of `request.formData()` — the undici-backed default silently
+ *  failed with "Failed to parse body as FormData" on Safari + 50-file
+ *  batches on macOS, even though the request reached the server fine.
+ *  busboy handles the same batches without complaint and gives us per-
+ *  part info (filename + mimetype) directly. */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const session = await getAdminSession();
   if (!isAuthenticated(session)) {
@@ -43,12 +39,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const ip = await getRequestIp();
   await touchSession();
 
-  let formData: FormData;
+  let parsed;
   try {
-    formData = await request.formData();
+    parsed = await parseMultipartRequest(request, {
+      maxFileSize: MAX_FILE_BYTES + 1, // +1 so caller can detect truncation
+      maxFiles: MAX_FILES_PER_REQUEST,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[admin/finds-upload] formData parse failed", {
+    console.error("[admin/finds-upload] multipart parse failed", {
+      contentType: request.headers.get("content-type"),
+      contentLength: request.headers.get("content-length"),
       message,
       stack: err instanceof Error ? err.stack : undefined,
     });
@@ -58,11 +59,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const entries = formData.getAll("files");
-  if (entries.length === 0) {
+  const fileEntries = parsed.files.filter((f) => f.fieldName === "files");
+  if (fileEntries.length === 0) {
     return NextResponse.json<UploadResponse>({ results: [] });
   }
-  if (entries.length > MAX_FILES_PER_REQUEST) {
+  if (fileEntries.length > MAX_FILES_PER_REQUEST) {
     return NextResponse.json<UploadResponse>(
       {
         results: [],
@@ -73,24 +74,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const results: UploadResult[] = [];
-  for (const entry of entries) {
+  for (const entry of fileEntries) {
     const index = results.length;
-    if (!(entry instanceof File)) {
-      results.push({
-        index,
-        filename: "?",
-        status: "rejected",
-        reason: "Položka není soubor",
-      });
-      continue;
-    }
     try {
       results.push(await processOne(entry, index, credentialLabel, ip));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[admin/finds-upload] processOne threw", {
-        file: entry.name,
-        size: entry.size,
+        file: entry.filename,
+        size: entry.data.byteLength,
         message,
         stack: err instanceof Error ? err.stack : undefined,
       });
@@ -101,7 +93,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           credentialLabel,
           details: {
             scope: "finds",
-            file: entry.name,
+            file: entry.filename,
             outcome: "error",
             reason: message,
           },
@@ -111,16 +103,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
       results.push({
         index,
-        filename: entry.name,
+        filename: entry.filename,
         status: "rejected",
         reason: `Server: ${message}`,
       });
     }
   }
 
-  // No revalidatePath here — the form does router.refresh() once it
-  // sees an ok row. Keeping the response payload tiny so downstream
-  // listing rerenders can't sink the upload.
+  // No revalidatePath — the form does router.refresh() once it sees
+  // an ok row. Keeping this response payload tiny so listing
+  // rerenders can't sink the upload.
   return NextResponse.json<UploadResponse>({ results });
 }
 
@@ -131,12 +123,12 @@ function looksLikeJpeg(buf: Uint8Array): boolean {
 }
 
 async function processOne(
-  file: File,
+  file: MultipartFile,
   index: number,
   credentialLabel: string,
   ip: string,
 ): Promise<UploadResult> {
-  const rawName = file.name;
+  const rawName = file.filename;
 
   let baseName: string;
   try {
@@ -145,17 +137,18 @@ async function processOne(
     return reject(index, rawName, (err as Error).message, ip, credentialLabel);
   }
 
-  if (file.size > MAX_FILE_BYTES) {
+  const data = file.data;
+  if (data.byteLength > MAX_FILE_BYTES) {
     return reject(
       index,
       baseName,
       `Soubor je větší než ${(MAX_FILE_BYTES / (1024 * 1024)).toFixed(0)} MB`,
       ip,
       credentialLabel,
-      { size: file.size },
+      { size: data.byteLength },
     );
   }
-  if (file.size === 0) {
+  if (data.byteLength === 0) {
     return reject(index, baseName, "Prázdný soubor", ip, credentialLabel);
   }
 
@@ -174,8 +167,6 @@ async function processOne(
     );
   }
 
-  const arrayBuffer = await file.arrayBuffer();
-  const data = Buffer.from(arrayBuffer);
   if (!looksLikeJpeg(data)) {
     return reject(
       index,
@@ -183,16 +174,6 @@ async function processOne(
       "Soubor nezačíná JPEG signaturou (FF D8 FF)",
       ip,
       credentialLabel,
-    );
-  }
-  if (data.byteLength > MAX_FILE_BYTES) {
-    return reject(
-      index,
-      baseName,
-      `Soubor je větší než ${(MAX_FILE_BYTES / (1024 * 1024)).toFixed(0)} MB`,
-      ip,
-      credentialLabel,
-      { size: data.byteLength },
     );
   }
 
