@@ -16,7 +16,7 @@ import {
   MAX_FILE_BYTES,
   MAX_FILES_PER_REQUEST,
 } from "./upload-types";
-import type { UploadResult } from "./upload-types";
+import type { UploadResponse, UploadResult } from "./upload-types";
 
 // JPEG SOI marker is the first three bytes: 0xFF 0xD8 0xFF (followed by
 // any APP marker). We deliberately do not look any further — the rest
@@ -43,25 +43,43 @@ function looksLikeJpeg(buf: Uint8Array): boolean {
  *  intact for the sync importer downstream. */
 export async function uploadFinds(
   formData: FormData,
-): Promise<{ results: UploadResult[] }> {
-  const session = await getAdminSession();
-  if (!isAuthenticated(session)) {
-    throw new Error("Unauthenticated");
+): Promise<UploadResponse> {
+  // Wrap the entire body so any uncaught throw — auth check, cookie
+  // refresh, the post-success revalidatePath rerender — surfaces as
+  // a structured `error` instead of Next.js's masked production
+  // "Server Components render" wrapper. Without this the user only
+  // sees the generic message and we can't tell from logs vs UI which
+  // step failed.
+  let credentialLabel: string;
+  let ip: string;
+  try {
+    const session = await getAdminSession();
+    if (!isAuthenticated(session)) {
+      return { results: [], error: "Nepřihlášen — obnov stránku a přihlas se" };
+    }
+    credentialLabel = session.credentialLabel!;
+    ip = await getRequestIp();
+    // Refresh sliding TTL — server actions are the canonical place for
+    // this since cookie writes are forbidden in plain server components.
+    await touchSession();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[admin/finds-upload] auth/session preamble failed", {
+      message,
+      stack: err instanceof Error ? err.stack : undefined,
+    });
+    return { results: [], error: `Auth/session: ${message}` };
   }
-  const credentialLabel = session.credentialLabel!;
-  const ip = await getRequestIp();
-  // Refresh sliding TTL — server actions are the canonical place for
-  // this since cookie writes are forbidden in plain server components.
-  await touchSession();
 
   const entries = formData.getAll("files");
   if (entries.length === 0) {
     return { results: [] };
   }
   if (entries.length > MAX_FILES_PER_REQUEST) {
-    throw new Error(
-      `Too many files in one request (max ${MAX_FILES_PER_REQUEST})`,
-    );
+    return {
+      results: [],
+      error: `Příliš mnoho souborů v dávce (max ${MAX_FILES_PER_REQUEST})`,
+    };
   }
 
   const results: UploadResult[] = [];
@@ -117,8 +135,22 @@ export async function uploadFinds(
     }
   }
 
+  // revalidatePath can in theory throw (or trigger a re-render that
+  // throws) — wrap it so a stale cache or a temporarily broken
+  // listing page doesn't sink the whole upload after the files are
+  // already on disk. The user keeps the per-row results; the next
+  // navigation refetches naturally.
   if (results.some((r) => r.status === "ok")) {
-    revalidatePath("/admin/files/finds");
+    try {
+      revalidatePath("/admin/files/finds");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[admin/finds-upload] revalidatePath threw", {
+        message,
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      return { results, error: `Revalidace listingu selhala: ${message}` };
+    }
   }
   return { results };
 }

@@ -17,3 +17,13 @@ export interface UploadResult {
    *  and CROP can share the same basename"). */
   findId?: number;
 }
+
+/** Top-level response shape — matches finds/upload-types.ts. The
+ *  `error` channel surfaces failures that aren't tied to a single
+ *  file (auth, request shape, post-success rerender crashes), which
+ *  Next.js otherwise masks with a generic production wrapper when
+ *  the action throws. */
+export interface UploadResponse {
+  results: UploadResult[];
+  error?: string;
+}

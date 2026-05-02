@@ -152,7 +152,22 @@ export function CropsUploadForm() {
         for (const q of batch) fd.append("files", q.file);
 
         try {
-          const { results } = await uploadCrops(fd);
+          const response = await uploadCrops(fd);
+          const { results, error } = response;
+          if (error) {
+            setBannerError(
+              `Batch ${Math.floor(i / MAX_FILES_PER_REQUEST) + 1}: ${error}`,
+            );
+            setQueue((prev) =>
+              prev.map((q) =>
+                q.status === "uploading"
+                  ? { ...q, status: "rejected", reason: error }
+                  : q,
+              ),
+            );
+            aborted = true;
+            break;
+          }
           const byBatchIndex = new Map<number, UploadResult>();
           for (const r of results) byBatchIndex.set(r.index, r);
 

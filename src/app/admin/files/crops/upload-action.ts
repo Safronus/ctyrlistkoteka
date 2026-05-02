@@ -16,7 +16,7 @@ import {
   MAX_FILE_BYTES,
   MAX_FILES_PER_REQUEST,
 } from "./upload-types";
-import type { UploadResult } from "./upload-types";
+import type { UploadResponse, UploadResult } from "./upload-types";
 
 function looksLikeJpeg(buf: Uint8Array): boolean {
   return (
@@ -37,21 +37,36 @@ function looksLikeJpeg(buf: Uint8Array): boolean {
  *  crop image carries them. */
 export async function uploadCrops(
   formData: FormData,
-): Promise<{ results: UploadResult[] }> {
-  const session = await getAdminSession();
-  if (!isAuthenticated(session)) {
-    throw new Error("Unauthenticated");
+): Promise<UploadResponse> {
+  // See finds/upload-action.ts for the rationale — wrap the auth +
+  // session preamble so a thrown error surfaces as structured data
+  // instead of the masked Next.js production wrapper.
+  let credentialLabel: string;
+  let ip: string;
+  try {
+    const session = await getAdminSession();
+    if (!isAuthenticated(session)) {
+      return { results: [], error: "Nepřihlášen — obnov stránku a přihlas se" };
+    }
+    credentialLabel = session.credentialLabel!;
+    ip = await getRequestIp();
+    await touchSession();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[admin/crops-upload] auth/session preamble failed", {
+      message,
+      stack: err instanceof Error ? err.stack : undefined,
+    });
+    return { results: [], error: `Auth/session: ${message}` };
   }
-  const credentialLabel = session.credentialLabel!;
-  const ip = await getRequestIp();
-  await touchSession();
 
   const entries = formData.getAll("files");
   if (entries.length === 0) return { results: [] };
   if (entries.length > MAX_FILES_PER_REQUEST) {
-    throw new Error(
-      `Too many files in one request (max ${MAX_FILES_PER_REQUEST})`,
-    );
+    return {
+      results: [],
+      error: `Příliš mnoho souborů v dávce (max ${MAX_FILES_PER_REQUEST})`,
+    };
   }
 
   const results: UploadResult[] = [];
@@ -101,7 +116,16 @@ export async function uploadCrops(
   }
 
   if (results.some((r) => r.status === "ok")) {
-    revalidatePath("/admin/files/crops");
+    try {
+      revalidatePath("/admin/files/crops");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[admin/crops-upload] revalidatePath threw", {
+        message,
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      return { results, error: `Revalidace listingu selhala: ${message}` };
+    }
   }
   return { results };
 }

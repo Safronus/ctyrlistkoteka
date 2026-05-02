@@ -171,7 +171,26 @@ export function FindsUploadForm() {
         for (const q of batch) fd.append("files", q.file);
 
         try {
-          const { results } = await uploadFinds(fd);
+          const response = await uploadFinds(fd);
+          const { results, error } = response;
+          // Top-level `error` means the batch never reached per-file
+          // processing — auth, request shape, or post-success
+          // revalidate failure. Mark every uploading row as rejected
+          // and surface the actual reason in the banner.
+          if (error) {
+            setBannerError(
+              `Batch ${Math.floor(i / MAX_FILES_PER_REQUEST) + 1}: ${error}`,
+            );
+            setQueue((prev) =>
+              prev.map((q) =>
+                q.status === "uploading"
+                  ? { ...q, status: "rejected", reason: error }
+                  : q,
+              ),
+            );
+            aborted = true;
+            break;
+          }
           const byBatchIndex = new Map<number, UploadResult>();
           for (const r of results) byBatchIndex.set(r.index, r);
 

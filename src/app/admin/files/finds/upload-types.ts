@@ -43,3 +43,16 @@ export interface UploadResult {
   /** Present on ok results — find ID parsed from the filename. */
   findId?: number;
 }
+
+/** Top-level response shape for the upload server action. The
+ *  `error` field carries failures that aren't tied to a single file
+ *  — auth, request-shape rejections, cookie/session crashes, the
+ *  `revalidatePath` re-render blowing up. We return the message
+ *  instead of `throw`-ing because Next.js masks server-action errors
+ *  with a generic "Server Components render" wrapper in production
+ *  builds, which hides the actual cause from the client. Returning
+ *  a structured shape lets the form render the real reason. */
+export interface UploadResponse {
+  results: UploadResult[];
+  error?: string;
+}
