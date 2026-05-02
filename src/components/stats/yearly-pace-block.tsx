@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { YearlyPaceEntry } from "@/lib/queries/stats";
+import { formatLongDuration, pluralCs } from "@/lib/format";
 
 const fmtPace = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 1 });
 const fmtCount = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 });
@@ -60,14 +61,39 @@ export function YearlyPaceBlock({ entries }: { entries: readonly YearlyPaceEntry
         <PaceCell label="/ měsíc" value={fmtPace.format(selected.perMonth)} />
         <PaceCell label="/ rok" value={fmtPace.format(selected.perYear)} />
       </ul>
-      <p className="mt-3 text-center text-xs text-gray-500">
-        {fmtCount.format(selected.totalFinds)}{" "}
-        {selected.totalFinds === 1
-          ? "nález"
-          : selected.totalFinds < 5
-            ? "nálezy"
-            : "nálezů"}{" "}
-        v roce {selected.year}
+      {/* Year-scoped meta: same `·`-separated micro-list as elsewhere on
+          the page so the visual rhythm matches the other captions.
+          Wraps cleanly on mobile thanks to inline-block / flex-wrap. */}
+      <p className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-gray-500">
+        <span>
+          {fmtCount.format(selected.totalFinds)}{" "}
+          {pluralCs(selected.totalFinds, ["nález", "nálezy", "nálezů"])} v
+          roce {selected.year}
+        </span>
+        <span aria-hidden className="text-gray-300">
+          ·
+        </span>
+        <span title="Odhadovaná doba sbírání v tomto roce — součet hledání + 2 min baseline / hledání.">
+          {formatLongDuration(selected.estimatedMinutes)} sbírání
+        </span>
+        <span aria-hidden className="text-gray-300">
+          ·
+        </span>
+        <span>
+          {fmtCount.format(selected.sessions)}{" "}
+          {pluralCs(selected.sessions, ["hledání", "hledání", "hledání"])}
+        </span>
+        <span aria-hidden className="text-gray-300">
+          ·
+        </span>
+        <span>
+          {fmtCount.format(selected.locationCount)}{" "}
+          {pluralCs(selected.locationCount, [
+            "lokalita",
+            "lokality",
+            "lokalit",
+          ])}
+        </span>
       </p>
     </div>
   );

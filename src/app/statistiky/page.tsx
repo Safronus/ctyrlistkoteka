@@ -25,7 +25,9 @@ import {
   formatDateTimeCs,
   formatDistance,
   formatLocationId,
+  formatLongDuration,
   formatTimeSinceCs,
+  pluralCs,
 } from "@/lib/format";
 import {
   getStatsCalendar,
@@ -458,15 +460,21 @@ function TimeAndPaceCard({ data }: { data: StatsTimeAndPaceResult }) {
           </p>
           <p
             className="mt-1 max-w-xs text-xs text-gray-500"
-            title="Sezení = po sobě jdoucí nálezy v rámci jedné lokality s mezerou ≤ 15 min. Každé sezení dostane 2 min baseline (čas před prvním nálezem)."
+            title="Hledání = po sobě jdoucí nálezy v rámci jedné lokality s mezerou ≤ 15 min. Každé hledání dostane 2 min baseline (čas před prvním nálezem)."
           >
-            součet trvání {fmt.format(data.sessions)}{" "}
-            {data.sessions === 1
-              ? "sezení"
-              : data.sessions < 5
-                ? "sezení"
-                : "sezení"}{" "}
-            + 2 min baseline / sezení
+            součet trvání {fmt.format(data.sessions)} hledání čtyřlístků
+            {data.locationCount > 0 && (
+              <>
+                {" "}
+                na {fmt.format(data.locationCount)}{" "}
+                {pluralCs(data.locationCount, [
+                  "lokalitě",
+                  "lokalitách",
+                  "lokalitách",
+                ])}
+              </>
+            )}
+            {" "}+ 2 min baseline / hledání
           </p>
         </div>
 
@@ -520,28 +528,6 @@ function TimeAndPaceSkeleton() {
       aria-hidden
     />
   );
-}
-
-/** Formats a minute count as "X dní Y h Z min", omitting zero parts and
- *  using Czech plural for days. Tuned for /statistiky's "estimated total
- *  picking time" which lands in the days range; fall-through for short
- *  durations gracefully reads "Y h Z min" or just "Z min". */
-function formatLongDuration(totalMinutes: number): string {
-  if (totalMinutes <= 0) return "—";
-  const days = Math.floor(totalMinutes / (60 * 24));
-  const hours = Math.floor((totalMinutes - days * 60 * 24) / 60);
-  const minutes = totalMinutes - days * 60 * 24 - hours * 60;
-  const parts: string[] = [];
-  if (days > 0) {
-    parts.push(
-      `${days} ${
-        days === 1 ? "den" : days < 5 ? "dny" : "dní"
-      }`,
-    );
-  }
-  if (hours > 0) parts.push(`${hours} h`);
-  if (minutes > 0 || parts.length === 0) parts.push(`${minutes} min`);
-  return parts.join(" ");
 }
 
 function MainNumber({ value, label }: { value: string; label: string }) {

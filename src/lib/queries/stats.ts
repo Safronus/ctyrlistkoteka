@@ -219,6 +219,14 @@ export interface YearlyPaceEntry {
   perWeek: number;
   perMonth: number;
   perYear: number;
+  /** Estimated picking time in this year, in whole minutes. Sessions
+   *  are attributed to the year their start timestamp falls in. */
+  estimatedMinutes: number;
+  /** Sessions ("hledání") that started in this year. */
+  sessions: number;
+  /** Distinct locations visited in this year (≥ 1 dated find with
+   *  a location). */
+  locationCount: number;
 }
 
 export interface StatsTimeAndPaceResult {
@@ -248,6 +256,11 @@ export interface StatsTimeAndPaceResult {
   perWeek: number;
   perMonth: number;
   perYear: number;
+  /** Distinct locations that contributed at least one dated find with
+   *  a location_id (i.e. counted in the session math). Surfaced
+   *  alongside the all-time session count so the caption can read
+   *  "X hledání na Y lokalitách". */
+  locationCount: number;
   /** First / last calendar year with at least one dated find. Null
    *  when the collection is empty. */
   firstYear: number | null;
@@ -466,26 +479,49 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
     else byLoc.set(r.location_id as number, [ts]);
   }
 
+  // Walk the byLoc map and emit one session per (locationId, run) pair.
+  // Each emit() folds the session into both the all-time totals and
+  // the per-year aggregates (year keyed by the session's *start*
+  // timestamp). Baseline time is added per-session here rather than in
+  // a single trailing multiplication so that per-year totals get the
+  // baseline credit for sessions starting in their own year.
   let totalMs = 0;
   let sessions = 0;
-  for (const ts of byLoc.values()) {
+  type YearAgg = { ms: number; sessions: number; locs: Set<number> };
+  const yearAgg = new Map<number, YearAgg>();
+  const emit = (locId: number, startMs: number, endMs: number) => {
+    const dur = endMs - startMs + STATS_SESSION_BASELINE_MS;
+    totalMs += dur;
+    sessions += 1;
+    const year = new Date(startMs).getUTCFullYear();
+    let agg = yearAgg.get(year);
+    if (!agg) {
+      agg = { ms: 0, sessions: 0, locs: new Set() };
+      yearAgg.set(year, agg);
+    }
+    agg.ms += dur;
+    agg.sessions += 1;
+    agg.locs.add(locId);
+  };
+  for (const [locId, ts] of byLoc.entries()) {
     if (ts.length === 0) continue;
     let sessionStart = ts[0]!;
     let prev = sessionStart;
     for (let i = 1; i < ts.length; i++) {
       const cur = ts[i]!;
       if (cur - prev > STATS_SESSION_GAP_MS) {
-        totalMs += prev - sessionStart;
-        sessions += 1;
+        emit(locId, sessionStart, prev);
         sessionStart = cur;
       }
       prev = cur;
     }
-    totalMs += prev - sessionStart;
-    sessions += 1;
+    emit(locId, sessionStart, prev);
   }
-  totalMs += sessions * STATS_SESSION_BASELINE_MS;
   const estimatedMinutes = Math.round(totalMs / 60_000);
+  // Distinct locations with any dated find — `byLoc` was built from
+  // exactly that filter (location_id IS NOT NULL AND found_at IS NOT
+  // NULL), so its size matches what the session math actually saw.
+  const locationCount = byLoc.size;
 
   // Calendar anchor + pace. Using all finds with a date for the
   // numerator (matching the elapsed-since-first scope), not just the
@@ -523,6 +559,7 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
       perWeek: 0,
       perMonth: 0,
       perYear: 0,
+      locationCount,
       firstYear: null,
       lastYear: null,
       perYearStats: [],
@@ -568,6 +605,7 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
       const yearElapsedMonths = yearElapsedDays / 30.44;
       const yearElapsedYears = yearElapsedDays / 365.25;
       const total = countByYear.get(y) ?? 0;
+      const agg = yearAgg.get(y);
       perYearStats.push({
         year: y,
         totalFinds: total,
@@ -576,6 +614,9 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
         perWeek: total / Math.max(yearElapsedWeeks, 1),
         perMonth: total / Math.max(yearElapsedMonths, 1),
         perYear: total / Math.max(yearElapsedYears, 1),
+        estimatedMinutes: agg ? Math.round(agg.ms / 60_000) : 0,
+        sessions: agg?.sessions ?? 0,
+        locationCount: agg?.locs.size ?? 0,
       });
     }
   }
@@ -590,6 +631,7 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
     perWeek: totalFindsWithDate / Math.max(elapsedWeeks, 1),
     perMonth: totalFindsWithDate / Math.max(elapsedMonths, 1),
     perYear: totalFindsWithDate / Math.max(elapsedYears, 1),
+    locationCount,
     firstYear,
     lastYear,
     perYearStats,
