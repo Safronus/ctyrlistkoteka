@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { getScope, statScopeFile } from "@/lib/admin/scopes";
+import { LOKACE_STAVY_POZNAMKY_FILENAME } from "@/lib/admin/jsonSchema";
 import { DeleteCropButton } from "../../crops/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { DeleteMapButton } from "../../maps/delete-button";
@@ -149,6 +150,15 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
             {scope.slug === "maps" && (
               <DeleteMapButton filename={info.name} />
             )}
+            {scope.slug === "meta" &&
+              info.name === LOKACE_STAVY_POZNAMKY_FILENAME && (
+                <Link
+                  href="/admin/json/lokace-stavy-poznamky"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-brand-50 px-2.5 py-1.5 text-xs font-medium text-brand-800 transition hover:border-brand-400 hover:bg-brand-100"
+                >
+                  Upravit v editoru
+                </Link>
+              )}
             <a
               href={fileUrl}
               download={info.name}
