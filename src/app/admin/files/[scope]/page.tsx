@@ -14,7 +14,20 @@ import { FindsUploadForm } from "../finds/upload-form";
 import { MapsListClient } from "../maps/maps-list-client";
 import { MapsUploadForm } from "../maps/upload-form";
 
-const PAGE_SIZE = 100;
+/** Allowed `?size=` values. Capped at 500 because each entry incurs
+ *  one `fs.stat` call in listScope; on finds (17k+ files) a larger
+ *  page would noticeably slow the listing render. For maps (~128
+ *  entries) any value at or above 200 effectively shows everything. */
+const PAGE_SIZE_OPTIONS = [50, 100, 200, 500] as const;
+const DEFAULT_PAGE_SIZE = 100;
+
+function pickPageSize(v: string | undefined): number {
+  if (!v) return DEFAULT_PAGE_SIZE;
+  const n = Number.parseInt(v, 10);
+  return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n)
+    ? n
+    : DEFAULT_PAGE_SIZE;
+}
 
 interface PageProps {
   params: Promise<{ scope: string }>;
@@ -54,20 +67,25 @@ export default async function AdminScopeListPage({
 
   const query = pickString(sp.q) ?? "";
   const page = pickInt(pickString(sp.page), 1);
-  const offset = (page - 1) * PAGE_SIZE;
+  const pageSize = pickPageSize(pickString(sp.size));
+  const offset = (page - 1) * pageSize;
 
   const { total, entries } = await listScope(scope, {
     query: query || undefined,
     offset,
-    limit: PAGE_SIZE,
+    limit: pageSize,
   });
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  const buildHref = (overrides: Partial<{ q: string; page: number }>) => {
-    const merged = { q: query, page, ...overrides };
+  const buildHref = (
+    overrides: Partial<{ q: string; page: number; size: number }>,
+  ) => {
+    const merged = { q: query, page, size: pageSize, ...overrides };
     const usp = new URLSearchParams();
     if (merged.q) usp.set("q", merged.q);
     if (merged.page > 1) usp.set("page", String(merged.page));
+    if (merged.size !== DEFAULT_PAGE_SIZE)
+      usp.set("size", String(merged.size));
     const qs = usp.toString();
     return qs ? `/admin/files/${scope.slug}?${qs}` : `/admin/files/${scope.slug}`;
   };
@@ -117,6 +135,12 @@ export default async function AdminScopeListPage({
             className="block w-full rounded-md border border-gray-300 bg-white py-1.5 pl-9 pr-3 text-sm shadow-sm placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
           />
         </div>
+        {/* Carry the current page size through a search submit so the
+            user doesn't bounce back to the default 100 every time
+            they refine the filter. */}
+        {pageSize !== DEFAULT_PAGE_SIZE && (
+          <input type="hidden" name="size" value={String(pageSize)} />
+        )}
         <button
           type="submit"
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
@@ -124,6 +148,25 @@ export default async function AdminScopeListPage({
           Hledat
         </button>
       </form>
+
+      {total > PAGE_SIZE_OPTIONS[0] && (
+        <div className="flex items-center justify-end gap-1 text-xs text-gray-500">
+          <span>Na stránku:</span>
+          {PAGE_SIZE_OPTIONS.map((n) => (
+            <Link
+              key={n}
+              href={buildHref({ size: n, page: 1 })}
+              className={
+                n === pageSize
+                  ? "rounded bg-gray-200 px-1.5 py-0.5 font-semibold text-gray-900"
+                  : "rounded px-1.5 py-0.5 hover:bg-gray-100 hover:text-gray-700"
+              }
+            >
+              {n}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {entries.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
