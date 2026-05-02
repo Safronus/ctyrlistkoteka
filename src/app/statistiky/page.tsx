@@ -474,6 +474,9 @@ function TimeAndPaceCard({ data }: { data: StatsTimeAndPaceResult }) {
                 ])}
               </>
             )}
+            {data.findsPerSession > 0 && (
+              <> (Ø {fmtPace.format(data.findsPerSession)} nálezů / hledání)</>
+            )}
             {" "}+ 2 min baseline / hledání
           </p>
         </div>

@@ -94,6 +94,16 @@ export function YearlyPaceBlock({ entries }: { entries: readonly YearlyPaceEntry
             "lokalit",
           ])}
         </span>
+        {selected.findsPerSession > 0 && (
+          <>
+            <span aria-hidden className="text-gray-300">
+              ·
+            </span>
+            <span title="Průměrný počet nálezů na jedno hledání v tomto roce.">
+              Ø {fmtPace.format(selected.findsPerSession)} nálezů / hledání
+            </span>
+          </>
+        )}
       </p>
     </div>
   );
