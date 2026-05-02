@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { getScope, statScopeFile } from "@/lib/admin/scopes";
+import { DeleteFindButton } from "../../finds/delete-button";
 
 const MAX_TEXT_PREVIEW_BYTES = 256 * 1024;
 
@@ -136,14 +137,19 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
               </div>
             </dl>
           </div>
-          <a
-            href={fileUrl}
-            download={info.name}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
-          >
-            <Download className="h-3.5 w-3.5" aria-hidden />
-            Stáhnout
-          </a>
+          <div className="flex shrink-0 items-center gap-2">
+            {scope.slug === "finds" && (
+              <DeleteFindButton filename={info.name} />
+            )}
+            <a
+              href={fileUrl}
+              download={info.name}
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              Stáhnout
+            </a>
+          </div>
         </div>
       </header>
 
