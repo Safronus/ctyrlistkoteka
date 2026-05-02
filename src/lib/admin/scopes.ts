@@ -72,14 +72,14 @@ export const SCOPES: readonly ScopeDef[] = [
     slug: "finds",
     rootKey: "findOriginals",
     label: "Originály nálezů",
-    description: "data/finds/ — celé fotky čtyřlístků (HEIC).",
+    description: "data/finds/ — celé fotky čtyřlístků (JPEG).",
     writable: false,
   },
   {
     slug: "crops",
     rootKey: "findCrops",
     label: "Výřezy nálezů",
-    description: "data/crops/ — vyřezané čtyřlístky (HEIC).",
+    description: "data/crops/ — vyřezané čtyřlístky (JPEG).",
     writable: false,
   },
   {

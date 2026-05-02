@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { getScope, statScopeFile } from "@/lib/admin/scopes";
+import { DeleteCropButton } from "../../crops/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { DeleteMapButton } from "../../maps/delete-button";
 
@@ -141,6 +142,9 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           <div className="flex shrink-0 items-center gap-2">
             {scope.slug === "finds" && (
               <DeleteFindButton filename={info.name} />
+            )}
+            {scope.slug === "crops" && (
+              <DeleteCropButton filename={info.name} />
             )}
             {scope.slug === "maps" && (
               <DeleteMapButton filename={info.name} />

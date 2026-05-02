@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { getScope, listScope } from "@/lib/admin/scopes";
+import { CropsListClient } from "../crops/crops-list-client";
+import { CropsUploadForm } from "../crops/upload-form";
 import { FindsUploadForm } from "../finds/upload-form";
 import { MapsListClient } from "../maps/maps-list-client";
 import { MapsUploadForm } from "../maps/upload-form";
@@ -129,6 +131,7 @@ export default async function AdminScopeListPage({
       </header>
 
       {scope.slug === "finds" && <FindsUploadForm />}
+      {scope.slug === "crops" && <CropsUploadForm />}
       {scope.slug === "maps" && <MapsUploadForm />}
 
       <form
@@ -214,6 +217,8 @@ export default async function AdminScopeListPage({
         // periodically needs to clean up Unicode-duplicate uploads.
         // Other scopes keep the simpler read-only listing for now.
         <MapsListClient entries={entries} scopeSlug={scope.slug} />
+      ) : scope.slug === "crops" ? (
+        <CropsListClient entries={entries} scopeSlug={scope.slug} />
       ) : (
         <ul className="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white">
           {entries.map((e) => {
