@@ -65,7 +65,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return new NextResponse("Too large", { status: 413 });
   }
 
-  const etag = `W/"${info.size.toString(16)}-${Date.parse(info.mtime).toString(16)}"`;
+  // ETag includes a version tag so caches the previous (broken) stream
+  // implementation populated with truncated bytes can no longer match.
+  // Bump `v` whenever the response body shape changes incompatibly.
+  const etag = `W/"v2-${info.size.toString(16)}-${Date.parse(info.mtime).toString(16)}"`;
   if (request.headers.get("if-none-match") === etag) {
     return new NextResponse(null, { status: 304 });
   }
