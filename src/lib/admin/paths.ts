@@ -15,13 +15,14 @@ const SECURE_DIR = process.env.ADMIN_SECURE_DIR
 
 /** Whitelist of subroots admin operations may touch. Listed by purpose
  *  so the call sites read clearly — `findOriginals` rather than a raw
- *  string concatenation. */
+ *  string concatenation. The disk paths mirror what `scripts/sync.ts`
+ *  reads from on the VPS, so admin uploads land where sync expects
+ *  them without a separate import dance. */
 export const ADMIN_ROOTS = {
-  findOriginals: path.join(DATA_DIR, "finds", "originals"),
-  findCrops: path.join(DATA_DIR, "finds", "crops"),
-  findRaws: path.join(DATA_DIR, "finds", "raws"),
+  findOriginals: path.join(DATA_DIR, "finds"),
+  findCrops: path.join(DATA_DIR, "crops"),
   locationMaps: path.join(DATA_DIR, "maps"),
-  jsonRoot: DATA_DIR,
+  meta: path.join(DATA_DIR, "meta"),
   trash: path.join(DATA_DIR, ".trash"),
   donationPhotos: path.join(GENERATED_DIR, "find-photos"),
   locationPhotos: path.join(GENERATED_DIR, "location-photos"),

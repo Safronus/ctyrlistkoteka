@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
 import {
   Activity,
   CheckCircle2,
@@ -10,17 +10,12 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-react";
-import { getAdminSession, isAuthenticated } from "@/lib/admin/session";
-import { hasAnyCredential, listCredentials } from "@/lib/admin/credentials";
+import { ensureAdminAuth } from "@/lib/admin/guard";
+import { listCredentials } from "@/lib/admin/credentials";
 import { readRecentAudit } from "@/lib/admin/audit";
 
 export default async function AdminHomePage() {
-  const session = await getAdminSession();
-  if (!isAuthenticated(session)) {
-    if (!(await hasAnyCredential())) redirect("/admin/setup");
-    redirect("/admin/login");
-  }
-
+  await ensureAdminAuth();
   const [credentials, recent] = await Promise.all([
     listCredentials(),
     readRecentAudit(20),
@@ -31,7 +26,7 @@ export default async function AdminHomePage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-900">Přehled</h1>
         <p className="text-sm text-gray-600">
-          Fáze 1 — auth + audit. Operace na souborech přijdou v dalších fázích.
+          Fáze 1 + 2 — auth, audit a read-only prohlížeč souborů.
         </p>
       </header>
 
@@ -40,10 +35,18 @@ export default async function AdminHomePage() {
           icon={ShieldCheck}
           title="Bezpečnost"
           status="ok"
+          href="/admin/audit"
           lines={[
             `${credentials.length} ${credentials.length === 1 ? "passkey" : "passkeys"}`,
             "Session 1h sliding TTL",
           ]}
+        />
+        <FeatureCard
+          icon={FolderTree}
+          title="Soubory (read-only)"
+          status="ok"
+          href="/admin/files"
+          lines={["data/ + generated/", "Browser, preview, download"]}
         />
         <FeatureCard
           icon={Upload}
@@ -62,12 +65,6 @@ export default async function AdminHomePage() {
           title="LokaceStavyPoznamky.json"
           status="todo"
           lines={["Upload + form editor", "Plánováno: Fáze 5"]}
-        />
-        <FeatureCard
-          icon={FolderTree}
-          title="Reálné fotky"
-          status="todo"
-          lines={["Dary + lokality", "Plánováno: Fáze 6"]}
         />
         <FeatureCard
           icon={Database}
@@ -123,14 +120,18 @@ function FeatureCard({
   title,
   status,
   lines,
+  href,
 }: {
   icon: typeof ShieldCheck;
   title: string;
   status: "ok" | "todo";
   lines: string[];
+  /** When set, the card becomes an interactive link to the section.
+   *  TODO cards stay as static blocks — no destination yet. */
+  href?: string;
 }) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+  const body = (
+    <>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-brand-600" aria-hidden />
@@ -152,6 +153,21 @@ function FeatureCard({
           <li key={i}>{l}</li>
         ))}
       </ul>
+    </>
+  );
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:bg-brand-50/30"
+      >
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      {body}
     </div>
   );
 }

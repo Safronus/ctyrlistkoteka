@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import {
+  Activity,
+  FolderTree,
+  Gauge,
+  ShieldCheck,
+} from "lucide-react";
 import { getAdminSession, isAuthenticated } from "@/lib/admin/session";
 import { LogoutButton } from "./logout-button";
 
@@ -26,28 +31,59 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Link
             href="/admin"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900"
+            className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-gray-900"
           >
             <ShieldCheck className="h-5 w-5 text-brand-600" aria-hidden />
-            Čtyřlístkotéka — admin
+            <span className="hidden sm:inline">Čtyřlístkotéka — admin</span>
+            <span className="sm:hidden">admin</span>
           </Link>
           {authed && (
-            <div className="flex items-center gap-3 text-sm text-gray-600">
-              <span className="hidden sm:inline">
-                Přihlášen jako{" "}
-                <strong className="font-medium text-gray-900">
-                  {session.credentialLabel}
-                </strong>
-              </span>
-              <LogoutButton />
-            </div>
+            <>
+              <nav
+                aria-label="Admin sekce"
+                className="flex flex-1 items-center justify-center gap-1 text-sm"
+              >
+                <NavLink href="/admin" icon={Gauge} label="Přehled" />
+                <NavLink href="/admin/files" icon={FolderTree} label="Soubory" />
+                <NavLink href="/admin/audit" icon={Activity} label="Audit" />
+              </nav>
+              <div className="flex shrink-0 items-center gap-3 text-sm text-gray-600">
+                <span className="hidden lg:inline">
+                  Přihlášen jako{" "}
+                  <strong className="font-medium text-gray-900">
+                    {session.credentialLabel}
+                  </strong>
+                </span>
+                <LogoutButton />
+              </div>
+            </>
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</main>
     </div>
+  );
+}
+
+function NavLink({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href: string;
+  icon: typeof ShieldCheck;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
+    >
+      <Icon className="h-4 w-4" aria-hidden />
+      <span>{label}</span>
+    </Link>
   );
 }
