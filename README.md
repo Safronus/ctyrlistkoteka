@@ -69,6 +69,18 @@ Co se přenáší samo:
   nemění.
 - **Dokumentace** v `docs/` (architektura, sync workflow, admin overview)
   → cestuje s repem, slouží jako pickup point pro Claude Code i pro tebe.
+- **`NOTES.md`** v rootu — žurnál session-level kontextu (rozpracované
+  věci, dnešní commity, další krok). Drž pod ~200 řádky, starší věci
+  shrnuj nahoru. Když pokračuješ na novém stroji, dej Claude tento
+  navazující prompt:
+
+  > Načti `NOTES.md` v rootu repa, `CLAUDE.md` a `docs/admin-overview.md`.
+  > Tím tě dostanu zpátky do kontextu — `NOTES.md` říká kde jsme skončili
+  > a co je další krok, `CLAUDE.md` definuje pravidla projektu,
+  > `docs/admin-overview.md` shrnuje admin track.
+
+  Po každé vyřízené dávce práce Claude `NOTES.md` aktualizuje (přesune
+  hotové do "Historicky", napíše nové "Dnes" + "Další krok").
 
 Co se **NEpřenáší** automaticky:
 - `.env` — soubor s DB heslem, NEXT_PUBLIC_SITE_URL, ADMIN_SECURE_DIR atd.
