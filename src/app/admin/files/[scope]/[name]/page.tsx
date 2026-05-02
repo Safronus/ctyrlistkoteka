@@ -9,9 +9,15 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
+import {
+  analyzeLokaceStavyPoznamky,
+  type LSPAnalysis,
+} from "@/lib/admin/lokaceStavyAnalysis";
 import { getScope, statScopeFile } from "@/lib/admin/scopes";
 import {
   LOKACE_STAVY_POZNAMKY_FILENAME,
+  type LokaceStavyPoznamky,
+  lokaceStavyPoznamkySchema,
   SECTION_KEYS,
   SECTION_LABELS,
   type SectionKey,
@@ -24,6 +30,7 @@ import { DeleteMapButton } from "../../maps/delete-button";
 import { MarkMapNonexistentButton } from "../../maps/mark-nonexistent-button";
 import { MapReplaceDropzone } from "../../maps/replace-dropzone";
 import { JsonSectionsPreview } from "./json-sections-preview";
+import { LokaceStavyPoznamkyPreview } from "./lokace-stavy-preview";
 
 const MAX_TEXT_PREVIEW_BYTES = 256 * 1024;
 
@@ -75,6 +82,8 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
   let sectionsPreview:
     | { key: SectionKey; label: string; content: string }[]
     | null = null;
+  let lspAnalysis: LSPAnalysis | null = null;
+  let lspPoznamky: Record<string, string> | null = null;
 
   if (isTextLike(info.contentType) && info.size <= MAX_TEXT_PREVIEW_BYTES * 4) {
     const raw = await fs.readFile(info.absolutePath, "utf8");
@@ -91,6 +100,16 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
             label: SECTION_LABELS[key],
             content: formatJsonCompactArrays(parsed[key] ?? null),
           }));
+          // Best-effort schema validation — anomaly stats need typed
+          // ranges. If the live file has a Zod regression we silently
+          // skip the stats (the tabs still render and the editor has
+          // its own error surface).
+          const safe = lokaceStavyPoznamkySchema.safeParse(parsed);
+          if (safe.success) {
+            const data = safe.data as LokaceStavyPoznamky;
+            lspAnalysis = analyzeLokaceStavyPoznamky(data);
+            lspPoznamky = data.poznamky;
+          }
         } else {
           textPreview = {
             content: formatJsonCompactArrays(parsed),
@@ -238,7 +257,16 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           </div>
         )}
 
-      {sectionsPreview && <JsonSectionsPreview sections={sectionsPreview} />}
+      {sectionsPreview &&
+        (lspAnalysis && lspPoznamky ? (
+          <LokaceStavyPoznamkyPreview
+            sections={sectionsPreview}
+            analysis={lspAnalysis}
+            poznamky={lspPoznamky}
+          />
+        ) : (
+          <JsonSectionsPreview sections={sectionsPreview} />
+        ))}
 
       {textPreview && (
         <pre className="max-h-[70vh] overflow-auto rounded-xl border border-gray-200 bg-gray-900 p-4 text-xs leading-relaxed text-gray-100">

@@ -89,8 +89,11 @@ export default async function AdminHomePage() {
           icon={FileCog}
           title="LokaceStavyPoznamky.json"
           status="ok"
-          href="/admin/json/lokace-stavy-poznamky"
-          lines={["Editor se 4 sekcemi", "Zod validace, atomic write"]}
+          href="/admin/files/meta/LokaceStavyPoznamky.json"
+          lines={[
+            "Náhled + statistiky + lookup",
+            "Z náhledu krok do editoru",
+          ]}
         />
         <FeatureCard
           icon={Database}
