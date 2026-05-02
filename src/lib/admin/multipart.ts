@@ -80,6 +80,12 @@ export async function parseMultipartRequest(
 
   const busboy = Busboy({
     headers: { "content-type": contentType },
+    // busboy defaults `defParamCharset` to "latin1", which mangles
+    // every Czech diacritic in filenames coming from Safari/macOS
+    // (e.g. "NORMÁLNÍ" → "NORMÃLNÃ"). Force UTF-8 so the filename in
+    // Content-Disposition arrives intact and parseFindFilename gets
+    // the byte sequence the user actually sent.
+    defParamCharset: "utf8",
     limits: {
       fileSize: opts.maxFileSize ?? 100 * 1024 * 1024,
       files: opts.maxFiles ?? 200,
