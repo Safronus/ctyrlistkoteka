@@ -40,6 +40,13 @@ server {
     # include /etc/letsencrypt/options-ssl-nginx.conf;
     # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
+    # Skryj verzi Nginxu — `server_tokens off` odstraní "nginx/X.Y.Z"
+    # z `Server` hlavičky i z výchozích error stránek (zůstane jen
+    # "nginx" bez čísla). Pro úplné odstranění hlavičky by byl potřeba
+    # headers-more modul, ale schování verze stačí na drtivou většinu
+    # automatických scannerů, které matchují `nginx/N`.
+    server_tokens off;
+
     # Základní security headers
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -104,9 +111,12 @@ server {
     # -----------------------------------------------------------------
     # /admin — privátní zóna pro správu sbírky. PRVNÍ obranná linie:
     # IP allowlist. DOPLŇ KONKRÉTNÍ IP ADRESY níž (statickou domácí +
-    # zálohy) a případně 10.x.x.x rozsah pro WireGuard tunel. Bez
-    # allow-match Nginx vrátí 403 ještě před tím, než request dorazí
-    # k passkey ověření.
+    # zálohy) a případně 10.x.x.x rozsah pro WireGuard tunel.
+    #
+    # Pro nepovolené IP se 403 přepisuje na 404 (`error_page 403 =`)
+    # — útočník/scanner pak nezjistí, že /admin vůbec existuje.
+    # `=` před @location znamená "použij status code, který @location
+    # vrátí" (404).
     #
     # Větší upload limit (50M) — admin nahrává HEIC/JPEG; veřejný web
     # zachovává 1M cap nahoře v server bloku.
@@ -117,6 +127,7 @@ server {
         # allow 9.10.11.12;         # zálohní IP #2 — DOPLŇ
         # allow 10.0.0.0/24;        # WireGuard tunel — DOPLŇ až bude WG nasazený
         deny all;
+        error_page 403 = @admin_notfound;
 
         client_max_body_size 50M;
         proxy_pass http://127.0.0.1:3000;
@@ -128,6 +139,16 @@ server {
         proxy_set_header Upgrade           $http_upgrade;
         proxy_set_header Connection        "upgrade";
         proxy_read_timeout 300s;          # větší upload může chvíli trvat
+    }
+
+    # Maskovaná 404 pro IP, které neprošly /admin allowlistem. `internal`
+    # znamená, že nelze hitnout přímo zvenku — jen jako cíl error_page.
+    location @admin_notfound {
+        internal;
+        # default_type + krátký HTML podobný defaultnímu Next.js 404,
+        # aby se /admin chovalo neodlišitelně od neexistující cesty.
+        default_type text/html;
+        return 404 "<!DOCTYPE html><html><head><title>404</title></head><body><h1>404</h1><p>This page could not be found.</p></body></html>";
     }
 
     # API rate limit (přísnější — 60 req/min, burst 20)
