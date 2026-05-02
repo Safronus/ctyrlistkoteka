@@ -30,6 +30,7 @@ import { DeleteLocationPhotoButton } from "../../location-photos/delete-button";
 import { DeleteMapButton } from "../../maps/delete-button";
 import { MapDescriptionEditor } from "../../maps/description-editor";
 import { MarkMapNonexistentButton } from "../../maps/mark-nonexistent-button";
+import { MapMetadataPreview } from "../../maps/metadata-preview";
 import { MapReplaceDropzone } from "../../maps/replace-dropzone";
 import { SyncNeededBanner } from "../../_shared/sync-needed-banner";
 import { JsonSectionsPreview } from "./json-sections-preview";
@@ -265,6 +266,13 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
 
       {scope.slug === "maps" && !info.name.startsWith("NEEXISTUJE-") && (
         <MapReplaceDropzone targetName={info.name} />
+      )}
+
+      {scope.slug === "maps" && (
+        <MapMetadataPreview
+          filename={info.name}
+          absolutePath={info.absolutePath}
+        />
       )}
 
       {isPreviewableImage(info.contentType) && (
