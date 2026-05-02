@@ -27,6 +27,7 @@ import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { DeleteLocationPhotoButton } from "../../location-photos/delete-button";
 import { DeleteMapButton } from "../../maps/delete-button";
+import { MapDescriptionEditor } from "../../maps/description-editor";
 import { MarkMapNonexistentButton } from "../../maps/mark-nonexistent-button";
 import { MapReplaceDropzone } from "../../maps/replace-dropzone";
 import { JsonSectionsPreview } from "./json-sections-preview";
@@ -229,6 +230,21 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           </div>
         </div>
       </header>
+
+      {scope.slug === "maps" &&
+        !info.name.startsWith("NEEXISTUJE-") &&
+        (() => {
+          const dot = info.name.lastIndexOf(".");
+          const stem = dot === -1 ? info.name : info.name.slice(0, dot);
+          const segs = stem.split("+");
+          if (segs.length !== 6) return null;
+          return (
+            <MapDescriptionEditor
+              filename={info.name}
+              currentDescription={segs[1] ?? ""}
+            />
+          );
+        })()}
 
       {scope.slug === "maps" && !info.name.startsWith("NEEXISTUJE-") && (
         <MapReplaceDropzone targetName={info.name} />

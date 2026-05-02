@@ -437,7 +437,7 @@ function normalizeKey(s: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
-function readAnonymizedFlag(tags: Record<string, string>): boolean {
+export function readAnonymizedFlag(tags: Record<string, string>): boolean {
   const normalized = new Map<string, string>();
   for (const [k, v] of Object.entries(tags)) normalized.set(normalizeKey(k), v);
   for (const key of ANON_TAG_KEYS) {

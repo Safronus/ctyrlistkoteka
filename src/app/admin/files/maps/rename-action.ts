@@ -5,7 +5,7 @@ import path from "node:path";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { appendAudit } from "@/lib/admin/audit";
-import { ADMIN_ROOTS, safeBaseName } from "@/lib/admin/paths";
+import { ADMIN_ROOTS, safeBaseName, safeJoin } from "@/lib/admin/paths";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
   getAdminSession,
@@ -18,6 +18,216 @@ import type { BulkRenameResult } from "../_shared/list-types";
 // "use server" files only allow async exports — keep the prefix
 // internal. The button + detail page hardcode the literal too.
 const NONEXISTENT_PREFIX = "NEEXISTUJE-";
+
+/** Strips the NEEXISTUJE- prefix — inverse of `markMapNonexistent`.
+ *  Refuses when the file doesn't currently carry the prefix. The
+ *  restored name has to be free; a collision means a fresh map with
+ *  the original name was uploaded since the rename — refuse rather
+ *  than clobber. */
+export async function restoreMapNonexistent(formData: FormData): Promise<void> {
+  const session = await getAdminSession();
+  if (!isAuthenticated(session)) {
+    throw new Error("Unauthenticated");
+  }
+  const credentialLabel = session.credentialLabel!;
+  const ip = await getRequestIp();
+  await touchSession();
+
+  const rawName = formData.get("name");
+  if (typeof rawName !== "string" || rawName.length === 0) {
+    throw new Error("Missing name");
+  }
+  const baseName = safeBaseName(rawName);
+  if (!baseName.startsWith(NONEXISTENT_PREFIX)) {
+    throw new Error("Soubor nezačíná NEEXISTUJE-");
+  }
+  const resolved = await resolveDiskPath("locationMaps", baseName);
+  if (!resolved) {
+    throw new Error("Soubor neexistuje");
+  }
+  const newName = resolved.name.slice(NONEXISTENT_PREFIX.length);
+  if (newName.length === 0) {
+    throw new Error("Po obnově by zbyl prázdný název");
+  }
+  const newAbs = path.join(ADMIN_ROOTS.locationMaps, newName);
+  try {
+    await fs.access(newAbs);
+    throw new Error(`Cíl "${newName}" už existuje`);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+  }
+
+  await fs.rename(resolved.absolutePath, newAbs);
+
+  await appendAudit({
+    action: "file.rename",
+    ip,
+    credentialLabel,
+    details: {
+      scope: "maps",
+      from: resolved.name,
+      to: newName,
+      reason: "restored-nonexistent",
+    },
+  });
+
+  revalidatePath("/admin/files/maps");
+  redirect(`/admin/files/maps/${encodeURIComponent(newName)}`);
+}
+
+export interface DescriptionEditResult {
+  ok: boolean;
+  /** New on-disk name on success, raw old name otherwise. */
+  filename: string;
+  error?: string;
+}
+
+/** Renames a map by replacing segment[1] (the human description)
+ *  while keeping locationCode / GPS / zoom / mapId intact. The new
+ *  description must not contain `+` (it's the segment separator) and
+ *  must not be empty. The rebuilt name still has to pass
+ *  parseMapFilename, so the server is the source of truth here.
+ *
+ *  Returns a result rather than redirecting because the detail page
+ *  hosts an inline editor — the client refreshes after a success
+ *  rather than the server pushing a navigation. */
+export async function renameMapDescription(
+  formData: FormData,
+): Promise<DescriptionEditResult> {
+  const session = await getAdminSession();
+  if (!isAuthenticated(session)) {
+    return { ok: false, filename: "?", error: "Unauthenticated" };
+  }
+  const credentialLabel = session.credentialLabel!;
+  const ip = await getRequestIp();
+  await touchSession();
+
+  const rawName = formData.get("name");
+  const rawDescription = formData.get("description");
+  if (typeof rawName !== "string" || rawName.length === 0) {
+    return { ok: false, filename: "?", error: "Missing name" };
+  }
+  if (typeof rawDescription !== "string") {
+    return {
+      ok: false,
+      filename: rawName,
+      error: "Chybí pole `description`",
+    };
+  }
+  const newDescription = rawDescription.trim();
+  if (newDescription.length === 0) {
+    return {
+      ok: false,
+      filename: rawName,
+      error: "Popisek nesmí být prázdný",
+    };
+  }
+  if (newDescription.includes("+")) {
+    return {
+      ok: false,
+      filename: rawName,
+      error: "Popisek nesmí obsahovat znak '+'",
+    };
+  }
+  if (newDescription.includes("/") || newDescription.includes("\\")) {
+    return {
+      ok: false,
+      filename: rawName,
+      error: "Popisek nesmí obsahovat lomítka",
+    };
+  }
+
+  let baseName: string;
+  try {
+    baseName = safeBaseName(rawName);
+  } catch (err) {
+    return {
+      ok: false,
+      filename: rawName,
+      error: (err as Error).message,
+    };
+  }
+  const resolved = await resolveDiskPath("locationMaps", baseName);
+  if (!resolved) {
+    return { ok: false, filename: baseName, error: "Soubor neexistuje" };
+  }
+
+  // Decompose the on-disk name. The NEEXISTUJE- prefix breaks the
+  // segment count, so editing description is only allowed on live
+  // (non-prefixed) maps. Keep the rule explicit so the user gets a
+  // clear message instead of a generic "expected 6 segments".
+  if (resolved.name.startsWith(NONEXISTENT_PREFIX)) {
+    return {
+      ok: false,
+      filename: resolved.name,
+      error: "Editace popisku není povolena u zaniklých map (obnov je nejdřív)",
+    };
+  }
+  const dot = resolved.name.lastIndexOf(".");
+  if (dot === -1) {
+    return {
+      ok: false,
+      filename: resolved.name,
+      error: "Název nemá příponu",
+    };
+  }
+  const stem = resolved.name.slice(0, dot);
+  const ext = resolved.name.slice(dot);
+  const segments = stem.split("+");
+  if (segments.length !== 6) {
+    return {
+      ok: false,
+      filename: resolved.name,
+      error: `Název nemá 6 '+'-segmentů (má ${segments.length})`,
+    };
+  }
+  segments[1] = newDescription;
+  const newName = segments.join("+") + ext;
+  if (newName === resolved.name) {
+    return { ok: true, filename: resolved.name };
+  }
+
+  let newAbs: string;
+  try {
+    newAbs = safeJoin("locationMaps", newName);
+  } catch (err) {
+    return {
+      ok: false,
+      filename: resolved.name,
+      error: (err as Error).message,
+    };
+  }
+
+  try {
+    await fs.access(newAbs);
+    return {
+      ok: false,
+      filename: resolved.name,
+      error: `Cíl "${newName}" už existuje`,
+    };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+  }
+
+  await fs.rename(resolved.absolutePath, newAbs);
+
+  await appendAudit({
+    action: "file.rename",
+    ip,
+    credentialLabel,
+    details: {
+      scope: "maps",
+      from: resolved.name,
+      to: newName,
+      reason: "description-edit",
+    },
+  });
+
+  revalidatePath("/admin/files/maps");
+  revalidatePath(`/admin/files/maps/${encodeURIComponent(resolved.name)}`);
+  revalidatePath(`/admin/files/maps/${encodeURIComponent(newName)}`);
+  return { ok: true, filename: newName };
+}
 
 /** Rename a single map filename to add the `NEEXISTUJE-` prefix.
  *  Used when a real-world location no longer exists (field paved

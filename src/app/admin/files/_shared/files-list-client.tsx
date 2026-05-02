@@ -40,6 +40,13 @@ interface Props {
    *  of the filename can drift. Maps don't supply coverage. */
   coverageFindIds?: Set<number>;
   missingCoverageLabel?: string;
+  /** NFC-normalised names that carry the "Anonymizovaná lokace" PNG
+   *  flag — only set for the maps scope. Rows in this set render an
+   *  "anonymizovaná" badge. */
+  anonymizedNames?: Set<string>;
+  /** When true, rows whose name starts with `NEEXISTUJE-` render a
+   *  "zaniklá" badge. Set by the maps scope. */
+  showNonexistentBadge?: boolean;
   /** Optional secondary action — currently only the maps scope wires
    *  this to "mark as nonexistent". When set, renders a button next
    *  to bulk-delete with the supplied label.
@@ -116,6 +123,8 @@ export function FilesListClient({
   coverageFindIds,
   missingCoverageLabel,
   bulkRename,
+  anonymizedNames,
+  showNonexistentBadge,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bannerError, setBannerError] = useState<string | null>(null);
@@ -490,6 +499,22 @@ export function FilesListClient({
                   title={`Žádný odpovídající soubor v sourozenecké složce (${missingCoverageLabel})`}
                 >
                   {missingCoverageLabel}
+                </span>
+              )}
+              {showNonexistentBadge && e.name.startsWith("NEEXISTUJE-") && (
+                <span
+                  className="shrink-0 rounded bg-gray-200 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-gray-700"
+                  title="Mapa označená jako zaniklá (NEEXISTUJE-)"
+                >
+                  zaniklá
+                </span>
+              )}
+              {anonymizedNames?.has(e.name.normalize("NFC")) && (
+                <span
+                  className="shrink-0 rounded bg-violet-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-violet-900"
+                  title="Mapa má v PNG metadata Anonymizovaná lokace"
+                >
+                  anonym.
                 </span>
               )}
               <span className="shrink-0 font-mono text-xs tabular-nums text-gray-500">

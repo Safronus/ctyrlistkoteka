@@ -159,6 +159,11 @@ export async function listScope(
      *  note flag, location code edits over time), so name-based
      *  matching gives false negatives. ID-based matching is correct. */
     excludeFindIds?: Set<number>;
+    /** When supplied, only entries whose NFC-normalised name passes
+     *  this predicate are kept. Lets the caller layer arbitrary
+     *  per-scope filters (e.g. maps anon/nonexistent toggles)
+     *  without baking them into the generic listing helper. */
+    keepName?: (nameNFC: string) => boolean;
   } = {},
 ): Promise<{ total: number; entries: ScopeEntry[] }> {
   const root = ADMIN_ROOTS[scope.rootKey];
@@ -196,6 +201,11 @@ export async function listScope(
       if (id === null) return true;
       return !exclude.has(id);
     });
+  }
+
+  if (opts.keepName) {
+    const keep = opts.keepName;
+    names = names.filter((n) => keep(n.normalize("NFC")));
   }
 
   const q = opts.query?.trim().toLowerCase();

@@ -9,6 +9,7 @@ import {
   Search,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
+import { readMapAnonFlags } from "@/lib/admin/mapAnon";
 import {
   analyzeIdRange,
   extractFindId,
@@ -119,6 +120,13 @@ export default async function AdminScopeListPage({
   const pageSize = pickPageSize(pickString(sp.size));
   const duplicatesOnly = pickString(sp.dups) === "1";
   const uncoveredOnly = pickString(sp.uncovered) === "1";
+  // Maps-only filters: surface zaniklé / anonymizované entries on
+  // demand. Both default off so the listing matches the rest of the
+  // admin (no cluttered initial view).
+  const onlyNonexistent =
+    scope.slug === "maps" && pickString(sp.nonexistent) === "1";
+  const onlyAnonymized =
+    scope.slug === "maps" && pickString(sp.anonymized) === "1";
   const offset = (page - 1) * pageSize;
 
   // Cross-scope coverage: finds ↔ crops share only the leading find
@@ -156,12 +164,36 @@ export default async function AdminScopeListPage({
     rangePad = 5;
   }
 
+  // Maps anonymization scan: only run on the maps scope, costs one
+  // 64KB read per file. Cached in-memory by mtime so the next render
+  // is free. Scoped before listScope so it can drive the keepName
+  // filter when "Jen anonymizované" is on.
+  let anonymizedNamesNFC: Set<string> | undefined;
+  if (scope.slug === "maps") {
+    anonymizedNamesNFC = await readMapAnonFlags();
+  }
+
+  const keepName: ((name: string) => boolean) | undefined =
+    onlyNonexistent || onlyAnonymized
+      ? (name) => {
+          if (onlyNonexistent && !name.startsWith("NEEXISTUJE-")) return false;
+          if (
+            onlyAnonymized &&
+            !(anonymizedNamesNFC?.has(name) ?? false)
+          ) {
+            return false;
+          }
+          return true;
+        }
+      : undefined;
+
   const { total, entries } = await listScope(scope, {
     query: query || undefined,
     offset,
     limit: pageSize,
     duplicatesOnly,
     excludeFindIds: uncoveredOnly ? counterpartIds : undefined,
+    keepName,
   });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -184,6 +216,8 @@ export default async function AdminScopeListPage({
       size: number;
       dups: boolean;
       uncovered: boolean;
+      nonexistent: boolean;
+      anonymized: boolean;
     }>,
   ) => {
     const merged = {
@@ -192,6 +226,8 @@ export default async function AdminScopeListPage({
       size: pageSize,
       dups: duplicatesOnly,
       uncovered: uncoveredOnly,
+      nonexistent: onlyNonexistent,
+      anonymized: onlyAnonymized,
       ...overrides,
     };
     const usp = new URLSearchParams();
@@ -201,6 +237,8 @@ export default async function AdminScopeListPage({
       usp.set("size", String(merged.size));
     if (merged.dups) usp.set("dups", "1");
     if (merged.uncovered) usp.set("uncovered", "1");
+    if (merged.nonexistent) usp.set("nonexistent", "1");
+    if (merged.anonymized) usp.set("anonymized", "1");
     const qs = usp.toString();
     return qs ? `/admin/files/${scope.slug}?${qs}` : `/admin/files/${scope.slug}`;
   };
@@ -309,6 +347,12 @@ export default async function AdminScopeListPage({
         )}
         {duplicatesOnly && <input type="hidden" name="dups" value="1" />}
         {uncoveredOnly && <input type="hidden" name="uncovered" value="1" />}
+        {onlyNonexistent && (
+          <input type="hidden" name="nonexistent" value="1" />
+        )}
+        {onlyAnonymized && (
+          <input type="hidden" name="anonymized" value="1" />
+        )}
         <button
           type="submit"
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
@@ -350,6 +394,40 @@ export default async function AdminScopeListPage({
                 className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
               >
                 Filtr: jen „{counterpartLabel}&ldquo;
+              </Link>
+            ))}
+          {scope.slug === "maps" &&
+            (onlyNonexistent ? (
+              <Link
+                href={buildHref({ nonexistent: false, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 font-medium text-amber-900 hover:bg-amber-100"
+              >
+                <span aria-hidden>×</span>
+                Zrušit „jen zaniklé&ldquo;
+              </Link>
+            ) : (
+              <Link
+                href={buildHref({ nonexistent: true, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
+              >
+                Filtr: jen zaniklé
+              </Link>
+            ))}
+          {scope.slug === "maps" &&
+            (onlyAnonymized ? (
+              <Link
+                href={buildHref({ anonymized: false, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 py-0.5 font-medium text-violet-900 hover:bg-violet-100"
+              >
+                <span aria-hidden>×</span>
+                Zrušit „jen anonymizované&ldquo;
+              </Link>
+            ) : (
+              <Link
+                href={buildHref({ anonymized: true, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
+              >
+                Filtr: jen anonymizované
               </Link>
             ))}
         </div>
@@ -406,6 +484,8 @@ export default async function AdminScopeListPage({
               "Přejmenovat {n} položek s prefixem NEEXISTUJE-?",
             action: markMapsNonexistentBulk,
           }}
+          anonymizedNames={anonymizedNamesNFC}
+          showNonexistentBadge
         />
       ) : scope.slug === "donation-photos" ? (
         <FilesListClient
