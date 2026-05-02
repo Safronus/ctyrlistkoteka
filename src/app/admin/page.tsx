@@ -28,8 +28,8 @@ export default async function AdminHomePage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-900">Přehled</h1>
         <p className="text-sm text-gray-600">
-          Fáze 1–6 — auth, audit, prohlížeč souborů, uploady, JSON editor a
-          reálné fotky.
+          Fáze 1–7 — auth, audit, prohlížeč souborů, uploady, JSON editor,
+          reálné fotky a sync trigger.
         </p>
       </header>
 
@@ -95,8 +95,12 @@ export default async function AdminHomePage() {
         <FeatureCard
           icon={Database}
           title="Sync"
-          status="todo"
-          lines={["Trigger pnpm sync", "Plánováno: Fáze 7"]}
+          status="ok"
+          href="/admin/sync"
+          lines={[
+            "Trigger tsx scripts/sync.ts",
+            "Live log, dry-run, --only filtr",
+          ]}
         />
       </section>
 

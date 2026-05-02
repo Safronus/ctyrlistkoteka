@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   Activity,
+  Database,
   FileJson,
   FolderTree,
   Gauge,
@@ -54,6 +55,7 @@ export default async function AdminLayout({
                   icon={FileJson}
                   label="JSON"
                 />
+                <NavLink href="/admin/sync" icon={Database} label="Sync" />
                 <NavLink href="/admin/audit" icon={Activity} label="Audit" />
               </nav>
               <div className="flex shrink-0 items-center gap-3 text-sm text-gray-600">
