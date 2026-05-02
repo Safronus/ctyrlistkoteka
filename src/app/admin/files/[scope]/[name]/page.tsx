@@ -19,6 +19,7 @@ import {
 import { DeleteCropButton } from "../../crops/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { DeleteMapButton } from "../../maps/delete-button";
+import { JsonSectionsPreview } from "./json-sections-preview";
 
 const MAX_TEXT_PREVIEW_BYTES = 256 * 1024;
 
@@ -220,24 +221,7 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           </div>
         )}
 
-      {sectionsPreview && (
-        <div className="space-y-3">
-          {sectionsPreview.map((section) => (
-            <section
-              key={section.key}
-              className="overflow-hidden rounded-xl border border-gray-200 bg-gray-900"
-            >
-              <header className="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-4 py-2 text-xs font-semibold text-gray-200">
-                <span>{section.label}</span>
-                <code className="font-mono text-gray-400">{section.key}</code>
-              </header>
-              <pre className="max-h-[60vh] overflow-auto whitespace-pre p-4 text-xs leading-relaxed text-gray-100">
-                {section.content}
-              </pre>
-            </section>
-          ))}
-        </div>
-      )}
+      {sectionsPreview && <JsonSectionsPreview sections={sectionsPreview} />}
 
       {textPreview && (
         <pre className="max-h-[70vh] overflow-auto rounded-xl border border-gray-200 bg-gray-900 p-4 text-xs leading-relaxed text-gray-100">

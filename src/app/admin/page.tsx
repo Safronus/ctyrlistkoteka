@@ -26,7 +26,7 @@ export default async function AdminHomePage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-900">Přehled</h1>
         <p className="text-sm text-gray-600">
-          Fáze 1 + 2 — auth, audit a read-only prohlížeč souborů.
+          Fáze 1–5 — auth, audit, prohlížeč souborů, uploady a JSON editor.
         </p>
       </header>
 
@@ -51,20 +51,23 @@ export default async function AdminHomePage() {
         <FeatureCard
           icon={Upload}
           title="Upload nálezů"
-          status="todo"
-          lines={["Originály + crops", "Plánováno: Fáze 3"]}
+          status="ok"
+          href="/admin/files/finds"
+          lines={["Originály + crops", "Drag-drop, EXIF, bulk delete"]}
         />
         <FeatureCard
           icon={MapIcon}
           title="Lokační mapy"
-          status="todo"
-          lines={["Add / replace / delete", "Plánováno: Fáze 4"]}
+          status="ok"
+          href="/admin/files/maps"
+          lines={["Add / replace / delete", "Detekce duplikátů"]}
         />
         <FeatureCard
           icon={FileCog}
           title="LokaceStavyPoznamky.json"
-          status="todo"
-          lines={["Upload + form editor", "Plánováno: Fáze 5"]}
+          status="ok"
+          href="/admin/json/lokace-stavy-poznamky"
+          lines={["Editor se 4 sekcemi", "Zod validace, atomic write"]}
         />
         <FeatureCard
           icon={Database}
