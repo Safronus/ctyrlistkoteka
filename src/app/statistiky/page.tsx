@@ -1426,24 +1426,83 @@ function JubileeFindsSection({
   jubilees: readonly JubileeFind[];
 }) {
   if (jubilees.length === 0) return null;
+  // Specials = repunits 111, 1111, 11111, … and the sixes 666 / 6666.
+  // Mirrors the construction set in src/lib/queries/stats.ts so the
+  // split here can't drift from what the query layer accepts as a
+  // jubilee. Everything else (every 1000-th find) is a "milestone".
+  const specialSet = new Set<number>();
+  for (let r = 111; r <= 1_000_000; r = r * 10 + 1) specialSet.add(r);
+  specialSet.add(666);
+  specialSet.add(6666);
+  const specials = jubilees.filter((j) => specialSet.has(j.id));
+  const milestones = jubilees.filter((j) => !specialSet.has(j.id));
+  // Two rows of milestones visible by default — 5 per row at lg, so
+  // the cap caps at 10. As the collection grows past 10 000 finds
+  // the rest goes behind a `<details>` toggle. Native `<details>`
+  // keeps the section server-rendered (no client JS) and degrades
+  // gracefully without a hydration cycle.
+  const MILESTONES_DEFAULT_VISIBLE = 10;
+  const visibleMilestones = milestones.slice(0, MILESTONES_DEFAULT_VISIBLE);
+  const hiddenMilestones = milestones.slice(MILESTONES_DEFAULT_VISIBLE);
+
   return (
-    <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-5">
+    <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
       <header>
         <h2 className="text-lg font-semibold text-gray-900">
           Jubilejní nálezy
         </h2>
         <p className="text-sm text-gray-500">
-          Každý tisící nález ve sbírce, plus speciální čísla 111, 1111,
-          11111, 666 a 6666.
+          Speciální čísla (111, 1111, 11111, 666, 6666) a každý
+          tisící nález ve sbírce.
         </p>
       </header>
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {jubilees.map((j) => (
-          <li key={j.id}>
-            <JubileeCard find={j} />
-          </li>
-        ))}
-      </ul>
+
+      {/* Specials sit on their own row, centred via a max-width grid
+          that caps at 5 columns on md+ so the typical 5-card line
+          fits without stretching across the whole panel. Wraps
+          naturally on narrow viewports. */}
+      {specials.length > 0 && (
+        <ul className="mx-auto grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+          {specials.map((j) => (
+            <li key={j.id}>
+              <JubileeCard find={j} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* By-1000 milestones — first 10 visible, rest in a native
+          <details> collapse. The summary row mimics a button so the
+          affordance reads clearly. */}
+      {visibleMilestones.length > 0 && (
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {visibleMilestones.map((j) => (
+            <li key={j.id}>
+              <JubileeCard find={j} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {hiddenMilestones.length > 0 && (
+        <details className="group">
+          <summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-brand-200 hover:text-brand-700 [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden">
+              Zobrazit dalších {hiddenMilestones.length} jubilejních +
+            </span>
+            <span className="hidden group-open:inline">
+              Skrýt další jubilejní −
+            </span>
+          </summary>
+          <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {hiddenMilestones.map((j) => (
+              <li key={j.id}>
+                <JubileeCard find={j} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </section>
   );
 }
