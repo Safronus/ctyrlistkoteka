@@ -1434,20 +1434,25 @@ function JubileeFindsSection({
   for (let r = 111; r <= 1_000_000; r = r * 10 + 1) specialSet.add(r);
   specialSet.add(666);
   specialSet.add(6666);
-  const specials = jubilees.filter((j) => specialSet.has(j.id));
   const milestones = jubilees.filter((j) => !specialSet.has(j.id));
-  // First 10 thousand-milestones (1000…10 000) get fixed slots so the
-  // grid stays uniform even before those finds land in the DB. Empty
-  // slots render a placeholder card. Anything above 10 000 lives in
-  // the collapsed `<details>` and only appears once it actually exists.
+  // Both the specials row and the first 10 thousand-milestones get
+  // fixed slots so the grid stays uniform even before those finds land
+  // in the DB. Empty slots render a placeholder card. Anything past
+  // the slotted thousands lives in the collapsed `<details>` and only
+  // appears once it actually exists.
+  const SLOTTED_SPECIALS = [111, 666, 1111, 6666, 11111] as const;
   const SLOTTED_THOUSANDS = Array.from({ length: 10 }, (_, i) => (i + 1) * 1000);
-  const milestoneById = new Map(milestones.map((m) => [m.id, m]));
-  const slottedMilestones: ReadonlyArray<
-    { kind: "find"; find: JubileeFind } | { kind: "empty"; id: number }
-  > = SLOTTED_THOUSANDS.map((id) => {
-    const find = milestoneById.get(id);
-    return find ? { kind: "find", find } : { kind: "empty", id };
-  });
+  type Slot =
+    | { kind: "find"; find: JubileeFind }
+    | { kind: "empty"; id: number };
+  const jubileeById = new Map(jubilees.map((j) => [j.id, j]));
+  const buildSlots = (ids: readonly number[]): readonly Slot[] =>
+    ids.map((id) => {
+      const find = jubileeById.get(id);
+      return find ? { kind: "find", find } : { kind: "empty", id };
+    });
+  const slottedSpecials = buildSlots(SLOTTED_SPECIALS);
+  const slottedMilestones = buildSlots(SLOTTED_THOUSANDS);
   const hiddenMilestones = milestones.filter(
     (m) => !SLOTTED_THOUSANDS.includes(m.id),
   );
@@ -1467,16 +1472,22 @@ function JubileeFindsSection({
       {/* Specials sit on their own row, centred via a max-width grid
           that caps at 5 columns on md+ so the typical 5-card line
           fits without stretching across the whole panel. Wraps
-          naturally on narrow viewports. */}
-      {specials.length > 0 && (
-        <ul className="mx-auto grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
-          {specials.map((j) => (
-            <li key={j.id}>
-              <JubileeCard find={j} />
+          naturally on narrow viewports. Like the thousand-milestones
+          below, the slots are fixed — uncollected specials render a
+          placeholder so the row keeps its shape. */}
+      <ul className="mx-auto grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+        {slottedSpecials.map((slot) =>
+          slot.kind === "find" ? (
+            <li key={slot.find.id}>
+              <JubileeCard find={slot.find} />
             </li>
-          ))}
-        </ul>
-      )}
+          ) : (
+            <li key={`empty-${slot.id}`}>
+              <JubileeEmptyCard id={slot.id} />
+            </li>
+          ),
+        )}
+      </ul>
 
       {/* Fixed slots for the first 10 thousand-milestones. Empty slots
           render a placeholder so the grid keeps its shape as the
@@ -1499,12 +1510,18 @@ function JubileeFindsSection({
 
       {hiddenMilestones.length > 0 && (
         <details className="group">
-          <summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-brand-200 hover:text-brand-700 [&::-webkit-details-marker]:hidden">
-            <span className="group-open:hidden">
-              Zobrazit dalších {hiddenMilestones.length} jubilejních +
-            </span>
-            <span className="hidden group-open:inline">
-              Skrýt další jubilejní −
+          {/* `<summary>`-marker hidden so the row reads as a button.
+              Wrapping flexbox centres it horizontally — `<summary>` is
+              `display: list-item` by default which doesn't cooperate
+              with `mx-auto`, so we put the centering on the parent. */}
+          <summary className="flex cursor-pointer justify-center [&::-webkit-details-marker]:hidden">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-brand-200 hover:text-brand-700">
+              <span className="group-open:hidden">
+                Zobrazit dalších {hiddenMilestones.length} jubilejních +
+              </span>
+              <span className="hidden group-open:inline">
+                Skrýt další jubilejní −
+              </span>
             </span>
           </summary>
           <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
