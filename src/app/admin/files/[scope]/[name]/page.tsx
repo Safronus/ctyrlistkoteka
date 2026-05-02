@@ -8,8 +8,14 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
+import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
 import { getScope, statScopeFile } from "@/lib/admin/scopes";
-import { LOKACE_STAVY_POZNAMKY_FILENAME } from "@/lib/admin/jsonSchema";
+import {
+  LOKACE_STAVY_POZNAMKY_FILENAME,
+  SECTION_KEYS,
+  SECTION_LABELS,
+  type SectionKey,
+} from "@/lib/admin/jsonSchema";
 import { DeleteCropButton } from "../../crops/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { DeleteMapButton } from "../../maps/delete-button";
@@ -57,15 +63,35 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
     scope.slug,
   )}&name=${encodeURIComponent(info.name)}`;
 
+  const isMetaJson =
+    scope.slug === "meta" && info.name === LOKACE_STAVY_POZNAMKY_FILENAME;
+
   let textPreview: { content: string; truncated: boolean } | null = null;
+  let sectionsPreview:
+    | { key: SectionKey; label: string; content: string }[]
+    | null = null;
+
   if (isTextLike(info.contentType) && info.size <= MAX_TEXT_PREVIEW_BYTES * 4) {
     const raw = await fs.readFile(info.absolutePath, "utf8");
     if (info.contentType === "application/json") {
       try {
-        textPreview = {
-          content: JSON.stringify(JSON.parse(raw), null, 2),
-          truncated: false,
-        };
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        if (isMetaJson && parsed && typeof parsed === "object") {
+          // Render the four logical sections as separate panels, mirroring
+          // the editor layout — and use the compact-arrays formatter so a
+          // single location's range list renders on one line instead of
+          // exploding to 30+ rows.
+          sectionsPreview = SECTION_KEYS.map((key) => ({
+            key,
+            label: SECTION_LABELS[key],
+            content: formatJsonCompactArrays(parsed[key] ?? null),
+          }));
+        } else {
+          textPreview = {
+            content: formatJsonCompactArrays(parsed),
+            truncated: false,
+          };
+        }
       } catch {
         textPreview = { content: raw, truncated: false };
       }
@@ -193,6 +219,25 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
             <code>{`/generated/`}</code> (po sync).
           </div>
         )}
+
+      {sectionsPreview && (
+        <div className="space-y-3">
+          {sectionsPreview.map((section) => (
+            <section
+              key={section.key}
+              className="overflow-hidden rounded-xl border border-gray-200 bg-gray-900"
+            >
+              <header className="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-4 py-2 text-xs font-semibold text-gray-200">
+                <span>{section.label}</span>
+                <code className="font-mono text-gray-400">{section.key}</code>
+              </header>
+              <pre className="max-h-[60vh] overflow-auto whitespace-pre p-4 text-xs leading-relaxed text-gray-100">
+                {section.content}
+              </pre>
+            </section>
+          ))}
+        </div>
+      )}
 
       {textPreview && (
         <pre className="max-h-[70vh] overflow-auto rounded-xl border border-gray-200 bg-gray-900 p-4 text-xs leading-relaxed text-gray-100">
