@@ -83,6 +83,21 @@ export async function replaceMap(formData: FormData): Promise<ReplaceResult> {
   if (file.size === 0) {
     return { ok: false, filename: baseName, error: "Prázdný soubor" };
   }
+
+  // Same NFC-aware compare as the client. We accept a mismatched
+  // upload only when the form carries an explicit override flag —
+  // a client can't silently slip a renamed file through, and the
+  // server is the source of truth here.
+  const incomingName = file.name.normalize("NFC");
+  const targetNFC = baseName.normalize("NFC");
+  const nameOverride = formData.get("nameOverride") === "1";
+  if (incomingName !== targetNFC && !nameOverride) {
+    return {
+      ok: false,
+      filename: baseName,
+      error: `Název nového souboru ("${file.name}") se neshoduje s cílem ("${baseName}"). Pokud to je záměr, zaškrtni potvrzení a opakuj.`,
+    };
+  }
   if (file.size > MAX_FILE_BYTES) {
     return {
       ok: false,
