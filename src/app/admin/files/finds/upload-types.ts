@@ -12,8 +12,18 @@ export const MAX_FILE_BYTES = 25 * 1024 * 1024;
 /** Hard limit on files in one server-action submit. The browser keeps
  *  the request open until the upload finishes; batching ~50 photos at
  *  ~500 kB each fits well inside the 200 MB request cap configured in
- *  next.config.ts and stays under any reasonable timeout. */
+ *  next.config.ts and stays under any reasonable timeout. The client
+ *  splits a larger queue into chunks of this size and submits them
+ *  sequentially. */
 export const MAX_FILES_PER_REQUEST = 50;
+
+/** Maximum size of the client-side queue. The user can drop up to
+ *  this many JPEGs at once; the form chunks them into
+ *  MAX_FILES_PER_REQUEST-sized batches and uploads sequentially.
+ *  Bumping this is cheap (no server-side memory pressure because
+ *  each request still tops out at the per-batch cap), the only cost
+ *  is total wall time for the whole queue. */
+export const MAX_QUEUE_FILES = 1000;
 
 export interface UploadResult {
   /** 0-based position in the original FormData entries — lets the

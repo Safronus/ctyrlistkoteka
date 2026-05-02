@@ -13,6 +13,7 @@ import { uploadFinds } from "./upload-action";
 import {
   MAX_FILE_BYTES,
   MAX_FILES_PER_REQUEST,
+  MAX_QUEUE_FILES,
   type UploadResult,
 } from "./upload-types";
 
@@ -84,9 +85,9 @@ export function FindsUploadForm() {
     setQueue((prev) => {
       const merged = [...prev, ...additions];
       const queuedCount = merged.filter((q) => q.status === "queued").length;
-      if (queuedCount > MAX_FILES_PER_REQUEST) {
+      if (queuedCount > MAX_QUEUE_FILES) {
         setBannerError(
-          `Maximum je ${MAX_FILES_PER_REQUEST} souborů na jeden upload — část odpoj.`,
+          `Maximum je ${MAX_QUEUE_FILES} souborů ve frontě — část odpoj.`,
         );
       }
       return merged;
@@ -123,63 +124,106 @@ export function FindsUploadForm() {
   const onSubmit = () => {
     const toUpload = queue.filter((q) => q.status === "queued");
     if (toUpload.length === 0 || isPending) return;
-    if (toUpload.length > MAX_FILES_PER_REQUEST) {
+    if (toUpload.length > MAX_QUEUE_FILES) {
       setBannerError(
-        `Maximum je ${MAX_FILES_PER_REQUEST} souborů na jeden upload.`,
+        `Maximum je ${MAX_QUEUE_FILES} souborů ve frontě.`,
       );
       return;
     }
     setBannerError(null);
+    // Mark only the first batch as uploading; later batches flip from
+    // queued → uploading as we reach them so the user sees a moving
+    // boundary rather than 1000 spinners at once.
+    const firstBatchIds = new Set(
+      toUpload.slice(0, MAX_FILES_PER_REQUEST).map((q) => q.id),
+    );
     setQueue((prev) =>
       prev.map((q) =>
-        q.status === "queued" ? { ...q, status: "uploading" } : q,
+        firstBatchIds.has(q.id) ? { ...q, status: "uploading" } : q,
       ),
     );
 
     startTransition(async () => {
-      const fd = new FormData();
-      // Index-bound zipping on the server requires we send `files` in
-      // the same order we record them here.
-      for (const q of toUpload) fd.append("files", q.file);
+      const total = toUpload.length;
+      let processed = 0;
+      let aborted = false;
 
-      try {
-        const { results } = await uploadFinds(fd);
-        const byIndex = new Map<number, UploadResult>();
-        for (const r of results) byIndex.set(r.index, r);
-        setQueue((prev) => {
-          const updated = [...prev];
-          toUpload.forEach((q, i) => {
-            const result = byIndex.get(i);
-            const idx = updated.findIndex((x) => x.id === q.id);
-            if (idx === -1) return;
-            if (!result) {
-              updated[idx] = {
-                ...updated[idx]!,
-                status: "rejected",
-                reason: "Server nevrátil výsledek",
-              };
-              return;
-            }
-            updated[idx] = {
-              ...updated[idx]!,
-              status: result.status,
-              reason: result.reason,
-              size: result.size,
-              findId: result.findId,
-            };
-          });
-          return updated;
-        });
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : "Upload selhal";
-        setBannerError(reason);
+      // Sequential batch submission: large queues would blow the
+      // request body cap and spike server memory if sent all at once.
+      // Batches of MAX_FILES_PER_REQUEST keep each request bounded and
+      // a transient failure only loses the in-flight batch.
+      for (let i = 0; i < total; i += MAX_FILES_PER_REQUEST) {
+        if (aborted) break;
+        const batch = toUpload.slice(i, i + MAX_FILES_PER_REQUEST);
+
+        // Mark this batch as uploading (first batch was already
+        // flipped above; this is a no-op for it).
+        const batchIds = new Set(batch.map((q) => q.id));
         setQueue((prev) =>
           prev.map((q) =>
-            q.status === "uploading"
-              ? { ...q, status: "rejected", reason }
+            batchIds.has(q.id) && q.status === "queued"
+              ? { ...q, status: "uploading" }
               : q,
           ),
         );
+
+        const fd = new FormData();
+        for (const q of batch) fd.append("files", q.file);
+
+        try {
+          const { results } = await uploadFinds(fd);
+          const byBatchIndex = new Map<number, UploadResult>();
+          for (const r of results) byBatchIndex.set(r.index, r);
+
+          setQueue((prev) => {
+            const updated = [...prev];
+            batch.forEach((q, batchIdx) => {
+              const result = byBatchIndex.get(batchIdx);
+              const idx = updated.findIndex((x) => x.id === q.id);
+              if (idx === -1) return;
+              if (!result) {
+                updated[idx] = {
+                  ...updated[idx]!,
+                  status: "rejected",
+                  reason: "Server nevrátil výsledek",
+                };
+                return;
+              }
+              updated[idx] = {
+                ...updated[idx]!,
+                status: result.status,
+                reason: result.reason,
+                size: result.size,
+                findId: result.findId,
+              };
+            });
+            return updated;
+          });
+
+          processed += batch.length;
+        } catch (err) {
+          // A batch-level failure (network drop, server error) marks
+          // every still-uploading row in the queue as rejected. The
+          // user can retry by re-dropping the files; we don't auto-
+          // retry to keep the failure mode obvious.
+          const reason = err instanceof Error ? err.message : "Upload selhal";
+          setBannerError(
+            `Batch ${Math.floor(i / MAX_FILES_PER_REQUEST) + 1}: ${reason}`,
+          );
+          setQueue((prev) =>
+            prev.map((q) =>
+              q.status === "uploading"
+                ? { ...q, status: "rejected", reason }
+                : q,
+            ),
+          );
+          aborted = true;
+        }
+      }
+
+      if (!aborted && processed === total) {
+        // No-op success path beyond per-row updates; queue stays so
+        // the user can see the result tally before clearing.
       }
     });
   };
@@ -196,7 +240,8 @@ export function FindsUploadForm() {
         </h2>
         <p className="text-xs text-gray-500">
           .jpg / .jpeg • zachovává EXIF • max{" "}
-          {fmtSize(MAX_FILE_BYTES)}/soubor • {MAX_FILES_PER_REQUEST}/upload
+          {fmtSize(MAX_FILE_BYTES)}/soubor • {MAX_QUEUE_FILES} ve frontě
+          (po {MAX_FILES_PER_REQUEST} v dávce)
         </p>
       </header>
 
