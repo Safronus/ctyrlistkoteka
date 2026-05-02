@@ -53,6 +53,7 @@ import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { prisma } from "@/lib/db";
 import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
 import { TopLocationsCard } from "@/components/stats/top-locations-card";
+import { YearlyPaceBlock } from "@/components/stats/yearly-pace-block";
 import {
   CalendarSkeleton,
   DistanceSkeleton,
@@ -430,15 +431,18 @@ function TimeAndPaceCard({ data }: { data: StatsTimeAndPaceResult }) {
     : null;
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-6">
-      <header className="mb-4 flex items-baseline justify-between gap-3">
+    <section className="space-y-6 rounded-xl border border-gray-200 bg-white p-6">
+      <header>
         <h2 className="text-lg font-semibold text-gray-900">
           Doba sbírání a tempo
         </h2>
       </header>
 
+      {/* Top row — keep the two-column "total time" + "all-time pace"
+          split on lg. The per-year selector lives below in its own
+          full-width row so the year buttons don't get cramped next to
+          the all-time cells. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Left half — total estimated picking time. */}
         <div className="flex flex-col items-center justify-center text-center">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
             Odhadovaná doba sbírání
@@ -460,7 +464,6 @@ function TimeAndPaceCard({ data }: { data: StatsTimeAndPaceResult }) {
           </p>
         </div>
 
-        {/* Right half — calendar pace. */}
         <div className="flex flex-col">
           <p className="text-center text-xs font-medium uppercase tracking-wide text-gray-500">
             Průměrné tempo (od počátku sbírání)
@@ -479,6 +482,16 @@ function TimeAndPaceCard({ data }: { data: StatsTimeAndPaceResult }) {
           )}
         </div>
       </div>
+
+      {/* Per-year pace — opt-in row that lets the visitor compare any
+          single calendar year against the all-time average above.
+          Renders only when the collection actually spans at least
+          one year (the empty-collection branch returns []). */}
+      {data.perYearStats.length > 0 && (
+        <div className="border-t border-gray-100 pt-5">
+          <YearlyPaceBlock entries={data.perYearStats} />
+        </div>
+      )}
     </section>
   );
 }

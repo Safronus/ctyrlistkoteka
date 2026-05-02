@@ -205,6 +205,22 @@ export interface StatsTotalsResult {
   cityCount: number;
 }
 
+/** Same 5 pace metrics as the all-time card, scoped to a single
+ *  calendar year. The window is `[max(year-jan-01, firstFoundAt),
+ *  min(now, year-dec-31+1d)]` so the first year (collecting started
+ *  mid-year) and the current year (not finished) are both pro-rated
+ *  against actual elapsed time, not a full 365 days. */
+export interface YearlyPaceEntry {
+  year: number;
+  /** Number of finds with `found_at` in this calendar year. */
+  totalFinds: number;
+  perHour: number;
+  perDay: number;
+  perWeek: number;
+  perMonth: number;
+  perYear: number;
+}
+
 export interface StatsTimeAndPaceResult {
   /** Estimated total picking time across the whole collection in
    *  whole minutes. Uses the same session math as the home tile —
@@ -232,6 +248,14 @@ export interface StatsTimeAndPaceResult {
   perWeek: number;
   perMonth: number;
   perYear: number;
+  /** First / last calendar year with at least one dated find. Null
+   *  when the collection is empty. */
+  firstYear: number | null;
+  lastYear: number | null;
+  /** Per-year pace stats for every year between firstYear..lastYear,
+   *  inclusive. Years with no finds appear with zeros so the year
+   *  selector can render every position even mid-collection-gaps. */
+  perYearStats: YearlyPaceEntry[];
 }
 
 export interface StatsHighlightsResult {
@@ -467,13 +491,23 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
   // numerator (matching the elapsed-since-first scope), not just the
   // ones we could place in a session — finds with a date but no
   // location still count toward "stuff that happened in the calendar".
-  const anchor = await prisma.$queryRaw<
-    Array<{ first_found_at: Date | null; total: bigint }>
-  >`
-    SELECT MIN(found_at) AS first_found_at,
-           COUNT(*) FILTER (WHERE found_at IS NOT NULL) AS total
-    FROM finds
-  `;
+  // The yearly count piggy-backs on the same pass — Postgres groups
+  // GROUP-BY-EXTRACT under a single sequential scan, so it costs only
+  // marginally more than the bare COUNT(*).
+  const [anchor, yearlyRows] = await Promise.all([
+    prisma.$queryRaw<
+      Array<{ first_found_at: Date | null; total: bigint }>
+    >`
+      SELECT MIN(found_at) AS first_found_at,
+             COUNT(*) FILTER (WHERE found_at IS NOT NULL) AS total
+      FROM finds
+    `,
+    prisma.$queryRaw<Array<{ year: number; total: bigint }>>`
+      SELECT EXTRACT(YEAR FROM found_at)::int AS year, COUNT(*)::bigint AS total
+      FROM finds WHERE found_at IS NOT NULL
+      GROUP BY 1 ORDER BY 1
+    `,
+  ]);
   const a = anchor[0];
   const firstFoundAt = a?.first_found_at ?? null;
   const totalFindsWithDate = a ? Number(a.total) : 0;
@@ -489,6 +523,9 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
       perWeek: 0,
       perMonth: 0,
       perYear: 0,
+      firstYear: null,
+      lastYear: null,
+      perYearStats: [],
     };
   }
 
@@ -503,6 +540,46 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
   const elapsedMonths = elapsedDays / 30.44;
   const elapsedYears = elapsedDays / 365.25;
 
+  // Per-year stats: same 5 metrics as all-time, but the elapsed window
+  // is clamped to `[max(year-start, firstFoundAt), min(now, year-end)]`
+  // so partial years (first/last) pro-rate against actual elapsed time
+  // instead of a full 365.25 days. EXTRACT(YEAR FROM ...) is what the
+  // /statistiky calendar uses as well — staying consistent so the year
+  // buckets here line up with the bar chart elsewhere on the page.
+  const countByYear = new Map<number, number>();
+  for (const r of yearlyRows) countByYear.set(r.year, Number(r.total));
+  const firstYear = yearlyRows.length > 0 ? yearlyRows[0]!.year : null;
+  const lastYear =
+    yearlyRows.length > 0 ? yearlyRows[yearlyRows.length - 1]!.year : null;
+  const nowMs = Date.now();
+  const firstFoundMs = firstFoundAt.getTime();
+  const perYearStats: YearlyPaceEntry[] = [];
+  if (firstYear !== null && lastYear !== null) {
+    for (let y = firstYear; y <= lastYear; y++) {
+      const yearStartMs = Date.UTC(y, 0, 1);
+      const yearEndMs = Date.UTC(y + 1, 0, 1);
+      const windowStart =
+        y === firstYear ? Math.max(yearStartMs, firstFoundMs) : yearStartMs;
+      const windowEnd = Math.min(yearEndMs, nowMs);
+      const yearElapsedSec = Math.max((windowEnd - windowStart) / 1000, 1);
+      const yearElapsedHours = yearElapsedSec / 3600;
+      const yearElapsedDays = yearElapsedSec / 86_400;
+      const yearElapsedWeeks = yearElapsedDays / 7;
+      const yearElapsedMonths = yearElapsedDays / 30.44;
+      const yearElapsedYears = yearElapsedDays / 365.25;
+      const total = countByYear.get(y) ?? 0;
+      perYearStats.push({
+        year: y,
+        totalFinds: total,
+        perHour: total / Math.max(yearElapsedHours, 1),
+        perDay: total / Math.max(yearElapsedDays, 1),
+        perWeek: total / Math.max(yearElapsedWeeks, 1),
+        perMonth: total / Math.max(yearElapsedMonths, 1),
+        perYear: total / Math.max(yearElapsedYears, 1),
+      });
+    }
+  }
+
   return {
     estimatedMinutes,
     sessions,
@@ -513,6 +590,9 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
     perWeek: totalFindsWithDate / Math.max(elapsedWeeks, 1),
     perMonth: totalFindsWithDate / Math.max(elapsedMonths, 1),
     perYear: totalFindsWithDate / Math.max(elapsedYears, 1),
+    firstYear,
+    lastYear,
+    perYearStats,
   };
 }
 
