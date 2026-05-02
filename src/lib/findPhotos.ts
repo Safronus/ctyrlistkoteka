@@ -120,6 +120,13 @@ async function getDirCache(): Promise<DirCache> {
   return dirCache;
 }
 
+/** Drops the in-memory directory index. Admin uploads/deletes call
+ *  this so a freshly added photo shows up on the next public page
+ *  render without waiting for the 5-min TTL or a process restart. */
+export function invalidateFindPhotosCache(): void {
+  dirCache = null;
+}
+
 /**
  * Returns every photo bound to a find (sorted by slot), or an empty
  * array if none are present. Public-only fields — ANON entries carry

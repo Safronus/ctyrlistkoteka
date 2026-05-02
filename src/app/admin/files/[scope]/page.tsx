@@ -17,8 +17,12 @@ import {
 import { FilesListClient } from "../_shared/files-list-client";
 import { deleteCropsBulk } from "../crops/delete-action";
 import { CropsUploadForm } from "../crops/upload-form";
+import { deleteDonationPhotosBulk } from "../donation-photos/delete-action";
+import { DonationPhotosUploadForm } from "../donation-photos/upload-form";
 import { deleteFindsBulk } from "../finds/delete-action";
 import { FindsUploadForm } from "../finds/upload-form";
+import { deleteLocationPhotosBulk } from "../location-photos/delete-action";
+import { LocationPhotosUploadForm } from "../location-photos/upload-form";
 import { deleteMapsBulk } from "../maps/delete-action";
 import { MapsUploadForm } from "../maps/upload-form";
 
@@ -185,6 +189,8 @@ export default async function AdminScopeListPage({
       {scope.slug === "finds" && <FindsUploadForm />}
       {scope.slug === "crops" && <CropsUploadForm />}
       {scope.slug === "maps" && <MapsUploadForm />}
+      {scope.slug === "donation-photos" && <DonationPhotosUploadForm />}
+      {scope.slug === "location-photos" && <LocationPhotosUploadForm />}
 
       <form
         action={`/admin/files/${scope.slug}`}
@@ -304,9 +310,21 @@ export default async function AdminScopeListPage({
           scopeSlug={scope.slug}
           bulkDelete={deleteMapsBulk}
         />
+      ) : scope.slug === "donation-photos" ? (
+        <FilesListClient
+          entries={entries}
+          scopeSlug={scope.slug}
+          bulkDelete={deleteDonationPhotosBulk}
+        />
+      ) : scope.slug === "location-photos" ? (
+        <FilesListClient
+          entries={entries}
+          scopeSlug={scope.slug}
+          bulkDelete={deleteLocationPhotosBulk}
+        />
       ) : (
-        // Other scopes (meta, donation-photos, location-photos) keep
-        // the simple read-only listing — no bulk write surface yet.
+        // Remaining scopes (meta) keep the simple read-only listing —
+        // there's no bulk write surface for the JSON / config files.
         <ul className="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white">
           {entries.map((e) => {
             const href = `/admin/files/${scope.slug}/${encodeURIComponent(e.name)}`;

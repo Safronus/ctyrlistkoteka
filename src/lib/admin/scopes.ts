@@ -101,15 +101,17 @@ export const SCOPES: readonly ScopeDef[] = [
     slug: "donation-photos",
     rootKey: "donationPhotos",
     label: "Reálné fotky darů",
-    description: "generated/find-photos/ — fotky darovaných čtyřlístků.",
-    writable: false,
+    description:
+      "generated/find-photos/ — fotky darovaných čtyřlístků (např. \"16330a_DAR.jpeg\").",
+    writable: true,
   },
   {
     slug: "location-photos",
     rootKey: "locationPhotos",
     label: "Reálné fotky lokalit",
-    description: "generated/location-photos/ — placeholder pro budoucí použití.",
-    writable: false,
+    description:
+      "generated/location-photos/ — fotky lokalit (např. \"Reykjavík_reálné foto.png\").",
+    writable: true,
   },
 ] as const;
 

@@ -17,7 +17,9 @@ import {
   type SectionKey,
 } from "@/lib/admin/jsonSchema";
 import { DeleteCropButton } from "../../crops/delete-button";
+import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
+import { DeleteLocationPhotoButton } from "../../location-photos/delete-button";
 import { DeleteMapButton } from "../../maps/delete-button";
 import { JsonSectionsPreview } from "./json-sections-preview";
 
@@ -176,6 +178,12 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
             )}
             {scope.slug === "maps" && (
               <DeleteMapButton filename={info.name} />
+            )}
+            {scope.slug === "donation-photos" && (
+              <DeleteDonationPhotoButton filename={info.name} />
+            )}
+            {scope.slug === "location-photos" && (
+              <DeleteLocationPhotoButton filename={info.name} />
             )}
             {scope.slug === "meta" &&
               info.name === LOKACE_STAVY_POZNAMKY_FILENAME && (

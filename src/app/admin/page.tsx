@@ -1,11 +1,13 @@
 import Link from "next/link";
 import {
   Activity,
+  Camera,
   CheckCircle2,
   Clock,
   Database,
   FileCog,
   FolderTree,
+  MapPinned,
   Map as MapIcon,
   ShieldCheck,
   Upload,
@@ -26,7 +28,8 @@ export default async function AdminHomePage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-900">Přehled</h1>
         <p className="text-sm text-gray-600">
-          Fáze 1–5 — auth, audit, prohlížeč souborů, uploady a JSON editor.
+          Fáze 1–6 — auth, audit, prohlížeč souborů, uploady, JSON editor a
+          reálné fotky.
         </p>
       </header>
 
@@ -68,6 +71,26 @@ export default async function AdminHomePage() {
           status="ok"
           href="/admin/json/lokace-stavy-poznamky"
           lines={["Editor se 4 sekcemi", "Zod validace, atomic write"]}
+        />
+        <FeatureCard
+          icon={Camera}
+          title="Reálné fotky darů"
+          status="ok"
+          href="/admin/files/donation-photos"
+          lines={[
+            "generated/find-photos/",
+            "Konvence: <id><slot>_DAR[_ANON]",
+          ]}
+        />
+        <FeatureCard
+          icon={MapPinned}
+          title="Reálné fotky lokalit"
+          status="ok"
+          href="/admin/files/location-photos"
+          lines={[
+            "generated/location-photos/",
+            "Konvence: <mapa>_reálné foto…",
+          ]}
         />
         <FeatureCard
           icon={Database}
