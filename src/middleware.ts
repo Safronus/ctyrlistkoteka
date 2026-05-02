@@ -100,6 +100,17 @@ export function middleware(request: NextRequest) {
     request: { headers: requestHeaders },
   });
   response.headers.set("Content-Security-Policy", csp);
+
+  // /admin is private — keep it out of every search index regardless of
+  // any robots.txt mishap, and forbid framing entirely (the CSP already
+  // does, but the X-Frame-Options header catches old crawlers/proxies
+  // that don't honor CSP frame-ancestors). The actual auth gate lives
+  // in the admin layout/pages — middleware can't read iron-session
+  // (Edge runtime, no Node crypto) so we keep that check server-side.
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    response.headers.set("Cache-Control", "private, no-store");
+  }
   return response;
 }
 

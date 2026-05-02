@@ -242,7 +242,7 @@ Claude Code postupuje po fázích. **Po každé fázi se zastav a ukaž výstup 
 ## 9. Co NEDĚLAT
 
 - ❌ **Neměň ID nálezů** — user má existující číslování, Next.js `finds.id` musí odpovídat číslu v názvu souboru.
-- ❌ **Nezapisuj do `/var/ctyrlistkoteka/data/`** — to je uživatelský adresář, read-only pro aplikaci. Piš jen do `/var/ctyrlistkoteka/generated/`.
+- ⚠️ **`/var/ctyrlistkoteka/data/` je ve všech runtime cestách read-only KROMĚ admin rozhraní (`/admin/*`).** Mimo admin směr přidává sbírku výhradně rsync z Macu. Admin endpointy smí zapisovat, ale jen za následujících podmínek: (a) atomicky (tmp file → fsync → rename); (b) přes path-helper, který odmítne jakoukoli cestu mimo `data/finds/`, `data/maps/` a `generated/find-photos/`; (c) destruktivní operace (delete/replace) nejprve kopírují cíl do `data/.trash/<timestamp>/` (auto-prune po 30 dnech). Veřejné stránky `/`, `/sbirka`, `/mapa`, `/statistiky`, `/lokality` zůstávají striktně read-only.
 - ❌ **Nepřipojuj se k produkčnímu serveru automaticky** — všechny produkční akce proběhnou přes SSH z uživatelova Termiusu nebo GitHub Actions.
 - ❌ **Neposílej data třetím stranám** — žádná externí analytika, fonty selfhost přes `next/font`, žádné CDN obrázků.
 - ❌ **Neloguj poznámky ani GPS do systémových logů** — mohou být citlivé.

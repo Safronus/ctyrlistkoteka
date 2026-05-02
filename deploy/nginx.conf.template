@@ -101,6 +101,35 @@ server {
     location = /favicon.ico { access_log off; log_not_found off; }
     location = /robots.txt  { access_log off; log_not_found off; }
 
+    # -----------------------------------------------------------------
+    # /admin — privátní zóna pro správu sbírky. PRVNÍ obranná linie:
+    # IP allowlist. DOPLŇ KONKRÉTNÍ IP ADRESY níž (statickou domácí +
+    # zálohy) a případně 10.x.x.x rozsah pro WireGuard tunel. Bez
+    # allow-match Nginx vrátí 403 ještě před tím, než request dorazí
+    # k passkey ověření.
+    #
+    # Větší upload limit (50M) — admin nahrává HEIC/JPEG; veřejný web
+    # zachovává 1M cap nahoře v server bloku.
+    # -----------------------------------------------------------------
+    location /admin {
+        # allow 1.2.3.4;            # statická domácí IP — DOPLŇ
+        # allow 5.6.7.8;            # zálohní IP #1 — DOPLŇ
+        # allow 9.10.11.12;         # zálohní IP #2 — DOPLŇ
+        # allow 10.0.0.0/24;        # WireGuard tunel — DOPLŇ až bude WG nasazený
+        deny all;
+
+        client_max_body_size 50M;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        "upgrade";
+        proxy_read_timeout 300s;          # větší upload může chvíli trvat
+    }
+
     # API rate limit (přísnější — 60 req/min, burst 20)
     location /api/ {
         limit_req zone=api_limit burst=20 nodelay;
