@@ -9,13 +9,19 @@
  *  its own. */
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
-/** Hard limit on files in one server-action submit. The browser keeps
- *  the request open until the upload finishes; batching ~50 photos at
- *  ~500 kB each fits well inside the 200 MB request cap configured in
- *  next.config.ts and stays under any reasonable timeout. The client
- *  splits a larger queue into chunks of this size and submits them
- *  sequentially. */
+/** Hard limit on files in one POST batch. Stays well below busboy's
+ *  default file-count limit; the per-batch size cap below is the
+ *  binding one in practice for a normal photo workflow. */
 export const MAX_FILES_PER_REQUEST = 50;
+
+/** Per-batch byte cap for the upload form. Stays below the empirical
+ *  ~10 MB body-truncation cap somewhere between the browser and
+ *  Next.js — could be nginx, an OVH proxy layer, or HTTP/2 stream
+ *  buffering, but we don't know exactly which yet, so the safe move
+ *  is to keep every batch comfortably below it. The form accumulates
+ *  files into a batch until either MAX_FILES_PER_REQUEST or this
+ *  total size is hit, whichever comes first. */
+export const MAX_BATCH_BYTES = 8 * 1024 * 1024;
 
 /** Maximum size of the client-side queue. The user can drop up to
  *  this many JPEGs at once; the form chunks them into

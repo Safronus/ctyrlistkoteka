@@ -11,12 +11,42 @@ import {
   XCircle,
 } from "lucide-react";
 import {
+  MAX_BATCH_BYTES,
   MAX_FILE_BYTES,
   MAX_FILES_PER_REQUEST,
   MAX_QUEUE_FILES,
   type UploadResponse,
   type UploadResult,
 } from "./upload-types";
+
+/** Splits queued files into batches that respect both the per-batch
+ *  count cap (MAX_FILES_PER_REQUEST) and the total-byte cap
+ *  (MAX_BATCH_BYTES). The byte cap is the load-bearing one — somewhere
+ *  upstream of Next.js the request body gets truncated near 10 MB, so
+ *  every batch stays below 8 MB to leave headroom for multipart
+ *  framing overhead. A single oversized file (>MAX_BATCH_BYTES) ships
+ *  in its own batch even though it'll trip the per-file cap on the
+ *  server — the row will come back rejected with a clear reason
+ *  instead of taking the rest of the batch with it. */
+function splitIntoBatches<T extends { file: File }>(items: T[]): T[][] {
+  const batches: T[][] = [];
+  let current: T[] = [];
+  let currentBytes = 0;
+  for (const item of items) {
+    const wouldExceedCount = current.length >= MAX_FILES_PER_REQUEST;
+    const wouldExceedBytes =
+      current.length > 0 && currentBytes + item.file.size > MAX_BATCH_BYTES;
+    if (wouldExceedCount || wouldExceedBytes) {
+      batches.push(current);
+      current = [];
+      currentBytes = 0;
+    }
+    current.push(item);
+    currentBytes += item.file.size;
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
 
 /** Posts a multipart batch to the /admin/api/upload/finds REST
  *  endpoint. We use plain fetch instead of a server action because
@@ -159,12 +189,11 @@ export function FindsUploadForm() {
       return;
     }
     setBannerError(null);
-    // Mark only the first batch as uploading; later batches flip from
-    // queued → uploading as we reach them so the user sees a moving
-    // boundary rather than 1000 spinners at once.
-    const firstBatchIds = new Set(
-      toUpload.slice(0, MAX_FILES_PER_REQUEST).map((q) => q.id),
-    );
+    // Compute batches up front (count + size capped) so we can mark
+    // the first batch as uploading immediately and use stable batch
+    // numbers in error messages.
+    const batches = splitIntoBatches(toUpload);
+    const firstBatchIds = new Set(batches[0]?.map((q) => q.id) ?? []);
     setQueue((prev) =>
       prev.map((q) =>
         firstBatchIds.has(q.id) ? { ...q, status: "uploading" } : q,
@@ -172,20 +201,18 @@ export function FindsUploadForm() {
     );
 
     startTransition(async () => {
-      const total = toUpload.length;
       let aborted = false;
       let anyOk = false;
 
-      // Sequential batch submission: large queues would blow the
-      // request body cap and spike server memory if sent all at once.
-      // Batches of MAX_FILES_PER_REQUEST keep each request bounded and
-      // a transient failure only loses the in-flight batch.
-      for (let i = 0; i < total; i += MAX_FILES_PER_REQUEST) {
+      // Sequential batch submission. Each batch stays under
+      // MAX_BATCH_BYTES (8 MB) to dodge the empirical ~10 MB body
+      // truncation cap and respects MAX_FILES_PER_REQUEST as a
+      // secondary count cap. A transient failure only loses the
+      // in-flight batch.
+      for (let i = 0; i < batches.length; i += 1) {
         if (aborted) break;
-        const batch = toUpload.slice(i, i + MAX_FILES_PER_REQUEST);
+        const batch = batches[i]!;
 
-        // Mark this batch as uploading (first batch was already
-        // flipped above; this is a no-op for it).
         const batchIds = new Set(batch.map((q) => q.id));
         setQueue((prev) =>
           prev.map((q) =>
@@ -206,9 +233,7 @@ export function FindsUploadForm() {
           // revalidate failure. Mark every uploading row as rejected
           // and surface the actual reason in the banner.
           if (error) {
-            setBannerError(
-              `Batch ${Math.floor(i / MAX_FILES_PER_REQUEST) + 1}: ${error}`,
-            );
+            setBannerError(`Batch ${i + 1}: ${error}`);
             setQueue((prev) =>
               prev.map((q) =>
                 q.status === "uploading"
@@ -254,9 +279,7 @@ export function FindsUploadForm() {
           // user can retry by re-dropping the files; we don't auto-
           // retry to keep the failure mode obvious.
           const reason = err instanceof Error ? err.message : "Upload selhal";
-          setBannerError(
-            `Batch ${Math.floor(i / MAX_FILES_PER_REQUEST) + 1}: ${reason}`,
-          );
+          setBannerError(`Batch ${i + 1}: ${reason}`);
           setQueue((prev) =>
             prev.map((q) =>
               q.status === "uploading"
@@ -292,7 +315,8 @@ export function FindsUploadForm() {
         <p className="text-xs text-gray-500">
           .jpg / .jpeg • zachovává EXIF • max{" "}
           {fmtSize(MAX_FILE_BYTES)}/soubor • {MAX_QUEUE_FILES} ve frontě
-          (po {MAX_FILES_PER_REQUEST} v dávce)
+          (dávky po max {fmtSize(MAX_BATCH_BYTES)} /{" "}
+          {MAX_FILES_PER_REQUEST} souborech)
         </p>
       </header>
 

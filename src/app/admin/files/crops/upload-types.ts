@@ -6,6 +6,11 @@ export const MAX_FILE_BYTES = 25 * 1024 * 1024;
 export const MAX_FILES_PER_REQUEST = 50;
 export const MAX_QUEUE_FILES = 1000;
 
+/** Per-batch byte cap. See finds/upload-types.ts for the rationale —
+ *  empirical ~10 MB body truncation cap somewhere upstream of Next.js,
+ *  so we keep batches comfortably below it. */
+export const MAX_BATCH_BYTES = 8 * 1024 * 1024;
+
 export interface UploadResult {
   index: number;
   filename: string;

@@ -32,11 +32,36 @@ async function postBatch(formData: FormData): Promise<UploadResponse> {
   return body ?? { results: [], error: "Prázdná odpověď serveru" };
 }
 import {
+  MAX_BATCH_BYTES,
   MAX_FILE_BYTES,
   MAX_FILES_PER_REQUEST,
   MAX_QUEUE_FILES,
   type UploadResult,
 } from "./upload-types";
+
+/** Splits queued files into size + count capped batches — same logic
+ *  as finds/upload-form.tsx. The byte cap is the binding one in
+ *  practice; without it Safari uploads truncate near 10 MB upstream
+ *  of Next.js. */
+function splitIntoBatches<T extends { file: File }>(items: T[]): T[][] {
+  const batches: T[][] = [];
+  let current: T[] = [];
+  let currentBytes = 0;
+  for (const item of items) {
+    const wouldExceedCount = current.length >= MAX_FILES_PER_REQUEST;
+    const wouldExceedBytes =
+      current.length > 0 && currentBytes + item.file.size > MAX_BATCH_BYTES;
+    if (wouldExceedCount || wouldExceedBytes) {
+      batches.push(current);
+      current = [];
+      currentBytes = 0;
+    }
+    current.push(item);
+    currentBytes += item.file.size;
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
 
 type RowStatus = "queued" | "uploading" | "ok" | "rejected";
 
@@ -145,9 +170,11 @@ export function CropsUploadForm() {
       return;
     }
     setBannerError(null);
-    const firstBatchIds = new Set(
-      toUpload.slice(0, MAX_FILES_PER_REQUEST).map((q) => q.id),
-    );
+    // Size-aware batching — see finds/upload-form.tsx for the
+    // rationale (request body gets truncated near 10 MB upstream of
+    // Next.js, so we cap each batch around 8 MB).
+    const batches = splitIntoBatches(toUpload);
+    const firstBatchIds = new Set(batches[0]?.map((q) => q.id) ?? []);
     setQueue((prev) =>
       prev.map((q) =>
         firstBatchIds.has(q.id) ? { ...q, status: "uploading" } : q,
@@ -155,13 +182,12 @@ export function CropsUploadForm() {
     );
 
     startTransition(async () => {
-      const total = toUpload.length;
       let aborted = false;
       let anyOk = false;
 
-      for (let i = 0; i < total; i += MAX_FILES_PER_REQUEST) {
+      for (let i = 0; i < batches.length; i += 1) {
         if (aborted) break;
-        const batch = toUpload.slice(i, i + MAX_FILES_PER_REQUEST);
+        const batch = batches[i]!;
         const batchIds = new Set(batch.map((q) => q.id));
         setQueue((prev) =>
           prev.map((q) =>
@@ -178,9 +204,7 @@ export function CropsUploadForm() {
           const response = await postBatch(fd);
           const { results, error } = response;
           if (error) {
-            setBannerError(
-              `Batch ${Math.floor(i / MAX_FILES_PER_REQUEST) + 1}: ${error}`,
-            );
+            setBannerError(`Batch ${i + 1}: ${error}`);
             setQueue((prev) =>
               prev.map((q) =>
                 q.status === "uploading"
@@ -221,9 +245,7 @@ export function CropsUploadForm() {
           });
         } catch (err) {
           const reason = err instanceof Error ? err.message : "Upload selhal";
-          setBannerError(
-            `Batch ${Math.floor(i / MAX_FILES_PER_REQUEST) + 1}: ${reason}`,
-          );
+          setBannerError(`Batch ${i + 1}: ${reason}`);
           setQueue((prev) =>
             prev.map((q) =>
               q.status === "uploading"
@@ -253,8 +275,9 @@ export function CropsUploadForm() {
           Nahrát výřezy nálezů
         </h2>
         <p className="text-xs text-gray-500">
-          .jpg / .jpeg • zachovává EXIF • max {fmtSize(MAX_FILE_BYTES)}/soubor •{" "}
-          {MAX_QUEUE_FILES} ve frontě (po {MAX_FILES_PER_REQUEST} v dávce)
+          .jpg / .jpeg • zachovává EXIF • max {fmtSize(MAX_FILE_BYTES)}/soubor
+          • {MAX_QUEUE_FILES} ve frontě (dávky po max{" "}
+          {fmtSize(MAX_BATCH_BYTES)} / {MAX_FILES_PER_REQUEST} souborech)
         </p>
       </header>
 
