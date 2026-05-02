@@ -431,12 +431,18 @@ function TimeAndPaceCard({ data }: { data: StatsTimeAndPaceResult }) {
     : null;
 
   return (
-    <section className="space-y-6 rounded-xl border border-gray-200 bg-white p-6">
-      <header>
-        <h2 className="text-lg font-semibold text-gray-900">
-          Doba sbírání a tempo
-        </h2>
-      </header>
+    <section
+      aria-labelledby="time-and-pace-section"
+      className="space-y-6 rounded-xl border border-gray-200 bg-white p-6"
+    >
+      {/* Section title is dropped from the visual layout to keep this
+          card compact — the captions above each cell group ("Odhadovaná
+          doba sbírání", "Průměrné tempo …") are self-describing. The
+          accessible name is preserved via a visually-hidden heading so
+          screen readers and the section landmark still announce it. */}
+      <h2 id="time-and-pace-section" className="sr-only">
+        Doba sbírání a tempo
+      </h2>
 
       {/* Top row — keep the two-column "total time" + "all-time pace"
           split on lg. The per-year selector lives below in its own
