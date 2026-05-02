@@ -4,13 +4,13 @@ import {
   Camera,
   CheckCircle2,
   Clock,
+  Crop,
   Database,
   FileCog,
-  FolderTree,
+  Image as ImageIcon,
   MapPinned,
   Map as MapIcon,
   ShieldCheck,
-  Upload,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { listCredentials } from "@/lib/admin/credentials";
@@ -45,32 +45,25 @@ export default async function AdminHomePage() {
           ]}
         />
         <FeatureCard
-          icon={FolderTree}
-          title="Soubory (read-only)"
-          status="ok"
-          href="/admin/files"
-          lines={["data/ + generated/", "Browser, preview, download"]}
-        />
-        <FeatureCard
-          icon={Upload}
-          title="Upload nálezů"
+          icon={ImageIcon}
+          title="Originály nálezů"
           status="ok"
           href="/admin/files/finds"
-          lines={["Originály + crops", "Drag-drop, EXIF, bulk delete"]}
+          lines={["data/finds/", "Drag-drop, EXIF, bulk delete"]}
+        />
+        <FeatureCard
+          icon={Crop}
+          title="Výřezy nálezů"
+          status="ok"
+          href="/admin/files/crops"
+          lines={["data/crops/", "Akceptuje i zkrácené <id>.jpg"]}
         />
         <FeatureCard
           icon={MapIcon}
           title="Lokační mapy"
           status="ok"
           href="/admin/files/maps"
-          lines={["Add / replace / delete", "Detekce duplikátů"]}
-        />
-        <FeatureCard
-          icon={FileCog}
-          title="LokaceStavyPoznamky.json"
-          status="ok"
-          href="/admin/json/lokace-stavy-poznamky"
-          lines={["Editor se 4 sekcemi", "Zod validace, atomic write"]}
+          lines={["data/maps/", "Detekce duplikátů, bulk delete"]}
         />
         <FeatureCard
           icon={Camera}
@@ -91,6 +84,13 @@ export default async function AdminHomePage() {
             "generated/location-photos/",
             "Konvence: <mapa>_reálné foto…",
           ]}
+        />
+        <FeatureCard
+          icon={FileCog}
+          title="LokaceStavyPoznamky.json"
+          status="ok"
+          href="/admin/json/lokace-stavy-poznamky"
+          lines={["Editor se 4 sekcemi", "Zod validace, atomic write"]}
         />
         <FeatureCard
           icon={Database}

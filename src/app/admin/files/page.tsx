@@ -31,9 +31,10 @@ export default async function AdminFilesLandingPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-900">Soubory</h1>
         <p className="text-sm text-gray-600">
-          Read-only prohlížeč obsahu <code>data/</code> a vybraných částí{" "}
-          <code>generated/</code>. Operace na souborech přicházejí v dalších
-          fázích — zatím slouží k ověření paths a oprávnění.
+          Prohlížeč obsahu <code>data/</code> a vybraných částí{" "}
+          <code>generated/</code>. U writable scopů jde nahrávat, mazat (do{" "}
+          <code>.trash/</code>) a hromadně mazat. <span className="text-gray-400">RO</span>{" "}
+          označuje read-only oblasti — tam pomocí editorů (např. JSON).
         </p>
       </header>
 
@@ -58,7 +59,7 @@ export default async function AdminFilesLandingPage() {
                     {!s.writable && (
                       <span
                         className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500"
-                        title="Phase 2 — read-only"
+                        title="Read-only — uprav přes specializovaný editor"
                       >
                         <Lock className="h-3 w-3" aria-hidden />
                         RO
