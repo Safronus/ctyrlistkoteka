@@ -14,8 +14,8 @@ import {
   isAuthenticated,
   touchSession,
 } from "@/lib/admin/session";
-import { MAX_BULK_DELETE_PER_REQUEST } from "./delete-types";
-import type { BulkDeleteResult } from "./delete-types";
+import { MAX_BULK_DELETE_PER_REQUEST } from "../_shared/list-types";
+import type { BulkDeleteResult } from "../_shared/list-types";
 
 /** Move a single map from `data/maps/` to `data/.trash/<ts>/maps/`.
  *  Same rename-based atomic semantics as the finds/ delete; both

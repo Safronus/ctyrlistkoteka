@@ -11,11 +11,10 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { deleteMapsBulk } from "./delete-action";
 import {
   MAX_BULK_DELETE_PER_REQUEST,
   type BulkDeleteResult,
-} from "./delete-types";
+} from "./list-types";
 
 interface ScopeEntry {
   name: string;
@@ -27,6 +26,18 @@ interface ScopeEntry {
 interface Props {
   entries: ScopeEntry[];
   scopeSlug: string;
+  /** Server action that trashes the named files and returns per-row
+   *  results. Each scope (finds / crops / maps) supplies its own —
+   *  the action hard-codes the source root so the caller cannot
+   *  cross scopes by tampering with the request. */
+  bulkDelete: (formData: FormData) => Promise<{ results: BulkDeleteResult[] }>;
+  /** Optional cross-scope coverage set (find IDs in the counterpart
+   *  scope). Rows whose leading find ID is NOT in the set get the
+   *  missingCoverageLabel badge. ID-based, not name-based, because
+   *  finds and crops share only the leading numeric ID — the rest
+   *  of the filename can drift. Maps don't supply coverage. */
+  coverageFindIds?: Set<number>;
+  missingCoverageLabel?: string;
 }
 
 function fmtSize(bytes: number): string {
@@ -39,23 +50,21 @@ function isImageName(name: string): boolean {
   return /\.(jpe?g|png|webp|heic|heif|gif)$/i.test(name);
 }
 
+function extractFindId(filename: string): number | null {
+  const m = /^(\d+)/.exec(filename);
+  return m ? Number(m[1]) : null;
+}
+
 interface DuplicateInfo {
-  /** All entries that share an NFC-normalised name with at least one
-   *  sibling — used to render the "duplikát" badge. For 43 dup pairs
-   *  this contains 86 names. */
+  /** Entries that share an NFC-normalised name with at least one
+   *  sibling — used to render the "duplikát" badge. */
   flagged: Set<string>;
   /** The subset that the auto-select shortcut would mark for trash:
-   *  every entry except the OLDEST in each NFC group. For 43 pairs
-   *  this contains 43 names. The button label uses this size so the
-   *  number matches what actually gets selected. */
+   *  every entry except the OLDEST in each NFC group. The button
+   *  label uses this size so the count matches what gets selected. */
   trashCandidates: Set<string>;
 }
 
-/** Analyses entries for NFC-equivalent duplicate groups. The return
- *  value separates "files involved in any dup group" (badge) from
- *  "files that would be auto-selected for deletion" (button count) —
- *  conflating the two was the bug where the button said 86 but only
- *  43 rows actually got ticked. */
 function analyzeDuplicates(entries: ScopeEntry[]): DuplicateInfo {
   const groups = new Map<string, ScopeEntry[]>();
   for (const e of entries) {
@@ -70,14 +79,23 @@ function analyzeDuplicates(entries: ScopeEntry[]): DuplicateInfo {
     if (group.length < 2) continue;
     for (const e of group) flagged.add(e.name);
     group.sort((a, b) => Date.parse(a.mtime) - Date.parse(b.mtime));
-    // Keep the oldest (presumed original from rsync), trash the rest
-    // (presumed NFC-collision uploads from the admin form).
     for (const e of group.slice(1)) trashCandidates.add(e.name);
   }
   return { flagged, trashCandidates };
 }
 
-export function MapsListClient({ entries, scopeSlug }: Props) {
+/** Generic listing with row checkboxes, select-all, NFC-duplicate
+ *  detection + auto-select shortcut, optional cross-scope coverage
+ *  badge, and a bulk-delete confirmation strip. Used for finds,
+ *  crops, and maps; the bulk-delete action is passed in so each
+ *  scope keeps its own server-side write boundary. */
+export function FilesListClient({
+  entries,
+  scopeSlug,
+  bulkDelete,
+  coverageFindIds,
+  missingCoverageLabel,
+}: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [batchResults, setBatchResults] = useState<BulkDeleteResult[]>([]);
@@ -100,20 +118,15 @@ export function MapsListClient({ entries, scopeSlug }: Props) {
 
   const allSelected =
     entries.length > 0 && entries.every((e) => selected.has(e.name));
-  const someSelected = !allSelected && entries.some((e) => selected.has(e.name));
+  const someSelected =
+    !allSelected && entries.some((e) => selected.has(e.name));
 
   const toggleAll = () => {
-    if (allSelected) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(entries.map((e) => e.name)));
-    }
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(entries.map((e) => e.name)));
   };
 
   const selectDuplicatesNewest = () => {
-    // Re-use the precomputed trash candidate set rather than walking
-    // the entries again — keeps the button count and the actual
-    // selection in lockstep.
     setSelected(new Set(trashCandidates));
   };
 
@@ -132,30 +145,28 @@ export function MapsListClient({ entries, scopeSlug }: Props) {
       const fd = new FormData();
       for (const name of selected) fd.append("name", name);
       try {
-        const { results } = await deleteMapsBulk(fd);
+        const { results } = await bulkDelete(fd);
         setBatchResults(results);
-        // Drop successfully-deleted entries from selection so a
-        // partial failure leaves only the failed ones ticked.
-        const okNames = new Set(
-          results.filter((r) => r.status === "ok").map((r) => r.filename),
+        const okNamesNFC = new Set(
+          results
+            .filter((r) => r.status === "ok")
+            .map((r) => r.filename.normalize("NFC")),
         );
+        // Drop successfully-trashed entries from selection (NFC-aware
+        // so a server response in NFD form still matches a queue
+        // entry stored in NFC).
         setSelected((prev) => {
-          const next = new Set(prev);
+          const next = new Set<string>();
           for (const name of prev) {
-            if (okNames.has(name)) next.delete(name);
-            // Also normalize via NFC compare in case the server
-            // returned a slightly different on-disk form.
-            for (const ok of okNames) {
-              if (ok.normalize("NFC") === name.normalize("NFC")) {
-                next.delete(name);
-              }
-            }
+            if (!okNamesNFC.has(name.normalize("NFC"))) next.add(name);
           }
           return next;
         });
         setConfirming(false);
       } catch (err) {
-        setBannerError(err instanceof Error ? err.message : "Bulk delete selhal");
+        setBannerError(
+          err instanceof Error ? err.message : "Bulk delete selhal",
+        );
         setConfirming(false);
       }
     });
@@ -174,10 +185,7 @@ export function MapsListClient({ entries, scopeSlug }: Props) {
             aria-label={allSelected ? "Odznačit vše" : "Označit vše"}
           >
             {allSelected ? (
-              <CheckSquare
-                className="h-4 w-4 text-brand-600"
-                aria-hidden
-              />
+              <CheckSquare className="h-4 w-4 text-brand-600" aria-hidden />
             ) : someSelected ? (
               <CheckSquare
                 className="h-4 w-4 text-brand-600 opacity-60"
@@ -293,6 +301,11 @@ export function MapsListClient({ entries, scopeSlug }: Props) {
           const isImg = isImageName(e.name);
           const isSelected = selected.has(e.name);
           const isDup = flagged.has(e.name);
+          const findId = extractFindId(e.name);
+          const isUncovered =
+            coverageFindIds !== undefined &&
+            findId !== null &&
+            !coverageFindIds.has(findId);
           return (
             <li
               key={e.name}
@@ -339,6 +352,14 @@ export function MapsListClient({ entries, scopeSlug }: Props) {
                   title="Existuje další soubor se stejným NFC-normalizovaným názvem (Unicode duplikát)"
                 >
                   duplikát
+                </span>
+              )}
+              {isUncovered && missingCoverageLabel && (
+                <span
+                  className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-amber-900"
+                  title={`Žádný odpovídající soubor v sourozenecké složce (${missingCoverageLabel})`}
+                >
+                  {missingCoverageLabel}
                 </span>
               )}
               <span className="shrink-0 font-mono text-xs tabular-nums text-gray-500">

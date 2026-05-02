@@ -10,15 +10,16 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import {
-  extractFindId,
   getScope,
   listScope,
   listScopeFindIds,
 } from "@/lib/admin/scopes";
-import { CropsListClient } from "../crops/crops-list-client";
+import { FilesListClient } from "../_shared/files-list-client";
+import { deleteCropsBulk } from "../crops/delete-action";
 import { CropsUploadForm } from "../crops/upload-form";
+import { deleteFindsBulk } from "../finds/delete-action";
 import { FindsUploadForm } from "../finds/upload-form";
-import { MapsListClient } from "../maps/maps-list-client";
+import { deleteMapsBulk } from "../maps/delete-action";
 import { MapsUploadForm } from "../maps/upload-form";
 
 /** Allowed `?size=` values. Capped at 500 because each entry incurs
@@ -281,27 +282,35 @@ export default async function AdminScopeListPage({
             ? "Adresář je prázdný (nebo neexistuje)."
             : "Žádný soubor neodpovídá filtru."}
         </div>
-      ) : scope.slug === "maps" ? (
-        // Maps get the bulk-select listing because the user
-        // periodically needs to clean up Unicode-duplicate uploads.
-        <MapsListClient entries={entries} scopeSlug={scope.slug} />
-      ) : scope.slug === "crops" ? (
-        <CropsListClient
+      ) : scope.slug === "finds" ? (
+        <FilesListClient
           entries={entries}
           scopeSlug={scope.slug}
+          bulkDelete={deleteFindsBulk}
           coverageFindIds={counterpartIds}
           missingCoverageLabel={counterpartLabel}
         />
+      ) : scope.slug === "crops" ? (
+        <FilesListClient
+          entries={entries}
+          scopeSlug={scope.slug}
+          bulkDelete={deleteCropsBulk}
+          coverageFindIds={counterpartIds}
+          missingCoverageLabel={counterpartLabel}
+        />
+      ) : scope.slug === "maps" ? (
+        <FilesListClient
+          entries={entries}
+          scopeSlug={scope.slug}
+          bulkDelete={deleteMapsBulk}
+        />
       ) : (
+        // Other scopes (meta, donation-photos, location-photos) keep
+        // the simple read-only listing — no bulk write surface yet.
         <ul className="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white">
           {entries.map((e) => {
             const href = `/admin/files/${scope.slug}/${encodeURIComponent(e.name)}`;
             const isImg = isImageName(e.name);
-            const findId = extractFindId(e.name);
-            const isUncovered =
-              counterpartIds !== undefined &&
-              findId !== null &&
-              !counterpartIds.has(findId);
             return (
               <li key={e.name}>
                 <Link
@@ -325,14 +334,6 @@ export default async function AdminScopeListPage({
                   >
                     {e.name}
                   </span>
-                  {isUncovered && counterpartLabel && (
-                    <span
-                      className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-amber-900"
-                      title={`Žádný odpovídající soubor v sourozenecké složce (${counterpartLabel})`}
-                    >
-                      {counterpartLabel}
-                    </span>
-                  )}
                   <span className="shrink-0 font-mono text-xs tabular-nums text-gray-500">
                     {fmtSize(e.size)}
                   </span>

@@ -14,8 +14,8 @@ import {
   isAuthenticated,
   touchSession,
 } from "@/lib/admin/session";
-import { MAX_BULK_DELETE_PER_REQUEST } from "./delete-types";
-import type { BulkDeleteResult } from "./delete-types";
+import { MAX_BULK_DELETE_PER_REQUEST } from "../_shared/list-types";
+import type { BulkDeleteResult } from "../_shared/list-types";
 
 /** Move one crop from `data/crops/` to `data/.trash/<ts>/crops/`.
  *  Same atomic-rename semantics as the finds/maps deletes; both ends
