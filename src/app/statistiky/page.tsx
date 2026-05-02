@@ -1469,21 +1469,20 @@ function JubileeFindsSection({
         </p>
       </header>
 
-      {/* Specials sit on their own row, centred via a max-width grid
-          that caps at 5 columns on md+ so the typical 5-card line
-          fits without stretching across the whole panel. Wraps
-          naturally on narrow viewports. Like the thousand-milestones
-          below, the slots are fixed — uncollected specials render a
-          placeholder so the row keeps its shape. */}
-      <ul className="mx-auto grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+      {/* Specials share the milestone grid template so card widths
+          line up across both rows. Slots are fixed — uncollected
+          specials render a placeholder so the row keeps its shape.
+          A sparkles icon + brand-tinted chrome marks the row as
+          special without a dramatic visual break. */}
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {slottedSpecials.map((slot) =>
           slot.kind === "find" ? (
             <li key={slot.find.id}>
-              <JubileeCard find={slot.find} />
+              <JubileeCard find={slot.find} variant="special" />
             </li>
           ) : (
             <li key={`empty-${slot.id}`}>
-              <JubileeEmptyCard id={slot.id} />
+              <JubileeEmptyCard id={slot.id} variant="special" />
             </li>
           ),
         )}
@@ -1537,21 +1536,40 @@ function JubileeFindsSection({
   );
 }
 
-function JubileeCard({ find }: { find: JubileeFind }) {
+function JubileeCard({
+  find,
+  variant = "default",
+}: {
+  find: JubileeFind;
+  /** "special" applies brand-tinted chrome + a sparkles glyph next to
+   *  the headline so the 111/666/1111/6666/11111 row reads as set
+   *  apart from the by-1000 milestones. */
+  variant?: "default" | "special";
+}) {
   const date = find.foundAt ? new Date(find.foundAt) : null;
   const showMapLink = !find.isAnonymized && find.hasGps;
+  const isSpecial = variant === "special";
   // Two stacked links inside a wrapping div — same pattern as
   // /sbirka FindList rows. The wrapper carries the card chrome (border,
   // bg, hover) so both children share the visual treatment, and keeping
   // them as siblings (not nested) avoids the "<a> inside <a>" pitfall
   // and leaves each link area cleanly clickable on its own.
   return (
-    <div className="flex h-full flex-col rounded-md border border-gray-200 bg-gray-50 transition hover:border-brand-200 hover:bg-brand-50 hover:shadow-sm">
+    <div
+      className={`flex h-full flex-col rounded-md border transition hover:shadow-sm ${
+        isSpecial
+          ? "border-brand-200 bg-brand-50/60 hover:border-brand-300 hover:bg-brand-50"
+          : "border-gray-200 bg-gray-50 hover:border-brand-200 hover:bg-brand-50"
+      }`}
+    >
       <Link
         href={`/sbirka/${find.id}`}
         className="flex flex-1 flex-col gap-1 p-3 text-sm"
       >
-        <span className="font-mono text-base font-semibold text-brand-700">
+        <span className="inline-flex items-center gap-1 font-mono text-base font-semibold text-brand-700">
+          {isSpecial && (
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-hidden />
+          )}
           {/* Jubilee headlines read better without zero-padding — #111
               instead of #00111 keeps the milestone visually clean. The
               rest of the site still uses formatLocationId() for IDs that
@@ -1598,16 +1616,41 @@ function JubileeCard({ find }: { find: JubileeFind }) {
 // yet — keeps the grid shape stable as the collection grows. Dashed
 // border + muted palette signal the slot is reserved but empty, so it
 // reads as "coming up" rather than as a broken row.
-function JubileeEmptyCard({ id }: { id: number }) {
+function JubileeEmptyCard({
+  id,
+  variant = "default",
+}: {
+  id: number;
+  variant?: "default" | "special";
+}) {
+  const isSpecial = variant === "special";
   return (
     <div
-      className="flex h-full flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50/60 px-3 py-4 text-center"
+      className={`flex h-full flex-col items-center justify-center rounded-md border border-dashed px-3 py-4 text-center ${
+        isSpecial
+          ? "border-brand-200 bg-brand-50/40"
+          : "border-gray-300 bg-gray-50/60"
+      }`}
       aria-label={`Nález #${id} zatím chybí na webu`}
     >
-      <span className="font-mono text-base font-semibold text-gray-400">
+      <span
+        className={`inline-flex items-center gap-1 font-mono text-base font-semibold ${
+          isSpecial ? "text-brand-700/60" : "text-gray-400"
+        }`}
+      >
+        {isSpecial && (
+          <Sparkles
+            className="h-3.5 w-3.5 text-amber-500/70"
+            aria-hidden
+          />
+        )}
         #{id}
       </span>
-      <span className="mt-1 text-[11px] uppercase tracking-wide text-gray-400">
+      <span
+        className={`mt-1 text-[11px] uppercase tracking-wide ${
+          isSpecial ? "text-brand-700/60" : "text-gray-400"
+        }`}
+      >
         Zatím chybí na webu
       </span>
     </div>
