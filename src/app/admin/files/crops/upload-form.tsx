@@ -10,7 +10,27 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { uploadCrops } from "./upload-action";
+import type { UploadResponse } from "./upload-types";
+
+/** REST POST helper — see finds/upload-form.tsx for the rationale
+ *  (server-action RSC encoder chokes on big batches; native fetch
+ *  multipart sidesteps that pipeline entirely). */
+async function postBatch(formData: FormData): Promise<UploadResponse> {
+  const r = await fetch("/admin/api/upload/crops", {
+    method: "POST",
+    body: formData,
+  });
+  let body: UploadResponse | null = null;
+  try {
+    body = (await r.json()) as UploadResponse;
+  } catch {
+    /* fall through */
+  }
+  if (!r.ok && (!body || !body.error)) {
+    return { results: [], error: `HTTP ${r.status}` };
+  }
+  return body ?? { results: [], error: "Prázdná odpověď serveru" };
+}
 import {
   MAX_FILE_BYTES,
   MAX_FILES_PER_REQUEST,
@@ -155,7 +175,7 @@ export function CropsUploadForm() {
         for (const q of batch) fd.append("files", q.file);
 
         try {
-          const response = await uploadCrops(fd);
+          const response = await postBatch(fd);
           const { results, error } = response;
           if (error) {
             setBannerError(

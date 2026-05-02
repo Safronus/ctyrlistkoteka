@@ -10,13 +10,39 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { uploadFinds } from "./upload-action";
 import {
   MAX_FILE_BYTES,
   MAX_FILES_PER_REQUEST,
   MAX_QUEUE_FILES,
+  type UploadResponse,
   type UploadResult,
 } from "./upload-types";
+
+/** Posts a multipart batch to the /admin/api/upload/finds REST
+ *  endpoint. We use plain fetch instead of a server action because
+ *  Next.js's RSC encoder for server actions chokes on ~50-File
+ *  batches (request never goes over the wire, error masked as
+ *  "Server Components render"). Native multipart upload streams the
+ *  body without buffering everything as ArrayBuffer first. */
+async function postBatch(formData: FormData): Promise<UploadResponse> {
+  const r = await fetch("/admin/api/upload/finds", {
+    method: "POST",
+    body: formData,
+  });
+  // Try JSON regardless of status — both 200 and 413/400 carry our
+  // structured response shape. If parse fails, fall back to a
+  // synthetic error so the form can render something useful.
+  let body: UploadResponse | null = null;
+  try {
+    body = (await r.json()) as UploadResponse;
+  } catch {
+    /* fall through */
+  }
+  if (!r.ok && (!body || !body.error)) {
+    return { results: [], error: `HTTP ${r.status}` };
+  }
+  return body ?? { results: [], error: "Prázdná odpověď serveru" };
+}
 
 type RowStatus = "queued" | "uploading" | "ok" | "rejected";
 
@@ -173,7 +199,7 @@ export function FindsUploadForm() {
         for (const q of batch) fd.append("files", q.file);
 
         try {
-          const response = await uploadFinds(fd);
+          const response = await postBatch(fd);
           const { results, error } = response;
           // Top-level `error` means the batch never reached per-file
           // processing — auth, request shape, or post-success
