@@ -43,26 +43,36 @@ export function SyncPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const logRef = useRef<HTMLPreElement>(null);
+  // Refs for polling — useEffect's poll() captured the offset state
+  // at mount as 0 and re-sent the same query forever, so every tick
+  // re-appended the same log bytes. Mirror the offset and runId in
+  // refs so the loop reads the live value without listing them in
+  // deps (which would tear down + restart the polling chain on every
+  // change).
+  const offsetRef = useRef<number>(0);
   const lastSeenRunIdRef = useRef<string | null>(initialStatus?.runId ?? null);
 
-  // Poll while a run is active OR until we've fully consumed a finished
-  // run's log. Stop when state ∈ {idle, succeeded, failed, crashed} AND
-  // the log has caught up.
+  // Single persistent polling loop driven by mount/unmount. The
+  // server response carries `data.offset` (next-read position), so
+  // each tick advances offsetRef monotonically. The loop runs until
+  // unmount; call rate is one fetch per POLL_INTERVAL_MS — fine for
+  // a single-user admin page.
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const poll = async () => {
       try {
-        const url = `/api/admin/sync/status?offset=${offset}`;
+        const url = `/api/admin/sync/status?offset=${offsetRef.current}`;
         const r = await fetch(url, { cache: "no-store" });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = (await r.json()) as StatusPayload;
         if (cancelled) return;
         if (data.status?.runId !== lastSeenRunIdRef.current) {
-          // Run changed (new run started). Reset the local log buffer
-          // so we don't carry stale content across runs.
+          // Run changed — reset local log buffer + offset so the new
+          // run starts from a clean slate.
           setLogBuffer("");
+          offsetRef.current = 0;
           setOffset(0);
           lastSeenRunIdRef.current = data.status?.runId ?? null;
         }
@@ -70,17 +80,13 @@ export function SyncPanel({
         if (data.log.length > 0) {
           setLogBuffer((prev) => prev + data.log);
         }
+        offsetRef.current = data.offset;
         setOffset(data.offset);
-        const isRunning = data.status?.state === "running";
-        if (isRunning || data.log.length > 0) {
-          timer = setTimeout(poll, POLL_INTERVAL_MS);
-        }
       } catch (err) {
         if (cancelled) return;
-        // Soft retry — transient fetch errors shouldn't kill the
-        // whole panel. Back off slightly to avoid a tight loop.
-        timer = setTimeout(poll, POLL_INTERVAL_MS * 2);
         setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!cancelled) timer = setTimeout(poll, POLL_INTERVAL_MS);
       }
     };
 
@@ -89,7 +95,6 @@ export function SyncPanel({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-scroll the log when new content arrives. Skip when the user
@@ -126,26 +131,11 @@ export function SyncPanel({
       const next = data as SyncStatus;
       setStatus(next);
       setLogBuffer("");
+      offsetRef.current = 0;
       setOffset(0);
       lastSeenRunIdRef.current = next.runId;
-      // Kick the polling loop again — the effect's poll() will fire on
-      // its own next tick, but starting from offset 0 means the first
-      // pass picks up the empty file and schedules itself.
-      const tick = async () => {
-        const sr = await fetch(`/api/admin/sync/status?offset=0`, {
-          cache: "no-store",
-        });
-        if (sr.ok) {
-          const sd = (await sr.json()) as StatusPayload;
-          setStatus(sd.status);
-          setLogBuffer(sd.log);
-          setOffset(sd.offset);
-          if (sd.status?.state === "running" || sd.log.length > 0) {
-            setTimeout(tick, POLL_INTERVAL_MS);
-          }
-        }
-      };
-      setTimeout(tick, POLL_INTERVAL_MS);
+      // The persistent polling loop in useEffect picks up the new
+      // run on its next tick — no second chain needed.
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

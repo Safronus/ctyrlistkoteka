@@ -402,10 +402,8 @@ export default async function AdminScopeListPage({
           bulkDelete={deleteMapsBulk}
           bulkRename={{
             label: "Označit jako zaniklé",
-            confirmText: (n) =>
-              `Přejmenovat ${n} ${
-                n === 1 ? "mapu" : n < 5 ? "mapy" : "map"
-              } s prefixem NEEXISTUJE-?`,
+            confirmTemplate:
+              "Přejmenovat {n} položek s prefixem NEEXISTUJE-?",
             action: markMapsNonexistentBulk,
           }}
         />

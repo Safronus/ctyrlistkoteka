@@ -42,13 +42,18 @@ interface Props {
   missingCoverageLabel?: string;
   /** Optional secondary action — currently only the maps scope wires
    *  this to "mark as nonexistent". When set, renders a button next
-   *  to bulk-delete with the supplied label/colour. */
+   *  to bulk-delete with the supplied label.
+   *
+   *  Server components can't pass arbitrary functions to client
+   *  components (only "use server" actions cross that boundary), so
+   *  the confirmation copy is a string template with `{n}` for the
+   *  selection size — substituted on the client. */
   bulkRename?: {
     /** Button label, e.g. "Označit jako zaniklé". */
     label: string;
-    /** Confirmation strip body, e.g.
-     *  "Přejmenovat 12 map s prefixem NEEXISTUJE-?". */
-    confirmText: (count: number) => string;
+    /** Confirmation strip body. `{n}` is replaced with the count of
+     *  selected rows, e.g. "Přejmenovat {n} map s prefixem NEEXISTUJE-?". */
+    confirmTemplate: string;
     action: (
       formData: FormData,
     ) => Promise<{ results: BulkRenameResult[] }>;
@@ -319,7 +324,10 @@ export function FilesListClient({
           {confirming === "rename" && bulkRename && (
             <div className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1">
               <span className="text-amber-900">
-                {bulkRename.confirmText(selected.size)}
+                {bulkRename.confirmTemplate.replace(
+                  "{n}",
+                  String(selected.size),
+                )}
               </span>
               <button
                 type="button"
