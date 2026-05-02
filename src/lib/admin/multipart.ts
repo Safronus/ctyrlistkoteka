@@ -1,4 +1,3 @@
-import { Readable } from "node:stream";
 import Busboy from "busboy";
 
 /** A parsed multipart file part — minimal File-like shape that the
@@ -58,8 +57,26 @@ export async function parseMultipartRequest(
     );
   }
 
-  const body = request.body;
-  if (!body) throw new Error("Request body is empty");
+  // Read the whole body upfront and feed busboy synchronously, instead
+  // of `Readable.fromWeb(request.body).pipe(busboy)`. The piped variant
+  // mysteriously dropped trailing bytes in production for ≥50-file
+  // Safari batches — busboy ended up reporting "Unexpected end of form"
+  // with a Content-Length that perfectly matched the multipart payload
+  // size, suggesting the Web→Node stream bridge was eating the tail.
+  // For our per-batch caps (≤200 MB) this allocation cost is fine, and
+  // we get a clear error if the network actually truncated by comparing
+  // bytesRead against Content-Length.
+  const buffer = Buffer.from(await request.arrayBuffer());
+  const expectedLen = Number(request.headers.get("content-length"));
+  if (
+    Number.isFinite(expectedLen) &&
+    expectedLen > 0 &&
+    buffer.length !== expectedLen
+  ) {
+    throw new Error(
+      `Body length mismatch: read ${buffer.length} bytes, Content-Length said ${expectedLen}`,
+    );
+  }
 
   const busboy = Busboy({
     headers: { "content-type": contentType },
@@ -100,10 +117,9 @@ export async function parseMultipartRequest(
     busboy.on("error", (err) => reject(err));
   });
 
-  // ReadableStream<Uint8Array> from `request.body` → Node Readable so
-  // busboy can pipe-style consume it. Node 20+ provides Readable.fromWeb
-  // for this exact purpose.
-  Readable.fromWeb(body as never).pipe(busboy);
+  // Synchronous push + end — busboy parses without waiting for any
+  // upstream stream to settle.
+  busboy.end(buffer);
 
   await done;
   return { files, fields };
