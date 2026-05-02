@@ -15,7 +15,9 @@ import {
 } from "@/lib/admin/session";
 import type { BulkRenameResult } from "../_shared/list-types";
 
-export const NONEXISTENT_PREFIX = "NEEXISTUJE-";
+// "use server" files only allow async exports — keep the prefix
+// internal. The button + detail page hardcode the literal too.
+const NONEXISTENT_PREFIX = "NEEXISTUJE-";
 
 /** Rename a single map filename to add the `NEEXISTUJE-` prefix.
  *  Used when a real-world location no longer exists (field paved
