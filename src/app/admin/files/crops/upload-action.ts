@@ -135,16 +135,38 @@ async function processOne(
     return reject(index, baseName, "Prázdný soubor", ip, credentialLabel);
   }
 
+  // Crops accept two filename forms:
+  //  1. The full find-photo convention (`123+map+loc+state+anon+note.jpg`)
+  //     — same as originals, parsed via parseFindFilename.
+  //  2. A short ID-only form (`123.jpg`) — convenient when the user
+  //     has the crop image but doesn't want to mirror every metadata
+  //     edit from the original. Originals must always be in form 1;
+  //     this relaxation is crop-specific.
+  let findId: number;
+  let ext: string;
   const parsed = parseFindFilename(baseName);
-  if (!parsed.ok) {
-    return reject(index, baseName, parsed.error, ip, credentialLabel);
+  if (parsed.ok) {
+    findId = parsed.value.findId;
+    ext = parsed.value.extension.toLowerCase();
+  } else {
+    const simple = /^(\d+)\.(jpe?g)$/i.exec(baseName);
+    if (!simple) {
+      return reject(
+        index,
+        baseName,
+        `${parsed.error} (nebo akceptujeme zkrácené "<id>.jpg")`,
+        ip,
+        credentialLabel,
+      );
+    }
+    findId = Number(simple[1]);
+    ext = simple[2]!.toLowerCase();
   }
-  const ext = parsed.value.extension.toLowerCase();
   if (ext !== "jpg" && ext !== "jpeg") {
     return reject(
       index,
       baseName,
-      `Nepovolená přípona: ".${parsed.value.extension}" — povolené jsou .jpg / .jpeg`,
+      `Nepovolená přípona: ".${ext}" — povolené jsou .jpg / .jpeg`,
       ip,
       credentialLabel,
     );
@@ -200,7 +222,7 @@ async function processOne(
       scope: "crops",
       file: baseName,
       size: data.byteLength,
-      findId: parsed.value.findId,
+      findId,
       outcome: "ok",
     },
   });
@@ -210,7 +232,7 @@ async function processOne(
     filename: baseName,
     status: "ok",
     size: data.byteLength,
-    findId: parsed.value.findId,
+    findId,
   };
 }
 

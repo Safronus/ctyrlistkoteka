@@ -86,7 +86,10 @@ function analyzeDuplicates(entries: ScopeEntry[]): DuplicateInfo {
 }
 
 function extractFindId(filename: string): number | null {
-  const m = /^(\d+)\+/.exec(filename);
+  // Match leading digit run only — covers both the full
+  // `123+...+...+...jpg` form and the short crop-only `123.jpg`
+  // form. Mirrors the server-side helper in src/lib/admin/scopes.ts.
+  const m = /^(\d+)/.exec(filename);
   return m ? Number(m[1]) : null;
 }
 

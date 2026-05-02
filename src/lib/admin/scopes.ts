@@ -79,7 +79,8 @@ export const SCOPES: readonly ScopeDef[] = [
     slug: "crops",
     rootKey: "findCrops",
     label: "Výřezy nálezů",
-    description: "data/crops/ — vyřezané čtyřlístky (JPEG).",
+    description:
+      "data/crops/ — vyřezané čtyřlístky (JPEG). Akceptujeme i zkrácený název \"<id>.jpg\".",
     writable: false,
   },
   {
@@ -187,11 +188,11 @@ export async function listScope(
   if (opts.excludeFindIds) {
     const exclude = opts.excludeFindIds;
     names = names.filter((n) => {
-      const m = /^(\d+)\+/.exec(n);
-      // Names without a leading numeric+plus (maps, weird outliers)
+      const id = extractFindId(n);
+      // Names without a leading digit run (maps, weird outliers)
       // pass through — the filter is meaningful only for finds/crops.
-      if (!m) return true;
-      return !exclude.has(Number(m[1]));
+      if (id === null) return true;
+      return !exclude.has(id);
     });
   }
 
@@ -244,10 +245,11 @@ export async function listScopeNamesNFC(
 }
 
 /** Returns the set of find IDs present in a scope — the leading
- *  numeric segment before the first `+` in each filename. Used for
- *  finds ↔ crops coverage where the rest of the filename can differ
- *  but the ID is the canonical pair key. Files without a leading
- *  number+plus (location maps, anything else) are skipped silently. */
+ *  numeric run of each filename. Used for finds ↔ crops coverage.
+ *  Originals must have the full 6-segment convention, but crops are
+ *  allowed to be just `<id>.jpg`, so the extractor only requires
+ *  leading digits, not a trailing `+`. Files without a leading
+ *  digit run (location maps, the rare malformed entry) are skipped. */
 export async function listScopeFindIds(
   scope: ScopeDef,
 ): Promise<Set<number>> {
@@ -262,17 +264,18 @@ export async function listScopeFindIds(
   const ids = new Set<number>();
   for (const n of names) {
     if (n.startsWith(".")) continue;
-    const m = /^(\d+)\+/.exec(n);
-    if (m) ids.add(Number(m[1]));
+    const id = extractFindId(n);
+    if (id !== null) ids.add(id);
   }
   return ids;
 }
 
-/** Extracts the find ID from a filename — first numeric run before
- *  the first `+`. Returns null when the name doesn't follow the
- *  finds/crops convention. */
+/** Extracts the find ID from a filename — leading digit run.
+ *  Matches both the full convention (`123+map+loc+state+anon+note.jpg`)
+ *  and the short crop form (`123.jpg`). Returns null when the name
+ *  doesn't start with digits at all (e.g. location map filenames). */
 export function extractFindId(filename: string): number | null {
-  const m = /^(\d+)\+/.exec(filename);
+  const m = /^(\d+)/.exec(filename);
   return m ? Number(m[1]) : null;
 }
 
