@@ -36,17 +36,26 @@ import { MapsUploadForm } from "../maps/upload-form";
 
 /** Allowed `?size=` values. Capped at 500 because each entry incurs
  *  one `fs.stat` call in listScope; on finds (17k+ files) a larger
- *  page would noticeably slow the listing render. For maps (~128
+ *  page would noticeably slow the listing render. For maps (~130
  *  entries) any value at or above 200 effectively shows everything. */
 const PAGE_SIZE_OPTIONS = [50, 100, 200, 500] as const;
 const DEFAULT_PAGE_SIZE = 100;
+/** Maps fit in one page at 500 (~130 entries today, growing slowly).
+ *  Default to that for the scope so the user doesn't paginate over
+ *  what's effectively a flat config list. Other scopes keep the
+ *  conservative 100. */
+const SCOPE_DEFAULT_PAGE_SIZE: Record<string, number> = {
+  maps: 500,
+};
 
-function pickPageSize(v: string | undefined): number {
-  if (!v) return DEFAULT_PAGE_SIZE;
+function pickPageSize(v: string | undefined, scopeSlug: string): number {
+  const scopeDefault =
+    SCOPE_DEFAULT_PAGE_SIZE[scopeSlug] ?? DEFAULT_PAGE_SIZE;
+  if (!v) return scopeDefault;
   const n = Number.parseInt(v, 10);
   return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n)
     ? n
-    : DEFAULT_PAGE_SIZE;
+    : scopeDefault;
 }
 
 interface PageProps {
@@ -119,7 +128,9 @@ export default async function AdminScopeListPage({
 
   const query = pickString(sp.q) ?? "";
   const page = pickInt(pickString(sp.page), 1);
-  const pageSize = pickPageSize(pickString(sp.size));
+  const pageSize = pickPageSize(pickString(sp.size), scope.slug);
+  const defaultPageSize =
+    SCOPE_DEFAULT_PAGE_SIZE[scope.slug] ?? DEFAULT_PAGE_SIZE;
   const duplicatesOnly = pickString(sp.dups) === "1";
   const uncoveredOnly = pickString(sp.uncovered) === "1";
   // Maps-only filters: surface zaniklé / anonymizované entries on
@@ -256,7 +267,7 @@ export default async function AdminScopeListPage({
     const usp = new URLSearchParams();
     if (merged.q) usp.set("q", merged.q);
     if (merged.page > 1) usp.set("page", String(merged.page));
-    if (merged.size !== DEFAULT_PAGE_SIZE)
+    if (merged.size !== defaultPageSize)
       usp.set("size", String(merged.size));
     if (merged.dups) usp.set("dups", "1");
     if (merged.uncovered) usp.set("uncovered", "1");
@@ -381,7 +392,7 @@ export default async function AdminScopeListPage({
         {/* Carry the current page size + duplicates filter through a
             search submit so the user doesn't bounce back to defaults
             every time they refine the filter. */}
-        {pageSize !== DEFAULT_PAGE_SIZE && (
+        {pageSize !== defaultPageSize && (
           <input type="hidden" name="size" value={String(pageSize)} />
         )}
         {duplicatesOnly && <input type="hidden" name="dups" value="1" />}

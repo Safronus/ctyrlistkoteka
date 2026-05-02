@@ -406,12 +406,22 @@ async function phaseMaps(
   ctx: Context,
 ): Promise<{ maps: MapFileInfo[]; mapToLocation: Map<number, number> }> {
   const dir = join(ctx.dataDir, "maps");
-  const files = await listFiles(dir);
+  const allFiles = await listFiles(dir);
+  // Files renamed via the admin "Označit jako zaniklou" flow carry
+  // a `NEEXISTUJE-` prefix. They're kept on disk as historical record
+  // but skipped from the upsert path: the location is gone, so the
+  // associated location_map / locations rows must not get re-bound to
+  // a fake "NEEXISTUJE-…" location code. Orphan rows from previous
+  // syncs remain until `--prune` runs.
+  const NONEXISTENT_PREFIX = "NEEXISTUJE-";
+  const nonexistent = allFiles.filter((f) => f.startsWith(NONEXISTENT_PREFIX));
+  const files = allFiles.filter((f) => !f.startsWith(NONEXISTENT_PREFIX));
   ctx.log.log({
     event: "maps.scan",
     level: "info",
     dir,
     count: files.length,
+    skipped_nonexistent: nonexistent.length,
   });
 
   const maps: MapFileInfo[] = [];
