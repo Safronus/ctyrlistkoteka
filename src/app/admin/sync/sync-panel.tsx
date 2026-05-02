@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  FlaskConical,
   Loader2,
-  Play,
   RotateCcw,
+  Zap,
   XCircle,
 } from "lucide-react";
 
@@ -38,10 +39,13 @@ export function SyncPanel({
   const [status, setStatus] = useState<SyncStatus | null>(initialStatus);
   const [logBuffer, setLogBuffer] = useState<string>("");
   const [offset, setOffset] = useState<number>(0);
-  const [dryRun, setDryRun] = useState(true);
   const [only, setOnly] = useState<"all" | "maps" | "finds" | "meta">("all");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Two-step confirm for "Spustit ostrý sync" — null = idle,
+   *  "armed" = strip is showing, click again to fire. The dry-run
+   *  button has no confirm step (it's read-only). */
+  const [confirmingLive, setConfirmingLive] = useState(false);
   const logRef = useRef<HTMLPreElement>(null);
   // Refs for polling — useEffect's poll() captured the offset state
   // at mount as 0 and re-sent the same query forever, so every tick
@@ -109,39 +113,41 @@ export function SyncPanel({
     }
   }, [logBuffer]);
 
-  const onStart = useCallback(async () => {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await fetch("/api/admin/sync/start", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          dryRun,
-          only: only === "all" ? undefined : only,
-        }),
-      });
-      const data = (await r.json()) as
-        | SyncStatus
-        | { error: string };
-      if (!r.ok) {
-        throw new Error("error" in data ? data.error : `HTTP ${r.status}`);
+  const start = useCallback(
+    async (dryRun: boolean) => {
+      if (busy) return;
+      setBusy(true);
+      setError(null);
+      setConfirmingLive(false);
+      try {
+        const r = await fetch("/api/admin/sync/start", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            dryRun,
+            only: only === "all" ? undefined : only,
+          }),
+        });
+        const data = (await r.json()) as SyncStatus | { error: string };
+        if (!r.ok) {
+          throw new Error("error" in data ? data.error : `HTTP ${r.status}`);
+        }
+        const next = data as SyncStatus;
+        setStatus(next);
+        setLogBuffer("");
+        offsetRef.current = 0;
+        setOffset(0);
+        lastSeenRunIdRef.current = next.runId;
+        // The persistent polling loop in useEffect picks up the new
+        // run on its next tick — no second chain needed.
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBusy(false);
       }
-      const next = data as SyncStatus;
-      setStatus(next);
-      setLogBuffer("");
-      offsetRef.current = 0;
-      setOffset(0);
-      lastSeenRunIdRef.current = next.runId;
-      // The persistent polling loop in useEffect picks up the new
-      // run on its next tick — no second chain needed.
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, dryRun, only]);
+    },
+    [busy, only],
+  );
 
   const isRunning = status?.state === "running";
   const canStart = !busy && !isRunning;
@@ -159,24 +165,10 @@ export function SyncPanel({
           className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-700"
         >
           <label className="inline-flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={dryRun}
-              onChange={(e) => setDryRun(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-            />
-            <span>
-              <code className="font-mono">--dry-run</code> (žádné zápisy do
-              DB)
-            </span>
-          </label>
-          <label className="inline-flex items-center gap-1.5">
             <span className="text-gray-500">Rozsah:</span>
             <select
               value={only}
-              onChange={(e) =>
-                setOnly(e.target.value as typeof only)
-              }
+              onChange={(e) => setOnly(e.target.value as typeof only)}
               className="rounded-md border border-gray-300 bg-white px-2 py-0.5 text-xs"
             >
               <option value="all">vše</option>
@@ -187,21 +179,64 @@ export function SyncPanel({
           </label>
         </fieldset>
 
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={onStart}
+            onClick={() => start(true)}
             disabled={!canStart}
             className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             ) : (
-              <Play className="h-4 w-4" aria-hidden />
+              <FlaskConical className="h-4 w-4" aria-hidden />
             )}
-            {dryRun ? "Spustit dry-run" : "Spustit sync"}
+            Spustit dry-run
           </button>
-          {status && (
+
+          {!confirmingLive ? (
+            <button
+              type="button"
+              onClick={() => setConfirmingLive(true)}
+              disabled={!canStart}
+              className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 shadow-sm transition hover:border-red-400 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Zap className="h-4 w-4" aria-hidden />
+              Spustit ostrý sync
+            </button>
+          ) : (
+            <div className="inline-flex flex-wrap items-center gap-2 rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-sm">
+              <AlertTriangle
+                className="h-4 w-4 shrink-0 text-red-700"
+                aria-hidden
+              />
+              <span className="text-red-900">
+                Ostrý sync zapíše do DB a může stáhnout/přegenerovat WebPy.
+                Pokračovat?
+              </span>
+              <button
+                type="button"
+                onClick={() => start(false)}
+                disabled={busy}
+                className="inline-flex items-center gap-1 rounded bg-red-600 px-2.5 py-0.5 font-medium text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {busy && (
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                )}
+                Ano, spustit
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingLive(false)}
+                disabled={busy}
+                className="rounded border border-gray-300 bg-white px-2.5 py-0.5 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Zrušit
+              </button>
+            </div>
+          )}
+
+          {status && !confirmingLive && (
             <span className="text-xs text-gray-500">
               {status.startedAt && (
                 <>
@@ -214,6 +249,8 @@ export function SyncPanel({
                       timeZone: "Europe/Prague",
                     })}
                   </time>
+                  {" · "}
+                  {status.args.includes("--dry-run") ? "dry-run" : "ostrý"}
                 </>
               )}
               {status.startedBy && <> · {status.startedBy}</>}
