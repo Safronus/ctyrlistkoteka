@@ -160,20 +160,23 @@ async function TotalsSection() {
       <TotalCard
         label="nálezů"
         value={fmt.format(totals.finds)}
+        // Mirrors the locations card layout: a top-corner peer metric
+        // ("darováno") next to the main number lifts the donated count
+        // out of the dense bottom row so it reads as the second-most
+        // important total, not a footnote. The "Darované s fotkou"
+        // sub-row stays in subStats — it's a sub-category of darováno
+        // and belongs to the detail tier.
+        cornerLeft={{
+          icon: Gift,
+          label: "darováno",
+          value: fmt.format(totals.donatedFinds),
+        }}
         subStats={[
-          {
-            icon: Gift,
-            label: "darováno",
-            value: fmt.format(totals.donatedFinds),
-          },
           {
             icon: Camera,
             // Sub-category of "darováno": donated finds with at least
             // one matching photo in `${GENERATED_DIR}/find-photos/`.
-            // Reads as "of those darovaných, how many have a real
-            // photo of the gift on file." Donated count above is the
-            // superset.
-            label: "darovaných s reálnou fotkou",
+            label: "Darované s fotkou",
             value: fmt.format(donatedWithPhoto),
           },
           {
