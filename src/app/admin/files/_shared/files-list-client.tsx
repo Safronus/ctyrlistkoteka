@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import {
   CheckSquare,
   FileText,
+  Ghost,
   Image as ImageIcon,
   Loader2,
   Square,
@@ -14,6 +15,7 @@ import {
 import {
   MAX_BULK_DELETE_PER_REQUEST,
   type BulkDeleteResult,
+  type BulkRenameResult,
 } from "./list-types";
 
 interface ScopeEntry {
@@ -38,6 +40,19 @@ interface Props {
    *  of the filename can drift. Maps don't supply coverage. */
   coverageFindIds?: Set<number>;
   missingCoverageLabel?: string;
+  /** Optional secondary action — currently only the maps scope wires
+   *  this to "mark as nonexistent". When set, renders a button next
+   *  to bulk-delete with the supplied label/colour. */
+  bulkRename?: {
+    /** Button label, e.g. "Označit jako zaniklé". */
+    label: string;
+    /** Confirmation strip body, e.g.
+     *  "Přejmenovat 12 map s prefixem NEEXISTUJE-?". */
+    confirmText: (count: number) => string;
+    action: (
+      formData: FormData,
+    ) => Promise<{ results: BulkRenameResult[] }>;
+  };
 }
 
 function fmtSize(bytes: number): string {
@@ -95,11 +110,15 @@ export function FilesListClient({
   bulkDelete,
   coverageFindIds,
   missingCoverageLabel,
+  bulkRename,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [batchResults, setBatchResults] = useState<BulkDeleteResult[]>([]);
-  const [confirming, setConfirming] = useState(false);
+  const [renameResults, setRenameResults] = useState<BulkRenameResult[]>([]);
+  const [confirming, setConfirming] = useState<"delete" | "rename" | null>(
+    null,
+  );
   const [isPending, startTransition] = useTransition();
 
   const { flagged, trashCandidates } = useMemo(
@@ -162,12 +181,45 @@ export function FilesListClient({
           }
           return next;
         });
-        setConfirming(false);
+        setConfirming(null);
       } catch (err) {
         setBannerError(
           err instanceof Error ? err.message : "Bulk delete selhal",
         );
-        setConfirming(false);
+        setConfirming(null);
+      }
+    });
+  };
+
+  const onConfirmRename = () => {
+    if (!bulkRename || selected.size === 0 || isPending) return;
+    setBannerError(null);
+    setRenameResults([]);
+
+    startTransition(async () => {
+      const fd = new FormData();
+      for (const name of selected) fd.append("name", name);
+      try {
+        const { results } = await bulkRename.action(fd);
+        setRenameResults(results);
+        const okNamesNFC = new Set(
+          results
+            .filter((r) => r.status === "ok")
+            .map((r) => r.filename.normalize("NFC")),
+        );
+        setSelected((prev) => {
+          const next = new Set<string>();
+          for (const name of prev) {
+            if (!okNamesNFC.has(name.normalize("NFC"))) next.add(name);
+          }
+          return next;
+        });
+        setConfirming(null);
+      } catch (err) {
+        setBannerError(
+          err instanceof Error ? err.message : "Bulk rename selhal",
+        );
+        setConfirming(null);
       }
     });
   };
@@ -214,10 +266,21 @@ export function FilesListClient({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {selected.size > 0 && !confirming && bulkRename && (
+            <button
+              type="button"
+              onClick={() => setConfirming("rename")}
+              disabled={isPending}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-white px-2.5 py-1 font-medium text-amber-800 hover:border-amber-300 hover:bg-amber-50 disabled:opacity-50"
+            >
+              <Ghost className="h-3.5 w-3.5" aria-hidden />
+              {bulkRename.label} ({selected.size})
+            </button>
+          )}
           {selected.size > 0 && !confirming && (
             <button
               type="button"
-              onClick={() => setConfirming(true)}
+              onClick={() => setConfirming("delete")}
               disabled={isPending}
               className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-2.5 py-1 font-medium text-red-700 hover:border-red-300 hover:bg-red-50 disabled:opacity-50"
             >
@@ -225,7 +288,7 @@ export function FilesListClient({
               Smazat vybrané ({selected.size})
             </button>
           )}
-          {confirming && (
+          {confirming === "delete" && (
             <div className="inline-flex items-center gap-2 rounded-md border border-red-300 bg-red-50 px-2.5 py-1">
               <span className="text-red-900">
                 Přesunout {selected.size}{" "}
@@ -245,7 +308,33 @@ export function FilesListClient({
               </button>
               <button
                 type="button"
-                onClick={() => setConfirming(false)}
+                onClick={() => setConfirming(null)}
+                disabled={isPending}
+                className="rounded border border-gray-300 bg-white px-2 py-0.5 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Zrušit
+              </button>
+            </div>
+          )}
+          {confirming === "rename" && bulkRename && (
+            <div className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1">
+              <span className="text-amber-900">
+                {bulkRename.confirmText(selected.size)}
+              </span>
+              <button
+                type="button"
+                onClick={onConfirmRename}
+                disabled={isPending}
+                className="inline-flex items-center gap-1 rounded bg-amber-600 px-2 py-0.5 font-medium text-white hover:bg-amber-700 disabled:opacity-60"
+              >
+                {isPending && (
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                )}
+                Ano, přejmenovat
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(null)}
                 disabled={isPending}
                 className="rounded border border-gray-300 bg-white px-2 py-0.5 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
               >
@@ -285,6 +374,39 @@ export function FilesListClient({
             </button>
           </p>
           {batchResults
+            .filter((r) => r.status === "rejected")
+            .slice(0, 8)
+            .map((r) => (
+              <p key={r.filename} className="font-mono text-red-700">
+                {r.filename}: {r.reason}
+              </p>
+            ))}
+        </div>
+      )}
+
+      {renameResults.length > 0 && (
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-2 text-xs">
+          <p className="mb-1 font-medium text-gray-900">
+            Výsledek bulk přejmenování:{" "}
+            <span className="text-emerald-700">
+              {renameResults.filter((r) => r.status === "ok").length} ok
+            </span>
+            {renameResults.some((r) => r.status === "rejected") && (
+              <span className="ml-2 text-red-700">
+                {renameResults.filter((r) => r.status === "rejected").length}{" "}
+                selhalo
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setRenameResults([])}
+              className="float-right text-gray-400 hover:text-gray-600"
+              aria-label="Skrýt"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </p>
+          {renameResults
             .filter((r) => r.status === "rejected")
             .slice(0, 8)
             .map((r) => (

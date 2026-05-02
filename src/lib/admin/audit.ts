@@ -13,6 +13,7 @@ export type AuditAction =
   | "file.upload"
   | "file.delete"
   | "file.replace"
+  | "file.rename"
   | "file.restore"
   | "json.update"
   | "sync.start"

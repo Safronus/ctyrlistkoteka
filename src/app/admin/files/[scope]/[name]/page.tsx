@@ -21,6 +21,8 @@ import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { DeleteLocationPhotoButton } from "../../location-photos/delete-button";
 import { DeleteMapButton } from "../../maps/delete-button";
+import { MarkMapNonexistentButton } from "../../maps/mark-nonexistent-button";
+import { MapReplaceDropzone } from "../../maps/replace-dropzone";
 import { JsonSectionsPreview } from "./json-sections-preview";
 
 const MAX_TEXT_PREVIEW_BYTES = 256 * 1024;
@@ -177,7 +179,10 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
               <DeleteCropButton filename={info.name} />
             )}
             {scope.slug === "maps" && (
-              <DeleteMapButton filename={info.name} />
+              <>
+                <MarkMapNonexistentButton filename={info.name} />
+                <DeleteMapButton filename={info.name} />
+              </>
             )}
             {scope.slug === "donation-photos" && (
               <DeleteDonationPhotoButton filename={info.name} />
@@ -205,6 +210,10 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           </div>
         </div>
       </header>
+
+      {scope.slug === "maps" && !info.name.startsWith("NEEXISTUJE-") && (
+        <MapReplaceDropzone targetName={info.name} />
+      )}
 
       {isPreviewableImage(info.contentType) && (
         <figure className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2">

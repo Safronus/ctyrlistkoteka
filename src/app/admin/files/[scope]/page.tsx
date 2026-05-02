@@ -28,6 +28,7 @@ import { FindsUploadForm } from "../finds/upload-form";
 import { deleteLocationPhotosBulk } from "../location-photos/delete-action";
 import { LocationPhotosUploadForm } from "../location-photos/upload-form";
 import { deleteMapsBulk } from "../maps/delete-action";
+import { markMapsNonexistentBulk } from "../maps/rename-action";
 import { MapsUploadForm } from "../maps/upload-form";
 
 /** Allowed `?size=` values. Capped at 500 because each entry incurs
@@ -399,6 +400,14 @@ export default async function AdminScopeListPage({
           entries={entries}
           scopeSlug={scope.slug}
           bulkDelete={deleteMapsBulk}
+          bulkRename={{
+            label: "Označit jako zaniklé",
+            confirmText: (n) =>
+              `Přejmenovat ${n} ${
+                n === 1 ? "mapu" : n < 5 ? "mapy" : "map"
+              } s prefixem NEEXISTUJE-?`,
+            action: markMapsNonexistentBulk,
+          }}
         />
       ) : scope.slug === "donation-photos" ? (
         <FilesListClient

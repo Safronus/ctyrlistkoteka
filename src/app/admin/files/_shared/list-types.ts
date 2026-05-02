@@ -18,3 +18,14 @@ export interface BulkDeleteResult {
   /** Present on rejections — short Czech reason. */
   reason?: string;
 }
+
+/** Result row of a generic bulk-rename action — currently only used
+ *  by the "mark map as nonexistent" workflow, but the shape stays
+ *  scope-agnostic so a future rename flow can reuse the same UX. */
+export interface BulkRenameResult {
+  filename: string;
+  status: "ok" | "rejected";
+  /** New on-disk name on success. */
+  to?: string;
+  reason?: string;
+}
