@@ -73,36 +73,29 @@ export const SCOPES: readonly ScopeDef[] = [
     rootKey: "findOriginals",
     label: "Originály nálezů",
     description: "data/finds/ — celé fotky čtyřlístků (JPEG).",
-    writable: false,
+    writable: true,
   },
   {
     slug: "crops",
     rootKey: "findCrops",
     label: "Výřezy nálezů",
     description:
-      "data/crops/ — vyřezané čtyřlístky (JPEG). Akceptujeme i zkrácený název \"<id>.jpg\".",
-    writable: false,
+      "data/crops/ — vyřezané čtyřlístky (JPEG). Akceptuje i zkrácený \"<id>.jpg\".",
+    writable: true,
   },
   {
     slug: "maps",
     rootKey: "locationMaps",
     label: "Lokační mapy",
     description: "data/maps/ — PNG mapy lokalit (z Map Marker apod.).",
-    writable: false,
-  },
-  {
-    slug: "meta",
-    rootKey: "meta",
-    label: "Meta soubory",
-    description: "data/meta/ — JSONy a vodoznak.",
-    writable: false,
+    writable: true,
   },
   {
     slug: "donation-photos",
     rootKey: "donationPhotos",
     label: "Reálné fotky darů",
     description:
-      "generated/find-photos/ — fotky darovaných čtyřlístků (např. \"16330a_DAR.jpeg\").",
+      "generated/find-photos/ — fotky darů (např. \"16330a_DAR.jpeg\").",
     writable: true,
   },
   {
@@ -112,6 +105,13 @@ export const SCOPES: readonly ScopeDef[] = [
     description:
       "generated/location-photos/ — fotky lokalit (např. \"Reykjavík_reálné foto.png\").",
     writable: true,
+  },
+  {
+    slug: "meta",
+    rootKey: "meta",
+    label: "Meta soubory",
+    description: "data/meta/ — JSON konfigurace (editor) a vodoznak.",
+    writable: false,
   },
 ] as const;
 
