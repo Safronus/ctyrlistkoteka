@@ -17,6 +17,7 @@ import {
   Save,
   Wand2,
 } from "lucide-react";
+import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
 import {
   SECTION_KEYS,
   SECTION_LABELS,
@@ -111,7 +112,7 @@ export function LokaceStavyPoznamkyEditor({
   const onFormat = (key: SectionKey) => {
     try {
       const obj = JSON.parse(sections[key]);
-      onChangeSection(key, JSON.stringify(obj, null, 2));
+      onChangeSection(key, formatJsonCompactArrays(obj));
     } catch {
       // Format only works when JSON parses; ignore otherwise.
     }

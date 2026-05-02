@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ArrowLeft } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
+import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
 import {
   LOKACE_STAVY_POZNAMKY_FILENAME,
   SECTION_KEYS,
@@ -34,7 +35,7 @@ const EMPTY_SECTIONS: Record<SectionKey, unknown> = {
 };
 
 function pretty(value: unknown): string {
-  return JSON.stringify(value, null, 2);
+  return formatJsonCompactArrays(value);
 }
 
 /** Splits the live JSON file into per-section strings for the editor.

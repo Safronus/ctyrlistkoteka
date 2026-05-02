@@ -5,6 +5,7 @@ import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { atomicWrite, ensureDir, trashTimestamp } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
+import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
 import {
   LOKACE_STAVY_POZNAMKY_FILENAME,
   lokaceStavyPoznamkySchema,
@@ -111,7 +112,7 @@ export async function saveLokaceStavyPoznamky(
   // whitespace, and produce a stable diff-friendly format. Keys are
   // emitted in the order Zod returned them — matches the schema
   // declaration order, which is also the historical file order.
-  const formatted = JSON.stringify(result.data, null, 2) + "\n";
+  const formatted = formatJsonCompactArrays(result.data) + "\n";
 
   // Snapshot the current file into trash before overwriting. Preserves
   // an undo path even though the editor itself doesn't surface one.
