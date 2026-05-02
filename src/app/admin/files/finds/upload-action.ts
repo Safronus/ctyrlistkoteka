@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { atomicWrite } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { safeBaseName, safeJoin } from "@/lib/admin/paths";
@@ -135,23 +134,15 @@ export async function uploadFinds(
     }
   }
 
-  // revalidatePath can in theory throw (or trigger a re-render that
-  // throws) — wrap it so a stale cache or a temporarily broken
-  // listing page doesn't sink the whole upload after the files are
-  // already on disk. The user keeps the per-row results; the next
-  // navigation refetches naturally.
-  if (results.some((r) => r.status === "ok")) {
-    try {
-      revalidatePath("/admin/files/finds");
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("[admin/finds-upload] revalidatePath threw", {
-        message,
-        stack: err instanceof Error ? err.stack : undefined,
-      });
-      return { results, error: `Revalidace listingu selhala: ${message}` };
-    }
-  }
+  // Cache invalidation moved to the client (router.refresh() in the
+  // upload form on success). The server-side revalidatePath bundles
+  // the rerendered tree into the action response — and any throw
+  // during that rerender (a transient listing-page error after a big
+  // batch lands) is what surfaces to the client as the masked
+  // production "Server Components render" wrapper. Letting the client
+  // drive the refresh keeps the action response trivially small; if
+  // the listing then fails to render, error.tsx catches it
+  // independently.
   return { results };
 }
 

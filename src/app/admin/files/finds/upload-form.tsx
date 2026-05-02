@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, useTransition } from "react";
 import {
   CheckCircle2,
@@ -48,6 +49,7 @@ export function FindsUploadForm() {
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const addFiles = useCallback((incoming: FileList | File[]) => {
     setBannerError(null);
@@ -145,8 +147,8 @@ export function FindsUploadForm() {
 
     startTransition(async () => {
       const total = toUpload.length;
-      let processed = 0;
       let aborted = false;
+      let anyOk = false;
 
       // Sequential batch submission: large queues would blow the
       // request body cap and spike server memory if sent all at once.
@@ -193,6 +195,7 @@ export function FindsUploadForm() {
           }
           const byBatchIndex = new Map<number, UploadResult>();
           for (const r of results) byBatchIndex.set(r.index, r);
+          if (results.some((r) => r.status === "ok")) anyOk = true;
 
           setQueue((prev) => {
             const updated = [...prev];
@@ -219,7 +222,6 @@ export function FindsUploadForm() {
             return updated;
           });
 
-          processed += batch.length;
         } catch (err) {
           // A batch-level failure (network drop, server error) marks
           // every still-uploading row in the queue as rejected. The
@@ -240,10 +242,14 @@ export function FindsUploadForm() {
         }
       }
 
-      if (!aborted && processed === total) {
-        // No-op success path beyond per-row updates; queue stays so
-        // the user can see the result tally before clearing.
-      }
+      // Refresh the surrounding RSC tree so the listing/header counts
+      // pick up the new files. Done on the client (instead of via
+      // `revalidatePath` inside the action) to keep the action
+      // response trivial — the rerendered tree was the previous
+      // failure surface for big batches. Run the refresh whenever any
+      // row succeeded, even on partial-batch aborts, so the user
+      // doesn't lose visibility on what actually landed on disk.
+      if (anyOk) router.refresh();
     });
   };
 

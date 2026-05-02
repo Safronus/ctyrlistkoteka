@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { atomicWrite } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { safeBaseName, safeJoin } from "@/lib/admin/paths";
@@ -115,18 +114,10 @@ export async function uploadCrops(
     }
   }
 
-  if (results.some((r) => r.status === "ok")) {
-    try {
-      revalidatePath("/admin/files/crops");
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("[admin/crops-upload] revalidatePath threw", {
-        message,
-        stack: err instanceof Error ? err.stack : undefined,
-      });
-      return { results, error: `Revalidace listingu selhala: ${message}` };
-    }
-  }
+  // See finds/upload-action.ts — refresh handed off to the client to
+  // keep the action response payload trivial and avoid the "Server
+  // Components render" wrapper when a downstream listing rerender
+  // misbehaves.
   return { results };
 }
 

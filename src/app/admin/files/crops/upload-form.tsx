@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, useTransition } from "react";
 import {
   CheckCircle2,
@@ -47,6 +48,7 @@ export function CropsUploadForm() {
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const addFiles = useCallback((incoming: FileList | File[]) => {
     setBannerError(null);
@@ -135,6 +137,7 @@ export function CropsUploadForm() {
     startTransition(async () => {
       const total = toUpload.length;
       let aborted = false;
+      let anyOk = false;
 
       for (let i = 0; i < total; i += MAX_FILES_PER_REQUEST) {
         if (aborted) break;
@@ -170,6 +173,7 @@ export function CropsUploadForm() {
           }
           const byBatchIndex = new Map<number, UploadResult>();
           for (const r of results) byBatchIndex.set(r.index, r);
+          if (results.some((r) => r.status === "ok")) anyOk = true;
 
           setQueue((prev) => {
             const updated = [...prev];
@@ -210,6 +214,11 @@ export function CropsUploadForm() {
           aborted = true;
         }
       }
+
+      // See finds/upload-form.tsx for the rationale — refresh on the
+      // client instead of revalidatePath in the action so the listing
+      // rerender doesn't sink the action response.
+      if (anyOk) router.refresh();
     });
   };
 
