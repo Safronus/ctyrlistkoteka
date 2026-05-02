@@ -10,9 +10,13 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import {
+  analyzeIdRange,
+  extractFindId,
+  extractMapId,
   getScope,
   listScope,
   listScopeFindIds,
+  type RangeAnalysis,
 } from "@/lib/admin/scopes";
 import { FilesListClient } from "../_shared/files-list-client";
 import { deleteCropsBulk } from "../crops/delete-action";
@@ -67,6 +71,38 @@ function fmtSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Renders consecutive missing IDs as ranges (`5-7`) and singletons
+ *  as bare numbers, joined by ", ". Reads better than 30 separate
+ *  badges when the gap is wide. Pads to the same width as `max` so
+ *  the IDs line up visually with the rest of the listing. */
+function formatMissingRanges(missing: number[], max: number): string {
+  if (missing.length === 0) return "";
+  const width = String(max).length;
+  const ranges: string[] = [];
+  let start = missing[0]!;
+  let prev = start;
+  for (let i = 1; i < missing.length; i += 1) {
+    const v = missing[i]!;
+    if (v === prev + 1) {
+      prev = v;
+      continue;
+    }
+    ranges.push(
+      start === prev
+        ? String(start).padStart(width, "0")
+        : `${String(start).padStart(width, "0")}–${String(prev).padStart(width, "0")}`,
+    );
+    start = v;
+    prev = v;
+  }
+  ranges.push(
+    start === prev
+      ? String(start).padStart(width, "0")
+      : `${String(start).padStart(width, "0")}–${String(prev).padStart(width, "0")}`,
+  );
+  return ranges.join(", ");
+}
+
 export default async function AdminScopeListPage({
   params,
   searchParams,
@@ -102,6 +138,21 @@ export default async function AdminScopeListPage({
       counterpartIds = await listScopeFindIds(findsScope);
       counterpartLabel = "bez originálu";
     }
+  }
+
+  // ID-range analysis: finds + crops use the leading find ID, maps
+  // use the trailing 5-digit map ID. Other scopes have no range
+  // concept, so the banner stays hidden.
+  let range: RangeAnalysis | null = null;
+  let rangeLabel: string | null = null;
+  let rangePad = 1;
+  if (scope.slug === "finds" || scope.slug === "crops") {
+    range = await analyzeIdRange(scope, extractFindId);
+    rangeLabel = "Find ID";
+  } else if (scope.slug === "maps") {
+    range = await analyzeIdRange(scope, extractMapId);
+    rangeLabel = "Map ID";
+    rangePad = 5;
   }
 
   const { total, entries } = await listScope(scope, {
@@ -191,6 +242,45 @@ export default async function AdminScopeListPage({
       {scope.slug === "maps" && <MapsUploadForm />}
       {scope.slug === "donation-photos" && <DonationPhotosUploadForm />}
       {scope.slug === "location-photos" && <LocationPhotosUploadForm />}
+
+      {range && rangeLabel && (
+        <section
+          className={`rounded-xl border px-4 py-3 text-xs ${
+            range.missingCount > 0
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-emerald-200 bg-emerald-50 text-emerald-900"
+          }`}
+        >
+          <p className="font-medium">
+            {rangeLabel}{" "}
+            <code className="font-mono">
+              {String(range.min).padStart(rangePad, "0")}
+            </code>{" "}
+            –{" "}
+            <code className="font-mono">
+              {String(range.max).padStart(rangePad, "0")}
+            </code>{" "}
+            · {range.count.toLocaleString("cs-CZ")} ID
+            {range.missingCount === 0
+              ? " · v intervalu nic nechybí"
+              : ` · chybí ${range.missingCount.toLocaleString("cs-CZ")}`}
+          </p>
+          {range.missingCount > 0 && (
+            <p className="mt-1 break-words font-mono text-[11px] leading-snug">
+              {formatMissingRanges(range.missing, range.max)}
+              {range.missingCount > range.missing.length && (
+                <span className="not-italic">
+                  {" "}…{" + "}
+                  {(
+                    range.missingCount - range.missing.length
+                  ).toLocaleString("cs-CZ")}{" "}
+                  dalších
+                </span>
+              )}
+            </p>
+          )}
+        </section>
+      )}
 
       <form
         action={`/admin/files/${scope.slug}`}

@@ -281,6 +281,74 @@ export function extractFindId(filename: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** Extracts the map ID from a location-map filename — the trailing
+ *  5-digit run before the extension (per `parseMapFilename`'s regex).
+ *  Returns null when the name doesn't conform. */
+export function extractMapId(filename: string): number | null {
+  const dot = filename.lastIndexOf(".");
+  const stem = dot === -1 ? filename : filename.slice(0, dot);
+  const m = /(?:^|[^0-9])(\d{5})$/.exec(stem);
+  return m ? Number(m[1]) : null;
+}
+
+export interface RangeAnalysis {
+  /** Lowest extractable ID seen in the scope. */
+  min: number;
+  /** Highest extractable ID seen in the scope. */
+  max: number;
+  /** Count of distinct IDs present. */
+  count: number;
+  /** Total IDs in [min, max] that don't have a corresponding file.
+   *  Computed as (max − min + 1) − count, so it's correct even when
+   *  the missing list is truncated for display. */
+  missingCount: number;
+  /** First 30 missing IDs, in ascending order. The header indicator
+   *  shows these inline; if there are more, the truncated count is
+   *  derived from `missingCount − missing.length`. */
+  missing: number[];
+}
+
+const MAX_MISSING_INLINE = 30;
+
+/** Analyses ID coverage in a scope's directory. Returns null when
+ *  the scope is empty or has no parseable IDs. The extractor decides
+ *  what counts as an ID (find ID for finds/crops, map ID for maps). */
+export async function analyzeIdRange(
+  scope: ScopeDef,
+  extractId: (filename: string) => number | null,
+): Promise<RangeAnalysis | null> {
+  const root = ADMIN_ROOTS[scope.rootKey];
+  let names: string[];
+  try {
+    names = await fs.readdir(root);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+  const ids = new Set<number>();
+  for (const n of names) {
+    if (n.startsWith(".")) continue;
+    const id = extractId(n);
+    if (id !== null) ids.add(id);
+  }
+  if (ids.size === 0) return null;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const id of ids) {
+    if (id < min) min = id;
+    if (id > max) max = id;
+  }
+  const missing: number[] = [];
+  let missingCount = 0;
+  for (let i = min; i <= max; i += 1) {
+    if (!ids.has(i)) {
+      missingCount += 1;
+      if (missing.length < MAX_MISSING_INLINE) missing.push(i);
+    }
+  }
+  return { min, max, count: ids.size, missingCount, missing };
+}
+
 export interface FileInfo {
   scope: ScopeSlug;
   name: string;
