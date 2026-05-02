@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -10,93 +17,60 @@ import {
   Save,
   Wand2,
 } from "lucide-react";
-import { lokaceStavyPoznamkySchema } from "@/lib/admin/jsonSchema";
+import {
+  SECTION_KEYS,
+  SECTION_LABELS,
+  SECTION_SCHEMAS,
+  type SectionKey,
+} from "@/lib/admin/jsonSchema";
 import { saveLokaceStavyPoznamky, type SaveResult } from "./save-action";
 
 interface Props {
-  /** Current on-disk content, pretty-printed. Editor starts with
-   *  exactly this string so the first render diff is empty. */
-  initialContent: string;
-  /** ISO timestamp of the file's last write — shown in the header so
-   *  the user can see when the version was last touched, separate
-   *  from the post-save toast. */
+  /** Pre-split per-section JSON strings (already pretty-printed). */
+  initialSections: Record<SectionKey, string>;
+  /** ISO timestamp of the file's last write — shown in the header. */
   fileMtime: string | null;
 }
 
-interface ParseStatus {
+interface SectionStatus {
   ok: boolean;
-  /** `null` when the JSON couldn't be parsed at all. */
-  jsonValid: boolean;
-  /** `null` when JSON parse failed; otherwise the Zod result summary. */
-  schemaError: string | null;
-  /** Field-level issues (only when JSON parsed but schema failed). */
-  issues: { path: (string | number)[]; message: string }[];
-  parseErrorMessage: string | null;
-  parseErrorLine?: number;
-  parseErrorColumn?: number;
+  parseError: string | null;
+  schemaIssues: { path: (string | number)[]; message: string }[];
 }
 
-function validate(content: string): ParseStatus {
+function validateSection(key: SectionKey, content: string): SectionStatus {
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const posMatch = /position (\d+)/.exec(message);
-    let line: number | undefined;
-    let column: number | undefined;
-    if (posMatch) {
-      const pos = Number(posMatch[1]);
-      let l = 1;
-      let c = 1;
-      for (let i = 0; i < pos && i < content.length; i++) {
-        if (content[i] === "\n") {
-          l += 1;
-          c = 1;
-        } else {
-          c += 1;
-        }
-      }
-      line = l;
-      column = c;
-    }
     return {
       ok: false,
-      jsonValid: false,
-      schemaError: null,
-      issues: [],
-      parseErrorMessage: message,
-      parseErrorLine: line,
-      parseErrorColumn: column,
+      parseError: err instanceof Error ? err.message : String(err),
+      schemaIssues: [],
     };
   }
-  const result = lokaceStavyPoznamkySchema.safeParse(parsed);
+  const schema = SECTION_SCHEMAS[key];
+  const result = schema.safeParse(parsed);
   if (!result.success) {
     return {
       ok: false,
-      jsonValid: true,
-      schemaError: `${result.error.issues.length} chyb ve schématu`,
-      issues: result.error.issues.map((i) => ({
+      parseError: null,
+      schemaIssues: result.error.issues.map((i) => ({
         path: [...i.path] as (string | number)[],
         message: i.message,
       })),
-      parseErrorMessage: null,
     };
   }
-  return {
-    ok: true,
-    jsonValid: true,
-    schemaError: null,
-    issues: [],
-    parseErrorMessage: null,
-  };
+  return { ok: true, parseError: null, schemaIssues: [] };
 }
 
 export function LokaceStavyPoznamkyEditor({
-  initialContent,
+  initialSections,
   fileMtime,
 }: Props) {
-  const [content, setContent] = useState(initialContent);
+  const [sections, setSections] =
+    useState<Record<SectionKey, string>>(initialSections);
+  const [activeTab, setActiveTab] = useState<SectionKey>("lokace");
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [serverIssues, setServerIssues] = useState<
@@ -104,32 +78,87 @@ export function LokaceStavyPoznamkyEditor({
   >([]);
   const [isPending, startTransition] = useTransition();
 
-  const status = useMemo(() => validate(content), [content]);
-  const dirty = content !== initialContent;
+  // Per-section live status — recomputed on edit. Each section
+  // validates independently against its own sub-schema, so the user
+  // sees which tab(s) need attention without scanning the full file.
+  const statuses = useMemo<Record<SectionKey, SectionStatus>>(() => {
+    const out = {} as Record<SectionKey, SectionStatus>;
+    for (const key of SECTION_KEYS) {
+      out[key] = validateSection(key, sections[key]);
+    }
+    return out;
+  }, [sections]);
 
-  const onFormat = () => {
+  const dirty = useMemo(() => {
+    for (const key of SECTION_KEYS) {
+      if (sections[key] !== initialSections[key]) return true;
+    }
+    return false;
+  }, [sections, initialSections]);
+
+  const allValid = useMemo(
+    () => SECTION_KEYS.every((k) => statuses[k].ok),
+    [statuses],
+  );
+
+  const onChangeSection = (key: SectionKey, value: string) => {
+    setSections((prev) => ({ ...prev, [key]: value }));
+    setSavedAt(null);
+    setServerError(null);
+    setServerIssues([]);
+  };
+
+  const onFormat = (key: SectionKey) => {
     try {
-      const obj = JSON.parse(content);
-      setContent(JSON.stringify(obj, null, 2) + "\n");
+      const obj = JSON.parse(sections[key]);
+      onChangeSection(key, JSON.stringify(obj, null, 2));
     } catch {
       // Format only works when JSON parses; ignore otherwise.
     }
   };
 
-  const onReset = () => {
-    setContent(initialContent);
+  const onResetSection = (key: SectionKey) => {
+    setSections((prev) => ({ ...prev, [key]: initialSections[key] }));
+    setSavedAt(null);
+    setServerError(null);
+    setServerIssues([]);
+  };
+
+  const onResetAll = () => {
+    setSections(initialSections);
     setSavedAt(null);
     setServerError(null);
     setServerIssues([]);
   };
 
   const onSave = () => {
-    if (isPending || !status.ok) return;
+    if (isPending || !allValid) return;
     setServerError(null);
     setServerIssues([]);
+
+    // Stitch the four sections back into the canonical full object.
+    // Order matches the schema declaration so the on-disk file stays
+    // diff-friendly across saves.
+    let merged: unknown;
+    try {
+      merged = {
+        anonymizace: JSON.parse(sections.anonymizace),
+        lokace: JSON.parse(sections.lokace),
+        poznamky: JSON.parse(sections.poznamky),
+        stavy: JSON.parse(sections.stavy),
+      };
+    } catch (err) {
+      setServerError(
+        err instanceof Error
+          ? `Sloučení sekcí selhalo: ${err.message}`
+          : "Sloučení sekcí selhalo",
+      );
+      return;
+    }
+
     startTransition(async () => {
       const fd = new FormData();
-      fd.append("content", content);
+      fd.append("content", JSON.stringify(merged));
       try {
         const result: SaveResult = await saveLokaceStavyPoznamky(fd);
         if (result.ok) {
@@ -145,12 +174,16 @@ export function LokaceStavyPoznamkyEditor({
           if (result.issues) setServerIssues(result.issues);
         }
       } catch (err) {
-        setServerError(err instanceof Error ? err.message : "Uložení selhalo");
+        setServerError(
+          err instanceof Error ? err.message : "Uložení selhalo",
+        );
       }
     });
   };
 
-  const issues = serverIssues.length > 0 ? serverIssues : status.issues;
+  const activeStatus = statuses[activeTab];
+  const showIssues =
+    serverIssues.length > 0 ? serverIssues : activeStatus.schemaIssues;
 
   return (
     <div className="space-y-3">
@@ -170,7 +203,7 @@ export function LokaceStavyPoznamkyEditor({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <StatusBadge status={status} dirty={dirty} />
+          <OverallBadge allValid={allValid} dirty={dirty} />
           {savedAt && (
             <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800">
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
@@ -183,38 +216,94 @@ export function LokaceStavyPoznamkyEditor({
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onFormat}
-          disabled={!status.jsonValid || isPending}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Wand2 className="h-3.5 w-3.5" aria-hidden />
-          Naformátovat (Prettify)
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          disabled={!dirty || isPending}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-          Vrátit změny
-        </button>
+      <nav
+        aria-label="Sekce JSONu"
+        className="flex flex-wrap items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 text-xs"
+      >
+        {SECTION_KEYS.map((key) => {
+          const isActive = key === activeTab;
+          const status = statuses[key];
+          const isDirty = sections[key] !== initialSections[key];
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition ${
+                isActive
+                  ? "bg-brand-600 text-white"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              {SECTION_LABELS[key]}
+              {!status.ok && (
+                <AlertCircle
+                  className={`h-3.5 w-3.5 ${
+                    isActive ? "text-red-200" : "text-red-600"
+                  }`}
+                  aria-hidden
+                />
+              )}
+              {isDirty && (
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    isActive ? "bg-amber-200" : "bg-amber-500"
+                  }`}
+                  aria-label="Neuložené změny"
+                />
+              )}
+            </button>
+          );
+        })}
         <div className="flex-1" />
         <button
           type="button"
+          onClick={onResetAll}
+          disabled={!dirty || isPending}
+          className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <RotateCcw className="h-3 w-3" aria-hidden />
+          Vrátit vše
+        </button>
+        <button
+          type="button"
           onClick={onSave}
-          disabled={!status.ok || !dirty || isPending}
-          className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!allValid || !dirty || isPending}
+          className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1 font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
           ) : (
-            <Save className="h-3.5 w-3.5" aria-hidden />
+            <Save className="h-3 w-3" aria-hidden />
           )}
-          Uložit (vytvoří backup do .trash/)
+          Uložit
+        </button>
+      </nav>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-gray-500">Aktivní:</span>
+        <span className="font-semibold text-gray-900">
+          {SECTION_LABELS[activeTab]}
+        </span>
+        <button
+          type="button"
+          onClick={() => onFormat(activeTab)}
+          disabled={!activeStatus.ok && activeStatus.parseError !== null}
+          className="ml-auto inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Wand2 className="h-3 w-3" aria-hidden />
+          Naformátovat
+        </button>
+        <button
+          type="button"
+          onClick={() => onResetSection(activeTab)}
+          disabled={
+            sections[activeTab] === initialSections[activeTab] || isPending
+          }
+          className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <RotateCcw className="h-3 w-3" aria-hidden />
+          Vrátit sekci
         </button>
       </div>
 
@@ -224,57 +313,47 @@ export function LokaceStavyPoznamkyEditor({
         </p>
       )}
 
-      {!status.jsonValid && status.parseErrorMessage && (
+      {activeStatus.parseError && (
         <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-          <strong>Syntax:</strong> {status.parseErrorMessage}
-          {status.parseErrorLine !== undefined && (
-            <>
-              {" "}
-              — řádek {status.parseErrorLine}, sloupec{" "}
-              {status.parseErrorColumn}
-            </>
-          )}
+          <strong>JSON syntax:</strong> {activeStatus.parseError}
         </p>
       )}
 
-      {issues.length > 0 && (
+      {showIssues.length > 0 && (
         <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs">
           <p className="mb-1 font-semibold text-red-900">
-            {issues.length}{" "}
-            {issues.length === 1 ? "chyba" : issues.length < 5 ? "chyby" : "chyb"}{" "}
+            {showIssues.length}{" "}
+            {showIssues.length === 1
+              ? "chyba"
+              : showIssues.length < 5
+                ? "chyby"
+                : "chyb"}{" "}
             ve schématu:
           </p>
           <ul className="space-y-1 font-mono text-red-800">
-            {issues.slice(0, 30).map((i, idx) => (
+            {showIssues.slice(0, 30).map((i, idx) => (
               <li key={idx}>
                 <code>{i.path.length === 0 ? "(root)" : i.path.join(".")}</code>
                 : {i.message}
               </li>
             ))}
-            {issues.length > 30 && (
+            {showIssues.length > 30 && (
               <li className="font-sans italic text-red-700">
-                … a dalších {issues.length - 30}
+                … a dalších {showIssues.length - 30}
               </li>
             )}
           </ul>
         </div>
       )}
 
-      <textarea
-        value={content}
-        onChange={(e) => {
-          setContent(e.target.value);
-          setSavedAt(null);
-          setServerError(null);
-          setServerIssues([]);
-        }}
-        spellCheck={false}
-        className="block h-[60vh] w-full resize-y rounded-lg border border-gray-300 bg-gray-900 p-4 font-mono text-xs leading-relaxed text-gray-100 shadow-inner focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+      <CodeEditor
+        value={sections[activeTab]}
+        onChange={(v) => onChangeSection(activeTab, v)}
       />
 
       <p className="text-xs text-gray-500">
-        Validace běží live (klient) i znovu při uložení (server, Zod).
-        Při uložení server zazálohuje aktuální verzi do{" "}
+        Validace běží live (klient) i znovu při uložení (server, Zod). Při
+        uložení server zazálohuje aktuální verzi do{" "}
         <code className="font-mono">data/.trash/&lt;ts&gt;/meta/</code> a
         atomicky přepíše živý soubor.
       </p>
@@ -282,26 +361,18 @@ export function LokaceStavyPoznamkyEditor({
   );
 }
 
-function StatusBadge({
-  status,
+function OverallBadge({
+  allValid,
   dirty,
 }: {
-  status: ParseStatus;
+  allValid: boolean;
   dirty: boolean;
 }) {
-  if (!status.jsonValid) {
+  if (!allValid) {
     return (
       <span className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-800">
         <AlertCircle className="h-3.5 w-3.5" aria-hidden />
-        JSON syntaktická chyba
-      </span>
-    );
-  }
-  if (status.schemaError) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-800">
-        <AlertCircle className="h-3.5 w-3.5" aria-hidden />
-        {status.schemaError}
+        Některá sekce má chybu
       </span>
     );
   }
@@ -318,5 +389,90 @@ function StatusBadge({
       <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
       Validní · připraveno k uložení
     </span>
+  );
+}
+
+interface CodeEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+/** Textarea + line-number gutter. The two share a flex container,
+ *  scroll in lockstep via the `onScroll` handler, and live in a
+ *  scroll-y wrapper so vertical and horizontal scrollbars stay
+ *  attached to the editor (not the page). Keeping this in-house
+ *  avoids pulling in CodeMirror just for line numbers. */
+function CodeEditor({ value, onChange }: CodeEditorProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const gutterRef = useRef<HTMLDivElement>(null);
+
+  // Recomputing the gutter on every keystroke is fine — the line
+  // count is a single split() on a string already in memory.
+  const lines = useMemo(() => {
+    const n = value === "" ? 1 : value.split("\n").length;
+    return Array.from({ length: n }, (_, i) => i + 1);
+  }, [value]);
+
+  const onScroll = useCallback(() => {
+    if (!textareaRef.current || !gutterRef.current) return;
+    gutterRef.current.scrollTop = textareaRef.current.scrollTop;
+  }, []);
+
+  // Two-way Tab handling: indent rather than shift focus. Plain HTML
+  // textareas tab out of the field by default which is annoying for
+  // a code editor. Insert two spaces (matches our JSON.stringify
+  // indent) on Tab.
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key !== "Tab" || e.metaKey || e.ctrlKey || e.altKey) return;
+      e.preventDefault();
+      const ta = e.currentTarget;
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const indent = "  ";
+      const next =
+        value.slice(0, start) + indent + value.slice(end);
+      onChange(next);
+      // Restore caret right after the inserted indent.
+      requestAnimationFrame(() => {
+        ta.selectionStart = ta.selectionEnd = start + indent.length;
+      });
+    },
+    [value, onChange],
+  );
+
+  // Keep gutter scroll in sync if `value` changes from outside (e.g.
+  // Format / Reset) and the textarea repositions to top.
+  useEffect(() => {
+    if (textareaRef.current && gutterRef.current) {
+      gutterRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  }, [value]);
+
+  return (
+    <div className="relative flex h-[60vh] overflow-hidden rounded-lg border border-gray-300 bg-gray-900 font-mono text-xs leading-relaxed shadow-inner">
+      <div
+        ref={gutterRef}
+        aria-hidden
+        className="select-none overflow-hidden bg-gray-800 px-2 py-3 text-right text-gray-500"
+        style={{ minWidth: "3.5rem" }}
+      >
+        {lines.map((n) => (
+          <div key={n} className="tabular-nums">
+            {n}
+          </div>
+        ))}
+      </div>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onScroll={onScroll}
+        onKeyDown={onKeyDown}
+        spellCheck={false}
+        wrap="off"
+        className="block flex-1 resize-none whitespace-pre overflow-auto bg-gray-900 px-3 py-3 text-gray-100 outline-none"
+      />
+    </div>
   );
 }

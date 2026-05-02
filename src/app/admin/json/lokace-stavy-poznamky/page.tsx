@@ -3,7 +3,11 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ArrowLeft } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
-import { LOKACE_STAVY_POZNAMKY_FILENAME } from "@/lib/admin/jsonSchema";
+import {
+  LOKACE_STAVY_POZNAMKY_FILENAME,
+  SECTION_KEYS,
+  type SectionKey,
+} from "@/lib/admin/jsonSchema";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
 import { LokaceStavyPoznamkyEditor } from "./editor";
 
@@ -14,48 +18,100 @@ const TARGET_PATH = path.join(
   LOKACE_STAVY_POZNAMKY_FILENAME,
 );
 
-const EMPTY_TEMPLATE = JSON.stringify(
-  {
-    anonymizace: { ANONYMIZOVANE: [] },
-    lokace: {},
-    poznamky: {},
-    stavy: {
-      BEZFOTKY: [],
-      BEZGPS: [],
-      BEZLOKACE: [],
-      DAROVANY: [],
-      "LOKACE-NEEXISTUJE": [],
-      NEUTRZEN: [],
-      ZTRACENY: [],
-    },
+const EMPTY_SECTIONS: Record<SectionKey, unknown> = {
+  lokace: {},
+  stavy: {
+    BEZFOTKY: [],
+    BEZGPS: [],
+    BEZLOKACE: [],
+    DAROVANY: [],
+    "LOKACE-NEEXISTUJE": [],
+    NEUTRZEN: [],
+    ZTRACENY: [],
   },
-  null,
-  2,
-) + "\n";
+  poznamky: {},
+  anonymizace: { ANONYMIZOVANE: [] },
+};
 
-export default async function LokaceStavyPoznamkyPage() {
-  await ensureAdminAuth();
+function pretty(value: unknown): string {
+  return JSON.stringify(value, null, 2);
+}
 
-  // Read the live file at request time. force-dynamic + the
-  // revalidatePath calls inside the save action make the editor
-  // pick up server-side edits without a manual reload.
-  let content: string;
+/** Splits the live JSON file into per-section strings for the editor.
+ *  Falls back to an empty skeleton when the file doesn't exist or
+ *  isn't parseable — the user can fix the latter via the section
+ *  textareas (each section validates independently, so a busted
+ *  `lokace` block doesn't take down editing of the other three). */
+async function loadSections(): Promise<{
+  sections: Record<SectionKey, string>;
+  mtimeIso: string | null;
+  loadError: string | null;
+}> {
+  let raw: string;
   let mtimeIso: string | null;
   try {
-    content = await fs.readFile(TARGET_PATH, "utf8");
+    raw = await fs.readFile(TARGET_PATH, "utf8");
     const stat = await fs.stat(TARGET_PATH);
     mtimeIso = stat.mtime.toISOString();
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      // First-run scaffold so the editor doesn't blow up on an
-      // empty input. The user can save this skeleton as-is to
-      // create the file.
-      content = EMPTY_TEMPLATE;
-      mtimeIso = null;
-    } else {
-      throw err;
+      const empty: Record<SectionKey, string> = {
+        lokace: pretty(EMPTY_SECTIONS.lokace),
+        stavy: pretty(EMPTY_SECTIONS.stavy),
+        poznamky: pretty(EMPTY_SECTIONS.poznamky),
+        anonymizace: pretty(EMPTY_SECTIONS.anonymizace),
+      };
+      return { sections: empty, mtimeIso: null, loadError: null };
     }
+    throw err;
   }
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw) as Record<string, unknown>;
+  } catch (err) {
+    // Parse failure: hand the user the raw bytes split as best we
+    // can. A wholly broken file blocks the editor and that's worse
+    // than letting them see the raw content.
+    const sections: Record<SectionKey, string> = {
+      lokace: pretty(EMPTY_SECTIONS.lokace),
+      stavy: pretty(EMPTY_SECTIONS.stavy),
+      poznamky: pretty(EMPTY_SECTIONS.poznamky),
+      anonymizace: pretty(EMPTY_SECTIONS.anonymizace),
+    };
+    return {
+      sections,
+      mtimeIso,
+      loadError:
+        err instanceof Error
+          ? `Soubor neparsuje jako JSON: ${err.message}. Editor startuje s prázdnými sekcemi — zkontroluj/uprav, pak ulož.`
+          : "Soubor neparsuje jako JSON",
+    };
+  }
+
+  const sections: Record<SectionKey, string> = {
+    lokace: pretty(parsed.lokace ?? EMPTY_SECTIONS.lokace),
+    stavy: pretty(parsed.stavy ?? EMPTY_SECTIONS.stavy),
+    poznamky: pretty(parsed.poznamky ?? EMPTY_SECTIONS.poznamky),
+    anonymizace: pretty(parsed.anonymizace ?? EMPTY_SECTIONS.anonymizace),
+  };
+
+  // Sanity check — if the file has top-level keys we don't recognise,
+  // surface a hint in the page header so the user knows their data
+  // isn't being silently dropped on save.
+  const known = new Set<string>(SECTION_KEYS);
+  const unknownKeys = Object.keys(parsed).filter((k) => !known.has(k));
+  const loadError =
+    unknownKeys.length > 0
+      ? `Pozor: ze souboru se nepřevedly tyto klíče (editor je ignoruje): ${unknownKeys.join(", ")}`
+      : null;
+
+  return { sections, mtimeIso, loadError };
+}
+
+export default async function LokaceStavyPoznamkyPage() {
+  await ensureAdminAuth();
+  const { sections, mtimeIso, loadError } = await loadSections();
 
   return (
     <div className="space-y-4">
@@ -80,13 +136,20 @@ export default async function LokaceStavyPoznamkyPage() {
         <p className="text-sm text-gray-500">
           Autoritativní mapování lokalita → nálezy, stavy, poznámky a
           anonymizace. Slouží jako zdroj pravdy pro <code>sync.ts</code>.
-          Editor validuje strukturu i syntaxi range stringů (např.{" "}
-          <code className="font-mono">&quot;15-35&quot;</code>).
+          Editor je rozdělen na 4 nezávislé sekce — každá validuje strukturu
+          a syntaxi range stringů (např.{" "}
+          <code className="font-mono">&quot;15-35&quot;</code>) zvlášť.
         </p>
       </header>
 
+      {loadError && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          {loadError}
+        </p>
+      )}
+
       <LokaceStavyPoznamkyEditor
-        initialContent={content}
+        initialSections={sections}
         fileMtime={mtimeIso}
       />
     </div>
