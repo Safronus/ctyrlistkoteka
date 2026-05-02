@@ -1436,14 +1436,21 @@ function JubileeFindsSection({
   specialSet.add(6666);
   const specials = jubilees.filter((j) => specialSet.has(j.id));
   const milestones = jubilees.filter((j) => !specialSet.has(j.id));
-  // Two rows of milestones visible by default — 5 per row at lg, so
-  // the cap caps at 10. As the collection grows past 10 000 finds
-  // the rest goes behind a `<details>` toggle. Native `<details>`
-  // keeps the section server-rendered (no client JS) and degrades
-  // gracefully without a hydration cycle.
-  const MILESTONES_DEFAULT_VISIBLE = 10;
-  const visibleMilestones = milestones.slice(0, MILESTONES_DEFAULT_VISIBLE);
-  const hiddenMilestones = milestones.slice(MILESTONES_DEFAULT_VISIBLE);
+  // First 10 thousand-milestones (1000…10 000) get fixed slots so the
+  // grid stays uniform even before those finds land in the DB. Empty
+  // slots render a placeholder card. Anything above 10 000 lives in
+  // the collapsed `<details>` and only appears once it actually exists.
+  const SLOTTED_THOUSANDS = Array.from({ length: 10 }, (_, i) => (i + 1) * 1000);
+  const milestoneById = new Map(milestones.map((m) => [m.id, m]));
+  const slottedMilestones: ReadonlyArray<
+    { kind: "find"; find: JubileeFind } | { kind: "empty"; id: number }
+  > = SLOTTED_THOUSANDS.map((id) => {
+    const find = milestoneById.get(id);
+    return find ? { kind: "find", find } : { kind: "empty", id };
+  });
+  const hiddenMilestones = milestones.filter(
+    (m) => !SLOTTED_THOUSANDS.includes(m.id),
+  );
 
   return (
     <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
@@ -1471,18 +1478,24 @@ function JubileeFindsSection({
         </ul>
       )}
 
-      {/* By-1000 milestones — first 10 visible, rest in a native
-          <details> collapse. The summary row mimics a button so the
-          affordance reads clearly. */}
-      {visibleMilestones.length > 0 && (
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {visibleMilestones.map((j) => (
-            <li key={j.id}>
-              <JubileeCard find={j} />
+      {/* Fixed slots for the first 10 thousand-milestones. Empty slots
+          render a placeholder so the grid keeps its shape as the
+          collection grows toward each next round number. Anything past
+          10 000 only shows up after the find exists, in the collapsed
+          section below. */}
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {slottedMilestones.map((slot) =>
+          slot.kind === "find" ? (
+            <li key={slot.find.id}>
+              <JubileeCard find={slot.find} />
             </li>
-          ))}
-        </ul>
-      )}
+          ) : (
+            <li key={`empty-${slot.id}`}>
+              <JubileeEmptyCard id={slot.id} />
+            </li>
+          ),
+        )}
+      </ul>
 
       {hiddenMilestones.length > 0 && (
         <details className="group">
@@ -1560,6 +1573,26 @@ function JubileeCard({ find }: { find: JubileeFind }) {
           Na mapě
         </Link>
       )}
+    </div>
+  );
+}
+
+// Placeholder card for thousand-milestones that haven't been collected
+// yet — keeps the grid shape stable as the collection grows. Dashed
+// border + muted palette signal the slot is reserved but empty, so it
+// reads as "coming up" rather than as a broken row.
+function JubileeEmptyCard({ id }: { id: number }) {
+  return (
+    <div
+      className="flex h-full flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50/60 px-3 py-4 text-center"
+      aria-label={`Nález #${id} ještě není ve sbírce`}
+    >
+      <span className="font-mono text-base font-semibold text-gray-400">
+        #{id}
+      </span>
+      <span className="mt-1 text-[11px] uppercase tracking-wide text-gray-400">
+        Ještě není ve sbírce
+      </span>
     </div>
   );
 }
