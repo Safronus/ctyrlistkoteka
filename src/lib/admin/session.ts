@@ -43,7 +43,14 @@ const sessionOptions: SessionOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    path: "/admin",
+    // Path "/" instead of "/admin" because the auth-gated download
+    // endpoint lives under /api/admin/file — a `/admin`-scoped cookie
+    // wouldn't be sent there, so the route would 404 every image
+    // request even with a valid session. The cookie is HttpOnly,
+    // Secure, SameSite=Strict and the body is iron-session encrypted,
+    // so being readable on public routes (where it's ignored) carries
+    // no practical risk.
+    path: "/",
     maxAge: Math.floor(SESSION_TTL_MS / 1000),
   },
 };
