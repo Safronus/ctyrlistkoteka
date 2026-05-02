@@ -147,11 +147,15 @@ export async function listScope(
     limit?: number;
     duplicatesOnly?: boolean;
     /** When supplied, entries whose NFC-normalised name is in this
-     *  set are dropped before pagination. Used for cross-scope
-     *  filters like "finds without a matching crop" — the caller
-     *  passes the crop names NFC set and gets back only finds whose
-     *  crop is missing. */
+     *  set are dropped before pagination. */
     excludeNamesNFC?: Set<string>;
+    /** When supplied, entries whose leading numeric segment (find ID)
+     *  is in this set are dropped before pagination. Used for the
+     *  finds ↔ crops coverage filter — the two scopes share the
+     *  find ID but the rest of the filename can drift (state token,
+     *  note flag, location code edits over time), so name-based
+     *  matching gives false negatives. ID-based matching is correct. */
+    excludeFindIds?: Set<number>;
   } = {},
 ): Promise<{ total: number; entries: ScopeEntry[] }> {
   const root = ADMIN_ROOTS[scope.rootKey];
@@ -178,6 +182,17 @@ export async function listScope(
   if (opts.excludeNamesNFC) {
     const exclude = opts.excludeNamesNFC;
     names = names.filter((n) => !exclude.has(n.normalize("NFC")));
+  }
+
+  if (opts.excludeFindIds) {
+    const exclude = opts.excludeFindIds;
+    names = names.filter((n) => {
+      const m = /^(\d+)\+/.exec(n);
+      // Names without a leading numeric+plus (maps, weird outliers)
+      // pass through — the filter is meaningful only for finds/crops.
+      if (!m) return true;
+      return !exclude.has(Number(m[1]));
+    });
   }
 
   const q = opts.query?.trim().toLowerCase();
@@ -211,8 +226,7 @@ export async function listScope(
 
 /** Lightweight helper that returns the NFC-normalised name set of
  *  every entry in a scope (dotfiles excluded, no fs.stat per entry).
- *  Cheap enough to call on every page render for cross-scope
- *  coverage checks like "does each find have a matching crop?". */
+ *  Cheap enough to call on every page render. */
 export async function listScopeNamesNFC(
   scope: ScopeDef,
 ): Promise<Set<string>> {
@@ -227,6 +241,39 @@ export async function listScopeNamesNFC(
   return new Set(
     names.filter((n) => !n.startsWith(".")).map((n) => n.normalize("NFC")),
   );
+}
+
+/** Returns the set of find IDs present in a scope — the leading
+ *  numeric segment before the first `+` in each filename. Used for
+ *  finds ↔ crops coverage where the rest of the filename can differ
+ *  but the ID is the canonical pair key. Files without a leading
+ *  number+plus (location maps, anything else) are skipped silently. */
+export async function listScopeFindIds(
+  scope: ScopeDef,
+): Promise<Set<number>> {
+  const root = ADMIN_ROOTS[scope.rootKey];
+  let names: string[];
+  try {
+    names = await fs.readdir(root);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return new Set();
+    throw err;
+  }
+  const ids = new Set<number>();
+  for (const n of names) {
+    if (n.startsWith(".")) continue;
+    const m = /^(\d+)\+/.exec(n);
+    if (m) ids.add(Number(m[1]));
+  }
+  return ids;
+}
+
+/** Extracts the find ID from a filename — first numeric run before
+ *  the first `+`. Returns null when the name doesn't follow the
+ *  finds/crops convention. */
+export function extractFindId(filename: string): number | null {
+  const m = /^(\d+)\+/.exec(filename);
+  return m ? Number(m[1]) : null;
 }
 
 export interface FileInfo {

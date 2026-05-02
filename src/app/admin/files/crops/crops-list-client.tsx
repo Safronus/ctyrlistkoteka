@@ -27,10 +27,13 @@ interface ScopeEntry {
 interface Props {
   entries: ScopeEntry[];
   scopeSlug: string;
-  /** NFC-normalised name set of the counterpart scope (finds for
-   *  crops, crops for finds). When provided, rows whose NFC name is
-   *  NOT in the set get the missingCoverageLabel badge. */
-  coverageNFC?: Set<string>;
+  /** Find-ID set of the counterpart scope (the finds dir, when this
+   *  is the crops listing). Rows whose leading find ID is NOT in the
+   *  set get the missingCoverageLabel badge. ID-based rather than
+   *  name-based because crop and find filenames share only the ID
+   *  segment — the rest of the filename (state, anon flag, note
+   *  marker) drifts as the user updates metadata. */
+  coverageFindIds?: Set<number>;
   missingCoverageLabel?: string;
 }
 
@@ -82,10 +85,15 @@ function analyzeDuplicates(entries: ScopeEntry[]): DuplicateInfo {
   return { flagged, trashCandidates };
 }
 
+function extractFindId(filename: string): number | null {
+  const m = /^(\d+)\+/.exec(filename);
+  return m ? Number(m[1]) : null;
+}
+
 export function CropsListClient({
   entries,
   scopeSlug,
-  coverageNFC,
+  coverageFindIds,
   missingCoverageLabel,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -303,9 +311,11 @@ export function CropsListClient({
           const isImg = isImageName(e.name);
           const isSelected = selected.has(e.name);
           const isDup = flagged.has(e.name);
+          const findId = extractFindId(e.name);
           const isUncovered =
-            coverageNFC !== undefined &&
-            !coverageNFC.has(e.name.normalize("NFC"));
+            coverageFindIds !== undefined &&
+            findId !== null &&
+            !coverageFindIds.has(findId);
           return (
             <li
               key={e.name}

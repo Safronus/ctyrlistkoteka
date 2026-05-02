@@ -10,9 +10,10 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import {
+  extractFindId,
   getScope,
   listScope,
-  listScopeNamesNFC,
+  listScopeFindIds,
 } from "@/lib/admin/scopes";
 import { CropsListClient } from "../crops/crops-list-client";
 import { CropsUploadForm } from "../crops/upload-form";
@@ -78,23 +79,22 @@ export default async function AdminScopeListPage({
   const uncoveredOnly = pickString(sp.uncovered) === "1";
   const offset = (page - 1) * pageSize;
 
-  // Cross-scope coverage check: finds ↔ crops share the same
-  // filename convention, so the existence of a same-named file in
-  // the counterpart scope tells us whether each entry "has its
-  // pair". Used both to render a "bez crops" / "bez originálu"
-  // badge per row and to drive the ?uncovered=1 filter.
-  let counterpartNFC: Set<string> | undefined;
-  let counterpartLabel: string | undefined; // badge text
+  // Cross-scope coverage: finds ↔ crops share only the leading find
+  // ID, NOT the rest of the filename (state token, anonymisation
+  // flag, note marker can drift when the user re-watermarks or
+  // changes status). Match by ID, not by full name.
+  let counterpartIds: Set<number> | undefined;
+  let counterpartLabel: string | undefined;
   if (scope.slug === "finds") {
     const cropsScope = getScope("crops");
     if (cropsScope) {
-      counterpartNFC = await listScopeNamesNFC(cropsScope);
+      counterpartIds = await listScopeFindIds(cropsScope);
       counterpartLabel = "bez crops";
     }
   } else if (scope.slug === "crops") {
     const findsScope = getScope("finds");
     if (findsScope) {
-      counterpartNFC = await listScopeNamesNFC(findsScope);
+      counterpartIds = await listScopeFindIds(findsScope);
       counterpartLabel = "bez originálu";
     }
   }
@@ -104,20 +104,18 @@ export default async function AdminScopeListPage({
     offset,
     limit: pageSize,
     duplicatesOnly,
-    excludeNamesNFC: uncoveredOnly ? counterpartNFC : undefined,
+    excludeFindIds: uncoveredOnly ? counterpartIds : undefined,
   });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  // Compute the global uncovered count so the summary line shows
-  // "X bez crops" without the user having to flip the filter on.
-  // Cheap because we already loaded counterpartNFC; just need this
-  // scope's NFC name set, which is a single readdir.
+  // Global uncovered count for the summary line. Read this scope's
+  // own ID set and count IDs missing from the counterpart.
   let uncoveredCount: number | undefined;
-  if (counterpartNFC) {
-    const ownNFC = await listScopeNamesNFC(scope);
+  if (counterpartIds) {
+    const ownIds = await listScopeFindIds(scope);
     let n = 0;
-    for (const name of ownNFC) {
-      if (!counterpartNFC.has(name)) n += 1;
+    for (const id of ownIds) {
+      if (!counterpartIds.has(id)) n += 1;
     }
     uncoveredCount = n;
   }
@@ -291,7 +289,7 @@ export default async function AdminScopeListPage({
         <CropsListClient
           entries={entries}
           scopeSlug={scope.slug}
-          coverageNFC={counterpartNFC}
+          coverageFindIds={counterpartIds}
           missingCoverageLabel={counterpartLabel}
         />
       ) : (
@@ -299,9 +297,11 @@ export default async function AdminScopeListPage({
           {entries.map((e) => {
             const href = `/admin/files/${scope.slug}/${encodeURIComponent(e.name)}`;
             const isImg = isImageName(e.name);
+            const findId = extractFindId(e.name);
             const isUncovered =
-              counterpartNFC !== undefined &&
-              !counterpartNFC.has(e.name.normalize("NFC"));
+              counterpartIds !== undefined &&
+              findId !== null &&
+              !counterpartIds.has(findId);
             return (
               <li key={e.name}>
                 <Link
