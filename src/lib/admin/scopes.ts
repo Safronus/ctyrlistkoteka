@@ -146,6 +146,12 @@ export async function listScope(
     offset?: number;
     limit?: number;
     duplicatesOnly?: boolean;
+    /** When supplied, entries whose NFC-normalised name is in this
+     *  set are dropped before pagination. Used for cross-scope
+     *  filters like "finds without a matching crop" — the caller
+     *  passes the crop names NFC set and gets back only finds whose
+     *  crop is missing. */
+    excludeNamesNFC?: Set<string>;
   } = {},
 ): Promise<{ total: number; entries: ScopeEntry[] }> {
   const root = ADMIN_ROOTS[scope.rootKey];
@@ -167,6 +173,11 @@ export async function listScope(
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     names = names.filter((n) => (counts.get(n.normalize("NFC")) ?? 0) > 1);
+  }
+
+  if (opts.excludeNamesNFC) {
+    const exclude = opts.excludeNamesNFC;
+    names = names.filter((n) => !exclude.has(n.normalize("NFC")));
   }
 
   const q = opts.query?.trim().toLowerCase();
@@ -196,6 +207,26 @@ export async function listScope(
     }),
   );
   return { total: filtered.length, entries };
+}
+
+/** Lightweight helper that returns the NFC-normalised name set of
+ *  every entry in a scope (dotfiles excluded, no fs.stat per entry).
+ *  Cheap enough to call on every page render for cross-scope
+ *  coverage checks like "does each find have a matching crop?". */
+export async function listScopeNamesNFC(
+  scope: ScopeDef,
+): Promise<Set<string>> {
+  const root = ADMIN_ROOTS[scope.rootKey];
+  let names: string[];
+  try {
+    names = await fs.readdir(root);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return new Set();
+    throw err;
+  }
+  return new Set(
+    names.filter((n) => !n.startsWith(".")).map((n) => n.normalize("NFC")),
+  );
 }
 
 export interface FileInfo {

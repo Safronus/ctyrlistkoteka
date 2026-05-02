@@ -27,6 +27,11 @@ interface ScopeEntry {
 interface Props {
   entries: ScopeEntry[];
   scopeSlug: string;
+  /** NFC-normalised name set of the counterpart scope (finds for
+   *  crops, crops for finds). When provided, rows whose NFC name is
+   *  NOT in the set get the missingCoverageLabel badge. */
+  coverageNFC?: Set<string>;
+  missingCoverageLabel?: string;
 }
 
 function fmtSize(bytes: number): string {
@@ -77,7 +82,12 @@ function analyzeDuplicates(entries: ScopeEntry[]): DuplicateInfo {
   return { flagged, trashCandidates };
 }
 
-export function CropsListClient({ entries, scopeSlug }: Props) {
+export function CropsListClient({
+  entries,
+  scopeSlug,
+  coverageNFC,
+  missingCoverageLabel,
+}: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [batchResults, setBatchResults] = useState<BulkDeleteResult[]>([]);
@@ -293,6 +303,9 @@ export function CropsListClient({ entries, scopeSlug }: Props) {
           const isImg = isImageName(e.name);
           const isSelected = selected.has(e.name);
           const isDup = flagged.has(e.name);
+          const isUncovered =
+            coverageNFC !== undefined &&
+            !coverageNFC.has(e.name.normalize("NFC"));
           return (
             <li
               key={e.name}
@@ -339,6 +352,14 @@ export function CropsListClient({ entries, scopeSlug }: Props) {
                   title="Existuje další soubor se stejným NFC-normalizovaným názvem (Unicode duplikát)"
                 >
                   duplikát
+                </span>
+              )}
+              {isUncovered && missingCoverageLabel && (
+                <span
+                  className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-amber-900"
+                  title={`Žádný odpovídající soubor v sourozenecké složce (${missingCoverageLabel})`}
+                >
+                  {missingCoverageLabel}
                 </span>
               )}
               <span className="shrink-0 font-mono text-xs tabular-nums text-gray-500">

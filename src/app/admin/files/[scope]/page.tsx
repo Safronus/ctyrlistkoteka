@@ -9,7 +9,11 @@ import {
   Search,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
-import { getScope, listScope } from "@/lib/admin/scopes";
+import {
+  getScope,
+  listScope,
+  listScopeNamesNFC,
+} from "@/lib/admin/scopes";
 import { CropsListClient } from "../crops/crops-list-client";
 import { CropsUploadForm } from "../crops/upload-form";
 import { FindsUploadForm } from "../finds/upload-form";
@@ -71,15 +75,52 @@ export default async function AdminScopeListPage({
   const page = pickInt(pickString(sp.page), 1);
   const pageSize = pickPageSize(pickString(sp.size));
   const duplicatesOnly = pickString(sp.dups) === "1";
+  const uncoveredOnly = pickString(sp.uncovered) === "1";
   const offset = (page - 1) * pageSize;
+
+  // Cross-scope coverage check: finds ↔ crops share the same
+  // filename convention, so the existence of a same-named file in
+  // the counterpart scope tells us whether each entry "has its
+  // pair". Used both to render a "bez crops" / "bez originálu"
+  // badge per row and to drive the ?uncovered=1 filter.
+  let counterpartNFC: Set<string> | undefined;
+  let counterpartLabel: string | undefined; // badge text
+  if (scope.slug === "finds") {
+    const cropsScope = getScope("crops");
+    if (cropsScope) {
+      counterpartNFC = await listScopeNamesNFC(cropsScope);
+      counterpartLabel = "bez crops";
+    }
+  } else if (scope.slug === "crops") {
+    const findsScope = getScope("finds");
+    if (findsScope) {
+      counterpartNFC = await listScopeNamesNFC(findsScope);
+      counterpartLabel = "bez originálu";
+    }
+  }
 
   const { total, entries } = await listScope(scope, {
     query: query || undefined,
     offset,
     limit: pageSize,
     duplicatesOnly,
+    excludeNamesNFC: uncoveredOnly ? counterpartNFC : undefined,
   });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // Compute the global uncovered count so the summary line shows
+  // "X bez crops" without the user having to flip the filter on.
+  // Cheap because we already loaded counterpartNFC; just need this
+  // scope's NFC name set, which is a single readdir.
+  let uncoveredCount: number | undefined;
+  if (counterpartNFC) {
+    const ownNFC = await listScopeNamesNFC(scope);
+    let n = 0;
+    for (const name of ownNFC) {
+      if (!counterpartNFC.has(name)) n += 1;
+    }
+    uncoveredCount = n;
+  }
 
   const buildHref = (
     overrides: Partial<{
@@ -87,6 +128,7 @@ export default async function AdminScopeListPage({
       page: number;
       size: number;
       dups: boolean;
+      uncovered: boolean;
     }>,
   ) => {
     const merged = {
@@ -94,6 +136,7 @@ export default async function AdminScopeListPage({
       page,
       size: pageSize,
       dups: duplicatesOnly,
+      uncovered: uncoveredOnly,
       ...overrides,
     };
     const usp = new URLSearchParams();
@@ -102,6 +145,7 @@ export default async function AdminScopeListPage({
     if (merged.size !== DEFAULT_PAGE_SIZE)
       usp.set("size", String(merged.size));
     if (merged.dups) usp.set("dups", "1");
+    if (merged.uncovered) usp.set("uncovered", "1");
     const qs = usp.toString();
     return qs ? `/admin/files/${scope.slug}?${qs}` : `/admin/files/${scope.slug}`;
   };
@@ -127,6 +171,15 @@ export default async function AdminScopeListPage({
           {total.toLocaleString("cs-CZ")}{" "}
           {total === 1 ? "položka" : total < 5 ? "položky" : "položek"}
           {query ? " v aktuálním filtru" : ""}
+          {uncoveredCount !== undefined && uncoveredCount > 0 && (
+            <>
+              {" • "}
+              <span className="text-amber-700">
+                {uncoveredCount.toLocaleString("cs-CZ")}{" "}
+                {counterpartLabel}
+              </span>
+            </>
+          )}
         </p>
       </header>
 
@@ -159,6 +212,7 @@ export default async function AdminScopeListPage({
           <input type="hidden" name="size" value={String(pageSize)} />
         )}
         {duplicatesOnly && <input type="hidden" name="dups" value="1" />}
+        {uncoveredOnly && <input type="hidden" name="uncovered" value="1" />}
         <button
           type="submit"
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
@@ -168,7 +222,7 @@ export default async function AdminScopeListPage({
       </form>
 
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-500">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {duplicatesOnly ? (
             <Link
               href={buildHref({ dups: false, page: 1 })}
@@ -185,6 +239,23 @@ export default async function AdminScopeListPage({
               Filtr: jen duplikáty
             </Link>
           )}
+          {counterpartLabel &&
+            (uncoveredOnly ? (
+              <Link
+                href={buildHref({ uncovered: false, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 font-medium text-amber-900 hover:bg-amber-100"
+              >
+                <span aria-hidden>×</span>
+                Zrušit filtr „{counterpartLabel}&ldquo;
+              </Link>
+            ) : (
+              <Link
+                href={buildHref({ uncovered: true, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
+              >
+                Filtr: jen „{counterpartLabel}&ldquo;
+              </Link>
+            ))}
         </div>
         {total > PAGE_SIZE_OPTIONS[0] && (
           <div className="flex items-center gap-1">
@@ -215,15 +286,22 @@ export default async function AdminScopeListPage({
       ) : scope.slug === "maps" ? (
         // Maps get the bulk-select listing because the user
         // periodically needs to clean up Unicode-duplicate uploads.
-        // Other scopes keep the simpler read-only listing for now.
         <MapsListClient entries={entries} scopeSlug={scope.slug} />
       ) : scope.slug === "crops" ? (
-        <CropsListClient entries={entries} scopeSlug={scope.slug} />
+        <CropsListClient
+          entries={entries}
+          scopeSlug={scope.slug}
+          coverageNFC={counterpartNFC}
+          missingCoverageLabel={counterpartLabel}
+        />
       ) : (
         <ul className="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white">
           {entries.map((e) => {
             const href = `/admin/files/${scope.slug}/${encodeURIComponent(e.name)}`;
             const isImg = isImageName(e.name);
+            const isUncovered =
+              counterpartNFC !== undefined &&
+              !counterpartNFC.has(e.name.normalize("NFC"));
             return (
               <li key={e.name}>
                 <Link
@@ -247,6 +325,14 @@ export default async function AdminScopeListPage({
                   >
                     {e.name}
                   </span>
+                  {isUncovered && counterpartLabel && (
+                    <span
+                      className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-amber-900"
+                      title={`Žádný odpovídající soubor v sourozenecké složce (${counterpartLabel})`}
+                    >
+                      {counterpartLabel}
+                    </span>
+                  )}
                   <span className="shrink-0 font-mono text-xs tabular-nums text-gray-500">
                     {fmtSize(e.size)}
                   </span>
