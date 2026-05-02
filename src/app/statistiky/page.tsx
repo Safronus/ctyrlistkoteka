@@ -224,7 +224,10 @@ async function TotalsSection() {
             icon: MapPinOff,
             label: "zaniklých",
             value: fmt.format(totals.goneLocations),
-            href: "/lokality?showGone=1",
+            // `onlyGone` deep-link → /lokality filtruje na samé
+            // zaniklé. Není to jen toggle viditelnosti (showGone) —
+            // odkrylo by zbytek aktivních lokalit.
+            href: "/lokality?onlyGone=1",
           },
           {
             icon: Camera,

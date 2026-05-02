@@ -119,6 +119,13 @@ export interface LocationFilter {
   /** When false, locations whose code starts with `NEEXISTUJE-` are
    *  dropped from the result. Default is `false` (hidden). */
   showGone?: boolean;
+  /** When true, restrict the result to only former (NEEXISTUJE-)
+   *  locations. Different from `showGone`, which controls visibility:
+   *  this is "pouze zaniklé" — the deep-link target from /statistiky's
+   *  "zaniklých" tile. Implies `showGone: true` server-side; the
+   *  caller still passes both so the toolbar UI can reflect both
+   *  states independently. */
+  onlyGone?: boolean;
   /** Restrict the result to a single location by id. Used by the
    *  per-location detail page so it can reuse the full stats pipeline
    *  for one row without paying for the whole table scan. */
@@ -528,7 +535,13 @@ export async function listLocations(
   if (filter.showAnonymized !== true) {
     items = items.filter((it) => !it.isAnonymized);
   }
-  if (filter.showGone !== true) {
+  if (filter.onlyGone === true) {
+    // Restrict to former locations regardless of `showGone` — the
+    // caller may have left it false; we override here so the
+    // intentional "pouze zaniklé" deep-link doesn't collapse to an
+    // empty list because the visibility toggle was off.
+    items = items.filter((it) => it.isGone);
+  } else if (filter.showGone !== true) {
     items = items.filter((it) => !it.isGone);
   }
   // Real-photo filter — keep only rows where the author has uploaded a

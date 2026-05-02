@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Archive, X } from "lucide-react";
 import { LocationsFilterBar } from "@/components/locations/locations-filter-bar";
 import { LocationsToolbar } from "@/components/locations/locations-toolbar";
 import { LocationListRow } from "@/components/locations/location-list-row";
@@ -50,7 +52,11 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   const sort = parseSort(pickString(sp.sort));
   // Both visibility toggles are opt-in — empty/absent means hidden.
   const showAnonymized = pickString(sp.showAnon) === "1";
-  const showGone = pickString(sp.showGone) === "1";
+  // `onlyGone=1` is the deep-link from /statistiky — implies showGone
+  // (the toolbar's visibility toggle) so the page reflects what the
+  // visitor explicitly asked for. The query layer also forces it.
+  const onlyGone = pickString(sp.onlyGone) === "1";
+  const showGone = onlyGone || pickString(sp.showGone) === "1";
   const hasRealPhoto = pickString(sp.hasPhoto) === "1";
 
   const [cities, countries, locations] = await Promise.all([
@@ -63,6 +69,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
       sort,
       showAnonymized,
       showGone,
+      onlyGone: onlyGone || undefined,
       hasRealPhoto: hasRealPhoto || undefined,
     }),
   ]);
@@ -96,9 +103,44 @@ export default async function LokalityPage({ searchParams }: PageProps) {
             sort !== "finds" ||
             showAnonymized ||
             showGone ||
-            hasRealPhoto,
+            hasRealPhoto ||
+            onlyGone,
         }}
       />
+
+      {/* Active "pouze zaniklé" banner — surfaces the deep-link state
+          from /statistiky so the visitor sees they're not on the
+          unfiltered list. Dropping the param via the X preserves any
+          other URL params the visitor has set (sort, country, …);
+          showGone is also dropped to avoid leaving the toggle on
+          unintentionally. */}
+      {onlyGone && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+          <span className="inline-flex items-center gap-2">
+            <Archive className="h-4 w-4" aria-hidden />
+            <span>
+              Filtr: <strong>pouze zaniklé lokality</strong> ({locations.length}).
+            </span>
+          </span>
+          <Link
+            href={(() => {
+              const params = new URLSearchParams();
+              if (q) params.set("q", q);
+              if (city) params.set("city", city);
+              if (country) params.set("country", country);
+              if (sort !== "finds") params.set("sort", sort);
+              if (showAnonymized) params.set("showAnon", "1");
+              if (hasRealPhoto) params.set("hasPhoto", "1");
+              const qs = params.toString();
+              return qs ? `/lokality?${qs}` : "/lokality";
+            })()}
+            className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-800 transition hover:border-rose-300 hover:shadow-sm"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden />
+            <span>Zrušit filtr</span>
+          </Link>
+        </div>
+      )}
 
       {locations.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-12 text-center">
