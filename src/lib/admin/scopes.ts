@@ -106,7 +106,13 @@ export async function listScope(
   const filtered = q
     ? names.filter((n) => n.toLowerCase().includes(q))
     : names;
-  filtered.sort((a, b) => a.localeCompare(b, "cs"));
+  // `numeric: true` triggers natural sort: leading-number runs are
+  // compared as numbers, so `1+…` < `2+…` < `10+…` < `100+…` instead
+  // of the lexicographic `1+ … 10+ … 100+ … 2+` ordering you'd get
+  // without it.
+  filtered.sort((a, b) =>
+    a.localeCompare(b, "cs", { numeric: true, sensitivity: "base" }),
+  );
   const offset = opts.offset ?? 0;
   const limit = opts.limit ?? 100;
   const slice = filtered.slice(offset, offset + limit);
