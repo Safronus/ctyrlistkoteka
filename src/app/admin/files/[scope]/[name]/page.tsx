@@ -10,6 +10,7 @@ import {
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { getScope, statScopeFile } from "@/lib/admin/scopes";
 import { DeleteFindButton } from "../../finds/delete-button";
+import { DeleteMapButton } from "../../maps/delete-button";
 
 const MAX_TEXT_PREVIEW_BYTES = 256 * 1024;
 
@@ -140,6 +141,9 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           <div className="flex shrink-0 items-center gap-2">
             {scope.slug === "finds" && (
               <DeleteFindButton filename={info.name} />
+            )}
+            {scope.slug === "maps" && (
+              <DeleteMapButton filename={info.name} />
             )}
             <a
               href={fileUrl}

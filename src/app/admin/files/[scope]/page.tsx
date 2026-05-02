@@ -11,6 +11,7 @@ import {
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { getScope, listScope } from "@/lib/admin/scopes";
 import { FindsUploadForm } from "../finds/upload-form";
+import { MapsUploadForm } from "../maps/upload-form";
 
 const PAGE_SIZE = 100;
 
@@ -95,6 +96,7 @@ export default async function AdminScopeListPage({
       </header>
 
       {scope.slug === "finds" && <FindsUploadForm />}
+      {scope.slug === "maps" && <MapsUploadForm />}
 
       <form
         action={`/admin/files/${scope.slug}`}
