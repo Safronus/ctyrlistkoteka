@@ -1602,13 +1602,13 @@ function JubileeEmptyCard({ id }: { id: number }) {
   return (
     <div
       className="flex h-full flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50/60 px-3 py-4 text-center"
-      aria-label={`Nález #${id} ještě není ve sbírce`}
+      aria-label={`Nález #${id} zatím chybí na webu`}
     >
       <span className="font-mono text-base font-semibold text-gray-400">
         #{id}
       </span>
       <span className="mt-1 text-[11px] uppercase tracking-wide text-gray-400">
-        Ještě není ve sbírce
+        Zatím chybí na webu
       </span>
     </div>
   );
