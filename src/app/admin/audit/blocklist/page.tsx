@@ -3,9 +3,15 @@ import {
   Ban,
   Download,
   FileWarning,
+  Flag,
   ShieldX,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
+import {
+  describeCategories,
+  loadAbuseIpdbSummary,
+  type AbuseIpdbSummary,
+} from "@/lib/admin/abuseipdb";
 import {
   aggregateByIp,
   computePermabanCandidates,
@@ -95,6 +101,7 @@ export default async function AdminAuditBlocklistPage({
           threshold={threshold}
           windowDays={windowDays}
           jail={jail}
+          abuseIpdb={await loadAbuseIpdbSummary(data.entries)}
         />
       )}
     </div>
@@ -172,6 +179,7 @@ interface ReadyViewProps {
   threshold: number;
   windowDays: number;
   jail: string;
+  abuseIpdb: AbuseIpdbSummary;
 }
 
 function ReadyView({
@@ -184,6 +192,7 @@ function ReadyView({
   threshold,
   windowDays,
   jail,
+  abuseIpdb,
 }: ReadyViewProps) {
   const stats = computeStats(entries);
   const aggregates = aggregateByIp(entries);
@@ -205,6 +214,7 @@ function ReadyView({
         topIps={stats.topIps}
         totalIps={stats.uniqueIps}
       />
+      <AbuseIpdbPanel summary={abuseIpdb} />
       <PermabanPanel
         threshold={threshold}
         windowDays={windowDays}
@@ -224,6 +234,208 @@ function ReadyView({
         jail={jail}
       />
     </>
+  );
+}
+
+function AbuseIpdbPanel({ summary }: { summary: AbuseIpdbSummary }) {
+  const reportedCount = summary.reportedIps.length;
+  const reportedBans = summary.reportedIps.reduce(
+    (acc, r) => acc + r.count,
+    0,
+  );
+  const stateMissing =
+    summary.stateError === "missing" && summary.lastTimestamp === null;
+  return (
+    <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <Flag className="h-4 w-4 text-brand-600" aria-hidden />
+          AbuseIPDB reporty
+        </h2>
+        <span className="text-[11px] text-gray-500">
+          stav: <code>{summary.statePath}</code> · log:{" "}
+          <code>{summary.logPath}</code>
+        </span>
+      </header>
+
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Stat
+          label="Nahlášených IP"
+          value={reportedCount.toLocaleString("cs-CZ")}
+        />
+        <Stat
+          label="Z toho banů"
+          value={reportedBans.toLocaleString("cs-CZ")}
+        />
+        <Stat
+          label="Akceptováno API"
+          value={summary.totalSaved.toLocaleString("cs-CZ")}
+        />
+        <Stat
+          label="Odmítnuto API"
+          value={summary.totalInvalid.toLocaleString("cs-CZ")}
+        />
+      </ul>
+
+      <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
+          <dt className="text-[10px] uppercase tracking-wide text-gray-400">
+            Poslední state TS
+          </dt>
+          <dd className="mt-0.5 font-mono tabular-nums text-gray-800">
+            {summary.lastTimestamp
+              ? formatDateTime(summary.lastTimestamp)
+              : stateMissing
+                ? "—"
+                : "(neplatný state)"}
+          </dd>
+        </div>
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
+          <dt className="text-[10px] uppercase tracking-wide text-gray-400">
+            Pending IP (čekají na další běh)
+          </dt>
+          <dd className="mt-0.5 font-mono tabular-nums text-gray-800">
+            {summary.pendingIps.length.toLocaleString("cs-CZ")} IP /{" "}
+            {summary.pendingCount.toLocaleString("cs-CZ")} banů
+          </dd>
+        </div>
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
+          <dt className="text-[10px] uppercase tracking-wide text-gray-400">
+            Cron — viz <code>/etc/cron.d/abuseipdb-report</code>
+          </dt>
+          <dd className="mt-0.5 text-gray-700">
+            Skript: <code>/usr/local/sbin/abuseipdb-report.sh</code>
+          </dd>
+        </div>
+      </dl>
+
+      {(summary.stateError || summary.logError) && (
+        <AbuseFileHints summary={summary} />
+      )}
+
+      {summary.recentLog.length > 0 && (
+        <div>
+          <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Posledních {summary.recentLog.length} log řádků
+          </h3>
+          <div className="max-h-48 overflow-auto rounded-md border border-gray-200 bg-gray-900">
+            <ul className="divide-y divide-gray-800 font-mono text-[11px] leading-snug text-gray-100">
+              {summary.recentLog.map((line, i) => (
+                <li
+                  key={`${line.ts}-${i}`}
+                  className="flex gap-3 px-2 py-1"
+                  title={line.message}
+                >
+                  <span className="shrink-0 text-gray-500">
+                    {formatDateTime(line.ts)}
+                  </span>
+                  <span
+                    className={
+                      line.kind === "error"
+                        ? "text-red-300"
+                        : line.kind === "report"
+                          ? "text-emerald-300"
+                          : "text-gray-300"
+                    }
+                  >
+                    {line.message}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {reportedCount > 0 ? (
+        <div className="overflow-x-auto rounded-md border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-3 py-2 font-medium">IP</th>
+                <th className="px-3 py-2 font-medium">Banů</th>
+                <th className="px-3 py-2 font-medium">První</th>
+                <th className="px-3 py-2 font-medium">Naposledy</th>
+                <th className="px-3 py-2 font-medium">Jails</th>
+                <th className="px-3 py-2 font-medium">Kategorie</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {summary.reportedIps.map((r) => (
+                <tr key={r.ip} className="hover:bg-gray-50">
+                  <td className="whitespace-nowrap px-3 py-1.5 font-mono text-gray-800">
+                    {r.ip}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-700">
+                    {r.count.toLocaleString("cs-CZ")}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-500">
+                    {formatDateTime(r.firstSeen)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-500">
+                    {formatDateTime(r.lastSeen)}
+                  </td>
+                  <td className="px-3 py-1.5 text-gray-700">
+                    {r.jails.join(", ")}
+                  </td>
+                  <td
+                    className="px-3 py-1.5 text-gray-700"
+                    title={`AbuseIPDB categories: ${r.categories}`}
+                  >
+                    <span className="font-mono text-gray-500">
+                      {r.categories}
+                    </span>{" "}
+                    <span className="text-gray-700">
+                      {describeCategories(r.categories)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-500">
+          {stateMissing
+            ? "State soubor zatím neexistuje — script ještě nikdy neběžel, nebo jeho stav nemá Next.js přečtený."
+            : "Žádné nahlášené IP zatím nejsou. Po prvním cron tiknutí se sem vyplní seznam."}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function AbuseFileHints({ summary }: { summary: AbuseIpdbSummary }) {
+  const items: { label: string; path: string; error: string }[] = [];
+  if (summary.stateError) {
+    items.push({
+      label: "State",
+      path: summary.statePath,
+      error: summary.stateError,
+    });
+  }
+  if (summary.logError) {
+    items.push({
+      label: "Log",
+      path: summary.logPath,
+      error: summary.logError,
+    });
+  }
+  if (items.length === 0) return null;
+  return (
+    <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+      <p className="font-medium">Soubory nelze načíst</p>
+      <ul className="space-y-0.5">
+        {items.map((it) => (
+          <li key={it.path}>
+            <strong>{it.label}</strong> — <code>{it.path}</code> ({it.error}
+            ). Pravděpodobně potřebuje setfacl: <code>{it.error === "permission"
+              ? `sudo setfacl -m u:NODE_USER:r ${it.path}`
+              : `Soubor zatím neexistuje — počkej na první cron běh.`}</code>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
