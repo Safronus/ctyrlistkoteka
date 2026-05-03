@@ -121,7 +121,16 @@ export interface PngTextEditResult {
  *  metadata tag. When `value === null`, just removes any matching
  *  chunks — no new chunk is added. Matching is by normalised keyword
  *  so "AnonymizovanLokace" and "Anonymizovaná lokace" hit the same
- *  bucket. The new chunk goes in just before IEND. */
+ *  bucket.
+ *
+ *  Insertion goes immediately after IHDR so head-only readers (we
+ *  scan only the first 64 KB on the listing + detail metadata
+ *  preview to keep the cost bounded — see `mapAnon.ts` and
+ *  `metadata-preview.tsx`) can always see the tag. Map PNGs run
+ *  hundreds of kB to a few MB, so a chunk placed before IEND would
+ *  routinely fall outside that window and the badge would silently
+ *  disappear from the admin UI even though sync (which reads the
+ *  whole file) would still pick it up. */
 export function setPngTextTag(
   buf: Buffer,
   keyword: string,
@@ -149,14 +158,15 @@ export function setPngTextTag(
   let added: 0 | 1 = 0;
   if (value !== null) {
     const newChunk = buildTextChunk(keyword, value);
-    // Splice in just before IEND so the structural ordering stays
-    // valid (PNG decoders don't care about ancillary order, but a
-    // strict reader would still expect IEND last).
-    const iendIdx = kept.findIndex(
-      (c) => c.subarray(4, 8).toString("ascii") === "IEND",
+    // PNG spec mandates IHDR as the first chunk, so kept[0] is it
+    // unless the file is malformed (parseChunks would have already
+    // bailed). Splice the new tEXt right after — well within the
+    // 64 KB head window every reader uses.
+    const ihdrIdx = kept.findIndex(
+      (c) => c.subarray(4, 8).toString("ascii") === "IHDR",
     );
-    if (iendIdx === -1) kept.push(newChunk);
-    else kept.splice(iendIdx, 0, newChunk);
+    const insertAt = ihdrIdx === -1 ? 0 : ihdrIdx + 1;
+    kept.splice(insertAt, 0, newChunk);
     added = 1;
   }
 
