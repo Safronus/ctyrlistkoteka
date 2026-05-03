@@ -12,6 +12,9 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { FindState } from "@prisma/client";
+import { parseFindFilename } from "@/lib/parseFilename";
+import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
 import {
   MAX_BULK_DELETE_PER_REQUEST,
   type BulkDeleteResult,
@@ -80,6 +83,29 @@ function isImageName(name: string): boolean {
 function extractFindId(filename: string): number | null {
   const m = /^(\d+)/.exec(filename);
   return m ? Number(m[1]) : null;
+}
+
+interface FindNameInfo {
+  /** Filename's state token (DAROVANY, BEZGPS, …). NORMAL stays
+   *  hidden — it's the default and would just clutter the row. */
+  state: FindState | null;
+  /** Filename's pole 5 — true when the name carries `+ANO+`. JSON
+   *  anonymizace can flip a NE find to anon at sync time, but that
+   *  state isn't visible in the filename and would need a server
+   *  round-trip to surface here. The badge is "ANO v názvu" only. */
+  isAnonymizedInName: boolean;
+}
+
+/** Parses a find/crop filename for the listing-row badges. Returns
+ *  null when the parser rejects the name — the row will still render,
+ *  it just won't grow extra badges. */
+function parseFindNameForBadges(filename: string): FindNameInfo | null {
+  const r = parseFindFilename(filename);
+  if (!r.ok) return null;
+  return {
+    state: r.value.state,
+    isAnonymizedInName: r.value.isAnonymized,
+  };
 }
 
 interface DuplicateInfo {
@@ -517,6 +543,32 @@ export function FilesListClient({
                   anonym.
                 </span>
               )}
+              {(scopeSlug === "finds" || scopeSlug === "crops") &&
+                (() => {
+                  const info = parseFindNameForBadges(e.name);
+                  if (!info) return null;
+                  return (
+                    <>
+                      {info.state !== null &&
+                        info.state !== FindState.NORMAL && (
+                          <span
+                            className={`shrink-0 rounded px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide ${STATE_BADGE[info.state]}`}
+                            title={`Stav v názvu: ${STATE_LABELS[info.state]}`}
+                          >
+                            {STATE_LABELS[info.state]}
+                          </span>
+                        )}
+                      {info.isAnonymizedInName && (
+                        <span
+                          className="shrink-0 rounded bg-purple-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-purple-800"
+                          title="Pole 5 v názvu = ANO (anonymizováno)"
+                        >
+                          ANO
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
               <span className="shrink-0 font-mono text-xs tabular-nums text-gray-500">
                 {fmtSize(e.size)}
               </span>

@@ -20,7 +20,7 @@ import {
   touchSession,
 } from "@/lib/admin/session";
 import { parseFindFilename } from "@/lib/parseFilename";
-import { parseRanges } from "@/lib/parseRanges";
+import { compactToRanges, parseRanges } from "@/lib/parseRanges";
 
 /** Token written into segment[3] of the find filename. The
  *  filename-state map accepts both DAROVANY and DAROVANÝ for the
@@ -334,7 +334,13 @@ async function updateMetaJsonForDonation(
   const currentDarovany = json.stavy.DAROVANY ?? [];
   const existingIds = parseRanges(currentDarovany);
   if (!existingIds.includes(findId)) {
-    json.stavy.DAROVANY = [...currentDarovany, String(findId)];
+    // Re-emit the whole array sorted + compacted so a new id slots
+    // into the right position (and merges with an adjacent range
+    // when consecutive). Without this the singleton would just get
+    // appended to the end and the file would drift away from the
+    // tidy form the user maintains.
+    const merged = compactToRanges([...existingIds, findId]);
+    json.stavy.DAROVANY = merged;
     changed = true;
   }
 

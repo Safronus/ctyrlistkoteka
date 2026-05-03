@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseRanges } from "./parseRanges";
+import { compactToRanges, parseRanges } from "./parseRanges";
 
 describe("parseRanges", () => {
   it("expands a single range", () => {
@@ -44,5 +44,50 @@ describe("parseRanges", () => {
     expect(parseRanges(["13602-13603", "14608"])).toEqual([
       13602, 13603, 14608,
     ]);
+  });
+});
+
+describe("compactToRanges", () => {
+  it("returns [] for empty input", () => {
+    expect(compactToRanges([])).toEqual([]);
+  });
+
+  it("emits a single id as a string", () => {
+    expect(compactToRanges([42])).toEqual(["42"]);
+  });
+
+  it("collapses consecutive ids into ranges", () => {
+    expect(compactToRanges([1, 2, 3])).toEqual(["1-3"]);
+  });
+
+  it("preserves gaps and mixes singletons with ranges", () => {
+    expect(compactToRanges([1, 2, 3, 5, 7, 8, 9])).toEqual([
+      "1-3",
+      "5",
+      "7-9",
+    ]);
+  });
+
+  it("sorts unsorted input", () => {
+    expect(compactToRanges([7, 1, 3, 2])).toEqual(["1-3", "7"]);
+  });
+
+  it("dedupes", () => {
+    expect(compactToRanges([1, 2, 2, 3, 3, 3])).toEqual(["1-3"]);
+  });
+
+  it("round-trips through parseRanges", () => {
+    const ids = parseRanges(["13602-13603", "14608", "1", "16945"]);
+    expect(compactToRanges(ids)).toEqual([
+      "1",
+      "13602-13603",
+      "14608",
+      "16945",
+    ]);
+  });
+
+  it("merges a newly added id into an adjacent range", () => {
+    const ids = parseRanges(["13602-13603", "13604"]);
+    expect(compactToRanges(ids)).toEqual(["13602-13604"]);
   });
 });

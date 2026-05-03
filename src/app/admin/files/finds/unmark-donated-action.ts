@@ -20,6 +20,7 @@ import {
   touchSession,
 } from "@/lib/admin/session";
 import { parseFindFilename } from "@/lib/parseFilename";
+import { compactToRanges, parseRanges } from "@/lib/parseRanges";
 
 /** Inverse of `markFindDonated`: rewrites segment[3] back to NORMÁLNÍ
  *  (canonical form with diacritics — the only NORMAL token in
@@ -272,10 +273,15 @@ async function updateMetaJsonForUndoDonation(
   let changed = false;
 
   const currentDarovany = json.stavy.DAROVANY ?? [];
-  const filteredDarovany = removeIdFromRanges(currentDarovany, findId);
-  if (filteredDarovany.length !== currentDarovany.length ||
-      filteredDarovany.some((s, i) => s !== currentDarovany[i])) {
-    json.stavy.DAROVANY = filteredDarovany;
+  const existingIds = parseRanges(currentDarovany);
+  if (existingIds.includes(findId)) {
+    // Re-emit sorted + compacted (matches markFindDonated's write
+    // path). This also normalises any pre-existing manual
+    // arrangement that included findId in a range — e.g.
+    // "13600-13605" with id 13602 collapses to ["13600-13601",
+    // "13603-13605"].
+    const remaining = existingIds.filter((id) => id !== findId);
+    json.stavy.DAROVANY = compactToRanges(remaining);
     changed = true;
   }
 
@@ -302,56 +308,3 @@ async function updateMetaJsonForUndoDonation(
   return true;
 }
 
-/** Removes a single id from a ranges-style string array surgically:
- *    "150"      ⇢ dropped if matches
- *    "100-200"  ⇢ split / shrunk so id is no longer covered
- *    "150-150"  ⇢ dropped (degenerate)
- *  Order and shape of unrelated entries is preserved so the user's
- *  manual JSON layout survives an admin-driven edit. Unknown shapes
- *  pass through untouched (the editor's Zod validation already
- *  guards against them at save time). */
-function removeIdFromRanges(
-  ranges: readonly string[],
-  id: number,
-): string[] {
-  const out: string[] = [];
-  for (const raw of ranges) {
-    const s = raw.trim();
-    if (s === "") {
-      out.push(raw);
-      continue;
-    }
-    if (/^\d+$/.test(s)) {
-      if (Number(s) !== id) out.push(s);
-      continue;
-    }
-    const m = /^(\d+)-(\d+)$/.exec(s);
-    if (!m) {
-      out.push(raw);
-      continue;
-    }
-    const a = Number(m[1]);
-    const b = Number(m[2]);
-    if (id < a || id > b) {
-      out.push(s);
-      continue;
-    }
-    if (a === b) continue; // single-element range "N-N", drop entirely
-    if (id === a) {
-      const newA = a + 1;
-      out.push(newA === b ? String(newA) : `${newA}-${b}`);
-      continue;
-    }
-    if (id === b) {
-      const newB = b - 1;
-      out.push(newB === a ? String(a) : `${a}-${newB}`);
-      continue;
-    }
-    // strictly inside: split
-    const left = id - 1;
-    const right = id + 1;
-    out.push(left === a ? String(a) : `${a}-${left}`);
-    out.push(right === b ? String(b) : `${right}-${b}`);
-  }
-  return out;
-}
