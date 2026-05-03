@@ -97,13 +97,21 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
                   )}
                 </div>
               )}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <RowCount location={location} />
-                <DetailLink location={location} />
-                <MapLink location={location} />
-              </div>
             </>
           )}
+          {/* Find count is the only piece of metadata we surface for
+              anonymised rows — the count itself isn't sensitive (it
+              already drives Sbírka filters & Top lokality stats), but
+              GPS / detail / map links must stay hidden. */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <RowCount location={location} />
+            {!location.isAnonymized && (
+              <>
+                <DetailLink location={location} />
+                <MapLink location={location} />
+              </>
+            )}
+          </div>
         </div>
         <div
           aria-hidden

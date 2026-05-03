@@ -24,9 +24,12 @@ import {
   SECTION_LABELS,
   type SectionKey,
 } from "@/lib/admin/jsonSchema";
+import { parseFindFilename } from "@/lib/parseFilename";
+import { FindState } from "@prisma/client";
 import { DeleteCropButton } from "../../crops/delete-button";
 import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
+import { MarkDonatedButton } from "../../finds/mark-donated-button";
 import { DeleteLocationPhotoButton } from "../../location-photos/delete-button";
 import { MapAnonymizeToggleButton } from "../../maps/anonymize-toggle-button";
 import { DeleteMapButton } from "../../maps/delete-button";
@@ -91,6 +94,18 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
   const isMapAnonymized =
     scope.slug === "maps"
       ? ((await readMapAnonFlagFor(info.absolutePath, info.name)) ?? false)
+      : false;
+
+  // Find detail surfaces the "Označit jako darovaný" control only on
+  // files whose filename token still says NORMÁLNÍ — the action edits
+  // segment[3]→DAROVANY + the note tail, so any other source state
+  // would need a different transition that we don't model yet.
+  const canMarkDonated =
+    scope.slug === "finds"
+      ? (() => {
+          const parsed = parseFindFilename(info.name);
+          return parsed.ok && parsed.value.state === FindState.NORMAL;
+        })()
       : false;
 
   let textPreview: { content: string; truncated: boolean } | null = null;
@@ -217,7 +232,12 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {scope.slug === "finds" && (
-              <DeleteFindButton filename={info.name} />
+              <>
+                {canMarkDonated && (
+                  <MarkDonatedButton filename={info.name} />
+                )}
+                <DeleteFindButton filename={info.name} />
+              </>
             )}
             {scope.slug === "crops" && (
               <DeleteCropButton filename={info.name} />
