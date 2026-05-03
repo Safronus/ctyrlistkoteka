@@ -59,6 +59,15 @@ export interface RetrospectiveBundle {
   week: RetrospectivePeriod;
   month: RetrospectivePeriod;
   year: RetrospectivePeriod;
+  /** Total finds in the collection, including those without an EXIF
+   *  date — used by the grid footer to spell out the diff between
+   *  "Rok celkem" (4559 with date) and the headline find count
+   *  (4572 incl. date-less ones) instead of letting the visitor wonder. */
+  findsTotal: number;
+  /** Subset of `findsTotal` whose `found_at` is NULL — these finds
+   *  cannot be assigned to any year/month/week/day bucket and so are
+   *  excluded from every panel's count. */
+  findsWithoutDate: number;
 }
 
 const MONTH_LABELS_NOM_CS = [
@@ -131,12 +140,26 @@ export async function getRetrospective(): Promise<RetrospectiveBundle | null> {
   // year in too — even if the collection's last find was in 2024 we
   // still want a 0 bar for the current year on the chart so the
   // "right edge" of every panel shares the same axis.
+  // Same query also surfaces the headline counts so the grid footer
+  // can spell out "X nálezů bez data" — otherwise the visitor sees
+  // "Rok celkem 4559" next to a homepage card claiming 4572 and
+  // wonders where 13 finds went.
   const span = await prisma.$queryRawUnsafe<
-    Array<{ first_year: number | null }>
+    Array<{
+      first_year: number | null;
+      finds_total: bigint;
+      finds_without_date: bigint;
+    }>
   >(
-    `SELECT EXTRACT(YEAR FROM MIN(found_at))::int AS first_year FROM finds WHERE found_at IS NOT NULL`,
+    `SELECT
+       EXTRACT(YEAR FROM MIN(found_at))::int AS first_year,
+       COUNT(*)::bigint AS finds_total,
+       COUNT(*) FILTER (WHERE found_at IS NULL)::bigint AS finds_without_date
+     FROM finds`,
   );
   const firstYear = span[0]?.first_year ?? null;
+  const findsTotal = Number(span[0]?.finds_total ?? 0n);
+  const findsWithoutDate = Number(span[0]?.finds_without_date ?? 0n);
   if (firstYear === null) return null;
   const lastYear = todayYear;
 
@@ -246,5 +269,7 @@ export async function getRetrospective(): Promise<RetrospectiveBundle | null> {
       hint: "Celý rok napříč historií sbírky",
       points: fillRange(yearMap, firstYear, lastYear, todayYear),
     },
+    findsTotal,
+    findsWithoutDate,
   };
 }
