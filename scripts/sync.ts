@@ -721,26 +721,64 @@ async function scanFindDir(
   imageType: ImageType,
   ctx: Context,
   subdirLabel: string,
+  /** When set (only on the CROP pass), the function falls back to the
+   *  short-form `<id>.jpg` filename — the same relaxation the admin
+   *  upload action accepts (see src/app/admin/files/crops/upload-action.ts).
+   *  Missing metadata (mapNumber, locationCode, state, isAnonymized)
+   *  is recovered from the matching ORIGINAL's parsed filename so the
+   *  downstream upsert keeps treating the find row identically. */
+  originalsByFindId?: Map<number, ParsedFindFilename>,
 ): Promise<FindFileInfo[]> {
   const files = await listFiles(dir);
   const out: FindFileInfo[] = [];
   for (const filename of files) {
+    let parsedValue: ParsedFindFilename | null = null;
     const parsed = parseFindFilename(filename);
-    if (!parsed.ok) {
+    if (parsed.ok) {
+      parsedValue = parsed.value;
+    } else if (originalsByFindId && imageType === ImageType.CROP) {
+      // Short-form crop fallback: `<id>.jpg` / `<id>.jpeg`. Mirror the
+      // upload-action regex exactly so the two parsers stay in lock
+      // step. Without this every crop uploaded in the convenience
+      // form silently disappears from the DB while the JPEG sits
+      // intact on disk — exactly the symptom that motivated this
+      // relaxation. Look up the matching original to fill the rest
+      // of the parsed metadata; an orphan crop (no original) is
+      // logged so it surfaces during review.
+      const short = /^(\d+)\.(jpe?g)$/i.exec(filename.normalize("NFC"));
+      if (short) {
+        const findId = Number(short[1]);
+        const original = originalsByFindId.get(findId);
+        if (original) {
+          parsedValue = {
+            ...original,
+            extension: short[2]!.toLowerCase(),
+          };
+        } else {
+          ctx.log.failure({
+            file: `${subdirLabel}/${filename}`,
+            reason: "orphan_crop",
+            details: `Short-form crop ${filename} has no matching original in data/finds/ (find #${findId}).`,
+          });
+          continue;
+        }
+      }
+    }
+    if (!parsedValue) {
       ctx.log.failure({
         file: `${subdirLabel}/${filename}`,
         reason: "parse_error",
-        details: parsed.error,
+        details: parsed.ok ? "(unreachable)" : parsed.error,
       });
       continue;
     }
-    if (ctx.opts.findId !== null && parsed.value.findId !== ctx.opts.findId) {
+    if (ctx.opts.findId !== null && parsedValue.findId !== ctx.opts.findId) {
       continue;
     }
     out.push({
       filename,
       path: join(dir, filename),
-      parsed: parsed.value,
+      parsed: parsedValue,
       imageType,
     });
   }
@@ -757,11 +795,16 @@ async function phaseFinds(
     ctx,
     "finds",
   );
+  // Build the originals lookup so the crops pass can resolve
+  // short-form `<id>.jpg` filenames against full-form metadata.
+  const originalsByFindId = new Map<number, ParsedFindFilename>();
+  for (const f of finds) originalsByFindId.set(f.parsed.findId, f.parsed);
   const crops = await scanFindDir(
     join(ctx.dataDir, "crops"),
     ImageType.CROP,
     ctx,
     "crops",
+    originalsByFindId,
   );
   const all = [...finds, ...crops];
   ctx.log.log({
