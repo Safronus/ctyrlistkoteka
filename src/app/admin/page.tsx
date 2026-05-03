@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Activity,
+  AlertTriangle,
   Camera,
   CheckCircle2,
   Clock,
@@ -16,13 +17,16 @@ import {
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { listCredentials } from "@/lib/admin/credentials";
 import { readRecentAudit } from "@/lib/admin/audit";
+import { runChecksSummary } from "@/lib/admin/checks";
 
 export default async function AdminHomePage() {
   await ensureAdminAuth();
-  const [credentials, recent] = await Promise.all([
+  const [credentials, recent, checks] = await Promise.all([
     listCredentials(),
     readRecentAudit(20),
+    runChecksSummary(),
   ]);
+  const checksOk = checks.totalIssues === 0;
 
   return (
     <div className="space-y-6">
@@ -109,12 +113,19 @@ export default async function AdminHomePage() {
         <FeatureCard
           icon={ListChecks}
           title="Kontroly konzistence"
-          status="ok"
+          status={checksOk ? "ok" : "warn"}
           href="/admin/checks"
-          lines={[
-            "Anonymizace nálezů ↔ lokalit",
-            "Další invarianty postupně přibývají",
-          ]}
+          lines={
+            checksOk
+              ? [
+                  `Vše OK — všech ${checks.totalChecks} kontrol prošlo`,
+                  "Anonymizace, EXIF datum, originál ↔ výřez",
+                ]
+              : [
+                  `${checks.totalIssues} ${pluralIssues(checks.totalIssues)} v ${checks.failedChecks} z ${checks.totalChecks} kontrol`,
+                  "Klikni pro detail a opravu",
+                ]
+          }
         />
       </section>
 
@@ -168,7 +179,11 @@ function FeatureCard({
 }: {
   icon: typeof ShieldCheck;
   title: string;
-  status: "ok" | "todo";
+  /** "ok" — green check, neutral bg.
+   *  "warn" — red bg + amber triangle, used when the card surfaces
+   *           an actionable problem (e.g. failed consistency checks).
+   *  "todo" — placeholder card for sections not yet implemented. */
+  status: "ok" | "warn" | "todo";
   lines: string[];
   /** When set, the card becomes an interactive link to the section.
    *  TODO cards stay as static blocks — no destination yet. */
@@ -178,13 +193,25 @@ function FeatureCard({
     <>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-brand-600" aria-hidden />
-          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+          <Icon
+            className={`h-4 w-4 ${status === "warn" ? "text-red-700" : "text-brand-600"}`}
+            aria-hidden
+          />
+          <h3
+            className={`text-sm font-semibold ${status === "warn" ? "text-red-900" : "text-gray-900"}`}
+          >
+            {title}
+          </h3>
         </div>
         {status === "ok" ? (
           <CheckCircle2
             className="h-4 w-4 text-emerald-500"
             aria-label="aktivní"
+          />
+        ) : status === "warn" ? (
+          <AlertTriangle
+            className="h-4 w-4 text-red-600"
+            aria-label="problém"
           />
         ) : (
           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500">
@@ -192,19 +219,26 @@ function FeatureCard({
           </span>
         )}
       </div>
-      <ul className="mt-2 space-y-0.5 text-xs text-gray-600">
+      <ul
+        className={`mt-2 space-y-0.5 text-xs ${status === "warn" ? "text-red-900" : "text-gray-600"}`}
+      >
         {lines.map((l, i) => (
           <li key={i}>{l}</li>
         ))}
       </ul>
     </>
   );
+  // Card chrome differs by status. Warn keeps the link affordance
+  // but switches the background + border to a red wash so the
+  // "click here to fix" intent is unmistakable from the home grid.
+  const chromeBase = "block rounded-xl border p-4 shadow-sm transition";
+  const chrome =
+    status === "warn"
+      ? `${chromeBase} border-red-300 bg-red-50 hover:border-red-400 hover:bg-red-100/70`
+      : `${chromeBase} border-gray-200 bg-white hover:border-brand-300 hover:bg-brand-50/30`;
   if (href) {
     return (
-      <Link
-        href={href}
-        className="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:bg-brand-50/30"
-      >
+      <Link href={href} className={chrome}>
         {body}
       </Link>
     );
@@ -214,4 +248,13 @@ function FeatureCard({
       {body}
     </div>
   );
+}
+
+/** Czech "1 problém" / "2 problémy" / "5 problémů" — kept inline
+ *  because it's only used here and pluralCs in @/lib/format expects
+ *  a 3-tuple per word, which is fine but heavier than needed. */
+function pluralIssues(n: number): string {
+  if (n === 1) return "problém";
+  if (n >= 2 && n <= 4) return "problémy";
+  return "problémů";
 }

@@ -141,6 +141,69 @@ async function checkAnonFindsInPublicLoc(): Promise<CheckResult> {
   };
 }
 
+/** Check 4 — every find with an ORIGINAL image must also have a CROP.
+ *  CROP is what /sbirka and the home thumbnail strip render at small
+ *  sizes; missing it means the find shows up unframed (or with a
+ *  fallback that includes EXIF burns + watermark backdrop). The fix
+ *  path is generating the crop locally and rsyncing it into
+ *  data/crops/. */
+async function checkOriginalsWithoutCrop(): Promise<CheckResult> {
+  // Pull both image-type sets via Prisma; intersecting in JS is
+  // cheaper than a DISTINCT-NOT-IN raw query for this size and keeps
+  // the schema layer tight to what's already typed.
+  const [originals, crops] = await Promise.all([
+    prisma.findImage.findMany({
+      where: { imageType: "ORIGINAL" },
+      select: { findId: true },
+      distinct: ["findId"],
+    }),
+    prisma.findImage.findMany({
+      where: { imageType: "CROP" },
+      select: { findId: true },
+      distinct: ["findId"],
+    }),
+  ]);
+  const cropSet = new Set(crops.map((c) => c.findId));
+  const missing = originals
+    .map((o) => o.findId)
+    .filter((id) => !cropSet.has(id))
+    .sort((a, b) => a - b);
+  if (missing.length === 0) {
+    return {
+      id: "originals-without-crop",
+      title: "Originály bez výřezu",
+      description:
+        "Každý nález s originálem (data/finds/) musí mít odpovídající výřez (data/crops/) — výřez se renderuje v miniaturách na /sbirka a na home page.",
+      offenders: [],
+    };
+  }
+  // Resolve location codes for the offenders in one trip.
+  const finds = await prisma.find.findMany({
+    where: { id: { in: missing } },
+    select: { id: true, locationId: true },
+  });
+  const codes = await loadLocationCodes(
+    finds.map((f) => f.locationId).filter((x): x is number => x !== null),
+  );
+  const findById = new Map(finds.map((f) => [f.id, f]));
+  return {
+    id: "originals-without-crop",
+    title: "Originály bez výřezu",
+    description:
+      "Každý nález s originálem (data/finds/) musí mít odpovídající výřez (data/crops/) — výřez se renderuje v miniaturách na /sbirka a na home page.",
+    offenders: missing.map((id) => {
+      const f = findById.get(id);
+      const locId = f?.locationId ?? null;
+      return {
+        findId: id,
+        locationCode:
+          locId !== null ? (codes.get(locId) ?? `#${locId}`) : "—",
+        detail: "Originál existuje, výřez chybí.",
+      };
+    }),
+  };
+}
+
 /** Check 3 — finds without an EXIF `found_at`. They drop out of every
  *  date-based aggregate (home retrospektiva, /statistiky calendar,
  *  the year filter on /sbirka …) so the admin needs a single place
@@ -177,5 +240,28 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     checkFindsInAnonLocsNotAnon(),
     checkAnonFindsInPublicLoc(),
     checkFindsWithoutDate(),
+    checkOriginalsWithoutCrop(),
   ]);
+}
+
+/** Lightweight summary of all checks — used by the admin home page
+ *  to colour the "Kontroly konzistence" card without rendering the
+ *  full offender tables. Reuses runAllChecks under the hood so a
+ *  single source of truth drives both the summary and the
+ *  per-check page. */
+export async function runChecksSummary(): Promise<{
+  totalIssues: number;
+  failedChecks: number;
+  totalChecks: number;
+}> {
+  const results = await runAllChecks();
+  let totalIssues = 0;
+  let failedChecks = 0;
+  for (const r of results) {
+    if (r.offenders.length > 0) {
+      failedChecks += 1;
+      totalIssues += r.offenders.length;
+    }
+  }
+  return { totalIssues, failedChecks, totalChecks: results.length };
 }
