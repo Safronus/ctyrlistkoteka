@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
+import { readMapAnonFlagFor } from "@/lib/admin/mapAnon";
 import {
   analyzeLokaceStavyPoznamky,
   type LSPAnalysis,
@@ -27,6 +28,7 @@ import { DeleteCropButton } from "../../crops/delete-button";
 import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { DeleteLocationPhotoButton } from "../../location-photos/delete-button";
+import { MapAnonymizeToggleButton } from "../../maps/anonymize-toggle-button";
 import { DeleteMapButton } from "../../maps/delete-button";
 import { MapDescriptionEditor } from "../../maps/description-editor";
 import { MarkMapNonexistentButton } from "../../maps/mark-nonexistent-button";
@@ -81,6 +83,15 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
 
   const isMetaJson =
     scope.slug === "meta" && info.name === LOKACE_STAVY_POZNAMKY_FILENAME;
+
+  // Map detail needs the current anonymisation state (PNG tEXt
+  // `Anonymizovaná lokace=Ano`) to decide which side of the toggle
+  // button to show. The shared cache in mapAnon.ts means a fresh
+  // listing already populated this name; misses cost one 64 KB read.
+  const isMapAnonymized =
+    scope.slug === "maps"
+      ? ((await readMapAnonFlagFor(info.absolutePath, info.name)) ?? false)
+      : false;
 
   let textPreview: { content: string; truncated: boolean } | null = null;
   let sectionsPreview:
@@ -213,6 +224,10 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
             )}
             {scope.slug === "maps" && (
               <>
+                <MapAnonymizeToggleButton
+                  filename={info.name}
+                  currentlyAnonymized={isMapAnonymized}
+                />
                 <MarkMapNonexistentButton filename={info.name} />
                 <DeleteMapButton filename={info.name} />
               </>

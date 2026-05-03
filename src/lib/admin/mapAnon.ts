@@ -3,6 +3,8 @@ import path from "node:path";
 import { ADMIN_ROOTS } from "./paths";
 import { parsePngTextChunks, readAnonymizedFlag } from "@/lib/images";
 
+const HEAD_BYTES = 64 * 1024;
+
 /** Reads PNG/JPEG tEXt chunks for every map in `data/maps/` and
  *  returns the names whose `Anonymizovaná lokace` flag is set. The
  *  result is a Set of NFC-normalised names so callers can match
@@ -18,6 +20,41 @@ interface CacheEntry {
   isAnonymized: boolean;
 }
 const cache = new Map<string, CacheEntry>();
+
+/** Cheap single-file flag check used by the map detail page. Reads
+ *  the same 64 KB head as the directory scan; the per-name cache is
+ *  shared so this also primes / piggy-backs on whatever the listing
+ *  has already done. Returns null when the file can't be read. */
+export async function readMapAnonFlagFor(
+  absolutePath: string,
+  cacheKey?: string,
+): Promise<boolean | null> {
+  let stat;
+  try {
+    stat = await fs.stat(absolutePath);
+  } catch {
+    return null;
+  }
+  const key = cacheKey ?? path.basename(absolutePath);
+  const cached = cache.get(key);
+  if (cached && cached.mtimeMs === stat.mtimeMs) return cached.isAnonymized;
+  let fh;
+  try {
+    fh = await fs.open(absolutePath, "r");
+  } catch {
+    return null;
+  }
+  try {
+    const buf = Buffer.alloc(HEAD_BYTES);
+    const { bytesRead } = await fh.read(buf, 0, buf.length, 0);
+    const tags = parsePngTextChunks(buf.subarray(0, bytesRead));
+    const isAnonymized = readAnonymizedFlag(tags);
+    cache.set(key, { mtimeMs: stat.mtimeMs, isAnonymized });
+    return isAnonymized;
+  } finally {
+    await fh.close();
+  }
+}
 
 export async function readMapAnonFlags(): Promise<Set<string>> {
   const root = ADMIN_ROOTS.locationMaps;

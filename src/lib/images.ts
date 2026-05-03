@@ -429,7 +429,13 @@ const ANON_TAG_KEYS = [
 ];
 const ANON_TAG_VALUES = new Set(["ano", "yes", "true", "1"]);
 
-function normalizeKey(s: string): string {
+/** Normalises a PNG tEXt/iTXt keyword for comparison: strips
+ *  diacritics, lowercases, drops non-alphanumeric. So "Anonymizovaná
+ *  lokace", "AnonymizovanLokace", and "anonymized location" all
+ *  collapse to "anonymizovanalokace" / "anonymizedlocation" — the
+ *  reader and the editor both go through this so they agree on what
+ *  counts as the same key. */
+export function normalizeKey(s: string): string {
   return s
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
