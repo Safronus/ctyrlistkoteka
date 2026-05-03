@@ -852,11 +852,26 @@ async function phaseFinds(
   //     --force-regen (which bypasses both this skip and the WebP
   //     cache).
   const ingestedAt = new Map<string, number>();
+  // Cache key MUST include `imageType`. Crops and originals can share
+  // the same filename (the project convention even encourages it for
+  // matching pairs), and FindImage allows one ORIGINAL + one CROP row
+  // per find. Without imageType in the key, Map.set collapses the two
+  // rows into one entry — and worse, when one of those rows is missing
+  // from the DB, the lookup hits the SURVIVING row's createdAt and
+  // skips the file whose row needs (re-)creating. That's the
+  // mechanism that left orphan files visible in admin/files/crops
+  // with no matching FindImage(CROP) row, which fed back as false
+  // positives to /admin/checks → "Originály bez výřezu".
   for (const r of await ctx.prisma.findImage.findMany({
-    select: { findId: true, originalFilename: true, createdAt: true },
+    select: {
+      findId: true,
+      imageType: true,
+      originalFilename: true,
+      createdAt: true,
+    },
   })) {
     ingestedAt.set(
-      `${r.findId}:${r.originalFilename}`,
+      `${r.findId}:${r.imageType}:${r.originalFilename}`,
       r.createdAt.getTime(),
     );
   }
@@ -872,7 +887,9 @@ async function phaseFinds(
 
   for (const f of all) {
     if (!ctx.opts.forceRegen) {
-      const known = ingestedAt.get(`${f.parsed.findId}:${f.filename}`);
+      const known = ingestedAt.get(
+        `${f.parsed.findId}:${f.imageType}:${f.filename}`,
+      );
       if (known !== undefined) {
         const st = await stat(f.path);
         if (st.mtimeMs <= known) {
