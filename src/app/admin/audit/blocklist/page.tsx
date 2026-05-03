@@ -243,8 +243,16 @@ function AbuseIpdbPanel({ summary }: { summary: AbuseIpdbSummary }) {
     (acc, r) => acc + r.count,
     0,
   );
-  const stateMissing =
-    summary.stateError === "missing" && summary.lastTimestamp === null;
+  const tsLabel =
+    summary.lastTimestampSource === "state"
+      ? "ze state souboru"
+      : summary.lastTimestampSource === "log"
+        ? "odvozeno z logu"
+        : "neznámý";
+  // Only escalate to a warning when we genuinely couldn't compute the
+  // cutoff. State-file permission errors are downgraded to a footnote
+  // when the log already gave us a usable NewState= value.
+  const lostSignal = summary.lastTimestamp === null;
   return (
     <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <header className="flex flex-wrap items-center justify-between gap-2">
@@ -277,17 +285,29 @@ function AbuseIpdbPanel({ summary }: { summary: AbuseIpdbSummary }) {
         />
       </ul>
 
+      <p className="rounded-md border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-600">
+        <strong className="text-gray-800">Akceptováno API</strong> = kolik
+        reportů AbuseIPDB přijalo do své DB. <strong className="text-gray-800">
+          Odmítnuto API
+        </strong>{" "}
+        = kolik vrátilo jako <code>invalidReports</code> — typicky proto, že{" "}
+        <em>tatáž IP byla tímto účtem nahlášená příliš nedávno</em>{" "}
+        (AbuseIPDB má per-account cooldown ~15 min na IP), nebo malformed
+        payload. Skript sám per-IP nededuplikuje, jen filtruje podle
+        timestampu (neodešle stejný TSV řádek dvakrát) — takže IP zabanovaná
+        opakovaně v různých dnech se reportuje pokaždé a duplicity dořeší
+        AbuseIPDB.
+      </p>
+
       <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
         <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
           <dt className="text-[10px] uppercase tracking-wide text-gray-400">
-            Poslední state TS
+            Poslední state TS ({tsLabel})
           </dt>
           <dd className="mt-0.5 font-mono tabular-nums text-gray-800">
             {summary.lastTimestamp
               ? formatDateTime(summary.lastTimestamp)
-              : stateMissing
-                ? "—"
-                : "(neplatný state)"}
+              : "—"}
           </dd>
         </div>
         <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
@@ -309,8 +329,28 @@ function AbuseIpdbPanel({ summary }: { summary: AbuseIpdbSummary }) {
         </div>
       </dl>
 
-      {(summary.stateError || summary.logError) && (
+      {summary.lastTimestampMismatch && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+          State soubor a poslední <code>NewState=</code> v logu se neshodují
+          ({formatDateTime(summary.lastTimestamp ?? "")}). Buď proběhla
+          rotace logu, nebo někdo state přepsal ručně — zkontroluj{" "}
+          <code>journalctl -u cron</code>.
+        </p>
+      )}
+
+      {lostSignal && (summary.stateError || summary.logError) && (
         <AbuseFileHints summary={summary} />
+      )}
+      {!lostSignal && summary.stateError === "permission" && (
+        <p className="text-[11px] text-gray-500">
+          State soubor není čitelný (700 dir od skriptu) — počítám cutoff z
+          logu, ať to neblokuje. Pokud chceš state přečíst i z webu:{" "}
+          <code>
+            sudo setfacl -m u:NODE_USER:rx{" "}
+            {summary.statePath.replace(/\/[^/]+$/, "")}
+          </code>{" "}
+          + <code>sudo setfacl -m u:NODE_USER:r {summary.statePath}</code>.
+        </p>
       )}
 
       {summary.recentLog.length > 0 && (
@@ -396,8 +436,8 @@ function AbuseIpdbPanel({ summary }: { summary: AbuseIpdbSummary }) {
         </div>
       ) : (
         <p className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-500">
-          {stateMissing
-            ? "State soubor zatím neexistuje — script ještě nikdy neběžel, nebo jeho stav nemá Next.js přečtený."
+          {lostSignal
+            ? "State ani log se nepodařilo načíst — bez nich nejde určit, které řádky TSV už byly nahlášeny. Mrkni na hint výš."
             : "Žádné nahlášené IP zatím nejsou. Po prvním cron tiknutí se sem vyplní seznam."}
         </p>
       )}

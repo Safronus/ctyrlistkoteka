@@ -146,9 +146,20 @@ export interface AbuseIpdbReportedIp {
 export interface AbuseIpdbSummary {
   statePath: string;
   logPath: string;
-  /** Last ts the report script claims to have flushed. null when
-   *  state file is missing/empty/unparseable. */
+  /** Last ts the report script claims to have flushed. The state
+   *  file is the authoritative source; when Next.js can't read it
+   *  we fall back to the max `NewState=` recorded in the log file
+   *  (these two should agree under normal operation). */
   lastTimestamp: string | null;
+  /** Where the value above came from — useful for the operator to
+   *  understand why a permission warning shouldn't break the panel
+   *  when the log alone is enough to compute everything. */
+  lastTimestampSource: "state" | "log" | null;
+  /** Set when state file and log disagree by more than a tick. The
+   *  most common cause is a stale log being rotated out under a
+   *  fresh state — surface it for review rather than picking one
+   *  silently. */
+  lastTimestampMismatch: boolean;
   stateError: AbuseIpdbFileError | null;
   logError: AbuseIpdbFileError | null;
   /** Recent log lines, newest first. Capped at the call-site limit. */
@@ -189,17 +200,18 @@ export async function loadAbuseIpdbSummary(
     readFileSafe(ABUSEIPDB_LOG_PATH),
   ]);
 
-  let lastTimestamp: string | null = null;
+  let stateFileTimestamp: string | null = null;
   if (stateRead.content !== null) {
     const trimmed = stateRead.content.trim();
     if (trimmed.length > 0 && /T/.test(trimmed)) {
-      lastTimestamp = trimmed;
+      stateFileTimestamp = trimmed;
     }
   }
 
   const recentLog: AbuseIpdbLogLine[] = [];
   let totalSaved = 0;
   let totalInvalid = 0;
+  let logMaxNewState: string | null = null;
   if (logRead.content !== null) {
     const lines = logRead.content
       .split("\n")
@@ -211,10 +223,36 @@ export async function loadAbuseIpdbSummary(
       if (parsed.kind === "report") {
         if (typeof parsed.saved === "number") totalSaved += parsed.saved;
         if (typeof parsed.invalid === "number") totalInvalid += parsed.invalid;
+        if (
+          typeof parsed.newState === "string" &&
+          (logMaxNewState === null || parsed.newState > logMaxNewState)
+        ) {
+          logMaxNewState = parsed.newState;
+        }
       }
       recentLog.push(parsed);
     }
   }
+
+  // Pick the most reliable source for the cross-reference cutoff.
+  // state file wins when it's readable; the log's NewState= column
+  // is the same value the script wrote there, so it's a safe fallback
+  // when the state file is locked behind 700 perms (the script
+  // chmods the dir to 700 — the operator may not have ACL'd it for
+  // Next.js, but the log is usually 644).
+  let lastTimestamp: string | null = null;
+  let lastTimestampSource: "state" | "log" | null = null;
+  if (stateFileTimestamp !== null) {
+    lastTimestamp = stateFileTimestamp;
+    lastTimestampSource = "state";
+  } else if (logMaxNewState !== null) {
+    lastTimestamp = logMaxNewState;
+    lastTimestampSource = "log";
+  }
+  const lastTimestampMismatch =
+    stateFileTimestamp !== null &&
+    logMaxNewState !== null &&
+    stateFileTimestamp !== logMaxNewState;
 
   const reportedAggregate = aggregateReportable(
     entries,
@@ -231,6 +269,8 @@ export async function loadAbuseIpdbSummary(
     statePath: ABUSEIPDB_STATE_PATH,
     logPath: ABUSEIPDB_LOG_PATH,
     lastTimestamp,
+    lastTimestampSource,
+    lastTimestampMismatch,
     stateError: stateRead.error,
     logError: logRead.error,
     recentLog: recentLog.slice(-limit).reverse(),
