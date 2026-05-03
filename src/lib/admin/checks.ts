@@ -141,9 +141,41 @@ async function checkAnonFindsInPublicLoc(): Promise<CheckResult> {
   };
 }
 
+/** Check 3 — finds without an EXIF `found_at`. They drop out of every
+ *  date-based aggregate (home retrospektiva, /statistiky calendar,
+ *  the year filter on /sbirka …) so the admin needs a single place
+ *  that lists them. The fix path is usually re-running EXIF extraction
+ *  on the source HEIC/JPEG, or manually patching `found_at` in the DB
+ *  if the original lost the timestamp. */
+async function checkFindsWithoutDate(): Promise<CheckResult> {
+  const finds = await prisma.find.findMany({
+    where: { foundAt: null },
+    select: { id: true, locationId: true },
+    orderBy: { id: "asc" },
+  });
+  const codes = await loadLocationCodes(
+    finds.map((f) => f.locationId).filter((x): x is number => x !== null),
+  );
+  return {
+    id: "finds-without-date",
+    title: "Nálezy bez EXIF data",
+    description:
+      "Nálezy bez `foundAt` nepadnou do žádného časového bucketu — chybí v retrospektivě na home page i ve většině řad na /statistiky.",
+    offenders: finds.map((f) => ({
+      findId: f.id,
+      locationCode:
+        f.locationId !== null
+          ? (codes.get(f.locationId) ?? `#${f.locationId}`)
+          : "—",
+      detail: "Nález nemá EXIF DateTimeOriginal — chybí časové zařazení.",
+    })),
+  };
+}
+
 export async function runAllChecks(): Promise<CheckResult[]> {
   return Promise.all([
     checkFindsInAnonLocsNotAnon(),
     checkAnonFindsInPublicLoc(),
+    checkFindsWithoutDate(),
   ]);
 }

@@ -34,7 +34,6 @@ const NF_CS = new Intl.NumberFormat("cs-CZ");
  * headline find count.
  */
 export function RetrospectiveGrid({ data }: { data: RetrospectiveBundle }) {
-  const missing = data.findsWithoutDate;
   return (
     <section className="mt-8" aria-labelledby="retro-heading">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -58,36 +57,29 @@ export function RetrospectiveGrid({ data }: { data: RetrospectiveBundle }) {
         <RetrospectivePanel period={data.month} />
         <RetrospectivePanel period={data.year} />
       </div>
-      {missing > 0 && (
-        // Footer note explaining the gap between headline find count
-        // (incl. dateless ones) and the "Rok" panel total (only
-        // dated finds). Without this the difference reads as a bug.
-        <p className="mt-3 text-xs text-gray-400">
-          Pozn.:{" "}
-          <span className="font-medium text-gray-500">
-            {NF_CS.format(missing)}
-          </span>{" "}
-          {pluralCs(missing, FINDS)} bez EXIF data není v retrospektivě
-          zahrnuto (nelze je přiřadit ke konkrétnímu roku) — celkový počet
-          v sbírce je{" "}
-          <span className="font-medium text-gray-500">
-            {NF_CS.format(data.findsTotal)}
-          </span>
-          .
-        </p>
-      )}
+      {/* Finds without an EXIF foundAt drop out of every panel — a
+          rounding error like "Rok celkem 4559 vs. 4572 v hlavičce"
+          could read as a bug. The list of those finds is surfaced on
+          /admin/checks (the "Nálezy bez EXIF data" card), accessible
+          to admin only. */}
     </section>
   );
 }
 
 // Chart geometry. Width is responsive (`width="100%"`); the viewBox
-// stays fixed so absolute pixel maths stay simple. Height splits
-// vertically: top BARS_H is the bar plot, bottom LABEL_H is room for
-// the rotated year labels.
+// stays fixed so absolute pixel maths stay simple. Three vertical
+// bands stacked top-down:
+//   HEADROOM_H — count labels above each bar (or inside the top of
+//                tall bars, when the bar's height eats into the
+//                headroom band).
+//   BARS_H     — bar plot proper.
+//   LABEL_H    — rotated year labels under each bar.
 const VB_W = 320;
+const HEADROOM_H = 14;
 const BARS_H = 96;
 const LABEL_H = 30;
-const VB_H = BARS_H + LABEL_H;
+const VB_H = HEADROOM_H + BARS_H + LABEL_H;
+const BAR_BASELINE = HEADROOM_H + BARS_H;
 
 function RetrospectivePanel({ period }: { period: RetrospectivePeriod }) {
   const max = Math.max(1, ...period.points.map((p) => p.count));
@@ -111,15 +103,15 @@ function RetrospectivePanel({ period }: { period: RetrospectivePeriod }) {
         preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label={period.hint}
-        className="mt-2 h-32 w-full"
+        className="mt-2 h-36 w-full"
       >
         {/* Faint baseline — anchors the eye when most bars are zero
             (e.g., "Den 3.5." with one good year and the rest empty). */}
         <line
           x1={PAD_X}
-          y1={BARS_H - 0.5}
+          y1={BAR_BASELINE - 0.5}
           x2={VB_W - PAD_X}
-          y2={BARS_H - 0.5}
+          y2={BAR_BASELINE - 0.5}
           stroke="#e5e7eb"
           strokeWidth={1}
         />
@@ -128,8 +120,8 @@ function RetrospectivePanel({ period }: { period: RetrospectivePeriod }) {
           // Bars taller than 0 get a small minimum so non-zero years
           // are visible even when their value rounds to ~0% of `max`.
           const h = p.count === 0 ? 0 : Math.max(2, (p.count / max) * BARS_H);
+          const y = BAR_BASELINE - h;
           const x = cx - barW / 2;
-          const y = BARS_H - h;
           const fill = p.isCurrent ? "#15803d" : "#4d9748";
           return (
             <RetrospectiveBar
@@ -140,7 +132,7 @@ function RetrospectivePanel({ period }: { period: RetrospectivePeriod }) {
               w={barW}
               h={h}
               labelX={cx}
-              labelY={BARS_H + 8}
+              yearLabelY={BAR_BASELINE + 8}
               fill={fill}
             />
           );
@@ -164,7 +156,7 @@ function RetrospectiveBar({
   w,
   h,
   labelX,
-  labelY,
+  yearLabelY,
   fill,
 }: {
   point: RetrospectivePoint;
@@ -173,9 +165,23 @@ function RetrospectiveBar({
   w: number;
   h: number;
   labelX: number;
-  labelY: number;
+  yearLabelY: number;
   fill: string;
 }) {
+  // Count label sits 3px above the bar's top edge by default. For
+  // the tallest bars (h ≥ BARS_H − 2 px of slack), the count would
+  // be pushed into the SVG's top margin, so we drop it INSIDE the
+  // bar and flip the colour to white. The "count > 0" gate skips
+  // empty years entirely — a "0" floating above an empty axis is
+  // visual noise.
+  const showCount = point.count > 0;
+  // 3 px of margin between bar top and the count baseline (which
+  // sits at `countY` and grows downward with text-anchor="middle").
+  const countAbove = y - 3;
+  const countInside = y + 9;
+  const useInside = countAbove < 9 && h >= 11;
+  const countY = useInside ? countInside : countAbove;
+  const countFill = useInside ? "#ffffff" : point.isCurrent ? "#15803d" : "#374151";
   return (
     <g>
       {/* SVG <title> renders as a native browser tooltip on hover —
@@ -192,9 +198,25 @@ function RetrospectiveBar({
         rx={1.5}
         ry={1.5}
       />
+      {showCount && (
+        <text
+          x={labelX}
+          y={countY}
+          textAnchor="middle"
+          fontSize={9}
+          fill={countFill}
+          fontWeight={point.isCurrent ? 600 : 500}
+          // Tabular-nums style approximation — SVG text doesn't have
+          // a font-variant-numeric counterpart, but every digit in
+          // Inter has the same advance, so a centered number aligns
+          // visually across years anyway.
+        >
+          {NF_CS.format(point.count)}
+        </text>
+      )}
       <text
         x={labelX}
-        y={labelY}
+        y={yearLabelY}
         textAnchor="end"
         fontSize={10}
         fill={point.isCurrent ? "#15803d" : "#6b7280"}
@@ -204,7 +226,7 @@ function RetrospectiveBar({
         // makes the text trail off to the upper-right of the bar's
         // center, which is the canonical orientation for tilted
         // axis labels.
-        transform={`rotate(-45 ${labelX} ${labelY})`}
+        transform={`rotate(-45 ${labelX} ${yearLabelY})`}
       >
         {point.year}
       </text>
