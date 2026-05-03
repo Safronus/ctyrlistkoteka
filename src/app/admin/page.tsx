@@ -8,6 +8,7 @@ import {
   Database,
   FileCog,
   Image as ImageIcon,
+  ListChecks,
   MapPinned,
   Map as MapIcon,
   ShieldCheck,
@@ -103,6 +104,16 @@ export default async function AdminHomePage() {
           lines={[
             "Trigger tsx scripts/sync.ts",
             "Live log, dry-run, --only filtr",
+          ]}
+        />
+        <FeatureCard
+          icon={ListChecks}
+          title="Kontroly konzistence"
+          status="ok"
+          href="/admin/checks"
+          lines={[
+            "Anonymizace nálezů ↔ lokalit",
+            "Další invarianty postupně přibývají",
           ]}
         />
       </section>
