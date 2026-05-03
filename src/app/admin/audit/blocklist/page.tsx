@@ -532,49 +532,101 @@ function PermabanLivePanel({ snapshot }: { snapshot: PermabanSnapshot }) {
 }
 
 function PermabanFileHints({ snapshot }: { snapshot: PermabanSnapshot }) {
-  const items: { label: string; path: string; error: string }[] = [];
+  interface Item {
+    label: string;
+    path: string;
+    error: string;
+    /** Adresáře potřebují pro Next.js read právo navíc execute (rx)
+     *  + default ACL ať noví obyvatelé (rotace, snapshoty) zdědí
+     *  read pro stejného uživatele. */
+    isDir: boolean;
+    /** Které kroky `pnpm sync` / cron akce ten soubor vytvoří —
+     *  manualní run zkratka pro operatera. */
+    createsWith?: string;
+  }
+  const items: Item[] = [];
   if (snapshot.deny.error)
     items.push({
       label: "Deny list",
       path: snapshot.paths.deny,
       error: snapshot.deny.error,
+      isDir: false,
+      createsWith:
+        "fail2ban action permaban-nginx (při prvním banu) nebo denní cron",
     });
   if (snapshot.whitelist.error)
     items.push({
       label: "Whitelist",
       path: snapshot.paths.whitelist,
       error: snapshot.whitelist.error,
+      isDir: false,
+      createsWith: "ručně přes `sudo cp deploy/permaban-whitelist.conf …`",
     });
   if (snapshot.refreshLog.error)
     items.push({
       label: "Cron log",
       path: snapshot.paths.refreshLog,
       error: snapshot.refreshLog.error,
+      isDir: false,
+      createsWith:
+        "denní cron 04:30, nebo manuálně `sudo /usr/local/sbin/blocklist-tools.sh nginx-deny --apply >> /var/log/permaban-refresh.log 2>&1`",
     });
   if (snapshot.realtimeLog.error)
     items.push({
       label: "Real-time log",
       path: snapshot.paths.realtimeLog,
       error: snapshot.realtimeLog.error,
+      isDir: false,
+      createsWith:
+        "fail2ban action permaban-nginx při prvním banu (resp. testem ze setupu)",
     });
   if (snapshot.backups.error)
     items.push({
       label: "Backup dir",
       path: snapshot.paths.backupDir,
       error: snapshot.backups.error,
+      isDir: true,
+      createsWith:
+        "blocklist-tools.sh při prvním rebuildu (chmod 750 root:root)",
     });
   if (items.length === 0) return null;
   return (
     <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
       <p className="font-medium">Některé soubory nelze načíst</p>
-      <ul className="space-y-0.5">
+      <p className="text-[11px] leading-snug">
+        Nahraď <code>NODE_USER</code> uživatelem, pod kterým běží Next.js
+        (z PM2 typicky <code>app</code>) — zjistíš{" "}
+        <code>ps -o user= -p $(pgrep -f next-server | head -1)</code>.
+      </p>
+      <ul className="space-y-1.5">
         {items.map((it) => (
-          <li key={it.path}>
-            <strong>{it.label}</strong> — <code>{it.path}</code> ({it.error}).{" "}
+          <li key={it.path} className="space-y-0.5">
+            <div>
+              <strong>{it.label}</strong> — <code>{it.path}</code> (
+              {it.error}).
+            </div>
             {it.error === "permission" ? (
-              <code>sudo setfacl -m u:NODE_USER:r {it.path}</code>
+              <pre className="overflow-x-auto rounded bg-amber-100/60 px-2 py-1 font-mono text-[11px]">
+                {it.isDir
+                  ? `sudo setfacl -m u:NODE_USER:rx ${it.path}\nsudo setfacl -d -m u:NODE_USER:r ${it.path}\nsudo setfacl -m u:NODE_USER:r ${it.path}/*.conf 2>/dev/null || true`
+                  : `sudo setfacl -m u:NODE_USER:r ${it.path}`}
+              </pre>
+            ) : it.error === "missing" ? (
+              <div className="text-[11px] text-amber-800">
+                Soubor zatím neexistuje. Vznikne přes:{" "}
+                <em>{it.createsWith ?? "—"}</em>
+                {it.createsWith?.includes("cron") && (
+                  <>
+                    {" "}— pak ještě{" "}
+                    <code>sudo setfacl -m u:NODE_USER:r {it.path}</code>.
+                  </>
+                )}
+              </div>
             ) : (
-              "Soubor ještě neexistuje — vytvoří ho cron / akce při prvním banu."
+              <div className="text-[11px] text-amber-800">
+                I/O chyba — mrkni do <code>journalctl</code> a do{" "}
+                <code>dmesg</code>, jestli není problém s diskem.
+              </div>
             )}
           </li>
         ))}
