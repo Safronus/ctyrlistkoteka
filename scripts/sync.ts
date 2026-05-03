@@ -1065,6 +1065,86 @@ async function phaseMeta(ctx: Context, meta: Meta) {
     }
   }
 
+  // ----------------------------------------------------------------
+  // Convergence pass — delete state assignments and clear notes that
+  // JSON no longer mentions. Without this, the admin "Unmark donated"
+  // (and any manual JSON delete) leaves zombie rows in DB: filename +
+  // JSON say NORMAL but findStateAssignment(id, DONATED) still exists,
+  // Find.notes still has the old text. The upserts above only ever
+  // grow the DB.
+  //
+  // Scope of deletion is bounded to states JSON can actually express
+  // (JSON_STATE_MAP values + ANONYMIZED). NORMAL is implicit — never
+  // a row in findStateAssignment — so it's not in the managed set.
+  // ----------------------------------------------------------------
+  const MANAGED_STATES: ReadonlySet<FindState> = new Set([
+    ...Object.values(JSON_STATE_MAP),
+    FindState.ANONYMIZED,
+  ]);
+
+  const desiredStates = new Map<number, Set<FindState>>();
+  const addDesired = (id: number, state: FindState) => {
+    let s = desiredStates.get(id);
+    if (!s) {
+      s = new Set();
+      desiredStates.set(id, s);
+    }
+    s.add(state);
+  };
+  for (const [key, specs] of Object.entries(meta.stavy)) {
+    const state = JSON_STATE_MAP[key];
+    if (!state) continue;
+    for (const id of parseRanges(specs)) {
+      if (existingFindIds.has(id)) addDesired(id, state);
+    }
+  }
+  for (const id of anonIdsExisting) {
+    addDesired(id, FindState.ANONYMIZED);
+  }
+
+  const allAssignments = await ctx.prisma.findStateAssignment.findMany({
+    select: { findId: true, state: true },
+  });
+  const stateRowsToDelete = allAssignments.filter(
+    (r) =>
+      MANAGED_STATES.has(r.state) &&
+      !desiredStates.get(r.findId)?.has(r.state),
+  );
+  let deletedStates = 0;
+  if (stateRowsToDelete.length > 0) {
+    await Promise.all(
+      stateRowsToDelete.map((r) =>
+        ctx.prisma.findStateAssignment.delete({
+          where: { findId_state: { findId: r.findId, state: r.state } },
+        }),
+      ),
+    );
+    deletedStates = stateRowsToDelete.length;
+  }
+
+  const desiredNoteIds = new Set<number>();
+  for (const idStr of Object.keys(meta.poznamky)) {
+    const id = Number(idStr);
+    if (Number.isInteger(id) && existingFindIds.has(id)) {
+      desiredNoteIds.add(id);
+    }
+  }
+  const allNoted = await ctx.prisma.find.findMany({
+    where: { notes: { not: null } },
+    select: { id: true },
+  });
+  const noteIdsToClear = allNoted
+    .filter((r) => !desiredNoteIds.has(r.id))
+    .map((r) => r.id);
+  let clearedNotes = 0;
+  if (noteIdsToClear.length > 0) {
+    const res = await ctx.prisma.find.updateMany({
+      where: { id: { in: noteIdsToClear } },
+      data: { notes: null },
+    });
+    clearedNotes = res.count;
+  }
+
   if (skippedNotes + skippedStates + skippedAnon > 0) {
     ctx.log.log({
       event: "meta.skipped_missing_finds",
@@ -1076,7 +1156,13 @@ async function phaseMeta(ctx: Context, meta: Meta) {
     });
   }
 
-  ctx.log.log({ event: "meta.done", level: "info", ...plan });
+  ctx.log.log({
+    event: "meta.done",
+    level: "info",
+    ...plan,
+    deleted_state_rows: deletedStates,
+    cleared_notes: clearedNotes,
+  });
 }
 
 // --------------------------------------------------------------------------
