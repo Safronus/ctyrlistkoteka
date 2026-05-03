@@ -1,9 +1,11 @@
 import {
   AlertTriangle,
   Ban,
+  ChevronDown,
   Download,
   FileWarning,
   Flag,
+  Lock,
   ShieldX,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
@@ -12,6 +14,10 @@ import {
   loadAbuseIpdbSummary,
   type AbuseIpdbSummary,
 } from "@/lib/admin/abuseipdb";
+import {
+  loadPermabanSnapshot,
+  type PermabanSnapshot,
+} from "@/lib/admin/permaban";
 import {
   aggregateByIp,
   computePermabanCandidates,
@@ -102,6 +108,7 @@ export default async function AdminAuditBlocklistPage({
           windowDays={windowDays}
           jail={jail}
           abuseIpdb={await loadAbuseIpdbSummary(data.entries)}
+          permaban={await loadPermabanSnapshot()}
         />
       )}
     </div>
@@ -180,6 +187,7 @@ interface ReadyViewProps {
   windowDays: number;
   jail: string;
   abuseIpdb: AbuseIpdbSummary;
+  permaban: PermabanSnapshot;
 }
 
 function ReadyView({
@@ -193,17 +201,20 @@ function ReadyView({
   windowDays,
   jail,
   abuseIpdb,
+  permaban,
 }: ReadyViewProps) {
   const stats = computeStats(entries);
   const aggregates = aggregateByIp(entries);
   const visibleAggregates = aggregates.slice(0, ipsLimit);
   const recent = entries.slice(-recentLimit).reverse();
-  const permaban = computePermabanCandidates(entries, {
+  const permabanWhatIf = computePermabanCandidates(entries, {
     threshold,
     windowDays,
     jail,
   });
-  const permabanPreview = renderNginxDenyConfig(permaban, { sourcePath: path });
+  const permabanPreview = renderNginxDenyConfig(permabanWhatIf, {
+    sourcePath: path,
+  });
 
   return (
     <>
@@ -214,12 +225,13 @@ function ReadyView({
         topIps={stats.topIps}
         totalIps={stats.uniqueIps}
       />
+      <PermabanLivePanel snapshot={permaban} />
       <AbuseIpdbPanel summary={abuseIpdb} />
-      <PermabanPanel
+      <PermabanWhatIfPanel
         threshold={threshold}
         windowDays={windowDays}
         jail={jail}
-        candidates={permaban.candidates}
+        candidates={permabanWhatIf.candidates}
         preview={permabanPreview}
       />
       <RecentTable rows={recent} limit={recentLimit} total={entries.length} />
@@ -234,6 +246,340 @@ function ReadyView({
         jail={jail}
       />
     </>
+  );
+}
+
+/** Native disclosure for long IP / ban tables — uses <details> so it
+ *  works without client JS and respects ESC / Tab semantics. The
+ *  chevron rotation is purely cosmetic; older browsers without :open
+ *  support fall back to a static down-arrow with no behavioural
+ *  impact. */
+function CollapsibleSection({
+  title,
+  count,
+  hint,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  count?: string;
+  hint?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details
+      className="group overflow-hidden rounded-xl border border-gray-200 bg-white"
+      open={defaultOpen}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50 [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-gray-900">
+            {title}
+            {count !== undefined && (
+              <span className="ml-2 text-xs font-normal text-gray-500">
+                {count}
+              </span>
+            )}
+          </h2>
+          {hint && (
+            <p className="mt-0.5 text-[11px] text-gray-500">{hint}</p>
+          )}
+        </div>
+        <ChevronDown
+          className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-open:rotate-180"
+          aria-hidden
+        />
+      </summary>
+      <div className="border-t border-gray-200">{children}</div>
+    </details>
+  );
+}
+
+function PermabanLivePanel({ snapshot }: { snapshot: PermabanSnapshot }) {
+  const denyCount = snapshot.deny.deniedIps.length;
+  const lastRefreshLine = snapshot.refreshLog.recentLines.at(-1) ?? null;
+  return (
+    <section className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <Lock className="h-4 w-4 text-emerald-700" aria-hidden />
+          Live permaban list (nginx deny)
+        </h2>
+        <span className="text-[11px] text-gray-500">
+          file: <code>{snapshot.paths.deny}</code>
+        </span>
+      </header>
+
+      <p className="text-[11px] leading-relaxed text-gray-600">
+        Hybridní permaban. <strong>fail2ban action</strong>{" "}
+        (<code>permaban-nginx</code>) appendne každý ban z reportable jailů
+        (nginx-noscript, sshd, sshd-logger) do <code>permaban-list.conf</code>{" "}
+        a debouncovaně reloadne nginx. <strong>Denní cron</strong>{" "}
+        (<code>blocklist-tools.sh nginx-deny --apply</code> v 04:30) ho
+        rebuilduje z celého TSV jako self-healing pojistka. Whitelist + RFC
+        1918/5737/3849 rozsahy se filtrují vždy; snapshot předchozího
+        souboru padá do <code>{snapshot.paths.backupDir}</code> (auto-prune
+        po 30 dnech).
+      </p>
+
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Stat
+          label="Aktuálně permabanováno"
+          value={
+            snapshot.deny.error === null
+              ? denyCount.toLocaleString("cs-CZ")
+              : "?"
+          }
+        />
+        <Stat
+          label="Whitelist"
+          value={
+            snapshot.whitelist.error === null
+              ? snapshot.whitelist.ips.length.toLocaleString("cs-CZ")
+              : "?"
+          }
+        />
+        <Stat
+          label="Snapshotů zálohy"
+          value={
+            snapshot.backups.error === null
+              ? snapshot.backups.count.toLocaleString("cs-CZ")
+              : "?"
+          }
+        />
+        <Stat
+          label="Real-time událostí (log)"
+          value={snapshot.realtimeLog.events.length.toLocaleString("cs-CZ")}
+        />
+      </ul>
+
+      <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+        <div className="rounded-md border border-gray-200 bg-white p-2">
+          <dt className="text-[10px] uppercase tracking-wide text-gray-400">
+            Deny soubor — změněn
+          </dt>
+          <dd className="mt-0.5 font-mono tabular-nums text-gray-800">
+            {snapshot.deny.mtime
+              ? formatDateTime(snapshot.deny.mtime)
+              : "—"}
+            {snapshot.deny.size !== null && (
+              <span className="ml-2 text-gray-500">
+                ({snapshot.deny.size.toLocaleString("cs-CZ")} B)
+              </span>
+            )}
+          </dd>
+        </div>
+        <div className="rounded-md border border-gray-200 bg-white p-2">
+          <dt className="text-[10px] uppercase tracking-wide text-gray-400">
+            Poslední cron rebuild
+          </dt>
+          <dd
+            className="mt-0.5 truncate font-mono text-gray-800"
+            title={lastRefreshLine ?? ""}
+          >
+            {lastRefreshLine ?? "—"}
+          </dd>
+        </div>
+        <div className="rounded-md border border-gray-200 bg-white p-2">
+          <dt className="text-[10px] uppercase tracking-wide text-gray-400">
+            Cron file / skript
+          </dt>
+          <dd className="mt-0.5 text-gray-700">
+            <code>/etc/cron.d/permaban-refresh</code> →{" "}
+            <code>blocklist-tools.sh nginx-deny --apply</code>
+          </dd>
+        </div>
+      </dl>
+
+      {(snapshot.deny.error ||
+        snapshot.whitelist.error ||
+        snapshot.refreshLog.error ||
+        snapshot.realtimeLog.error ||
+        snapshot.backups.error) && (
+        <PermabanFileHints snapshot={snapshot} />
+      )}
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <CollapsibleSection
+          title="Whitelist"
+          count={`${snapshot.whitelist.ips.length} IP`}
+          hint="IP, které se nikdy nesmí dostat do deny listu."
+          defaultOpen
+        >
+          {snapshot.whitelist.ips.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-gray-500">
+              Whitelist je prázdný nebo soubor neexistuje. Synchronizuj se{" "}
+              <code>{snapshot.paths.whitelist}</code>.
+            </p>
+          ) : (
+            <ul className="divide-y divide-gray-100 text-xs">
+              {snapshot.whitelist.ips.map((ip) => (
+                <li
+                  key={ip}
+                  className="px-4 py-1.5 font-mono tabular-nums text-gray-800"
+                >
+                  {ip}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Posledních 5 backup snapshotů"
+          count={`${snapshot.backups.count} celkem`}
+          defaultOpen={false}
+        >
+          {snapshot.backups.recent.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-gray-500">
+              Žádné snapshoty. Zatím neproběhl žádný rebuild, který by{" "}
+              změnil obsah deny listu (jinak by skript snapshotnul původní
+              stav).
+            </p>
+          ) : (
+            <ul className="divide-y divide-gray-100 text-xs">
+              {snapshot.backups.recent.slice(0, 5).map((b) => (
+                <li
+                  key={b.name}
+                  className="flex items-center justify-between gap-3 px-4 py-1.5"
+                >
+                  <span className="truncate font-mono text-gray-800" title={b.name}>
+                    {b.name}
+                  </span>
+                  <span className="font-mono tabular-nums text-gray-500">
+                    {formatDateTime(b.mtime)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CollapsibleSection>
+      </div>
+
+      {snapshot.realtimeLog.events.length > 0 && (
+        <CollapsibleSection
+          title="Real-time log událostí"
+          count={`posledních ${snapshot.realtimeLog.events.length}`}
+          hint="Z /var/log/permaban-nginx.log — append akce z fail2ban chainu."
+        >
+          <ul className="divide-y divide-gray-100 font-mono text-[11px] leading-snug">
+            {snapshot.realtimeLog.events.map((e, i) => (
+              <li
+                key={`${e.ts}-${i}`}
+                className="flex gap-3 px-3 py-1"
+                title={e.message}
+              >
+                <span className="shrink-0 text-gray-500">
+                  {formatDateTime(e.ts)}
+                </span>
+                <span
+                  className={`min-w-0 flex-1 ${
+                    e.kind === "added"
+                      ? "text-emerald-700"
+                      : e.kind === "skip"
+                        ? "text-gray-500"
+                        : e.kind === "error"
+                          ? "text-red-700"
+                          : "text-gray-700"
+                  }`}
+                >
+                  {e.message}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </CollapsibleSection>
+      )}
+
+      {snapshot.refreshLog.recentLines.length > 0 && (
+        <CollapsibleSection
+          title="Posledních 20 řádků cron rebuild logu"
+          hint="Z /var/log/permaban-refresh.log — výstup denního blocklist-tools.sh."
+        >
+          <pre className="max-h-72 overflow-auto bg-gray-900 px-3 py-2 text-[11px] leading-snug text-gray-100">
+            {snapshot.refreshLog.recentLines.join("\n")}
+          </pre>
+        </CollapsibleSection>
+      )}
+
+      <CollapsibleSection
+        title="Všechny aktuálně blokované IP"
+        count={`${denyCount} celkem`}
+        hint="Obsah permaban-list.conf — každý řádek = `deny <ip>;`."
+      >
+        {denyCount === 0 ? (
+          <p className="px-4 py-3 text-xs text-gray-500">
+            Deny list je prázdný (nebo soubor není čitelný — viz hint výše).
+          </p>
+        ) : (
+          <div className="max-h-96 overflow-auto">
+            <ul className="divide-y divide-gray-100 text-xs">
+              {snapshot.deny.deniedIps.map((ip) => (
+                <li
+                  key={ip}
+                  className="px-4 py-1 font-mono tabular-nums text-gray-800"
+                >
+                  {ip}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CollapsibleSection>
+    </section>
+  );
+}
+
+function PermabanFileHints({ snapshot }: { snapshot: PermabanSnapshot }) {
+  const items: { label: string; path: string; error: string }[] = [];
+  if (snapshot.deny.error)
+    items.push({
+      label: "Deny list",
+      path: snapshot.paths.deny,
+      error: snapshot.deny.error,
+    });
+  if (snapshot.whitelist.error)
+    items.push({
+      label: "Whitelist",
+      path: snapshot.paths.whitelist,
+      error: snapshot.whitelist.error,
+    });
+  if (snapshot.refreshLog.error)
+    items.push({
+      label: "Cron log",
+      path: snapshot.paths.refreshLog,
+      error: snapshot.refreshLog.error,
+    });
+  if (snapshot.realtimeLog.error)
+    items.push({
+      label: "Real-time log",
+      path: snapshot.paths.realtimeLog,
+      error: snapshot.realtimeLog.error,
+    });
+  if (snapshot.backups.error)
+    items.push({
+      label: "Backup dir",
+      path: snapshot.paths.backupDir,
+      error: snapshot.backups.error,
+    });
+  if (items.length === 0) return null;
+  return (
+    <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+      <p className="font-medium">Některé soubory nelze načíst</p>
+      <ul className="space-y-0.5">
+        {items.map((it) => (
+          <li key={it.path}>
+            <strong>{it.label}</strong> — <code>{it.path}</code> ({it.error}).{" "}
+            {it.error === "permission" ? (
+              <code>sudo setfacl -m u:NODE_USER:r {it.path}</code>
+            ) : (
+              "Soubor ještě neexistuje — vytvoří ho cron / akce při prvním banu."
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -388,52 +734,58 @@ function AbuseIpdbPanel({ summary }: { summary: AbuseIpdbSummary }) {
       )}
 
       {reportedCount > 0 ? (
-        <div className="overflow-x-auto rounded-md border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200 text-xs">
-            <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
-              <tr>
-                <th className="px-3 py-2 font-medium">IP</th>
-                <th className="px-3 py-2 font-medium">Banů</th>
-                <th className="px-3 py-2 font-medium">První</th>
-                <th className="px-3 py-2 font-medium">Naposledy</th>
-                <th className="px-3 py-2 font-medium">Jails</th>
-                <th className="px-3 py-2 font-medium">Kategorie</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {summary.reportedIps.map((r) => (
-                <tr key={r.ip} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-3 py-1.5 font-mono text-gray-800">
-                    {r.ip}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-700">
-                    {r.count.toLocaleString("cs-CZ")}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-500">
-                    {formatDateTime(r.firstSeen)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-500">
-                    {formatDateTime(r.lastSeen)}
-                  </td>
-                  <td className="px-3 py-1.5 text-gray-700">
-                    {r.jails.join(", ")}
-                  </td>
-                  <td
-                    className="px-3 py-1.5 text-gray-700"
-                    title={`AbuseIPDB categories: ${r.categories}`}
-                  >
-                    <span className="font-mono text-gray-500">
-                      {r.categories}
-                    </span>{" "}
-                    <span className="text-gray-700">
-                      {describeCategories(r.categories)}
-                    </span>
-                  </td>
+        <CollapsibleSection
+          title="Nahlášené IP — detail"
+          count={`${reportedCount} IP / ${reportedBans} banů`}
+          hint="Aggregace TSV řádků s ts ≤ poslední state TS, mapování jail → AbuseIPDB kategorie."
+        >
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-xs">
+              <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">IP</th>
+                  <th className="px-3 py-2 font-medium">Banů</th>
+                  <th className="px-3 py-2 font-medium">První</th>
+                  <th className="px-3 py-2 font-medium">Naposledy</th>
+                  <th className="px-3 py-2 font-medium">Jails</th>
+                  <th className="px-3 py-2 font-medium">Kategorie</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {summary.reportedIps.map((r) => (
+                  <tr key={r.ip} className="hover:bg-gray-50">
+                    <td className="whitespace-nowrap px-3 py-1.5 font-mono text-gray-800">
+                      {r.ip}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-700">
+                      {r.count.toLocaleString("cs-CZ")}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-500">
+                      {formatDateTime(r.firstSeen)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-gray-500">
+                      {formatDateTime(r.lastSeen)}
+                    </td>
+                    <td className="px-3 py-1.5 text-gray-700">
+                      {r.jails.join(", ")}
+                    </td>
+                    <td
+                      className="px-3 py-1.5 text-gray-700"
+                      title={`AbuseIPDB categories: ${r.categories}`}
+                    >
+                      <span className="font-mono text-gray-500">
+                        {r.categories}
+                      </span>{" "}
+                      <span className="text-gray-700">
+                        {describeCategories(r.categories)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CollapsibleSection>
       ) : (
         <p className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-500">
           {lostSignal
@@ -640,7 +992,7 @@ function RankedList({
   );
 }
 
-function PermabanPanel({
+function PermabanWhatIfPanel({
   threshold,
   windowDays,
   jail,
@@ -658,13 +1010,20 @@ function PermabanPanel({
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
           <Ban className="h-4 w-4 text-brand-600" aria-hidden />
-          Permaban kandidáti
+          Permaban what-if (alternativní práh)
         </h2>
         <span className="text-[11px] text-gray-500">
-          {candidates.length.toLocaleString("cs-CZ")} IP připravených k{" "}
-          <code>nginx deny</code>
+          {candidates.length.toLocaleString("cs-CZ")} IP by spadlo pod tento
+          filtr
         </span>
       </header>
+      <p className="text-[11px] text-gray-500">
+        Live deny list běží s default parametrem (každý ban → permaban). Tahle
+        sekce slouží jen jako simulace — &bdquo;co kdybych dal threshold=N
+        pro jeden konkrétní jail?&ldquo; Stažený <code>.conf</code> nahradí
+        live list, který drží denní cron — radši ho aplikuj jen pokud víš,
+        proč to děláš.
+      </p>
       <form
         method="get"
         className="flex flex-wrap items-end gap-2 text-xs text-gray-700"
@@ -746,16 +1105,11 @@ function RecentTable({
   total: number;
 }) {
   return (
-    <section className="space-y-2">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-900">
-          Posledních {Math.min(limit, rows.length).toLocaleString("cs-CZ")} banů
-        </h2>
-        <p className="text-xs text-gray-400">
-          z celkem {total.toLocaleString("cs-CZ")}
-        </p>
-      </header>
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+    <CollapsibleSection
+      title={`Posledních ${Math.min(limit, rows.length).toLocaleString("cs-CZ")} banů`}
+      count={`z celkem ${total.toLocaleString("cs-CZ")}`}
+    >
+      <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 text-xs">
           <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
             <tr>
@@ -793,7 +1147,7 @@ function RecentTable({
           </tbody>
         </table>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -807,17 +1161,11 @@ function IpsTable({
   limit: number;
 }) {
   return (
-    <section className="space-y-2">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-900">
-          Všechny IP podle počtu banů
-        </h2>
-        <p className="text-xs text-gray-400">
-          zobrazeno {rows.length.toLocaleString("cs-CZ")} z{" "}
-          {totalRows.toLocaleString("cs-CZ")} (limit {limit})
-        </p>
-      </header>
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+    <CollapsibleSection
+      title="Všechny IP podle počtu banů"
+      count={`zobrazeno ${rows.length.toLocaleString("cs-CZ")} z ${totalRows.toLocaleString("cs-CZ")} (limit ${limit})`}
+    >
+      <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 text-xs">
           <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
             <tr>
@@ -861,7 +1209,7 @@ function IpsTable({
           </tbody>
         </table>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
