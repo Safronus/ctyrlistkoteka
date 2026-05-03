@@ -313,16 +313,29 @@ export interface RangeAnalysis {
   min: number;
   /** Highest extractable ID seen in the scope. */
   max: number;
-  /** Count of distinct IDs present. */
-  count: number;
+  /** Distinct IDs present in the scope (each ID counted once). */
+  uniqueIds: number;
+  /** Sum of file occurrences across IDs — i.e. total visible files
+   *  that yielded a parseable ID. Differs from `uniqueIds` when an
+   *  ID shows up in multiple filenames (e.g. crops accept both
+   *  `<id>+<segments>.jpg` and the short `<id>.jpg` form, so an ID
+   *  can have two siblings). */
+  filesWithId: number;
+  /** Visible files (dotfiles excluded) where the extractor returned
+   *  null — typically a stray README, JSON, or a malformed filename
+   *  that doesn't start with the expected digit run. Helps the
+   *  operator account for the gap between this scope's "X položek"
+   *  count and uniqueIds without hunting manually. */
+  filesWithoutId: number;
   /** Total IDs in [min, max] that don't have a corresponding file. */
   missingCount: number;
   /** Every gap in [min, max], compressed into contiguous ranges.
    *  Sorted ascending by `start`. The whole list is returned (no
-   *  truncation) — a real-world finds dir with 17 k photos has at
-   *  most a few hundred ranges and we want the operator to see all
-   *  of them so they can plan re-uploads. */
+   *  truncation). */
   missingRanges: MissingRange[];
+  /** IDs that appear in more than one filename, sorted ascending.
+   *  Drives the duplicate-ID highlight + filter on the listing page. */
+  duplicateIds: number[];
 }
 
 /** Analyses ID coverage in a scope's directory. Returns null when
@@ -340,24 +353,35 @@ export async function analyzeIdRange(
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
   }
-  const ids = new Set<number>();
+  const occurrences = new Map<number, number>();
+  let filesWithoutId = 0;
   for (const n of names) {
     if (n.startsWith(".")) continue;
     const id = extractId(n);
-    if (id !== null) ids.add(id);
+    if (id === null) {
+      filesWithoutId += 1;
+      continue;
+    }
+    occurrences.set(id, (occurrences.get(id) ?? 0) + 1);
   }
-  if (ids.size === 0) return null;
+  if (occurrences.size === 0) return null;
   let min = Infinity;
   let max = -Infinity;
-  for (const id of ids) {
+  let filesWithId = 0;
+  const duplicateIds: number[] = [];
+  for (const [id, occurrenceCount] of occurrences) {
     if (id < min) min = id;
     if (id > max) max = id;
+    filesWithId += occurrenceCount;
+    if (occurrenceCount > 1) duplicateIds.push(id);
   }
+  duplicateIds.sort((a, b) => a - b);
+
   const missingRanges: MissingRange[] = [];
   let missingCount = 0;
   let runStart: number | null = null;
   for (let i = min; i <= max; i += 1) {
-    if (!ids.has(i)) {
+    if (!occurrences.has(i)) {
       missingCount += 1;
       if (runStart === null) runStart = i;
     } else if (runStart !== null) {
@@ -368,7 +392,16 @@ export async function analyzeIdRange(
   if (runStart !== null) {
     missingRanges.push({ start: runStart, end: max });
   }
-  return { min, max, count: ids.size, missingCount, missingRanges };
+  return {
+    min,
+    max,
+    uniqueIds: occurrences.size,
+    filesWithId,
+    filesWithoutId,
+    missingCount,
+    missingRanges,
+    duplicateIds,
+  };
 }
 
 export interface FileInfo {

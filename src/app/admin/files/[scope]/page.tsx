@@ -120,6 +120,7 @@ export default async function AdminScopeListPage({
   const defaultPageSize =
     SCOPE_DEFAULT_PAGE_SIZE[scope.slug] ?? DEFAULT_PAGE_SIZE;
   const duplicatesOnly = pickString(sp.dups) === "1";
+  const idDuplicatesOnly = pickString(sp.id_dups) === "1";
   const uncoveredOnly = pickString(sp.uncovered) === "1";
   // Maps-only filters: surface zaniklé / anonymizované entries on
   // demand. Both default off so the listing matches the rest of the
@@ -174,14 +175,27 @@ export default async function AdminScopeListPage({
   let range: RangeAnalysis | null = null;
   let rangeLabel: string | null = null;
   let rangePad = 1;
+  let idExtractor: ((filename: string) => number | null) | null = null;
   if (scope.slug === "finds" || scope.slug === "crops") {
-    range = await analyzeIdRange(scope, extractFindId);
+    idExtractor = extractFindId;
+    range = await analyzeIdRange(scope, idExtractor);
     rangeLabel = "Find ID";
   } else if (scope.slug === "maps") {
-    range = await analyzeIdRange(scope, extractMapId);
+    idExtractor = extractMapId;
+    range = await analyzeIdRange(scope, idExtractor);
     rangeLabel = "Map ID";
     rangePad = 5;
   }
+  // Duplicate-ID filter: when active, listScope keeps only the files
+  // whose extracted ID appears more than once in the dir. That's
+  // exactly the case where a 4423-vs-4422 mismatch comes from — two
+  // files (e.g. `4350+seg+seg…jpg` and `4350.jpg`) pointing at the
+  // same find. Active only when there ARE duplicates; otherwise the
+  // filter chip just disappears so the user can't toggle a no-op.
+  const duplicateIdSet =
+    idDuplicatesOnly && range && range.duplicateIds.length > 0
+      ? new Set(range.duplicateIds)
+      : null;
 
   // Maps anonymization scan: only run on the maps scope, costs one
   // 64KB read per file. Cached in-memory by mtime so the next render
@@ -214,7 +228,7 @@ export default async function AdminScopeListPage({
     : null;
 
   const keepName: ((name: string) => boolean) | undefined =
-    onlyNonexistent || onlyAnonymized
+    onlyNonexistent || onlyAnonymized || duplicateIdSet
       ? (name) => {
           if (onlyNonexistent && !name.startsWith("NEEXISTUJE-")) return false;
           if (
@@ -222,6 +236,12 @@ export default async function AdminScopeListPage({
             !(anonymizedNamesNFC?.has(name) ?? false)
           ) {
             return false;
+          }
+          if (duplicateIdSet) {
+            const id = idExtractor?.(name);
+            if (id === null || id === undefined || !duplicateIdSet.has(id)) {
+              return false;
+            }
           }
           return true;
         }
@@ -255,6 +275,7 @@ export default async function AdminScopeListPage({
       page: number;
       size: number;
       dups: boolean;
+      id_dups: boolean;
       uncovered: boolean;
       nonexistent: boolean;
       anonymized: boolean;
@@ -265,6 +286,7 @@ export default async function AdminScopeListPage({
       page,
       size: pageSize,
       dups: duplicatesOnly,
+      id_dups: idDuplicatesOnly,
       uncovered: uncoveredOnly,
       nonexistent: onlyNonexistent,
       anonymized: onlyAnonymized,
@@ -276,6 +298,7 @@ export default async function AdminScopeListPage({
     if (merged.size !== defaultPageSize)
       usp.set("size", String(merged.size));
     if (merged.dups) usp.set("dups", "1");
+    if (merged.id_dups) usp.set("id_dups", "1");
     if (merged.uncovered) usp.set("uncovered", "1");
     if (merged.nonexistent) usp.set("nonexistent", "1");
     if (merged.anonymized) usp.set("anonymized", "1");
@@ -352,7 +375,9 @@ export default async function AdminScopeListPage({
       {range && rangeLabel && (
         <section
           className={`rounded-xl border px-4 py-3 text-xs ${
-            range.missingCount > 0
+            range.missingCount > 0 ||
+            range.duplicateIds.length > 0 ||
+            range.filesWithoutId > 0
               ? "border-amber-200 bg-amber-50 text-amber-900"
               : "border-emerald-200 bg-emerald-50 text-emerald-900"
           }`}
@@ -366,18 +391,16 @@ export default async function AdminScopeListPage({
             <code className="font-mono">
               {String(range.max).padStart(rangePad, "0")}
             </code>{" "}
-            · {range.count.toLocaleString("cs-CZ")} ID
+            · {range.uniqueIds.toLocaleString("cs-CZ")} unikátních ID
+            {range.filesWithId !== range.uniqueIds &&
+              ` v ${range.filesWithId.toLocaleString("cs-CZ")} souborech`}
             {range.missingCount === 0
               ? " · v intervalu nic nechybí"
               : ` · chybí ${range.missingCount.toLocaleString("cs-CZ")} ID v ${range.missingRanges.length.toLocaleString(
                   "cs-CZ",
-                )} ${
-                  range.missingRanges.length === 1
-                    ? "rozsahu"
-                    : range.missingRanges.length < 5
-                      ? "rozsazích"
-                      : "rozsazích"
-                }`}
+                )} ${range.missingRanges.length === 1 ? "rozsahu" : "rozsazích"}`}
+            {range.filesWithoutId > 0 &&
+              ` · ${range.filesWithoutId.toLocaleString("cs-CZ")} souborů bez parsovatelného ID`}
           </p>
           {range.missingCount > 0 && (
             // Render every range — no truncation. The list scrolls if
@@ -389,6 +412,21 @@ export default async function AdminScopeListPage({
                 {formatMissingRanges(range.missingRanges, range.max)}
               </p>
             </div>
+          )}
+          {range.duplicateIds.length > 0 && (
+            // List the duplicate-ID values explicitly so the user can
+            // see *which* IDs collide. A 4423-vs-4422 mismatch is one
+            // ID listed here; a worse case shows the full list. The
+            // filter chip below the search box jumps straight to those
+            // files in the listing.
+            <p className="mt-1 break-words font-mono text-[11px] leading-snug text-rose-800">
+              <span className="font-semibold not-italic">
+                Duplicitní ID ({range.duplicateIds.length}):
+              </span>{" "}
+              {range.duplicateIds
+                .map((id) => String(id).padStart(rangePad, "0"))
+                .join(", ")}
+            </p>
           )}
         </section>
       )}
@@ -418,6 +456,9 @@ export default async function AdminScopeListPage({
           <input type="hidden" name="size" value={String(pageSize)} />
         )}
         {duplicatesOnly && <input type="hidden" name="dups" value="1" />}
+        {idDuplicatesOnly && (
+          <input type="hidden" name="id_dups" value="1" />
+        )}
         {uncoveredOnly && <input type="hidden" name="uncovered" value="1" />}
         {onlyNonexistent && (
           <input type="hidden" name="nonexistent" value="1" />
@@ -441,15 +482,37 @@ export default async function AdminScopeListPage({
               className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 font-medium text-amber-900 hover:bg-amber-100"
             >
               <span aria-hidden>×</span>
-              Zrušit filtr duplikátů
+              Zrušit filtr duplikátů názvů
             </Link>
           ) : (
             <Link
               href={buildHref({ dups: true, page: 1 })}
               className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
             >
-              Filtr: jen duplikáty
+              Filtr: jen duplikáty názvů (NFC)
             </Link>
+          )}
+          {/* Filtr "duplicitní ID" — různé názvy se stejným find ID
+              (např. dlouhá vs zkrácená crop forma). Filter chip se
+              zobrazí jen když takové duplicity v dir reálně jsou. */}
+          {range && range.duplicateIds.length > 0 && (
+            idDuplicatesOnly ? (
+              <Link
+                href={buildHref({ id_dups: false, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 font-medium text-rose-900 hover:bg-rose-100"
+              >
+                <span aria-hidden>×</span>
+                Zrušit filtr duplicitních ID
+              </Link>
+            ) : (
+              <Link
+                href={buildHref({ id_dups: true, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-0.5 text-rose-700 hover:border-rose-300 hover:bg-rose-50"
+                title="Zobrazit jen soubory, jejichž ID se v adresáři opakuje"
+              >
+                Filtr: jen duplicitní ID ({range.duplicateIds.length})
+              </Link>
+            )
           )}
           {counterpartLabel &&
             (uncoveredOnly ? (
