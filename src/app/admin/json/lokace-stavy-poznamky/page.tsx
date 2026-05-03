@@ -150,7 +150,15 @@ export default async function LokaceStavyPoznamkyPage() {
         </p>
       )}
 
+      {/* `key={mtimeIso}` forces a clean remount of the client editor
+          whenever the file is rewritten (save action OR merge form OR
+          out-of-band CLI edit). Without this the editor's internal
+          `sections` useState would freeze on first mount's
+          initialSections and silently drift from disk after a merge
+          — looking like "you have unsaved changes" when in reality the
+          server has fresh state and the editor is the stale side. */}
       <LokaceStavyPoznamkyEditor
+        key={mtimeIso ?? "empty"}
         initialSections={sections}
         fileMtime={mtimeIso}
       />

@@ -25,7 +25,8 @@ const PLACEHOLDERS: Record<SectionKey, string> = {
   "12346": "ztraceno na Lipně"
 }`,
   lokace: `{
-  "RATIBOR_POLE001a": ["100-110", "115"]
+  "10": ["13608", "14310-14313"],
+  "100": ["15157"]
 }`,
 };
 
@@ -37,7 +38,7 @@ const HINTS: Record<SectionKey, string> = {
   poznamky:
     "Sloučení po klíčích. Stejné ID s identickým textem = no-op. Stejné ID s odlišným textem = konflikt — merge selže a nabídne ti seznam k vyřešení v editoru.",
   lokace:
-    "Sloučení per code. Range pole se merguje, nové kódy se přidají. Existující ranges pro daný code zůstanou — jen se k nim přidají chybějící IDs.",
+    "Klíče jsou MAP_ID (číselný řetězec, např. \"10\" = mapa #00010), hodnoty jsou range pole nálezů přiřazených k té mapě. Range pole se merguje, nové map ID se přidají. Existující ranges pro daný klíč zůstanou — jen se k nim přidají chybějící IDs.",
 };
 
 /** Hromadný merge do existující sekce LokaceStavyPoznamky.json.
