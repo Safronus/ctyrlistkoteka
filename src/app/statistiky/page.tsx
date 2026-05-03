@@ -161,6 +161,7 @@ async function TotalsSection() {
   return (
     <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <TotalCard
+        tone="brand"
         label="nálezů"
         value={fmt.format(totals.finds)}
         // Mirrors the locations card layout: a top-corner peer metric
@@ -202,6 +203,7 @@ async function TotalsSection() {
         ]}
       />
       <TotalCard
+        tone="brand"
         label="lokalit"
         value={fmt.format(totals.locations)}
         cornerLeft={{
@@ -338,6 +340,7 @@ function TotalCard({
   cornerLeft,
   cornerRight,
   subStats = [],
+  tone = "default",
 }: {
   label: string;
   value: string;
@@ -350,10 +353,19 @@ function TotalCard({
    *  card so the visual hierarchy is "peer numbers → main → details". */
   cornerRight?: SubStat;
   subStats?: readonly SubStat[];
+  /** "brand" lifts the headline pair (nálezy + lokality) onto a
+   *  brand-50 wash so they don't read as just-another-card next to
+   *  the eight neutral white cards below them. */
+  tone?: "default" | "brand";
 }) {
   const hasCorners = !!(cornerLeft || cornerRight);
+  const bg = tone === "brand" ? "bg-brand-50" : "bg-white";
+  const subStatsBorder =
+    tone === "brand" ? "border-brand-200" : "border-gray-100";
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
+    <div
+      className={`rounded-xl border border-gray-200 ${bg} p-6 text-center`}
+    >
       {hasCorners ? (
         <div className="grid grid-cols-3 items-start gap-2">
           {cornerLeft ? (
@@ -374,7 +386,9 @@ function TotalCard({
         </div>
       )}
       {subStats.length > 0 && (
-        <ul className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-gray-100 pt-3 text-xs text-gray-600">
+        <ul
+          className={`mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t ${subStatsBorder} pt-3 text-xs text-gray-600`}
+        >
           {subStats.map((s) => {
             const Icon = s.icon;
             // Two render variants: a plain <span> row or, when `href`
