@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight, ExternalLink, ListIcon, MapPin } from "lucide-react";
 import { getHomePageData, type HomePageData } from "@/lib/queries/home";
 import { getRandomFindShowcase } from "@/lib/queries/random-find";
+import { getRetrospective } from "@/lib/queries/retrospective";
 import { getWatermarkMeta } from "@/lib/queries/watermark";
 import {
   formatDateCs,
@@ -21,6 +22,7 @@ import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcas
 import { CloverFactCard } from "@/components/home/clover-fact-card";
 import { CloverFactsStatCard } from "@/components/home/clover-facts-stat-card";
 import { DonatedSearchCatcher } from "@/components/home/donated-search-catcher";
+import { RetrospectiveGrid } from "@/components/home/retrospective-grid";
 import { CLOVER_CATEGORY_LABELS, CLOVER_TEXTS } from "@/lib/cloverTexts";
 
 // Must be a literal for Next.js static analysis. Matches HOME_REVALIDATE in
@@ -33,10 +35,11 @@ const COUNTRIES = ["země", "země", "zemí"] as const;
 const NF_CS = new Intl.NumberFormat("cs-CZ");
 
 export default async function HomePage() {
-  const [data, watermark, randomFind] = await Promise.all([
+  const [data, watermark, randomFind, retrospective] = await Promise.all([
     getHomePageData(),
     getWatermarkMeta(),
     getRandomFindShowcase(),
+    getRetrospective(),
   ]);
   const { totals, highlights } = data;
 
@@ -148,31 +151,6 @@ export default async function HomePage() {
         )}
       </section>
 
-      <section className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatCard
-          value={NF_CS.format(totals.finds)}
-          label={pluralCs(totals.finds, FINDS)}
-        />
-        <StatCard
-          value={NF_CS.format(totals.locations)}
-          label={pluralCs(totals.locations, LOCATIONS)}
-        />
-        <StatCard
-          value={NF_CS.format(totals.cities)}
-          label={pluralCs(totals.cities, CITIES)}
-        />
-        <StatCard
-          value={NF_CS.format(totals.countries)}
-          label={pluralCs(totals.countries, COUNTRIES)}
-        />
-        <StatCard
-          value={totals.yearsSpan ? String(totals.yearsSpan) : "—"}
-          label={
-            totals.yearsSpan ? pluralCs(totals.yearsSpan, YEARS) : YEARS[2]
-          }
-        />
-      </section>
-
       <DonatedShowcase count={totals.donated} />
 
       <section className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -197,6 +175,33 @@ export default async function HomePage() {
           description="Přehled sbírky v grafech, číslech a milnících."
         />
       </section>
+
+      <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <StatCard
+          value={NF_CS.format(totals.finds)}
+          label={pluralCs(totals.finds, FINDS)}
+        />
+        <StatCard
+          value={NF_CS.format(totals.locations)}
+          label={pluralCs(totals.locations, LOCATIONS)}
+        />
+        <StatCard
+          value={NF_CS.format(totals.cities)}
+          label={pluralCs(totals.cities, CITIES)}
+        />
+        <StatCard
+          value={NF_CS.format(totals.countries)}
+          label={pluralCs(totals.countries, COUNTRIES)}
+        />
+        <StatCard
+          value={totals.yearsSpan ? String(totals.yearsSpan) : "—"}
+          label={
+            totals.yearsSpan ? pluralCs(totals.yearsSpan, YEARS) : YEARS[2]
+          }
+        />
+      </section>
+
+      {retrospective && <RetrospectiveGrid data={retrospective} />}
 
       <HighlightsSection
         highlights={data.highlights}

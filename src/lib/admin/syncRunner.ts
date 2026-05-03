@@ -1,6 +1,7 @@
 import { promises as fs, createReadStream } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { revalidatePath } from "next/cache";
 import { ADMIN_ROOTS } from "./paths";
 import { atomicWrite, ensureDir, trashTimestamp } from "./atomic";
 import { writeLastSyncSuccess } from "./syncNeeded";
@@ -178,6 +179,23 @@ export async function startRun(opts: StartOptions): Promise<SyncStatus> {
         });
       } catch (err) {
         console.error("[admin/sync] failed to write last-success marker", {
+          err,
+        });
+      }
+      // Drop the ISR cache entries for the public surfaces that
+      // depend on freshly synced data. The home retrospective and the
+      // /sbirka grid both rely on `revalidate = 3600` — without an
+      // explicit kick the user sees stale numbers for up to an hour
+      // after adding today's finds, which defeats the purpose of
+      // running a sync. PM2 cluster mode is fine here: revalidatePath
+      // writes to .next/cache on disk, which both workers share.
+      try {
+        revalidatePath("/");
+        revalidatePath("/sbirka");
+        revalidatePath("/statistiky");
+        revalidatePath("/lokality");
+      } catch (err) {
+        console.error("[admin/sync] revalidatePath after sync failed", {
           err,
         });
       }
