@@ -1,0 +1,19 @@
+# Daily rebuild permaban-list.conf z fail2ban-blocklist.tsv jako pojistka
+# proti race conditionům fail2ban action chainu (paralelní bany, restart
+# fail2ban v půli akce, manuální editace souboru).
+#
+# Skript je idempotentní — když se obsah po cutoff hlavičce nezmění,
+# reload nginx se neprovede. Snapshoty starého stavu padají do
+# /var/backups/permaban/ a auto-prune po 30 dnech.
+#
+# Časový slot 04:30 je ladený za logrotate (typicky 03:00–04:00) a před
+# abuseipdb-report (typicky 05:30+) — pořadí: rotace → permaban rebuild →
+# AbuseIPDB report.
+#
+# Umístění: /etc/cron.d/permaban-refresh
+# Práva:    sudo chmod 644, vlastník root:root
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+SHELL=/bin/bash
+
+30 4 * * * root /usr/local/sbin/blocklist-tools.sh nginx-deny --apply >> /var/log/permaban-refresh.log 2>&1

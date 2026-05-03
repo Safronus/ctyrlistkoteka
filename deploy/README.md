@@ -23,6 +23,11 @@ krok za krokem. Tento README je rychlý katalog.
 | `abuseipdb-report.sh` | `/usr/local/sbin/` (chmod 755) | Denní bulk-report nových banů na abuseipdb.com. Čte TSV, mapuje jail→kategorie, POST /api/v2/bulk-report. |
 | `abuseipdb-report.cron` | `/etc/cron.d/abuseipdb-report` | Cron entry — denně 5:30 spouští reportovací skript. |
 | `logrotate-abuseipdb-report.conf` | `/etc/logrotate.d/abuseipdb-report` | Měsíční rotace logu, 6 archivů. |
+| `permaban-whitelist.conf` | `/etc/permaban-whitelist.conf` | Exact-match IP whitelist — IP, které se **nikdy** nesmí dostat do nginx permabanu. Přečte ji `blocklist-tools.sh` i `permaban-nginx-add.sh`. |
+| `permaban-nginx-add.sh` | `/usr/local/sbin/` (chmod 755) | Helper volaný fail2ban action chainem — append `deny <ip>;` do nginx snippetu (flock + dedup) + debounced reload. |
+| `fail2ban-action-permaban-nginx.conf` | `/etc/fail2ban/action.d/permaban-nginx.conf` | fail2ban action, která helper volá. Přidává se do `action = ...` sekce každého reportable jailu. |
+| `permaban-refresh.cron` | `/etc/cron.d/permaban-refresh` | Cron entry — denně 4:30 přepoč permabanu z TSV (self-healing pojistka). |
+| `logrotate-permaban.conf` | `/etc/logrotate.d/permaban` | Měsíční rotace permaban-nginx debug logu + cron rebuild logu. |
 | `systemd-sync.service` | `/etc/systemd/system/` | Volitelné: noční auto-sync. |
 | `systemd-sync.timer` | `/etc/systemd/system/` | Zapnout přes `systemctl enable --now ctyrlistkoteka-sync.timer`. |
 | `backup.sh` | (git, spouští se odtud) | Denní `pg_dump` + rotace. Do crontab uživatele `app`. |
@@ -147,35 +152,108 @@ curl -is https://ctyrlistkoteka.cz/             | head -1   # 200 OK
 | Manuální unban | `sudo fail2ban-client unban <ip>` |
 | Append-only audit log | `sudo less /var/log/fail2ban-blocklist.tsv` |
 
-### Permaban list (volitelné)
+### Permaban list — hybridní mode (real-time + denní rebuild)
 
-Vyrobí se z TSV souboru — IP **z `nginx-noscript` jailu** banované
-**`PERMABAN_THRESHOLD`+×** za posledních **`WINDOW_DAYS`** dní
-(default 3× / 30 dní) se promotují do `nginx deny` listu, který
-už není pod bantime expirací. SSH probery (`sshd` / `sshd-logger`)
-se do nginx-deny **záměrně nepromítají** — nginx `deny` blokuje
-HTTP requesty, na SSH nemá vliv (to řeší sshd jail nezávisle):
+Default chování `blocklist-tools.sh nginx-deny`: **každá** zabanovaná
+IP z reportable jailů (`nginx-noscript`, `sshd`, `sshd-logger`) se
+promotuje do `nginx deny` listu — bez prahu, bez okna. Whitelist
+(typicky tvoje vlastní IP) je v `/etc/permaban-whitelist.conf`,
+private/reserved rozsahy (RFC 1918 / 5737 / 3849) jsou filtrované
+vždy. Snapshot předchozího stavu padá do `/var/backups/permaban/`
+před každým přepsáním (auto-prune po 30 dnech).
+
+Ve dvojici s tím běží fail2ban action `permaban-nginx`, která stejnou
+logiku aplikuje **v okamžiku banu** — append do deny listu + debounced
+reload nginx (60s okno, ať pod útokem reload chain neflapuje). Cron
+rebuild slouží jako self-healing pojistka pro race condition / restart
+fail2ban v půli akce / manuální editace souboru.
 
 ```bash
-# Generuj permaban list
-sudo blocklist-tools.sh nginx-deny
+# 1. Whitelist — POVINNÝ KROK před prvním rebuildem, jinak by se sem
+#    mohla dostat tvoje vlastní IP a zablokovat ti přístup.
+sudo cp deploy/permaban-whitelist.conf /etc/permaban-whitelist.conf
+sudo chmod 644 /etc/permaban-whitelist.conf
+sudo chown root:root /etc/permaban-whitelist.conf
+# Pak ještě edituj — IP v repu odpovídají homelab + admin allow listu
+# z nginx.conf.template, ale pokud máš víc / jiné, dolaď v Termiusu.
 
-# Aktivuj v nginx (jednorázově) — do server bloku v
-# /etc/nginx/sites-available/ctyrlistkoteka přidej:
-#    include /etc/nginx/snippets/permaban-list.conf;
+# 2. blocklist-tools.sh (přepis se starou verzí v repu — nový skript
+#    má nové defaulty + whitelist + snapshot).
+sudo cp deploy/blocklist-tools.sh /usr/local/sbin/
+sudo chmod 755 /usr/local/sbin/blocklist-tools.sh
+sudo chown root:root /usr/local/sbin/blocklist-tools.sh
+
+# 3. Real-time helper (volaný fail2ban actionem) + jeho action def
+sudo cp deploy/permaban-nginx-add.sh                /usr/local/sbin/
+sudo chmod 755 /usr/local/sbin/permaban-nginx-add.sh
+sudo chown root:root /usr/local/sbin/permaban-nginx-add.sh
+
+sudo cp deploy/fail2ban-action-permaban-nginx.conf  /etc/fail2ban/action.d/permaban-nginx.conf
+
+# 4. Wire action do existujících jailů — přidej řádek `permaban-nginx`
+#    do `action = ...` sekce kazdého z těchto jailů:
+#       /etc/fail2ban/jail.d/nginx-noscript.conf
+#       /etc/fail2ban/jail.d/sshd.local
+#       /etc/fail2ban/jail.d/sshd-logger.local
+#    Řádek dej VEDLE existujícího `blocklist`, ne místo něj. Příklad:
+#       action = %(action_)s
+#                blocklist
+#                permaban-nginx
+sudo nano /etc/fail2ban/jail.d/nginx-noscript.conf
+sudo nano /etc/fail2ban/jail.d/sshd.local
+sudo nano /etc/fail2ban/jail.d/sshd-logger.local
+
+sudo fail2ban-client reload
+sudo fail2ban-client get nginx-noscript actions  # má obsahovat: permaban-nginx
+sudo fail2ban-client get sshd actions
+sudo fail2ban-client get sshd-logger actions
+
+# 5. Backfill — prvotní vygenerování permaban listu z celého TSV
+#    (POVINNĚ až po kroku 1, jinak se neaplikuje whitelist).
+sudo blocklist-tools.sh nginx-deny --apply
+# Výstup: "Vygenerováno N IP do /etc/nginx/snippets/permaban-list.conf"
+# + "nginx reload OK."
+
+# 6. Aktivuj include v nginx (jednorázově):
+#    /etc/nginx/sites-available/ctyrlistkoteka — do server bloku
+#    PŘED location / přidej:
+#       include /etc/nginx/snippets/permaban-list.conf;
+sudo nano /etc/nginx/sites-available/ctyrlistkoteka
 sudo nginx -t && sudo systemctl reload nginx
+
+# 7. Daily cron (rebuild + apply v 04:30 každý den)
+sudo cp deploy/permaban-refresh.cron       /etc/cron.d/permaban-refresh
+sudo chmod 644 /etc/cron.d/permaban-refresh
+
+# 8. Logrotate pro nové permaban-* logy
+sudo cp deploy/logrotate-permaban.conf     /etc/logrotate.d/permaban
+sudo chmod 644 /etc/logrotate.d/permaban
 ```
 
-Přísnější varianta:
+Ověření že real-time chain funguje (z **jiné** IP, ne whitelistované):
 ```bash
-sudo PERMABAN_THRESHOLD=2 WINDOW_DAYS=14 blocklist-tools.sh nginx-deny
+# Vyvolej nginx-noscript ban — TŘI requesty na známou exploit cestu
+curl -is https://ctyrlistkoteka.cz/.env > /dev/null
+curl -is https://ctyrlistkoteka.cz/wp-login.php > /dev/null
+curl -is https://ctyrlistkoteka.cz/.git/config > /dev/null
+# Po max 2 min:
+sudo tail -f /var/log/permaban-nginx.log     # má ukázat "Added: <ip>"
+sudo grep "<ip>" /etc/nginx/snippets/permaban-list.conf
 ```
 
-Auto-regenerace přes cron (každý den 04:00):
+Manuální odebrání IP z permabanu:
 ```bash
-sudo crontab -e
-# Přidej:
-0 4 * * * /usr/local/sbin/blocklist-tools.sh nginx-deny && /usr/sbin/nginx -t && /bin/systemctl reload nginx
+sudo sed -i "/^deny 1\\.2\\.3\\.4;/d" /etc/nginx/snippets/permaban-list.conf
+sudo nginx -t && sudo systemctl reload nginx
+# Pozor: pokud zůstane v TSV ban historie, příští cron rebuild ji zase
+# přidá — pro trvalou výjimku přidej IP do /etc/permaban-whitelist.conf.
+```
+
+Tweaky default chování (pokud někdy potřebuješ jinou strategii):
+```bash
+# Vrátit threshold-based ("3+ banů za 30 dní z nginx-noscript")
+sudo PERMABAN_THRESHOLD=3 WINDOW_DAYS=30 INCLUDE_JAILS=nginx-noscript \
+  blocklist-tools.sh nginx-deny --apply
 ```
 
 ### AbuseIPDB reporting (volitelné)

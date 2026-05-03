@@ -5,9 +5,25 @@
 # Použití:
 #   blocklist-tools.sh stats          # souhrn (kolik banů celkem, top jail, top IP)
 #   blocklist-tools.sh ips            # unikátní IP setříděné podle počtu banů
-#   blocklist-tools.sh nginx-deny     # nginx-deny soubor pro permaban (zdrojem
-#                                       jsou IP banované 3+× za poslední 30 dní)
+#   blocklist-tools.sh nginx-deny     # vygeneruje permaban-list.conf z TSV
+#                                       (default: každá zabanovaná IP z reportable
+#                                       jails, whitelist + private/reserved skip).
+#                                       Idempotentní — když se obsah nezmění,
+#                                       reload nginx se neprovádí.
 #   blocklist-tools.sh recent N       # posledních N banů s časem a důvodem
+#
+# ENV proměnné (s výchozími hodnotami):
+#   WINDOW_DAYS=3650            "kolik dní zpět TSV uvážit" (default ~10 let = forever)
+#   PERMABAN_THRESHOLD=1        kolikrát musí být IP zabanovaná, aby se přidala
+#   INCLUDE_JAILS="nginx-noscript sshd sshd-logger"
+#                               whitespace-separovaný seznam jailů, které se započítávají
+#   WHITELIST_FILE=/etc/permaban-whitelist.conf
+#                               cesta k whitelist souboru (jeden IP / # komentář per řádek)
+#   NGINX_DENY=/etc/nginx/snippets/permaban-list.conf
+#                               cílový .conf
+#   BACKUP_DIR=/var/backups/permaban
+#                               kam se ukládají snapshoty před každým rebuildem
+#   BACKUP_RETENTION_DAYS=30    auto-prune snapshotů starších než N dní
 #
 # Umístění: /usr/local/sbin/blocklist-tools.sh
 # Práva:    sudo chmod 755, vlastník root:root
@@ -15,9 +31,13 @@
 set -euo pipefail
 
 LOG="/var/log/fail2ban-blocklist.tsv"
-NGINX_DENY="/etc/nginx/snippets/permaban-list.conf"
-WINDOW_DAYS="${WINDOW_DAYS:-30}"
-PERMABAN_THRESHOLD="${PERMABAN_THRESHOLD:-3}"
+NGINX_DENY="${NGINX_DENY:-/etc/nginx/snippets/permaban-list.conf}"
+WINDOW_DAYS="${WINDOW_DAYS:-3650}"
+PERMABAN_THRESHOLD="${PERMABAN_THRESHOLD:-1}"
+INCLUDE_JAILS="${INCLUDE_JAILS:-nginx-noscript sshd sshd-logger}"
+WHITELIST_FILE="${WHITELIST_FILE:-/etc/permaban-whitelist.conf}"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/permaban}"
+BACKUP_RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
 
 cmd="${1:-stats}"
 
@@ -51,36 +71,122 @@ case "$cmd" in
     ;;
 
   nginx-deny)
-    # IP banované >= PERMABAN_THRESHOLD × za posledních WINDOW_DAYS dní.
-    # Filtrujeme JEN jail=nginx-noscript — `nginx deny` direktiva
-    # blokuje HTTP requesty, takže IP odchycené z SSH (sshd / sshd-logger)
-    # by tam dělaly jen šum. SSH útoky řeší sshd jail nezávisle (firewall ban).
     cutoff=$(date -Iseconds -d "$WINDOW_DAYS days ago")
+    TMP=$(mktemp)
+    trap 'rm -f "$TMP"' EXIT
+
+    # Whitelist do regex. Whitelist soubor může chybět — pak nikdo není
+    # whitelisted (kromě reserved/private rozsahů níž). Komentáře a
+    # prázdné řádky ignorujeme, '.' v IP escapujeme pro awk regex.
+    WL_REGEX=""
+    if [ -f "$WHITELIST_FILE" ]; then
+      WL_REGEX=$(awk '
+        /^[[:space:]]*#/ { next }
+        /^[[:space:]]*$/ { next }
+        { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); gsub(/\./, "\\."); print "^" $0 "$" }
+      ' "$WHITELIST_FILE" | paste -sd'|' -)
+    fi
+
+    # Jails do whitespace-bound regex pro awk porovnání.
+    JAIL_REGEX=$(echo "$INCLUDE_JAILS" | awk '{
+      for (i = 1; i <= NF; i++) printf "%s%s", (i>1 ? "|" : ""), "^"$i"$";
+    }')
+
     {
       echo "# Auto-generated permaban list"
-      echo "# Source: $LOG (filter: jail=nginx-noscript)"
+      echo "# Source: $LOG"
       echo "# Generated: $(date -Iseconds)"
-      echo "# Threshold: IPs banned >= ${PERMABAN_THRESHOLD}× in last ${WINDOW_DAYS} days"
+      echo "# Window: last ${WINDOW_DAYS} days"
+      echo "# Threshold: IPs banned >= ${PERMABAN_THRESHOLD}×"
+      echo "# Jails: ${INCLUDE_JAILS}"
+      echo "# Whitelist: ${WHITELIST_FILE} ($([ -f "$WHITELIST_FILE" ] && grep -cv '^[[:space:]]*\(#\|$\)' "$WHITELIST_FILE" || echo 0) entries)"
       echo "#"
-      awk -F'\t' -v cutoff="$cutoff" -v thr="$PERMABAN_THRESHOLD" '
-        $1 >= cutoff && $3 == "nginx-noscript" { count[$2]++ }
+      awk -F'\t' \
+        -v cutoff="$cutoff" \
+        -v thr="$PERMABAN_THRESHOLD" \
+        -v jail_regex="$JAIL_REGEX" \
+        -v wl_regex="$WL_REGEX" '
+        function is_reserved(ip) {
+          # RFC 5737 doc, RFC 3849 IPv6 doc, RFC 1918 private, loopback,
+          # link-local. Tyhle se nikdy nedostanou do nginx deny — i kdyby
+          # se omylem dostaly do TSV (test, špatně nakonfigurovaný proxy
+          # header), nikdy nereprezentují skutečného útočníka.
+          if (ip ~ /^10\./) return 1
+          if (ip ~ /^127\./) return 1
+          if (ip ~ /^169\.254\./) return 1
+          if (ip ~ /^172\.(1[6-9]|2[0-9]|3[01])\./) return 1
+          if (ip ~ /^192\.168\./) return 1
+          if (ip ~ /^192\.0\.2\./) return 1
+          if (ip ~ /^198\.51\.100\./) return 1
+          if (ip ~ /^203\.0\.113\./) return 1
+          if (ip ~ /^::1$/) return 1
+          if (ip ~ /^[Ff][Ee]80:/) return 1
+          if (ip ~ /^2001:0?[Dd][Bb]8:/) return 1
+          return 0
+        }
+        $1 >= cutoff && $3 ~ jail_regex {
+          ip = $2
+          if (is_reserved(ip)) next
+          if (wl_regex != "" && ip ~ wl_regex) next
+          count[ip]++
+        }
         END {
           for (ip in count) if (count[ip] >= thr) print "deny " ip ";"
         }
       ' "$LOG" | sort
-    } > "$NGINX_DENY.tmp"
-    mv "$NGINX_DENY.tmp" "$NGINX_DENY"
-    n=$(grep -c '^deny ' "$NGINX_DENY" || true)
+    } > "$TMP"
+
+    n=$(grep -c '^deny ' "$TMP" || true)
+
+    # Idempotence — pokud se obsah po hlavičce nezmění, neděláme nic.
+    # `cmp -s` vrací nenulu při rozdílu, takže testem srovnáme s
+    # předchozím .conf. Hlavičku ignorujeme přes `tail -n +N` (počet
+    # statických komentářových řádků = 8 výše).
+    if [ -f "$NGINX_DENY" ] && \
+       diff -q <(tail -n +9 "$NGINX_DENY") <(tail -n +9 "$TMP") > /dev/null 2>&1; then
+      echo "Permaban list beze změny ($n IP). Reload nginx se neprovádí."
+      exit 0
+    fi
+
+    # Snapshot předchozího stavu (atomicky před přepsáním).
+    if [ -f "$NGINX_DENY" ]; then
+      mkdir -p "$BACKUP_DIR"
+      chmod 750 "$BACKUP_DIR"
+      ts=$(date -Iseconds | tr ':' '-')
+      cp -p "$NGINX_DENY" "$BACKUP_DIR/permaban-list.${ts}.conf"
+      # Auto-prune starých snapshotů. -mtime +N = starší než N dní.
+      find "$BACKUP_DIR" -maxdepth 1 -type f -name 'permaban-list.*.conf' \
+        -mtime +"$BACKUP_RETENTION_DAYS" -delete 2>/dev/null || true
+    fi
+
+    install -m 0644 "$TMP" "$NGINX_DENY"
     echo "Vygenerováno $n IP do $NGINX_DENY"
-    echo "Pro aktivaci přidej do server bloku:"
-    echo "    include $NGINX_DENY;"
-    echo "a pak: sudo nginx -t && sudo systemctl reload nginx"
+
+    # Apply mode — pokud nás volá cron / fail2ban-action, chceme rovnou
+    # nginx -t && reload. Argument --apply (volitelný) tohle zapne.
+    if [ "${2:-}" = "--apply" ]; then
+      if nginx -t 2>/dev/null; then
+        systemctl reload nginx
+        echo "nginx reload OK."
+      else
+        echo "nginx -t selhal — reload přeskočen, mrkni na config." >&2
+        exit 1
+      fi
+    else
+      echo "Pro aktivaci proveď:"
+      echo "    sudo nginx -t && sudo systemctl reload nginx"
+    fi
     ;;
 
   *)
-    echo "Použití: $0 {stats|ips|recent [N]|nginx-deny}"
+    echo "Použití: $0 {stats|ips|recent [N]|nginx-deny [--apply]}"
     echo "  ENV proměnné pro nginx-deny:"
-    echo "    WINDOW_DAYS=$WINDOW_DAYS  PERMABAN_THRESHOLD=$PERMABAN_THRESHOLD"
+    echo "    WINDOW_DAYS=$WINDOW_DAYS"
+    echo "    PERMABAN_THRESHOLD=$PERMABAN_THRESHOLD"
+    echo "    INCLUDE_JAILS=\"$INCLUDE_JAILS\""
+    echo "    WHITELIST_FILE=$WHITELIST_FILE"
+    echo "    BACKUP_DIR=$BACKUP_DIR"
+    echo "    BACKUP_RETENTION_DAYS=$BACKUP_RETENTION_DAYS"
     exit 1
     ;;
 esac
