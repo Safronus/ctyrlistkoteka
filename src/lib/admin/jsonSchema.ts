@@ -35,7 +35,7 @@ const rangesField = z.array(z.string()).superRefine((arr, ctx) => {
   });
 });
 
-const STAVY_KEYS = [
+export const STAVY_KEYS = [
   "BEZFOTKY",
   "BEZGPS",
   "BEZLOKACE",

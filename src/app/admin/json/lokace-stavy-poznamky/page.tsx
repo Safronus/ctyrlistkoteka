@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin/jsonSchema";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
 import { LokaceStavyPoznamkyEditor } from "./editor";
+import { MergeSectionForm } from "./merge-form";
 
 export const dynamic = "force-dynamic";
 
@@ -153,6 +154,8 @@ export default async function LokaceStavyPoznamkyPage() {
         initialSections={sections}
         fileMtime={mtimeIso}
       />
+
+      <MergeSectionForm />
     </div>
   );
 }
