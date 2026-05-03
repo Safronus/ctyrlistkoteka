@@ -30,6 +30,7 @@ import { DeleteCropButton } from "../../crops/delete-button";
 import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { MarkDonatedButton } from "../../finds/mark-donated-button";
+import { UnmarkDonatedButton } from "../../finds/unmark-donated-button";
 import { DeleteLocationPhotoButton } from "../../location-photos/delete-button";
 import { MapAnonymizeToggleButton } from "../../maps/anonymize-toggle-button";
 import { DeleteMapButton } from "../../maps/delete-button";
@@ -96,17 +97,20 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
       ? ((await readMapAnonFlagFor(info.absolutePath, info.name)) ?? false)
       : false;
 
-  // Find detail surfaces the "Označit jako darovaný" control only on
-  // files whose filename token still says NORMÁLNÍ — the action edits
-  // segment[3]→DAROVANY + the note tail, so any other source state
-  // would need a different transition that we don't model yet.
-  const canMarkDonated =
+  // Find detail morphs between two transitions based on the parsed
+  // state token: NORMÁLNÍ → DAROVANY (with required note) and the
+  // inverse DAROVANY → NORMÁLNÍ (clears note). Any other state means
+  // neither button shows — the find is in a state we don't model
+  // here yet (BEZGPS, ZTRACENÝ, …).
+  const findStateInName =
     scope.slug === "finds"
       ? (() => {
           const parsed = parseFindFilename(info.name);
-          return parsed.ok && parsed.value.state === FindState.NORMAL;
+          return parsed.ok ? parsed.value.state : null;
         })()
-      : false;
+      : null;
+  const canMarkDonated = findStateInName === FindState.NORMAL;
+  const canUnmarkDonated = findStateInName === FindState.DONATED;
 
   let textPreview: { content: string; truncated: boolean } | null = null;
   let sectionsPreview:
@@ -235,6 +239,9 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
               <>
                 {canMarkDonated && (
                   <MarkDonatedButton filename={info.name} />
+                )}
+                {canUnmarkDonated && (
+                  <UnmarkDonatedButton filename={info.name} />
                 )}
                 <DeleteFindButton filename={info.name} />
               </>
