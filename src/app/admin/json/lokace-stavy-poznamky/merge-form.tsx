@@ -1,8 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Loader2, Plus } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Database,
+  Loader2,
+  Plus,
+} from "lucide-react";
 import {
   SECTION_KEYS,
   SECTION_LABELS,
@@ -46,7 +54,7 @@ const HINTS: Record<SectionKey, string> = {
  *  připravený jinde a chce ho jen nalít — duplicity se zahodí, range
  *  pole se sjednotí a recompactují. */
 export function MergeSectionForm() {
-  const [section, setSection] = useState<SectionKey>("anonymizace");
+  const [section, setSection] = useState<SectionKey>("lokace");
   const [content, setContent] = useState("");
   const [result, setResult] = useState<MergeSectionResult | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -189,47 +197,58 @@ function ResultPanel({ result }: { result: MergeSectionResult }) {
       );
     }
     return (
-      <div className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
-        <CheckCircle2
-          className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"
-          aria-hidden
-        />
-        <div className="space-y-1">
-          <p className="font-medium">
-            Sloučeno do <strong>{result.section}</strong>.
-          </p>
-          {result.addedIds && result.addedIds.length > 0 && (
-            <p>
-              Přidaných ID: <strong>{result.addedIds.length}</strong> (
-              {previewIds(result.addedIds, 30)})
+      <div className="space-y-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+        <div className="flex items-start gap-2">
+          <CheckCircle2
+            className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"
+            aria-hidden
+          />
+          <div className="space-y-1">
+            <p className="font-medium">
+              Sloučeno do <strong>{result.section}</strong>.
             </p>
-          )}
-          {result.alreadyPresentIds && result.alreadyPresentIds.length > 0 && (
-            <p>
-              Již obsažených ID (přeskočeno):{" "}
-              {result.alreadyPresentIds.length} (
-              {previewIds(result.alreadyPresentIds, 20)})
-            </p>
-          )}
-          {result.addedKeys && result.addedKeys.length > 0 && (
-            <p>
-              Přidané klíče:{" "}
-              <code className="text-[11px]">
-                {result.addedKeys.slice(0, 10).join(", ")}
-                {result.addedKeys.length > 10
-                  ? `, … (+${result.addedKeys.length - 10})`
-                  : ""}
-              </code>
-            </p>
-          )}
-          {result.alreadyPresentKeys &&
-            result.alreadyPresentKeys.length > 0 && (
+            {result.addedIds && result.addedIds.length > 0 && (
               <p>
-                Beze změny (stejná hodnota):{" "}
-                {result.alreadyPresentKeys.length}
+                Přidaných ID: <strong>{result.addedIds.length}</strong> (
+                {previewIds(result.addedIds, 30)})
               </p>
             )}
+            {result.alreadyPresentIds &&
+              result.alreadyPresentIds.length > 0 && (
+                <p>
+                  Již obsažených ID (přeskočeno):{" "}
+                  {result.alreadyPresentIds.length} (
+                  {previewIds(result.alreadyPresentIds, 20)})
+                </p>
+              )}
+            {result.addedKeys && result.addedKeys.length > 0 && (
+              <p>
+                Přidané klíče:{" "}
+                <code className="text-[11px]">
+                  {result.addedKeys.slice(0, 10).join(", ")}
+                  {result.addedKeys.length > 10
+                    ? `, … (+${result.addedKeys.length - 10})`
+                    : ""}
+                </code>
+              </p>
+            )}
+            {result.alreadyPresentKeys &&
+              result.alreadyPresentKeys.length > 0 && (
+                <p>
+                  Beze změny (stejná hodnota):{" "}
+                  {result.alreadyPresentKeys.length}
+                </p>
+              )}
+          </div>
         </div>
+        <Link
+          href="/admin/sync?preset=meta"
+          className="inline-flex items-center gap-1.5 self-start rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-800 transition hover:border-emerald-400 hover:bg-emerald-50/60"
+        >
+          <Database className="h-3.5 w-3.5" aria-hidden />
+          Spustit sync --only=meta
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+        </Link>
       </div>
     );
   }

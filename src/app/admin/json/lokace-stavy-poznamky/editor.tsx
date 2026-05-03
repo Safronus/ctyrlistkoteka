@@ -24,6 +24,7 @@ import {
   SECTION_SCHEMAS,
   type SectionKey,
 } from "@/lib/admin/jsonSchema";
+import { parseRanges } from "@/lib/parseRanges";
 import { saveLokaceStavyPoznamky, type SaveResult } from "./save-action";
 
 interface Props {
@@ -96,6 +97,24 @@ export function LokaceStavyPoznamkyEditor({
     }
     return false;
   }, [sections, initialSections]);
+
+  // Per-tab counter — total IDs (after parseRanges expansion) for
+  // anonymizace / stavy / lokace, total entries for poznamky. Computed
+  // live so the count tracks the textarea even before save. parseRanges
+  // throws on malformed input; we swallow that and surface `?` instead
+  // so a half-typed range doesn't flash an error in the tab strip.
+  const counts = useMemo(() => {
+    const out: Record<SectionKey, number | null> = {
+      lokace: null,
+      stavy: null,
+      poznamky: null,
+      anonymizace: null,
+    };
+    for (const key of SECTION_KEYS) {
+      out[key] = computeSectionCount(key, sections[key]);
+    }
+    return out;
+  }, [sections]);
 
   const allValid = useMemo(
     () => SECTION_KEYS.every((k) => statuses[k].ok),
@@ -237,6 +256,18 @@ export function LokaceStavyPoznamkyEditor({
               }`}
             >
               {SECTION_LABELS[key]}
+              <span
+                className={`font-mono tabular-nums ${
+                  isActive ? "text-brand-100" : "text-gray-500"
+                }`}
+                title={
+                  key === "poznamky"
+                    ? "Počet poznámek (klíčů v sekci)"
+                    : "Počet ID nálezů po expanzi rangů"
+                }
+              >
+                {counts[key] !== null ? counts[key]!.toLocaleString("cs-CZ") : "?"}
+              </span>
               {!status.ok && (
                 <AlertCircle
                   className={`h-3.5 w-3.5 ${
@@ -476,4 +507,54 @@ function CodeEditor({ value, onChange }: CodeEditorProps) {
       />
     </div>
   );
+}
+
+/** Counts what each section logically holds:
+ *    anonymizace.ANONYMIZOVANE → expanded ID count
+ *    stavy → sum of expanded IDs across every state key
+ *    lokace → sum of expanded IDs across every map ID
+ *    poznamky → number of keys (each key = one note)
+ *  Returns null when the textarea isn't valid JSON yet — the tab
+ *  strip then shows "?" instead of flashing 0. */
+function computeSectionCount(
+  section: SectionKey,
+  raw: string,
+): number | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+
+  const sumRangeArrays = (
+    obj: Record<string, unknown>,
+  ): number | null => {
+    let total = 0;
+    for (const value of Object.values(obj)) {
+      if (!Array.isArray(value)) continue;
+      try {
+        total += parseRanges(value as string[]).length;
+      } catch {
+        return null;
+      }
+    }
+    return total;
+  };
+
+  if (section === "anonymizace") {
+    const arr = (parsed as { ANONYMIZOVANE?: unknown }).ANONYMIZOVANE;
+    if (!Array.isArray(arr)) return null;
+    try {
+      return parseRanges(arr as string[]).length;
+    } catch {
+      return null;
+    }
+  }
+  if (section === "poznamky") {
+    return Object.keys(parsed as Record<string, unknown>).length;
+  }
+  // stavy + lokace are both record<string, string[]>
+  return sumRangeArrays(parsed as Record<string, unknown>);
 }
