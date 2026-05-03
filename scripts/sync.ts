@@ -858,6 +858,17 @@ async function phaseFinds(
     if (!exif.dateTaken) noDateExif += 1;
     else if (!exif.dateTakenHasClock) dateOnlyExif += 1;
 
+    // ORIGINAL is the canonical source of `foundAt`. CROP files often
+    // have EXIF DateTimeOriginal stripped by the cropping pipeline,
+    // and the loop processes ORIGINAL first then CROP for the same
+    // findId — so an unconditional `foundAt = exif.dateTaken ?? null`
+    // on the CROP iteration would clobber the good date the ORIGINAL
+    // iteration wrote moments earlier. (This was the cause of finds
+    // surfacing on /admin/checks → "Nálezy bez EXIF data" — every
+    // such find had a CROP whose EXIF lacked DateTimeOriginal.) For
+    // the rare CROP-without-ORIGINAL case, the CREATE branch still
+    // accepts the CROP's EXIF date, so we don't regress that path.
+    const isOriginal = f.imageType === ImageType.ORIGINAL;
     await ctx.prisma.find.upsert({
       where: { id: f.parsed.findId },
       create: {
@@ -870,8 +881,8 @@ async function phaseFinds(
       update: {
         locationId,
         mapId,
-        foundAt: exif.dateTaken ?? null,
         isAnonymized: f.parsed.isAnonymized,
+        ...(isOriginal ? { foundAt: exif.dateTaken ?? null } : {}),
       },
     });
 
