@@ -33,7 +33,7 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 xl:max-w-[1600px] 2xl:max-w-[1900px]">
           <Link
             href="/admin"
             className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-gray-900"
@@ -71,7 +71,14 @@ export default async function AdminLayout({
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</main>
+      {/* Wider on desktop than the rest of the public site — admin is
+          desktop-first and benefits from the extra horizontal room
+          on JSON previews, file listings, and sync logs. xl gets
+          1600 px, 2xl gets 1900 px; phones/tablets keep the original
+          ~1152 px so the layout doesn't go edge-to-edge there. */}
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 xl:max-w-[1600px] 2xl:max-w-[1900px]">
+        {children}
+      </main>
     </div>
   );
 }
