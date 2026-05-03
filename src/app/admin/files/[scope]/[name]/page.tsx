@@ -29,6 +29,7 @@ import { FindState } from "@prisma/client";
 import { DeleteCropButton } from "../../crops/delete-button";
 import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
+import { FindAnonymizeToggleButton } from "../../finds/anonymize-toggle-button";
 import { MarkDonatedButton } from "../../finds/mark-donated-button";
 import { UnmarkDonatedButton } from "../../finds/unmark-donated-button";
 import { DeleteLocationPhotoButton } from "../../location-photos/delete-button";
@@ -102,15 +103,16 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
   // inverse DAROVANY → NORMÁLNÍ (clears note). Any other state means
   // neither button shows — the find is in a state we don't model
   // here yet (BEZGPS, ZTRACENÝ, …).
-  const findStateInName =
-    scope.slug === "finds"
-      ? (() => {
-          const parsed = parseFindFilename(info.name);
-          return parsed.ok ? parsed.value.state : null;
-        })()
-      : null;
+  // Anonymisation flag (pole 5) is parsed from the same call so the
+  // anon toggle picks the right side.
+  const findParsed =
+    scope.slug === "finds" ? parseFindFilename(info.name) : null;
+  const findStateInName = findParsed?.ok ? findParsed.value.state : null;
   const canMarkDonated = findStateInName === FindState.NORMAL;
   const canUnmarkDonated = findStateInName === FindState.DONATED;
+  const findAnonInName = findParsed?.ok
+    ? findParsed.value.isAnonymized
+    : false;
 
   let textPreview: { content: string; truncated: boolean } | null = null;
   let sectionsPreview:
@@ -237,6 +239,12 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           <div className="flex shrink-0 items-center gap-2">
             {scope.slug === "finds" && (
               <>
+                {findParsed?.ok && (
+                  <FindAnonymizeToggleButton
+                    filename={info.name}
+                    currentlyAnonymized={findAnonInName}
+                  />
+                )}
                 {canMarkDonated && (
                   <MarkDonatedButton filename={info.name} />
                 )}
