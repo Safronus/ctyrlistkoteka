@@ -301,6 +301,13 @@ export function extractMapId(filename: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** A contiguous run of missing IDs in `[min, max]`. `start` and `end`
+ *  are inclusive; a singleton gap has `start === end`. */
+export interface MissingRange {
+  start: number;
+  end: number;
+}
+
 export interface RangeAnalysis {
   /** Lowest extractable ID seen in the scope. */
   min: number;
@@ -308,17 +315,15 @@ export interface RangeAnalysis {
   max: number;
   /** Count of distinct IDs present. */
   count: number;
-  /** Total IDs in [min, max] that don't have a corresponding file.
-   *  Computed as (max − min + 1) − count, so it's correct even when
-   *  the missing list is truncated for display. */
+  /** Total IDs in [min, max] that don't have a corresponding file. */
   missingCount: number;
-  /** First 30 missing IDs, in ascending order. The header indicator
-   *  shows these inline; if there are more, the truncated count is
-   *  derived from `missingCount − missing.length`. */
-  missing: number[];
+  /** Every gap in [min, max], compressed into contiguous ranges.
+   *  Sorted ascending by `start`. The whole list is returned (no
+   *  truncation) — a real-world finds dir with 17 k photos has at
+   *  most a few hundred ranges and we want the operator to see all
+   *  of them so they can plan re-uploads. */
+  missingRanges: MissingRange[];
 }
-
-const MAX_MISSING_INLINE = 30;
 
 /** Analyses ID coverage in a scope's directory. Returns null when
  *  the scope is empty or has no parseable IDs. The extractor decides
@@ -348,15 +353,22 @@ export async function analyzeIdRange(
     if (id < min) min = id;
     if (id > max) max = id;
   }
-  const missing: number[] = [];
+  const missingRanges: MissingRange[] = [];
   let missingCount = 0;
+  let runStart: number | null = null;
   for (let i = min; i <= max; i += 1) {
     if (!ids.has(i)) {
       missingCount += 1;
-      if (missing.length < MAX_MISSING_INLINE) missing.push(i);
+      if (runStart === null) runStart = i;
+    } else if (runStart !== null) {
+      missingRanges.push({ start: runStart, end: i - 1 });
+      runStart = null;
     }
   }
-  return { min, max, count: ids.size, missingCount, missing };
+  if (runStart !== null) {
+    missingRanges.push({ start: runStart, end: max });
+  }
+  return { min, max, count: ids.size, missingCount, missingRanges };
 }
 
 export interface FileInfo {

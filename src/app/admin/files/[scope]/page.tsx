@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRight,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -18,7 +19,9 @@ import {
   getScope,
   listScope,
   listScopeFindIds,
+  type MissingRange,
   type RangeAnalysis,
+  type ScopeSlug,
 } from "@/lib/admin/scopes";
 import { FilesListClient } from "../_shared/files-list-client";
 import { SyncNeededBanner } from "../_shared/sync-needed-banner";
@@ -84,36 +87,21 @@ function fmtSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Renders consecutive missing IDs as ranges (`5-7`) and singletons
- *  as bare numbers, joined by ", ". Reads better than 30 separate
- *  badges when the gap is wide. Pads to the same width as `max` so
- *  the IDs line up visually with the rest of the listing. */
-function formatMissingRanges(missing: number[], max: number): string {
-  if (missing.length === 0) return "";
+/** Formats every missing-ID range as a human-readable list. Singletons
+ *  render as a bare number, contiguous gaps as `start–end`, all padded
+ *  to the width of `max` so columns line up. Joined by ", ". The whole
+ *  list goes through — caller can decide to wrap it in <details> if
+ *  there are many ranges. */
+function formatMissingRanges(ranges: readonly MissingRange[], max: number): string {
+  if (ranges.length === 0) return "";
   const width = String(max).length;
-  const ranges: string[] = [];
-  let start = missing[0]!;
-  let prev = start;
-  for (let i = 1; i < missing.length; i += 1) {
-    const v = missing[i]!;
-    if (v === prev + 1) {
-      prev = v;
-      continue;
-    }
-    ranges.push(
-      start === prev
-        ? String(start).padStart(width, "0")
-        : `${String(start).padStart(width, "0")}–${String(prev).padStart(width, "0")}`,
-    );
-    start = v;
-    prev = v;
-  }
-  ranges.push(
-    start === prev
-      ? String(start).padStart(width, "0")
-      : `${String(start).padStart(width, "0")}–${String(prev).padStart(width, "0")}`,
-  );
-  return ranges.join(", ");
+  return ranges
+    .map((r) =>
+      r.start === r.end
+        ? String(r.start).padStart(width, "0")
+        : `${String(r.start).padStart(width, "0")}–${String(r.end).padStart(width, "0")}`,
+    )
+    .join(", ");
 }
 
 export default async function AdminScopeListPage({
@@ -146,19 +134,37 @@ export default async function AdminScopeListPage({
   // ID, NOT the rest of the filename (state token, anonymisation
   // flag, note marker can drift when the user re-watermarks or
   // changes status). Match by ID, not by full name.
+  //
+  // `counterpart` carries the matching scope reference for the
+  // header link ("→ Výřezy" on /finds, "→ Originály" on /crops).
+  // The two are paired by find ID so cross-navigation is the natural
+  // workflow when fixing coverage gaps.
   let counterpartIds: Set<number> | undefined;
   let counterpartLabel: string | undefined;
+  let counterpart:
+    | { slug: ScopeSlug; label: string; missingLabel: string }
+    | undefined;
   if (scope.slug === "finds") {
     const cropsScope = getScope("crops");
     if (cropsScope) {
       counterpartIds = await listScopeFindIds(cropsScope);
       counterpartLabel = "bez crops";
+      counterpart = {
+        slug: cropsScope.slug,
+        label: cropsScope.label,
+        missingLabel: "Přejít na Výřezy",
+      };
     }
   } else if (scope.slug === "crops") {
     const findsScope = getScope("finds");
     if (findsScope) {
       counterpartIds = await listScopeFindIds(findsScope);
       counterpartLabel = "bez originálu";
+      counterpart = {
+        slug: findsScope.slug,
+        label: findsScope.label,
+        missingLabel: "Přejít na Originály",
+      };
     }
   }
 
@@ -291,23 +297,34 @@ export default async function AdminScopeListPage({
         <span className="text-gray-900">{scope.label}</span>
       </div>
 
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-gray-900">{scope.label}</h1>
-        <p className="text-sm text-gray-500">
-          {scope.description} •{" "}
-          {total.toLocaleString("cs-CZ")}{" "}
-          {total === 1 ? "položka" : total < 5 ? "položky" : "položek"}
-          {query ? " v aktuálním filtru" : ""}
-          {uncoveredCount !== undefined && uncoveredCount > 0 && (
-            <>
-              {" • "}
-              <span className="text-amber-700">
-                {uncoveredCount.toLocaleString("cs-CZ")}{" "}
-                {counterpartLabel}
-              </span>
-            </>
-          )}
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-gray-900">{scope.label}</h1>
+          <p className="text-sm text-gray-500">
+            {scope.description} •{" "}
+            {total.toLocaleString("cs-CZ")}{" "}
+            {total === 1 ? "položka" : total < 5 ? "položky" : "položek"}
+            {query ? " v aktuálním filtru" : ""}
+            {uncoveredCount !== undefined && uncoveredCount > 0 && (
+              <>
+                {" • "}
+                <span className="text-amber-700">
+                  {uncoveredCount.toLocaleString("cs-CZ")}{" "}
+                  {counterpartLabel}
+                </span>
+              </>
+            )}
+          </p>
+        </div>
+        {counterpart && (
+          <Link
+            href={`/admin/files/${counterpart.slug}`}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800"
+          >
+            {counterpart.missingLabel}
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+        )}
       </header>
 
       {scope.slug === "finds" && <FindsUploadForm />}
@@ -352,21 +369,26 @@ export default async function AdminScopeListPage({
             · {range.count.toLocaleString("cs-CZ")} ID
             {range.missingCount === 0
               ? " · v intervalu nic nechybí"
-              : ` · chybí ${range.missingCount.toLocaleString("cs-CZ")}`}
+              : ` · chybí ${range.missingCount.toLocaleString("cs-CZ")} ID v ${range.missingRanges.length.toLocaleString(
+                  "cs-CZ",
+                )} ${
+                  range.missingRanges.length === 1
+                    ? "rozsahu"
+                    : range.missingRanges.length < 5
+                      ? "rozsazích"
+                      : "rozsazích"
+                }`}
           </p>
           {range.missingCount > 0 && (
-            <p className="mt-1 break-words font-mono text-[11px] leading-snug">
-              {formatMissingRanges(range.missing, range.max)}
-              {range.missingCount > range.missing.length && (
-                <span className="not-italic">
-                  {" "}…{" + "}
-                  {(
-                    range.missingCount - range.missing.length
-                  ).toLocaleString("cs-CZ")}{" "}
-                  dalších
-                </span>
-              )}
-            </p>
+            // Render every range — no truncation. The list scrolls if
+            // the dir is pathologically gappy; in practice for ~17 k
+            // finds it's a few hundred ranges at most. `max-h-72` +
+            // overflow keeps it from dominating the page even then.
+            <div className="mt-1 max-h-72 overflow-auto rounded-md bg-white/40 p-2">
+              <p className="break-words font-mono text-[11px] leading-snug">
+                {formatMissingRanges(range.missingRanges, range.max)}
+              </p>
+            </div>
           )}
         </section>
       )}
