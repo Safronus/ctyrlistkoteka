@@ -149,19 +149,17 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    {
-      // Skip static assets, images, manifest-style files, and the API
-      // surface (JSON-only — no HTML to constrain). Everything else
-      // gets the CSP.
-      source:
-        "/((?!api|_next/static|_next/image|favicon.ico|favicon.svg|clover.png|safronus.png|robots.txt|sitemap.xml).*)",
-      // Don't issue a fresh nonce for prefetch requests — the resulting
-      // CSP wouldn't be visible to the user anyway and the work just
-      // burns CPU during link prefetching.
-      missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
-      ],
-    },
+    // Skip static assets, images, manifest-style files, and the API
+    // surface (JSON-only — no HTML to constrain). Everything else
+    // gets the CSP + next-intl locale rewrite.
+    //
+    // The `missing: next-router-prefetch` skip we used to carry here
+    // is GONE on purpose: prefetch requests ALSO need to flow through
+    // next-intl so `/sbirka/123` (no prefix) gets internally rewritten
+    // to `/cs/sbirka/123` and matches the `[locale]/sbirka/[id]` route.
+    // Without that rewrite, Next.js sees no route at the bare path and
+    // returns 500 to every Link's prefetch — which broke the entire
+    // sbírka grid after F1 moved pages into the [locale] segment.
+    "/((?!api|_next/static|_next/image|favicon.ico|favicon.svg|clover.png|safronus.png|robots.txt|sitemap.xml).*)",
   ],
 };
