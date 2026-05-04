@@ -4,7 +4,10 @@ import { useEffect, useRef } from "react";
 import { CircleMarker, useMap } from "react-leaflet";
 import L, { type CircleMarker as LCircleMarker } from "leaflet";
 import type { MapLocation } from "@/lib/queries/map";
-import { buildLocationPopupHtml } from "./location-popup";
+import {
+  buildLocationPopupHtml,
+  type LocationPopupLabels,
+} from "./location-popup";
 
 /**
  * For locations with no AOI polygon recorded, render a small dot at the
@@ -18,6 +21,7 @@ export function LocationDots({
   showGone,
   suppressPopupAutoOpen = false,
   enablePopup = true,
+  popupLabels,
   onSelect,
 }: {
   locations: readonly MapLocation[];
@@ -26,17 +30,12 @@ export function LocationDots({
    *  the visitor has the Zaniklé layer off. */
   showGone: boolean;
   /** When true, the focused dot stays styled but doesn't pop its own
-   *  popup. Mirrors the same flag on LocationPolygons — used by /mapa's
-   *  `?find=N` deep-link so the highlighted find's popup wins. Without
-   *  this, a single-find location with only a centre point (no AOI)
-   *  would auto-open its popup and clobber the marker, dismissing the
-   *  highlight in the process. */
+   *  popup. */
   suppressPopupAutoOpen?: boolean;
-  /** When false, no Leaflet popup is bound to any dot — used on mobile
-   *  where the page renders its own LocationTopSheet instead. Folded
-   *  into each CircleMarker's React key so a breakpoint resize cleanly
-   *  remounts each marker with the new binding state. */
+  /** When false, no Leaflet popup is bound to any dot. */
   enablePopup?: boolean;
+  /** Locale-aware labels rendered into the popup HTML. */
+  popupLabels?: LocationPopupLabels;
   onSelect?: (id: number) => void;
 }) {
   const map = useMap();
@@ -98,16 +97,19 @@ export function LocationDots({
             eventHandlers={{
               add: (e) => {
                 const layer = e.target as LCircleMarker;
-                if (enablePopup) {
+                if (enablePopup && popupLabels) {
                   layer.bindPopup(
-                    buildLocationPopupHtml({
-                      id: l.id,
-                      code: l.code,
-                      displayName: l.displayName,
-                      findCount: l.findCount,
-                      isGone: l.isGone,
-                      isChild: l.parentId !== null,
-                    }),
+                    buildLocationPopupHtml(
+                      {
+                        id: l.id,
+                        code: l.code,
+                        displayName: l.displayName,
+                        findCount: l.findCount,
+                        isGone: l.isGone,
+                        isChild: l.parentId !== null,
+                      },
+                      popupLabels,
+                    ),
                   );
                 }
                 layerRefs.current.set(l.id, layer);

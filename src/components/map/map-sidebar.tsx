@@ -1,17 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { ExternalLink, Eye, EyeOff, Search } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import type { LocationListItem } from "@/lib/queries/locations";
 import {
   formatAreaM2,
-  formatCount,
   formatLocationId,
   locationDetailHref,
-  FINDS,
 } from "@/lib/format";
 import { paddedIdMatches, parseIdQuery } from "@/lib/search";
+
+type MapaT = ReturnType<typeof useTranslations<"Mapa">>;
+
+function toIntlLocale(locale: string): string {
+  if (locale === "cs") return "cs-CZ";
+  if (locale === "en") return "en-GB";
+  return locale;
+}
 
 const INPUT_CLS =
   "w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 pl-8 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
@@ -20,9 +27,7 @@ const INPUT_CLS =
  * Scrollable list of locations rendered as a control inside the /mapa
  * sidebar. Anonymized locations are filtered out upstream (they aren't
  * on the map, and listing them with no click target was just noise);
- * former locations get a rose tone and a "Zaniklá" badge. Layer toggles
- * (Lokace / Nálezy) live OUTSIDE this panel so they stay visible even
- * with the panel collapsed — see `LayerToggleCard` in `mapa-shell.tsx`.
+ * former locations get a rose tone and a "Zaniklá" badge.
  */
 export function MapSidebar({
   locations,
@@ -35,26 +40,18 @@ export function MapSidebar({
   locations: readonly LocationListItem[];
   focusId: number | null;
   onSelect: (id: number) => void;
-  /** IDs of child locations whose polygons are currently visible. */
   enabledChildPolygonIds: ReadonlySet<number>;
-  /** Toggle the polygon visibility for one child location. Independent
-   *  from the focus selection — picking a row in the list also enables
-   *  its polygon, but the user can flip individual children on/off
-   *  here without changing the focused location. */
   onToggleChildPolygon: (id: number) => void;
-  /** Locations whose every map is anonymized — they're filtered out of
-   *  `locations` upstream, but the count is shown next to the header so
-   *  visitors know there are private spots they can't browse. */
   anonymizedLocationCount: number;
 }) {
+  const t = useTranslations("Mapa");
+  const locale = useLocale();
+  const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return locations;
-    // Numeric input also matches the location's display ID — exact (so
-    // "0001" finds #00001) and substring of the padded form (so "0001"
-    // additionally finds #00010-#00019).
     const idQuery = parseIdQuery(q);
     return locations.filter((l) => {
       if (idQuery !== null) {
@@ -73,14 +70,16 @@ export function MapSidebar({
     <section className="flex min-h-0 flex-1 flex-col">
       <div className="border-b border-gray-200 px-3 py-2">
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-          Lokality ({locations.length.toLocaleString("cs-CZ")})
+          {t("sidebarHeading", { count: numFmt.format(locations.length) })}
           {anonymizedLocationCount > 0 && (
             <span
               className="ml-1 normal-case tracking-normal text-gray-400"
-              title="Anonymizované lokality nejsou na mapě a nelze je zobrazit"
+              title={t("sidebarAnonymizedTitle")}
             >
-              + {anonymizedLocationCount.toLocaleString("cs-CZ")}{" "}
-              anonymizovaných
+              {" "}
+              {t("sidebarAnonymizedSuffix", {
+                count: numFmt.format(anonymizedLocationCount),
+              })}
             </span>
           )}
         </h3>
@@ -95,7 +94,7 @@ export function MapSidebar({
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Hledat kód, popis…"
+            placeholder={t("searchPlaceholder")}
             className={INPUT_CLS}
           />
         </div>
@@ -103,7 +102,7 @@ export function MapSidebar({
       <ul className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <li className="p-4 text-center text-sm text-gray-500">
-            Žádné lokality.
+            {t("noLocations")}
           </li>
         ) : (
           filtered.map((l) => (
@@ -117,6 +116,8 @@ export function MapSidebar({
                 onSelect={onSelect}
                 polygonEnabled={enabledChildPolygonIds.has(l.id)}
                 onTogglePolygon={onToggleChildPolygon}
+                t={t}
+                numFmt={numFmt}
               />
             </li>
           ))
@@ -132,22 +133,19 @@ function SidebarRow({
   onSelect,
   polygonEnabled,
   onTogglePolygon,
+  t,
+  numFmt,
 }: {
   location: LocationListItem;
   focused: boolean;
   onSelect: (id: number) => void;
   polygonEnabled: boolean;
   onTogglePolygon: (id: number) => void;
+  t: MapaT;
+  numFmt: Intl.NumberFormat;
 }) {
-  // Sub-part indent + parent "+ N částí" badge mirror /lokality so the
-  // hierarchy reads the same on both pages. Anonymized rows aren't on
-  // /mapa, so we don't have to guard the parent association — the
-  // listLocations() query already nulled parentId on those rows.
   const isChild = location.parentId !== null;
   const hasParts = location.childCount > 0;
-  // The polygon toggle only makes sense on child rows that actually
-  // have a polygon recorded — top-level locations are always shown,
-  // and a child without a polygon has nothing to switch on.
   const showPolygonToggle = isChild && location.polygonAreaM2 !== null;
 
   const tone = location.isGone ? "bg-rose-50/60" : "";
@@ -156,20 +154,10 @@ function SidebarRow({
     ? "border-l-4 border-brand-200 bg-brand-50/40 pl-5"
     : "pl-3";
 
-  // Parents fold their visible children's totals in via `aggregateStats`,
-  // so the count next to a master location shows the combined "true"
-  // activity (own + sub-parts). Leaves have aggregateStats === stats so
-  // the read is identical for them.
   const findsTotal = hasParts
     ? location.aggregateStats.total
     : location.stats.total;
 
-  // Two sibling controls instead of nesting buttons (HTML forbids that
-  // and screen readers handle siblings cleanly). The main row button
-  // takes flex-1 + min-w-0 so it can shrink below its content's
-  // intrinsic width — without min-w-0 the long sub-part description
-  // ("…hlavní ultimátní naleziště (levá hrana)") would push the row
-  // wider than the sidebar and the toggle would slide off-screen.
   return (
     <div
       className={`flex w-full items-stretch overflow-hidden ${tone} ${focusedTone}`}
@@ -192,20 +180,15 @@ function SidebarRow({
             </span>
             {location.isGone && (
               <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
-                Zaniklá
+                {t("rowGoneBadge")}
               </span>
             )}
             {hasParts && (
               <span
                 className="rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-800"
-                title={`${location.childCount} sub-části`}
+                title={t("rowPartsTitle", { count: location.childCount })}
               >
-                + {location.childCount}{" "}
-                {location.childCount === 1
-                  ? "část"
-                  : location.childCount < 5
-                    ? "části"
-                    : "částí"}
+                {t("rowPartsBadge", { count: location.childCount })}
               </span>
             )}
           </div>
@@ -219,7 +202,12 @@ function SidebarRow({
           )}
           <p className="mt-1 flex flex-wrap gap-x-2 text-xs text-gray-500">
             <span className="font-medium text-brand-700">
-              {formatCount(findsTotal, FINDS)}
+              {numFmt.format(findsTotal)}{" "}
+              {/* Reuse Statistiky.labelFinds via a fallback — keep it
+                  inline through the existing translator namespace by
+                  delegating to FindRow's countSuffix which already has
+                  the ICU plural we need. */}
+              <FindsLabel count={findsTotal} />
             </span>
             {location.polygonAreaM2 !== null && (
               <span>· {formatAreaM2(location.polygonAreaM2)}</span>
@@ -232,16 +220,8 @@ function SidebarRow({
           type="button"
           onClick={() => onTogglePolygon(location.id)}
           aria-pressed={polygonEnabled}
-          aria-label={
-            polygonEnabled
-              ? "Skrýt polygon této části"
-              : "Zobrazit polygon této části"
-          }
-          title={
-            polygonEnabled
-              ? "Skrýt polygon této části"
-              : "Zobrazit polygon této části"
-          }
+          aria-label={polygonEnabled ? t("polygonHide") : t("polygonShow")}
+          title={polygonEnabled ? t("polygonHide") : t("polygonShow")}
           className={`flex shrink-0 items-center justify-center px-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500 ${
             polygonEnabled
               ? "text-brand-700 hover:bg-brand-100"
@@ -255,17 +235,21 @@ function SidebarRow({
           )}
         </button>
       )}
-      {/* Deep-link to the per-location detail page. Sibling control next
-          to the focus button (polygon toggle when applicable) so screen
-          readers see three distinct actions, no nested buttons. */}
       <Link
         href={locationDetailHref(location.id)}
-        aria-label="Detail lokality"
-        title="Detail lokality"
+        aria-label={t("rowDetailAria")}
+        title={t("rowDetailAria")}
         className="flex shrink-0 items-center justify-center px-2 text-gray-400 transition hover:bg-brand-50 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500"
       >
         <ExternalLink className="h-4 w-4" aria-hidden />
       </Link>
     </div>
   );
+}
+
+function FindsLabel({ count }: { count: number }) {
+  const tStats = useTranslations("Statistiky");
+  // Strip the leading "{count} " — Statistiky.labelFinds is just the
+  // plural noun without the number; render it bare here.
+  return <>{tStats("labelFinds", { count })}</>;
 }

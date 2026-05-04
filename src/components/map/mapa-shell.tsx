@@ -2,12 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Info, ListIcon, X } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { MapLoader } from "./map-loader";
 import { MapSidebar } from "./map-sidebar";
 import { LocationTopSheet } from "./location-top-sheet";
 import type { MapData } from "@/lib/queries/map";
 import type { LocationListItem } from "@/lib/queries/locations";
 import type { HighlightFind } from "@/lib/queries/finds";
+
+function toIntlLocale(locale: string): string {
+  if (locale === "cs") return "cs-CZ";
+  if (locale === "en") return "en-GB";
+  return locale;
+}
 
 /**
  * Wraps the Leaflet map and the right-hand sidebar in a single client
@@ -49,6 +56,9 @@ export function MapaShell({
    *  highlighted against the rest of the map. */
   highlightFindIds: ReadonlySet<number> | null;
 }) {
+  const t = useTranslations("Mapa");
+  const locale = useLocale();
+  const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
   // Selection (focus) and initial centering are deliberately separate:
   //   - On a bare /mapa visit the map should *centre* on location 00001
   //     so visitors land on familiar territory, but nothing is selected
@@ -361,10 +371,7 @@ export function MapaShell({
         >
           <p className="flex items-start gap-1.5">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span>
-              Pozice nálezů jsou orientační — mohou se lišit od reálné
-              polohy kvůli odchylce GPS.
-            </span>
+            <span>{t("gpsNoticeText")}</span>
           </p>
         </div>
       )}
@@ -376,10 +383,14 @@ export function MapaShell({
           type="button"
           onClick={() => setSidebarOpen(true)}
           className="absolute right-3 top-3 z-[400] inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-md transition hover:border-brand-200 hover:text-brand-700"
-          aria-label="Otevřít seznam lokalit"
+          aria-label={t("openLocationsList")}
         >
           <ListIcon className="h-4 w-4" aria-hidden />
-          <span>Lokality ({sidebarLocations.length})</span>
+          <span>
+            {t("locationsCountPill", {
+              count: numFmt.format(sidebarLocations.length),
+            })}
+          </span>
         </button>
       )}
 
@@ -393,7 +404,7 @@ export function MapaShell({
            *  stays meaningful — 70vh swallowed almost everything. */}
           <aside
             className="absolute inset-x-0 bottom-0 z-[400] flex max-h-[50vh] flex-col rounded-t-2xl border border-gray-200 bg-white shadow-2xl md:hidden"
-            aria-label="Ovládání mapy"
+            aria-label={t("panelAria")}
           >
             <div className="relative flex items-center justify-center border-b border-gray-200 px-2 py-2">
               {/* Drag-handle pill — purely decorative, signals the sheet
@@ -407,7 +418,7 @@ export function MapaShell({
                 type="button"
                 onClick={() => setSidebarOpen(false)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                aria-label="Zavřít panel"
+                aria-label={t("closePanel")}
               >
                 <X className="h-4 w-4" aria-hidden />
               </button>
@@ -432,14 +443,14 @@ export function MapaShell({
            *  keeps the snug 24 rem to leave the map navigable. */}
           <aside
             className="absolute right-0 top-0 z-[400] hidden h-full w-96 flex-col border-l border-gray-200 bg-white shadow-xl md:flex lg:w-[36rem]"
-            aria-label="Ovládání mapy"
+            aria-label={t("panelAria")}
           >
             <div className="flex items-center justify-end border-b border-gray-200 px-2 py-1">
               <button
                 type="button"
                 onClick={() => setSidebarOpen(false)}
                 className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                aria-label="Zavřít panel"
+                aria-label={t("closePanel")}
               >
                 <X className="h-4 w-4" aria-hidden />
               </button>
@@ -567,6 +578,9 @@ function LayerToggleCard({
   expanded: boolean;
   onToggleExpanded: () => void;
 }) {
+  const t = useTranslations("Mapa");
+  const locale = useLocale();
+  const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
   // Visitors comparing the home page (e.g. "1 735 nálezů") with this
   // count saw the difference and assumed a bug; calling out the gap
   // explains it: anonymized + GPS-less finds aren't on the map.
@@ -578,10 +592,10 @@ function LayerToggleCard({
         onClick={onToggleExpanded}
         className="flex w-full items-center justify-between gap-2 rounded text-left"
         aria-expanded={expanded}
-        aria-label={expanded ? "Sbalit vrstvy" : "Rozbalit vrstvy"}
+        aria-label={expanded ? t("layersCollapse") : t("layersExpand")}
       >
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-          Vrstvy
+          {t("layersHeading")}
         </h3>
         <ChevronDown
           className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
@@ -593,31 +607,34 @@ function LayerToggleCard({
       {expanded && (
         <div className="mt-1 space-y-0.5">
           <ToggleRow
-            label="Lokace"
+            label={t("layerLocations")}
             count={locationCount}
             checked={showLocations}
             onChange={onToggleLocations}
+            numFmt={numFmt}
           />
           {/* Zaniklé as a visual sub-row of Lokace — indented and tied
            *  to its parent by a left rule, matching the master/detail
            *  semantic. Goes muted when the parent toggle is off. */}
           <div className="ml-2 border-l border-gray-200 pl-2">
             <ToggleRow
-              label="Zaniklé"
+              label={t("layerGone")}
               count={goneCount}
               checked={showGone}
               onChange={onToggleGone}
               disabled={!showLocations}
+              numFmt={numFmt}
             />
           </div>
           <ToggleRow
-            label="Nálezy"
+            label={t("layerFinds")}
             count={findCount}
             checked={showFinds}
             onChange={onToggleFinds}
+            numFmt={numFmt}
             subtitle={
               hiddenFinds > 0
-                ? `+ ${hiddenFinds.toLocaleString("cs-CZ")} skrytých (anonym./bez GPS)`
+                ? t("layerHiddenFinds", { count: numFmt.format(hiddenFinds) })
                 : undefined
             }
           />
@@ -634,19 +651,15 @@ function ToggleRow({
   onChange,
   disabled = false,
   subtitle,
+  numFmt,
 }: {
   label: string;
   count: number;
   checked: boolean;
   onChange: (v: boolean) => void;
-  /** When true the row reads as muted and the checkbox is non-interactive.
-   *  Used by the Zaniklé sub-toggle so it visually defers to the Lokace
-   *  master switch — flipping Lokace off greys out the gone sub-control. */
   disabled?: boolean;
-  /** Optional small line shown under the label — e.g. "+ 36 skrytých"
-   *  on the Nálezy row when anonymized / no-GPS finds aren't on the
-   *  map. Aligns with the checkbox column above. */
   subtitle?: string;
+  numFmt: Intl.NumberFormat;
 }) {
   return (
     <label
@@ -668,7 +681,7 @@ function ToggleRow({
           <span>{label}</span>
         </span>
         <span className="font-mono text-xs text-gray-500">
-          ({count.toLocaleString("cs-CZ")})
+          ({numFmt.format(count)})
         </span>
       </span>
       {subtitle && (
@@ -681,17 +694,18 @@ function ToggleRow({
 }
 
 function MapLegendBar() {
+  const t = useTranslations("Mapa");
   return (
     <div className="pointer-events-none absolute bottom-0 left-0 z-[400] flex items-center gap-1.5 rounded-tr bg-white/80 px-1.5 py-px text-[11px] leading-none text-gray-700 shadow-sm">
-      <LegendInline swatch={<ActiveSwatch />} label="Aktivní" />
+      <LegendInline swatch={<ActiveSwatch />} label={t("legendActive")} />
       <span aria-hidden className="text-gray-300">
         ·
       </span>
-      <LegendInline swatch={<FormerSwatch />} label="Zaniklá" />
+      <LegendInline swatch={<FormerSwatch />} label={t("legendFormer")} />
       <span aria-hidden className="text-gray-300">
         ·
       </span>
-      <LegendInline swatch={<FocusedSwatch />} label="Vybraná" />
+      <LegendInline swatch={<FocusedSwatch />} label={t("legendFocused")} />
     </div>
   );
 }

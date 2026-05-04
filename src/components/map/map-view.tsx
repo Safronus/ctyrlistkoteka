@@ -3,6 +3,7 @@
 import { MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { type LatLngBoundsExpression } from "leaflet";
 import { useEffect, useMemo, useRef } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import "leaflet/dist/leaflet.css";
 import { LocationPolygons } from "./location-polygons";
 import { LocationDots } from "./location-dots";
@@ -59,6 +60,22 @@ export function MapView({
    *  location detail instead. */
   enableLocationPopup: boolean;
 }) {
+  const t = useTranslations("Mapa");
+  const tStats = useTranslations("Statistiky");
+  const locale = useLocale();
+  const intlLocale =
+    locale === "cs" ? "cs-CZ" : locale === "en" ? "en-GB" : locale;
+  const popupLabels = useMemo(
+    () => ({
+      subPart: t("popupSubPart"),
+      gone: t("popupGone"),
+      detail: t("popupDetail"),
+      showFinds: t("popupShowFinds"),
+      findsLabel: (count: number) => tStats("labelFinds", { count }),
+      numFmt: new Intl.NumberFormat(intlLocale),
+    }),
+    [t, tStats, intlLocale],
+  );
   // When highlighting a single find from /sbirka, the visitor wants to
   // see that point at street level — bypass the location-polygon fit
   // and synthesise a small bbox around the find's coords. Otherwise the
@@ -121,7 +138,7 @@ export function MapView({
       zoom={CZ_ZOOM}
       scrollWheelZoom
       style={{ width: "100%", height: "100%" }}
-      aria-label="Interaktivní mapa lokalit"
+      aria-label={t("mapAria")}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -137,6 +154,7 @@ export function MapView({
             showGone={showGone}
             suppressPopupAutoOpen={highlightFind !== null}
             enablePopup={enableLocationPopup}
+            popupLabels={popupLabels}
             onSelect={onSelectLocation}
           />
           <LocationDots
@@ -145,6 +163,7 @@ export function MapView({
             showGone={showGone}
             suppressPopupAutoOpen={highlightFind !== null}
             enablePopup={enableLocationPopup}
+            popupLabels={popupLabels}
             onSelect={onSelectLocation}
           />
         </>

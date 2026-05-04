@@ -4,7 +4,10 @@ import { useEffect, useRef } from "react";
 import { GeoJSON as GeoJSONLayer, useMap } from "react-leaflet";
 import L, { type Layer, type LatLngBounds, type LatLng } from "leaflet";
 import type { MapLocation } from "@/lib/queries/map";
-import { buildLocationPopupHtml } from "./location-popup";
+import {
+  buildLocationPopupHtml,
+  type LocationPopupLabels,
+} from "./location-popup";
 
 export function LocationPolygons({
   locations,
@@ -13,6 +16,7 @@ export function LocationPolygons({
   showGone,
   suppressPopupAutoOpen = false,
   enablePopup = true,
+  popupLabels,
   onSelect,
 }: {
   locations: readonly MapLocation[];
@@ -39,6 +43,9 @@ export function LocationPolygons({
    *  resize across the breakpoint cleanly recreates the layer with
    *  the new binding. */
   enablePopup?: boolean;
+  /** Locale-aware labels rendered into the popup HTML. Required when
+   *  `enablePopup` is true; ignored otherwise. */
+  popupLabels?: LocationPopupLabels;
   /** Click handler — fired when the visitor clicks a polygon directly
    *  on the map. The wrapper stops the click from reaching the map's
    *  background handler so it doesn't deselect right after selecting. */
@@ -188,16 +195,19 @@ export function LocationPolygons({
           isGone: boolean;
           isChild: boolean;
         };
-        if (enablePopup) {
+        if (enablePopup && popupLabels) {
           layer.bindPopup(
-            buildLocationPopupHtml({
-              id: props.id,
-              code: props.code,
-              displayName: props.displayName,
-              findCount: props.findCount,
-              isGone: props.isGone,
-              isChild: props.isChild,
-            }),
+            buildLocationPopupHtml(
+              {
+                id: props.id,
+                code: props.code,
+                displayName: props.displayName,
+                findCount: props.findCount,
+                isGone: props.isGone,
+                isChild: props.isChild,
+              },
+              popupLabels,
+            ),
           );
         }
         layer.on("click", (e) => {

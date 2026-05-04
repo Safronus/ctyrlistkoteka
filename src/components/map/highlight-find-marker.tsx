@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Marker, Popup } from "react-leaflet";
 import L, { type Marker as LeafletMarker } from "leaflet";
+import { useLocale, useTranslations } from "next-intl";
 import type { HighlightFind } from "@/lib/queries/finds";
-import { formatDateTimeCs, formatLocationOffset } from "@/lib/format";
+import { formatDateTimeCs, formatDistance } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
 
 /**
@@ -35,6 +36,9 @@ export function HighlightFindMarker({
    *  drops back to normal interaction, but the viewport stays put. */
   onPopupClose: () => void;
 }) {
+  const t = useTranslations("Mapa");
+  const tOffset = useTranslations("LocationOffset");
+  const locale = useLocale();
   const markerRef = useRef<LeafletMarker | null>(null);
 
   // Icon HTML is captured once per find — a fresh icon would force
@@ -87,7 +91,7 @@ export function HighlightFindMarker({
       <Popup className="ctyr-find-highlight-popup">
         <div style={{ minWidth: 200, lineHeight: 1.35 }}>
           <strong style={{ color: "#14532d", fontSize: 14 }}>
-            Nález #{find.id}
+            {t("highlightFindHeading", { id: find.id })}
           </strong>
           {find.locationCode && (
             <div style={{ marginTop: 4, color: "#111827", fontSize: 12 }}>
@@ -104,7 +108,7 @@ export function HighlightFindMarker({
           )}
           {find.foundAt && (
             <div style={{ marginTop: 2, color: "#374151", fontSize: 12 }}>
-              {formatDateTimeCs(find.foundAt)}
+              {formatDateTimeCs(find.foundAt, locale)}
             </div>
           )}
           <div
@@ -119,7 +123,15 @@ export function HighlightFindMarker({
           </div>
           {find.offset && (
             <div style={{ marginTop: 4, color: "#15803d", fontSize: 12 }}>
-              {formatLocationOffset(find.offset)}
+              {find.offset.mode === "polygon"
+                ? find.offset.inside
+                  ? tOffset("inside")
+                  : tOffset("polygonEdge", {
+                      distance: formatDistance(find.offset.meters, locale),
+                    })
+                : tOffset("mapCenter", {
+                    distance: formatDistance(find.offset.meters, locale),
+                  })}
             </div>
           )}
         </div>

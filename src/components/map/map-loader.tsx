@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import type { MapData } from "@/lib/queries/map";
 import type { HighlightFind } from "@/lib/queries/finds";
 
@@ -13,13 +14,18 @@ const MapView = dynamic(
   () => import("./map-view").then((m) => m.MapView),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex h-full w-full items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-400">Načítám mapu…</div>
-      </div>
-    ),
+    loading: () => <MapLoadingFallback />,
   },
 );
+
+function MapLoadingFallback() {
+  const t = useTranslations("Mapa");
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-gray-50">
+      <div className="text-sm text-gray-400">{t("loading")}</div>
+    </div>
+  );
+}
 
 export function MapLoader({
   data,

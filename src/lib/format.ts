@@ -290,35 +290,6 @@ export function formatDistance(meters: number, locale?: string): string {
   }).format(km)} km`;
 }
 
-/** Human label for a find's offset from its own location. Visitors
- *  reading "120 m od MAP 00001" sometimes worry the find is misplaced;
- *  this label ties the number to whichever reference shape the location
- *  actually has so the reading is unambiguous. The `inside` bit is the
- *  authoritative inside/outside indicator (PostGIS ST_Covers, not a
- *  metres heuristic) — points sitting < 1 m OUTSIDE the polygon edge
- *  must still read as "X m od hrany AOI", not "uvnitř AOI". */
-export function formatLocationOffset(
-  offset: {
-    meters: number;
-    mode: "polygon" | "center";
-    inside: boolean;
-  },
-  locale?: string,
-): string {
-  // The phrase fragments stay Czech here even when locale=en — the
-  // page-level wrapper that calls this function only feeds Czech to
-  // CZ pages. Translating these short phrases through next-intl from
-  // a plain JS helper would require restructuring the call sites
-  // beyond this F2 scope. Acceptable trade-off: the leading number
-  // is locale-aware (formatDistance), the trailing phrase reads
-  // Czech on /en/ for now and gets a follow-up in F2b.
-  if (offset.mode === "polygon") {
-    if (offset.inside) return "uvnitř AOI";
-    return `${formatDistance(offset.meters, locale)} od hrany AOI`;
-  }
-  return `${formatDistance(offset.meters, locale)} od středu mapy`;
-}
-
 /** Tailwind color class for a find's offset, signalling at a glance
  *  whether the find is well-placed (green: inside AOI / very close),
  *  in a tolerable range (amber: tens of metres), or far enough that

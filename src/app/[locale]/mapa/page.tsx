@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FindState } from "@prisma/client";
+import { getTranslations } from "next-intl/server";
 import { getMapData } from "@/lib/queries/map";
 import { listLocations } from "@/lib/queries/locations";
 import {
@@ -9,10 +10,13 @@ import {
 } from "@/lib/queries/finds";
 import { MapaShell } from "@/components/map/mapa-shell";
 
-export const metadata: Metadata = {
-  title: "Mapa",
-  description: "Interaktivní mapa lokalit sbírky čtyřlístků.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("Mapa");
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  };
+}
 
 // `focus` opts the page out of static caching so the focused location is
 // honoured on every navigation rather than baked into a single ISR copy.
