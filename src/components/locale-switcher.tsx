@@ -1,34 +1,42 @@
 "use client";
 
 import { useLocale } from "next-intl";
-import { usePathname, useRouter } from "@/i18n/navigation";
-import { useTransition } from "react";
+import { usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { routing } from "@/i18n/routing";
 
 /**
  * Compact CZ ⇄ EN toggle for the public header.
  *
- * Uses next-intl's locale-aware navigation so the switch preserves
- * the visitor's current path: `/sbirka/123` → `/en/sbirka/123` and
- * back. The default locale is prefix-free (`/sbirka`), so flipping
- * back to Czech drops the `/en` prefix automatically.
+ * Uses plain anchors instead of `router.replace`/`useTransition` —
+ * next-intl 4.x with `localePrefix: 'as-needed'` and a shared
+ * `[locale]/layout.tsx` reliably swaps the URL on client-side
+ * navigation but doesn't always swap the `NextIntlClientProvider`
+ * messages bundle. The visible symptom: switching EN → CS lands on
+ * `/sbirka` but the page keeps rendering English strings until the
+ * visitor manually reloads. Full-page navigation guarantees the
+ * server re-runs with the right request locale and the messages
+ * bundle ships fresh.
  *
- * Wrapped in `useTransition` so the route transition runs concurrently
- * with the locale switch — the visitor doesn't see a "stuck" button
- * during the rewrite.
+ * Trade-off: we lose Next.js link prefetching for the locale toggle
+ * itself, which is fine — visitors don't hover-prefetch a language
+ * pill the way they do nav items, and we'd much rather have correct
+ * rendering than a sub-second pre-warm.
  */
 export function LocaleSwitcher() {
   const locale = useLocale() as Locale;
+  // `usePathname` from next-intl strips the locale prefix, so on
+  // `/en/sbirka/123` we get `/sbirka/123`. We re-add the prefix
+  // ourselves below for non-default locales, and drop it entirely
+  // for the default (cs) — matching `localePrefix: 'as-needed'`.
   const pathname = usePathname();
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
 
-  const switchTo = (next: Locale) => {
-    if (next === locale) return;
-    startTransition(() => {
-      router.replace(pathname, { locale: next });
-    });
+  const buildHref = (next: Locale): string => {
+    const tail = pathname === "/" ? "" : pathname;
+    if (next === routing.defaultLocale) {
+      return tail || "/";
+    }
+    return `/${next}${tail}`;
   };
 
   return (
@@ -45,18 +53,25 @@ export function LocaleSwitcher() {
           ? "bg-brand-600 text-white cursor-default"
           : "text-gray-600 hover:bg-brand-50 hover:text-brand-700";
         const radius =
-          i === 0 ? "rounded-l-[5px]" : "rounded-r-[5px] border-l border-gray-200";
+          i === 0
+            ? "rounded-l-[5px]"
+            : "rounded-r-[5px] border-l border-gray-200";
+        const className = `${base} ${variant} ${radius}`;
+        if (active) {
+          // Active locale renders as a non-interactive <span> — no
+          // navigation possible, and `aria-current="true"` tells
+          // assistive tech which side is selected without overloading
+          // a button's pressed state.
+          return (
+            <span key={loc} aria-current="true" className={className}>
+              {loc}
+            </span>
+          );
+        }
         return (
-          <button
-            key={loc}
-            type="button"
-            onClick={() => switchTo(loc)}
-            disabled={active || isPending}
-            aria-pressed={active}
-            className={`${base} ${variant} ${radius} disabled:cursor-not-allowed`}
-          >
+          <a key={loc} href={buildHref(loc)} className={className}>
             {loc}
-          </button>
+          </a>
         );
       })}
     </div>
