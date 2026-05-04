@@ -1,6 +1,19 @@
 import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
+
+/**
+ * Force this layout to render dynamically. Without this, Next.js
+ * tries to generate a "segment prefetch shell" for pages below — and
+ * because we read request-scoped data here (locale via next-intl,
+ * anniversary dates from DB, watermark file metadata), the shell
+ * generation fails with HTTP 500 on every link prefetch from the
+ * client. Forcing dynamic skips the prefetch-shell pathway entirely;
+ * actual page rendering performance stays unchanged because the
+ * downstream pages (e.g. `/sbirka/[id]` with `revalidate = 86400`)
+ * still cache their own RSC payloads.
+ */
+export const dynamic = "force-dynamic";
 import Image from "next/image";
 import { Github, Linkedin, Sparkles } from "lucide-react";
 import { AnniversaryOverlay } from "@/components/anniversary/anniversary-overlay";
