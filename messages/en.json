@@ -17,7 +17,14 @@
     "mapa": "Map",
     "statistiky": "Statistics",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "themeAria": "Theme",
+    "themeClover": "Clover",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "localeAria": "Language",
+    "localeCs": "Czech",
+    "localeEn": "English"
   },
   "Footer": {
     "copyright": "© {year} {site} · Private four-leaf clover collection",
@@ -29,7 +36,10 @@
     "claudeTitle": "Claude by Anthropic",
     "claudeCodeTitle": "Claude Code",
     "withAssistance": "with assistance from",
-    "via": "via"
+    "via": "via",
+    "visits": "Visits",
+    "visitsTooltip": "Visit count since {since}. Refreshed approximately every 10 minutes from GoatCounter (stats.ctyrlistkoteka.cz). Filters bots and the author's IP.",
+    "visitsTooltipFail": "Statistics are currently unavailable — the GoatCounter instance is likely not responding. Pixel-based collection continues and the count will return as soon as the API is back."
   },
   "TimeSince": {
     "justNow": "just now",
@@ -256,7 +266,23 @@
     "cardNextInPrefix": "next in ",
     "cardNextInTitle": "Next card in {time}",
     "cardLinkHint": "→ click for detail",
-    "cardLinkAria": "Open find detail — {title}"
+    "cardLinkAria": "Open find detail — {title}",
+    "catBotany": "Botany",
+    "catCulture": "Culture",
+    "catFolklore": "Folklore",
+    "catHistory": "History",
+    "catLiterature": "Literature",
+    "catMythology": "Mythology",
+    "catPoetry": "Poetry",
+    "catRecords": "Records",
+    "catScience": "Science",
+    "catTrivia": "Trivia",
+    "kindAuthorAdvice": "Author's advice",
+    "kindAuthorFactAbout": "Fact about the author",
+    "kindAuthorFact": "Author's fact",
+    "kindAuthorQuip": "Author's quip",
+    "kindMysteriousFind": "Mysterious find",
+    "kindAuthorPoem": "Author's poem"
   },
   "Lokality": {
     "metaTitle": "Locations",

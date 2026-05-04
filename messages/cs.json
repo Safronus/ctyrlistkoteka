@@ -17,7 +17,14 @@
     "mapa": "Mapa",
     "statistiky": "Statistiky",
     "openMenu": "Otevřít menu",
-    "closeMenu": "Zavřít menu"
+    "closeMenu": "Zavřít menu",
+    "themeAria": "Motiv",
+    "themeClover": "Čtyřlístkové",
+    "themeLight": "Světlé",
+    "themeDark": "Tmavé",
+    "localeAria": "Jazyk",
+    "localeCs": "Čeština",
+    "localeEn": "Angličtina"
   },
   "Footer": {
     "copyright": "© {year} {site} · Soukromá sbírka čtyřlístků",
@@ -29,7 +36,10 @@
     "claudeTitle": "Claude od Anthropic",
     "claudeCodeTitle": "Claude Code",
     "withAssistance": "s asistencí",
-    "via": "přes"
+    "via": "přes",
+    "visits": "Návštěv",
+    "visitsTooltip": "Počet návštěv od {since}. Aktualizováno cca každých 10 minut z GoatCounter (stats.ctyrlistkoteka.cz). Filtruje boty a IP autora.",
+    "visitsTooltipFail": "Statistiky momentálně nejsou dostupné — instance GoatCounter pravděpodobně nereaguje. Sběr přes pixel běží dál a počet se vrátí, jakmile bude API zpět."
   },
   "TimeSince": {
     "justNow": "před chvílí",
@@ -256,7 +266,23 @@
     "cardNextInPrefix": "další za ",
     "cardNextInTitle": "Další lísteček za {time}",
     "cardLinkHint": "→ klikni pro detail",
-    "cardLinkAria": "Otevřít detail nálezu — {title}"
+    "cardLinkAria": "Otevřít detail nálezu — {title}",
+    "catBotany": "Botanika",
+    "catCulture": "Kultura",
+    "catFolklore": "Folklór",
+    "catHistory": "Historie",
+    "catLiterature": "Literatura",
+    "catMythology": "Mytologie",
+    "catPoetry": "Poezie",
+    "catRecords": "Rekordy",
+    "catScience": "Věda",
+    "catTrivia": "Drobnosti",
+    "kindAuthorAdvice": "Rada autora",
+    "kindAuthorFactAbout": "Fakt o autorovi",
+    "kindAuthorFact": "Fakt autora",
+    "kindAuthorQuip": "Hláška autora",
+    "kindMysteriousFind": "Záhadný nález",
+    "kindAuthorPoem": "Báseň autora"
   },
   "Lokality": {
     "metaTitle": "Lokality",

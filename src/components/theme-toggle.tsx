@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Leaf, Moon, Sun } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export type Theme = "clover" | "light" | "dark";
 
-const THEMES: Array<{ id: Theme; label: string; icon: typeof Leaf }> = [
-  { id: "clover", label: "Čtyřlístkové", icon: Leaf },
-  { id: "light", label: "Světlé", icon: Sun },
-  { id: "dark", label: "Tmavé", icon: Moon },
+const THEMES: Array<{ id: Theme; key: "themeClover" | "themeLight" | "themeDark"; icon: typeof Leaf }> = [
+  { id: "clover", key: "themeClover", icon: Leaf },
+  { id: "light", key: "themeLight", icon: Sun },
+  { id: "dark", key: "themeDark", icon: Moon },
 ];
 
 /**
@@ -19,6 +20,7 @@ const THEMES: Array<{ id: Theme; label: string; icon: typeof Leaf }> = [
  * what the inline script falls back to on a fresh visit.
  */
 export function ThemeToggle() {
+  const t = useTranslations("Nav");
   const [theme, setTheme] = useState<Theme>("clover");
 
   useEffect(() => {
@@ -44,11 +46,12 @@ export function ThemeToggle() {
   return (
     <div
       role="radiogroup"
-      aria-label="Motiv"
+      aria-label={t("themeAria")}
       className="inline-flex items-center gap-0.5 rounded-md border border-gray-200 bg-white p-0.5"
     >
-      {THEMES.map(({ id, label, icon: Icon }) => {
+      {THEMES.map(({ id, key, icon: Icon }) => {
         const active = theme === id;
+        const label = t(key);
         return (
           <button
             key={id}

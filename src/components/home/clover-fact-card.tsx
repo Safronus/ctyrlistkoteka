@@ -4,11 +4,14 @@ import { Link } from "@/i18n/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  CLOVER_CATEGORY_LABELS,
   CLOVER_TEXTS,
   type CloverText,
   type CloverTextSource,
 } from "@/lib/cloverTexts";
+import {
+  cloverCategoryKey,
+  cloverKindKey,
+} from "@/lib/cloverFactsLabels";
 
 const ROTATION_MS = 120_000;
 const TICK_MS = 1_000;
@@ -210,8 +213,10 @@ export function CloverFactCard() {
   // utilities below set the light/clover look; the override rules win
   // by specificity (attribute selector chain beats single utility class).
   const vibeKey = vibeKeyFor(text);
-  const categoryLabel =
-    CLOVER_CATEGORY_LABELS[text.category] ?? text.category;
+  const catKey = cloverCategoryKey(text.category);
+  const categoryLabel = catKey ? t(catKey) : text.category;
+  const kindKey = text.kind ? cloverKindKey(text.kind) : null;
+  const kindLabel = kindKey ? t(kindKey) : (text.kind ?? null);
 
   const card = (
     <aside
@@ -239,7 +244,7 @@ export function CloverFactCard() {
           data-fact-cat
           className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${styles.categoryColor}`}
         >
-          {isAuthor && text.kind ? text.kind : categoryLabel}
+          {isAuthor && kindLabel ? kindLabel : categoryLabel}
         </p>
         {isAuthor ? (
           <span

@@ -259,12 +259,17 @@ function CollapsibleSection({
   count,
   hint,
   defaultOpen = false,
+  exports,
   children,
 }: {
   title: string;
   count?: string;
   hint?: string;
   defaultOpen?: boolean;
+  /** Optional download links rendered next to the disclosure chevron.
+   *  Click stops propagation so it doesn't toggle the <details> open
+   *  state — operators can grab a CSV without re-collapsing the panel. */
+  exports?: ReadonlyArray<{ href: string; label: string; ext: string }>;
   children: React.ReactNode;
 }) {
   return (
@@ -286,13 +291,53 @@ function CollapsibleSection({
             <p className="mt-0.5 text-[11px] text-gray-500">{hint}</p>
           )}
         </div>
-        <ChevronDown
-          className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-open:rotate-180"
-          aria-hidden
-        />
+        <div className="flex shrink-0 items-center gap-2">
+          {exports && exports.length > 0 && (
+            <ExportButtonRow items={exports} />
+          )}
+          <ChevronDown
+            className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-open:rotate-180"
+            aria-hidden
+          />
+        </div>
       </summary>
       <div className="border-t border-gray-200">{children}</div>
     </details>
+  );
+}
+
+/** Inline export-button row used by CollapsibleSection headers. The
+ *  click handlers stop both propagation and the implicit summary toggle
+ *  so a click on "csv" doesn't collapse the parent <details>. */
+function ExportButtonRow({
+  items,
+}: {
+  items: ReadonlyArray<{ href: string; label: string; ext: string }>;
+}) {
+  return (
+    <span
+      className="inline-flex items-center gap-1"
+      // The summary element toggles on click — even when the click
+      // lands on a child <a>. We stop propagation so download links
+      // act as plain navigations rather than re-collapsing the panel.
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span className="text-[10px] uppercase tracking-wide text-gray-400">
+        export:
+      </span>
+      {items.map((it) => (
+        <a
+          key={it.href}
+          href={it.href}
+          download
+          title={it.label}
+          className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+        >
+          <Download className="h-3 w-3" aria-hidden />
+          <span className="font-mono uppercase">{it.ext}</span>
+        </a>
+      ))}
+    </span>
   );
 }
 
@@ -406,6 +451,18 @@ function PermabanLivePanel({ snapshot }: { snapshot: PermabanSnapshot }) {
           count={`${snapshot.whitelist.ips.length} IP`}
           hint="IP, které se nikdy nesmí dostat do deny listu."
           defaultOpen
+          exports={[
+            {
+              href: "/api/admin/blocklist/export?kind=whitelist&format=txt",
+              ext: "txt",
+              label: "Stáhnout whitelist jako prostý text (1 IP / řádek)",
+            },
+            {
+              href: "/api/admin/blocklist/export?kind=whitelist&format=json",
+              ext: "json",
+              label: "Stáhnout whitelist jako JSON",
+            },
+          ]}
         >
           {snapshot.whitelist.ips.length === 0 ? (
             <p className="px-4 py-3 text-xs text-gray-500">
@@ -507,6 +564,23 @@ function PermabanLivePanel({ snapshot }: { snapshot: PermabanSnapshot }) {
         title="Všechny aktuálně blokované IP"
         count={`${denyCount} celkem`}
         hint="Obsah permaban-list.conf — každý řádek = `deny <ip>;`."
+        exports={[
+          {
+            href: "/api/admin/blocklist/export?kind=denied&format=txt",
+            ext: "txt",
+            label: "Stáhnout aktuálně blokované IP jako prostý text",
+          },
+          {
+            href: "/api/admin/blocklist/export?kind=denied&format=csv",
+            ext: "csv",
+            label: "Stáhnout aktuálně blokované IP jako CSV",
+          },
+          {
+            href: "/api/admin/blocklist/export?kind=denied&format=json",
+            ext: "json",
+            label: "Stáhnout aktuálně blokované IP jako JSON",
+          },
+        ]}
       >
         {denyCount === 0 ? (
           <p className="px-4 py-3 text-xs text-gray-500">
@@ -790,6 +864,23 @@ function AbuseIpdbPanel({ summary }: { summary: AbuseIpdbSummary }) {
           title="Nahlášené IP — detail"
           count={`${reportedCount} IP / ${reportedBans} banů`}
           hint="Aggregace TSV řádků s ts ≤ poslední state TS, mapování jail → AbuseIPDB kategorie."
+          exports={[
+            {
+              href: "/api/admin/blocklist/export?kind=abuseipdb&format=tsv",
+              ext: "tsv",
+              label: "Stáhnout AbuseIPDB reporty jako TSV",
+            },
+            {
+              href: "/api/admin/blocklist/export?kind=abuseipdb&format=csv",
+              ext: "csv",
+              label: "Stáhnout AbuseIPDB reporty jako CSV",
+            },
+            {
+              href: "/api/admin/blocklist/export?kind=abuseipdb&format=json",
+              ext: "json",
+              label: "Stáhnout AbuseIPDB reporty jako JSON",
+            },
+          ]}
         >
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-xs">
@@ -1160,6 +1251,23 @@ function RecentTable({
     <CollapsibleSection
       title={`Posledních ${Math.min(limit, rows.length).toLocaleString("cs-CZ")} banů`}
       count={`z celkem ${total.toLocaleString("cs-CZ")}`}
+      exports={[
+        {
+          href: `/api/admin/blocklist/export?kind=recent&format=tsv&limit=${limit}`,
+          ext: "tsv",
+          label: `Stáhnout posledních ${limit} banů jako TSV`,
+        },
+        {
+          href: `/api/admin/blocklist/export?kind=recent&format=csv&limit=${limit}`,
+          ext: "csv",
+          label: `Stáhnout posledních ${limit} banů jako CSV`,
+        },
+        {
+          href: `/api/admin/blocklist/export?kind=recent&format=json&limit=${limit}`,
+          ext: "json",
+          label: `Stáhnout posledních ${limit} banů jako JSON`,
+        },
+      ]}
     >
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 text-xs">
@@ -1216,6 +1324,23 @@ function IpsTable({
     <CollapsibleSection
       title="Všechny IP podle počtu banů"
       count={`zobrazeno ${rows.length.toLocaleString("cs-CZ")} z ${totalRows.toLocaleString("cs-CZ")} (limit ${limit})`}
+      exports={[
+        {
+          href: "/api/admin/blocklist/export?kind=ips&format=tsv",
+          ext: "tsv",
+          label: "Stáhnout IP agregát jako TSV (všechny řádky)",
+        },
+        {
+          href: "/api/admin/blocklist/export?kind=ips&format=csv",
+          ext: "csv",
+          label: "Stáhnout IP agregát jako CSV (všechny řádky)",
+        },
+        {
+          href: "/api/admin/blocklist/export?kind=ips&format=json",
+          ext: "json",
+          label: "Stáhnout IP agregát jako JSON (všechny řádky)",
+        },
+      ]}
     >
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 text-xs">

@@ -7,43 +7,46 @@
  * Server component — the fetch call is cached at the Next.js layer
  * (10 min TTL) so renders stay cheap regardless of pageload volume.
  */
+import { getLocale, getTranslations } from "next-intl/server";
 import { getTotalVisits, VISIT_TRACKING_START } from "@/lib/queries/visits";
 import { formatDateCs } from "@/lib/format";
 
-const FORMAT = new Intl.NumberFormat("cs-CZ");
-
-function startedAtLabel(iso: string): string {
+function startedAtLabel(iso: string, locale: string): string {
   // ISO YYYY-MM-DD → Date in UTC noon to avoid TZ-flip edge cases.
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return iso;
-  return formatDateCs(new Date(Date.UTC(y, m - 1, d, 12)));
+  return formatDateCs(new Date(Date.UTC(y, m - 1, d, 12)), locale);
 }
 
-const TOOLTIP_FAIL =
-  "Statistiky momentálně nejsou dostupné — instance GoatCounter pravděpodobně nereaguje. Sběr přes pixel běží dál a počet se vrátí, jakmile bude API zpět.";
-
 export async function VisitCounter() {
-  const data = await getTotalVisits();
-  const since = startedAtLabel(VISIT_TRACKING_START);
+  const [data, t, locale] = await Promise.all([
+    getTotalVisits(),
+    getTranslations("Footer"),
+    getLocale(),
+  ]);
+  const numberFormat = new Intl.NumberFormat(
+    locale === "cs" ? "cs-CZ" : "en-GB",
+  );
+  const since = startedAtLabel(VISIT_TRACKING_START, locale);
   if (data) {
     return (
       <span
-        title={`Počet návštěv od ${since}. Aktualizováno cca každých 10 minut z GoatCounter (stats.ctyrlistkoteka.cz). Filtruje boty a IP autora.`}
+        title={t("visitsTooltip", { since })}
         className="inline-flex items-center gap-1.5"
       >
-        <span>Návštěv:</span>
+        <span>{t("visits")}:</span>
         <span className="font-mono font-medium tabular-nums text-gray-700">
-          {FORMAT.format(data.total)}
+          {numberFormat.format(data.total)}
         </span>
       </span>
     );
   }
   return (
     <span
-      title={TOOLTIP_FAIL}
+      title={t("visitsTooltipFail")}
       className="inline-flex items-center gap-1.5"
     >
-      <span>Návštěv:</span>
+      <span>{t("visits")}:</span>
       <span className="font-mono text-gray-400">???</span>
     </span>
   );

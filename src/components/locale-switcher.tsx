@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { routing } from "@/i18n/routing";
@@ -25,6 +25,7 @@ import { routing } from "@/i18n/routing";
  */
 export function LocaleSwitcher() {
   const locale = useLocale() as Locale;
+  const t = useTranslations("Nav");
   // `usePathname` from next-intl strips the locale prefix, so on
   // `/en/sbirka/123` we get `/sbirka/123`. We re-add the prefix
   // ourselves below for non-default locales, and drop it entirely
@@ -42,11 +43,12 @@ export function LocaleSwitcher() {
   return (
     <div
       role="group"
-      aria-label="Jazyk / Language"
+      aria-label={`${t("localeAria")} / Language`}
       className="inline-flex items-center rounded-md border border-gray-200 bg-white text-xs"
     >
       {routing.locales.map((loc, i) => {
         const active = loc === locale;
+        const fullLabel = loc === "cs" ? t("localeCs") : t("localeEn");
         const base =
           "px-2 py-1 font-medium uppercase tracking-wide transition";
         const variant = active
@@ -63,13 +65,24 @@ export function LocaleSwitcher() {
           // assistive tech which side is selected without overloading
           // a button's pressed state.
           return (
-            <span key={loc} aria-current="true" className={className}>
+            <span
+              key={loc}
+              aria-current="true"
+              title={fullLabel}
+              className={className}
+            >
               {loc}
             </span>
           );
         }
         return (
-          <a key={loc} href={buildHref(loc)} className={className}>
+          <a
+            key={loc}
+            href={buildHref(loc)}
+            title={fullLabel}
+            aria-label={fullLabel}
+            className={className}
+          >
             {loc}
           </a>
         );
