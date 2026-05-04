@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { FindState, ImageType } from "@prisma/client";
+import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import {
   DetailVibeOverlay,
   isHellishFind,
@@ -27,7 +28,7 @@ import {
 } from "@/lib/queries/finds";
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string; locale: string }>;
 }
 
 // Must be a literal for Next.js static analysis. Matches FIND_REVALIDATE in
@@ -44,26 +45,27 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { id } = await params;
+  const t = await getTranslations("FindDetail");
   const numId = Number(id);
   if (!Number.isInteger(numId) || numId <= 0) {
-    return { title: "Nenalezeno" };
+    return { title: t("metaNotFound") };
   }
   const find = await getFindById(numId);
   if (!find) {
-    return { title: "Nenalezeno" };
+    return { title: t("metaNotFound") };
   }
   // Anonymized finds must not be indexed and must not leak data in meta tags.
   if (find.isAnonymized) {
     return {
-      title: `Nález #${find.id}`,
-      description: `Anonymizovaný nález #${find.id}.`,
+      title: t("metaAnonymizedTitle", { id: find.id }),
+      description: t("metaAnonymizedDescription", { id: find.id }),
       robots: { index: false, follow: false },
     };
   }
   const locationName =
-    find.location?.displayName ?? find.location?.code ?? "bez lokality";
-  const title = `Nález #${find.id} – ${locationName}`;
-  const description = `Čtyřlístkový nález, lokalita ${locationName}.`;
+    find.location?.displayName ?? find.location?.code ?? t("fallbackLocation");
+  const title = t("metaTitle", { id: find.id, locationName });
+  const description = t("metaDescription", { locationName });
   return {
     title,
     description,
@@ -76,7 +78,8 @@ export async function generateMetadata({
 }
 
 export default async function FindDetailPage({ params }: PageProps) {
-  const { id } = await params;
+  const { id, locale } = await params;
+  const t = await getTranslations("FindDetail");
   const numId = Number(id);
   if (!Number.isInteger(numId) || numId <= 0) notFound();
   const [find, adjacent] = await Promise.all([
@@ -109,15 +112,15 @@ export default async function FindDetailPage({ params }: PageProps) {
   const detail = (
     <article className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <nav
-        aria-label="Navigace mezi nálezy"
+        aria-label={t("navAriaLabel")}
         className={`flex flex-wrap items-center justify-between gap-3 text-sm ${
           hellish ? "text-red-300/80" : "text-gray-500"
         }`}
       >
         <BackToSbirkaLink />
         <div className="flex items-center gap-3">
-          <AdjacentLink direction="prev" id={adjacent.prevId} hellish={hellish} />
-          <AdjacentLink direction="next" id={adjacent.nextId} hellish={hellish} />
+          <AdjacentLink direction="prev" id={adjacent.prevId} hellish={hellish} t={t} />
+          <AdjacentLink direction="next" id={adjacent.nextId} hellish={hellish} t={t} />
         </div>
       </nav>
 
@@ -131,7 +134,7 @@ export default async function FindDetailPage({ params }: PageProps) {
               hellish ? "text-red-100" : "text-gray-900"
             }`}
           >
-            Nález #{find.id}
+            {t("h1", { id: find.id })}
           </h1>
           {find.states.length > 0 && <StateBadges states={find.states} />}
         </div>
@@ -144,7 +147,7 @@ export default async function FindDetailPage({ params }: PageProps) {
             hellish ? "text-red-200/90" : "text-gray-600"
           }`}
         >
-          <span>{formatDateTimeCs(find.foundAt)}</span>
+          <span>{formatDateTimeCs(find.foundAt, locale)}</span>
           {!find.isAnonymized && find.coordinates && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <GpsValue
@@ -159,8 +162,8 @@ export default async function FindDetailPage({ params }: PageProps) {
                   }`}
                   title={
                     find.locationOffset.mode === "polygon"
-                      ? "Vzdušná vzdálenost od hrany polygonu lokace (0 = uvnitř AOI)"
-                      : "Vzdušná vzdálenost od GPS středu lokační mapy"
+                      ? t("offsetTitlePolygon")
+                      : t("offsetTitleCenter")
                   }
                 >
                   <span
@@ -170,7 +173,7 @@ export default async function FindDetailPage({ params }: PageProps) {
                         : locationOffsetToneClass(find.locationOffset)
                     }`}
                   >
-                    {formatLocationOffset(find.locationOffset)}
+                    {formatLocationOffset(find.locationOffset, locale)}
                   </span>
                 </span>
               )}
@@ -179,16 +182,16 @@ export default async function FindDetailPage({ params }: PageProps) {
                   className={`text-xs ${
                     hellish ? "text-red-300/80" : "text-gray-500"
                   }`}
-                  title="Vzdušná vzdálenost od GPS středu výchozí lokační mapy #00001"
+                  title={t("distanceTitle")}
                 >
                   <span
                     className={`font-mono tabular-nums ${
                       hellish ? "text-red-100" : "text-gray-800"
                     }`}
                   >
-                    {formatDistance(find.distanceFromDefault)}
+                    {formatDistance(find.distanceFromDefault, locale)}
                   </span>{" "}
-                  od mapy #00001
+                  {t("distanceFromMap")}
                 </span>
               )}
             </div>
@@ -209,20 +212,19 @@ export default async function FindDetailPage({ params }: PageProps) {
       <ImageGallery
         image={mainImage}
         cropImage={cropImage}
-        altBase={`Nález #${find.id}`}
+        altBase={t("imageAlt", { id: find.id })}
         findId={find.id}
         donationPhotos={find.donationPhotos}
       />
 
       {find.isAnonymized && (
         <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
-          Tento nález je anonymizovaný — souřadnice, poznámka ani konkrétní
-          lokalita se na veřejném webu nezobrazují.
+          {t("anonymizedNotice")}
         </p>
       )}
 
       <Panel
-        title="Lokalita"
+        title={t("panelLocation")}
         rightSlot={
           find.location && (
             <span className="font-mono text-xs text-gray-500">
@@ -233,21 +235,22 @@ export default async function FindDetailPage({ params }: PageProps) {
       >
         {find.isAnonymized && (
           <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
-            Skutečná lokalita anonymizovaného nálezu se nezobrazuje. Místo
-            ní vidíš výchozí lokalitu{" "}
-            {find.location ? formatLocationId(find.location.id) : ""}.
+            {t("anonymizedLocationNotice", {
+              placeholderId: find.location
+                ? formatLocationId(find.location.id)
+                : "",
+            })}
           </p>
         )}
         {!find.isAnonymized && isFormerLocation(find.location?.code) && (
           <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
-            Tato lokalita už fyzicky neexistuje (zástavba, terénní úprava
-            apod.). Mapa zobrazuje původní místo.
+            {t("formerLocationNotice")}
           </p>
         )}
         {find.location ? (
           <>
-            <KeyValue label="Kód lokality" value={find.location.code} />
-            <KeyValue label="Popis lokality" value={find.location.displayName} />
+            <KeyValue label={t("kvCode")} value={find.location.code} />
+            <KeyValue label={t("kvDescription")} value={find.location.displayName} />
             {/* Map deep-link mirrors the row-level icon in /sbirka:
                 `?find=N` highlights the specific find on the canvas
                 (single marker + auto-fit). Only public finds with GPS
@@ -263,20 +266,19 @@ export default async function FindDetailPage({ params }: PageProps) {
                   className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
                 >
                   <MapPin className="h-3.5 w-3.5" aria-hidden />
-                  <span>Zobrazit na mapě</span>
+                  <span>{t("showOnMap")}</span>
                 </Link>
               </div>
             )}
           </>
         ) : (
-          <p className="text-sm text-gray-600">
-            Lokalita není k tomuto nálezu přiřazena.
-          </p>
+          <p className="text-sm text-gray-600">{t("noLocation")}</p>
         )}
         {find.locationMaps.length > 0 && (
           <LocationMapsGallery
             maps={find.locationMaps}
             isAnonymized={find.isAnonymized}
+            t={t}
           />
         )}
       </Panel>
@@ -297,9 +299,15 @@ export default async function FindDetailPage({ params }: PageProps) {
   );
 }
 
+type FindDetailT = (
+  key: string,
+  values?: Record<string, string | number | Date>,
+) => string;
+
 function LocationMapsGallery({
   maps,
   isAnonymized = false,
+  t,
 }: {
   maps: readonly PublicLocationMap[];
   /** Anonymized finds get a `?` overlay on the placeholder map so a
@@ -307,6 +315,10 @@ function LocationMapsGallery({
    *  real one. The query layer already strips the marker (`no-gps`)
    *  and swaps in the placeholder location; this is the visual seal. */
   isAnonymized?: boolean;
+  /** Server-side translator pre-bound to the `FindDetail` namespace.
+   *  Passed as a prop instead of re-derived here so the helper stays
+   *  a sync function (next-intl's `getTranslations` is async). */
+  t: FindDetailT;
 }) {
   return (
     <div className="space-y-3 pt-2">
@@ -322,7 +334,7 @@ function LocationMapsGallery({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={m.imageUrl}
-              alt={m.description ?? "Mapa lokality"}
+              alt={m.description ?? t("mapImageFallback")}
               loading="lazy"
               decoding="async"
               className="block h-auto w-full"
@@ -331,9 +343,10 @@ function LocationMapsGallery({
               <FindLocationMarker
                 xFrac={m.marker.xFrac}
                 yFrac={m.marker.yFrac}
+                t={t}
               />
             )}
-            {isAnonymized && <AnonymizedMapOverlay />}
+            {isAnonymized && <AnonymizedMapOverlay t={t} />}
           </div>
           {m.description && !isAnonymized && (
             <figcaption className="px-3 pt-2 text-xs text-gray-600">
@@ -342,13 +355,12 @@ function LocationMapsGallery({
           )}
           {!isAnonymized && m.marker?.kind === "outside" && (
             <p className="px-3 pb-2 pt-1 text-xs text-gray-500">
-              GPS nálezu leží mimo zachycenou plochu této lokační mapy.
+              {t("mapMarkerOutside")}
             </p>
           )}
           {!isAnonymized && m.marker?.kind === "no-gps" && (
             <p className="px-3 pb-2 pt-1 text-xs text-gray-500">
-              Nález nemá zaznamenané GPS souřadnice — pozici nelze na mapu
-              vykreslit.
+              {t("mapMarkerNoGps")}
             </p>
           )}
         </figure>
@@ -360,11 +372,11 @@ function LocationMapsGallery({
 /** Full-image overlay for anonymized finds. Heavy backdrop blur hides
  *  the placeholder map detail; the giant `?` plus a sub-label make it
  *  unambiguous that the visible map is not the real find location. */
-function AnonymizedMapOverlay() {
+function AnonymizedMapOverlay({ t }: { t: FindDetailT }) {
   return (
     <div
       role="img"
-      aria-label="Lokalita anonymizovaného nálezu je skrytá"
+      aria-label={t("anonMapAria")}
       className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-purple-950/45 backdrop-blur-md"
     >
       <span
@@ -374,7 +386,7 @@ function AnonymizedMapOverlay() {
         ?
       </span>
       <span className="select-none rounded-full bg-purple-50/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-purple-900 shadow-sm">
-        Lokalita skryta
+        {t("anonMapBadge")}
       </span>
     </div>
   );
@@ -387,14 +399,16 @@ function AnonymizedMapOverlay() {
 function FindLocationMarker({
   xFrac,
   yFrac,
+  t,
 }: {
   xFrac: number;
   yFrac: number;
+  t: FindDetailT;
 }) {
   return (
     <span
       role="img"
-      aria-label="Pozice nálezu na mapě"
+      aria-label={t("findMarkerAria")}
       className="pointer-events-none absolute z-10"
       style={{
         left: `${xFrac * 100}%`,
@@ -457,16 +471,21 @@ function AdjacentLink({
   direction,
   id,
   hellish = false,
+  t,
 }: {
   direction: "prev" | "next";
   id: number | null;
   /** When the surrounding page is the hellish #666 variant, the chip
    *  needs red/light colours to stay readable on the dark gradient. */
   hellish?: boolean;
+  t: FindDetailT;
 }) {
   const label =
-    direction === "prev" ? `← Předchozí #${id}` : `Další #${id} →`;
-  const placeholder = direction === "prev" ? "← Předchozí" : "Další →";
+    direction === "prev"
+      ? t("prevWithId", { id: id ?? 0 })
+      : t("nextWithId", { id: id ?? 0 });
+  const placeholder =
+    direction === "prev" ? t("prevPlaceholder") : t("nextPlaceholder");
   const disabledCls = hellish
     ? "rounded-md border border-red-900/50 px-2 py-1 text-red-300/40"
     : "rounded-md border border-gray-200 px-2 py-1 text-gray-300";

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Map } from "lucide-react";
 import { FindState } from "@prisma/client";
+import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { CollectionProgressBanner } from "@/components/finds/collection-progress-banner";
 import { FilterBar } from "@/components/finds/filter-bar";
 import { RememberSbirkaSearch } from "@/components/finds/sbirka-back-link";
@@ -20,12 +21,14 @@ import {
   type FindFilters,
   type FindSort,
 } from "@/lib/queries/finds";
-import { formatCount, FINDS as FINDS_FORMS } from "@/lib/format";
 
-export const metadata: Metadata = {
-  title: "Sbírka",
-  description: "Galerie všech nálezů čtyřlístků s filtry a hledáním.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("Sbirka");
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  };
+}
 
 // SSR — filters come from URL, so revalidation isn't useful. Each request
 // runs the Prisma query. Fine for desktop-sized concurrency on this site.
@@ -68,6 +71,7 @@ function parseView(value: string | undefined): FindView {
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+  params: Promise<{ locale: string }>;
 }
 
 function pickString(
@@ -77,8 +81,12 @@ function pickString(
   return v;
 }
 
-export default async function SbirkaPage({ searchParams }: PageProps) {
+export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const sp = await searchParams;
+  // Resolve `params` even though we don't read locale here — Next.js
+  // requires the prop to be awaited if we declare it on PageProps.
+  await params;
+  const t = await getTranslations("Sbirka");
 
   const filters: FindFilters = {
     q: pickString(sp.q) ?? undefined,
@@ -153,10 +161,12 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <RememberSbirkaSearch />
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Sbírka nálezů</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
         <p className="text-gray-600">
-          {formatCount(result.total, FINDS_FORMS)}
-          {result.total !== 0 && " celkem"}
+          {t("totalSummary", {
+            count: result.total,
+            withSuffix: result.total === 0 ? "no" : "yes",
+          })}
         </p>
       </header>
 
@@ -184,23 +194,17 @@ export default async function SbirkaPage({ searchParams }: PageProps) {
       {hasFilters && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2 text-sm text-brand-900">
           <span>
-            Filtr je aktivní —{" "}
+            {t("filterActive")}{" "}
             <strong className="font-semibold">
-              {result.total.toLocaleString("cs-CZ")}
-            </strong>{" "}
-            {result.total === 1
-              ? "nález"
-              : result.total < 5
-                ? "nálezy"
-                : "nálezů"}{" "}
-            odpovídá filtru.
+              {t("filterMatches", { count: result.total })}
+            </strong>
           </span>
           <Link
             href={buildMapHref(filters)}
             className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-sm font-medium text-brand-800 shadow-sm transition hover:border-brand-500 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
           >
             <Map className="h-4 w-4" aria-hidden />
-            <span>Zobrazit na mapě</span>
+            <span>{t("showOnMap")}</span>
           </Link>
         </div>
       )}

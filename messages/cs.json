@@ -1,6 +1,83 @@
 {
   "_meta": {
-    "comment": "Czech message bundle — default locale. Keys are gradually filled in as pages are migrated from hardcoded JSX strings to t('key') lookups.",
+    "comment": "Czech message bundle — default locale.",
     "locale": "cs"
+  },
+  "States": {
+    "NORMAL": "Běžný",
+    "ANONYMIZED": "Anonymizovaný",
+    "DONATED": "Darovaný",
+    "LOST": "Ztracený",
+    "NO_GPS": "Bez GPS",
+    "NO_PHOTO": "Bez fotky",
+    "LOCATION_MISSING": "Bez lokality",
+    "LOCATION_GONE": "Zaniklá lokalita",
+    "NOT_PICKED": "Neutržený"
+  },
+  "Sbirka": {
+    "metaTitle": "Sbírka",
+    "metaDescription": "Galerie všech nálezů čtyřlístků s filtry a hledáním.",
+    "h1": "Sbírka nálezů",
+    "totalSummary": "{count, plural, =0 {0 nálezů} one {# nález} few {# nálezy} other {# nálezů}}{withSuffix, select, yes { celkem} other {}}",
+    "filterActive": "Filtr je aktivní —",
+    "filterMatches": "{count, plural, =0 {0 nálezů odpovídá} one {# nález odpovídá} few {# nálezy odpovídají} other {# nálezů odpovídá}} filtru.",
+    "showOnMap": "Zobrazit na mapě"
+  },
+  "ViewSortToolbar": {
+    "view": "Zobrazení",
+    "viewGrid": "Dlaždice",
+    "viewList": "Seznam",
+    "hasPhotoToggle": "S fotkou daru",
+    "dateGroup": "Datum nálezu",
+    "dateLabel": "Datum",
+    "dateFrom": "Datum od",
+    "dateTo": "Datum do",
+    "sort": "Řazení",
+    "sortDesc": "Nejnovější",
+    "sortAsc": "Nejstarší",
+    "sortDistAsc": "Nejbližší",
+    "sortDistDesc": "Nejvzdálenější"
+  },
+  "Pagination": {
+    "navLabel": "Stránkování",
+    "prev": "← Předchozí",
+    "next": "Další →",
+    "pageOf": "Strana <b>{page}</b> z <b>{totalPages}</b>"
+  },
+  "BackLink": {
+    "toCollection": "← Zpět na sbírku"
+  },
+  "FindDetail": {
+    "metaNotFound": "Nenalezeno",
+    "metaAnonymizedTitle": "Nález #{id}",
+    "metaAnonymizedDescription": "Anonymizovaný nález #{id}.",
+    "metaTitle": "Nález #{id} – {locationName}",
+    "metaDescription": "Čtyřlístkový nález, lokalita {locationName}.",
+    "fallbackLocation": "bez lokality",
+    "navAriaLabel": "Navigace mezi nálezy",
+    "prevWithId": "← Předchozí #{id}",
+    "nextWithId": "Další #{id} →",
+    "prevPlaceholder": "← Předchozí",
+    "nextPlaceholder": "Další →",
+    "h1": "Nález #{id}",
+    "imageAlt": "Nález #{id}",
+    "anonymizedNotice": "Tento nález je anonymizovaný — souřadnice, poznámka ani konkrétní lokalita se na veřejném webu nezobrazují.",
+    "panelLocation": "Lokalita",
+    "anonymizedLocationNotice": "Skutečná lokalita anonymizovaného nálezu se nezobrazuje. Místo ní vidíš výchozí lokalitu {placeholderId}.",
+    "formerLocationNotice": "Tato lokalita už fyzicky neexistuje (zástavba, terénní úprava apod.). Mapa zobrazuje původní místo.",
+    "kvCode": "Kód lokality",
+    "kvDescription": "Popis lokality",
+    "noLocation": "Lokalita není k tomuto nálezu přiřazena.",
+    "showOnMap": "Zobrazit na mapě",
+    "distanceFromMap": "od mapy #00001",
+    "distanceTitle": "Vzdušná vzdálenost od GPS středu výchozí lokační mapy #00001",
+    "offsetTitlePolygon": "Vzdušná vzdálenost od hrany polygonu lokace (0 = uvnitř AOI)",
+    "offsetTitleCenter": "Vzdušná vzdálenost od GPS středu lokační mapy",
+    "mapMarkerOutside": "GPS nálezu leží mimo zachycenou plochu této lokační mapy.",
+    "mapMarkerNoGps": "Nález nemá zaznamenané GPS souřadnice — pozici nelze na mapu vykreslit.",
+    "anonMapAria": "Lokalita anonymizovaného nálezu je skrytá",
+    "anonMapBadge": "Lokalita skryta",
+    "findMarkerAria": "Pozice nálezu na mapě",
+    "mapImageFallback": "Mapa lokality"
   }
 }

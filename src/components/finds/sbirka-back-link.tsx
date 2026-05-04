@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
+import { Link } from "@/i18n/navigation";
 
 /**
  * Preserves the visitor's current /sbirka filter state across the
@@ -42,6 +43,7 @@ export function RememberSbirkaSearch() {
 }
 
 export function BackToSbirkaLink() {
+  const t = useTranslations("BackLink");
   // Initial render targets bare /sbirka so SSR markup is stable; the
   // client effect upgrades the href once it can read sessionStorage.
   // The user-visible label is unchanged so the brief mismatch is
@@ -57,9 +59,12 @@ export function BackToSbirkaLink() {
     }
   }, []);
 
+  // next-intl's `Link` auto-prepends `/en/` when rendered under the
+  // English locale, so the same `href` resolves to the correct path
+  // for both locales without per-call juggling.
   return (
     <Link href={href} className="hover:text-brand-700">
-      ← Zpět na sbírku
+      {t("toCollection")}
     </Link>
   );
 }

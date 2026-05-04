@@ -1,6 +1,83 @@
 {
   "_meta": {
-    "comment": "English message bundle. Keys must mirror cs.json one-for-one once translations land. Until then, missing keys fall back to the key string itself (next-intl default behaviour) — visible in the UI as a debug aid.",
+    "comment": "English message bundle. Mirrors cs.json key-for-key.",
     "locale": "en"
+  },
+  "States": {
+    "NORMAL": "Normal",
+    "ANONYMIZED": "Anonymized",
+    "DONATED": "Donated",
+    "LOST": "Lost",
+    "NO_GPS": "No GPS",
+    "NO_PHOTO": "No photo",
+    "LOCATION_MISSING": "No location",
+    "LOCATION_GONE": "Former location",
+    "NOT_PICKED": "Not picked"
+  },
+  "Sbirka": {
+    "metaTitle": "Collection",
+    "metaDescription": "Gallery of every four-leaf clover find with filters and search.",
+    "h1": "Find collection",
+    "totalSummary": "{count, plural, =0 {0 finds} one {# find} other {# finds}}{withSuffix, select, yes { in total} other {}}",
+    "filterActive": "Filter is active —",
+    "filterMatches": "{count, plural, =0 {0 finds match} one {# find matches} other {# finds match}} the filter.",
+    "showOnMap": "Show on map"
+  },
+  "ViewSortToolbar": {
+    "view": "View",
+    "viewGrid": "Tiles",
+    "viewList": "List",
+    "hasPhotoToggle": "With donation photo",
+    "dateGroup": "Find date",
+    "dateLabel": "Date",
+    "dateFrom": "Date from",
+    "dateTo": "Date to",
+    "sort": "Sort",
+    "sortDesc": "Newest",
+    "sortAsc": "Oldest",
+    "sortDistAsc": "Nearest",
+    "sortDistDesc": "Farthest"
+  },
+  "Pagination": {
+    "navLabel": "Pagination",
+    "prev": "← Previous",
+    "next": "Next →",
+    "pageOf": "Page <b>{page}</b> of <b>{totalPages}</b>"
+  },
+  "BackLink": {
+    "toCollection": "← Back to collection"
+  },
+  "FindDetail": {
+    "metaNotFound": "Not found",
+    "metaAnonymizedTitle": "Find #{id}",
+    "metaAnonymizedDescription": "Anonymized find #{id}.",
+    "metaTitle": "Find #{id} – {locationName}",
+    "metaDescription": "Four-leaf clover find, location {locationName}.",
+    "fallbackLocation": "no location",
+    "navAriaLabel": "Find navigation",
+    "prevWithId": "← Previous #{id}",
+    "nextWithId": "Next #{id} →",
+    "prevPlaceholder": "← Previous",
+    "nextPlaceholder": "Next →",
+    "h1": "Find #{id}",
+    "imageAlt": "Find #{id}",
+    "anonymizedNotice": "This find is anonymized — its coordinates, notes and exact location are hidden on the public site.",
+    "panelLocation": "Location",
+    "anonymizedLocationNotice": "The real location of an anonymized find isn't shown. You're seeing the default placeholder location {placeholderId} instead.",
+    "formerLocationNotice": "This location no longer physically exists (built over, terrain change, etc.). The map shows the original spot.",
+    "kvCode": "Location code",
+    "kvDescription": "Location description",
+    "noLocation": "No location is assigned to this find.",
+    "showOnMap": "Show on map",
+    "distanceFromMap": "from map #00001",
+    "distanceTitle": "Great-circle distance from the GPS centre of the default location map #00001",
+    "offsetTitlePolygon": "Great-circle distance from the location polygon edge (0 = inside the AOI)",
+    "offsetTitleCenter": "Great-circle distance from the location map's GPS centre",
+    "mapMarkerOutside": "The find's GPS lies outside the area captured by this location map.",
+    "mapMarkerNoGps": "The find has no recorded GPS coordinates — its position can't be drawn on the map.",
+    "anonMapAria": "The location of the anonymized find is hidden",
+    "anonMapBadge": "Location hidden",
+    "findMarkerAria": "Find position on the map",
+    "mapImageFallback": "Location map"
   }
 }

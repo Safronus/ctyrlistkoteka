@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
+import { useTranslations } from "next-intl";
 import {
   ArrowDownNarrowWide,
   ArrowUpNarrowWide,
@@ -42,6 +43,7 @@ export function ViewSortToolbar({
    *  not buried in the FilterBar dropdown stack. URL param: hasPhoto=1. */
   hasPhoto: boolean;
 }) {
+  const t = useTranslations("ViewSortToolbar");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -64,11 +66,11 @@ export function ViewSortToolbar({
       }`}
     >
       <Segmented
-        label="Zobrazení"
+        label={t("view")}
         value={view}
         options={[
-          { value: "grid", label: "Dlaždice", icon: <LayoutGrid className="h-4 w-4" /> },
-          { value: "list", label: "Seznam", icon: <List className="h-4 w-4" /> },
+          { value: "grid", label: t("viewGrid"), icon: <LayoutGrid className="h-4 w-4" /> },
+          { value: "list", label: t("viewList"), icon: <List className="h-4 w-4" /> },
         ]}
         onChange={(v) => setParam("view", v, "list")}
       />
@@ -89,7 +91,7 @@ export function ViewSortToolbar({
         }`}
       >
         <Camera className="h-4 w-4" aria-hidden />
-        <span>S fotkou daru</span>
+        <span>{t("hasPhotoToggle")}</span>
       </button>
 
       {/* Date range — second-stage filtration sitting between view and
@@ -99,15 +101,15 @@ export function ViewSortToolbar({
           via the native UI. */}
       <div
         role="group"
-        aria-label="Datum nálezu"
+        aria-label={t("dateGroup")}
         className="inline-flex items-center gap-1.5 text-sm text-gray-600"
       >
         <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          Datum
+          {t("dateLabel")}
         </span>
         <input
           type="date"
-          aria-label="Datum od"
+          aria-label={t("dateFrom")}
           value={dateFrom || minDate || ""}
           min={minDate || undefined}
           max={dateTo || maxDate || undefined}
@@ -119,7 +121,7 @@ export function ViewSortToolbar({
         </span>
         <input
           type="date"
-          aria-label="Datum do"
+          aria-label={t("dateTo")}
           value={dateTo || maxDate || ""}
           min={dateFrom || minDate || undefined}
           max={maxDate || undefined}
@@ -129,27 +131,27 @@ export function ViewSortToolbar({
       </div>
 
       <Segmented
-        label="Řazení"
+        label={t("sort")}
         value={sort}
         options={[
           {
             value: "desc",
-            label: "Nejnovější",
+            label: t("sortDesc"),
             icon: <ArrowDownNarrowWide className="h-4 w-4" />,
           },
           {
             value: "asc",
-            label: "Nejstarší",
+            label: t("sortAsc"),
             icon: <ArrowUpNarrowWide className="h-4 w-4" />,
           },
           {
             value: "dist-asc",
-            label: "Nejbližší",
+            label: t("sortDistAsc"),
             icon: <Compass className="h-4 w-4" />,
           },
           {
             value: "dist-desc",
-            label: "Nejvzdálenější",
+            label: t("sortDistDesc"),
             icon: <Globe className="h-4 w-4" />,
           },
         ]}

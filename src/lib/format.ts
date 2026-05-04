@@ -1,10 +1,38 @@
 /**
- * Czech-language formatting helpers. Kept small and dependency-free.
+ * Locale-aware formatting helpers.
+ *
+ * Most helpers take an optional `locale` parameter that defaults to
+ * `"cs-CZ"` — this preserves every existing call site (no diffs needed
+ * to keep Czech rendering) while letting i18n-aware callers pass
+ * `"en-US"` (or `useLocale()` resolved to the BCP-47 form) for English
+ * pages. The function names retain their "Cs" suffix for now to keep
+ * the refactor diff small; rename can land in a follow-up if/when the
+ * Czech-specific connotation feels misleading.
+ *
+ * Pluralization is handled differently — the legacy `pluralCs` /
+ * `formatCount` helpers stay for Czech-only call sites, but page-level
+ * UI on i18n-aware routes should prefer next-intl's
+ * `t('key', {count})` ICU plural forms instead.
  */
 
-export function formatDateCs(date: Date | null | undefined): string {
+/** BCP-47 tag → Intl-friendly locale. Maps next-intl's two-letter
+ *  codes (`"cs"` / `"en"`) onto the regional variants `Intl` expects
+ *  (`"cs-CZ"` / `"en-GB"`). The site is run from CZ; en-GB matches the
+ *  metric units + DD/MM/YYYY ordering Czech readers' "English mode"
+ *  expectations more closely than en-US (12 May 2018 vs May 12, 2018). */
+function toIntlLocale(locale: string | undefined): string {
+  if (!locale) return "cs-CZ";
+  if (locale === "cs") return "cs-CZ";
+  if (locale === "en") return "en-GB";
+  return locale;
+}
+
+export function formatDateCs(
+  date: Date | null | undefined,
+  locale?: string,
+): string {
   if (!date) return "—";
-  return new Intl.DateTimeFormat("cs-CZ", {
+  return new Intl.DateTimeFormat(toIntlLocale(locale), {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -12,9 +40,12 @@ export function formatDateCs(date: Date | null | undefined): string {
   }).format(date);
 }
 
-export function formatShortDateCs(date: Date | null | undefined): string {
+export function formatShortDateCs(
+  date: Date | null | undefined,
+  locale?: string,
+): string {
   if (!date) return "—";
-  return new Intl.DateTimeFormat("cs-CZ", {
+  return new Intl.DateTimeFormat(toIntlLocale(locale), {
     weekday: "short",
     day: "numeric",
     month: "numeric",
@@ -27,9 +58,12 @@ export function formatShortDateCs(date: Date | null | undefined): string {
  * the grid card. Short weekday keeps the column from blowing out, but
  * the day-of-week is still visible at a glance.
  */
-export function formatShortDateTimeCs(date: Date | null | undefined): string {
+export function formatShortDateTimeCs(
+  date: Date | null | undefined,
+  locale?: string,
+): string {
   if (!date) return "—";
-  return new Intl.DateTimeFormat("cs-CZ", {
+  return new Intl.DateTimeFormat(toIntlLocale(locale), {
     weekday: "short",
     day: "numeric",
     month: "numeric",
@@ -46,9 +80,12 @@ export function formatShortDateTimeCs(date: Date | null | undefined): string {
  * the location detail panel, and the sbirka list rows where the EXIF
  * capture time matters and there's room for the long form.
  */
-export function formatDateTimeCs(date: Date | null | undefined): string {
+export function formatDateTimeCs(
+  date: Date | null | undefined,
+  locale?: string,
+): string {
   if (!date) return "—";
-  return new Intl.DateTimeFormat("cs-CZ", {
+  return new Intl.DateTimeFormat(toIntlLocale(locale), {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -232,23 +269,22 @@ export function locationDetailHref(id: number): string {
  * inside GPS noise but enough that adjacent finds always read as
  * distinct values in lists.
  */
-export function formatDistance(meters: number): string {
+export function formatDistance(meters: number, locale?: string): string {
   if (!Number.isFinite(meters) || meters < 0) return "";
+  const lang = toIntlLocale(locale);
   if (meters < 1) {
-    return `${new Intl.NumberFormat("cs-CZ").format(
-      Math.round(meters * 100),
-    )} cm`;
+    return `${new Intl.NumberFormat(lang).format(Math.round(meters * 100))} cm`;
   }
   if (meters < 1000) {
-    return `${new Intl.NumberFormat("cs-CZ").format(Math.round(meters))} m`;
+    return `${new Intl.NumberFormat(lang).format(Math.round(meters))} m`;
   }
   const km = meters / 1000;
   if (km < 100) {
-    return `${new Intl.NumberFormat("cs-CZ", {
+    return `${new Intl.NumberFormat(lang, {
       maximumFractionDigits: 1,
     }).format(km)} km`;
   }
-  return `${new Intl.NumberFormat("cs-CZ", {
+  return `${new Intl.NumberFormat(lang, {
     minimumFractionDigits: 3,
     maximumFractionDigits: 3,
   }).format(km)} km`;
@@ -261,16 +297,26 @@ export function formatDistance(meters: number): string {
  *  authoritative inside/outside indicator (PostGIS ST_Covers, not a
  *  metres heuristic) — points sitting < 1 m OUTSIDE the polygon edge
  *  must still read as "X m od hrany AOI", not "uvnitř AOI". */
-export function formatLocationOffset(offset: {
-  meters: number;
-  mode: "polygon" | "center";
-  inside: boolean;
-}): string {
+export function formatLocationOffset(
+  offset: {
+    meters: number;
+    mode: "polygon" | "center";
+    inside: boolean;
+  },
+  locale?: string,
+): string {
+  // The phrase fragments stay Czech here even when locale=en — the
+  // page-level wrapper that calls this function only feeds Czech to
+  // CZ pages. Translating these short phrases through next-intl from
+  // a plain JS helper would require restructuring the call sites
+  // beyond this F2 scope. Acceptable trade-off: the leading number
+  // is locale-aware (formatDistance), the trailing phrase reads
+  // Czech on /en/ for now and gets a follow-up in F2b.
   if (offset.mode === "polygon") {
     if (offset.inside) return "uvnitř AOI";
-    return `${formatDistance(offset.meters)} od hrany AOI`;
+    return `${formatDistance(offset.meters, locale)} od hrany AOI`;
   }
-  return `${formatDistance(offset.meters)} od středu mapy`;
+  return `${formatDistance(offset.meters, locale)} od středu mapy`;
 }
 
 /** Tailwind color class for a find's offset, signalling at a glance
