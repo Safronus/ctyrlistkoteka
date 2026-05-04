@@ -20,6 +20,17 @@ export const routing = defineRouting({
   locales: ["cs", "en"] as const,
   defaultLocale: "cs",
   localePrefix: "as-needed",
+  // Disable next-intl's automatic locale detection. With it on (the
+  // default), the middleware reads the `NEXT_LOCALE` cookie and the
+  // `Accept-Language` header, and 307-redirects every prefix-free URL
+  // (`/sbirka`) to the cookied locale (`/en/sbirka`) — including the
+  // ones the user is *explicitly trying to reach* via the locale
+  // switcher's CZ pill. Result: clicking CZ from EN ends up back on
+  // EN, the page seems "stuck" until private browsing wipes the
+  // cookie. Hard rule for this site: the URL alone determines the
+  // locale; the visitor's choice survives across navigations because
+  // the URL changes, not because of a hidden cookie.
+  localeDetection: false,
 });
 
 export type Locale = (typeof routing.locales)[number];
