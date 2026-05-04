@@ -12,32 +12,33 @@ import {
   Globe,
   Hash,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { LocationSort } from "@/lib/queries/locations";
 
-const SORT_OPTIONS: ReadonlyArray<{
+const SORT_KEYS: ReadonlyArray<{
   value: LocationSort;
-  label: string;
+  key: string;
   icon: React.ReactNode;
 }> = [
   {
     value: "finds",
-    label: "Nejvíce nálezů",
+    key: "sortFinds",
     icon: <ArrowDownNarrowWide className="h-4 w-4" />,
   },
-  { value: "id", label: "Podle ID", icon: <Hash className="h-4 w-4" /> },
+  { value: "id", key: "sortId", icon: <Hash className="h-4 w-4" /> },
   {
     value: "code",
-    label: "Abecedně",
+    key: "sortCode",
     icon: <ArrowDownAZ className="h-4 w-4" />,
   },
   {
     value: "dist-asc",
-    label: "Nejbližší",
+    key: "sortDistAsc",
     icon: <Compass className="h-4 w-4" />,
   },
   {
     value: "dist-desc",
-    label: "Nejvzdálenější",
+    key: "sortDistDesc",
     icon: <Globe className="h-4 w-4" />,
   },
 ];
@@ -53,6 +54,7 @@ export function LocationsToolbar({
     hasFilters: boolean;
   };
 }) {
+  const t = useTranslations("LocationsToolbar");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -89,23 +91,21 @@ export function LocationsToolbar({
       <div className="flex flex-wrap items-center gap-2">
         <ToggleButton
           pressed={current.showAnonymized}
-          onClick={() =>
-            toggleFlag("showAnon", !current.showAnonymized)
-          }
+          onClick={() => toggleFlag("showAnon", !current.showAnonymized)}
           icon={<EyeOff className="h-4 w-4" />}
-          label="Anonymizované"
+          label={t("anonymized")}
         />
         <ToggleButton
           pressed={current.showGone}
           onClick={() => toggleFlag("showGone", !current.showGone)}
           icon={<Archive className="h-4 w-4" />}
-          label="Zaniklé"
+          label={t("gone")}
         />
         <ToggleButton
           pressed={current.hasRealPhoto}
           onClick={() => toggleFlag("hasPhoto", !current.hasRealPhoto)}
           icon={<Camera className="h-4 w-4" />}
-          label="S reálnou fotkou"
+          label={t("hasRealPhoto")}
         />
         {current.hasFilters && (
           <button
@@ -113,17 +113,17 @@ export function LocationsToolbar({
             onClick={clearAll}
             className="ml-1 text-sm text-brand-700 hover:underline"
           >
-            Zrušit filtry
+            {t("clearFilters")}
           </button>
         )}
       </div>
 
       <div
         role="group"
-        aria-label="Řazení"
+        aria-label={t("sortAria")}
         className="inline-flex h-9 max-w-full overflow-x-auto rounded-md border border-gray-300 bg-white"
       >
-        {SORT_OPTIONS.map((opt, i) => {
+        {SORT_KEYS.map((opt, i) => {
           const active = opt.value === current.sort;
           return (
             <button
@@ -142,7 +142,7 @@ export function LocationsToolbar({
               }`}
             >
               {opt.icon}
-              <span>{opt.label}</span>
+              <span>{t(opt.key)}</span>
             </button>
           );
         })}

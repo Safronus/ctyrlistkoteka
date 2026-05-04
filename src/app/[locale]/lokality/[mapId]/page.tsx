@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
@@ -10,6 +9,8 @@ import {
   ListIcon,
   MapPin,
 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { GpsValue } from "@/components/finds/gps-value";
 import {
   formatAreaM2,
@@ -19,8 +20,6 @@ import {
   formatDistance,
   formatLocationId,
   locationDetailHref,
-  pluralCs,
-  FINDS,
 } from "@/lib/format";
 import {
   getAllLocationIds,
@@ -32,16 +31,16 @@ import {
 import { countryFromCoords } from "@/lib/geo";
 import { RealPhotoButton } from "@/components/locations/real-photo-button";
 
+type DetailT = Awaited<ReturnType<typeof getTranslations<"LocationDetail">>>;
+type RowT = Awaited<ReturnType<typeof getTranslations<"LocationRow">>>;
+
 interface PageProps {
-  params: Promise<{ mapId: string }>;
+  params: Promise<{ mapId: string; locale: string }>;
 }
 
 // Match FIND_REVALIDATE in src/lib/constants.ts (24 hours).
 export const revalidate = 86400;
 
-/** Parse "00001" → 1. Accepts any leading-zero count for tolerance,
- *  but the canonical link form is always five digits. Returns null
- *  on anything that isn't a positive integer. */
 function parseMapId(value: string): number | null {
   if (!/^\d+$/.test(value)) return null;
   const n = parseInt(value, 10);
@@ -57,40 +56,44 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { mapId } = await params;
+  const t = await getTranslations("LocationDetail");
   const id = parseMapId(mapId);
-  if (id === null) return { title: "Nenalezeno" };
+  if (id === null) return { title: t("metaNotFound") };
   const detail = await getLocationDetailById(id);
-  if (!detail) return { title: "Nenalezeno" };
+  if (!detail) return { title: t("metaNotFound") };
 
-  // Anonymized: minimal metadata + noindex. The detail body renders a
-  // stub but the page still needs valid <title> for browsers/feed
-  // readers; we just don't expose code/displayName.
   if (detail.base.isAnonymized) {
     return {
-      title: `Lokalita ${formatLocationId(detail.base.id)}`,
-      description: `Anonymizovaná lokalita ${formatLocationId(detail.base.id)}.`,
+      title: t("metaAnonymizedTitle", { id: formatLocationId(detail.base.id) }),
+      description: t("metaAnonymizedDescription", {
+        id: formatLocationId(detail.base.id),
+      }),
       robots: { index: false, follow: false },
     };
   }
 
   const { base } = detail;
   const findCount = base.aggregateStats.total;
+  const tRow = await getTranslations("LocationRow");
   const description = [
-    `Lokalita ${formatLocationId(base.id)} – ${base.code}`,
+    `${formatLocationId(base.id)} – ${base.code}`,
     base.displayName && base.displayName !== base.code
       ? `(${base.displayName})`
       : null,
-    findCount > 0 ? `${findCount} ${pluralCs(findCount, FINDS)}` : null,
+    findCount > 0 ? tRow("countSuffix", { count: findCount }) : null,
     base.cadastralArea ? `${base.cadastralArea}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
 
   return {
-    title: `${base.code} – ${formatLocationId(base.id)}`,
+    title: t("metaTitle", { code: base.code, id: formatLocationId(base.id) }),
     description,
     openGraph: {
-      title: `${base.code} – lokalita ${formatLocationId(base.id)}`,
+      title: t("ogTitle", {
+        code: base.code,
+        id: formatLocationId(base.id),
+      }),
       description,
       type: "article",
     },
@@ -98,19 +101,22 @@ export async function generateMetadata({
 }
 
 export default async function LocationDetailPage({ params }: PageProps) {
-  const { mapId } = await params;
+  const { mapId, locale } = await params;
   const id = parseMapId(mapId);
   if (id === null) notFound();
 
   const detail = await getLocationDetailById(id);
   if (!detail) notFound();
 
+  const t = await getTranslations("LocationDetail");
+  const tRow = await getTranslations("LocationRow");
+
   const { base } = detail;
 
   return (
     <article className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <nav
-        aria-label="Zpět na seznam lokalit"
+        aria-label={t("backToList")}
         className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500"
       >
         <Link
@@ -118,24 +124,20 @@ export default async function LocationDetailPage({ params }: PageProps) {
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-gray-700 transition hover:bg-gray-100 hover:text-brand-700"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
-          <span>Zpět na seznam lokalit</span>
+          <span>{t("backToList")}</span>
         </Link>
       </nav>
 
       {base.isAnonymized ? (
-        <AnonymizedStub id={base.id} />
+        <AnonymizedStub id={base.id} t={t} />
       ) : (
-        <FullDetail detail={detail} />
+        <FullDetail detail={detail} t={t} tRow={tRow} locale={locale} />
       )}
     </article>
   );
 }
 
-// ---------------------------------------------------------------------------
-//  Anonymized stub
-// ---------------------------------------------------------------------------
-
-function AnonymizedStub({ id }: { id: number }) {
+function AnonymizedStub({ id, t }: { id: number; t: DetailT }) {
   return (
     <>
       <header className="space-y-2">
@@ -143,7 +145,7 @@ function AnonymizedStub({ id }: { id: number }) {
           <span className="font-mono text-base text-gray-500">
             {formatLocationId(id)}
           </span>
-          Anonymizovaná lokalita
+          {t("anonymizedH1")}
         </h1>
       </header>
       <div className="flex items-start gap-3 rounded-xl border border-purple-200 bg-purple-50 p-5 text-sm text-purple-900">
@@ -152,26 +154,31 @@ function AnonymizedStub({ id }: { id: number }) {
           aria-hidden
         />
         <div className="space-y-1">
-          <p className="font-medium">Detail této lokality se nezobrazuje</p>
-          <p>
-            Lokalita je anonymizovaná. Její kód, popis ani polohu nelze na
-            veřejném webu vystavit.
-          </p>
+          <p className="font-medium">{t("anonymizedNoticeTitle")}</p>
+          <p>{t("anonymizedNoticeBody")}</p>
         </div>
       </div>
     </>
   );
 }
 
-// ---------------------------------------------------------------------------
-//  Full detail
-// ---------------------------------------------------------------------------
-
-function FullDetail({ detail }: { detail: LocationDetail }) {
+function FullDetail({
+  detail,
+  t,
+  tRow,
+  locale,
+}: {
+  detail: LocationDetail;
+  t: DetailT;
+  tRow: RowT;
+  locale: string;
+}) {
   const { base, maps, parent, siblings, children, recentFinds } = detail;
   const isChild = base.parentId !== null;
   const isLeaf = base.childCount === 0;
   const aggregate = base.aggregateStats;
+  const intlLocale = locale === "cs" ? "cs-CZ" : "en-GB";
+  const numFmt = new Intl.NumberFormat(intlLocale);
 
   return (
     <>
@@ -189,25 +196,21 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
           {isChild && (
             <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-700">
               <CornerDownRight className="h-3.5 w-3.5" aria-hidden />
-              dílčí část
+              {t("subPartLabel")}
             </span>
           )}
           {base.childCount > 0 && (
             <span
               className="inline-flex items-center gap-1 rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-800"
-              title="Lokalita je rozdělena na dílčí části"
+              title={t("subpartsTitle")}
             >
-              <Layers className="h-3 w-3" aria-hidden />+ {base.childCount}{" "}
-              {base.childCount === 1
-                ? "část"
-                : base.childCount < 5
-                  ? "části"
-                  : "částí"}
+              <Layers className="h-3 w-3" aria-hidden />+{" "}
+              {tRow("partsBadge", { count: base.childCount })}
             </span>
           )}
           {base.isGone && (
             <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
-              Zaniklá
+              {t("goneBadge")}
             </span>
           )}
         </div>
@@ -216,12 +219,6 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
           <p className="text-base text-gray-700">{base.displayName}</p>
         )}
 
-        {/* Geographic placement under the title: country (point-in-polygon
-            against bundled Natural Earth, no API) + city (cadastralArea
-            parsed from the location-map filename at sync time). The
-            location-type tag — historically e.g. "Pole" / "Park" — is
-            dropped: it duplicated info already implicit in the code and
-            the country line reads cleaner without it. */}
         <p className="text-sm text-gray-500">
           {[
             base.coordinates
@@ -237,9 +234,6 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
         </p>
       </header>
 
-      {/* Header CTAs — same shape as the home cards: full-width on
-          narrow viewports, side-by-side from sm. /sbirka folds parent
-          into children automatically. */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Link
           href={`/sbirka?loc=${base.id}`}
@@ -248,8 +242,8 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
           <ListIcon className="h-4 w-4" aria-hidden />
           <span>
             {aggregate.total > 0
-              ? `Všechny nálezy (${aggregate.total.toLocaleString("cs-CZ")})`
-              : "Všechny nálezy"}
+              ? t("allFindsCta", { count: numFmt.format(aggregate.total) })
+              : t("allFindsEmptyCta")}
           </span>
         </Link>
         <Link
@@ -257,19 +251,13 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
           className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
         >
           <MapPin className="h-4 w-4" aria-hidden />
-          <span>Zobrazit na mapě</span>
+          <span>{t("showOnMapCta")}</span>
         </Link>
       </div>
 
-      {/* Maps gallery (PNG overlays from EXIF metadata). One figure per
-          map, no find-specific pin — this is just the location for
-          context. Anonymized maps are filtered out upstream.
-          The optional real-life photo (when the author uploaded one
-          into ${GENERATED_DIR}/location-photos/) lives behind a button
-          in the panel header — opens a modal with the full image. */}
       {maps.length > 0 && (
         <Panel
-          title="Mapa lokality"
+          title={t("panelMap")}
           rightSlot={(() => {
             const photoMap = maps.find((m) => m.realPhotoUrl !== null);
             if (!photoMap || !photoMap.realPhotoUrl) return undefined;
@@ -287,11 +275,10 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
                 key={m.id}
                 className="overflow-hidden rounded-md border border-gray-200 bg-gray-50"
               >
-                {/* Served by Nginx. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={m.imageUrl}
-                  alt={m.description ?? "Mapa lokality"}
+                  alt={m.description ?? t("mapImageFallback")}
                   loading="lazy"
                   decoding="async"
                   className="block h-auto w-full"
@@ -307,30 +294,30 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
         </Panel>
       )}
 
-      <Panel title="Souhrn">
-        <SummaryGrid base={base} />
+      <Panel title={t("panelSummary")}>
+        <SummaryGrid base={base} t={t} locale={locale} numFmt={numFmt} />
       </Panel>
 
       {(parent || siblings.length > 0 || children.length > 0) && (
-        <Panel title={isLeaf ? "Související lokality" : "Dílčí části"}>
+        <Panel title={isLeaf ? t("panelRelated") : t("panelSubparts")}>
           <div className="space-y-3">
             {parent && (
               <div className="space-y-1.5">
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  Nadřazená lokalita
+                  {t("parentSection")}
                 </p>
-                <HandleRow handle={parent} />
+                <HandleRow handle={parent} t={t} />
               </div>
             )}
             {siblings.length > 0 && (
               <div className="space-y-1.5">
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  Sourozenecké části ({siblings.length})
+                  {t("siblingsSection", { count: siblings.length })}
                 </p>
                 <ul className="space-y-1">
                   {siblings.map((s) => (
                     <li key={s.id}>
-                      <HandleRow handle={s} />
+                      <HandleRow handle={s} t={t} />
                     </li>
                   ))}
                 </ul>
@@ -338,18 +325,15 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
             )}
             {children.length > 0 && (
               <div className="space-y-1.5">
-                {/* When the current node is a master, the panel title
-                    "Dílčí části" already names this section — render the
-                    children list bare to avoid the duplicate header. */}
                 {isChild && (
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                    Dílčí části ({children.length})
+                    {t("subpartsSection", { count: children.length })}
                   </p>
                 )}
                 <ul className="space-y-1">
                   {children.map((c) => (
                     <li key={c.id}>
-                      <HandleRow handle={c} />
+                      <HandleRow handle={c} t={t} />
                     </li>
                   ))}
                 </ul>
@@ -361,26 +345,26 @@ function FullDetail({ detail }: { detail: LocationDetail }) {
 
       {recentFinds.length > 0 && (
         <Panel
-          title="Nedávné nálezy"
+          title={t("panelRecent")}
           rightSlot={
             <Link
               href={`/sbirka?loc=${base.id}`}
               className="text-xs font-medium text-brand-700 hover:underline"
             >
-              Vše →
+              {t("showAll")}
             </Link>
           }
         >
-          <RecentFindsGrid finds={recentFinds} locationCode={base.code} />
+          <RecentFindsGrid
+            finds={recentFinds}
+            locationCode={base.code}
+            locale={locale}
+          />
         </Panel>
       )}
     </>
   );
 }
-
-// ---------------------------------------------------------------------------
-//  Sub-components
-// ---------------------------------------------------------------------------
 
 function Panel({
   title,
@@ -404,15 +388,18 @@ function Panel({
 
 function SummaryGrid({
   base,
+  t,
+  locale,
+  numFmt,
 }: {
   base: LocationDetail["base"];
+  t: DetailT;
+  locale: string;
+  numFmt: Intl.NumberFormat;
 }) {
   const aggregate = base.aggregateStats;
   const own = base.stats;
   const hasChildren = base.childCount > 0;
-  // Single-find lokalities have firstFindId === lastFindId (or just one of
-  // them set). Merge the two slots into one "Nález" field so the panel
-  // doesn't repeat the same row twice with the same date.
   const singleFind =
     aggregate.firstFindId !== null &&
     aggregate.lastFindId !== null &&
@@ -420,25 +407,27 @@ function SummaryGrid({
 
   return (
     <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-      <Field label="Počet nálezů">
+      <Field label={t("kvFindCount")}>
         <span className="font-mono text-base font-semibold text-brand-700 tabular-nums">
-          {aggregate.total.toLocaleString("cs-CZ")}
+          {numFmt.format(aggregate.total)}
         </span>
         {hasChildren && (
           <span className="ml-2 text-xs text-gray-500">
-            (přímo {own.total.toLocaleString("cs-CZ")} + dílčí části{" "}
-            {(aggregate.total - own.total).toLocaleString("cs-CZ")})
+            {t("kvFindCountSplit", {
+              own: numFmt.format(own.total),
+              children: numFmt.format(aggregate.total - own.total),
+            })}
           </span>
         )}
       </Field>
       {!singleFind && aggregate.firstFoundAt && aggregate.lastFoundAt && (
-        <Field label="Časový rozsah">
-          {formatDateCs(new Date(aggregate.firstFoundAt))} –{" "}
-          {formatDateCs(new Date(aggregate.lastFoundAt))}
+        <Field label={t("kvDateRange")}>
+          {formatDateCs(new Date(aggregate.firstFoundAt), locale)} –{" "}
+          {formatDateCs(new Date(aggregate.lastFoundAt), locale)}
         </Field>
       )}
       {base.coordinates && (
-        <Field label="GPS středu">
+        <Field label={t("kvCenterGps")}>
           <GpsValue
             lat={base.coordinates.lat}
             lng={base.coordinates.lng}
@@ -446,51 +435,57 @@ function SummaryGrid({
         </Field>
       )}
       {base.distanceFromDefault !== null && (
-        <Field label="Vzdálenost od mapy #00001">
+        <Field label={t("kvDistanceFromDefault")}>
           <span className="font-mono tabular-nums">
-            {formatDistance(base.distanceFromDefault)}
+            {formatDistance(base.distanceFromDefault, locale)}
           </span>
         </Field>
       )}
       {base.polygonAreaM2 !== null && (
-        <Field label="Plocha polygonu">
+        <Field label={t("kvPolygonArea")}>
           <span className="font-mono tabular-nums">
             {formatAreaM2(base.polygonAreaM2)}
           </span>
         </Field>
       )}
       {base.densityPer100m2 !== null && (
-        <Field label="Hustota nálezů">
+        <Field label={t("kvDensity")}>
           <span className="font-mono tabular-nums">
             {formatDensityPer100m2(base.densityPer100m2)}
           </span>
           <span className="ml-1 text-xs text-gray-500">
-            (vlastních / 100 m²)
+            {t("kvDensitySuffix")}
           </span>
         </Field>
       )}
       {singleFind ? (
-        <Field label="Nález">
+        <Field label={t("kvFind")}>
           <FindRefLinks
             findId={aggregate.firstFindId!}
             foundAt={aggregate.firstFoundAt}
+            t={t}
+            locale={locale}
           />
         </Field>
       ) : (
         <>
           {aggregate.firstFindId !== null && (
-            <Field label="První nález">
+            <Field label={t("kvFirstFind")}>
               <FindRefLinks
                 findId={aggregate.firstFindId}
                 foundAt={aggregate.firstFoundAt}
+                t={t}
+                locale={locale}
               />
             </Field>
           )}
           {aggregate.lastFindId !== null && (
-            <Field label="Poslední nález">
+            <Field label={t("kvLastFind")}>
               <FindRefLinks
                 findId={aggregate.lastFindId}
                 foundAt={aggregate.lastFoundAt}
+                t={t}
+                locale={locale}
               />
             </Field>
           )}
@@ -500,36 +495,36 @@ function SummaryGrid({
   );
 }
 
-/** First/last find reference: ID + optional date as a /sbirka deep-link
- *  plus a small map-pin shortcut to /mapa?find=N. Same shape used in
- *  both single-find ("Nález") and range ("První nález" / "Poslední
- *  nález") slots so the visual is consistent. */
 function FindRefLinks({
   findId,
   foundAt,
+  t,
+  locale,
 }: {
   findId: number;
   foundAt: string | null;
+  t: DetailT;
+  locale: string;
 }) {
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
       <Link
         href={`/sbirka/${findId}`}
         className="inline-flex items-center gap-1 font-mono text-brand-700 hover:underline"
-        title="Detail nálezu"
+        title={t("findDetailTitle")}
       >
         #{findId}
         <ExternalLink className="h-3 w-3" aria-hidden />
       </Link>
       {foundAt && (
         <span className="text-xs text-gray-600">
-          {formatDateCs(new Date(foundAt))}
+          {formatDateCs(new Date(foundAt), locale)}
         </span>
       )}
       <Link
         href={`/mapa?find=${findId}`}
-        aria-label="Zobrazit nález na mapě"
-        title="Zobrazit nález na mapě"
+        aria-label={t("showFindOnMap")}
+        title={t("showFindOnMap")}
         className="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition hover:bg-brand-50 hover:text-brand-700"
       >
         <MapPin className="h-3.5 w-3.5" aria-hidden />
@@ -545,14 +540,6 @@ function Field({
   label: string;
   children: React.ReactNode;
 }) {
-  // Stacked label + value at every breakpoint. The previous mobile
-  // variant used `flex-row + justify-between` to bunch label-left /
-  // value-right, but long values (GPS coordinates, density with its
-  // "(vlastních / 100 m²)" suffix) wrapped under the right-pushed
-  // label and produced the cramped layout the user reported. Stacking
-  // gives the value the full row width on mobile; on sm+ the
-  // SummaryGrid is already a 2-column grid, so each cell still reads
-  // as a tidy label/value pair.
   return (
     <div className="flex flex-col items-start gap-1">
       <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -563,7 +550,7 @@ function Field({
   );
 }
 
-function HandleRow({ handle }: { handle: LocationHandle }) {
+function HandleRow({ handle, t }: { handle: LocationHandle; t: DetailT }) {
   return (
     <Link
       href={locationDetailHref(handle.id)}
@@ -589,31 +576,33 @@ function HandleRow({ handle }: { handle: LocationHandle }) {
         )}
         {handle.isGone && (
           <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
-            Zaniklá
+            {t("goneBadge")}
           </span>
         )}
       </div>
       <span className="shrink-0 text-xs text-gray-500">
-        {handle.findCount.toLocaleString("cs-CZ")}{" "}
-        {pluralCs(handle.findCount, FINDS)}
+        {t("partsCountInline", { count: handle.findCount })}
       </span>
     </Link>
   );
 }
 
-function RecentFindsGrid({
+async function RecentFindsGrid({
   finds,
   locationCode,
+  locale,
 }: {
   finds: readonly LocationDetailFindPreview[];
   locationCode: string;
+  locale: string;
 }) {
+  const tRow = await getTranslations("FindRow");
   return (
     <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
       {finds.map((f) => {
         const altText = f.isAnonymized
-          ? `Anonymizovaný nález #${f.id}`
-          : `Nález #${f.id} – ${locationCode}`;
+          ? tRow("anonymizedAlt", { id: f.id })
+          : `${tRow("findAlt", { id: f.id })} – ${locationCode}`;
         return (
           <li key={f.id}>
             <Link
@@ -622,7 +611,6 @@ function RecentFindsGrid({
             >
               <div className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-brand-50 to-brand-100">
                 {f.thumbUrl ? (
-                  // Served by Nginx, no Next.js optimizer.
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={f.thumbUrl}
@@ -646,7 +634,7 @@ function RecentFindsGrid({
                 </span>
                 {f.foundAt && (
                   <span className="ml-1.5 text-gray-500">
-                    {formatDateTimeCs(f.foundAt).split(",")[0]}
+                    {formatDateTimeCs(f.foundAt, locale).split(",")[0]}
                   </span>
                 )}
               </div>

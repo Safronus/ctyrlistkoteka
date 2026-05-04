@@ -2,6 +2,7 @@
 
 import { Camera, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 /**
  * Top-right affordance for the "Mapa lokality" panel that opens a modal
@@ -20,6 +21,8 @@ export function RealPhotoButton({
    *  looking at when several maps belong to one location. */
   caption: string;
 }) {
+  const t = useTranslations("RealPhotoButton");
+  const tCommon = useTranslations("Common");
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -35,11 +38,11 @@ export function RealPhotoButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title="Zobrazit reálnou fotku lokality"
+        title={t("openTitle")}
         className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
       >
         <Camera className="h-3.5 w-3.5" aria-hidden />
-        <span>Reálná fotka</span>
+        <span>{t("openLabel")}</span>
       </button>
 
       <dialog
@@ -60,13 +63,13 @@ export function RealPhotoButton({
             className="truncate text-sm font-semibold text-gray-900"
             title={caption}
           >
-            Reálná fotka — {caption}
+            {t("modalTitle", { caption })}
           </h2>
           <button
             type="button"
             onClick={() => setOpen(false)}
             className="-m-1 rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            aria-label="Zavřít"
+            aria-label={tCommon("close")}
           >
             <X className="h-4 w-4" aria-hidden />
           </button>
@@ -79,7 +82,7 @@ export function RealPhotoButton({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={photoUrl}
-            alt={`Reálná fotka lokality — ${caption}`}
+            alt={t("modalAlt", { caption })}
             className="block h-auto w-full rounded-md"
           />
         </div>
@@ -90,7 +93,7 @@ export function RealPhotoButton({
             rel="noopener noreferrer"
             className="font-medium text-brand-700 hover:underline"
           >
-            Otevřít originál ↗
+            {t("openOriginal")}
           </a>
         </div>
       </dialog>

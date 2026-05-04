@@ -3,6 +3,7 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const INPUT_CLS =
   "h-10 rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
@@ -17,6 +18,8 @@ export function LocationsFilterBar({
   countries: ReadonlyArray<{ code: string; name: string }>;
   current: { q: string; city: string; country: string };
 }) {
+  const t = useTranslations("LocationsFilterBar");
+  const tCommon = useTranslations("Common");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -40,12 +43,12 @@ export function LocationsFilterBar({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="sm:col-span-2 lg:col-span-2">
           <span className="mb-1 block text-xs font-medium text-gray-700">
-            Hledat
+            {t("search")}
           </span>
           <input
             type="search"
             defaultValue={current.q}
-            placeholder="Kód, popis nebo katastr…"
+            placeholder={t("searchPlaceholder")}
             className={`${INPUT_CLS} w-full`}
             onChange={(e) => {
               const v = e.currentTarget.value;
@@ -65,7 +68,7 @@ export function LocationsFilterBar({
 
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">
-            Stát
+            {t("country")}
           </span>
           <div className="relative">
             <select
@@ -73,7 +76,7 @@ export function LocationsFilterBar({
               onChange={(e) => update("country", e.currentTarget.value)}
               className={`${SELECT_CLS} w-full`}
             >
-              <option value="">Všechny</option>
+              <option value="">{tCommon("all")}</option>
               {countries.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.name}
@@ -89,7 +92,7 @@ export function LocationsFilterBar({
 
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">
-            Město
+            {t("city")}
           </span>
           <div className="relative">
             <select
@@ -97,7 +100,7 @@ export function LocationsFilterBar({
               onChange={(e) => update("city", e.currentTarget.value)}
               className={`${SELECT_CLS} w-full`}
             >
-              <option value="">Všechna</option>
+              <option value="">{tCommon("allAlt")}</option>
               {cities.map((c) => (
                 <option key={c} value={c}>
                   {c}

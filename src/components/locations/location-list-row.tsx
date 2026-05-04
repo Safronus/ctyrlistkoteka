@@ -12,29 +12,28 @@ import {
   Layers,
   MapPin,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import type { LocationListItem } from "@/lib/queries/locations";
 import { GpsValue } from "@/components/finds/gps-value";
-import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
+import { STATE_BADGE } from "@/lib/stateLabels";
 import {
   formatAreaM2,
-  formatCount,
-  formatDensityPer100m2,
   formatDateTimeCs,
   formatDistance,
   formatLocationId,
   formatTimeSinceCs,
+  formatDensityPer100m2,
   locationDetailHref,
-  FINDS,
 } from "@/lib/format";
+import type { FindState } from "@prisma/client";
+
+type RowT = ReturnType<typeof useTranslations<"LocationRow">>;
 
 export function LocationListRow({ location }: { location: LocationListItem }) {
+  const t = useTranslations("LocationRow");
   const [open, setOpen] = useState(false);
   const toggle = () => setOpen((o) => !o);
 
-  // Whole row is the click/keyboard target. Using role=button instead of
-  // <button> lets the GpsValue toggle (also a button) live inside without
-  // creating an invalid nested-button — its own onClick already
-  // stopPropagation()s.
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -42,22 +41,14 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
     }
   };
 
-  // Hierarchy flag — only set for visible (non-anonymized) sub-parts. The
-  // listLocations() query already nulls parentId on anonymized rows so
-  // their parent association can't be inferred.
   const isChild = !location.isAnonymized && location.parentId !== null;
 
-  // Anonymizace má přednost před zaniklou — privacy je tvrdší. Pokud
-  // by lokalita byla obojí, render se chová jako anonymizovaná.
   const tone = location.isAnonymized
     ? "bg-purple-50/60 hover:bg-purple-100/60 focus:bg-purple-100/60"
     : location.isGone
       ? "bg-rose-50/60 hover:bg-rose-100/60 focus:bg-rose-100/60"
       : "hover:bg-brand-50 focus:bg-brand-50";
 
-  // Visual nesting: a left border + extra left padding telegraphs the
-  // parent/child relationship in the flat list. Tinted brand-50 keeps the
-  // child distinguishable from a regular row even before hover.
   const indent = isChild
     ? "border-l-4 border-brand-200 bg-brand-50/40 pl-6 sm:pl-10"
     : "";
@@ -72,12 +63,12 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
         aria-expanded={open}
         className={`flex w-full cursor-pointer items-stretch gap-4 p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${tone} ${indent}`}
       >
-        <RowThumb location={location} />
+        <RowThumb location={location} t={t} />
         <div className="flex min-w-0 flex-1 flex-col justify-between gap-1">
-          <RowTitle location={location} isChild={isChild} />
+          <RowTitle location={location} isChild={isChild} t={t} />
           {!location.isAnonymized && (
             <>
-              <RowMeta location={location} />
+              <RowMeta location={location} t={t} />
               {location.coordinates && (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <GpsValue
@@ -87,28 +78,24 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
                   {location.distanceFromDefault !== null && (
                     <span
                       className="text-xs text-gray-500"
-                      title="Vzdušná vzdálenost od GPS středu výchozí lokační mapy #00001"
+                      title={t("distanceFromMapTitle")}
                     >
                       <span className="font-mono tabular-nums text-gray-800">
                         {formatDistance(location.distanceFromDefault)}
                       </span>{" "}
-                      od mapy #00001
+                      {t("distanceFromMap")}
                     </span>
                   )}
                 </div>
               )}
             </>
           )}
-          {/* Find count is the only piece of metadata we surface for
-              anonymised rows — the count itself isn't sensitive (it
-              already drives Sbírka filters & Top lokality stats), but
-              GPS / detail / map links must stay hidden. */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <RowCount location={location} />
+            <RowCount location={location} t={t} />
             {!location.isAnonymized && (
               <>
-                <DetailLink location={location} />
-                <MapLink location={location} />
+                <DetailLink location={location} t={t} />
+                <MapLink location={location} t={t} />
               </>
             )}
           </div>
@@ -125,21 +112,23 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
         </div>
       </div>
 
-      {open && <StatsPanel location={location} />}
+      {open && <StatsPanel location={location} t={t} />}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-//  Row pieces
-
-function RowThumb({ location }: { location: LocationListItem }) {
+function RowThumb({
+  location,
+  t,
+}: {
+  location: LocationListItem;
+  t: RowT;
+}) {
   if (location.isAnonymized) {
-    // Generic placeholder — the actual map must not be shown.
     return (
       <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-purple-200 bg-purple-50 text-purple-400 sm:h-24 sm:w-24">
         <HelpCircle className="h-10 w-10" aria-hidden />
-        <span className="sr-only">Anonymizovaná lokalita</span>
+        <span className="sr-only">{t("anonymizedAriaShort")}</span>
       </div>
     );
   }
@@ -166,19 +155,19 @@ function RowThumb({ location }: { location: LocationListItem }) {
 function RowTitle({
   location,
   isChild,
+  t,
 }: {
   location: LocationListItem;
   isChild: boolean;
+  t: RowT;
 }) {
-  // Parent badge: only shown for non-anonymized rows that actually have at
-  // least one visible child after the showAnonymized/showGone filters.
   const showPartsBadge = !location.isAnonymized && location.childCount > 0;
   return (
     <div className="flex flex-wrap items-baseline gap-x-2">
       {isChild && (
         <CornerDownRight
           className="h-3.5 w-3.5 shrink-0 self-center text-brand-500"
-          aria-label="Dílčí část lokality"
+          aria-label={t("subPartAria")}
         />
       )}
       <span className="font-mono text-xs text-gray-500">
@@ -203,34 +192,27 @@ function RowTitle({
       {showPartsBadge && (
         <span
           className="inline-flex items-center gap-1 rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-800"
-          title="Lokalita je rozdělena na dílčí části"
+          title={t("partsBadgeTitle")}
         >
-          <Layers className="h-3 w-3" aria-hidden />+ {location.childCount}{" "}
-          {location.childCount === 1
-            ? "část"
-            : location.childCount < 5
-              ? "části"
-              : "částí"}
+          <Layers className="h-3 w-3" aria-hidden />+{" "}
+          {t("partsBadge", { count: location.childCount })}
         </span>
       )}
       {location.isAnonymized && (
         <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800">
-          Anonymizovaná
+          {t("anonymizedBadge")}
         </span>
       )}
       {location.isGone && (
         <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
-          Zaniklá
+          {t("goneBadge")}
         </span>
       )}
       {location.hasRealPhoto && (
-        // Camera-only chip — the icon carries the meaning, no need to
-        // crowd the title row with another textual badge. `title` covers
-        // hover + screen-reader context.
         <span
           className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800"
-          title="Lokalita má reálnou fotku"
-          aria-label="Lokalita má reálnou fotku"
+          title={t("hasRealPhotoTitle")}
+          aria-label={t("hasRealPhotoTitle")}
         >
           <Camera className="h-3 w-3" aria-hidden />
         </span>
@@ -239,21 +221,24 @@ function RowTitle({
   );
 }
 
-function RowMeta({ location }: { location: LocationListItem }) {
-  // Druhý řádek: celý kód lokality (font-mono, ne split části — uživatel
-  // viděl jen `cadastral · type` a chtěl celý code) + plocha polygonu +
-  // hustota nálezů (jen pokud máme polygon i vlastní nálezy).
+function RowMeta({
+  location,
+  t,
+}: {
+  location: LocationListItem;
+  t: RowT;
+}) {
   return (
     <p className="truncate text-xs text-gray-500">
       <span className="font-mono">{location.code}</span>
       {location.polygonAreaM2 !== null && (
-        <> · {`Plocha ${formatAreaM2(location.polygonAreaM2)}`}</>
+        <> · {`${t("areaPrefix")} ${formatAreaM2(location.polygonAreaM2)}`}</>
       )}
       {location.densityPer100m2 !== null && (
         <>
           {" · "}
-          <span title="Hustota nálezů — vlastních čtyřlístků na 100 m² polygonu">
-            {`Hustota ${formatDensityPer100m2(location.densityPer100m2)}`}
+          <span title={t("densityTitle")}>
+            {`${t("densityPrefix")} ${formatDensityPer100m2(location.densityPer100m2)}`}
           </span>
         </>
       )}
@@ -261,7 +246,13 @@ function RowMeta({ location }: { location: LocationListItem }) {
   );
 }
 
-function MapLink({ location }: { location: LocationListItem }) {
+function MapLink({
+  location,
+  t,
+}: {
+  location: LocationListItem;
+  t: RowT;
+}) {
   return (
     <Link
       href={`/mapa?focus=${location.id}`}
@@ -269,12 +260,18 @@ function MapLink({ location }: { location: LocationListItem }) {
       className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
     >
       <MapPin className="h-3.5 w-3.5" aria-hidden />
-      <span>Zobrazit na mapě</span>
+      <span>{t("mapLink")}</span>
     </Link>
   );
 }
 
-function DetailLink({ location }: { location: LocationListItem }) {
+function DetailLink({
+  location,
+  t,
+}: {
+  location: LocationListItem;
+  t: RowT;
+}) {
   return (
     <Link
       href={locationDetailHref(location.id)}
@@ -282,61 +279,60 @@ function DetailLink({ location }: { location: LocationListItem }) {
       className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
     >
       <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-      <span>Detail lokality</span>
+      <span>{t("detailLink")}</span>
     </Link>
   );
 }
 
-function RowCount({ location }: { location: LocationListItem }) {
-  // Master locations whose finds physically live on their sub-parts (e.g.
-  // RATIBOŘ_POLE001 with 0 own finds but 953 across 001a–001g) would
-  // otherwise read "0 nálezů" in the header — misleading. Use
-  // aggregateStats which equals stats for leaf locations and the folded
-  // total for parents.
+function RowCount({
+  location,
+  t,
+}: {
+  location: LocationListItem;
+  t: RowT;
+}) {
   const hasChildren = location.childCount > 0;
   const view = location.aggregateStats;
   return (
     <p className="text-sm font-medium text-brand-700">
-      {formatCount(view.total, FINDS)}
+      {t("countSuffix", { count: view.total })}
       {hasChildren && (
         <span className="ml-2 text-xs font-normal text-gray-500">
-          (vč. dílčích částí)
+          {t("subpartsCountSuffix")}
         </span>
       )}
       {view.anonymized > 0 && (
         <span className="ml-2 text-xs text-purple-600">
-          ({view.anonymized} anonymizovaných)
+          {t("anonymizedCountSuffix", { count: view.anonymized })}
         </span>
       )}
     </p>
   );
 }
 
-// ---------------------------------------------------------------------------
-//  Stats panel
-
-function StatsPanel({ location }: { location: LocationListItem }) {
+function StatsPanel({
+  location,
+  t,
+}: {
+  location: LocationListItem;
+  t: RowT;
+}) {
+  const tStates = useTranslations("States");
   if (location.isAnonymized) {
     return (
       <div className="border-t border-purple-200 bg-purple-50 px-3 py-4 text-sm text-purple-900 sm:px-6">
-        Detail anonymizované lokality se nezobrazuje.
+        {t("expandedAnonymized")}
       </div>
     );
   }
 
-  // The expanded panel renders the *combined* picture (location + every
-  // visible sub-part) — `aggregateStats` equals `stats` for leaves, so the
-  // same code path covers both cases. The own-vs-children split only
-  // surfaces in SummaryRow's sub-line.
   const view = location.aggregateStats;
   const stateMax = view.states.reduce((m, s) => Math.max(m, s.count), 0);
 
   return (
     <div className="border-t border-gray-200 bg-gray-50 px-3 py-4 sm:px-6">
       {view.total === 0 ? (
-        <p className="text-sm text-gray-500">
-          Pro tuto lokalitu zatím nejsou žádné nálezy.
-        </p>
+        <p className="text-sm text-gray-500">{t("emptyForLocation")}</p>
       ) : (
         <div className="space-y-4">
           <SummaryRow
@@ -345,18 +341,20 @@ function StatsPanel({ location }: { location: LocationListItem }) {
             firstFoundAt={view.firstFoundAt}
             lastFoundAt={view.lastFoundAt}
             childCount={location.childCount}
+            t={t}
           />
 
           <DetailLinks
             firstFindId={view.firstFindId}
             lastFindId={view.lastFindId}
             locationId={location.id}
+            t={t}
           />
 
           {view.states.length > 0 && (
             <div>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Stavy nálezů
+                {t("statesHeading")}
               </h3>
               <ul className="space-y-1.5">
                 {view.states.map((s) => (
@@ -364,15 +362,16 @@ function StatsPanel({ location }: { location: LocationListItem }) {
                     <span
                       className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${STATE_BADGE[s.state]}`}
                     >
-                      {STATE_LABELS[s.state]}
+                      {tStates(s.state as FindState)}
                     </span>
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
                       <div
                         className="h-full rounded-full bg-brand-500"
                         style={{
-                          width: stateMax > 0
-                            ? `${(s.count / stateMax) * 100}%`
-                            : "0%",
+                          width:
+                            stateMax > 0
+                              ? `${(s.count / stateMax) * 100}%`
+                              : "0%",
                         }}
                       />
                     </div>
@@ -396,37 +395,40 @@ function SummaryRow({
   firstFoundAt,
   lastFoundAt,
   childCount,
+  t,
 }: {
   ownTotal: number;
   aggregateTotal: number;
   firstFoundAt: string | null;
   lastFoundAt: string | null;
   childCount: number;
+  t: RowT;
 }) {
+  const locale = useLocale();
   const first = firstFoundAt ? new Date(firstFoundAt) : null;
   const last = lastFoundAt ? new Date(lastFoundAt) : null;
-  // Headline shows the combined total (matches the row header); the
-  // sub-line splits it into own vs. children when this is a parent so
-  // the visitor can still see both numbers.
   const hasChildren = childCount > 0;
   const totalSub = hasChildren
-    ? `Vlastní: ${ownTotal} · Z dílčích částí: ${aggregateTotal - ownTotal}`
+    ? t("ownVsChildren", {
+        own: ownTotal,
+        children: aggregateTotal - ownTotal,
+      })
     : null;
   return (
     <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
       <Stat
-        label="Celkem nálezů"
+        label={t("totalFinds")}
         value={String(aggregateTotal)}
         sub={totalSub}
       />
       <Stat
-        label="První nález"
-        value={first ? formatDateTimeCs(first) : "—"}
+        label={t("firstFound")}
+        value={first ? formatDateTimeCs(first, locale) : "—"}
         sub={first ? formatTimeSinceCs(first) : null}
       />
       <Stat
-        label="Poslední nález"
-        value={last ? formatDateTimeCs(last) : "—"}
+        label={t("lastFound")}
+        value={last ? formatDateTimeCs(last, locale) : "—"}
         sub={last ? formatTimeSinceCs(last) : null}
       />
     </dl>
@@ -437,10 +439,12 @@ function DetailLinks({
   firstFindId,
   lastFindId,
   locationId,
+  t,
 }: {
   firstFindId: number | null;
   lastFindId: number | null;
   locationId: number;
+  t: RowT;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -450,7 +454,7 @@ function DetailLinks({
           onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
         >
-          První nález #{firstFindId} →
+          {t("firstFindLink", { id: firstFindId })}
         </Link>
       )}
       {lastFindId !== null && lastFindId !== firstFindId && (
@@ -459,7 +463,7 @@ function DetailLinks({
           onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
         >
-          Poslední nález #{lastFindId} →
+          {t("lastFindLink", { id: lastFindId })}
         </Link>
       )}
       <Link
@@ -467,7 +471,7 @@ function DetailLinks({
         onClick={(e) => e.stopPropagation()}
         className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
       >
-        Vše ve sbírce →
+        {t("allInCollectionLink")}
       </Link>
     </div>
   );
