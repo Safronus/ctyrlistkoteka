@@ -1,0 +1,6 @@
+{
+  "_meta": {
+    "comment": "English message bundle. Keys must mirror cs.json one-for-one once translations land. Until then, missing keys fall back to the key string itself (next-intl default behaviour) — visible in the UI as a debug aid.",
+    "locale": "en"
+  }
+}

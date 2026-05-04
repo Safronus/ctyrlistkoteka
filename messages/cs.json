@@ -1,0 +1,6 @@
+{
+  "_meta": {
+    "comment": "Czech message bundle — default locale. Keys are gradually filled in as pages are migrated from hardcoded JSX strings to t('key') lookups.",
+    "locale": "cs"
+  }
+}

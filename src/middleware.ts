@@ -1,5 +1,17 @@
 /**
- * Per-request CSP with a nonce for inline scripts.
+ * Composed middleware: per-request CSP nonce + next-intl locale routing.
+ *
+ * Pipeline order matters. We compute the nonce + CSP first and stamp
+ * them onto the request headers (so server components like
+ * `ThemeScript` / `GoatCounterScript` can read `x-nonce` via
+ * `headers()`), then hand off to next-intl for any locale rewrite. The
+ * intl middleware preserves request headers across its
+ * `NextResponse.rewrite()`, so the nonce flows into the
+ * `[locale]/...` segment unchanged.
+ *
+ * `/admin/*` and `/api/*` skip i18n entirely — they're locale-agnostic
+ * (admin is Czech-only by user choice; API is JSON) and we don't want
+ * the matcher rewriting `/admin/checks` to `/cs/admin/checks`.
  *
  * Why middleware and not next.config.ts headers():
  * static `headers()` can't include a fresh nonce per response. We
@@ -19,8 +31,12 @@
  * tight nonce + strict-dynamic policy in production.
  */
 import { NextResponse, type NextRequest } from "next/server";
+import createIntlMiddleware from "next-intl/middleware";
+import { routing } from "./i18n/routing";
 
 const isDev = process.env.NODE_ENV !== "production";
+
+const intlMiddleware = createIntlMiddleware(routing);
 
 function buildCsp(nonce: string): string {
   // CSP wildcards require at least one explicit subdomain segment, so
@@ -89,16 +105,33 @@ export function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const csp = buildCsp(nonce);
 
-  // Forward the nonce to downstream server components by mutating the
-  // *request* headers — this is the canonical Next.js pattern for
-  // bridging middleware data into RSC.
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
-  requestHeaders.set("Content-Security-Policy", csp);
+  const pathname = request.nextUrl.pathname;
+  const isLocaleRoute =
+    !pathname.startsWith("/admin") && !pathname.startsWith("/api");
 
-  const response = NextResponse.next({
-    request: { headers: requestHeaders },
-  });
+  // Mutate the incoming request's headers in place so both the
+  // pass-through (NextResponse.next) and the next-intl rewrite branch
+  // see the nonce. Next.js' Headers proxy supports `.set()` on the
+  // request — the mutation propagates to whichever NextResponse the
+  // pipeline ends up returning.
+  request.headers.set("x-nonce", nonce);
+  request.headers.set("Content-Security-Policy", csp);
+
+  let response: NextResponse;
+  if (isLocaleRoute) {
+    // next-intl handles the locale prefix routing for `/`, `/sbirka`,
+    // `/lokality`, `/mapa`, `/statistiky` (rewrites to `/[locale]/...`
+    // internally) and the `/en/...` paths (passes through). The
+    // rewrite preserves request.headers, so x-nonce flows into RSC.
+    response = intlMiddleware(request);
+  } else {
+    // /admin and /api don't get a locale prefix — return a regular
+    // NextResponse.next that re-emits the mutated request headers.
+    response = NextResponse.next({
+      request: { headers: request.headers },
+    });
+  }
+
   response.headers.set("Content-Security-Policy", csp);
 
   // /admin is private — keep it out of every search index regardless of
@@ -107,7 +140,7 @@ export function middleware(request: NextRequest) {
   // that don't honor CSP frame-ancestors). The actual auth gate lives
   // in the admin layout/pages — middleware can't read iron-session
   // (Edge runtime, no Node crypto) so we keep that check server-side.
-  if (request.nextUrl.pathname.startsWith("/admin")) {
+  if (pathname.startsWith("/admin")) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
     response.headers.set("Cache-Control", "private, no-store");
   }

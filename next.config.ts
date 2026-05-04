@@ -1,4 +1,10 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
+
+// next-intl plugin reads its server-side request config from
+// `src/i18n/request.ts` (locale + messages bundle per request). Wrap
+// the regular config below so the plugin can hook into the build.
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 // Content-Security-Policy is set per-request in src/middleware.ts so the
 // nonce can be regenerated for every response. Static security headers
@@ -32,4 +38,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

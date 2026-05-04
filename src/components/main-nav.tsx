@@ -1,12 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { NavLink } from "@/components/nav-link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { SITE_NAME } from "@/lib/constants";
 
 const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
@@ -67,12 +67,15 @@ export function MainNav() {
               </li>
             ))}
           </ul>
+          <LocaleSwitcher />
           <ThemeToggle />
         </div>
 
-        {/* Compact mobile actions — keep ThemeToggle visible since it's
-            small and useful, hide the rest behind a hamburger. */}
+        {/* Compact mobile actions — keep ThemeToggle + LocaleSwitcher
+            visible since they're small and useful, hide nav links
+            behind a hamburger. */}
         <div className="flex items-center gap-2 md:hidden">
+          <LocaleSwitcher />
           <ThemeToggle />
           <button
             type="button"
