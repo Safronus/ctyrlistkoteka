@@ -2,6 +2,7 @@
 
 import { Link } from "@/i18n/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   CLOVER_CATEGORY_LABELS,
   CLOVER_TEXTS,
@@ -19,10 +20,10 @@ const TICK_MS = 1_000;
  *  agreeing on the wire name. */
 export const CLOVER_FACT_ADVANCE_EVENT = "ctyrlistkoteka:clover-fact-advance";
 
-const SOURCE_LABELS: Record<CloverTextSource, string> = {
-  fact: "fakt",
-  lore: "pověst",
-  creative: "tvorba",
+const SOURCE_KEY: Record<CloverTextSource, string> = {
+  fact: "cardSourceFact",
+  lore: "cardSourceLore",
+  creative: "cardSourceCreative",
 };
 
 const SOURCE_TONE: Record<CloverTextSource, string> = {
@@ -137,6 +138,7 @@ function vibeKeyFor(text: CloverText): VibeKey {
  * Each visit/reload picks a new random start.
  */
 export function CloverFactCard() {
+  const t = useTranslations("CloverFacts");
   const [index, setIndex] = useState(0);
   const [remainingMs, setRemainingMs] = useState(ROTATION_MS);
   // `nextAt` lives in a ref so both the auto-rotation tick AND the
@@ -214,9 +216,7 @@ export function CloverFactCard() {
   const card = (
     <aside
       aria-live="polite"
-      aria-label={
-        isAuthor ? "Bonusová drobnost autora" : "Drobnost o čtyřlístcích"
-      }
+      aria-label={isAuthor ? t("cardAriaAuthor") : t("cardAriaRegular")}
       data-fact-vibe={vibeKey}
       className={`relative w-72 max-w-full -rotate-[2deg] rounded-sm p-5 pb-3 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] sm:w-80 ${styles.paperBg} ${styles.paperRing} ${
         text.link
@@ -245,13 +245,13 @@ export function CloverFactCard() {
           <span
             className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-sm ${styles.badgeBg} ${styles.badgeText}`}
           >
-            Bonus
+            {t("cardBonusBadge")}
           </span>
         ) : (
           <span
             className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ring-1 ${SOURCE_TONE[text.source_type]}`}
           >
-            {SOURCE_LABELS[text.source_type]}
+            {t(SOURCE_KEY[text.source_type])}
           </span>
         )}
       </div>
@@ -283,9 +283,9 @@ export function CloverFactCard() {
         aria-hidden
         data-fact-id
         className={`mt-1.5 select-none text-center text-[10px] opacity-70 ${styles.idColor}`}
-        title={`Další lísteček za ${mmss}`}
+        title={t("cardNextInTitle", { time: mmss })}
       >
-        <span className="font-serif italic">další za </span>
+        <span className="font-serif italic">{t("cardNextInPrefix")}</span>
         <span className="font-mono tracking-wider">{mmss}</span>
       </p>
 
@@ -302,7 +302,7 @@ export function CloverFactCard() {
           aria-hidden
           className="absolute bottom-2 left-3 -rotate-[2deg] text-[10px] font-medium tracking-wider text-red-300/80"
         >
-          → klikni pro detail
+          {t("cardLinkHint")}
         </span>
       )}
     </aside>
@@ -314,7 +314,7 @@ export function CloverFactCard() {
         <Link
           href={text.link}
           className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 rounded-sm"
-          aria-label={`Otevřít detail nálezu — ${text.title}`}
+          aria-label={t("cardLinkAria", { title: text.title })}
         >
           {card}
         </Link>

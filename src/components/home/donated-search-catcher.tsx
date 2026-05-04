@@ -2,6 +2,7 @@
 
 import { useActionState, useId } from "react";
 import { Search, Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { findDonationAction } from "@/lib/actions/findDonation";
 import { FIND_DONATION_INITIAL } from "@/lib/actions/findDonationTypes";
 
@@ -19,6 +20,7 @@ import { FIND_DONATION_INITIAL } from "@/lib/actions/findDonationTypes";
  * place for the swarm of drifting clovers.
  */
 export function DonatedSearchCatcher() {
+  const t = useTranslations("Home");
   const [state, action, pending] = useActionState(
     findDonationAction,
     FIND_DONATION_INITIAL,
@@ -29,8 +31,8 @@ export function DonatedSearchCatcher() {
   return (
     <div className="mx-auto mt-2 max-w-md text-center">
       <p className="text-sm font-medium text-gray-800">
-        Dostal/a jsi čtyřlístek?{" "}
-        <span className="text-gray-600">Najdi si ten svůj.</span>
+        {t("donatedSearchPrompt")}{" "}
+        <span className="text-gray-600">{t("donatedSearchPromptHint")}</span>
       </p>
       <form
         action={action}
@@ -38,7 +40,7 @@ export function DonatedSearchCatcher() {
         noValidate
       >
         <label htmlFor={inputId} className="sr-only">
-          Číslo nálezu
+          {t("donatedSearchLabel")}
         </label>
         <div className="relative flex-1">
           <Sparkles
@@ -49,15 +51,10 @@ export function DonatedSearchCatcher() {
             id={inputId}
             name="id"
             type="text"
-            // `inputMode="numeric"` keeps mobile keyboards on the digit
-            // pad while still allowing `#` entry from physical keyboards.
             inputMode="numeric"
-            // `pattern` cooperates with the server-side regex (optional
-            // leading #). The form also passes noValidate so the
-            // friendlier server messages win over the browser default.
             pattern="#?[1-9][0-9]*"
             autoComplete="off"
-            placeholder="např. 15234 nebo #15234"
+            placeholder={t("donatedSearchPlaceholder")}
             aria-invalid={state.error ? true : undefined}
             aria-describedby={state.error ? errorId : undefined}
             className="block w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
@@ -69,7 +66,9 @@ export function DonatedSearchCatcher() {
           className="inline-flex items-center justify-center gap-1.5 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Search className="h-4 w-4" aria-hidden />
-          <span>{pending ? "Hledám…" : "Najít nález"}</span>
+          <span>
+            {pending ? t("donatedSearchSubmitting") : t("donatedSearchSubmit")}
+          </span>
         </button>
       </form>
       <p

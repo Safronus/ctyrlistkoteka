@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { ArrowRight, MapPin, RefreshCw } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { ImageGallery } from "./image-gallery";
-import {
-  formatDateCs,
-  formatLocationId,
-} from "@/lib/format";
+import { formatDateCs, formatLocationId } from "@/lib/format";
 import type { RandomFindShowcase } from "@/lib/queries/random-find";
 
 const ROTATION_MS = 60_000;
@@ -32,6 +30,9 @@ export function RandomFindShowcaseWidget({
 }: {
   initial: RandomFindShowcase | null;
 }) {
+  const t = useTranslations("RandomFind");
+  const tRow = useTranslations("FindRow");
+  const locale = useLocale();
   const [find, setFind] = useState<RandomFindShowcase | null>(initial);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -70,8 +71,8 @@ export function RandomFindShowcaseWidget({
   if (!find) return null;
 
   const altBase = find.isAnonymized
-    ? `Anonymizovaný nález #${find.id}`
-    : `Nález #${find.id}`;
+    ? tRow("anonymizedAlt", { id: find.id })
+    : tRow("findAlt", { id: find.id });
   const foundAtDate = find.foundAt ? new Date(find.foundAt) : null;
 
   return (
@@ -92,20 +93,20 @@ export function RandomFindShowcaseWidget({
 
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Náhodný nález
+          {t("heading")}
         </h2>
         <button
           type="button"
           onClick={() => refresh(true)}
           disabled={refreshing}
           className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm disabled:opacity-50"
-          aria-label="Zobrazit jiný náhodný nález"
+          aria-label={t("showAnotherAria")}
         >
           <RefreshCw
             className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
             aria-hidden
           />
-          <span>Další</span>
+          <span>{t("showAnotherLabel")}</span>
         </button>
       </div>
 
@@ -119,11 +120,13 @@ export function RandomFindShowcaseWidget({
         </span>
         {foundAtDate && (
           <span className="text-sm text-gray-500">
-            {formatDateCs(foundAtDate)}
+            {formatDateCs(foundAtDate, locale)}
           </span>
         )}
         {find.isAnonymized ? (
-          <span className="text-sm text-gray-500">Anonymizovaná lokalita</span>
+          <span className="text-sm text-gray-500">
+            {t("anonymizedLocation")}
+          </span>
         ) : find.location ? (
           <span
             className="truncate text-sm text-gray-700"
@@ -135,25 +138,25 @@ export function RandomFindShowcaseWidget({
             </span>
           </span>
         ) : (
-          <span className="text-sm text-gray-500">Bez lokality</span>
+          <span className="text-sm text-gray-500">{t("noLocation")}</span>
         )}
         <div className="ml-auto flex items-center gap-3">
           {find.hasMapPosition && (
             <Link
               href={`/mapa?find=${find.id}`}
-              aria-label="Zobrazit nález na mapě"
-              title="Zobrazit nález na mapě"
+              aria-label={t("showOnMapAria")}
+              title={t("showOnMapAria")}
               className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30"
             >
               <MapPin className="h-3.5 w-3.5" aria-hidden />
-              <span>Na mapě</span>
+              <span>{t("showOnMapLabel")}</span>
             </Link>
           )}
           <Link
             href={`/sbirka/${find.id}`}
             className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
           >
-            Detail nálezu
+            {t("detailLink")}
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
         </div>
@@ -172,7 +175,7 @@ export function RandomFindShowcaseWidget({
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 h-1.5 overflow-hidden bg-black/20"
-          title="Čas do další rotace"
+          title={t("rotationTitle")}
         >
           <div
             key={find.id}
@@ -181,7 +184,7 @@ export function RandomFindShowcaseWidget({
         </div>
       </div>
 
-      <p className="mt-2 text-xs text-gray-400">Mění se každou minutu</p>
+      <p className="mt-2 text-xs text-gray-400">{t("rotationFooter")}</p>
     </section>
   );
 }
