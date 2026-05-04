@@ -65,6 +65,11 @@ export interface LocationListItem {
    *  per 100 m² rather than per m² so the typical figure lands on a
    *  readable 1–100 range; see formatDensityPer100m2. */
   densityPer100m2: number | null;
+  /** Density computed from `aggregateStats.total` over this location's
+   *  own polygon area — i.e. the parent's true density once visible
+   *  sub-parts are folded in. Equals `densityPer100m2` for leaf
+   *  locations. Null on the same conditions as `densityPer100m2`. */
+  aggregateDensityPer100m2: number | null;
   /** GPS center point recorded in the location-map filename (decoded from
    *  ST_Y/ST_X of center_point). Null when the location has no recorded
    *  center yet. */
@@ -482,6 +487,7 @@ export async function listLocations(
         isGone: gone,
         polygonAreaM2: null,
         densityPer100m2: null,
+        aggregateDensityPer100m2: null,
         coordinates: null,
         distanceFromDefault: null,
         parentId: null,
@@ -519,6 +525,9 @@ export async function listLocations(
       isGone: gone,
       polygonAreaM2,
       densityPer100m2,
+      // Seeded equal to own density; recomputed below for parents once
+      // visible children have been folded into `aggregateStats.total`.
+      aggregateDensityPer100m2: densityPer100m2,
       coordinates: coordsByLoc.get(l.id) ?? null,
       distanceFromDefault: distByLoc.get(l.id) ?? null,
       parentId: l.parentId,
@@ -579,6 +588,20 @@ export async function listLocations(
     if (!parent) continue; // parent filtered out — child stands alone
     parent.childCount += 1;
     foldStats(parent.aggregateStats, item.stats);
+  }
+  // Recompute aggregate density for parents now that their
+  // aggregateStats reflect own + every visible sub-part. The parent's
+  // own polygon already encloses the sub-parts, so this is the "true"
+  // density visitors expect on a master row (own count alone is often
+  // 0 for masters whose finds live entirely on sub-parts).
+  for (const item of items) {
+    if (item.childCount === 0) continue;
+    item.aggregateDensityPer100m2 =
+      item.polygonAreaM2 !== null &&
+      item.polygonAreaM2 > 0 &&
+      item.aggregateStats.total > 0
+        ? (item.aggregateStats.total / item.polygonAreaM2) * 100
+        : null;
   }
 
   // ------------------------------------------------------------ sort

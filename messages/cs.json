@@ -10,6 +10,38 @@
     "close": "Zavřít",
     "noPhoto": "Žádná fotografie"
   },
+  "Nav": {
+    "home": "Domů",
+    "sbirka": "Sbírka",
+    "lokality": "Lokality",
+    "mapa": "Mapa",
+    "statistiky": "Statistiky",
+    "openMenu": "Otevřít menu",
+    "closeMenu": "Zavřít menu"
+  },
+  "Footer": {
+    "copyright": "© {year} {site} · Soukromá sbírka čtyřlístků",
+    "createdBy": "vytvořil",
+    "linkedinAria": "LinkedIn profil autora",
+    "linkedinTitle": "LinkedIn",
+    "githubAria": "Zdrojový kód aplikace na GitHubu",
+    "githubTitle": "Zdrojový kód na GitHubu",
+    "claudeTitle": "Claude od Anthropic",
+    "claudeCodeTitle": "Claude Code",
+    "withAssistance": "s asistencí",
+    "via": "přes"
+  },
+  "TimeSince": {
+    "justNow": "před chvílí",
+    "wrap": "před {parts}",
+    "years": "{count, plural, one {# rokem} few {# lety} other {# lety}}",
+    "months": "{count, plural, one {# měsícem} few {# měsíci} other {# měsíci}}",
+    "days": "{count, plural, one {# dnem} few {# dny} other {# dny}}",
+    "hours": "{count, plural, one {# hodinou} few {# hodinami} other {# hodinami}}",
+    "minutes": "{count, plural, one {# minutou} few {# minutami} other {# minutami}}",
+    "and": "a",
+    "comma": ", "
+  },
   "States": {
     "NORMAL": "Běžný",
     "ANONYMIZED": "Anonymizovaný",

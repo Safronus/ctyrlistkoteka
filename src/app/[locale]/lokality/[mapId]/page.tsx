@@ -15,10 +15,10 @@ import { GpsValue } from "@/components/finds/gps-value";
 import {
   formatAreaM2,
   formatDateCs,
-  formatDateTimeCs,
   formatDensityPer100m2,
   formatDistance,
   formatLocationId,
+  formatShortDateCs,
   locationDetailHref,
 } from "@/lib/format";
 import {
@@ -448,10 +448,10 @@ function SummaryGrid({
           </span>
         </Field>
       )}
-      {base.densityPer100m2 !== null && (
+      {base.aggregateDensityPer100m2 !== null && (
         <Field label={t("kvDensity")}>
           <span className="font-mono tabular-nums">
-            {formatDensityPer100m2(base.densityPer100m2)}
+            {formatDensityPer100m2(base.aggregateDensityPer100m2)}
           </span>
           <span className="ml-1 text-xs text-gray-500">
             {t("kvDensitySuffix")}
@@ -634,7 +634,7 @@ async function RecentFindsGrid({
                 </span>
                 {f.foundAt && (
                   <span className="ml-1.5 text-gray-500">
-                    {formatDateTimeCs(f.foundAt, locale).split(",")[0]}
+                    {formatShortDateCs(f.foundAt, locale)}
                   </span>
                 )}
               </div>

@@ -97,18 +97,30 @@ export function formatDateTimeCs(
 }
 
 /**
- * Czech-style "how much time has passed since" string. Joins every
+ * Locale-aware "how much time has passed since" string. Joins every
  * non-zero calendar unit down to hours so longer gaps still get the
- * fine-grain context the date alone hides:
+ * fine-grain context the date alone hides. The caller resolves a
+ * `TimeSince`-namespace translator (server-side via `getTranslations`
+ * or client-side via `useTranslations`) and hands it down — keeps the
+ * Intl logic locale-blind here while letting both Czech instrumental
+ * cases and English "X ago" templates stay in the message bundle.
+ *
+ * CZ examples:
  *   "před 4 lety, 9 měsíci, 27 dny a 5 hodinami"
- *   "před 5 měsíci, 12 dny a 3 hodinami"
- *   "před 4 dny a 7 hodinami"
- *   "před 3 hodinami a 12 minutami"
- *   "před 12 minutami"
  *   "před chvílí"
- * Returns "—" for null/future.
+ * EN examples:
+ *   "4 years, 9 months, 27 days and 5 hours ago"
+ *   "just now"
  */
-export function formatTimeSinceCs(date: Date | null | undefined): string {
+type TimeSinceTranslator = (
+  key: string,
+  values?: Record<string, string | number | Date>,
+) => string;
+
+export function formatTimeSinceCs(
+  date: Date | null | undefined,
+  t?: TimeSinceTranslator,
+): string {
   if (!date) return "—";
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -119,34 +131,51 @@ export function formatTimeSinceCs(date: Date | null | undefined): string {
     now,
   );
 
-  const parts: string[] = [];
-  if (years > 0)
-    parts.push(`${years} ${pluralCs(years, ["rokem", "lety", "lety"])}`);
-  if (months > 0)
-    parts.push(`${months} ${pluralCs(months, ["měsícem", "měsíci", "měsíci"])}`);
-  if (days > 0)
-    parts.push(`${days} ${pluralCs(days, ["dnem", "dny", "dny"])}`);
-  if (hours > 0)
-    parts.push(`${hours} ${pluralCs(hours, ["hodinou", "hodinami", "hodinami"])}`);
-
-  // When the gap is < 1 hour, fall through to minutes (or "před chvílí").
-  if (parts.length === 0) {
-    if (minutes < 1) return "před chvílí";
-    return `před ${minutes} ${pluralCs(minutes, ["minutou", "minutami", "minutami"])}`;
+  // Fallback to the legacy hardcoded Czech path when no translator was
+  // passed — keeps existing CZ-only call sites working unchanged.
+  if (!t) {
+    const parts: string[] = [];
+    if (years > 0)
+      parts.push(`${years} ${pluralCs(years, ["rokem", "lety", "lety"])}`);
+    if (months > 0)
+      parts.push(`${months} ${pluralCs(months, ["měsícem", "měsíci", "měsíci"])}`);
+    if (days > 0)
+      parts.push(`${days} ${pluralCs(days, ["dnem", "dny", "dny"])}`);
+    if (hours > 0)
+      parts.push(
+        `${hours} ${pluralCs(hours, ["hodinou", "hodinami", "hodinami"])}`,
+      );
+    if (parts.length === 0) {
+      if (minutes < 1) return "před chvílí";
+      return `před ${minutes} ${pluralCs(minutes, ["minutou", "minutami", "minutami"])}`;
+    }
+    return `před ${joinCs(parts, "a")}`;
   }
 
-  return `před ${joinCs(parts)}`;
+  const parts: string[] = [];
+  if (years > 0) parts.push(t("years", { count: years }));
+  if (months > 0) parts.push(t("months", { count: months }));
+  if (days > 0) parts.push(t("days", { count: days }));
+  if (hours > 0) parts.push(t("hours", { count: hours }));
+
+  if (parts.length === 0) {
+    if (minutes < 1) return t("justNow");
+    return t("wrap", { parts: t("minutes", { count: minutes }) });
+  }
+  const conn = t("and");
+  return t("wrap", { parts: joinCs(parts, conn) });
 }
 
 /**
- * Joins string parts the Czech way: "A", "A a B", "A, B a C". Default
- * (no Oxford comma) — matches everyday Czech style.
+ * Joins string parts as "A", "A <conn> B", or "A, B <conn> C" where
+ * <conn> is the locale-specific final connector ("a"/"and"). No Oxford
+ * comma — matches everyday Czech style.
  */
-function joinCs(parts: readonly string[]): string {
+function joinCs(parts: readonly string[], conn: string): string {
   if (parts.length === 0) return "";
   if (parts.length === 1) return parts[0]!;
-  if (parts.length === 2) return `${parts[0]} a ${parts[1]}`;
-  return `${parts.slice(0, -1).join(", ")} a ${parts[parts.length - 1]}`;
+  if (parts.length === 2) return `${parts[0]} ${conn} ${parts[1]}`;
+  return `${parts.slice(0, -1).join(", ")} ${conn} ${parts[parts.length - 1]}`;
 }
 
 /**

@@ -4,40 +4,33 @@ import Image from "next/image";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { NavLink } from "@/components/nav-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { SITE_NAME } from "@/lib/constants";
 
-const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
-  { href: "/", label: "Domů" },
-  { href: "/sbirka", label: "Sbírka" },
-  { href: "/lokality", label: "Lokality" },
-  { href: "/mapa", label: "Mapa" },
-  { href: "/statistiky", label: "Statistiky" },
+const NAV_HREFS: ReadonlyArray<{ href: string; key: string }> = [
+  { href: "/", key: "home" },
+  { href: "/sbirka", key: "sbirka" },
+  { href: "/lokality", key: "lokality" },
+  { href: "/mapa", key: "mapa" },
+  { href: "/statistiky", key: "statistiky" },
 ];
 
 /**
- * Top-of-page header with adaptive navigation. On md+ screens the nav
- * items render inline as before. On smaller widths the brand + nav
- * couldn't fit in one row and the original `flex-wrap` made every
- * item drop to its own line — instead a hamburger toggle now reveals
- * a dropdown panel with the same NavLinks stacked vertically.
- *
- * The menu auto-closes whenever the route changes (a NavLink click
- * navigates, the pathname effect fires, the panel collapses) so the
- * user doesn't end up on a new page with the menu still open.
+ * Top-of-page header with adaptive navigation.
  */
 export function MainNav() {
+  const t = useTranslations("Nav");
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
-  // Close the mobile panel on every navigation. Runs after the new
-  // route has rendered, so by the time the user sees the new page the
-  // header is already collapsed back to the compact bar.
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  const items = NAV_HREFS.map((it) => ({ ...it, label: t(it.key) }));
 
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
@@ -61,7 +54,7 @@ export function MainNav() {
         {/* Desktop nav — md+ only. */}
         <div className="hidden items-center gap-3 md:flex">
           <ul className="flex flex-wrap items-center gap-1">
-            {NAV_ITEMS.map((item) => (
+            {items.map((item) => (
               <li key={item.href}>
                 <NavLink href={item.href}>{item.label}</NavLink>
               </li>
@@ -71,16 +64,14 @@ export function MainNav() {
           <ThemeToggle />
         </div>
 
-        {/* Compact mobile actions — keep ThemeToggle + LocaleSwitcher
-            visible since they're small and useful, hide nav links
-            behind a hamburger. */}
+        {/* Compact mobile actions. */}
         <div className="flex items-center gap-2 md:hidden">
           <LocaleSwitcher />
           <ThemeToggle />
           <button
             type="button"
             onClick={() => setMobileOpen((o) => !o)}
-            aria-label={mobileOpen ? "Zavřít menu" : "Otevřít menu"}
+            aria-label={mobileOpen ? t("closeMenu") : t("openMenu")}
             aria-expanded={mobileOpen}
             aria-controls="main-nav-mobile-panel"
             className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 transition hover:border-brand-200 hover:text-brand-700"
@@ -99,12 +90,8 @@ export function MainNav() {
           id="main-nav-mobile-panel"
           className="border-t border-gray-200 bg-white md:hidden"
         >
-          {/* `items-start` so each row's highlight pill hugs its label
-           *  instead of stretching across the full panel width — that
-           *  full-width fill plus a 0.5-unit gap was making adjacent
-           *  active/hover items appear to overlap on mobile. */}
           <ul className="mx-auto flex max-w-7xl flex-col items-start gap-1 px-4 py-2 sm:px-6">
-            {NAV_ITEMS.map((item) => (
+            {items.map((item) => (
               <li key={item.href}>
                 <NavLink href={item.href} variant="compact">
                   {item.label}

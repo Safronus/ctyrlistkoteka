@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 
 /**
@@ -54,9 +54,10 @@ export default async function PublicLayout({
   // top-level <html lang> in the root layout matches what's rendered.
   setRequestLocale(locale);
 
-  const [anniversaries, watermark] = await Promise.all([
+  const [anniversaries, watermark, t] = await Promise.all([
     getAnniversaryDates(),
     getWatermarkMeta(),
+    getTranslations("Footer"),
   ]);
 
   return (
@@ -71,12 +72,14 @@ export default async function PublicLayout({
       <footer className="border-t border-gray-200 bg-gray-50 py-6">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 text-center text-sm text-gray-500 sm:px-6 lg:px-8">
           <span>
-            © {new Date().getFullYear()} {SITE_NAME} · Soukromá sbírka
-            čtyřlístků
+            {t("copyright", {
+              year: new Date().getFullYear(),
+              site: SITE_NAME,
+            })}
           </span>
           <span aria-hidden>·</span>
           <span className="inline-flex items-center gap-1.5">
-            vytvořil
+            {t("createdBy")}
             <Image
               src="/safronus.png"
               alt=""
@@ -86,16 +89,12 @@ export default async function PublicLayout({
               className="theme-invertible h-5 w-5"
             />
             <span className="font-medium text-gray-700">Safronus</span>
-            {/* The LinkedIn slug carries Czech diacritics — JSX/React
-                serialises the href verbatim and the browser
-                percent-encodes on navigation, so leaving the literal
-                characters in is fine and most readable in source. */}
             <a
               href="https://www.linkedin.com/in/petr-žáček-9a2473b7/"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="LinkedIn profil autora"
-              title="LinkedIn"
+              aria-label={t("linkedinAria")}
+              title={t("linkedinTitle")}
               className="ml-1 rounded p-1 text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
             >
               <Linkedin className="h-4 w-4" aria-hidden />
@@ -104,36 +103,32 @@ export default async function PublicLayout({
               href="https://github.com/Safronus/ctyrlistkoteka"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Zdrojový kód aplikace na GitHubu"
-              title="Zdrojový kód na GitHubu"
+              aria-label={t("githubAria")}
+              title={t("githubTitle")}
               className="rounded p-1 text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
             >
               <Github className="h-4 w-4" aria-hidden />
             </a>
           </span>
           <span aria-hidden>·</span>
-          {/* AI-assistance credit. Sparkles icon nods at the "AI"
-              flavour without being too cute; both anchors open in
-              a new tab so the visitor can read up on Anthropic /
-              Claude Code without losing their place here. */}
           <span className="inline-flex items-center gap-1.5">
             <Sparkles className="h-4 w-4 text-amber-500" aria-hidden />
-            <span>s asistencí</span>
+            <span>{t("withAssistance")}</span>
             <a
               href="https://www.anthropic.com/claude"
               target="_blank"
               rel="noopener noreferrer"
-              title="Claude od Anthropic"
+              title={t("claudeTitle")}
               className="font-medium text-gray-700 underline-offset-2 hover:text-brand-700 hover:underline"
             >
               Claude Opus 4.7
             </a>
-            <span className="text-gray-400">přes</span>
+            <span className="text-gray-400">{t("via")}</span>
             <a
               href="https://claude.com/claude-code"
               target="_blank"
               rel="noopener noreferrer"
-              title="Claude Code"
+              title={t("claudeCodeTitle")}
               className="font-medium text-gray-700 underline-offset-2 hover:text-brand-700 hover:underline"
             >
               Claude Code

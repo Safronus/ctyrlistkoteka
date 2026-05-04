@@ -231,6 +231,7 @@ async function TotalsSection() {
 
 async function HighlightsSection() {
   const t = await getTranslations("Statistiky");
+  const tTimeSince = await getTranslations("TimeSince");
   const locale = await getLocale();
   const { firstFind, lastFind, farthestFind } = await getStatsHighlights();
   if (!firstFind && !lastFind && !farthestFind) return null;
@@ -241,6 +242,7 @@ async function HighlightsSection() {
           label={t("highlightFirstFind")}
           find={firstFind}
           t={t}
+          tTimeSince={tTimeSince}
           locale={locale}
         />
       )}
@@ -249,6 +251,7 @@ async function HighlightsSection() {
           label={t("highlightLastFind")}
           find={lastFind}
           t={t}
+          tTimeSince={tTimeSince}
           locale={locale}
         />
       )}
@@ -260,6 +263,7 @@ async function HighlightsSection() {
             find={farthestFind}
             distanceMeters={farthestFind.distanceMeters}
             t={t}
+            tTimeSince={tTimeSince}
             locale={locale}
           />
         )}
@@ -582,12 +586,14 @@ function FindHighlightCard({
   find,
   distanceMeters,
   t,
+  tTimeSince,
   locale,
 }: {
   label: string;
   find: FindHighlight;
   distanceMeters?: number;
   t: StatsT;
+  tTimeSince: Awaited<ReturnType<typeof getTranslations<"TimeSince">>>;
   locale: string;
 }) {
   const date = find.foundAt ? new Date(find.foundAt) : null;
@@ -606,7 +612,9 @@ function FindHighlightCard({
         {date ? formatDateTimeCs(date, locale) : t("missingDate")}
       </p>
       {date && (
-        <p className="text-xs text-gray-500">{formatTimeSinceCs(date)}</p>
+        <p className="text-xs text-gray-500">
+          {formatTimeSinceCs(date, tTimeSince)}
+        </p>
       )}
 
       <div className="mt-3">

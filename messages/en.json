@@ -10,6 +10,38 @@
     "close": "Close",
     "noPhoto": "No photo"
   },
+  "Nav": {
+    "home": "Home",
+    "sbirka": "Collection",
+    "lokality": "Locations",
+    "mapa": "Map",
+    "statistiky": "Statistics",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "Footer": {
+    "copyright": "© {year} {site} · Private four-leaf clover collection",
+    "createdBy": "made by",
+    "linkedinAria": "Author's LinkedIn profile",
+    "linkedinTitle": "LinkedIn",
+    "githubAria": "Source code on GitHub",
+    "githubTitle": "Source code on GitHub",
+    "claudeTitle": "Claude by Anthropic",
+    "claudeCodeTitle": "Claude Code",
+    "withAssistance": "with assistance from",
+    "via": "via"
+  },
+  "TimeSince": {
+    "justNow": "just now",
+    "wrap": "{parts} ago",
+    "years": "{count, plural, one {# year} other {# years}}",
+    "months": "{count, plural, one {# month} other {# months}}",
+    "days": "{count, plural, one {# day} other {# days}}",
+    "hours": "{count, plural, one {# hour} other {# hours}}",
+    "minutes": "{count, plural, one {# minute} other {# minutes}}",
+    "and": "and",
+    "comma": ", "
+  },
   "States": {
     "NORMAL": "Normal",
     "ANONYMIZED": "Anonymized",

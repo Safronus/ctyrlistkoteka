@@ -234,11 +234,11 @@ function RowMeta({
       {location.polygonAreaM2 !== null && (
         <> · {`${t("areaPrefix")} ${formatAreaM2(location.polygonAreaM2)}`}</>
       )}
-      {location.densityPer100m2 !== null && (
+      {location.aggregateDensityPer100m2 !== null && (
         <>
           {" · "}
           <span title={t("densityTitle")}>
-            {`${t("densityPrefix")} ${formatDensityPer100m2(location.densityPer100m2)}`}
+            {`${t("densityPrefix")} ${formatDensityPer100m2(location.aggregateDensityPer100m2)}`}
           </span>
         </>
       )}
@@ -405,6 +405,7 @@ function SummaryRow({
   t: RowT;
 }) {
   const locale = useLocale();
+  const tTimeSince = useTranslations("TimeSince");
   const first = firstFoundAt ? new Date(firstFoundAt) : null;
   const last = lastFoundAt ? new Date(lastFoundAt) : null;
   const hasChildren = childCount > 0;
@@ -424,12 +425,12 @@ function SummaryRow({
       <Stat
         label={t("firstFound")}
         value={first ? formatDateTimeCs(first, locale) : "—"}
-        sub={first ? formatTimeSinceCs(first) : null}
+        sub={first ? formatTimeSinceCs(first, tTimeSince) : null}
       />
       <Stat
         label={t("lastFound")}
         value={last ? formatDateTimeCs(last, locale) : "—"}
-        sub={last ? formatTimeSinceCs(last) : null}
+        sub={last ? formatTimeSinceCs(last, tTimeSince) : null}
       />
     </dl>
   );
