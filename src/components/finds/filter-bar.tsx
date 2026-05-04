@@ -2,9 +2,9 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 import type { FilterOptions } from "@/lib/queries/finds";
-import { STATE_LABELS } from "@/lib/stateLabels";
 import type { FindState } from "@prisma/client";
 
 const INPUT_CLS =
@@ -25,6 +25,9 @@ export function FilterBar({
     year: string;
   };
 }) {
+  const t = useTranslations("FilterBar");
+  const tCommon = useTranslations("Common");
+  const tStates = useTranslations("States");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -105,12 +108,12 @@ export function FilterBar({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="sm:col-span-2 lg:col-span-2">
           <span className="mb-1 block text-xs font-medium text-gray-700">
-            Hledat
+            {t("search")}
           </span>
           <input
             type="search"
             value={qInput}
-            placeholder="Poznámka nebo lokalita…"
+            placeholder={t("searchPlaceholder")}
             className={`${INPUT_CLS} w-full`}
             onChange={(e) => {
               const v = e.currentTarget.value;
@@ -123,7 +126,7 @@ export function FilterBar({
 
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">
-            Stát
+            {t("country")}
           </span>
           <div className="relative">
             <select
@@ -131,7 +134,7 @@ export function FilterBar({
               onChange={(e) => update("country", e.currentTarget.value)}
               className={`${SELECT_CLS} w-full`}
             >
-              <option value="">Všechny</option>
+              <option value="">{tCommon("all")}</option>
               {options.countries.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.name}
@@ -147,7 +150,7 @@ export function FilterBar({
 
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">
-            Město
+            {t("city")}
           </span>
           <div className="relative">
             <select
@@ -155,7 +158,7 @@ export function FilterBar({
               onChange={(e) => update("city", e.currentTarget.value)}
               className={`${SELECT_CLS} w-full`}
             >
-              <option value="">Všechna</option>
+              <option value="">{tCommon("allAlt")}</option>
               {options.cities.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -171,7 +174,7 @@ export function FilterBar({
 
         <label className="sm:col-span-2 lg:col-span-2">
           <span className="mb-1 block text-xs font-medium text-gray-700">
-            Lokalita
+            {t("location")}
           </span>
           <div className="relative">
             <select
@@ -179,7 +182,7 @@ export function FilterBar({
               onChange={(e) => update("loc", e.currentTarget.value)}
               className={`${SELECT_CLS} w-full`}
             >
-              <option value="">Všechny</option>
+              <option value="">{tCommon("all")}</option>
               {options.locations.map((l) => (
                 <option key={l.id} value={String(l.id)}>
                   {l.label}
@@ -195,7 +198,7 @@ export function FilterBar({
 
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">
-            Stav
+            {t("state")}
           </span>
           <div className="relative">
             <select
@@ -203,10 +206,10 @@ export function FilterBar({
               onChange={(e) => update("state", e.currentTarget.value)}
               className={`${SELECT_CLS} w-full`}
             >
-              <option value="">Všechny</option>
+              <option value="">{tCommon("all")}</option>
               {options.states.map((s) => (
                 <option key={s} value={s}>
-                  {STATE_LABELS[s as FindState]}
+                  {tStates(s as FindState)}
                 </option>
               ))}
             </select>
@@ -219,7 +222,7 @@ export function FilterBar({
 
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">
-            Rok
+            {t("year")}
           </span>
           <div className="relative">
             <select
@@ -227,7 +230,7 @@ export function FilterBar({
               onChange={(e) => update("year", e.currentTarget.value)}
               className={`${SELECT_CLS} w-full`}
             >
-              <option value="">Vše</option>
+              <option value="">{tCommon("allShort")}</option>
               {options.years.map((y) => (
                 <option key={y} value={String(y)}>
                   {y}
@@ -249,7 +252,7 @@ export function FilterBar({
           onClick={clearAll}
           className="mt-3 text-sm text-brand-700 hover:underline"
         >
-          Zrušit filtry
+          {t("clearAll")}
         </button>
       )}
     </div>

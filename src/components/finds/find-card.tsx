@@ -1,21 +1,42 @@
-import { Link } from "@/i18n/navigation";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Camera } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
 import {
   formatDistance,
   formatLocationId,
-  formatLocationOffset,
   formatShortDateTimeCs,
   locationOffsetToneClass,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
 
-export function FindCard({ find }: { find: PublicFind }) {
+export async function FindCard({ find }: { find: PublicFind }) {
+  const locale = await getLocale();
+  const tRow = await getTranslations("FindRow");
+  const tOffset = await getTranslations("LocationOffset");
+
   const altText = find.isAnonymized
-    ? `Anonymizovaný nález #${find.id}`
-    : `Nález #${find.id}`;
+    ? tRow("anonymizedAlt", { id: find.id })
+    : tRow("findAlt", { id: find.id });
+
+  const offsetLabel = find.locationOffset
+    ? find.locationOffset.mode === "polygon"
+      ? find.locationOffset.inside
+        ? tOffset("inside")
+        : tOffset("polygonEdge", {
+            distance: formatDistance(find.locationOffset.meters, locale),
+          })
+      : tOffset("mapCenter", {
+          distance: formatDistance(find.locationOffset.meters, locale),
+        })
+    : null;
+  const offsetTitle = find.locationOffset
+    ? find.locationOffset.mode === "polygon"
+      ? tOffset("polygonTitle")
+      : tOffset("centerTitle")
+    : "";
 
   return (
     <Link
@@ -42,8 +63,8 @@ export function FindCard({ find }: { find: PublicFind }) {
           // anchor at the top.
           <span
             className="pointer-events-none absolute bottom-2 right-2 inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800 drop-shadow-sm"
-            title="Nález má reálnou fotku daru"
-            aria-label="Nález má reálnou fotku daru"
+            title={tRow("donationPhotoTitle")}
+            aria-label={tRow("donationPhotoTitle")}
           >
             <Camera className="h-3 w-3" aria-hidden />
           </span>
@@ -56,7 +77,7 @@ export function FindCard({ find }: { find: PublicFind }) {
             #{find.id}
           </p>
           <p className="text-xs text-gray-500">
-            {formatShortDateTimeCs(find.foundAt)}
+            {formatShortDateTimeCs(find.foundAt, locale)}
           </p>
         </div>
 
@@ -65,30 +86,28 @@ export function FindCard({ find }: { find: PublicFind }) {
             {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
           </p>
         )}
-        {!find.isAnonymized && find.locationOffset && (
+        {!find.isAnonymized && find.locationOffset && offsetLabel && (
           <p
             className={`truncate text-xs ${locationOffsetToneClass(find.locationOffset)}`}
-            title={
-              find.locationOffset.mode === "polygon"
-                ? "Vzdušná vzdálenost od hrany polygonu lokace (0 = uvnitř AOI)"
-                : "Vzdušná vzdálenost od GPS středu lokační mapy"
-            }
+            title={offsetTitle}
           >
-            {formatLocationOffset(find.locationOffset)}
+            {offsetLabel}
           </p>
         )}
         {!find.isAnonymized && find.distanceFromDefault !== null && (
           <p
             className="truncate text-xs text-gray-500"
-            title="Vzdušná vzdálenost od GPS středu výchozí lokační mapy #00001"
+            title={tOffset("fromDefaultMapTitle")}
           >
-            {formatDistance(find.distanceFromDefault)} od mapy #00001
+            {tOffset("fromDefaultMap", {
+              distance: formatDistance(find.distanceFromDefault, locale),
+            })}
           </p>
         )}
 
         {find.isAnonymized ? (
           <p className="truncate text-xs text-gray-500">
-            Anonymizovaná lokalita
+            {tRow("anonymizedLocation")}
           </p>
         ) : find.location ? (
           <p
@@ -101,7 +120,7 @@ export function FindCard({ find }: { find: PublicFind }) {
             </span>
           </p>
         ) : (
-          <p className="text-xs text-gray-500">Bez lokality</p>
+          <p className="text-xs text-gray-500">{tRow("noLocation")}</p>
         )}
       </div>
     </Link>

@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Camera, ChevronLeft, ChevronRight, Lock, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { FindPhotoEntry } from "@/lib/findPhotos";
 import { unlockFindPhotos } from "@/lib/actions/findPhotoUnlock";
 import { FIND_PHOTO_UNLOCK_INITIAL } from "@/lib/actions/findPhotoUnlockTypes";
@@ -26,6 +27,8 @@ export function DonationPhotosButton({
   findId: number;
   photos: readonly FindPhotoEntry[];
 }) {
+  const t = useTranslations("DonationPhotos");
+  const tCommon = useTranslations("Common");
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -78,8 +81,8 @@ export function DonationPhotosButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title={`Reálné fotky daru (${total})`}
-        aria-label={`Zobrazit reálné fotky daru (${total})`}
+        title={t("openTitle", { total })}
+        aria-label={t("openAria", { total })}
         className="absolute right-3 top-16 rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
       >
         <Camera className="h-5 w-5" />
@@ -99,13 +102,13 @@ export function DonationPhotosButton({
             id="donation-photos-title"
             className="text-sm font-semibold text-gray-900"
           >
-            Reálné fotky daru — nález #{findId}
+            {t("modalTitle", { findId })}
           </h2>
           <button
             type="button"
             onClick={() => setOpen(false)}
             className="-m-1 rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            aria-label="Zavřít"
+            aria-label={tCommon("close")}
           >
             <X className="h-4 w-4" aria-hidden />
           </button>
@@ -119,7 +122,10 @@ export function DonationPhotosButton({
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={displaySrc}
-                  alt={`Reálná fotka daru — nález #${findId}, ${current.slot.toUpperCase()}`}
+                  alt={t("photoAlt", {
+                    findId,
+                    slot: current.slot.toUpperCase(),
+                  })}
                   className="mx-auto block h-auto w-full max-w-full rounded-md"
                 />
               ) : (
@@ -131,7 +137,7 @@ export function DonationPhotosButton({
                   <button
                     type="button"
                     onClick={goPrev}
-                    aria-label="Předchozí fotka"
+                    aria-label={t("prevPhoto")}
                     className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <ChevronLeft className="h-5 w-5" aria-hidden />
@@ -139,7 +145,7 @@ export function DonationPhotosButton({
                   <button
                     type="button"
                     onClick={goNext}
-                    aria-label="Další fotka"
+                    aria-label={t("nextPhoto")}
                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <ChevronRight className="h-5 w-5" aria-hidden />
@@ -157,7 +163,7 @@ export function DonationPhotosButton({
                 key={p.slot}
                 type="button"
                 onClick={() => setIndex(i)}
-                aria-label={`Fotka ${p.slot.toUpperCase()}`}
+                aria-label={t("photoSlot", { slot: p.slot.toUpperCase() })}
                 aria-current={i === index}
                 className={`inline-flex h-7 w-7 items-center justify-center rounded-md border text-[11px] font-mono uppercase transition ${
                   i === index
@@ -182,7 +188,7 @@ export function DonationPhotosButton({
             <input type="hidden" name="findId" value={findId} />
             <Lock className="h-4 w-4 text-amber-700" aria-hidden />
             <label className="font-medium text-amber-900">
-              Anonymizovaná fotka — kód:
+              {t("anonLabel")}
             </label>
             <input
               type="password"
@@ -197,29 +203,30 @@ export function DonationPhotosButton({
               disabled={isPending}
               className="inline-flex h-7 items-center gap-1 rounded-md bg-amber-600 px-3 text-xs font-medium text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-60"
             >
-              {isPending ? "Ověřuji…" : "Odemknout"}
+              {isPending ? t("verifying") : t("unlock")}
             </button>
             {state.status === "invalid" && (
               <span className="basis-full text-amber-900">
-                Neplatný kód.
+                {t("invalidCode")}
               </span>
             )}
             {state.status === "missing-config" && (
               <span className="basis-full text-amber-900">
-                Server nemá nakonfigurovaný kód
-                (<code>FIND_PHOTO_UNLOCK_CODE</code>).
+                {t.rich("missingConfig", {
+                  code: (chunks) => <code>{chunks}</code>,
+                })}
               </span>
             )}
             {state.status === "error" && (
               <span className="basis-full text-amber-900">
-                Něco se pokazilo, zkuste to znovu.
+                {t("genericError")}
               </span>
             )}
           </form>
         )}
         {hasAnon && state.status === "ok" && (
           <p className="border-t border-gray-200 bg-emerald-50 px-4 py-1.5 text-xs text-emerald-900">
-            Anonymizované fotky odemčeny pro tento nález.
+            {t("unlockSuccess")}
           </p>
         )}
       </dialog>
@@ -228,10 +235,11 @@ export function DonationPhotosButton({
 }
 
 function AnonymizedPlaceholder({ slot }: { slot: string }) {
+  const t = useTranslations("DonationPhotos");
   return (
     <div
       role="img"
-      aria-label="Anonymizovaná fotka — pro zobrazení je potřeba kód"
+      aria-label={t("placeholderAria")}
       className="flex aspect-[3/4] w-full items-center justify-center rounded-md bg-gradient-to-br from-purple-100 to-purple-200"
     >
       <div className="flex flex-col items-center gap-3 text-center">
@@ -242,10 +250,10 @@ function AnonymizedPlaceholder({ slot }: { slot: string }) {
           ?
         </span>
         <span className="select-none rounded-full bg-purple-50/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-purple-900 shadow-sm">
-          Slot {slot.toUpperCase()} · anonymizováno
+          {t("placeholderSlot", { slot: slot.toUpperCase() })}
         </span>
         <span className="text-[11px] text-purple-900/80">
-          Pro zobrazení zadej kód níže.
+          {t("placeholderHint")}
         </span>
       </div>
     </div>

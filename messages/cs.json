@@ -3,6 +3,13 @@
     "comment": "Czech message bundle — default locale.",
     "locale": "cs"
   },
+  "Common": {
+    "all": "Všechny",
+    "allAlt": "Všechna",
+    "allShort": "Vše",
+    "close": "Zavřít",
+    "noPhoto": "Žádná fotografie"
+  },
   "States": {
     "NORMAL": "Běžný",
     "ANONYMIZED": "Anonymizovaný",
@@ -21,7 +28,71 @@
     "totalSummary": "{count, plural, =0 {0 nálezů} one {# nález} few {# nálezy} other {# nálezů}}{withSuffix, select, yes { celkem} other {}}",
     "filterActive": "Filtr je aktivní —",
     "filterMatches": "{count, plural, =0 {0 nálezů odpovídá} one {# nález odpovídá} few {# nálezy odpovídají} other {# nálezů odpovídá}} filtru.",
-    "showOnMap": "Zobrazit na mapě"
+    "showOnMap": "Zobrazit na mapě",
+    "noFindsMatch": "Žádné nálezy neodpovídají filtrům."
+  },
+  "FilterBar": {
+    "search": "Hledat",
+    "searchPlaceholder": "Poznámka nebo lokalita…",
+    "country": "Stát",
+    "city": "Město",
+    "location": "Lokalita",
+    "state": "Stav",
+    "year": "Rok",
+    "clearAll": "Zrušit filtry"
+  },
+  "FindRow": {
+    "anonymizedAlt": "Anonymizovaný nález #{id}",
+    "findAlt": "Nález #{id}",
+    "anonymizedLocation": "Anonymizovaná lokalita",
+    "noLocation": "Bez lokality",
+    "donationPhotoTitle": "Nález má reálnou fotku daru",
+    "showOnMap": "Zobrazit nález na mapě"
+  },
+  "LocationOffset": {
+    "inside": "uvnitř AOI",
+    "polygonEdge": "{distance} od hrany AOI",
+    "mapCenter": "{distance} od středu mapy",
+    "polygonTitle": "Vzdušná vzdálenost od hrany polygonu lokace (0 = uvnitř AOI)",
+    "centerTitle": "Vzdušná vzdálenost od GPS středu lokační mapy",
+    "fromDefaultMap": "{distance} od mapy #00001",
+    "fromDefaultMapTitle": "Vzdušná vzdálenost od GPS středu výchozí lokační mapy #00001"
+  },
+  "GpsValue": {
+    "label": "GPS",
+    "toggleFormat": "Přepnout formát GPS"
+  },
+  "ImageGallery": {
+    "cropAlt": "{base} – výřez",
+    "showCrop": "Zobrazit výřez"
+  },
+  "DonationPhotos": {
+    "openTitle": "Reálné fotky daru ({total})",
+    "openAria": "Zobrazit reálné fotky daru ({total})",
+    "modalTitle": "Reálné fotky daru — nález #{findId}",
+    "photoAlt": "Reálná fotka daru — nález #{findId}, {slot}",
+    "prevPhoto": "Předchozí fotka",
+    "nextPhoto": "Další fotka",
+    "photoSlot": "Fotka {slot}",
+    "anonLabel": "Anonymizovaná fotka — kód:",
+    "verifying": "Ověřuji…",
+    "unlock": "Odemknout",
+    "invalidCode": "Neplatný kód.",
+    "missingConfig": "Server nemá nakonfigurovaný kód (<code>FIND_PHOTO_UNLOCK_CODE</code>).",
+    "genericError": "Něco se pokazilo, zkuste to znovu.",
+    "unlockSuccess": "Anonymizované fotky odemčeny pro tento nález.",
+    "placeholderAria": "Anonymizovaná fotka — pro zobrazení je potřeba kód",
+    "placeholderSlot": "Slot {slot} · anonymizováno",
+    "placeholderHint": "Pro zobrazení zadej kód níže."
+  },
+  "CollectionProgress": {
+    "title": "Sbírka se postupně doplňuje",
+    "summary": "Aktuálně je k dispozici {count, plural, one {# nález} few {# nálezy} other {# nálezů}} (čísla {min}–{max}).",
+    "olderArriving": "Starší nálezy přibývají postupně.",
+    "internalMissing": "V tomto rozsahu zatím chybí {count, plural, one {# nález} few {# nálezy} other {# nálezů}}.",
+    "showRanges": "Zobrazit chybějící rozsahy",
+    "modalTitle": "Chybějící čísla nálezů",
+    "modalIntro": "Ve sbírce zatím chybí <b>{count, plural, one {# nález} few {# nálezy} other {# nálezů}}</b> v {ranges, plural, one {# rozsahu} few {# rozsazích} other {# rozsazích}}. Postupně přibývají do importu."
   },
   "ViewSortToolbar": {
     "view": "Zobrazení",

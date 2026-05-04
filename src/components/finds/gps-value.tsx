@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { RefreshCw } from "lucide-react";
 import { formatGpsApple, formatGpsVerbose } from "@/lib/gpsFormat";
 
@@ -24,6 +25,7 @@ export function GpsValue({
    *  #666 detail where the surrounding background is dark. */
   tone?: "default" | "dark";
 }) {
+  const t = useTranslations("GpsValue");
   const [format, setFormat] = useState<Format>("apple");
 
   // Defensive stopPropagation — when the GPS row sits inside another
@@ -51,13 +53,13 @@ export function GpsValue({
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className={labelCls}>GPS</span>
+      <span className={labelCls}>{t("label")}</span>
       <span className={valueCls}>{text}</span>
       <button
         type="button"
         onClick={cycle}
-        aria-label="Přepnout formát GPS"
-        title="Přepnout formát GPS"
+        aria-label={t("toggleFormat")}
+        title={t("toggleFormat")}
         className={btnCls}
       >
         <RefreshCw className="h-3.5 w-3.5" />

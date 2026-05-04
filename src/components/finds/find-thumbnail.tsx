@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import type { PublicImage } from "@/lib/queries/finds";
 
 /**
@@ -6,7 +7,7 @@ import type { PublicImage } from "@/lib/queries/finds";
  * is used — images are served statically by Nginx in production (see
  * docs/architecture.md).
  */
-export function FindThumbnail({
+export async function FindThumbnail({
   image,
   alt,
   className = "",
@@ -22,8 +23,9 @@ export function FindThumbnail({
     className;
 
   if (!image) {
+    const tCommon = await getTranslations("Common");
     return (
-      <div className={baseClasses} aria-label="Žádná fotografie">
+      <div className={baseClasses} aria-label={tCommon("noPhoto")}>
         <div
           aria-hidden
           className="absolute inset-0 flex items-center justify-center text-3xl opacity-40"

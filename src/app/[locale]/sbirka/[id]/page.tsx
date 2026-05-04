@@ -16,7 +16,6 @@ import {
   formatDateTimeCs,
   formatDistance,
   formatLocationId,
-  formatLocationOffset,
   locationOffsetToneClass,
 } from "@/lib/format";
 import { isFormerLocation } from "@/lib/locationCode";
@@ -80,6 +79,7 @@ export async function generateMetadata({
 export default async function FindDetailPage({ params }: PageProps) {
   const { id, locale } = await params;
   const t = await getTranslations("FindDetail");
+  const tOffset = await getTranslations("LocationOffset");
   const numId = Number(id);
   if (!Number.isInteger(numId) || numId <= 0) notFound();
   const [find, adjacent] = await Promise.all([
@@ -155,28 +155,41 @@ export default async function FindDetailPage({ params }: PageProps) {
                 lng={find.coordinates.lng}
                 tone={hellish ? "dark" : "default"}
               />
-              {find.locationOffset && (
-                <span
-                  className={`text-xs ${
-                    hellish ? "text-red-300/80" : "text-gray-500"
-                  }`}
-                  title={
-                    find.locationOffset.mode === "polygon"
-                      ? t("offsetTitlePolygon")
-                      : t("offsetTitleCenter")
-                  }
-                >
+              {find.locationOffset && (() => {
+                const offset = find.locationOffset;
+                const label =
+                  offset.mode === "polygon"
+                    ? offset.inside
+                      ? tOffset("inside")
+                      : tOffset("polygonEdge", {
+                          distance: formatDistance(offset.meters, locale),
+                        })
+                    : tOffset("mapCenter", {
+                        distance: formatDistance(offset.meters, locale),
+                      });
+                return (
                   <span
-                    className={`font-mono tabular-nums ${
-                      hellish
-                        ? "text-red-100"
-                        : locationOffsetToneClass(find.locationOffset)
+                    className={`text-xs ${
+                      hellish ? "text-red-300/80" : "text-gray-500"
                     }`}
+                    title={
+                      offset.mode === "polygon"
+                        ? t("offsetTitlePolygon")
+                        : t("offsetTitleCenter")
+                    }
                   >
-                    {formatLocationOffset(find.locationOffset, locale)}
+                    <span
+                      className={`font-mono tabular-nums ${
+                        hellish
+                          ? "text-red-100"
+                          : locationOffsetToneClass(offset)
+                      }`}
+                    >
+                      {label}
+                    </span>
                   </span>
-                </span>
-              )}
+                );
+              })()}
               {find.distanceFromDefault !== null && (
                 <span
                   className={`text-xs ${

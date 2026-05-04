@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Hourglass, X } from "lucide-react";
-import { FINDS, formatCount } from "@/lib/format";
+import { useLocale, useTranslations } from "next-intl";
 
 interface IdRange {
   start: number;
@@ -18,7 +18,11 @@ interface Props {
   gaps: readonly IdRange[];
 }
 
-const fmt = new Intl.NumberFormat("cs-CZ");
+function toIntlLocale(locale: string): string {
+  if (locale === "cs") return "cs-CZ";
+  if (locale === "en") return "en-GB";
+  return locale;
+}
 
 /**
  * Renders a soft-amber notice on /sbirka when the find catalog is still
@@ -37,6 +41,10 @@ export function CollectionProgressBanner({
   maxFindId,
   gaps,
 }: Props) {
+  const t = useTranslations("CollectionProgress");
+  const tCommon = useTranslations("Common");
+  const locale = useLocale();
+  const fmt = new Intl.NumberFormat(toIntlLocale(locale));
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -66,16 +74,16 @@ export function CollectionProgressBanner({
           aria-hidden
         />
         <div className="flex-1 space-y-1">
-          <p className="font-medium">Sbírka se postupně doplňuje</p>
+          <p className="font-medium">{t("title")}</p>
           <p className="text-amber-800">
-            Aktuálně je k dispozici {formatCount(count, FINDS)} (čísla{" "}
-            {fmt.format(minFindId)}–{fmt.format(maxFindId)}).{" "}
-            {leadingGap > 0 && "Starší nálezy přibývají postupně."}
+            {t("summary", {
+              count,
+              min: fmt.format(minFindId),
+              max: fmt.format(maxFindId),
+            })}{" "}
+            {leadingGap > 0 && t("olderArriving")}
             {internalGaps > 0 && (
-              <>
-                {" "}
-                V tomto rozsahu zatím chybí {formatCount(internalGaps, FINDS)}.
-              </>
+              <> {t("internalMissing", { count: internalGaps })}</>
             )}
           </p>
         </div>
@@ -85,7 +93,7 @@ export function CollectionProgressBanner({
             onClick={() => setOpen(true)}
             className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-900 shadow-sm transition hover:border-amber-500 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
           >
-            Zobrazit chybějící rozsahy
+            {t("showRanges")}
           </button>
         )}
       </div>
@@ -107,30 +115,28 @@ export function CollectionProgressBanner({
             id="missing-finds-title"
             className="text-sm font-semibold text-gray-900"
           >
-            Chybějící čísla nálezů
+            {t("modalTitle")}
           </h2>
           <button
             type="button"
             onClick={() => setOpen(false)}
             className="-m-1 rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-            aria-label="Zavřít"
+            aria-label={tCommon("close")}
           >
             <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
         <div className="space-y-3 px-5 py-4 text-sm">
           <p className="text-gray-700">
-            Ve sbírce zatím chybí{" "}
-            <strong className="font-semibold text-gray-900">
-              {formatCount(totalMissingInternal, FINDS)}
-            </strong>{" "}
-            v {fmt.format(gaps.length)}{" "}
-            {gaps.length === 1
-              ? "rozsahu"
-              : gaps.length < 5
-                ? "rozsazích"
-                : "rozsazích"}
-            . Postupně přibývají do importu.
+            {t.rich("modalIntro", {
+              count: totalMissingInternal,
+              ranges: gaps.length,
+              b: (chunks) => (
+                <strong className="font-semibold text-gray-900">
+                  {chunks}
+                </strong>
+              ),
+            })}
           </p>
           <div className="max-h-[55vh] overflow-y-auto">
             <ul className="flex flex-wrap gap-1.5">

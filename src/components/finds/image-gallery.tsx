@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import type { PublicImage } from "@/lib/queries/finds";
 import type { FindPhotoEntry } from "@/lib/findPhotos";
@@ -35,6 +36,8 @@ export function ImageGallery({
    *  Camera button. */
   donationPhotos?: readonly FindPhotoEntry[];
 }) {
+  const t = useTranslations("ImageGallery");
+  const tCommon = useTranslations("Common");
   const [showCrop, setShowCrop] = useState(false);
 
   if (!image) {
@@ -43,7 +46,7 @@ export function ImageGallery({
         <span aria-hidden className="text-4xl opacity-40">
           🍀
         </span>
-        <span className="sr-only">Žádná fotografie</span>
+        <span className="sr-only">{tCommon("noPhoto")}</span>
         {/* No main photo doesn't preclude donation photos (e.g.
             NO_PHOTO state but the recipient still got a card). The
             button still mounts so visitors with the unlock code can
@@ -74,7 +77,7 @@ export function ImageGallery({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={cropImage.webPath}
-            alt={`${altBase} – výřez`}
+            alt={t("cropAlt", { base: altBase })}
             aria-hidden={!showCrop}
             className={`pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-150 ${
               showCrop ? "opacity-100" : "opacity-0"
@@ -86,9 +89,9 @@ export function ImageGallery({
             onMouseLeave={() => setShowCrop(false)}
             onFocus={() => setShowCrop(true)}
             onBlur={() => setShowCrop(false)}
-            aria-label="Zobrazit výřez"
+            aria-label={t("showCrop")}
             aria-pressed={showCrop}
-            title="Zobrazit výřez"
+            title={t("showCrop")}
             className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <Search className="h-5 w-5" />

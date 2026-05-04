@@ -1,5 +1,6 @@
-import { Link } from "@/i18n/navigation";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Camera, MapPin } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
@@ -7,43 +8,84 @@ import {
   formatDateTimeCs,
   formatDistance,
   formatLocationId,
-  formatLocationOffset,
   locationOffsetToneClass,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
 
-export function FindList({ finds }: { finds: readonly PublicFind[] }) {
+type RowT = Awaited<ReturnType<typeof getTranslations<"FindRow">>>;
+type OffsetT = Awaited<ReturnType<typeof getTranslations<"LocationOffset">>>;
+
+export async function FindList({ finds }: { finds: readonly PublicFind[] }) {
   if (finds.length === 0) {
+    const tSbirka = await getTranslations("Sbirka");
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-12 text-center">
-        <p className="text-gray-500">Žádné nálezy neodpovídají filtrům.</p>
+        <p className="text-gray-500">{tSbirka("noFindsMatch")}</p>
       </div>
     );
   }
+
+  const [locale, tRow, tOffset] = await Promise.all([
+    getLocale(),
+    getTranslations("FindRow"),
+    getTranslations("LocationOffset"),
+  ]);
 
   return (
     <ul className="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white">
       {finds.map((find) => (
         <li key={find.id}>
-          <FindListRow find={find} />
+          <FindListRow
+            find={find}
+            locale={locale}
+            tRow={tRow}
+            tOffset={tOffset}
+          />
         </li>
       ))}
     </ul>
   );
 }
 
-function FindListRow({ find }: { find: PublicFind }) {
+function FindListRow({
+  find,
+  locale,
+  tRow,
+  tOffset,
+}: {
+  find: PublicFind;
+  locale: string;
+  tRow: RowT;
+  tOffset: OffsetT;
+}) {
   // Anonymized finds must not leak their actual location id, code, or
   // description here — mirrors the detail page's substitution. Coords
   // and notes are already stripped upstream by anonymize().
   const altText = find.isAnonymized
-    ? `Anonymizovaný nález #${find.id}`
-    : `Nález #${find.id}`;
+    ? tRow("anonymizedAlt", { id: find.id })
+    : tRow("findAlt", { id: find.id });
 
   // The map deep-link only makes sense when the find has a public GPS
   // point to focus on. Anonymized finds expose at most coarsened coords
   // — pinning them precisely on the map would defeat anonymization.
   const showMapLink = !find.isAnonymized && find.coordinates !== null;
+
+  const offsetLabel = find.locationOffset
+    ? find.locationOffset.mode === "polygon"
+      ? find.locationOffset.inside
+        ? tOffset("inside")
+        : tOffset("polygonEdge", {
+            distance: formatDistance(find.locationOffset.meters, locale),
+          })
+      : tOffset("mapCenter", {
+          distance: formatDistance(find.locationOffset.meters, locale),
+        })
+    : null;
+  const offsetTitle = find.locationOffset
+    ? find.locationOffset.mode === "polygon"
+      ? tOffset("polygonTitle")
+      : tOffset("centerTitle")
+    : "";
 
   return (
     <div className="group flex items-stretch transition hover:bg-brand-50">
@@ -60,27 +102,23 @@ function FindListRow({ find }: { find: PublicFind }) {
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {/* Title row: #ID + #LocId - CODE (description), datetime right. */}
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <FindTitle find={find} />
+            <FindTitle find={find} tRow={tRow} />
             <span className="shrink-0 text-xs text-gray-500">
-              {formatDateTimeCs(find.foundAt)}
+              {formatDateTimeCs(find.foundAt, locale)}
             </span>
           </div>
 
           {!find.isAnonymized && find.coordinates && (
             <p className="font-mono text-xs text-gray-500">
               {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
-              {find.locationOffset && (
+              {find.locationOffset && offsetLabel && (
                 <>
                   {" · "}
                   <span
                     className={locationOffsetToneClass(find.locationOffset)}
-                    title={
-                      find.locationOffset.mode === "polygon"
-                        ? "Vzdušná vzdálenost od hrany polygonu lokace (0 = uvnitř AOI)"
-                        : "Vzdušná vzdálenost od GPS středu lokační mapy"
-                    }
+                    title={offsetTitle}
                   >
-                    {formatLocationOffset(find.locationOffset)}
+                    {offsetLabel}
                   </span>
                 </>
               )}
@@ -89,9 +127,14 @@ function FindListRow({ find }: { find: PublicFind }) {
                   {" · "}
                   <span
                     className="text-gray-600"
-                    title="Vzdušná vzdálenost od GPS středu výchozí lokační mapy #00001"
+                    title={tOffset("fromDefaultMapTitle")}
                   >
-                    {formatDistance(find.distanceFromDefault)} od mapy #00001
+                    {tOffset("fromDefaultMap", {
+                      distance: formatDistance(
+                        find.distanceFromDefault,
+                        locale,
+                      ),
+                    })}
                   </span>
                 </>
               )}
@@ -110,8 +153,8 @@ function FindListRow({ find }: { find: PublicFind }) {
                 // material" rather than as another state badge.
                 <span
                   className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800"
-                  title="Nález má reálnou fotku daru"
-                  aria-label="Nález má reálnou fotku daru"
+                  title={tRow("donationPhotoTitle")}
+                  aria-label={tRow("donationPhotoTitle")}
                 >
                   <Camera className="h-3 w-3" aria-hidden />
                 </span>
@@ -143,8 +186,8 @@ function FindListRow({ find }: { find: PublicFind }) {
         <Link
           href={`/mapa?find=${find.id}`}
           className="flex shrink-0 items-center justify-center border-l border-gray-100 px-3 text-gray-400 transition hover:bg-brand-100 hover:text-brand-700 focus:bg-brand-100 focus:text-brand-700 focus:outline-none"
-          aria-label="Zobrazit nález na mapě"
-          title="Zobrazit nález na mapě"
+          aria-label={tRow("showOnMap")}
+          title={tRow("showOnMap")}
         >
           <MapPin className="h-5 w-5" aria-hidden />
         </Link>
@@ -153,7 +196,7 @@ function FindListRow({ find }: { find: PublicFind }) {
   );
 }
 
-function FindTitle({ find }: { find: PublicFind }) {
+function FindTitle({ find, tRow }: { find: PublicFind; tRow: RowT }) {
   if (find.isAnonymized) {
     return (
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -161,7 +204,7 @@ function FindTitle({ find }: { find: PublicFind }) {
           #{find.id}
         </span>
         <span className="truncate text-sm text-gray-700">
-          Anonymizovaná lokalita
+          {tRow("anonymizedLocation")}
         </span>
       </div>
     );
@@ -192,7 +235,7 @@ function FindTitle({ find }: { find: PublicFind }) {
           )}
         </>
       ) : (
-        <span className="text-sm text-gray-700">Bez lokality</span>
+        <span className="text-sm text-gray-700">{tRow("noLocation")}</span>
       )}
     </div>
   );
