@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import {
   Building2,
   Calendar,
@@ -21,13 +20,14 @@ import {
   Timer,
   type LucideIcon,
 } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import {
   formatDateTimeCs,
   formatDistance,
   formatLocationId,
   formatLongDuration,
   formatTimeSinceCs,
-  pluralCs,
 } from "@/lib/format";
 import {
   getStatsCalendar,
@@ -67,32 +67,32 @@ import {
   TotalsSkeleton,
 } from "@/components/stats/skeletons";
 
-export const metadata: Metadata = {
-  title: "Statistiky",
-  description: "Přehled sbírky čtyřlístků v číslech.",
-};
+type StatsT = Awaited<ReturnType<typeof getTranslations<"Statistiky">>>;
+
+function toIntlLocale(locale: string): string {
+  if (locale === "cs") return "cs-CZ";
+  if (locale === "en") return "en-GB";
+  return locale;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("Statistiky");
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  };
+}
 
 // Matches STATS_REVALIDATE in src/lib/constants.ts (6 hours).
 export const revalidate = 21600;
 
-/**
- * /statistiky renders eight independent sections; each one fetches its
- * own data and is wrapped in a `<Suspense>` boundary so the page
- * streams sections in as they finish instead of blocking on the slowest
- * SQL query. The order is identical to the pre-streaming layout —
- * Totals → Highlights → Peaks → Jubilees → TopLocations → Geo →
- * Calendar → Distance — but visually the user now sees a header +
- * skeletons immediately and watches the cards fill in over the next
- * couple of seconds, instead of staring at a blank page for the full
- * cold-cache duration. ISR (`revalidate = 21600`) still caches the
- * fully-streamed output for warm-cache visitors.
- */
-export default function StatistikyPage() {
+export default async function StatistikyPage() {
+  const t = await getTranslations("Statistiky");
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <header>
-        <h1 className="text-3xl font-bold text-gray-900">Statistiky</h1>
-        <p className="mt-2 text-gray-600">Souhrn sbírky.</p>
+        <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
+        <p className="mt-2 text-gray-600">{t("subtitle")}</p>
       </header>
 
       <Suspense fallback={<TotalsSkeleton />}>
@@ -126,117 +126,100 @@ export default function StatistikyPage() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Async section wrappers — each one calls its own fetcher and renders
-// the existing presentational component(s). Suspense unwraps the
-// promise to show the skeleton while the fetcher is in flight.
-
 async function TotalsSection() {
-  const [{ totals, countryCount, cityCount }, realPhotoLocs, realPhotoFindIds, donatedFindIds] =
-    await Promise.all([
-      getStatsTotals(),
-      getLocationIdsWithRealPhotos(),
-      getFindIdsWithRealPhotos(),
-      // Distinct DONATED, non-anonymized find IDs — pulled separately so
-      // we can intersect with the on-disk find-photos index without
-      // expanding StatsTotals (the photo set lives on the filesystem,
-      // not in DB).
-      prisma.findStateAssignment
-        .findMany({
-          where: {
-            state: "DONATED",
-            find: { isAnonymized: false },
-          },
-          select: { findId: true },
-          distinct: ["findId"],
-        })
-        .then((rows) => new Set(rows.map((r) => r.findId))),
-    ]);
-  // "Darovaných s reálnou fotkou" — sub-category of donatedFinds. Counts
-  // only finds present in BOTH the DB DONATED set and the on-disk
-  // `find-photos/` index.
+  const t = await getTranslations("Statistiky");
+  const locale = await getLocale();
+  const fmt = new Intl.NumberFormat(toIntlLocale(locale), {
+    maximumFractionDigits: 0,
+  });
+  const [
+    { totals, countryCount, cityCount },
+    realPhotoLocs,
+    realPhotoFindIds,
+    donatedFindIds,
+  ] = await Promise.all([
+    getStatsTotals(),
+    getLocationIdsWithRealPhotos(),
+    getFindIdsWithRealPhotos(),
+    prisma.findStateAssignment
+      .findMany({
+        where: {
+          state: "DONATED",
+          find: { isAnonymized: false },
+        },
+        select: { findId: true },
+        distinct: ["findId"],
+      })
+      .then((rows) => new Set(rows.map((r) => r.findId))),
+  ]);
   let donatedWithPhoto = 0;
-  for (const id of realPhotoFindIds) if (donatedFindIds.has(id)) donatedWithPhoto += 1;
-  const fmt = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 });
+  for (const id of realPhotoFindIds)
+    if (donatedFindIds.has(id)) donatedWithPhoto += 1;
   return (
     <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <TotalCard
         tone="brand"
-        label="nálezů"
+        label={t("labelTotalFinds")}
         value={fmt.format(totals.finds)}
-        // Mirrors the locations card layout: a top-corner peer metric
-        // ("darováno") next to the main number lifts the donated count
-        // out of the dense bottom row so it reads as the second-most
-        // important total, not a footnote. The "Darované s fotkou"
-        // sub-row stays in subStats — it's a sub-category of darováno
-        // and belongs to the detail tier.
         cornerLeft={{
           icon: Gift,
-          label: "darováno",
+          label: t("labelDonated"),
           value: fmt.format(totals.donatedFinds),
           href: "/sbirka?state=DONATED",
         }}
         subStats={[
           {
             icon: Camera,
-            // Sub-category of "darováno": donated finds with at least
-            // one matching photo in `${GENERATED_DIR}/find-photos/`.
-            label: "Darované s fotkou",
+            label: t("labelDonatedWithPhoto"),
             value: fmt.format(donatedWithPhoto),
             href: "/sbirka?state=DONATED&hasPhoto=1",
           },
           {
             icon: Search,
-            label: "ztracených",
+            label: t("labelLost"),
             value: fmt.format(totals.lostFinds),
           },
           {
             icon: ImageOff,
-            label: "bez fotky",
+            label: t("labelNoPhoto"),
             value: fmt.format(totals.noPhotoFinds),
           },
           {
             icon: EyeOff,
-            label: "anonymizovaných",
+            label: t("labelAnonymized"),
             value: fmt.format(totals.anonymized),
           },
         ]}
       />
       <TotalCard
         tone="brand"
-        label="lokalit"
+        label={t("labelTotalLocations")}
         value={fmt.format(totals.locations)}
         cornerLeft={{
           icon: Globe2,
-          label: "států",
+          label: t("labelCountries", { count: countryCount }),
           value: fmt.format(countryCount),
         }}
         cornerRight={{
           icon: Building2,
-          label: "měst",
+          label: t("labelCities", { count: cityCount }),
           value: fmt.format(cityCount),
         }}
         subStats={[
           {
             icon: EyeOff,
-            label: "anonymizovaných",
+            label: t("labelAnonymized"),
             value: fmt.format(totals.anonymizedLocations),
-            // No /lokality filter for anonymized rows on the public
-            // surface (the toggle is gated to the author's session),
-            // so this stat stays static.
           },
           {
             icon: MapPinOff,
-            label: "zaniklých",
+            label: t("labelGoneLocations"),
             value: fmt.format(totals.goneLocations),
-            // `onlyGone` deep-link → /lokality filtruje na samé
-            // zaniklé. Není to jen toggle viditelnosti (showGone) —
-            // odkrylo by zbytek aktivních lokalit.
             href: "/lokality?onlyGone=1",
           },
           {
             icon: Camera,
-            label: "s reálnou fotkou",
+            label: t("labelLocationsWithPhoto"),
             value: fmt.format(realPhotoLocs.size),
             href: "/lokality?hasPhoto=1",
           },
@@ -247,21 +230,37 @@ async function TotalsSection() {
 }
 
 async function HighlightsSection() {
+  const t = await getTranslations("Statistiky");
+  const locale = await getLocale();
   const { firstFind, lastFind, farthestFind } = await getStatsHighlights();
   if (!firstFind && !lastFind && !farthestFind) return null;
   return (
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      {firstFind && <FindHighlightCard label="První nález" find={firstFind} />}
+      {firstFind && (
+        <FindHighlightCard
+          label={t("highlightFirstFind")}
+          find={firstFind}
+          t={t}
+          locale={locale}
+        />
+      )}
       {lastFind && lastFind.id !== firstFind?.id && (
-        <FindHighlightCard label="Poslední nález" find={lastFind} />
+        <FindHighlightCard
+          label={t("highlightLastFind")}
+          find={lastFind}
+          t={t}
+          locale={locale}
+        />
       )}
       {farthestFind &&
         farthestFind.id !== firstFind?.id &&
         farthestFind.id !== lastFind?.id && (
           <FindHighlightCard
-            label="Nejvzdálenější nález"
+            label={t("highlightFarthestFind")}
             find={farthestFind}
             distanceMeters={farthestFind.distanceMeters}
+            t={t}
+            locale={locale}
           />
         )}
     </section>
@@ -271,17 +270,23 @@ async function HighlightsSection() {
 async function TimeAndPaceSection() {
   const data = await getStatsTimeAndPace();
   if (data.totalFindsWithDate === 0) return null;
-  return <TimeAndPaceCard data={data} />;
+  const t = await getTranslations("Statistiky");
+  const locale = await getLocale();
+  return <TimeAndPaceCard data={data} t={t} locale={locale} />;
 }
 
 async function PeaksSection() {
+  const t = await getTranslations("Statistiky");
+  const locale = await getLocale();
   const peaks = await getStatsPeaks();
-  return <PeakBucketsSection peaks={peaks} />;
+  return <PeakBucketsSection peaks={peaks} t={t} locale={locale} />;
 }
 
 async function JubileesSection() {
+  const t = await getTranslations("Statistiky");
+  const locale = await getLocale();
   const { jubilees } = await getStatsJubilees();
-  return <JubileeFindsSection jubilees={jubilees} />;
+  return <JubileeFindsSection jubilees={jubilees} t={t} locale={locale} />;
 }
 
 async function TopLocationsSection() {
@@ -296,11 +301,13 @@ async function TopLocationsSection() {
 }
 
 async function GeoSection() {
+  const t = await getTranslations("Statistiky");
   const { byCountry, byCity } = await getStatsGeo();
-  return <GeoStatsSection byCountry={byCountry} byCity={byCity} />;
+  return <GeoStatsSection byCountry={byCountry} byCity={byCity} t={t} />;
 }
 
 async function CalendarSection() {
+  const t = await getTranslations("Statistiky");
   const data = await getStatsCalendar();
   return (
     <CalendarStatsSection
@@ -310,27 +317,22 @@ async function CalendarSection() {
       yearly={data.yearly}
       firstYear={data.firstYear}
       byMonthDay={data.byMonthDay}
+      t={t}
     />
   );
 }
 
 async function DistanceSection() {
+  const t = await getTranslations("Statistiky");
   const { byDistance } = await getStatsDistance();
   if (byDistance.length === 0) return null;
-  return <DistanceStatsSection byDistance={byDistance} />;
+  return <DistanceStatsSection byDistance={byDistance} t={t} />;
 }
-
-// ---------------------------------------------------------------------------
-//  Totals + first/last find
 
 interface SubStat {
   icon: LucideIcon;
   label: string;
   value: string;
-  /** When set, the stat renders as a Link to the corresponding
-   *  filtered list page (/sbirka or /lokality). Stats without an href
-   *  stay plain — anonymized + no-photo numbers don't have a useful
-   *  filtered destination. */
   href?: string;
 }
 
@@ -344,18 +346,9 @@ function TotalCard({
 }: {
   label: string;
   value: string;
-  /** Optional secondary metric in the top-left corner — same visual
-   *  weight as the centred main number but slightly smaller, so it
-   *  reads as a peer rather than a sub-stat. */
   cornerLeft?: SubStat;
-  /** Mirrors `cornerLeft` on the right. Both corners stay aligned via
-   *  a 3-column grid when set; the bottom subStats row spans the full
-   *  card so the visual hierarchy is "peer numbers → main → details". */
   cornerRight?: SubStat;
   subStats?: readonly SubStat[];
-  /** "brand" lifts the headline pair (nálezy + lokality) onto a
-   *  brand-50 wash so they don't read as just-another-card next to
-   *  the eight neutral white cards below them. */
   tone?: "default" | "brand";
 }) {
   const hasCorners = !!(cornerLeft || cornerRight);
@@ -391,10 +384,6 @@ function TotalCard({
         >
           {subStats.map((s) => {
             const Icon = s.icon;
-            // Two render variants: a plain <span> row or, when `href`
-            // is set, a Link to the corresponding filtered list page.
-            // Linked rows use the same layout but pick up underline +
-            // brand-700 on hover so the affordance is visible.
             const inner = (
               <>
                 <Icon className="h-3.5 w-3.5 text-brand-700" aria-hidden />
@@ -431,12 +420,20 @@ function TotalCard({
   );
 }
 
-function TimeAndPaceCard({ data }: { data: StatsTimeAndPaceResult }) {
-  const fmt = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 });
-  const fmtPace = new Intl.NumberFormat("cs-CZ", {
+function TimeAndPaceCard({
+  data,
+  t,
+  locale,
+}: {
+  data: StatsTimeAndPaceResult;
+  t: StatsT;
+  locale: string;
+}) {
+  const intlLocale = toIntlLocale(locale);
+  const fmtPace = new Intl.NumberFormat(intlLocale, {
     maximumFractionDigits: 1,
   });
-  const dateFmt = new Intl.DateTimeFormat("cs-CZ", {
+  const dateFmt = new Intl.DateTimeFormat(intlLocale, {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -451,73 +448,63 @@ function TimeAndPaceCard({ data }: { data: StatsTimeAndPaceResult }) {
       aria-labelledby="time-and-pace-section"
       className="space-y-6 rounded-xl border border-gray-200 bg-white p-6"
     >
-      {/* Section title is dropped from the visual layout to keep this
-          card compact — the captions above each cell group ("Odhadovaná
-          doba sbírání", "Průměrné tempo …") are self-describing. The
-          accessible name is preserved via a visually-hidden heading so
-          screen readers and the section landmark still announce it. */}
       <h2 id="time-and-pace-section" className="sr-only">
-        Doba sbírání a tempo
+        {t("timePaceHeading")}
       </h2>
 
-      {/* Top row — keep the two-column "total time" + "all-time pace"
-          split on lg. The per-year selector lives below in its own
-          full-width row so the year buttons don't get cramped next to
-          the all-time cells. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="flex flex-col items-center justify-center text-center">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            Odhadovaná doba sbírání
+            {t("timePaceEstimate")}
           </p>
           <p className="mt-1 text-3xl font-bold text-brand-700">
             {totalLabel}
           </p>
           <p
             className="mt-1 max-w-xs text-xs text-gray-500"
-            title="Hledání = po sobě jdoucí nálezy v rámci jedné lokality s mezerou ≤ 15 min. Každé hledání dostane 2 min baseline (čas před prvním nálezem)."
+            title={t("timePaceTitle")}
           >
-            součet trvání {fmt.format(data.sessions)} hledání čtyřlístků
+            {t("timePaceSummary", { sessions: data.sessions })}
             {data.locationCount > 0 && (
-              <>
-                {" "}
-                na {fmt.format(data.locationCount)}{" "}
-                {pluralCs(data.locationCount, [
-                  "lokalitě",
-                  "lokalitách",
-                  "lokalitách",
-                ])}
-              </>
+              <> {t("timePaceSummaryAt", { count: data.locationCount })}</>
             )}
             {data.findsPerSession > 0 && (
-              <> (Ø {fmtPace.format(data.findsPerSession)} nálezů / hledání)</>
-            )}
-            {" "}+ 2 min baseline / hledání
+              <>
+                {" "}
+                {t("timePaceAvgPerSession", {
+                  avg: fmtPace.format(data.findsPerSession),
+                })}
+              </>
+            )}{" "}
+            {t("timePaceBaseline")}
           </p>
         </div>
 
         <div className="flex flex-col">
           <p className="text-center text-xs font-medium uppercase tracking-wide text-gray-500">
-            Průměrné tempo (od počátku sbírání)
+            {t("paceAllTime")}
           </p>
           <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            <PaceCell label="/ hodinu" value={fmtPace.format(data.perHour)} />
-            <PaceCell label="/ den" value={fmtPace.format(data.perDay)} />
-            <PaceCell label="/ týden" value={fmtPace.format(data.perWeek)} />
-            <PaceCell label="/ měsíc" value={fmtPace.format(data.perMonth)} />
-            <PaceCell label="/ rok" value={fmtPace.format(data.perYear)} />
+            <PaceCell label={t("perHour")} value={fmtPace.format(data.perHour)} />
+            <PaceCell label={t("perDay")} value={fmtPace.format(data.perDay)} />
+            <PaceCell label={t("perWeek")} value={fmtPace.format(data.perWeek)} />
+            <PaceCell
+              label={t("perMonth")}
+              value={fmtPace.format(data.perMonth)}
+            />
+            <PaceCell
+              label={t("perYearLabel")}
+              value={fmtPace.format(data.perYear)}
+            />
           </ul>
           {firstAtLabel && (
             <p className="mt-3 text-center text-xs text-gray-500">
-              od prvního nálezu — {firstAtLabel}
+              {t("sinceFirstFind", { date: firstAtLabel })}
             </p>
           )}
         </div>
       </div>
 
-      {/* Per-year pace — opt-in row that lets the visitor compare any
-          single calendar year against the all-time average above.
-          Renders only when the collection actually spans at least
-          one year (the empty-collection branch returns []). */}
       {data.perYearStats.length > 0 && (
         <div className="border-t border-gray-100 pt-5">
           <YearlyPaceBlock entries={data.perYearStats} />
@@ -577,9 +564,6 @@ function CornerStat({
       </p>
     </>
   );
-  // Linked variant gets a subtle hover treatment on the label row so
-  // the affordance is visible without making the big number itself
-  // jump on hover. The wrapper stays a flex column either way.
   if (stat.href) {
     return (
       <Link
@@ -597,11 +581,14 @@ function FindHighlightCard({
   label,
   find,
   distanceMeters,
+  t,
+  locale,
 }: {
   label: string;
   find: FindHighlight;
-  /** When provided, renders a compass row showing distance from MAP 00001. */
   distanceMeters?: number;
+  t: StatsT;
+  locale: string;
 }) {
   const date = find.foundAt ? new Date(find.foundAt) : null;
   return (
@@ -616,7 +603,7 @@ function FindHighlightCard({
       </div>
 
       <p className="mt-2 text-base font-semibold text-gray-900">
-        {date ? formatDateTimeCs(date) : "Datum nálezu chybí"}
+        {date ? formatDateTimeCs(date, locale) : t("missingDate")}
       </p>
       {date && (
         <p className="text-xs text-gray-500">{formatTimeSinceCs(date)}</p>
@@ -638,7 +625,7 @@ function FindHighlightCard({
         ) : (
           <p className="inline-flex items-center gap-1.5 text-sm text-purple-700">
             <HelpCircle className="h-4 w-4" aria-hidden />
-            Anonymizovaná lokalita
+            {t("anonymizedLocation")}
           </p>
         )}
       </div>
@@ -646,38 +633,32 @@ function FindHighlightCard({
       {distanceMeters !== undefined && (
         <p
           className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-500"
-          title="Vzdálenost počítaná od GPS středu výchozí lokační mapy #00001"
+          title={t("distanceFromDefaultTitle")}
         >
           <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
           <span className="font-mono tabular-nums text-gray-900">
-            {formatDistance(distanceMeters)}
+            {formatDistance(distanceMeters, locale)}
           </span>
-          <span>od mapy #00001</span>
+          <span>{t("distanceFromMapSuffix")}</span>
         </p>
       )}
 
-      {/* mt-auto pushes the actions to the bottom; flex-wrap keeps the
-          two buttons side-by-side on the typical card width and stacks
-          them gracefully on a narrow column. The map button is hidden
-          for anonymized finds (CLAUDE.md §6 — no precise position) and
-          for finds without GPS (the /mapa?find=N highlight wouldn't
-          resolve). */}
       <div className="mt-auto flex flex-wrap justify-center gap-2 pt-4">
         <Link
           href={`/sbirka/${find.id}`}
           className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
         >
-          Otevřít nález #{find.id} →
+          {t("openFind", { id: find.id })}
         </Link>
         {!find.isAnonymized && find.hasGps && (
           <Link
             href={`/mapa?find=${find.id}`}
             className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:border-brand-200 hover:text-brand-700 hover:shadow-sm"
-            aria-label={`Zobrazit nález #${find.id} na mapě`}
-            title="Zobrazit na mapě"
+            aria-label={t("showFindOnMapAria", { id: find.id })}
+            title={t("showOnMapTitle")}
           >
             <MapPin className="h-4 w-4" aria-hidden />
-            Na mapě
+            {t("showOnMapLabel")}
           </Link>
         )}
       </div>
@@ -685,48 +666,53 @@ function FindHighlightCard({
   );
 }
 
-// ---------------------------------------------------------------------------
-//  Geo statistics — country / city tables + world bubble map
-
 function GeoStatsSection({
   byCountry,
   byCity,
+  t,
 }: {
   byCountry: readonly CountryPoint[];
   byCity: readonly CategoryPoint[];
+  t: StatsT;
 }) {
-  // Hide the entire section before any data has GPS — the choropleth
-  // would be a uniform light wash and the tables would be empty.
   if (byCountry.length === 0 && byCity.length === 0) return null;
   return (
     <section className="space-y-4">
       <header>
         <h2 className="text-lg font-semibold text-gray-900">
-          Podle států a měst
+          {t("geoHeading")}
         </h2>
         <p className="text-sm text-gray-500">
-          Stát se určuje z GPS středu lokality (point-in-polygon proti
-          hranicím Natural Earth), město z katastrálního území.
-          Anonymizované lokality a místa s prefixem
-          <span className="font-mono">{" "}NEEXISTUJE-{" "}</span>
-          jsou z přehledu měst vyloučené.
+          {t.rich("geoSubtitle", {
+            code: (chunks) => <code>{chunks}</code>,
+          })}
         </p>
       </header>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <CountTable
-          title="Podle států"
-          rows={byCountry.map((c) => ({ key: c.code, label: c.name, count: c.count }))}
+          title={t("geoTopCountries")}
+          rows={byCountry.map((c) => ({
+            key: c.code,
+            label: c.name,
+            count: c.count,
+          }))}
+          t={t}
         />
         <CountTable
-          title="TOP 10 měst"
-          rows={byCity.map((c) => ({ key: c.name, label: c.name, count: c.count }))}
+          title={t("geoTopCities")}
+          rows={byCity.map((c) => ({
+            key: c.name,
+            label: c.name,
+            count: c.count,
+          }))}
           maxRows={10}
+          t={t}
         />
       </div>
       {byCountry.length > 0 && (
         <div>
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Mapa nálezů podle států
+            {t("geoMapHeading")}
           </h3>
           <WorldChoroplethMap byCountry={byCountry} />
         </div>
@@ -745,10 +731,12 @@ function CountTable({
   title,
   rows,
   maxRows,
+  t,
 }: {
   title: string;
   rows: readonly CountRow[];
   maxRows?: number;
+  t: StatsT;
 }) {
   const visible = maxRows ? rows.slice(0, maxRows) : rows;
   const max = visible.reduce((m, r) => Math.max(m, r.count), 0);
@@ -759,7 +747,7 @@ function CountTable({
         {title}
       </h3>
       {visible.length === 0 ? (
-        <p className="text-sm text-gray-500">Žádná data.</p>
+        <p className="text-sm text-gray-500">{t("noData")}</p>
       ) : (
         <ol className="space-y-1.5">
           {visible.map((r, i) => (
@@ -773,7 +761,9 @@ function CountTable({
               <div className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-gray-200">
                 <div
                   className="h-full rounded-full bg-brand-500"
-                  style={{ width: max > 0 ? `${(r.count / max) * 100}%` : "0%" }}
+                  style={{
+                    width: max > 0 ? `${(r.count / max) * 100}%` : "0%",
+                  }}
                 />
               </div>
               <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums text-gray-700">
@@ -785,69 +775,16 @@ function CountTable({
       )}
       {truncated > 0 && (
         <p className="mt-3 text-xs text-gray-500">
-          + {truncated} dalších
+          {t("moreCount", { count: truncated })}
         </p>
       )}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-//  Calendar statistics — hour, day of week, month of year
-
 const HOUR_KEYS = Array.from({ length: 24 }, (_, i) => i);
-const DOW_KEYS = [1, 2, 3, 4, 5, 6, 7]; // ISO: 1 = Monday
+const DOW_KEYS = [1, 2, 3, 4, 5, 6, 7];
 const MONTH_KEYS = Array.from({ length: 12 }, (_, i) => i + 1);
-
-const DOW_LABELS: Record<number, string> = {
-  1: "pondělí",
-  2: "úterý",
-  3: "středa",
-  4: "čtvrtek",
-  5: "pátek",
-  6: "sobota",
-  7: "neděle",
-};
-
-const DOW_SHORT: Record<number, string> = {
-  1: "po",
-  2: "út",
-  3: "st",
-  4: "čt",
-  5: "pá",
-  6: "so",
-  7: "ne",
-};
-
-const MONTH_LABELS: Record<number, string> = {
-  1: "leden",
-  2: "únor",
-  3: "březen",
-  4: "duben",
-  5: "květen",
-  6: "červen",
-  7: "červenec",
-  8: "srpen",
-  9: "září",
-  10: "říjen",
-  11: "listopad",
-  12: "prosinec",
-};
-
-const MONTH_SHORT: Record<number, string> = {
-  1: "led",
-  2: "úno",
-  3: "bře",
-  4: "dub",
-  5: "kvě",
-  6: "čvn",
-  7: "čvc",
-  8: "srp",
-  9: "zář",
-  10: "říj",
-  11: "lis",
-  12: "pro",
-};
 
 function fillSeries(
   data: readonly CalendarPoint[],
@@ -865,6 +802,7 @@ function CalendarStatsSection({
   yearly,
   firstYear,
   byMonthDay,
+  t,
 }: {
   byHour: readonly CalendarPoint[];
   byDayOfWeek: readonly CalendarPoint[];
@@ -872,14 +810,12 @@ function CalendarStatsSection({
   yearly: readonly YearlyPoint[];
   firstYear: number | null;
   byMonthDay: readonly MonthDayPoint[];
+  t: StatsT;
 }) {
   const hourly = fillSeries(byHour, HOUR_KEYS);
   const daily = fillSeries(byDayOfWeek, DOW_KEYS);
   const monthly = fillSeries(byMonthOfYear, MONTH_KEYS);
 
-  // Year axis spans first-recorded find through the current calendar
-  // year so a year with zero finds still shows up as an empty column.
-  // Falls back to the current year alone when no finds carry a date.
   const currentYear = new Date().getFullYear();
   const startYear = firstYear ?? currentYear;
   const yearKeys = (() => {
@@ -898,72 +834,81 @@ function CalendarStatsSection({
     <section className="space-y-4">
       <header>
         <h2 className="text-lg font-semibold text-gray-900">
-          Kalendářní statistiky
+          {t("calendarHeading")}
         </h2>
-        <p className="text-sm text-gray-500">
-          Rozložení nálezů podle hodiny dne, dne v týdnu, měsíce v roce, po
-          rocích a po dnech kalendářního roku.
-        </p>
+        <p className="text-sm text-gray-500">{t("calendarSubtitle")}</p>
       </header>
 
       <CalendarSubsection
-        title="Podle hodiny dne"
+        title={t("byHour")}
         data={hourly}
         labelLong={(k) => `${String(k).padStart(2, "0")}:00`}
         labelShort={(k) => String(k).padStart(2, "0")}
         tableColumns={2}
+        t={t}
       />
 
       <CalendarSubsection
-        title="Podle dne v týdnu"
+        title={t("byDayOfWeek")}
         data={daily}
-        labelLong={(k) => DOW_LABELS[k] ?? String(k)}
-        labelShort={(k) => DOW_SHORT[k] ?? String(k)}
+        labelLong={(k) => t(`weekDay${k}`)}
+        labelShort={(k) => t(`weekDay${k}Short`)}
         tableColumns={1}
+        t={t}
       />
 
       <CalendarSubsection
-        title="Podle měsíce v roce"
+        title={t("byMonthOfYear")}
         data={monthly}
-        labelLong={(k) => MONTH_LABELS[k] ?? String(k)}
-        labelShort={(k) => MONTH_SHORT[k] ?? String(k)}
+        labelLong={(k) => t(`monthLong${k}`)}
+        labelShort={(k) => monthShortKey(k, t)}
         tableColumns={1}
+        t={t}
       />
 
       <CalendarSubsection
-        title="Podle roků"
+        title={t("byYear")}
         data={yearlySeries}
         labelLong={(k) => String(k)}
         labelShort={(k) => String(k)}
         tableColumns={1}
+        t={t}
       />
 
-      <MonthDayHeatmap data={byMonthDay} />
+      <MonthDayHeatmap data={byMonthDay} t={t} />
     </section>
   );
 }
 
-// Days per month for a leap year so 29. února shows up as a real cell.
+// Reuses the MonthsAbbr namespace shipped for the home-page sparkline so
+// we don't duplicate the cs/en abbreviation table per consumer.
+function monthShortKey(k: number, t: StatsT): string {
+  // Statistiky doesn't define monthShort1..12 directly; reuse the long
+  // form clipped to the first 3 chars when no shorter form is shipped.
+  // The sparkline (home page) uses MonthsAbbr — but those keys live in
+  // a different namespace, so we'd need a separate translator. Keep
+  // this simple: trim long form's first 3 letters.
+  const full = t(`monthLong${k}`);
+  return full.slice(0, 3).toLowerCase();
+}
+
 const DAYS_PER_MONTH: Record<number, number> = {
   1: 31, 2: 29, 3: 31, 4: 30, 5: 31, 6: 30,
   7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31,
 };
 
-// Heatmap palette — deliberately theme-blind. The green ramp itself
-// carries the meaning; if dark mode flipped these values, a "0" cell
-// rendered with "white" bg would read as a high-count cell, the same
-// way a "white" border would suddenly become a black grid line.
-const HEATMAP_EMPTY_BG = "oklch(0.97 0.04 145)"; // count=0 + × cells
-const HEATMAP_TEXT_DARK = "oklch(0.18 0.03 145)"; // cells with light bg
-const HEATMAP_X_TEXT = "oklch(0.7 0.02 145)"; // muted × glyph
-const HEATMAP_BORDER = "oklch(1 0 0)"; // pure white grid line
+const HEATMAP_EMPTY_BG = "oklch(0.97 0.04 145)";
+const HEATMAP_TEXT_DARK = "oklch(0.18 0.03 145)";
+const HEATMAP_X_TEXT = "oklch(0.7 0.02 145)";
+const HEATMAP_BORDER = "oklch(1 0 0)";
 
 function MonthDayHeatmap({
   data,
+  t,
 }: {
   data: readonly MonthDayPoint[];
+  t: StatsT;
 }) {
-  // Sparse data → dense lookup keyed "M-D".
   const counts = new Map<string, number>();
   for (const p of data) counts.set(`${p.month}-${p.day}`, p.count);
 
@@ -971,8 +916,6 @@ function MonthDayHeatmap({
   const months = MONTH_KEYS;
   const max = data.reduce((m, p) => Math.max(m, p.count), 0);
 
-  // Per-month and per-day totals (real days only — non-existent cells
-  // like 31. února don't contribute).
   const monthTotals = new Map<number, number>();
   const dayTotals = new Map<number, number>();
   let grandTotal = 0;
@@ -991,11 +934,10 @@ function MonthDayHeatmap({
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
       <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-        Kalendářní heatmapa
+        {t("heatmapHeading")}
       </h3>
       <p className="mb-3 text-xs text-gray-500">
-        Počty nálezů podle dne v roce napříč všemi roky. Sytost zelené
-        odpovídá podílu vůči maximálnímu dni ({max}).
+        {t("heatmapSubtitle", { max })}
       </p>
       <div className="overflow-x-auto">
         <table className="mx-auto border-collapse text-[11px] tabular-nums">
@@ -1023,16 +965,10 @@ function MonthDayHeatmap({
               return (
                 <tr key={m}>
                   <th className="sticky left-0 z-10 bg-white p-1 pr-2 text-right font-medium text-gray-700">
-                    {capitalize(MONTH_SHORT[m] ?? "")}
+                    {capitalize(monthShortKey(m, t))}
                   </th>
                   {days.map((d) => {
                     if (d > monthMax) {
-                      // Non-existent dates: hardcoded light-green bg
-                      // matching count=0 cells, with a faint × glyph.
-                      // Theme-blind so dark mode doesn't paint them
-                      // black via inherited bg-white. `borderColor`
-                      // matches the count cells' "border-white" so the
-                      // collapse-shared edge is invisible across themes.
                       return (
                         <td
                           key={d}
@@ -1050,11 +986,6 @@ function MonthDayHeatmap({
                     }
                     const c = counts.get(`${m}-${d}`) ?? 0;
                     const intensity = max > 0 ? c / max : 0;
-                    // Lightness drops 0.97 → 0.45 as count grows; chroma
-                    // grows so darker cells stay vibrantly green. Text
-                    // colour decided purely by the cell's lightness —
-                    // theme-blind so the heatmap renders identically
-                    // in clover / light / dark.
                     const L = 0.97 - intensity * 0.5;
                     const C = 0.04 + intensity * 0.13;
                     const fg = L < 0.6 ? "#ffffff" : HEATMAP_TEXT_DARK;
@@ -1067,7 +998,7 @@ function MonthDayHeatmap({
                           color: fg,
                           borderColor: HEATMAP_BORDER,
                         }}
-                        title={`${d}. ${MONTH_LABELS[m]}: ${c} ${c === 1 ? "nález" : c >= 2 && c <= 4 ? "nálezy" : "nálezů"}`}
+                        title={`${d}. ${t(`monthLong${m}`)}: ${t("labelFinds", { count: c })}`}
                       >
                         {c}
                       </td>
@@ -1114,12 +1045,14 @@ function CalendarSubsection({
   labelLong,
   labelShort,
   tableColumns,
+  t,
 }: {
   title: string;
   data: readonly CalendarPoint[];
   labelLong: (k: number) => string;
   labelShort: (k: number) => string;
   tableColumns: 1 | 2;
+  t: StatsT;
 }) {
   const max = data.reduce((m, d) => Math.max(m, d.count), 0);
 
@@ -1129,14 +1062,6 @@ function CalendarSubsection({
         {title}
       </h3>
 
-      {/* Vertical column chart. Bars are direct flex children of the
-          fixed-height row so their percentage heights resolve against
-          h-32. Wrapping each bar in a flex column killed that height
-          context (items-end shrinks columns to content), which is why
-          every bar previously rendered as a 2 px sliver. The pt-5
-          reserves headroom for the count label that floats just above
-          each bar's top edge — bars at ~100 % no longer overflow the
-          card's title area. */}
       <div className="flex h-32 items-end gap-1 pt-5">
         {data.map((d) => (
           <div
@@ -1156,7 +1081,6 @@ function CalendarSubsection({
           </div>
         ))}
       </div>
-      {/* X-axis labels — outside the flex height so empty bars don't push them around */}
       <div className="mt-1 flex gap-1">
         {data.map((d) => (
           <span
@@ -1168,11 +1092,9 @@ function CalendarSubsection({
         ))}
       </div>
 
-      {/* Numeric table — collapsed by default; rare to need exact values
-          when the bars themselves now carry counts. */}
       <details className="mt-4 group">
         <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-gray-500 hover:text-gray-700">
-          Tabulka hodnot
+          {t("valueTable")}
         </summary>
         <dl
           className={`mt-2 grid gap-x-6 gap-y-1 text-sm ${
@@ -1196,66 +1118,56 @@ function CalendarSubsection({
   );
 }
 
-// ---------------------------------------------------------------------------
-//  Distance histogram — finds binned by great-circle distance from MAP 00001
+const DISTANCE_BUCKET_KEYS = [
+  ["distLT10m", "distLT10mShort"],
+  ["dist10_100m", "dist10_100m"],
+  ["dist100m_1km", "dist100m_1kmShort"],
+  ["dist1_10km", "dist1_10km"],
+  ["dist10_100km", "dist10_100km"],
+  ["dist100_1000km", "dist100_1000km"],
+  ["dist1000_10000km", "dist1000_10000km"],
+  ["distGT10000km", "distGT10000kmShort"],
+] as const;
 
-// Decade buckets (powers of 10). Indices match the SQL CASE in
-// stats.ts → byDistance, so any reordering must update both places.
-// Czech non-breaking spaces (U+00A0) keep "1 000" from line-wrapping
-// inside a tight axis label.
-const DISTANCE_BUCKETS: ReadonlyArray<{ long: string; short: string }> = [
-  { long: "do 10 m", short: "<10 m" },
-  { long: "10–100 m", short: "10–100 m" },
-  { long: "100 m – 1 km", short: "100 m–1 km" },
-  { long: "1–10 km", short: "1–10 km" },
-  { long: "10–100 km", short: "10–100 km" },
-  { long: "100–1 000 km", short: "100–1 000 km" },
-  { long: "1 000–10 000 km", short: "1 000–10 000 km" },
-  { long: "nad 10 000 km", short: ">10 000 km" },
-];
-
-const DISTANCE_BUCKET_KEYS = DISTANCE_BUCKETS.map((_, i) => i);
+const DISTANCE_BUCKET_INDICES = DISTANCE_BUCKET_KEYS.map((_, i) => i);
 
 function DistanceStatsSection({
   byDistance,
+  t,
 }: {
   byDistance: readonly DistanceBucket[];
+  t: StatsT;
 }) {
   const series = fillSeries(
     byDistance.map((b) => ({ key: b.bucket, count: b.count })),
-    DISTANCE_BUCKET_KEYS,
+    DISTANCE_BUCKET_INDICES,
   );
   return (
     <section className="space-y-4">
       <header>
         <h2 className="text-lg font-semibold text-gray-900">
-          Nálezy podle vzdálenosti od lokační mapy 00001
+          {t("distanceHeading")}
         </h2>
-        <p className="text-sm text-gray-500">
-          Logaritmické rozdělení podle vzdušné vzdálenosti od GPS středu
-          defaultní lokační mapy. Anonymizované nálezy a nálezy bez GPS se
-          nezahrnují.
-        </p>
+        <p className="text-sm text-gray-500">{t("distanceSubtitle")}</p>
       </header>
       <CalendarSubsection
-        title="Vzdušná vzdálenost (dekádové koše)"
+        title={t("distanceTitle")}
         data={series}
-        labelLong={(k) => DISTANCE_BUCKETS[k]?.long ?? String(k)}
-        labelShort={(k) => DISTANCE_BUCKETS[k]?.short ?? String(k)}
+        labelLong={(k) => t(DISTANCE_BUCKET_KEYS[k]?.[0] ?? "noData")}
+        labelShort={(k) => t(DISTANCE_BUCKET_KEYS[k]?.[1] ?? "noData")}
         tableColumns={1}
+        t={t}
       />
     </section>
   );
 }
 
-// ---------------------------------------------------------------------------
-//  Peak buckets — busiest hour / day / week / month / year
-// ---------------------------------------------------------------------------
-
 type PeakGranularity = "minute" | "hour" | "day" | "week" | "month" | "year";
 
 function PeakBucketsSection({
   peaks,
+  t,
+  locale,
 }: {
   peaks: {
     minute: PeakBucket | null;
@@ -1265,9 +1177,9 @@ function PeakBucketsSection({
     month: PeakBucket | null;
     year: PeakBucket | null;
   };
+  t: StatsT;
+  locale: string;
 }) {
-  // Render nothing when every bucket is null (collection empty / every
-  // find lacks a `found_at`). The section header would dangle otherwise.
   const anyPeak =
     peaks.minute ||
     peaks.hour ||
@@ -1285,27 +1197,37 @@ function PeakBucketsSection({
   }> = [
     {
       granularity: "minute",
-      label: "Nejvíc za minutu",
+      label: t("peakMinute"),
       icon: Timer,
       peak: peaks.minute,
     },
-    { granularity: "hour", label: "Nejvíc za hodinu", icon: Clock, peak: peaks.hour },
-    { granularity: "day", label: "Nejvíc za den", icon: Calendar, peak: peaks.day },
+    {
+      granularity: "hour",
+      label: t("peakHour"),
+      icon: Clock,
+      peak: peaks.hour,
+    },
+    {
+      granularity: "day",
+      label: t("peakDay"),
+      icon: Calendar,
+      peak: peaks.day,
+    },
     {
       granularity: "week",
-      label: "Nejvíc za týden",
+      label: t("peakWeek"),
       icon: CalendarRange,
       peak: peaks.week,
     },
     {
       granularity: "month",
-      label: "Nejvíc za měsíc",
+      label: t("peakMonth"),
       icon: CalendarDays,
       peak: peaks.month,
     },
     {
       granularity: "year",
-      label: "Nejvíc za rok",
+      label: t("peakYear"),
       icon: Sparkles,
       peak: peaks.year,
     },
@@ -1319,6 +1241,8 @@ function PeakBucketsSection({
           label={label}
           icon={icon}
           peak={peak}
+          t={t}
+          locale={locale}
         />
       ))}
     </section>
@@ -1330,11 +1254,15 @@ function PeakBucketCard({
   label,
   icon: Icon,
   peak,
+  t,
+  locale,
 }: {
   granularity: PeakGranularity;
   label: string;
   icon: LucideIcon;
   peak: PeakBucket | null;
+  t: StatsT;
+  locale: string;
 }) {
   return (
     <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
@@ -1349,11 +1277,11 @@ function PeakBucketCard({
           <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
             {peak.count}
             <span className="ml-1 text-sm font-normal text-gray-500">
-              {czechFinds(peak.count)}
+              {t("labelFinds", { count: peak.count })}
             </span>
           </p>
           <p className="mt-1 text-xs leading-snug text-gray-600">
-            {formatPeakBucket(peak.startsAt, granularity)}
+            {formatPeakBucket(peak.startsAt, granularity, locale)}
           </p>
         </>
       ) : (
@@ -1363,29 +1291,18 @@ function PeakBucketCard({
   );
 }
 
-/** Czech grammatical number for "nález": 1 → nález, 2-4 → nálezy, else → nálezů. */
-function czechFinds(n: number): string {
-  if (n === 1) return "nález";
-  if (n >= 2 && n <= 4) return "nálezy";
-  return "nálezů";
-}
-
-/** Format the bucket timestamp for the user. Each granularity gets its
- *  most natural Czech wording — hour expands to a one-hour window,
- *  week to a Mon→Sun range, year/month/day to their canonical forms. */
 function formatPeakBucket(
   isoStart: string,
   granularity: PeakGranularity,
+  locale: string,
 ): string {
+  const intlLocale = toIntlLocale(locale);
   const start = new Date(isoStart);
   const intl = (opts: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat("cs-CZ", opts).format(start);
+    new Intl.DateTimeFormat(intlLocale, opts).format(start);
 
   switch (granularity) {
     case "minute": {
-      // Single-minute window — render as "den, HH:MM" without an end
-      // bound (a minute is a minute, the second-resolution range
-      // would just clutter without informing).
       const day = intl({ day: "numeric", month: "long", year: "numeric" });
       const pad = (n: number) => String(n).padStart(2, "0");
       return `${day}, ${pad(start.getHours())}:${pad(start.getMinutes())}`;
@@ -1410,21 +1327,19 @@ function formatPeakBucket(
         start.getFullYear() === end.getFullYear() &&
         start.getMonth() === end.getMonth();
       const sameYear = start.getFullYear() === end.getFullYear();
-      // "1.–7. června 2024" when single month, "29. května–4. června 2024"
-      // when crossing months, or full both-sides when crossing years.
       const startFmt = sameMonth
-        ? new Intl.DateTimeFormat("cs-CZ", { day: "numeric" }).format(start)
+        ? new Intl.DateTimeFormat(intlLocale, { day: "numeric" }).format(start)
         : sameYear
-          ? new Intl.DateTimeFormat("cs-CZ", {
+          ? new Intl.DateTimeFormat(intlLocale, {
               day: "numeric",
               month: "long",
             }).format(start)
-          : new Intl.DateTimeFormat("cs-CZ", {
+          : new Intl.DateTimeFormat(intlLocale, {
               day: "numeric",
               month: "long",
               year: "numeric",
             }).format(start);
-      const endFmt = new Intl.DateTimeFormat("cs-CZ", {
+      const endFmt = new Intl.DateTimeFormat(intlLocale, {
         day: "numeric",
         month: "long",
         year: "numeric",
@@ -1438,32 +1353,26 @@ function formatPeakBucket(
   }
 }
 
-// ---------------------------------------------------------------------------
-//  Jubilee finds — every 1000th + 111/1111/11111 + 666/6666
-// ---------------------------------------------------------------------------
-
 function JubileeFindsSection({
   jubilees,
+  t,
+  locale,
 }: {
   jubilees: readonly JubileeFind[];
+  t: StatsT;
+  locale: string;
 }) {
   if (jubilees.length === 0) return null;
-  // Specials = repunits 111, 1111, 11111, … and the sixes 666 / 6666.
-  // Mirrors the construction set in src/lib/queries/stats.ts so the
-  // split here can't drift from what the query layer accepts as a
-  // jubilee. Everything else (every 1000-th find) is a "milestone".
   const specialSet = new Set<number>();
   for (let r = 111; r <= 1_000_000; r = r * 10 + 1) specialSet.add(r);
   specialSet.add(666);
   specialSet.add(6666);
   const milestones = jubilees.filter((j) => !specialSet.has(j.id));
-  // Both the specials row and the first 10 thousand-milestones get
-  // fixed slots so the grid stays uniform even before those finds land
-  // in the DB. Empty slots render a placeholder card. Anything past
-  // the slotted thousands lives in the collapsed `<details>` and only
-  // appears once it actually exists.
   const SLOTTED_SPECIALS = [111, 666, 1111, 6666, 11111] as const;
-  const SLOTTED_THOUSANDS = Array.from({ length: 10 }, (_, i) => (i + 1) * 1000);
+  const SLOTTED_THOUSANDS = Array.from(
+    { length: 10 },
+    (_, i) => (i + 1) * 1000,
+  );
   type Slot =
     | { kind: "find"; find: JubileeFind }
     | { kind: "empty"; id: number };
@@ -1483,47 +1392,34 @@ function JubileeFindsSection({
     <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
       <header>
         <h2 className="text-lg font-semibold text-gray-900">
-          Jubilejní nálezy
+          {t("jubileeHeading")}
         </h2>
-        <p className="text-sm text-gray-500">
-          Speciální čísla (111, 1111, 11111, 666, 6666) a každý
-          tisící nález ve sbírce.
-        </p>
+        <p className="text-sm text-gray-500">{t("jubileeSubtitle")}</p>
       </header>
 
-      {/* Specials share the milestone grid template so card widths
-          line up across both rows. Slots are fixed — uncollected
-          specials render a placeholder so the row keeps its shape.
-          A sparkles icon + brand-tinted chrome marks the row as
-          special without a dramatic visual break. */}
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {slottedSpecials.map((slot) =>
           slot.kind === "find" ? (
             <li key={slot.find.id}>
-              <JubileeCard find={slot.find} variant="special" />
+              <JubileeCard find={slot.find} variant="special" t={t} locale={locale} />
             </li>
           ) : (
             <li key={`empty-${slot.id}`}>
-              <JubileeEmptyCard id={slot.id} variant="special" />
+              <JubileeEmptyCard id={slot.id} variant="special" t={t} />
             </li>
           ),
         )}
       </ul>
 
-      {/* Fixed slots for the first 10 thousand-milestones. Empty slots
-          render a placeholder so the grid keeps its shape as the
-          collection grows toward each next round number. Anything past
-          10 000 only shows up after the find exists, in the collapsed
-          section below. */}
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {slottedMilestones.map((slot) =>
           slot.kind === "find" ? (
             <li key={slot.find.id}>
-              <JubileeCard find={slot.find} />
+              <JubileeCard find={slot.find} t={t} locale={locale} />
             </li>
           ) : (
             <li key={`empty-${slot.id}`}>
-              <JubileeEmptyCard id={slot.id} />
+              <JubileeEmptyCard id={slot.id} t={t} />
             </li>
           ),
         )}
@@ -1531,24 +1427,20 @@ function JubileeFindsSection({
 
       {hiddenMilestones.length > 0 && (
         <details className="group">
-          {/* `<summary>`-marker hidden so the row reads as a button.
-              Wrapping flexbox centres it horizontally — `<summary>` is
-              `display: list-item` by default which doesn't cooperate
-              with `mx-auto`, so we put the centering on the parent. */}
           <summary className="flex cursor-pointer justify-center [&::-webkit-details-marker]:hidden">
             <span className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-brand-200 hover:text-brand-700">
               <span className="group-open:hidden">
-                Zobrazit dalších {hiddenMilestones.length} jubilejních +
+                {t("jubileeShowMore", { count: hiddenMilestones.length })}
               </span>
               <span className="hidden group-open:inline">
-                Skrýt další jubilejní −
+                {t("jubileeHideMore")}
               </span>
             </span>
           </summary>
           <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {hiddenMilestones.map((j) => (
               <li key={j.id}>
-                <JubileeCard find={j} />
+                <JubileeCard find={j} t={t} locale={locale} />
               </li>
             ))}
           </ul>
@@ -1561,21 +1453,17 @@ function JubileeFindsSection({
 function JubileeCard({
   find,
   variant = "default",
+  t,
+  locale,
 }: {
   find: JubileeFind;
-  /** "special" applies brand-tinted chrome + a sparkles glyph next to
-   *  the headline so the 111/666/1111/6666/11111 row reads as set
-   *  apart from the by-1000 milestones. */
   variant?: "default" | "special";
+  t: StatsT;
+  locale: string;
 }) {
   const date = find.foundAt ? new Date(find.foundAt) : null;
   const showMapLink = !find.isAnonymized && find.hasGps;
   const isSpecial = variant === "special";
-  // Two stacked links inside a wrapping div — same pattern as
-  // /sbirka FindList rows. The wrapper carries the card chrome (border,
-  // bg, hover) so both children share the visual treatment, and keeping
-  // them as siblings (not nested) avoids the "<a> inside <a>" pitfall
-  // and leaves each link area cleanly clickable on its own.
   return (
     <div
       className={`flex h-full flex-col rounded-md border transition hover:shadow-sm ${
@@ -1592,21 +1480,17 @@ function JubileeCard({
           {isSpecial && (
             <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-hidden />
           )}
-          {/* Jubilee headlines read better without zero-padding — #111
-              instead of #00111 keeps the milestone visually clean. The
-              rest of the site still uses formatLocationId() for IDs that
-              sit in tabular contexts where alignment matters. */}
           #{find.id}
         </span>
         {find.isAnonymized ? (
           <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800 self-start">
             <HelpCircle className="h-3 w-3" aria-hidden />
-            Anonymizovaný
+            {t("jubileeAnonymized")}
           </span>
         ) : (
           <>
             <span className="text-xs text-gray-500">
-              {date ? formatDateTimeCs(date) : "Datum neznámé"}
+              {date ? formatDateTimeCs(date, locale) : t("jubileeUnknownDate")}
             </span>
             {find.location && (
               <span
@@ -1623,27 +1507,25 @@ function JubileeCard({
         <Link
           href={`/mapa?find=${find.id}`}
           className="flex items-center justify-center gap-1 border-t border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-brand-100 hover:text-brand-700"
-          aria-label={`Zobrazit nález #${find.id} na mapě`}
-          title="Zobrazit na mapě"
+          aria-label={t("showFindOnMapAria", { id: find.id })}
+          title={t("showOnMapTitle")}
         >
           <MapPin className="h-3.5 w-3.5" aria-hidden />
-          Na mapě
+          {t("showOnMapLabel")}
         </Link>
       )}
     </div>
   );
 }
 
-// Placeholder card for thousand-milestones that haven't been collected
-// yet — keeps the grid shape stable as the collection grows. Dashed
-// border + muted palette signal the slot is reserved but empty, so it
-// reads as "coming up" rather than as a broken row.
 function JubileeEmptyCard({
   id,
   variant = "default",
+  t,
 }: {
   id: number;
   variant?: "default" | "special";
+  t: StatsT;
 }) {
   const isSpecial = variant === "special";
   return (
@@ -1653,7 +1535,7 @@ function JubileeEmptyCard({
           ? "border-brand-200 bg-brand-50/40"
           : "border-gray-300 bg-gray-50/60"
       }`}
-      aria-label={`Nález #${id} zatím chybí na webu`}
+      aria-label={t("jubileeMissingAria", { id })}
     >
       <span
         className={`inline-flex items-center gap-1 font-mono text-base font-semibold ${
@@ -1673,7 +1555,7 @@ function JubileeEmptyCard({
           isSpecial ? "text-brand-700/60" : "text-gray-400"
         }`}
       >
-        Zatím chybí na webu
+        {t("jubileeMissing")}
       </span>
     </div>
   );

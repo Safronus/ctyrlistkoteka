@@ -1,4 +1,5 @@
 import { geoEqualEarth, geoPath } from "d3-geo";
+import { getTranslations } from "next-intl/server";
 import { getWorldCountries, type CountryFeatureProps } from "@/lib/world-countries";
 import type { CountryPoint } from "@/lib/queries/stats";
 
@@ -34,7 +35,8 @@ const HEIGHT = 480;
  * looking pleasantly map-shaped — important for a "by country"
  * choropleth where a Mercator would dwarf all of Africa.
  */
-export function WorldChoroplethMap({ byCountry }: Props) {
+export async function WorldChoroplethMap({ byCountry }: Props) {
+  const t = await getTranslations("Statistiky");
   const collection = getWorldCountries();
 
   // Fit the whole world into the SVG box. fitSize handles centring +
@@ -55,7 +57,7 @@ export function WorldChoroplethMap({ byCountry }: Props) {
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-label="Mapa nálezů podle států"
+        aria-label={t("geoMapAria")}
         className="block h-auto w-full"
         style={{ background: "oklch(0.92 0.02 220)" }}
       >
@@ -69,10 +71,10 @@ export function WorldChoroplethMap({ byCountry }: Props) {
           // √-scaling so countries with a handful of finds are still
           // distinguishable from the blank landmass without making
           // every active country look identical to the dominant one.
-          const t = max > 0 ? Math.sqrt(count / max) : 0;
+          const intensity = max > 0 ? Math.sqrt(count / max) : 0;
           const fill =
             count > 0
-              ? `oklch(${0.92 - t * 0.5} ${0.04 + t * 0.13} 145)`
+              ? `oklch(${0.92 - intensity * 0.5} ${0.04 + intensity * 0.13} 145)`
               : "oklch(0.93 0.005 145)";
           const stroke =
             count > 0 ? "oklch(0.35 0.04 145)" : "oklch(0.78 0.005 145)";
@@ -87,17 +89,11 @@ export function WorldChoroplethMap({ byCountry }: Props) {
               strokeWidth={count > 0 ? 0.6 : 0.5}
               vectorEffect="non-scaling-stroke"
             >
-              <title>{`${label}: ${count} ${pluralFinds(count)}`}</title>
+              <title>{`${label}: ${count} ${t("labelFinds", { count })}`}</title>
             </path>
           );
         })}
       </svg>
     </div>
   );
-}
-
-function pluralFinds(n: number): string {
-  if (n === 1) return "nález";
-  if (n >= 2 && n <= 4) return "nálezy";
-  return "nálezů";
 }

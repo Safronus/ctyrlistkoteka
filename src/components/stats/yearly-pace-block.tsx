@@ -1,34 +1,48 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import type { YearlyPaceEntry } from "@/lib/queries/stats";
-import { formatLongDuration, pluralCs } from "@/lib/format";
+import { formatLongDuration } from "@/lib/format";
 
-const fmtPace = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 1 });
-const fmtCount = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 });
+function toIntlLocale(locale: string): string {
+  if (locale === "cs") return "cs-CZ";
+  if (locale === "en") return "en-GB";
+  return locale;
+}
 
-export function YearlyPaceBlock({ entries }: { entries: readonly YearlyPaceEntry[] }) {
-  // Default to the latest year — most users care about "what's my
-  // pace right now" first; older years are one click away. The
-  // server already sorts entries ascending so the last one is latest.
+export function YearlyPaceBlock({
+  entries,
+}: {
+  entries: readonly YearlyPaceEntry[];
+}) {
+  const t = useTranslations("Statistiky");
+  const locale = useLocale();
+  const intlLocale = toIntlLocale(locale);
+  const fmtPace = new Intl.NumberFormat(intlLocale, {
+    maximumFractionDigits: 1,
+  });
+
   const initialYear = entries[entries.length - 1]?.year;
-  const [selectedYear, setSelectedYear] = useState<number | undefined>(initialYear);
+  const [selectedYear, setSelectedYear] = useState<number | undefined>(
+    initialYear,
+  );
 
   if (entries.length === 0 || initialYear === undefined) return null;
 
-  const selected = entries.find((e) => e.year === selectedYear) ?? entries[entries.length - 1]!;
+  const selected =
+    entries.find((e) => e.year === selectedYear) ??
+    entries[entries.length - 1]!;
 
   return (
     <div className="flex flex-col">
       <div className="flex flex-wrap items-baseline justify-center gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          Průměrné tempo v roce
+          {t("paceYear")}
         </p>
-        {/* Inline segmented selector — for the typical 4–6 year span
-            it's nicer than a `<select>`. Wraps on narrow viewports. */}
         <div
           role="group"
-          aria-label="Rok"
+          aria-label={t("yearAria")}
           className="inline-flex flex-wrap overflow-hidden rounded-md border border-gray-300 bg-white"
         >
           {entries.map((e, i) => {
@@ -55,52 +69,44 @@ export function YearlyPaceBlock({ entries }: { entries: readonly YearlyPaceEntry
       </div>
 
       <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <PaceCell label="/ hodinu" value={fmtPace.format(selected.perHour)} />
-        <PaceCell label="/ den" value={fmtPace.format(selected.perDay)} />
-        <PaceCell label="/ týden" value={fmtPace.format(selected.perWeek)} />
-        <PaceCell label="/ měsíc" value={fmtPace.format(selected.perMonth)} />
-        <PaceCell label="/ rok" value={fmtPace.format(selected.perYear)} />
+        <PaceCell label={t("perHour")} value={fmtPace.format(selected.perHour)} />
+        <PaceCell label={t("perDay")} value={fmtPace.format(selected.perDay)} />
+        <PaceCell label={t("perWeek")} value={fmtPace.format(selected.perWeek)} />
+        <PaceCell label={t("perMonth")} value={fmtPace.format(selected.perMonth)} />
+        <PaceCell label={t("perYearLabel")} value={fmtPace.format(selected.perYear)} />
       </ul>
-      {/* Year-scoped meta: same `·`-separated micro-list as elsewhere on
-          the page so the visual rhythm matches the other captions.
-          Wraps cleanly on mobile thanks to inline-block / flex-wrap. */}
       <p className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-gray-500">
         <span>
-          {fmtCount.format(selected.totalFinds)}{" "}
-          {pluralCs(selected.totalFinds, ["nález", "nálezy", "nálezů"])} v
-          roce {selected.year}
+          {t("yearFindsCount", {
+            count: selected.totalFinds,
+            year: selected.year,
+          })}
         </span>
         <span aria-hidden className="text-gray-300">
           ·
         </span>
-        <span title="Odhadovaná doba sbírání v tomto roce — součet hledání + 2 min baseline / hledání.">
-          {formatLongDuration(selected.estimatedMinutes)} sbírání
+        <span title={t("yearTimeSpentTitle")}>
+          {t("yearTimeSpent", {
+            duration: formatLongDuration(selected.estimatedMinutes),
+          })}
         </span>
         <span aria-hidden className="text-gray-300">
           ·
         </span>
-        <span>
-          {fmtCount.format(selected.sessions)}{" "}
-          {pluralCs(selected.sessions, ["hledání", "hledání", "hledání"])}
-        </span>
+        <span>{t("yearSessions", { count: selected.sessions })}</span>
         <span aria-hidden className="text-gray-300">
           ·
         </span>
-        <span>
-          {fmtCount.format(selected.locationCount)}{" "}
-          {pluralCs(selected.locationCount, [
-            "lokalita",
-            "lokality",
-            "lokalit",
-          ])}
-        </span>
+        <span>{t("yearLocations", { count: selected.locationCount })}</span>
         {selected.findsPerSession > 0 && (
           <>
             <span aria-hidden className="text-gray-300">
               ·
             </span>
-            <span title="Průměrný počet nálezů na jedno hledání v tomto roce.">
-              Ø {fmtPace.format(selected.findsPerSession)} nálezů / hledání
+            <span title={t("yearAvgPerSessionTitle")}>
+              {t("yearAvgPerSession", {
+                avg: fmtPace.format(selected.findsPerSession),
+              })}
             </span>
           </>
         )}

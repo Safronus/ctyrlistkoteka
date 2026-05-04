@@ -1,8 +1,9 @@
 "use client";
 
-import { Link } from "@/i18n/navigation";
 import { useState } from "react";
 import { ExternalLink, EyeOff, MapPin } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import {
   formatAreaM2,
   formatDensityPer100m2,
@@ -16,18 +17,12 @@ import type {
 
 type Mode = "count" | "density";
 
-/**
- * Leaderboard of locations on /statistiky with a Mode toggle that flips
- * between the absolute "TOP by count" view and the per-area "TOP by
- * density" view (clovers per 100 m²). Both lists arrive precomputed
- * from the SSR stats query; the toggle is purely presentational.
- *
- * The two views answer different questions about the same dataset:
- * `count` rewards the busiest places; `density` rewards small plots
- * that punch above their weight. Showing them as alternatives in the
- * same card (instead of two separate cards) keeps the page short
- * without losing the comparison.
- */
+function toIntlLocale(locale: string): string {
+  if (locale === "cs") return "cs-CZ";
+  if (locale === "en") return "en-GB";
+  return locale;
+}
+
 export function TopLocationsCard({
   byCount,
   byDensity,
@@ -35,13 +30,12 @@ export function TopLocationsCard({
   byCount: readonly LocationPoint[];
   byDensity: readonly LocationDensityPoint[];
 }) {
+  const t = useTranslations("Statistiky");
+  const locale = useLocale();
+  const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
   const [mode, setMode] = useState<Mode>("count");
 
   const hasDensity = byDensity.length > 0;
-  // Fall back to count-only when no location qualifies for the density
-  // view (e.g. no polygons recorded yet, or the 10-find floor wipes
-  // every candidate). Hides the toggle entirely so the empty pill
-  // doesn't confuse the visitor.
   const showToggle = hasDensity;
   const activeMode: Mode = !hasDensity ? "count" : mode;
 
@@ -51,50 +45,52 @@ export function TopLocationsCard({
         <div>
           <h2 className="text-lg font-semibold text-gray-900">
             {activeMode === "count"
-              ? `TOP ${byCount.length} lokalit`
-              : `TOP ${byDensity.length} dle hustoty`}
+              ? t("topLocationsHeading", { count: byCount.length })
+              : t("topByDensityHeading", { count: byDensity.length })}
           </h2>
           <p className="text-sm text-gray-500">
             {activeMode === "count"
-              ? "Nejpilnější místa nálezů"
-              : "Nejvíc čtyřlístků na 100 m² polygonu (≥ 10 nálezů)"}
+              ? t("topLocationsSubtitle")
+              : t("topByDensitySubtitle")}
           </p>
         </div>
-        {showToggle && (
-          <ModeToggle mode={activeMode} onChange={setMode} />
-        )}
+        {showToggle && <ModeToggle mode={activeMode} onChange={setMode} t={t} />}
       </header>
       {activeMode === "count" ? (
-        <CountList rows={byCount} />
+        <CountList rows={byCount} numFmt={numFmt} t={t} />
       ) : (
-        <DensityList rows={byDensity} />
+        <DensityList rows={byDensity} numFmt={numFmt} t={t} />
       )}
     </section>
   );
 }
 
+type StatsT = ReturnType<typeof useTranslations<"Statistiky">>;
+
 function ModeToggle({
   mode,
   onChange,
+  t,
 }: {
   mode: Mode;
   onChange: (next: Mode) => void;
+  t: StatsT;
 }) {
   return (
     <div
       role="radiogroup"
-      aria-label="Řazení žebříčku lokalit"
+      aria-label={t("topToggleAria")}
       className="inline-flex items-center gap-0.5 rounded-md border border-gray-200 bg-gray-50 p-0.5"
     >
       <ModeButton
         active={mode === "count"}
         onClick={() => onChange("count")}
-        label="Podle počtu"
+        label={t("topToggleByCount")}
       />
       <ModeButton
         active={mode === "density"}
         onClick={() => onChange("density")}
-        label="Podle hustoty"
+        label={t("topToggleByDensity")}
       />
     </div>
   );
@@ -126,12 +122,16 @@ function ModeButton({
   );
 }
 
-function CountList({ rows }: { rows: readonly LocationPoint[] }) {
+function CountList({
+  rows,
+  numFmt,
+  t,
+}: {
+  rows: readonly LocationPoint[];
+  numFmt: Intl.NumberFormat;
+  t: StatsT;
+}) {
   const max = rows.reduce((m, r) => Math.max(m, r.count), 0);
-  // Reserve enough room in the value column for "100 000" (cs-CZ
-  // formats six-digit counts with a space) so every bar in the table
-  // ends at the same x — no per-row jitter when ranks 1–10 differ in
-  // magnitude.
   return (
     <ol className="space-y-2">
       {rows.map((r, i) => (
@@ -144,18 +144,25 @@ function CountList({ rows }: { rows: readonly LocationPoint[] }) {
           isAnonymized={false}
           value={r.count}
           max={max}
-          valueLabel={r.count.toLocaleString("cs-CZ")}
+          valueLabel={numFmt.format(r.count)}
           labelWidthClass="w-20"
+          t={t}
         />
       ))}
     </ol>
   );
 }
 
-function DensityList({ rows }: { rows: readonly LocationDensityPoint[] }) {
+function DensityList({
+  rows,
+  numFmt,
+  t,
+}: {
+  rows: readonly LocationDensityPoint[];
+  numFmt: Intl.NumberFormat;
+  t: StatsT;
+}) {
   const max = rows.reduce((m, r) => Math.max(m, r.densityPer100m2), 0);
-  // Reserve room for the longest five-significant-digit density label
-  // (e.g. "12,345 / 100 m²") so all bars end at the same x.
   return (
     <ol className="space-y-2">
       {rows.map((r, i) => (
@@ -170,24 +177,17 @@ function DensityList({ rows }: { rows: readonly LocationDensityPoint[] }) {
           max={max}
           valueLabel={formatDensityPer100m2(r.densityPer100m2)}
           labelWidthClass="w-32"
-          suffix={`${r.count.toLocaleString("cs-CZ")} čtyřlístků · ${formatAreaM2(r.areaM2)}`}
+          suffix={t("rowSuffixCountWithArea", {
+            count: numFmt.format(r.count),
+            area: formatAreaM2(r.areaM2),
+          })}
+          t={t}
         />
       ))}
     </ol>
   );
 }
 
-/**
- * One row of either leaderboard. Layout is a top header strip (rank +
- * identity on the left, map button pinned to the top-right corner)
- * with the bar drawn full-width below — that keeps the bar's value
- * label out of the same column as the map button so labels like
- * "15,2 / 100 m²" no longer wrap onto a second line. The optional
- * `suffix` is appended to the second line in parentheses after the
- * location's own name; when no name is shown, it stands alone. Used
- * by the density list to fold the previous "count · area" third line
- * into the row, so density rows match the count rows in height.
- */
 function Row({
   rank,
   id,
@@ -199,6 +199,7 @@ function Row({
   valueLabel,
   labelWidthClass,
   suffix,
+  t,
 }: {
   rank: number;
   id: number;
@@ -210,6 +211,7 @@ function Row({
   valueLabel: string;
   labelWidthClass: string;
   suffix?: string;
+  t: StatsT;
 }) {
   const nameVisible =
     !isAnonymized && !!name && !!code && name !== code;
@@ -219,11 +221,7 @@ function Row({
       <div className="flex items-start gap-3">
         <Rank n={rank} />
         <div className="min-w-0 flex-1">
-          <Identity
-            id={id}
-            code={code}
-            isAnonymized={isAnonymized}
-          />
+          <Identity id={id} code={code} isAnonymized={isAnonymized} t={t} />
           {showSecondLine && (
             <p className="mt-0.5 truncate text-xs text-gray-500">
               {nameVisible && <span title={name ?? undefined}>{name}</span>}
@@ -236,8 +234,8 @@ function Row({
         </div>
         {!isAnonymized && (
           <div className="flex shrink-0 items-start gap-1">
-            <DetailButton id={id} />
-            <MapButton id={id} />
+            <DetailButton id={id} t={t} />
+            <MapButton id={id} t={t} />
           </div>
         )}
       </div>
@@ -263,10 +261,12 @@ function Identity({
   id,
   code,
   isAnonymized,
+  t,
 }: {
   id: number;
   code: string | null;
   isAnonymized: boolean;
+  t: StatsT;
 }) {
   if (isAnonymized) {
     return (
@@ -276,7 +276,7 @@ function Identity({
         </span>
         <span className="inline-flex items-center gap-1 text-sm font-semibold text-purple-700">
           <EyeOff className="h-3 w-3" aria-hidden />
-          Anonymizovaná lokalita
+          {t("anonymizedLocation")}
         </span>
       </div>
     );
@@ -302,10 +302,6 @@ function Bar({
   value: number;
   max: number;
   valueLabel: string;
-  /** Fixed width on the value column so every bar in the table ends at
-   *  the same x coordinate — without it `flex-1` would let rows with
-   *  shorter labels grow their bars and the visual ranking would lie
-   *  about the underlying numbers. */
   labelWidthClass: string;
 }) {
   return (
@@ -325,30 +321,30 @@ function Bar({
   );
 }
 
-function MapButton({ id }: { id: number }) {
+function MapButton({ id, t }: { id: number; t: StatsT }) {
   return (
     <Link
       href={`/mapa?focus=${id}`}
-      aria-label="Zobrazit lokalitu na mapě"
-      title="Zobrazit lokalitu na mapě"
+      aria-label={t("rowMapAria")}
+      title={t("rowMapAria")}
       className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
     >
       <MapPin className="h-3.5 w-3.5" aria-hidden />
-      <span className="hidden sm:inline">Mapa</span>
+      <span className="hidden sm:inline">{t("rowMap")}</span>
     </Link>
   );
 }
 
-function DetailButton({ id }: { id: number }) {
+function DetailButton({ id, t }: { id: number; t: StatsT }) {
   return (
     <Link
       href={locationDetailHref(id)}
-      aria-label="Detail lokality"
-      title="Detail lokality"
+      aria-label={t("rowDetailAria")}
+      title={t("rowDetailAria")}
       className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
     >
       <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-      <span className="hidden sm:inline">Detail</span>
+      <span className="hidden sm:inline">{t("rowDetail")}</span>
     </Link>
   );
 }
