@@ -33,6 +33,7 @@ import {
   type PermabanCandidate,
 } from "@/lib/admin/blocklist";
 import { AuditSubNav } from "../_subnav";
+import { ExportButtonRow } from "./_export-button-row";
 
 export const dynamic = "force-dynamic";
 
@@ -306,40 +307,6 @@ function CollapsibleSection({
   );
 }
 
-/** Inline export-button row used by CollapsibleSection headers. The
- *  click handlers stop both propagation and the implicit summary toggle
- *  so a click on "csv" doesn't collapse the parent <details>. */
-function ExportButtonRow({
-  items,
-}: {
-  items: ReadonlyArray<{ href: string; label: string; ext: string }>;
-}) {
-  return (
-    <span
-      className="inline-flex items-center gap-1"
-      // The summary element toggles on click — even when the click
-      // lands on a child <a>. We stop propagation so download links
-      // act as plain navigations rather than re-collapsing the panel.
-      onClick={(e) => e.stopPropagation()}
-    >
-      <span className="text-[10px] uppercase tracking-wide text-gray-400">
-        export:
-      </span>
-      {items.map((it) => (
-        <a
-          key={it.href}
-          href={it.href}
-          download
-          title={it.label}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-        >
-          <Download className="h-3 w-3" aria-hidden />
-          <span className="font-mono uppercase">{it.ext}</span>
-        </a>
-      ))}
-    </span>
-  );
-}
 
 function PermabanLivePanel({ snapshot }: { snapshot: PermabanSnapshot }) {
   const denyCount = snapshot.deny.deniedIps.length;
