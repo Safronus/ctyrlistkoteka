@@ -2,9 +2,10 @@
 
 import { Link } from "@/i18n/navigation";
 import { useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   CLOVER_TEXTS,
+  localizedClover,
   type CloverText,
   type CloverTextSource,
 } from "@/lib/cloverTexts";
@@ -142,6 +143,7 @@ function vibeKeyFor(text: CloverText): VibeKey {
  */
 export function CloverFactCard() {
   const t = useTranslations("CloverFacts");
+  const locale = useLocale();
   const [index, setIndex] = useState(0);
   const [remainingMs, setRemainingMs] = useState(ROTATION_MS);
   // `nextAt` lives in a ref so both the auto-rotation tick AND the
@@ -200,8 +202,9 @@ export function CloverFactCard() {
     };
   }, []);
 
-  const text = CLOVER_TEXTS[index];
-  if (!text) return null;
+  const rawText = CLOVER_TEXTS[index];
+  if (!rawText) return null;
+  const text = localizedClover(rawText, locale);
 
   const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
   const mmss = `${Math.floor(totalSec / 60)}:${(totalSec % 60).toString().padStart(2, "0")}`;
