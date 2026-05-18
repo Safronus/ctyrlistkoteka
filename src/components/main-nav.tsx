@@ -34,10 +34,10 @@ export function MainNav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="flex items-center gap-2 text-lg font-semibold text-brand-700"
+          className="flex min-w-0 items-center gap-2 text-base font-semibold text-brand-700 sm:text-lg"
         >
           <Image
             src="/clover.png"
@@ -46,9 +46,9 @@ export function MainNav() {
             width={36}
             height={36}
             priority
-            className="h-9 w-9"
+            className="h-9 w-9 shrink-0"
           />
-          <span>{SITE_NAME}</span>
+          <span className="truncate">{SITE_NAME}</span>
         </Link>
 
         {/* Desktop nav — md+ only. */}
@@ -64,10 +64,14 @@ export function MainNav() {
           <ThemeToggle />
         </div>
 
-        {/* Compact mobile actions. */}
-        <div className="flex items-center gap-2 md:hidden">
+        {/* Compact mobile actions. The ThemeToggle moved into the
+            hamburger drawer below — three icons in the top bar didn't
+            leave room for the brand "Čtyřlístkotéka" on <400 px
+            viewports. LocaleSwitcher stays visible because language is
+            a first-class preference visitors expect to flip without
+            opening a menu. */}
+        <div className="flex shrink-0 items-center gap-2 md:hidden">
           <LocaleSwitcher />
-          <ThemeToggle />
           <button
             type="button"
             onClick={() => setMobileOpen((o) => !o)}
@@ -99,6 +103,9 @@ export function MainNav() {
               </li>
             ))}
           </ul>
+          <div className="mx-auto flex max-w-7xl items-center justify-center border-t border-gray-100 px-4 py-3 sm:px-6">
+            <ThemeToggle />
+          </div>
         </div>
       )}
     </header>
