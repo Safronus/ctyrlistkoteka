@@ -70,8 +70,14 @@ export function getWorldCountries(): CountriesFC {
  * Keyed by Natural Earth's English `name` field (stable across the 110m
  * dataset's lifetime). Anything not in this table falls back to the
  * English name — better to show "Madagascar" than nothing at all.
+ *
+ * `Elsewhere` is the sentinel for points that didn't resolve to any
+ * country (`countryFromCoords` returns it as `englishName`); we list it
+ * here so CZ tooltips read "Jinde" the same way as the rest of the
+ * choropleth labels.
  */
 const CZECH_NAMES: Record<string, string> = {
+  Elsewhere: "Jinde",
   Czechia: "Česko",
   Slovakia: "Slovensko",
   Austria: "Rakousko",
@@ -131,4 +137,24 @@ const CZECH_NAMES: Record<string, string> = {
  *  input. Exposed so server stats and client tooltips agree. */
 export function czechCountryName(englishName: string): string {
   return CZECH_NAMES[englishName] ?? englishName;
+}
+
+/** Locale-aware country display name. For `cs` it dispatches through
+ *  `czechCountryName`; for `en` (or anything unknown) it returns the
+ *  raw English form from Natural Earth — that's the dataset's native
+ *  language, so no further translation is needed.
+ *
+ *  Country data flows through `countryFromCoords` → `byCountry` payload
+ *  → UI as raw English; this helper is the single place that decides
+ *  what users actually see. Keeping the translation step at the UI
+ *  boundary (rather than baking locale into the geo/stats fetchers)
+ *  means the cached server queries stay locale-agnostic. */
+export function localizedCountryName(
+  englishName: string,
+  locale: string | undefined,
+): string {
+  if (locale === "cs" || locale?.startsWith("cs-")) {
+    return CZECH_NAMES[englishName] ?? englishName;
+  }
+  return englishName;
 }

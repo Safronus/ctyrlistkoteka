@@ -70,6 +70,11 @@ export default async function PublicLayout({
         watermarkSrc={watermark?.src ?? null}
       />
       <footer className="border-t border-gray-200 bg-gray-50 py-6">
+        {locale === "en" && (
+          <p className="mx-auto mb-2 max-w-7xl px-4 text-center text-xs italic text-gray-400 sm:px-6 lg:px-8">
+            {t("mixedLanguageNote")}
+          </p>
+        )}
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 text-center text-sm text-gray-500 sm:px-6 lg:px-8">
           <span>
             {t("copyright", {

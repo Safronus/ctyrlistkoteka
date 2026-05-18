@@ -29,6 +29,7 @@ import {
   type LocationDetailFindPreview,
 } from "@/lib/queries/locations";
 import { countryFromCoords } from "@/lib/geo";
+import { localizedCountryName } from "@/lib/world-countries";
 import { RealPhotoButton } from "@/components/locations/real-photo-button";
 
 type DetailT = Awaited<ReturnType<typeof getTranslations<"LocationDetail">>>;
@@ -222,10 +223,13 @@ function FullDetail({
         <p className="text-sm text-gray-500">
           {[
             base.coordinates
-              ? countryFromCoords(
-                  base.coordinates.lat,
-                  base.coordinates.lng,
-                ).name
+              ? localizedCountryName(
+                  countryFromCoords(
+                    base.coordinates.lat,
+                    base.coordinates.lng,
+                  ).name,
+                  locale,
+                )
               : null,
             base.cadastralArea || null,
           ]

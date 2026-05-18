@@ -39,7 +39,8 @@
     "via": "via",
     "visits": "Visits",
     "visitsTooltip": "Visit count since {since}. Refreshed approximately every 10 minutes from GoatCounter (stats.ctyrlistkoteka.cz). Filters bots and the author's IP.",
-    "visitsTooltipFail": "Statistics are currently unavailable — the GoatCounter instance is likely not responding. Pixel-based collection continues and the count will return as soon as the API is back."
+    "visitsTooltipFail": "Statistics are currently unavailable — the GoatCounter instance is likely not responding. Pixel-based collection continues and the count will return as soon as the API is back.",
+    "mixedLanguageNote": "Some content (author's notes, location names, place descriptions) may appear in Czech."
   },
   "TimeSince": {
     "justNow": "just now",

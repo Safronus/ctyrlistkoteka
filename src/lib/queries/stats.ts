@@ -136,7 +136,12 @@ export interface CategoryPoint {
 }
 
 /** A `CategoryPoint` extended with the ISO 3166 country code so the UI
- *  can render flags or stable React keys without re-deriving them. */
+ *  can render flags or stable React keys without re-deriving them.
+ *
+ *  `name` carries the raw English country name from the Natural Earth
+ *  dataset (e.g. "Czechia", "Japan", or the "Elsewhere" sentinel) —
+ *  the UI is expected to localize it via `localizedCountryName` so
+ *  the cached aggregate stays locale-agnostic. */
 export interface CountryPoint extends CategoryPoint {
   code: string;
 }

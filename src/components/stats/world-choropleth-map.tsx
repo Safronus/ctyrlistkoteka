@@ -1,6 +1,10 @@
 import { geoEqualEarth, geoPath } from "d3-geo";
-import { getTranslations } from "next-intl/server";
-import { getWorldCountries, type CountryFeatureProps } from "@/lib/world-countries";
+import { getLocale, getTranslations } from "next-intl/server";
+import {
+  getWorldCountries,
+  localizedCountryName,
+  type CountryFeatureProps,
+} from "@/lib/world-countries";
 import type { CountryPoint } from "@/lib/queries/stats";
 
 interface Props {
@@ -37,6 +41,7 @@ const HEIGHT = 480;
  */
 export async function WorldChoroplethMap({ byCountry }: Props) {
   const t = await getTranslations("Statistiky");
+  const locale = await getLocale();
   const collection = getWorldCountries();
 
   // Fit the whole world into the SVG box. fitSize handles centring +
@@ -79,7 +84,13 @@ export async function WorldChoroplethMap({ byCountry }: Props) {
           const stroke =
             count > 0 ? "oklch(0.35 0.04 145)" : "oklch(0.78 0.005 145)";
 
-          const label = entry?.name ?? props.name;
+          // entry.name is already localized when byCountry comes from
+          // the stats page (it pre-localizes for both leaderboard +
+          // tooltip consistency). For countries without finds we fall
+          // back to the raw English from Natural Earth and translate
+          // here so CZ users see "Madagaskar" rather than "Madagascar"
+          // when hovering over an empty country.
+          const label = entry?.name ?? localizedCountryName(props.name, locale);
           return (
             <path
               key={props.id}

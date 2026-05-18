@@ -51,6 +51,7 @@ import {
   type YearlyPoint,
 } from "@/lib/queries/stats";
 import { getLocationIdsWithRealPhotos } from "@/lib/queries/locations";
+import { localizedCountryName } from "@/lib/world-countries";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { prisma } from "@/lib/db";
 import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
@@ -304,8 +305,16 @@ async function TopLocationsSection() {
 
 async function GeoSection() {
   const t = await getTranslations("Statistiky");
+  const locale = await getLocale();
   const { byCountry, byCity } = await getStatsGeo();
-  return <GeoStatsSection byCountry={byCountry} byCity={byCity} t={t} />;
+  return (
+    <GeoStatsSection
+      byCountry={byCountry}
+      byCity={byCity}
+      t={t}
+      locale={locale}
+    />
+  );
 }
 
 async function CalendarSection() {
@@ -676,12 +685,21 @@ function GeoStatsSection({
   byCountry,
   byCity,
   t,
+  locale,
 }: {
   byCountry: readonly CountryPoint[];
   byCity: readonly CategoryPoint[];
   t: StatsT;
+  locale: string;
 }) {
   if (byCountry.length === 0 && byCity.length === 0) return null;
+  // byCountry carries raw English names from Natural Earth. We localize
+  // once here so both the leaderboard and the choropleth tooltips read
+  // the same display string in the user's language.
+  const localizedByCountry = byCountry.map((c) => ({
+    ...c,
+    name: localizedCountryName(c.name, locale),
+  }));
   return (
     <section className="space-y-4">
       <header>
@@ -697,7 +715,7 @@ function GeoStatsSection({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <CountTable
           title={t("geoTopCountries")}
-          rows={byCountry.map((c) => ({
+          rows={localizedByCountry.map((c) => ({
             key: c.code,
             label: c.name,
             count: c.count,
@@ -715,12 +733,12 @@ function GeoStatsSection({
           t={t}
         />
       </div>
-      {byCountry.length > 0 && (
+      {localizedByCountry.length > 0 && (
         <div>
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
             {t("geoMapHeading")}
           </h3>
-          <WorldChoroplethMap byCountry={byCountry} />
+          <WorldChoroplethMap byCountry={localizedByCountry} />
         </div>
       )}
     </section>

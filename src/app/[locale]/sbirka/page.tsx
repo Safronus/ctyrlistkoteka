@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Map } from "lucide-react";
 import { FindState } from "@prisma/client";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizedCountryName } from "@/lib/world-countries";
 import { Link } from "@/i18n/navigation";
 import { CollectionProgressBanner } from "@/components/finds/collection-progress-banner";
 import { FilterBar } from "@/components/finds/filter-bar";
@@ -103,11 +104,26 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const sort = parseSort(pickString(sp.sort));
   const view = parseView(pickString(sp.view));
 
-  const [options, result, progress] = await Promise.all([
+  const locale = await getLocale();
+  const [optionsRaw, result, progress] = await Promise.all([
     getFilterOptions(),
     listFinds(filters, page, FINDS_PER_PAGE, sort),
     getCollectionProgress(),
   ]);
+  // FilterOptions.countries carries raw English (Natural Earth) names —
+  // localize at the page boundary so the dropdown reads in the user's
+  // language while the cached upstream query stays locale-agnostic.
+  const options = {
+    ...optionsRaw,
+    countries: optionsRaw.countries
+      .map((c) => ({
+        code: c.code,
+        name: localizedCountryName(c.name, locale),
+      }))
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, locale === "en" ? "en" : "cs"),
+      ),
+  };
 
   const hasFilters = !!(
     filters.q ||

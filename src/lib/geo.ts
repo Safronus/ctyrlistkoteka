@@ -26,17 +26,23 @@
  */
 
 import type { Geometry, Position } from "geojson";
-import { czechCountryName, getWorldCountries } from "@/lib/world-countries";
+import { getWorldCountries } from "@/lib/world-countries";
 
 export interface CountryRef {
   /** ISO 3166-1 numeric code as a string ("203" = Česko). Doubles as
    *  the join key for the choropleth `Map<countryId, count>`. */
   code: string;
-  /** Localized (Czech) display name. */
+  /** Raw English country name from the Natural Earth dataset (e.g.
+   *  "Czechia", "Japan", "Madagascar"). UI is expected to pass this
+   *  through `localizedCountryName(name, locale)` before display —
+   *  keeping translation at the UI boundary lets the cached server
+   *  queries stay locale-agnostic. The sentinel `"Elsewhere"` covers
+   *  unresolved points (international waters / beyond the 100 km
+   *  near-coast fallback). */
   name: string;
 }
 
-const UNKNOWN: CountryRef = { code: "??", name: "Jinde" };
+const UNKNOWN: CountryRef = { code: "??", name: "Elsewhere" };
 
 /** Snap-to-coast threshold for points that aren't inside any polygon.
  *  Sized so that Naoshima (~10 km offshore in 110m simplification) and
@@ -49,8 +55,8 @@ const NEAR_FALLBACK_KM = 100;
 
 /**
  * Returns the most likely country for the given lat/lng. Falls back to
- * `{ code: "??", name: "Jinde" }` for points in international waters
- * more than NEAR_FALLBACK_KM from any country's polygon.
+ * `{ code: "??", name: "Elsewhere" }` for points in international
+ * waters more than NEAR_FALLBACK_KM from any country's polygon.
  */
 export function countryFromCoords(lat: number, lng: number): CountryRef {
   const fc = getWorldCountries();
@@ -61,7 +67,7 @@ export function countryFromCoords(lat: number, lng: number): CountryRef {
       const props = f.properties;
       return {
         code: props.id || "??",
-        name: czechCountryName(props.name) || props.name || UNKNOWN.name,
+        name: props.name || UNKNOWN.name,
       };
     }
     const d = minVertexDistanceKm(f.geometry, lat, lng);
@@ -72,10 +78,7 @@ export function countryFromCoords(lat: number, lng: number): CountryRef {
   if (nearest && nearest.distKm <= NEAR_FALLBACK_KM) {
     return {
       code: nearest.props.id || "??",
-      name:
-        czechCountryName(nearest.props.name) ||
-        nearest.props.name ||
-        UNKNOWN.name,
+      name: nearest.props.name || UNKNOWN.name,
     };
   }
   return UNKNOWN;

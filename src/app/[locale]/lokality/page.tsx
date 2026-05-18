@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Archive, X } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { LocationsFilterBar } from "@/components/locations/locations-filter-bar";
 import { LocationsToolbar } from "@/components/locations/locations-toolbar";
@@ -11,6 +11,7 @@ import {
   listLocations,
   type LocationSort,
 } from "@/lib/queries/locations";
+import { localizedCountryName } from "@/lib/world-countries";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Lokality");
@@ -57,7 +58,8 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   const showGone = onlyGone || pickString(sp.showGone) === "1";
   const hasRealPhoto = pickString(sp.hasPhoto) === "1";
 
-  const [cities, countries, locations] = await Promise.all([
+  const locale = await getLocale();
+  const [cities, countriesRaw, locations] = await Promise.all([
     listCadastralAreas(),
     listCountries(),
     listLocations({
@@ -71,6 +73,16 @@ export default async function LokalityPage({ searchParams }: PageProps) {
       hasRealPhoto: hasRealPhoto || undefined,
     }),
   ]);
+
+  // Country names from listCountries are raw English (Natural Earth).
+  // Localize at the page boundary so the dropdown renders the user's
+  // language while the upstream query stays cache-shareable across
+  // locales.
+  const countries = countriesRaw
+    .map((c) => ({ code: c.code, name: localizedCountryName(c.name, locale) }))
+    .sort((a, b) =>
+      a.name.localeCompare(b.name, locale === "en" ? "en" : "cs"),
+    );
 
   const filterActive =
     !!q || !!city || !!country || sort !== "finds" || showAnonymized
