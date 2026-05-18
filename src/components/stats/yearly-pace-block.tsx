@@ -87,7 +87,7 @@ export function YearlyPaceBlock({
         </span>
         <span title={t("yearTimeSpentTitle")}>
           {t("yearTimeSpent", {
-            duration: formatLongDuration(selected.estimatedMinutes),
+            duration: formatLongDuration(selected.estimatedMinutes, locale),
           })}
         </span>
         <span aria-hidden className="text-gray-300">

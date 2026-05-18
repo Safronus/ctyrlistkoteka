@@ -242,18 +242,36 @@ export const FINDS = ["nález", "nálezy", "nálezů"] as const;
 export const LOCATIONS = ["lokalita", "lokality", "lokalit"] as const;
 export const YEARS = ["rok", "roky", "let"] as const;
 
-/** Formats a minute count as "X dní Y h Z min", omitting zero parts.
- *  Tuned for /statistiky's "estimated total picking time" which lands
- *  in the days range; falls through gracefully to "Y h Z min" or just
- *  "Z min" for shorter durations. Returns "—" for non-positive input. */
-export function formatLongDuration(totalMinutes: number): string {
+/** Formats a minute count as "X dní Y h Z min" (CZ) or "X days Y h Z min"
+ *  (EN), omitting zero parts. Tuned for /statistiky's "estimated total
+ *  picking time" which lands in the days range; falls through gracefully
+ *  to "Y h Z min" or just "Z min" for shorter durations. Returns "—" for
+ *  non-positive input.
+ *
+ *  The unit abbreviations `h` and `min` are kept locale-independent —
+ *  both work as international SI-derived shorthands. Only the "day"
+ *  word is translated. */
+export function formatLongDuration(
+  totalMinutes: number,
+  locale?: string,
+): string {
   if (totalMinutes <= 0) return "—";
   const days = Math.floor(totalMinutes / (60 * 24));
   const hours = Math.floor((totalMinutes - days * 60 * 24) / 60);
   const minutes = totalMinutes - days * 60 * 24 - hours * 60;
   const parts: string[] = [];
   if (days > 0) {
-    parts.push(`${days} ${days === 1 ? "den" : days < 5 ? "dny" : "dní"}`);
+    const isEn = locale === "en" || locale?.startsWith("en-");
+    const dayWord = isEn
+      ? days === 1
+        ? "day"
+        : "days"
+      : days === 1
+        ? "den"
+        : days < 5
+          ? "dny"
+          : "dní";
+    parts.push(`${days} ${dayWord}`);
   }
   if (hours > 0) parts.push(`${hours} h`);
   if (minutes > 0 || parts.length === 0) parts.push(`${minutes} min`);

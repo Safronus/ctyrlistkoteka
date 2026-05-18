@@ -442,7 +442,7 @@ function TimeAndPaceCard({
     month: "long",
     year: "numeric",
   });
-  const totalLabel = formatLongDuration(data.estimatedMinutes);
+  const totalLabel = formatLongDuration(data.estimatedMinutes, locale);
   const firstAtLabel = data.firstFoundAt
     ? dateFmt.format(new Date(data.firstFoundAt))
     : null;
