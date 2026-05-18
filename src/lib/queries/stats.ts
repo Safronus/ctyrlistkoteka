@@ -702,13 +702,11 @@ export async function getStatsHighlights(): Promise<StatsHighlightsResult> {
     // centre. The CTE makes the reference point optional: if MAP 00001
     // isn't on disk we still return zero rows instead of crashing.
     //
-    // We fetch the top 3 instead of just 1 so that when the farthest
-    // find is also the firstFind or lastFind (common after the user adds
-    // a batch of distant finds — the highest-ID row is then both
-    // "latest" and "farthest"), we can fall back to the next-farthest
-    // distinct find and still render a third card. Without this, the
-    // page-side dedupe (`farthestFind.id !== lastFind?.id`) would hide
-    // the card entirely.
+    // We don't dedupe against firstFind/lastFind here: by user request,
+    // the genuine farthest find is shown even when it happens to also
+    // be the latest or earliest. The "Nejvzdálenější" card frames it
+    // around distance, which is its own story — repeating a find
+    // between cards is fine.
     prisma.$queryRaw<FarthestRow[]>`
       WITH ref AS (
         SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
@@ -728,24 +726,11 @@ export async function getStatsHighlights(): Promise<StatsHighlightsResult> {
         AND f.coordinates IS NOT NULL
         AND (SELECT pt FROM ref) IS NOT NULL
       ORDER BY dist_m DESC NULLS LAST
-      LIMIT 3
+      LIMIT 1
     `,
   ]);
 
-  const firstFind = toHighlight(firstFindRow[0]);
-  const lastFind = toHighlight(lastFindRow[0]);
-  // Pick the first farthest-row that isn't already shown as first or
-  // last. The page renders three side-by-side cards; if all three
-  // candidates collide (tiny collections), we fall through to the most
-  // distant row anyway so the card still surfaces — better to repeat a
-  // find than to silently drop the "farthest" stat.
-  const skipIds = new Set<number>();
-  if (firstFind) skipIds.add(firstFind.id);
-  if (lastFind) skipIds.add(lastFind.id);
-  const farthestRow =
-    farthestFindRow.find(
-      (r) => r.dist_m !== null && !skipIds.has(r.id),
-    ) ?? farthestFindRow[0];
+  const farthestRow = farthestFindRow[0];
   const farthestBase =
     farthestRow && farthestRow.dist_m !== null ? toHighlight(farthestRow) : null;
   const farthestFind: FarthestFindHighlight | null =
@@ -754,8 +739,8 @@ export async function getStatsHighlights(): Promise<StatsHighlightsResult> {
       : null;
 
   return {
-    firstFind,
-    lastFind,
+    firstFind: toHighlight(firstFindRow[0]),
+    lastFind: toHighlight(lastFindRow[0]),
     farthestFind,
   };
 }

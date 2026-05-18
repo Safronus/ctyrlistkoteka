@@ -255,18 +255,16 @@ async function HighlightsSection() {
           locale={locale}
         />
       )}
-      {farthestFind &&
-        farthestFind.id !== firstFind?.id &&
-        farthestFind.id !== lastFind?.id && (
-          <FindHighlightCard
-            label={t("highlightFarthestFind")}
-            find={farthestFind}
-            distanceMeters={farthestFind.distanceMeters}
-            t={t}
-            tTimeSince={tTimeSince}
-            locale={locale}
-          />
-        )}
+      {farthestFind && (
+        <FindHighlightCard
+          label={t("highlightFarthestFind")}
+          find={farthestFind}
+          distanceMeters={farthestFind.distanceMeters}
+          t={t}
+          tTimeSince={tTimeSince}
+          locale={locale}
+        />
+      )}
     </section>
   );
 }
