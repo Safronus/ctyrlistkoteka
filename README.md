@@ -351,63 +351,85 @@ systemctl list-timers | grep ctyrlistkoteka     # ověř plán
 
 Stav posledního běhu: `journalctl -u ctyrlistkoteka-sync.service -n 200`.
 
-## Bezpečnost — fail2ban + blocklist-tools
+## Bezpečnost — fail2ban + nftables permaban
 
 Veřejný read-only web bez user-input nepotřebuje WAF, ale **scanner traffic**
 (`/.env`, `/wp-login.php`, brute-force SSH) má smysl odřezávat. Stack je
-dvouvrstvý:
+třívrstvý:
 
 1. **Nginx** dropuje notorické scanner cesty na úrovni HTTP (snippet
    `block-exploits.conf`) — instant 444, žádný backend overhead.
-2. **fail2ban** banuje opakované útočníky na úrovni firewall a každý
-   ban kopíruje do `/var/log/fail2ban-blocklist.tsv` (append-only audit
-   log). Z TSV se generuje **permaban list** pro nginx `deny` (IP, které
-   se v TSV objevily ≥ 3× za 30 dní) — ten už není pod `bantime`
-   expirací a jede dokud ji ručně nesundáš.
+2. **fail2ban** banuje opakované útočníky krátkodobě na úrovni firewall
+   (`nftables-multiport` action) a každý ban kopíruje do
+   `/var/log/fail2ban-blocklist.tsv` (append-only audit log).
+3. **nftables permaban set** (`inet permaban permaban_{v4,v6}`) drží IP,
+   které se v TSV objevily nad threshold. Drop je na **L3** — paket
+   zahozený před TLS handshake, žádný CPU za request. Naplňuje ho
+   real-time fail2ban action `permaban-firewall` a denně rebuilduje cron
+   z TSV (self-healing).
 
-Plný setup (instalace, konfigurace, ssh hardening, AbuseIPDB integrace)
-popisuje [`deploy/README.md`](deploy/README.md) — sekce *Security
-hardening*. Tady níže je jen **denní operativa**.
+Plný setup (instalace, konfigurace, SSH hardening, migrace z legacy
+nginx permabanu, AbuseIPDB, unattended-upgrades) popisuje
+[`docs/deployment.md`](docs/deployment.md) §10. Tady níže je jen
+**denní operativa**.
 
 ### Co kde najdeš
 
 | Co | Příkaz |
 | --- | --- |
 | Aktuálně banované IP v jailu | `sudo fail2ban-client status nginx-noscript` (nebo `sshd`, `sshd-logger`) |
+| Stav permaban setu (kolik IP, kolik dropů) | `sudo nft list set inet permaban permaban_v4` + `permaban_v6` |
+| Drop counter (kolik paketů odraženo od bootu) | `sudo nft list chain inet permaban input` |
 | Souhrn banů (top IP, top jails) | `sudo blocklist-tools.sh stats` |
 | Posledních N banů s důvodem | `sudo blocklist-tools.sh recent 20` |
 | Všechny IP setříděné podle počtu banů | `sudo blocklist-tools.sh ips` |
-| Manuální unban | `sudo fail2ban-client unban <ip>` |
+| Krátkodobý unban (fail2ban) | `sudo fail2ban-client unban <ip>` |
+| Permanentní unban (nftables) | `sudo nft delete element inet permaban permaban_v4 "{ <ip> }"` + smazat z `/var/lib/permaban/elements.nft` |
 | Append-only audit log | `sudo less /var/log/fail2ban-blocklist.tsv` |
+| Live permaban dashboard | `/admin/audit/blocklist` (přihlášený admin) |
 
-### Generování permaban listu
+### Generování / rebuild permaban setu
 
-`blocklist-tools.sh nginx-deny` projde `/var/log/fail2ban-blocklist.tsv`,
-najde IP které **z `nginx-noscript` jailu** překročily práh (default
-3× za 30 dní), a zapíše je do
-`/etc/nginx/snippets/permaban-list.conf` jako `deny <ip>;`. SSH bany se
-do nginx-deny **záměrně nepromítají** (HTTP `deny` na SSH nemá vliv,
-sshd jail to řeší nezávisle).
+`blocklist-tools.sh firewall-deny` projde `/var/log/fail2ban-blocklist.tsv`,
+najde IP které z reportable jailů (`nginx-noscript`, `sshd`, `sshd-logger`)
+překročily práh (default ≥ 1× ve windowu 10 let — efektivně cokoli, co
+prošlo fail2banem), a zapíše je do `/var/lib/permaban/elements.nft` jako
+`add element inet permaban permaban_v[46] { <ip> }`. Soubor je atomická
+nftables transakce — `nft -f` ho zavede do kernel setu v jednom kroku
+bez okénka, kdy by byl set prázdný.
 
 ```sh
-# Jednorázově
-sudo blocklist-tools.sh nginx-deny
-sudo nginx -t && sudo systemctl reload nginx
+# Jednorázově (preview + apply)
+sudo blocklist-tools.sh firewall-deny           # jen vygeneruje, neaktivuje
+sudo blocklist-tools.sh firewall-deny --apply   # vygeneruje + nft -f
 
 # Přísnější varianta (2× za 14 dní)
-sudo PERMABAN_THRESHOLD=2 WINDOW_DAYS=14 blocklist-tools.sh nginx-deny
+sudo PERMABAN_THRESHOLD=2 WINDOW_DAYS=14 \
+     blocklist-tools.sh firewall-deny --apply
 
-# Auto-regenerace přes cron (denně 04:00)
-sudo crontab -e
-# 0 4 * * * /usr/local/sbin/blocklist-tools.sh nginx-deny && /usr/sbin/nginx -t && /bin/systemctl reload nginx
+# Auto-rebuild — deploy/permaban-refresh.cron běží denně 04:30,
+# instalace v docs/deployment.md §10.2.
 ```
 
-Nginx config musí permaban list jednorázově zaincludovat — v
-`/etc/nginx/sites-available/ctyrlistkoteka` v `server { ... }` bloku:
+Nftables tabulka + sety se loadují při bootu přes `nftables.service`
+(definice v `/etc/nftables.d/permaban.nft`). Perzistované elementy
+se replayují přes `permaban-firewall-load.service` (po nftables.service).
+Žádný nginx reload není potřeba — drop je v kernelu, nginx se konfigurace
+permabanu vůbec netýká.
 
-```nginx
-include /etc/nginx/snippets/permaban-list.conf;
+### Migrace z legacy nginx permabanu
+
+Před nftables migrací byl permaban v `/etc/nginx/snippets/permaban-list.conf`
+jako `deny <ip>;`. Existující listy přesune skript:
+
+```sh
+sudo migrate-nginx-permaban-to-nftables.sh --dry-run    # plán
+sudo migrate-nginx-permaban-to-nftables.sh --apply      # přesun
 ```
+
+Detail viz [`docs/deployment.md`](docs/deployment.md) §10.3. Legacy soubory
+(`permaban-nginx-add.sh`, `fail2ban-action-permaban-nginx.conf`) zůstaly
+v `deploy/` pro snadný rollback.
 
 ### AbuseIPDB reporting
 
@@ -448,6 +470,31 @@ ignoreip = 127.0.0.1/8 ::1 <vlastní IPv4> <vlastní IPv6/64>
 
 Pak `sudo fail2ban-client reload`. Whitelist je separátní pro
 GoatCounter (Settings → Ignore IPs ve stats subdoméně).
+
+Pro **permaban-firewall** jsou IP filtrované navíc přes
+`/etc/permaban-whitelist.conf` (jeden IP per řádek) — kontroluje to
+jak `permaban-firewall-add.sh` (real-time), tak `blocklist-tools.sh
+firewall-deny` (denní rebuild). Tahle vrstva chrání před případem, že
+fail2ban whitelist obejde nějaký jail-specifický override.
+
+### Automatické bezpečnostní aktualizace (nginx CVE, openssl, kernel)
+
+Po nasazení v [`docs/deployment.md`](docs/deployment.md) §10.4 běží
+`unattended-upgrades` 2× denně a auto-aplikuje patche z `…-security` a
+`…-updates` pocketů. Ubuntu backportuje upstream nginx CVE patche do
+1.24, takže Ubuntu apt nás drží v patched stavu bez nutnosti repo
+switch na nginx.org.
+
+| Co | Auto-update | Manuálně |
+| --- | --- | --- |
+| Security patche nginx 1.24 (CVE) | ✅ | — |
+| Drobné fíčurní updaty 1.24.x | ✅ | — |
+| Postgres 16, PostGIS, Node | ❌ (blacklist v configu) | Plán major upgrade |
+| Kernel + reboot | ❌ (reboot=false) | `sudo reboot` po `/var/run/reboot-required` |
+
+Měsíční checkpoint: `apt-cache policy nginx`, `grep nginx
+/var/log/unattended-upgrades/unattended-upgrades.log | tail`,
+`test -f /var/run/reboot-required && cat /var/run/reboot-required.pkgs`.
 
 ## Matematika /statistiky
 
@@ -543,8 +590,11 @@ v kalendáři byl nesmyslně malý, takže se nezobrazuje.
 - [`docs/data-schema.md`](docs/data-schema.md) — datový model
 - [`docs/filename-convention.md`](docs/filename-convention.md) — konvence názvů souborů (**důležité**)
 - [`docs/sync-workflow.md`](docs/sync-workflow.md) — import dat
-- [`docs/deployment.md`](docs/deployment.md) — deployment na OVH
-- [`deploy/README.md`](deploy/README.md) — katalog produkčních artefaktů + plný security setup
+- [`docs/deployment.md`](docs/deployment.md) — deployment na OVH (nginx, SSL, PM2, fail2ban+nftables permaban, unattended-upgrades)
+- [`docs/admin-overview.md`](docs/admin-overview.md) — admin rozhraní (`/admin/*`)
+- [`docs/gotchas.md`](docs/gotchas.md) — lessons learned (NFC normalizace, `"use server"` exporty, admin cookie path)
+- [`docs/collaboration.md`](docs/collaboration.md) — pracovní pravidla pro Claude Code (commit policy, design-call etiketa)
+- [`deploy/README.md`](deploy/README.md) — katalog produkčních artefaktů
 
 ## Přispívání
 
