@@ -10,7 +10,7 @@ import {
   NGINX_PERMABAN_JAIL,
   readBlocklistLog,
   renderIpsTable,
-  renderNginxDenyConfig,
+  renderPermabanElementsConfig,
 } from "@/lib/admin/blocklist";
 import { loadAbuseIpdbSummary } from "@/lib/admin/abuseipdb";
 import { loadPermabanSnapshot } from "@/lib/admin/permaban";
@@ -231,12 +231,12 @@ function exportPermaban(
     windowDays,
     jail,
   });
-  const body = renderNginxDenyConfig(result, { sourcePath });
+  const body = renderPermabanElementsConfig(result, { sourcePath });
   return new NextResponse(body, {
     status: 200,
     headers: {
       "content-type": "text/plain; charset=utf-8",
-      "content-disposition": `attachment; filename="permaban-list-${dateStamp()}.conf"`,
+      "content-disposition": `attachment; filename="permaban-elements-${dateStamp()}.nft"`,
       "cache-control": "no-store",
       "x-row-count": String(result.candidates.length),
     },
@@ -245,23 +245,23 @@ function exportPermaban(
 
 async function exportDeniedIps(sp: URLSearchParams): Promise<NextResponse> {
   const snapshot = await loadPermabanSnapshot();
-  if (snapshot.deny.error !== null) {
+  if (snapshot.firewall.error !== null) {
     return NextResponse.json(
       {
-        error: snapshot.deny.error,
-        path: snapshot.paths.deny,
+        error: snapshot.firewall.error,
+        path: snapshot.paths.elements,
       },
       {
         status:
-          snapshot.deny.error === "missing"
+          snapshot.firewall.error === "missing"
             ? 404
-            : snapshot.deny.error === "permission"
+            : snapshot.firewall.error === "permission"
               ? 403
               : 500,
       },
     );
   }
-  const ips = snapshot.deny.deniedIps;
+  const ips = snapshot.firewall.permabanedIps;
   const format = (sp.get("format") ?? "txt") as "txt" | "json" | "csv";
   if (format === "json") {
     return new NextResponse(JSON.stringify(ips, null, 2) + "\n", {
@@ -284,8 +284,10 @@ async function exportDeniedIps(sp: URLSearchParams): Promise<NextResponse> {
       },
     });
   }
-  // txt — one IP per line, matches the input format of `nginx deny`
-  // configs after stripping the `deny ... ;` wrapper.
+  // txt — one IP per line. Co-incidentně to je formát, který nftables
+  // očekává v `nft add element inet permaban permaban_v4 { 1.2.3.4 }`
+  // po stripnutí wrapperu — uživatel ho ale typicky generuje přes
+  // /api/admin/blocklist/export?kind=permaban (formát .nft).
   const body = ips.join("\n") + (ips.length > 0 ? "\n" : "");
   return new NextResponse(body, {
     headers: {
@@ -305,6 +307,8 @@ async function exportWhitelist(sp: URLSearchParams): Promise<NextResponse> {
         error: snapshot.whitelist.error,
         path: snapshot.paths.whitelist,
       },
+      // status mapping is the same for whitelist as for elements file;
+      // keep it inline for clarity rather than extracting a helper.
       {
         status:
           snapshot.whitelist.error === "missing"

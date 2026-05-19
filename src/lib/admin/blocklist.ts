@@ -263,10 +263,10 @@ export interface PermabanComputation {
   candidates: PermabanCandidate[];
 }
 
-/** Mirrors the awk filter from blocklist-tools.sh `nginx-deny`: only
+/** Mirrors the awk filter from blocklist-tools.sh `firewall-deny`: only
  *  HTTP-tier bans (jail = nginx-noscript by default) within the rolling
  *  window are counted, and we emit IPs at or above the threshold.
- *  Sorted ascending by IP so the resulting nginx config diffs cleanly
+ *  Sorted ascending by IP so the resulting elements.nft diffs cleanly
  *  between regenerations. */
 export function computePermabanCandidates(
   entries: readonly BlocklistEntry[],
@@ -315,12 +315,21 @@ export function computePermabanCandidates(
   };
 }
 
-/** Generates the same `permaban-list.conf` content that
- *  blocklist-tools.sh writes — the operator can download it from the
- *  admin UI, copy to the server, and `include` it in a server block.
- *  The actual file install (root-only path under `/etc/nginx/`)
- *  stays in Termius / blocklist-tools.sh; the webapp only previews. */
-export function renderNginxDenyConfig(
+/** Generates the same `elements.nft` content that
+ *  blocklist-tools.sh `firewall-deny` writes — the operator can download
+ *  it from the admin UI, copy to the server, and `nft -f` it into
+ *  /var/lib/permaban/elements.nft. The actual file install stays in
+ *  Termius / blocklist-tools.sh; the webapp only previews.
+ *
+ *  Output formát:
+ *    flush set inet permaban permaban_v4
+ *    flush set inet permaban permaban_v6
+ *    add element inet permaban permaban_v4 { 1.2.3.4 }
+ *    add element inet permaban permaban_v6 { 2001:db8::1 }
+ *
+ *  flush + add v jednom souboru = atomická transakce při `nft -f`, žádné
+ *  okénko, kdy by byl set prázdný. */
+export function renderPermabanElementsConfig(
   result: PermabanComputation,
   options: {
     /** Source file path to embed in the header — usually the live
@@ -333,14 +342,17 @@ export function renderNginxDenyConfig(
 ): string {
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const lines: string[] = [
-    "# Auto-generated permaban list",
+    "# Auto-generated permaban elements pro nftables",
     `# Source: ${options.sourcePath ?? BLOCKLIST_LOG_PATH} (filter: jail=${result.jail})`,
     `# Generated: ${generatedAt}`,
     `# Threshold: IPs banned >= ${result.threshold}× in last ${result.thresholdDays} days`,
     "#",
+    "flush set inet permaban permaban_v4",
+    "flush set inet permaban permaban_v6",
   ];
   for (const c of result.candidates) {
-    lines.push(`deny ${c.ip};`);
+    const family = c.ip.includes(":") ? "permaban_v6" : "permaban_v4";
+    lines.push(`add element inet permaban ${family} { ${c.ip} }`);
   }
   // Trailing newline to keep the file POSIX-conformant and diff-friendly.
   return lines.join("\n") + "\n";

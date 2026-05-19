@@ -415,6 +415,55 @@ Reboots se auto-neprovádí (`Unattended-Upgrade::Automatic-Reboot "false";`)
 — kernel update tě upozorní přes `/var/run/reboot-required` a v MOTD,
 ale reboot plánuje vlastník ručně (kvůli PM2 + Postgres state).
 
+#### Pravidelný update nginx — jak to konkrétně funguje
+
+| Co | Kde | Jak často |
+| --- | --- | --- |
+| Security patche pro 1.24 (CVE backporty od Canonical) | `…-security` pocket | Auto — apt-daily-upgrade.timer (default 6:00 + 6:00 + 0:00 UTC) |
+| Drobné fíčurní updaty 1.24.x | `…-updates` pocket | Auto — stejný timer |
+| Major version bump (1.24 → 1.26) | Jen při Ubuntu LTS upgrade | Manuálně (24.04 → 26.04) |
+| Upstream mainline (1.28+) | nginx.org repo | Nedělej — držíme se Ubuntu repa |
+
+**Doporučený měsíční checkpoint** (v Termiusu):
+
+```bash
+# Co je aktuálně nainstalováno + co je k dispozici v repu:
+nginx -v
+apt-cache policy nginx | head -20
+
+# Historie aplikovaných security patchů (po nasazení unattended-upgrades):
+grep -i nginx /var/log/unattended-upgrades/unattended-upgrades.log | tail -20
+
+# Cokoli čeká na manuální acknowledgement?
+test -f /var/run/reboot-required && cat /var/run/reboot-required.pkgs
+
+# Status apt-daily-upgrade.timer — kdy běžel naposled, kdy poběží příště:
+systemctl status apt-daily-upgrade.timer --no-pager
+```
+
+**Kdy fakt rebootnout:** pokud `/var/run/reboot-required` po `apt upgrade`
+existuje (typicky po kernel patchích), naplánuj reboot:
+
+```bash
+# Před rebootem zkontroluj PM2 + Postgres + fail2ban:
+pm2 status
+sudo systemctl status postgresql fail2ban nftables nginx --no-pager | head -40
+
+# Reboot:
+sudo reboot
+
+# Po rebootu (z lokálu znovu SSH):
+pm2 status
+sudo systemctl is-active nginx postgresql fail2ban nftables \
+                         permaban-firewall-load
+sudo nft list set inet permaban permaban_v4 | head -5   # ověř persistenci
+```
+
+**Pokud Ubuntu jednou zahodí stable kanál pro 1.24** (typicky 4–5 let
+po vydání 24.04, tj. 2028+), bude potřeba buď přepnout na novější Ubuntu
+LTS, nebo na nginx.org upstream repo. Drž 24.04 minimálně do roku 2027
+(podpora `noble` je do dubna 2029).
+
 ### 10.5. Verifikace celkového setupu
 
 ```bash

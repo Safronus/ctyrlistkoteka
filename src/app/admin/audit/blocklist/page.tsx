@@ -26,7 +26,7 @@ import {
   DEFAULT_PERMABAN_WINDOW_DAYS,
   NGINX_PERMABAN_JAIL,
   readBlocklistLog,
-  renderNginxDenyConfig,
+  renderPermabanElementsConfig,
   type BlocklistEntry,
   type BlocklistReadResult,
   type IpAggregate,
@@ -88,10 +88,10 @@ export default async function AdminAuditBlocklistPage({
         </h1>
         <p className="text-sm text-gray-500">
           Statistiky a exporty nad <code>{data.path}</code>. Webapp jen čte;
-          permaban list (nginx <code>deny</code>) nikdy nezapisuje do{" "}
-          <code>/etc/nginx/</code> — vygenerovaný <code>.conf</code> stáhni a
-          aplikuj přes <code>sudo blocklist-tools.sh nginx-deny</code> z
-          Termiusu.
+          permaban set (nftables <code>inet permaban</code>) nikdy nezapisuje
+          do <code>/var/lib/permaban/</code> — vygenerovaný{" "}
+          <code>.nft</code> stáhni a aplikuj přes{" "}
+          <code>sudo blocklist-tools.sh firewall-deny</code> z Termiusu.
         </p>
       </header>
 
@@ -213,7 +213,7 @@ function ReadyView({
     windowDays,
     jail,
   });
-  const permabanPreview = renderNginxDenyConfig(permabanWhatIf, {
+  const permabanPreview = renderPermabanElementsConfig(permabanWhatIf, {
     sourcePath: path,
   });
 
@@ -309,39 +309,45 @@ function CollapsibleSection({
 
 
 function PermabanLivePanel({ snapshot }: { snapshot: PermabanSnapshot }) {
-  const denyCount = snapshot.deny.deniedIps.length;
+  const firewallCount = snapshot.firewall.permabanedIps.length;
   const lastRefreshLine = snapshot.refreshLog.recentLines.at(-1) ?? null;
   return (
     <section className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 shadow-sm">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
           <Lock className="h-4 w-4 text-emerald-700" aria-hidden />
-          Live permaban list (nginx deny)
+          Live permaban set (nftables)
         </h2>
         <span className="text-[11px] text-gray-500">
-          file: <code>{snapshot.paths.deny}</code>
+          file: <code>{snapshot.paths.elements}</code>
         </span>
       </header>
 
       <p className="text-[11px] leading-relaxed text-gray-600">
         Hybridní permaban. <strong>fail2ban action</strong>{" "}
-        (<code>permaban-nginx</code>) appendne každý ban z reportable jailů
-        (nginx-noscript, sshd, sshd-logger) do <code>permaban-list.conf</code>{" "}
-        a debouncovaně reloadne nginx. <strong>Denní cron</strong>{" "}
-        (<code>blocklist-tools.sh nginx-deny --apply</code> v 04:30) ho
+        (<code>permaban-firewall</code>) přidá každý ban z reportable jailů
+        (nginx-noscript, sshd, sshd-logger) přes <code>nft add element</code>{" "}
+        do setů <code>inet permaban permaban_{`{v4,v6}`}</code> — paket
+        dropne kernel na L3 (před TLS handshake). <strong>Denní cron</strong>{" "}
+        (<code>blocklist-tools.sh firewall-deny --apply</code> v 04:30) sety
         rebuilduje z celého TSV jako self-healing pojistka. Whitelist + RFC
-        1918/5737/3849 rozsahy se filtrují vždy; snapshot předchozího
-        souboru padá do <code>{snapshot.paths.backupDir}</code> (auto-prune
-        po 30 dnech).
+        1918/5737/3849 rozsahy se filtrují vždy; snapshot předchozího{" "}
+        <code>elements.nft</code> padá do{" "}
+        <code>{snapshot.paths.backupDir}</code> (auto-prune po 30 dnech).
       </p>
 
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat
           label="Aktuálně permabanováno"
           value={
-            snapshot.deny.error === null
-              ? denyCount.toLocaleString("cs-CZ")
+            snapshot.firewall.error === null
+              ? firewallCount.toLocaleString("cs-CZ")
               : "?"
+          }
+          sub={
+            snapshot.firewall.error === null
+              ? `${snapshot.firewall.v4Count.toLocaleString("cs-CZ")} v4 · ${snapshot.firewall.v6Count.toLocaleString("cs-CZ")} v6`
+              : undefined
           }
         />
         <Stat
@@ -369,15 +375,15 @@ function PermabanLivePanel({ snapshot }: { snapshot: PermabanSnapshot }) {
       <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
         <div className="rounded-md border border-gray-200 bg-white p-2">
           <dt className="text-[10px] uppercase tracking-wide text-gray-400">
-            Deny soubor — změněn
+            Elements soubor — změněn
           </dt>
           <dd className="mt-0.5 font-mono tabular-nums text-gray-800">
-            {snapshot.deny.mtime
-              ? formatDateTime(snapshot.deny.mtime)
+            {snapshot.firewall.mtime
+              ? formatDateTime(snapshot.firewall.mtime)
               : "—"}
-            {snapshot.deny.size !== null && (
+            {snapshot.firewall.size !== null && (
               <span className="ml-2 text-gray-500">
-                ({snapshot.deny.size.toLocaleString("cs-CZ")} B)
+                ({snapshot.firewall.size.toLocaleString("cs-CZ")} B)
               </span>
             )}
           </dd>
@@ -399,12 +405,12 @@ function PermabanLivePanel({ snapshot }: { snapshot: PermabanSnapshot }) {
           </dt>
           <dd className="mt-0.5 text-gray-700">
             <code>/etc/cron.d/permaban-refresh</code> →{" "}
-            <code>blocklist-tools.sh nginx-deny --apply</code>
+            <code>blocklist-tools.sh firewall-deny --apply</code>
           </dd>
         </div>
       </dl>
 
-      {(snapshot.deny.error ||
+      {(snapshot.firewall.error ||
         snapshot.whitelist.error ||
         snapshot.refreshLog.error ||
         snapshot.realtimeLog.error ||
@@ -485,7 +491,7 @@ function PermabanLivePanel({ snapshot }: { snapshot: PermabanSnapshot }) {
         <CollapsibleSection
           title="Real-time log událostí"
           count={`posledních ${snapshot.realtimeLog.events.length}`}
-          hint="Z /var/log/permaban-nginx.log — append akce z fail2ban chainu."
+          hint="Z /var/log/permaban-firewall.log — nft add element akce z fail2ban chainu."
         >
           <ul className="divide-y divide-gray-100 font-mono text-[11px] leading-snug">
             {snapshot.realtimeLog.events.map((e, i) => (
@@ -529,8 +535,8 @@ function PermabanLivePanel({ snapshot }: { snapshot: PermabanSnapshot }) {
 
       <CollapsibleSection
         title="Všechny aktuálně blokované IP"
-        count={`${denyCount} celkem`}
-        hint="Obsah permaban-list.conf — každý řádek = `deny <ip>;`."
+        count={`${firewallCount} celkem`}
+        hint="Obsah elements.nft — každý řádek = `add element inet permaban permaban_v[46] { ip }`."
         exports={[
           {
             href: "/api/admin/blocklist/export?kind=denied&format=txt",
@@ -549,14 +555,14 @@ function PermabanLivePanel({ snapshot }: { snapshot: PermabanSnapshot }) {
           },
         ]}
       >
-        {denyCount === 0 ? (
+        {firewallCount === 0 ? (
           <p className="px-4 py-3 text-xs text-gray-500">
-            Deny list je prázdný (nebo soubor není čitelný — viz hint výše).
+            Permaban set je prázdný (nebo soubor není čitelný — viz hint výše).
           </p>
         ) : (
           <div className="max-h-96 overflow-auto">
             <ul className="divide-y divide-gray-100 text-xs">
-              {snapshot.deny.deniedIps.map((ip) => (
+              {snapshot.firewall.permabanedIps.map((ip) => (
                 <li
                   key={ip}
                   className="px-4 py-1 font-mono tabular-nums text-gray-800"
@@ -586,14 +592,14 @@ function PermabanFileHints({ snapshot }: { snapshot: PermabanSnapshot }) {
     createsWith?: string;
   }
   const items: Item[] = [];
-  if (snapshot.deny.error)
+  if (snapshot.firewall.error)
     items.push({
-      label: "Deny list",
-      path: snapshot.paths.deny,
-      error: snapshot.deny.error,
+      label: "Permaban elements",
+      path: snapshot.paths.elements,
+      error: snapshot.firewall.error,
       isDir: false,
       createsWith:
-        "fail2ban action permaban-nginx (při prvním banu) nebo denní cron",
+        "fail2ban action permaban-firewall (při prvním banu) nebo denní cron",
     });
   if (snapshot.whitelist.error)
     items.push({
@@ -610,16 +616,16 @@ function PermabanFileHints({ snapshot }: { snapshot: PermabanSnapshot }) {
       error: snapshot.refreshLog.error,
       isDir: false,
       createsWith:
-        "denní cron 04:30, nebo manuálně `sudo /usr/local/sbin/blocklist-tools.sh nginx-deny --apply >> /var/log/permaban-refresh.log 2>&1`",
+        "denní cron 04:30, nebo manuálně `sudo /usr/local/sbin/blocklist-tools.sh firewall-deny --apply >> /var/log/permaban-refresh.log 2>&1`",
     });
   if (snapshot.realtimeLog.error)
     items.push({
       label: "Real-time log",
-      path: snapshot.paths.realtimeLog,
+      path: snapshot.paths.firewallLog,
       error: snapshot.realtimeLog.error,
       isDir: false,
       createsWith:
-        "fail2ban action permaban-nginx při prvním banu (resp. testem ze setupu)",
+        "fail2ban action permaban-firewall při prvním banu (resp. testem ze setupu)",
     });
   if (snapshot.backups.error)
     items.push({
@@ -1012,10 +1018,13 @@ function Stat({
   label,
   value,
   small,
+  sub,
 }: {
   label: string;
   value: string;
   small?: boolean;
+  /** Volitelný podtitulek pod hlavní hodnotou (např. v4/v6 breakdown). */
+  sub?: string;
 }) {
   return (
     <li className="rounded-xl border border-gray-200 bg-white p-3">
@@ -1029,6 +1038,9 @@ function Stat({
       >
         {value}
       </p>
+      {sub && (
+        <p className="mt-0.5 font-mono text-[10px] text-gray-500">{sub}</p>
+      )}
     </li>
   );
 }
@@ -1424,10 +1436,10 @@ function ExportRow({
       <p className="mt-3 flex items-start gap-1.5 text-[11px] text-gray-500">
         <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" aria-hidden />
         <span>
-          Webapp do <code>/etc/nginx/snippets/</code> nikdy nezapisuje. Stáhni{" "}
-          <code>permaban-list.conf</code> a v Termiusu spusť{" "}
-          <code>sudo blocklist-tools.sh nginx-deny</code>, ten ho instaluje a
-          provede <code>nginx -t && systemctl reload nginx</code>.
+          Webapp do <code>/var/lib/permaban/</code> nikdy nezapisuje. Stáhni{" "}
+          <code>elements.nft</code> a v Termiusu spusť{" "}
+          <code>sudo blocklist-tools.sh firewall-deny</code>, ten ho
+          instaluje a aplikuje přes <code>nft -f /var/lib/permaban/elements.nft</code>.
         </span>
       </p>
     </section>

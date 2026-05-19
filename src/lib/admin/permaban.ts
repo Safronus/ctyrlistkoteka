@@ -1,19 +1,22 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-/** Files / dirs touched by deploy/blocklist-tools.sh + the
- *  permaban-nginx fail2ban action chain. The page reads them
- *  read-only to surface the live deny list state. Paths are env-
- *  overridable so dev / fixture tests can point elsewhere. */
-export const PERMABAN_DENY_PATH =
-  process.env.PERMABAN_DENY_PATH ??
-  "/etc/nginx/snippets/permaban-list.conf";
+/** Files / dirs touched by deploy/blocklist-tools.sh firewall-deny and
+ *  the permaban-firewall fail2ban action chain. Read read-only here
+ *  to surface live permaban state on the admin page. Paths are
+ *  env-overridable so dev / fixture tests can point elsewhere.
+ *
+ *  Po migraci z nginx permaban (viz deploy/migrate-nginx-permaban-to-nftables.sh)
+ *  source of truth už není permaban-list.conf, ale elements.nft
+ *  načítané do nftables sety `inet permaban permaban_{v4,v6}`. */
+export const PERMABAN_ELEMENTS_PATH =
+  process.env.PERMABAN_ELEMENTS_PATH ?? "/var/lib/permaban/elements.nft";
 export const PERMABAN_WHITELIST_PATH =
   process.env.PERMABAN_WHITELIST_PATH ?? "/etc/permaban-whitelist.conf";
 export const PERMABAN_REFRESH_LOG_PATH =
   process.env.PERMABAN_REFRESH_LOG_PATH ?? "/var/log/permaban-refresh.log";
-export const PERMABAN_REALTIME_LOG_PATH =
-  process.env.PERMABAN_REALTIME_LOG_PATH ?? "/var/log/permaban-nginx.log";
+export const PERMABAN_FIREWALL_LOG_PATH =
+  process.env.PERMABAN_FIREWALL_LOG_PATH ?? "/var/log/permaban-firewall.log";
 export const PERMABAN_BACKUP_DIR =
   process.env.PERMABAN_BACKUP_DIR ?? "/var/backups/permaban";
 
@@ -48,14 +51,17 @@ async function readFileSafe(filePath: string): Promise<FileRead> {
   }
 }
 
-/** A single line from /var/log/permaban-nginx.log parsed into a
- *  structured event. Mirrors the messages emitted by
- *  permaban-nginx-add.sh: Added / Already present / Whitelist skip /
- *  Reserved skip / Reject invalid IP shape / fallback messages. */
+/** A single line from /var/log/permaban-firewall.log parsed into a
+ *  structured event. Mirrors messages emitted by
+ *  permaban-firewall-add.sh: Added / Already present / Whitelist skip /
+ *  Reserved skip / Reject invalid IP shape / ERROR. */
 export interface PermabanRealtimeEvent {
   ts: string;
   kind: "added" | "skip" | "error" | "info";
   ip?: string;
+  /** Když je k dispozici (přes `(permaban_v4)` suffix v log line),
+   *  markuje rodinu setu, do kterého IP padla. */
+  family?: "v4" | "v6";
   message: string;
 }
 
@@ -65,8 +71,23 @@ function parseRealtimeLine(raw: string): PermabanRealtimeEvent | null {
   const ts = m[1]!;
   const rest = m[2]!;
 
-  const added = /^Added:\s+(\S+)/.exec(rest);
-  if (added) return { ts, kind: "added", ip: added[1], message: rest };
+  // `Added: 1.2.3.4 (permaban_v4)` — suffix s rodinou je volitelný.
+  const added = /^Added:\s+(\S+)(?:\s+\((permaban_v[46])\))?/.exec(rest);
+  if (added) {
+    const fam = added[2];
+    return {
+      ts,
+      kind: "added",
+      ip: added[1],
+      family:
+        fam === "permaban_v6"
+          ? "v6"
+          : fam === "permaban_v4"
+            ? "v4"
+            : undefined,
+      message: rest,
+    };
+  }
 
   const skip =
     /^(Whitelist skip|Reserved skip|Already present):\s+(\S+)/.exec(rest);
@@ -74,6 +95,8 @@ function parseRealtimeLine(raw: string): PermabanRealtimeEvent | null {
 
   const reject = /^Reject\s+invalid\s+IP\s+shape:\s+(\S+)/.exec(rest);
   if (reject) return { ts, kind: "error", ip: reject[1], message: rest };
+
+  if (/^ERROR:/.test(rest)) return { ts, kind: "error", message: rest };
 
   return { ts, kind: "info", message: rest };
 }
@@ -105,7 +128,13 @@ async function listBackups(
       return { error: "permission", count: 0, recent: [] };
     return { error: "io", count: 0, recent: [] };
   }
-  const matching = entries.filter((n) => n.startsWith("permaban-list."));
+  // Pattern z deploy/blocklist-tools.sh firewall-deny — soubory mají
+  // formát `elements.<iso-ts>.nft`. Starší `permaban-list.*` snapshoty
+  // z legacy nginx permaban jsou pro novou UI ignorované; uživatel je
+  // může najít ručně přes `ls /var/backups/permaban/`.
+  const matching = entries.filter(
+    (n) => n.startsWith("elements.") && n.endsWith(".nft"),
+  );
   const stats = await Promise.all(
     matching.map(async (name) => {
       try {
@@ -116,26 +145,29 @@ async function listBackups(
       }
     }),
   );
-  const valid = stats.filter(
-    (x): x is PermabanBackup => x !== null,
-  );
+  const valid = stats.filter((x): x is PermabanBackup => x !== null);
   valid.sort((a, b) => b.mtime.localeCompare(a.mtime));
   return { error: null, count: valid.length, recent: valid.slice(0, limit) };
 }
 
 export interface PermabanSnapshot {
   paths: {
-    deny: string;
+    elements: string;
     whitelist: string;
     refreshLog: string;
-    realtimeLog: string;
+    firewallLog: string;
     backupDir: string;
   };
-  deny: {
+  firewall: {
     error: PermabanFileError | null;
     mtime: string | null;
     size: number | null;
-    deniedIps: string[];
+    /** Flat list všech aktuálně permabanovaných IP (v4 + v6 míchané),
+     *  v pořadí načtení ze souboru. */
+    permabanedIps: string[];
+    /** Počty per rodina — pro stats panel. */
+    v4Count: number;
+    v6Count: number;
   };
   whitelist: {
     error: PermabanFileError | null;
@@ -160,21 +192,35 @@ export interface PermabanSnapshot {
  *  file (e.g. permission), the rest of the panel still renders and
  *  the page surfaces a setfacl hint for that specific path. */
 export async function loadPermabanSnapshot(): Promise<PermabanSnapshot> {
-  const [deny, whitelist, refreshLog, realtimeLog, backups] =
+  const [elements, whitelist, refreshLog, firewallLog, backups] =
     await Promise.all([
-      readFileSafe(PERMABAN_DENY_PATH),
+      readFileSafe(PERMABAN_ELEMENTS_PATH),
       readFileSafe(PERMABAN_WHITELIST_PATH),
       readFileSafe(PERMABAN_REFRESH_LOG_PATH),
-      readFileSafe(PERMABAN_REALTIME_LOG_PATH),
+      readFileSafe(PERMABAN_FIREWALL_LOG_PATH),
       listBackups(PERMABAN_BACKUP_DIR),
     ]);
 
-  const deniedIps: string[] = [];
-  if (deny.content !== null) {
-    for (const raw of deny.content.split("\n")) {
+  const permabanedIps: string[] = [];
+  let v4Count = 0;
+  let v6Count = 0;
+  if (elements.content !== null) {
+    for (const raw of elements.content.split("\n")) {
       const line = raw.trim();
-      const m = /^deny\s+(\S+);/.exec(line);
-      if (m) deniedIps.push(m[1]!);
+      // Format: `add element inet permaban permaban_v4 { 1.2.3.4 }`
+      // Whitespace mezi `{` a IP může být libovolný. Ignoruje `flush
+      // set` řádky a komentáře (začínají #).
+      const m =
+        /^add\s+element\s+inet\s+permaban\s+(permaban_v[46])\s*\{\s*([^}\s]+)\s*\}/.exec(
+          line,
+        );
+      if (m) {
+        const family = m[1]!;
+        const ip = m[2]!;
+        permabanedIps.push(ip);
+        if (family === "permaban_v4") v4Count++;
+        else if (family === "permaban_v6") v6Count++;
+      }
     }
   }
 
@@ -197,8 +243,8 @@ export async function loadPermabanSnapshot(): Promise<PermabanSnapshot> {
   }
 
   const events: PermabanRealtimeEvent[] = [];
-  if (realtimeLog.content !== null) {
-    const lines = realtimeLog.content
+  if (firewallLog.content !== null) {
+    const lines = firewallLog.content
       .split("\n")
       .filter((l) => l.trim().length > 0);
     // Cap at 200 most recent — log can grow unbounded between
@@ -213,17 +259,19 @@ export async function loadPermabanSnapshot(): Promise<PermabanSnapshot> {
 
   return {
     paths: {
-      deny: PERMABAN_DENY_PATH,
+      elements: PERMABAN_ELEMENTS_PATH,
       whitelist: PERMABAN_WHITELIST_PATH,
       refreshLog: PERMABAN_REFRESH_LOG_PATH,
-      realtimeLog: PERMABAN_REALTIME_LOG_PATH,
+      firewallLog: PERMABAN_FIREWALL_LOG_PATH,
       backupDir: PERMABAN_BACKUP_DIR,
     },
-    deny: {
-      error: deny.error,
-      mtime: deny.mtime,
-      size: deny.size,
-      deniedIps,
+    firewall: {
+      error: elements.error,
+      mtime: elements.mtime,
+      size: elements.size,
+      permabanedIps,
+      v4Count,
+      v6Count,
     },
     whitelist: {
       error: whitelist.error,
@@ -234,7 +282,7 @@ export async function loadPermabanSnapshot(): Promise<PermabanSnapshot> {
       recentLines: refreshLines,
     },
     realtimeLog: {
-      error: realtimeLog.error,
+      error: firewallLog.error,
       events,
     },
     backups,
