@@ -274,6 +274,9 @@ NODE_ENV=production
 - [docs/filename-convention.md](docs/filename-convention.md) — **kritické** — jak parsovat názvy souborů
 - [docs/sync-workflow.md](docs/sync-workflow.md) — jak funguje import filesystem → DB
 - [docs/deployment.md](docs/deployment.md) — krok za krokem OVH + Nginx + SSL + PM2
+- [docs/admin-overview.md](docs/admin-overview.md) — admin rozhraní (`/admin/*`), kompletní přehled
+- [docs/gotchas.md](docs/gotchas.md) — **lessons learned** — NFC normalizace, `"use server"` exporty, admin cookie path
+- [docs/collaboration.md](docs/collaboration.md) — pracovní pravidla, commit policy, design-call etiketa
 
 ---
 
