@@ -120,6 +120,18 @@ export interface MonthDayPoint {
   count: number;
 }
 
+/** One sparse cell of the minute heatmap (day-of-year × minute-of-day).
+ *  Cells with zero finds are omitted; the page fills them on render.
+ *  Aggregated across all years to surface seasonal + time-of-day
+ *  patterns regardless of which year the find landed in. */
+export interface MinuteHeatmapCell {
+  /** 1–366 (Postgres EXTRACT(DOY)). */
+  doy: number;
+  /** 0–1439, computed as hour*60 + minute. */
+  mod: number;
+  count: number;
+}
+
 /** One bar of the "finds by distance from the default map" histogram. */
 export interface DistanceBucket {
   /** Bucket index 0..7. Decade-based:
@@ -324,6 +336,10 @@ export interface StatsCalendarResult {
   yearly: YearlyPoint[];
   /** Sparse month×day heatmap. */
   byMonthDay: MonthDayPoint[];
+  /** Sparse day-of-year × minute-of-day heatmap. Same shape, finer
+   *  granularity — used by the "Minuty" tab in the calendar heatmap
+   *  section. Client buckets these into 1/5/15/60 min bins. */
+  byMinute: MinuteHeatmapCell[];
   /** First year with at least one find — drives the year axis on the
    *  yearly chart so empty leading years render as zero columns. */
   firstYear: number | null;
@@ -971,33 +987,40 @@ export async function getStatsCalendar(): Promise<StatsCalendarResult> {
   // Calendar axes — ignore time zone offsets (use the find's local
   // wall-clock the user recorded). Anonymization-stripped foundAt is
   // fine because `is_anonymized` doesn't affect the timestamp.
-  const [yearlyRows, hourRows, dowRows, monthRows, monthDayRows, totalsRow] =
-    await Promise.all([
-      prisma.$queryRaw<Array<{ year: number; count: bigint }>>`
+  const [
+    yearlyRows,
+    hourRows,
+    dowRows,
+    monthRows,
+    monthDayRows,
+    minuteRows,
+    totalsRow,
+  ] = await Promise.all([
+    prisma.$queryRaw<Array<{ year: number; count: bigint }>>`
         SELECT EXTRACT(YEAR FROM found_at)::int AS year, COUNT(*) AS count
         FROM finds WHERE found_at IS NOT NULL
         GROUP BY 1 ORDER BY 1
       `,
-      prisma.$queryRaw<Array<{ hour: number; count: bigint }>>`
+    prisma.$queryRaw<Array<{ hour: number; count: bigint }>>`
         SELECT EXTRACT(HOUR FROM found_at)::int AS hour, COUNT(*) AS count
         FROM finds WHERE found_at IS NOT NULL
         GROUP BY 1 ORDER BY 1
       `,
-      // Postgres DOW: 0=Sunday … 6=Saturday. Convert to ISO 1=Mon … 7=Sun
-      // so the result is naturally ordered for a Czech week.
-      prisma.$queryRaw<Array<{ dow: number; count: bigint }>>`
+    // Postgres DOW: 0=Sunday … 6=Saturday. Convert to ISO 1=Mon … 7=Sun
+    // so the result is naturally ordered for a Czech week.
+    prisma.$queryRaw<Array<{ dow: number; count: bigint }>>`
         SELECT EXTRACT(ISODOW FROM found_at)::int AS dow, COUNT(*) AS count
         FROM finds WHERE found_at IS NOT NULL
         GROUP BY 1 ORDER BY 1
       `,
-      prisma.$queryRaw<Array<{ month: number; count: bigint }>>`
+    prisma.$queryRaw<Array<{ month: number; count: bigint }>>`
         SELECT EXTRACT(MONTH FROM found_at)::int AS month, COUNT(*) AS count
         FROM finds WHERE found_at IS NOT NULL
         GROUP BY 1 ORDER BY 1
       `,
-      // Year-independent month×day heatmap. Returns sparse — only cells
-      // that have any finds; the page fills the rest with zeros.
-      prisma.$queryRaw<Array<{ month: number; day: number; count: bigint }>>`
+    // Year-independent month×day heatmap. Returns sparse — only cells
+    // that have any finds; the page fills the rest with zeros.
+    prisma.$queryRaw<Array<{ month: number; day: number; count: bigint }>>`
         SELECT EXTRACT(MONTH FROM found_at)::int AS month,
                EXTRACT(DAY FROM found_at)::int AS day,
                COUNT(*) AS count
@@ -1005,8 +1028,21 @@ export async function getStatsCalendar(): Promise<StatsCalendarResult> {
         GROUP BY 1, 2
         ORDER BY 1, 2
       `,
-      fetchTotalsRow(),
-    ]);
+    // Day-of-year × minute-of-day heatmap. Sparse — ~10-15k rows for the
+    // current ~17k finds (multiple finds frequently land in the same
+    // minute during a sběr session). Client buckets into 1/5/15/60 min
+    // visualisations from this base.
+    prisma.$queryRaw<Array<{ doy: number; mod: number; count: bigint }>>`
+        SELECT EXTRACT(DOY FROM found_at)::int AS doy,
+               (EXTRACT(HOUR FROM found_at)::int * 60
+                + EXTRACT(MINUTE FROM found_at)::int) AS mod,
+               COUNT(*) AS count
+        FROM finds WHERE found_at IS NOT NULL
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+      `,
+    fetchTotalsRow(),
+  ]);
   return {
     byHour: hourRows.map((r) => ({ key: r.hour, count: Number(r.count) })),
     byDayOfWeek: dowRows.map((r) => ({ key: r.dow, count: Number(r.count) })),
@@ -1021,6 +1057,11 @@ export async function getStatsCalendar(): Promise<StatsCalendarResult> {
     byMonthDay: monthDayRows.map((r) => ({
       month: r.month,
       day: r.day,
+      count: Number(r.count),
+    })),
+    byMinute: minuteRows.map((r) => ({
+      doy: r.doy,
+      mod: r.mod,
       count: Number(r.count),
     })),
     firstYear: totalsRow?.first_year ?? null,

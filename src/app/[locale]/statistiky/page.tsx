@@ -45,6 +45,7 @@ import {
   type DistanceBucket,
   type FindHighlight,
   type JubileeFind,
+  type MinuteHeatmapCell,
   type MonthDayPoint,
   type PeakBucket,
   type StatsTimeAndPaceResult,
@@ -54,6 +55,7 @@ import { getLocationIdsWithRealPhotos } from "@/lib/queries/locations";
 import { localizedCountryName } from "@/lib/world-countries";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { prisma } from "@/lib/db";
+import { CalendarHeatmapTabs } from "@/components/stats/calendar-heatmap-tabs";
 import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
 import { TopLocationsCard } from "@/components/stats/top-locations-card";
 import { YearlyPaceBlock } from "@/components/stats/yearly-pace-block";
@@ -117,11 +119,11 @@ export default async function StatistikyPage() {
       <Suspense fallback={<GeoSkeleton />}>
         <GeoSection />
       </Suspense>
-      <Suspense fallback={<CalendarSkeleton />}>
-        <CalendarSection />
-      </Suspense>
       <Suspense fallback={<DistanceSkeleton />}>
         <DistanceSection />
+      </Suspense>
+      <Suspense fallback={<CalendarSkeleton />}>
+        <CalendarSection />
       </Suspense>
     </div>
   );
@@ -328,6 +330,7 @@ async function CalendarSection() {
       yearly={data.yearly}
       firstYear={data.firstYear}
       byMonthDay={data.byMonthDay}
+      byMinute={data.byMinute}
       t={t}
     />
   );
@@ -826,6 +829,7 @@ function CalendarStatsSection({
   yearly,
   firstYear,
   byMonthDay,
+  byMinute,
   t,
 }: {
   byHour: readonly CalendarPoint[];
@@ -834,6 +838,7 @@ function CalendarStatsSection({
   yearly: readonly YearlyPoint[];
   firstYear: number | null;
   byMonthDay: readonly MonthDayPoint[];
+  byMinute: readonly MinuteHeatmapCell[];
   t: StatsT;
 }) {
   const hourly = fillSeries(byHour, HOUR_KEYS);
@@ -899,7 +904,10 @@ function CalendarStatsSection({
         t={t}
       />
 
-      <MonthDayHeatmap data={byMonthDay} t={t} />
+      <CalendarHeatmapTabs
+        daysView={<MonthDayHeatmap data={byMonthDay} t={t} />}
+        minuteCells={byMinute}
+      />
     </section>
   );
 }
