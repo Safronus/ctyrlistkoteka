@@ -1,0 +1,76 @@
+# Doporučený jail.local pro ctyrlistkoteka.cz po migraci na pure
+# nftables. Umístění: /etc/fail2ban/jail.local.
+#
+# Klíčové změny oproti default Ubuntu jail.local:
+#   1. banaction = nftables-multiport         (default je iptables-multiport)
+#   2. banaction_allports = nftables-allports (pro sshd)
+#   3. V každém reportable jailu (nginx-noscript, sshd, sshd-logger)
+#      přidaný `permaban-firewall` do action chainu — okamžitý
+#      přesun banu do permaban setu, bez čekání na fail2ban bantime.
+#
+# Po úpravě:
+#   sudo fail2ban-client reload
+#   sudo fail2ban-client status                  # ověř, že jaily žijí
+#   sudo fail2ban-client status nginx-noscript   # detail jail
+#
+# Pozn.: Tento soubor je *example* — manuálně srovnej s vlastní
+# /etc/fail2ban/jail.local; jail.local v repu necommituji (mohl by
+# obsahovat IP whitelisty / lokální specifika).
+
+[DEFAULT]
+# Banovat na firewallu přes nftables. Vyžaduje balíček
+# `python3-nftables` (Ubuntu 24.04 ho má jako součást fail2ban).
+banaction = nftables-multiport
+banaction_allports = nftables-allports
+
+# Default bantime (krátkodobý, fail2ban-managed). Permaban jde
+# přes permaban-firewall action — bez TTL.
+bantime  = 1h
+findtime = 10m
+maxretry = 5
+
+# Whitelist (lokální IP, VPN, statická domácí). DOPLŇ.
+ignoreip = 127.0.0.1/8 ::1
+#         + tvoje statická IP
+#         + WireGuard tunel (10.0.0.0/24)
+
+# Default destemail / sender — pokud máš mailutils nakonfigurované.
+# destemail = safronus@gmail.com
+# sendername = ctyrlistkoteka-fail2ban
+# action = %(action_mwl)s    # mail-with-log default action (volitelné)
+
+
+[sshd]
+enabled = true
+# SSH ban = krátkodobý fw + log do TSV + permaban firewall hned.
+action = %(action_)s
+         blocklist
+         permaban-firewall
+
+
+[sshd-logger]
+# Logger-only — sleduje první failed login a loguje do TSV
+# bez vlastního firewall banu (skutečný ban řeší [sshd] jail).
+# Soubor s definicí: /etc/fail2ban/jail.d/sshd-logger.local.
+enabled = true
+action = blocklist
+         permaban-firewall
+
+
+[nginx-noscript]
+enabled = true
+# nginx-noscript = filter z deploy/fail2ban-nginx-noscript-filter.conf.
+# Banuje skenery, kteří se ptají po .php/.env/wp-login/atd.
+action = %(action_)s
+         blocklist
+         permaban-firewall
+
+# Volitelně další jaily — limit-req pokud máš zóny v nginx
+# config, recidive pro escalation atd. Nech zatím vypnuté,
+# zapni postupně.
+
+# [nginx-limit-req]
+# enabled = true
+# action = %(action_)s
+#          blocklist
+#          permaban-firewall

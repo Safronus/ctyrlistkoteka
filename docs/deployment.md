@@ -222,13 +222,222 @@ sudo certbot renew --dry-run
 
 ---
 
-## 10. fail2ban
+## 10. fail2ban + permaban (nftables) + bezpečnostní aktualizace
+
+Bezpečnost edge vrstvy se skládá z několika cihel:
+
+1. **fail2ban krátkodobé bany** — paterní `nftables-multiport` action banuje
+   IP na `bantime` (default 1 h). Po expiraci IP zase prochází.
+2. **Permaban přes nftables sety** — opakované útočníky přesouváme do
+   trvalého `inet permaban` setu, kde paket dropne kernel **před** TLS
+   handshake / HTTP parse (L3 drop, žádný CPU za request).
+3. **TSV blocklist** — každý ban se loguje do `/var/log/fail2ban-blocklist.tsv`
+   pro audit a denní rebuild permaban setu (pojistka proti race conditionům).
+4. **AbuseIPDB reporting** — denní bulk report útočných IP do veřejné DB.
+5. **Unattended-upgrades** — automatické security patche pro Ubuntu LTS
+   (nginx, openssl, …) bez nutnosti manuální intervence.
+
+### 10.1. Základní fail2ban + jail.local
 
 ```bash
+sudo apt install fail2ban python3-nftables
 sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
-# V /etc/fail2ban/jail.local ujisti se, že je [sshd] enabled = true
-# Přidej nebo zapni [nginx-limit-req] jail pokud Nginx má limit_req zóny
+# Uprav podle deploy/fail2ban-jail.local.example — nastav
+# banaction = nftables-multiport, ignoreip = (tvoje IP).
 sudo systemctl enable --now fail2ban
+```
+
+Nginx-noscript a sshd-logger jaily přidej z `deploy/`:
+
+```bash
+sudo cp deploy/fail2ban-nginx-noscript.conf      /etc/fail2ban/jail.d/nginx-noscript.conf
+sudo cp deploy/fail2ban-nginx-noscript-filter.conf /etc/fail2ban/filter.d/nginx-noscript.conf
+sudo cp deploy/fail2ban-sshd.conf                /etc/fail2ban/jail.d/sshd.local
+sudo cp deploy/fail2ban-sshd-logger.conf         /etc/fail2ban/jail.d/sshd-logger.local
+sudo cp deploy/fail2ban-action-blocklist.conf    /etc/fail2ban/action.d/blocklist.conf
+sudo cp deploy/fail2ban-blocklist-append.sh      /usr/local/sbin/
+sudo chmod 755 /usr/local/sbin/fail2ban-blocklist-append.sh
+sudo cp deploy/blocklist-tools.sh                /usr/local/sbin/
+sudo chmod 755 /usr/local/sbin/blocklist-tools.sh
+sudo cp deploy/permaban-whitelist.conf           /etc/permaban-whitelist.conf
+# DOPLŇ do whitelistu vlastní IP před prvním banem!
+sudo cp deploy/logrotate-fail2ban-blocklist.conf /etc/logrotate.d/fail2ban-blocklist
+sudo fail2ban-client reload
+```
+
+### 10.2. nftables permaban (L3 drop)
+
+#### Instalace tabulky + sets + chainu
+
+```bash
+# Nainstaluj table definici.
+sudo mkdir -p /etc/nftables.d
+sudo cp deploy/nftables-permaban.nft /etc/nftables.d/permaban.nft
+sudo chmod 644 /etc/nftables.d/permaban.nft
+
+# /etc/nftables.conf musí includovat /etc/nftables.d/*.nft.
+# Na čerstvém Ubuntu 24.04 to tam není — přidej řádek:
+grep -q '/etc/nftables.d' /etc/nftables.conf || \
+  echo 'include "/etc/nftables.d/*.nft"' | sudo tee -a /etc/nftables.conf
+
+# Načti + povol službu, ať se ruleset načte při bootu.
+sudo nft -f /etc/nftables.conf
+sudo systemctl enable --now nftables.service
+
+# Ověř, že table + sety + chain existují.
+sudo nft list table inet permaban
+```
+
+Pokud máš aktivní **ufw**, musíš se rozhodnout: buď ho ponechat (jeho
+pravidla žijí v `inet filter` tabulce, takže s naším `inet permaban`
+koexistují bez konfliktu), nebo přepnout úplně na nftables — `sudo ufw
+disable` a nastavit basic firewall přes nftables. Default tvého OVH VPS
+po ZAS-y má pravděpodobně ufw active s povolenými porty 22/80/443.
+
+#### Instalace fail2ban action + add scriptu
+
+```bash
+sudo cp deploy/permaban-firewall-add.sh                  /usr/local/sbin/
+sudo chmod 755 /usr/local/sbin/permaban-firewall-add.sh
+sudo cp deploy/fail2ban-action-permaban-firewall.conf    /etc/fail2ban/action.d/permaban-firewall.conf
+sudo cp deploy/permaban-firewall-load.service            /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable permaban-firewall-load.service
+```
+
+#### Aktivace permaban-firewall v jailech
+
+V `/etc/fail2ban/jail.local` přidej `permaban-firewall` do `action`
+chainu každého reportable jailu — vzor v
+`deploy/fail2ban-jail.local.example`. Klíčové řádky:
+
+```ini
+[DEFAULT]
+banaction = nftables-multiport
+banaction_allports = nftables-allports
+
+[sshd]
+action = %(action_)s
+         blocklist
+         permaban-firewall
+
+[nginx-noscript]
+action = %(action_)s
+         blocklist
+         permaban-firewall
+```
+
+Reload:
+
+```bash
+sudo fail2ban-client reload
+sudo fail2ban-client status nginx-noscript   # ověř, že jail žije
+```
+
+#### Daily rebuild + cron
+
+```bash
+sudo cp deploy/permaban-refresh.cron /etc/cron.d/permaban-refresh
+sudo chmod 644 /etc/cron.d/permaban-refresh
+sudo cp deploy/logrotate-permaban.conf /etc/logrotate.d/permaban
+```
+
+Cron volá `blocklist-tools.sh firewall-deny --apply` denně v 04:30 —
+self-healing rebuild ze TSV, idempotentní (žádný `nft -f`, pokud se
+obsah nezmění).
+
+### 10.3. Migrace ze starého nginx permabanu
+
+Pokud máš existující `/etc/nginx/snippets/permaban-list.conf` (z předchozí
+verze setupu), přesuň IP do nftables:
+
+```bash
+sudo cp deploy/migrate-nginx-permaban-to-nftables.sh /usr/local/sbin/
+sudo chmod 755 /usr/local/sbin/migrate-nginx-permaban-to-nftables.sh
+
+# Suchý běh — ukáže co by se přidalo, žádný zápis.
+sudo migrate-nginx-permaban-to-nftables.sh --dry-run
+
+# Skutečná migrace.
+sudo migrate-nginx-permaban-to-nftables.sh --apply
+
+# Ověř stav setů (počet elementů).
+sudo nft list set inet permaban permaban_v4 | head -20
+sudo nft list set inet permaban permaban_v6 | head -20
+```
+
+Po ověření, že nový permaban funguje (test access ze známé zabanované
+IP nebo dropované packety v counter), odstraň include `permaban-list.conf`
+z nginx config:
+
+```bash
+# Najdi include řádky v nginx configu — měly by se nacházet uvnitř
+# server bloku ctyrlistkoteka.
+sudo grep -n 'permaban-list' /etc/nginx/sites-enabled/ctyrlistkoteka
+
+# Po smazání:
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Stará permaban-nginx-* infrastruktura (`permaban-nginx-add.sh`,
+`fail2ban-action-permaban-nginx.conf`) zůstává v repu pro snadný rollback,
+ale po úspěšné migraci ji můžeš odinstalovat (smazat soubory + odstranit
+`permaban-nginx` z action chainu v jail.local).
+
+### 10.4. Unattended-upgrades (security patche)
+
+```bash
+sudo apt install unattended-upgrades apt-listchanges
+sudo cp deploy/unattended-upgrades-50ctyrlistkoteka.conf \
+        /etc/apt/apt.conf.d/52ctyrlistkoteka-unattended.conf
+sudo chmod 644 /etc/apt/apt.conf.d/52ctyrlistkoteka-unattended.conf
+
+# Aktivace timeru (na Ubuntu už default).
+sudo systemctl enable --now apt-daily.timer apt-daily-upgrade.timer
+
+# Suchý běh — co by se updatovalo příště.
+sudo unattended-upgrades --dry-run -d 2>&1 | tail -30
+```
+
+Co se auto-updatuje:
+
+- `${distro_id}:${distro_codename}-security` — všechny security patche
+  (nginx, openssl, kernel, …)
+- `${distro_id}:${distro_codename}-updates` — Ubuntu backporty (kde Canonical
+  bere upstream patche a vrací je do 1.24)
+
+Co se **NE**auto-updatuje (blacklist v configu):
+
+- `postgresql-16`, `postgis` — major upgrade by mohl porušit DB
+- `nodejs` — máme přes nvm, ne přes apt
+
+Reboots se auto-neprovádí (`Unattended-Upgrade::Automatic-Reboot "false";`)
+— kernel update tě upozorní přes `/var/run/reboot-required` a v MOTD,
+ale reboot plánuje vlastník ručně (kvůli PM2 + Postgres state).
+
+### 10.5. Verifikace celkového setupu
+
+```bash
+# 1. nftables ruleset je naloaded
+sudo nft list ruleset | grep -A 20 'table inet permaban'
+
+# 2. permaban-firewall-load service je enabled
+systemctl is-enabled permaban-firewall-load.service
+
+# 3. fail2ban jaily žijí + používají nftables action
+sudo fail2ban-client status
+sudo fail2ban-client get nginx-noscript actions
+# Měl bys vidět: nftables-multiport blocklist permaban-firewall
+
+# 4. Unattended-upgrades je aktivní
+systemctl list-timers | grep apt-daily
+
+# 5. Permaban counter (kolik dropů od bootu)
+sudo nft list chain inet permaban input
+# Hledej "counter packets X bytes Y" — vidíš provoz na drop pravidlech.
+
+# 6. Stats z TSV
+sudo /usr/local/sbin/blocklist-tools.sh stats
 ```
 
 ---

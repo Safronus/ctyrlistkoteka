@@ -1,0 +1,50 @@
+# systemd unit pro načtení perzistovaných permaban elementů při bootu.
+#
+# Pořadí:
+#   1. nftables.service — načte /etc/nftables.conf (a /etc/nftables.d/*),
+#      tj. definici tabulky `inet permaban` (sety + chain + drop pravidla).
+#   2. permaban-firewall-load.service (tento unit) — načte
+#      /var/lib/permaban/elements.nft (`add element ...` řádky), tj. naplní
+#      sety perzistovanými IP.
+#
+# Bez tohoto unitu se po rebootu kernel sety vyprázdní a permabany by
+# zmizely až do dalšího rebuilds přes blocklist-tools.sh firewall-deny.
+#
+# Umístění: /etc/systemd/system/permaban-firewall-load.service
+# Aktivace:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now permaban-firewall-load.service
+
+[Unit]
+Description=Load persisted permaban elements into nftables sets
+# Pevně vyžaduje nftables — sety, do kterých se elementy přidávají,
+# jsou definované v jeho ruleset.
+Requires=nftables.service
+After=nftables.service
+# Po obnově sítě je sice zbytečné (sety nezávisí na NICs), ale
+# zajistí, že fail2ban (který přijde ještě později) najde svou
+# firewall vrstvu připravenou.
+Before=fail2ban.service
+
+# Spustí se i bez souboru — guard v ExecStartPre.
+ConditionFileNotEmpty=|/var/lib/permaban/elements.nft
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# /var/lib/permaban/ musí existovat. systemd vytvoří přes
+# StateDirectory=, ale pro klar je ExecStartPre explicitnější.
+ExecStartPre=/bin/mkdir -p /var/lib/permaban
+ExecStart=/usr/sbin/nft -f /var/lib/permaban/elements.nft
+# Chyba načtení (např. po manuálním rozbití souboru) by neměla
+# zablokovat boot — vlastník problém vyřeší ručně. Logujeme do
+# journalu, takže `journalctl -u permaban-firewall-load` to ukáže.
+SuccessExitStatus=0
+# Pokud `nft -f` selže, journal záznam má detail a setup je v základním
+# stavu (prázdné sety). Drop pravidla v chainu stále existují, jen
+# žádná IP zatím není naplněná — bez crash boot proběhne.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

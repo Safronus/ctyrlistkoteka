@@ -23,11 +23,18 @@ krok za krokem. Tento README je rychlý katalog.
 | `abuseipdb-report.sh` | `/usr/local/sbin/` (chmod 755) | Denní bulk-report nových banů na abuseipdb.com. Čte TSV, mapuje jail→kategorie, POST /api/v2/bulk-report. |
 | `abuseipdb-report.cron` | `/etc/cron.d/abuseipdb-report` | Cron entry — denně 5:30 spouští reportovací skript. |
 | `logrotate-abuseipdb-report.conf` | `/etc/logrotate.d/abuseipdb-report` | Měsíční rotace logu, 6 archivů. |
-| `permaban-whitelist.conf` | `/etc/permaban-whitelist.conf` | Exact-match IP whitelist — IP, které se **nikdy** nesmí dostat do nginx permabanu. Přečte ji `blocklist-tools.sh` i `permaban-nginx-add.sh`. |
-| `permaban-nginx-add.sh` | `/usr/local/sbin/` (chmod 755) | Helper volaný fail2ban action chainem — append `deny <ip>;` do nginx snippetu (flock + dedup) + debounced reload. |
-| `fail2ban-action-permaban-nginx.conf` | `/etc/fail2ban/action.d/permaban-nginx.conf` | fail2ban action, která helper volá. Přidává se do `action = ...` sekce každého reportable jailu. |
-| `permaban-refresh.cron` | `/etc/cron.d/permaban-refresh` | Cron entry — denně 4:30 přepoč permabanu z TSV (self-healing pojistka). |
-| `logrotate-permaban.conf` | `/etc/logrotate.d/permaban` | Měsíční rotace permaban-nginx debug logu + cron rebuild logu. |
+| `permaban-whitelist.conf` | `/etc/permaban-whitelist.conf` | Exact-match IP whitelist — IP, které se **nikdy** nesmí dostat do permabanu (nftables ani nginx). Sdílená napříč `blocklist-tools.sh`, `permaban-firewall-add.sh`, `permaban-nginx-add.sh`. |
+| `nftables-permaban.nft` | `/etc/nftables.d/permaban.nft` | **(nový)** Definice tabulky `inet permaban` se sety `permaban_v4` / `permaban_v6` + drop chainem (hook input priority -10). Načítá se při bootu přes `nftables.service`. |
+| `permaban-firewall-add.sh` | `/usr/local/sbin/` (chmod 755) | **(nový)** Helper volaný fail2ban action chainem — přidá IP do nftables setu (L3 drop) + persist do `/var/lib/permaban/elements.nft`. Náhrada za `permaban-nginx-add.sh`. |
+| `permaban-firewall-load.service` | `/etc/systemd/system/` | **(nový)** systemd unit — při bootu načte `/var/lib/permaban/elements.nft` do nftables setů. Po `nftables.service`, před `fail2ban.service`. |
+| `fail2ban-action-permaban-firewall.conf` | `/etc/fail2ban/action.d/permaban-firewall.conf` | **(nový)** fail2ban action volající `permaban-firewall-add.sh`. Náhrada za `permaban-nginx`. |
+| `migrate-nginx-permaban-to-nftables.sh` | `/usr/local/sbin/` (chmod 755) | **(nový)** Jednorázová migrace — čte `permaban-list.conf` a přesouvá IP do nftables setu. Podporuje `--dry-run`. |
+| `fail2ban-jail.local.example` | `/etc/fail2ban/jail.local` (manual merge) | **(nový)** Doporučený jail.local pro pure nftables — `banaction = nftables-multiport` + nové permaban-firewall action chainy. |
+| `unattended-upgrades-50ctyrlistkoteka.conf` | `/etc/apt/apt.conf.d/52ctyrlistkoteka-unattended.conf` | **(nový)** Override pro `unattended-upgrades` — security + updates pocket, blacklist postgresql/nodejs, no auto-reboot. |
+| `permaban-nginx-add.sh` | `/usr/local/sbin/` (chmod 755) | **(legacy)** Append `deny <ip>;` do nginx snippetu. Ponecháno pro rollback po nftables migraci. |
+| `fail2ban-action-permaban-nginx.conf` | `/etc/fail2ban/action.d/permaban-nginx.conf` | **(legacy)** fail2ban action volající permaban-nginx-add. Ponecháno pro rollback. |
+| `permaban-refresh.cron` | `/etc/cron.d/permaban-refresh` | Cron entry — denně 4:30 přepoč permaban setu z TSV (self-healing pojistka). Nově volá `firewall-deny`; legacy `nginx-deny` zakomentované. |
+| `logrotate-permaban.conf` | `/etc/logrotate.d/permaban` | Měsíční rotace permaban-firewall/permaban-nginx debug logů + cron rebuild logu. |
 | `systemd-sync.service` | `/etc/systemd/system/` | Volitelné: noční auto-sync. |
 | `systemd-sync.timer` | `/etc/systemd/system/` | Zapnout přes `systemctl enable --now ctyrlistkoteka-sync.timer`. |
 | `backup.sh` | (git, spouští se odtud) | Denní `pg_dump` + rotace. Do crontab uživatele `app`. |

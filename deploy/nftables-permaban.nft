@@ -1,0 +1,56 @@
+# nftables table pro permanent IP ban na L3.
+#
+# Tabulka `inet permaban` drží dva pojmenované sety (IPv4 + IPv6).
+# Hook `priority -10` znamená, že pakety projdou tímhle chainem PŘED
+# fail2ban defaultním chainem (priority 0 = filter), takže permaban
+# match přerve řetězec hned, bez dalších kontrol.
+#
+# Sety mají `flags interval` + `auto-merge` — to umožňuje banování
+# CIDR rozsahů (např. `/24`) i jednotlivých IP, s automatickým
+# slučováním překryvů. Pro single-host bany je interval no-op, ale
+# uchovává prostor pro budoucí range bany.
+#
+# Elementy (konkrétní zabanované IP) tato definice NEDRŽÍ — ty žijí
+# v /var/lib/permaban/elements.nft, který přidává/přepisuje
+# permaban-firewall-add.sh (real-time) a blocklist-tools.sh firewall-deny
+# (denní rebuild z TSV). Při bootu je elements.nft načten přes
+# permaban-firewall-load.service.
+#
+# Umístění: /etc/nftables.d/permaban.nft
+# Po úpravě:
+#   sudo nft -f /etc/nftables.d/permaban.nft   # apply změny v table/chain
+#   sudo systemctl reload nftables             # nebo přes service
+#
+# Pozn.: /etc/nftables.conf musí includovat /etc/nftables.d/*.nft
+# (na Ubuntu 24.04 to není default — viz docs/deployment.md §10).
+
+table inet permaban {
+    set permaban_v4 {
+        type ipv4_addr
+        flags interval
+        auto-merge
+        comment "Permanent IPv4 bans — populated by permaban-firewall-add.sh"
+    }
+
+    set permaban_v6 {
+        type ipv6_addr
+        flags interval
+        auto-merge
+        comment "Permanent IPv6 bans — populated by permaban-firewall-add.sh"
+    }
+
+    chain input {
+        # priority -10: před filter (0). Fail2ban default chain běží
+        # později — sem se permabanovaná IP nedostane, ušetří CPU.
+        # policy accept: nic neblokujeme jen tím, že je chain
+        # připojený — tento chain je čistě additivní.
+        type filter hook input priority -10
+        policy accept
+
+        # counter = per-set drop count, viditelné přes
+        # `nft list chain inet permaban input`. Užitečné pro audit
+        # ("kolik útoků dnes permaban odrazil").
+        ip saddr @permaban_v4 counter drop
+        ip6 saddr @permaban_v6 counter drop
+    }
+}

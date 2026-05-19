@@ -1,10 +1,15 @@
-# Daily rebuild permaban-list.conf z fail2ban-blocklist.tsv jako pojistka
-# proti race conditionům fail2ban action chainu (paralelní bany, restart
+# Daily rebuild permaban set z fail2ban-blocklist.tsv jako pojistka proti
+# race conditionům fail2ban action chainu (paralelní bany, restart
 # fail2ban v půli akce, manuální editace souboru).
 #
-# Skript je idempotentní — když se obsah po cutoff hlavičce nezmění,
-# reload nginx se neprovede. Snapshoty starého stavu padají do
-# /var/backups/permaban/ a auto-prune po 30 dnech.
+# Po migraci na pure nftables (viz docs/deployment.md §10) je hlavní
+# cíl `firewall-deny` — rebuild nftables setů `inet permaban
+# permaban_{v4,v6}`. Stará cesta `nginx-deny` zůstává v cronu
+# zakomentovaná pro snadný rollback.
+#
+# Skript je idempotentní — když se obsah nezmění, `nft -f` se neprovede.
+# Snapshoty starého stavu padají do /var/backups/permaban/ a
+# auto-prune po 30 dnech.
 #
 # Časový slot 04:30 je ladený za logrotate (typicky 03:00–04:00) a před
 # abuseipdb-report (typicky 05:30+) — pořadí: rotace → permaban rebuild →
@@ -16,4 +21,8 @@
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 SHELL=/bin/bash
 
-30 4 * * * root /usr/local/sbin/blocklist-tools.sh nginx-deny --apply >> /var/log/permaban-refresh.log 2>&1
+30 4 * * * root /usr/local/sbin/blocklist-tools.sh firewall-deny --apply >> /var/log/permaban-refresh.log 2>&1
+
+# Legacy nginx permaban rebuild — disabled after nftables migration.
+# Pokud potřebuješ rollback, odkomentuj řádek níž a zakomentuj řádek výše.
+#30 4 * * * root /usr/local/sbin/blocklist-tools.sh nginx-deny --apply >> /var/log/permaban-refresh.log 2>&1
