@@ -19,6 +19,7 @@ v jiném prostředí. Aktualizuje se při větších změnách.
 | **3** Finds + crops | Drag-drop upload (1000 ve frontě, batch 50), single + bulk delete, EXIF zachován, .trash backup | `src/app/admin/files/{finds,crops}/{upload,delete}-action.ts` |
 | **4** Maps | Upload (PNG nebo JPEG bytes), single + bulk delete, detekce duplikátů, replace s name-mismatch confirm, mark-as-nonexistent + restore, popisek editor | `src/app/admin/files/maps/*` |
 | **5** JSON editor | LokaceStavyPoznamky.json — 4 sekce v tabech, Zod validace per sekce, atomic write, .trash snapshot | `src/app/admin/json/lokace-stavy-poznamky/*` + `src/lib/admin/jsonSchema.ts` |
+| **5b** Hierarchie lokalit | LokaceHierarchie.json — strukturovaný editor (rodič / dítě, max. hloubka 2), Zod validace, referenční kontrola proti DB, atomic write, .trash snapshot | `src/app/admin/json/lokace-hierarchie/*` + `lokaceHierarchieSchema` v `src/lib/admin/jsonSchema.ts` |
 | **6** Reálné fotky | Donation photos (`<id><slot>_DAR[_ANON].<ext>`) + location photos (`<mapa>_reálné foto…`) — drag-drop upload, single + bulk delete, cache invalidation hook | `src/app/admin/files/{donation,location}-photos/*` |
 | **7** Sync trigger | `tsx scripts/sync.ts` jako podproces, file-based stav, live log polling, dry-run + ostrý sync s confirm, `--only` filter | `src/app/admin/sync/*` + `src/lib/admin/syncRunner.ts` |
 

@@ -12,6 +12,7 @@ import {
   ListChecks,
   MapPinned,
   Map as MapIcon,
+  Network,
   ShieldCheck,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
@@ -98,6 +99,16 @@ export default async function AdminHomePage() {
           lines={[
             "Náhled + statistiky + lookup",
             "Z náhledu krok do editoru",
+          ]}
+        />
+        <FeatureCard
+          icon={Network}
+          title="Hierarchie lokalit"
+          status="ok"
+          href="/admin/json/lokace-hierarchie"
+          lines={[
+            "data/meta/LokaceHierarchie.json",
+            "Rodič / dítě, max. hloubka 2",
           ]}
         />
         <FeatureCard

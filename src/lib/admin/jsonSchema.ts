@@ -97,3 +97,61 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
   poznamky: "Poznámky",
   anonymizace: "Anonymizace",
 };
+
+// ---------------------------------------------------------------------------
+// LokaceHierarchie.json — parent/child mapping between location codes.
+//
+// Shape: { "<parent_code>": ["<child_code>", "<child_code>", ...], ... }
+// Same shape that `scripts/sync.ts` reads (readHierarchyJson). Sync
+// enforces the same invariants referentially against the DB; we mirror
+// the structural ones here so the admin save fails fast with field-
+// level issues instead of pushing them through to the next sync run.
+// ---------------------------------------------------------------------------
+
+export const LOKACE_HIERARCHIE_FILENAME = "LokaceHierarchie.json";
+
+export const lokaceHierarchieSchema = z
+  .record(z.string().min(1), z.array(z.string().min(1)).min(1))
+  .superRefine((data, ctx) => {
+    const parents = new Set(Object.keys(data));
+    const childToParent = new Map<string, string>();
+
+    for (const [parent, children] of Object.entries(data)) {
+      const seenInGroup = new Set<string>();
+      children.forEach((child, i) => {
+        if (child === parent) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Lokace "${child}" nemůže být dítětem sama sebe`,
+            path: [parent, i],
+          });
+        }
+        if (seenInGroup.has(child)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Duplicitní dítě "${child}" ve skupině "${parent}"`,
+            path: [parent, i],
+          });
+        }
+        seenInGroup.add(child);
+        if (parents.has(child)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Lokace "${child}" je sama rodičem — max. povolená hloubka hierarchie je 2`,
+            path: [parent, i],
+          });
+        }
+        const prevParent = childToParent.get(child);
+        if (prevParent && prevParent !== parent) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Lokace "${child}" je už dítětem skupiny "${prevParent}"`,
+            path: [parent, i],
+          });
+        }
+        childToParent.set(child, parent);
+      });
+    }
+  });
+
+export type LokaceHierarchie = z.infer<typeof lokaceHierarchieSchema>;
