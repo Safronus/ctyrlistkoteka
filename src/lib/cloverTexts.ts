@@ -1,25 +1,15 @@
 /**
- * Clover-texts loader.
+ * Clover-text type definitions + the pure `localizedClover()` helper.
  *
- * Texts are stored in `${DATA_DIR}/meta/clover-texts.json` (CZ source
- * of truth) and `${DATA_DIR}/meta/clover-texts.en.json` (sidecar EN
- * translations keyed by the same numeric `id`). The admin editor at
- * `/admin/clover-texts/` writes to both files atomically; this module
- * just reads them at runtime so server-rendered pages see the latest
- * content without a rebuild.
+ * This module is **client-safe** (no Node-only imports) so the
+ * homepage's client-side rotator (`CloverFactCard`) can import the
+ * types and helper without dragging `node:fs` into the client bundle.
  *
- * Caching: in-memory by absolute path. We stat the file on every
- * read and re-parse only when `mtime` has changed — typical hit is
- * a single stat call (sub-millisecond) and a returned reference.
- *
- * The home-page rotator iterates by *array index*, not by id. EN
- * translations don't reorder anything; `localizedClover()` returns
- * a view over the same source entry with `title`/`text`/`kind`
- * swapped per locale.
+ * The runtime fs loader lives in the sibling module
+ * `src/lib/cloverTextsServer.ts`. Server components import the loader
+ * functions there, then pass plain JSON shapes (texts + translations)
+ * down to the client component as props.
  */
-
-import { promises as fs } from "node:fs";
-import path from "node:path";
 
 export type CloverTextSource = "fact" | "lore" | "creative";
 
@@ -58,74 +48,6 @@ export interface CloverEnEntry {
   kind?: string;
 }
 
-/** Wire format on disk. We keep the wrapper object (rather than a
- *  bare array) so the file can carry metadata (last-edited, schema
- *  version, etc.) without breaking older readers. */
-interface CloverTextsFile {
-  texts: CloverText[];
-}
-
-interface CloverTranslationsFile {
-  translations: Record<string, CloverEnEntry>;
-}
-
-function resolveDataDir(): string {
-  return process.env.DATA_DIR
-    ? path.resolve(process.env.DATA_DIR)
-    : path.resolve(process.cwd(), "data");
-}
-
-function cloverTextsPath(): string {
-  return path.join(resolveDataDir(), "meta", "clover-texts.json");
-}
-
-function cloverTranslationsPath(): string {
-  return path.join(resolveDataDir(), "meta", "clover-texts.en.json");
-}
-
-interface Cached<T> {
-  mtimeMs: number;
-  data: T;
-}
-
-const cache = new Map<string, Cached<unknown>>();
-
-/** Read + parse a JSON file with mtime-based memo. Returns the cached
- *  value when the file hasn't changed since the last successful read;
- *  otherwise re-parses. Errors propagate to the caller — there's no
- *  silent fallback because a missing clover-texts file means something
- *  is wrong with the deploy, not a normal state. */
-async function readJsonCached<T>(filePath: string): Promise<T> {
-  const stat = await fs.stat(filePath);
-  const mtimeMs = stat.mtimeMs;
-  const cached = cache.get(filePath) as Cached<T> | undefined;
-  if (cached && cached.mtimeMs === mtimeMs) return cached.data;
-  const raw = await fs.readFile(filePath, "utf8");
-  const data = JSON.parse(raw) as T;
-  cache.set(filePath, { mtimeMs, data });
-  return data;
-}
-
-/** Returns all clover-text entries in canonical (file) order. The
- *  home-page rotator picks a random index from the result; the order
- *  on disk seeds the SSR-rendered initial frame. */
-export async function getCloverTexts(): Promise<ReadonlyArray<CloverText>> {
-  const file = await readJsonCached<CloverTextsFile>(cloverTextsPath());
-  return file.texts;
-}
-
-/** Returns the EN translations table keyed by numeric id (as a string,
- *  matching the JSON key type). Use `localizedClover` to apply a single
- *  translation; this raw accessor is exposed for the admin editor. */
-export async function getCloverTranslations(): Promise<
-  Readonly<Record<string, CloverEnEntry>>
-> {
-  const file = await readJsonCached<CloverTranslationsFile>(
-    cloverTranslationsPath(),
-  );
-  return file.translations;
-}
-
 /**
  * Returns a localised view of a clover entry. For `cs` (or any locale
  * we don't carry translations for) the original is returned untouched;
@@ -137,7 +59,7 @@ export async function getCloverTranslations(): Promise<
  * The second argument is the already-loaded translations map, passed
  * in by callers so we don't trigger a fresh fs read for every render.
  * Server components fetch the map once and reuse it across the page
- * tree.
+ * tree; client components receive it as a prop.
  */
 export function localizedClover(
   text: CloverText,

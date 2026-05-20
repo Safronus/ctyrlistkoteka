@@ -4,7 +4,7 @@ import { ensureAdminAuth } from "@/lib/admin/guard";
 import {
   getCloverTexts,
   getCloverTranslations,
-} from "@/lib/cloverTexts";
+} from "@/lib/cloverTextsServer";
 import { CloverTextsEditor } from "./editor";
 
 export const dynamic = "force-dynamic";

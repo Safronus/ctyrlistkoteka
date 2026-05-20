@@ -23,8 +23,8 @@ import { RetrospectiveGrid } from "@/components/home/retrospective-grid";
 import {
   getCloverTexts,
   getCloverTranslations,
-  type CloverText,
-} from "@/lib/cloverTexts";
+} from "@/lib/cloverTextsServer";
+import type { CloverText } from "@/lib/cloverTexts";
 
 type HomeT = Awaited<ReturnType<typeof getTranslations<"Home">>>;
 
