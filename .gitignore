@@ -26,6 +26,12 @@ pnpm-debug.log*
 # tree of user assets — nested paths like src/data/ for bundled
 # build-time JSON stay tracked.
 /data/
+# Exception: clover-texts JSON files live in data/meta/ but are
+# project assets (not user data), so they belong in git. Admin UI
+# writes to these files at runtime; git history is the source of
+# truth for the canonical bundled defaults.
+!/data/meta/
+!/data/meta/clover-texts*.json
 public/generated/
 /var/
 

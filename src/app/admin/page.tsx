@@ -14,6 +14,7 @@ import {
   Map as MapIcon,
   Network,
   ShieldCheck,
+  Sticker,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { listCredentials } from "@/lib/admin/credentials";
@@ -109,6 +110,16 @@ export default async function AdminHomePage() {
           lines={[
             "data/meta/LokaceHierarchie.json",
             "Rodič / dítě, max. hloubka 2",
+          ]}
+        />
+        <FeatureCard
+          icon={Sticker}
+          title="Textové lístečky"
+          status="ok"
+          href="/admin/clover-texts"
+          lines={[
+            "data/meta/clover-texts.json + .en.json",
+            "CRUD rotujících faktů na homepage",
           ]}
         />
         <FeatureCard

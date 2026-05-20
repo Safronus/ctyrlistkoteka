@@ -155,3 +155,109 @@ export const lokaceHierarchieSchema = z
   });
 
 export type LokaceHierarchie = z.infer<typeof lokaceHierarchieSchema>;
+
+// ---------------------------------------------------------------------------
+// clover-texts.json (CZ source of truth) + clover-texts.en.json (sidecar
+// EN translations keyed by numeric id).
+//
+// The runtime loader in src/lib/cloverTexts.ts reads these files; admin
+// CRUD writes through this schema after Zod-validating the payload. We
+// keep the wrapper shape `{ texts: [...] }` so future metadata (last-
+// edited, schema version) can land at top level without breaking older
+// readers.
+// ---------------------------------------------------------------------------
+
+export const CLOVER_TEXTS_FILENAME = "clover-texts.json";
+export const CLOVER_TRANSLATIONS_FILENAME = "clover-texts.en.json";
+
+// Local re-declarations so this module doesn't import from the
+// runtime loader (which would cycle through fs/node:path). The
+// canonical exports live in src/lib/cloverFactsLabels.ts and the
+// values must match — both lists are tiny, and a duplicate is
+// cheaper than a circular import.
+const SCHEMA_CATEGORIES = [
+  "botany",
+  "culture",
+  "folklore",
+  "history",
+  "literature",
+  "mythology",
+  "poetry",
+  "records",
+  "science",
+  "trivia",
+] as const;
+const SCHEMA_SOURCE_TYPES = ["fact", "lore", "creative"] as const;
+const SCHEMA_VIBES = ["happy", "demonic"] as const;
+
+export const cloverTextSchema = z
+  .strictObject({
+    id: z.number().int().positive(),
+    category: z.enum(SCHEMA_CATEGORIES),
+    title: z.string().min(1, "Title is required"),
+    text: z.string().min(1, "Text is required"),
+    source_type: z.enum(SCHEMA_SOURCE_TYPES),
+    author: z.boolean().optional(),
+    kind: z.string().min(1).optional(),
+    vibe: z.enum(SCHEMA_VIBES).optional(),
+    link: z.string().min(1).optional(),
+  })
+  .superRefine((data, ctx) => {
+    // vibe + kind only apply to author entries. Reject otherwise so the
+    // file stays clean and the rotator doesn't have to ignore stray
+    // fields silently.
+    if (data.vibe && data.author !== true) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Vibe is only valid on author entries (set author: true)",
+        path: ["vibe"],
+      });
+    }
+    if (data.kind && data.author !== true) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Kind is only valid on author entries (set author: true)",
+        path: ["kind"],
+      });
+    }
+  });
+
+export const cloverTextsFileSchema = z.strictObject({
+  texts: z
+    .array(cloverTextSchema)
+    .min(1, "At least one text is required")
+    .superRefine((arr, ctx) => {
+      const seen = new Map<number, number>();
+      arr.forEach((t, i) => {
+        const prev = seen.get(t.id);
+        if (prev !== undefined) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Duplicate id ${t.id} (also at index ${prev})`,
+            path: [i, "id"],
+          });
+        } else {
+          seen.set(t.id, i);
+        }
+      });
+    }),
+});
+
+export type CloverTextsFile = z.infer<typeof cloverTextsFileSchema>;
+
+export const cloverEnEntrySchema = z.strictObject({
+  title: z.string().min(1),
+  text: z.string().min(1),
+  kind: z.string().min(1).optional(),
+});
+
+export const cloverTranslationsFileSchema = z.strictObject({
+  translations: z.record(
+    z.string().regex(/^\d+$/, "Translation key must be a numeric id"),
+    cloverEnEntrySchema,
+  ),
+});
+
+export type CloverTranslationsFile = z.infer<
+  typeof cloverTranslationsFileSchema
+>;

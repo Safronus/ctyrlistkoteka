@@ -4,8 +4,8 @@ import { Link } from "@/i18n/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  CLOVER_TEXTS,
   localizedClover,
+  type CloverEnEntry,
   type CloverText,
   type CloverTextSource,
 } from "@/lib/cloverTexts";
@@ -140,8 +140,19 @@ function vibeKeyFor(text: CloverText): VibeKey {
  * SSR renders `texts[0]` as a stable fallback; client-side `useEffect`
  * picks a random starting index then advances by one every 2 minutes.
  * Each visit/reload picks a new random start.
+ *
+ * Texts + translations are loaded server-side by the parent page so
+ * runtime edits via /admin/clover-texts/ show up without a rebuild.
+ * The arrays are stable references across re-renders of the same
+ * page render — the effect's deps reflect that.
  */
-export function CloverFactCard() {
+export function CloverFactCard({
+  texts,
+  translations,
+}: {
+  texts: ReadonlyArray<CloverText>;
+  translations: Readonly<Record<string, CloverEnEntry>>;
+}) {
   const t = useTranslations("CloverFacts");
   const locale = useLocale();
   const [index, setIndex] = useState(0);
@@ -159,8 +170,9 @@ export function CloverFactCard() {
   // resume we just observe a smaller `remaining` and either advance
   // straight to the next text or keep counting down from there.
   useEffect(() => {
-    if (CLOVER_TEXTS.length === 0) return;
-    setIndex(Math.floor(Math.random() * CLOVER_TEXTS.length));
+    const n = texts.length;
+    if (n === 0) return;
+    setIndex(Math.floor(Math.random() * n));
     nextAtRef.current = Date.now() + ROTATION_MS;
     setRemainingMs(ROTATION_MS);
 
@@ -171,10 +183,9 @@ export function CloverFactCard() {
     // external "Další drobnost" button event.
     const advance = () => {
       setIndex((prev) => {
-        if (CLOVER_TEXTS.length <= 1) return prev;
-        const offset =
-          1 + Math.floor(Math.random() * (CLOVER_TEXTS.length - 1));
-        return (prev + offset) % CLOVER_TEXTS.length;
+        if (n <= 1) return prev;
+        const offset = 1 + Math.floor(Math.random() * (n - 1));
+        return (prev + offset) % n;
       });
       nextAtRef.current = Date.now() + ROTATION_MS;
       setRemainingMs(ROTATION_MS);
@@ -200,11 +211,11 @@ export function CloverFactCard() {
       clearInterval(tick);
       window.removeEventListener(CLOVER_FACT_ADVANCE_EVENT, onAdvance);
     };
-  }, []);
+  }, [texts]);
 
-  const rawText = CLOVER_TEXTS[index];
+  const rawText = texts[index];
   if (!rawText) return null;
-  const text = localizedClover(rawText, locale);
+  const text = localizedClover(rawText, locale, translations);
 
   const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
   const mmss = `${Math.floor(totalSec / 60)}:${(totalSec % 60).toString().padStart(2, "0")}`;

@@ -20,7 +20,11 @@ import { CloverFactCard } from "@/components/home/clover-fact-card";
 import { CloverFactsStatCard } from "@/components/home/clover-facts-stat-card";
 import { DonatedSearchCatcher } from "@/components/home/donated-search-catcher";
 import { RetrospectiveGrid } from "@/components/home/retrospective-grid";
-import { CLOVER_TEXTS } from "@/lib/cloverTexts";
+import {
+  getCloverTexts,
+  getCloverTranslations,
+  type CloverText,
+} from "@/lib/cloverTexts";
 
 type HomeT = Awaited<ReturnType<typeof getTranslations<"Home">>>;
 
@@ -39,11 +43,20 @@ export default async function HomePage() {
   const t = await getTranslations("Home");
   const intlLocale = toIntlLocale(locale);
   const NF = new Intl.NumberFormat(intlLocale);
-  const [data, watermark, randomFind, retrospective] = await Promise.all([
+  const [
+    data,
+    watermark,
+    randomFind,
+    retrospective,
+    cloverTexts,
+    cloverTranslations,
+  ] = await Promise.all([
     getHomePageData(),
     getWatermarkMeta(),
     getRandomFindShowcase(),
     getRetrospective(),
+    getCloverTexts(),
+    getCloverTranslations(),
   ]);
   const { totals, highlights } = data;
 
@@ -72,7 +85,10 @@ export default async function HomePage() {
             className="hidden shrink-0 lg:-mr-2 lg:block lg:h-32 lg:w-32"
           />
           <div className="relative">
-            <CloverFactCard />
+            <CloverFactCard
+              texts={cloverTexts}
+              translations={cloverTranslations}
+            />
             <Image
               src="/clover.png"
               alt=""
@@ -194,6 +210,7 @@ export default async function HomePage() {
         t={t}
         locale={locale}
         nf={NF}
+        cloverTexts={cloverTexts}
       />
 
       {data.latestFind && (
@@ -479,17 +496,19 @@ function HighlightsSection({
   t,
   locale,
   nf,
+  cloverTexts,
 }: {
   highlights: HomePageData["highlights"];
   recentMonthly: HomePageData["recentMonthly"];
   t: HomeT;
   locale: string;
   nf: Intl.NumberFormat;
+  cloverTexts: ReadonlyArray<CloverText>;
 }) {
   const peakDay = highlights.peakDay;
   const top = highlights.topLocation;
   const distinctCategoryKeys = Array.from(
-    new Set(CLOVER_TEXTS.map((c) => c.category)),
+    new Set(cloverTexts.map((c) => c.category)),
   );
 
   return (
@@ -499,8 +518,8 @@ function HighlightsSection({
       </h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <CloverFactsStatCard
-          total={CLOVER_TEXTS.length}
-          bonus={CLOVER_TEXTS.filter((c) => c.author === true).length}
+          total={cloverTexts.length}
+          bonus={cloverTexts.filter((c) => c.author === true).length}
           categories={distinctCategoryKeys.length}
         />
         {peakDay ? (

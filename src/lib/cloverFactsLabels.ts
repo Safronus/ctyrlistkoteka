@@ -1,16 +1,60 @@
 /**
  * Maps the raw `category` / `kind` strings carried in
- * `clover-texts.shuffled.json` onto i18n keys in the `CloverFacts`
- * namespace. Lives in its own module so server components (which
- * compute `kindLabel` at SSR time) and client components (which
- * compute it inside the rotator) can share the lookup without one
- * crossing the use-client boundary.
+ * `clover-texts.json` onto i18n keys in the `CloverFacts` namespace.
+ * Lives in its own module so server components (which compute
+ * `kindLabel` at SSR time) and client components (which compute it
+ * inside the rotator) can share the lookup without one crossing the
+ * use-client boundary.
  *
  * Returning `null` for unknown values lets callers fall back to the
- * raw string verbatim — useful when a future shuffled batch adds a
- * category before the message bundle catches up; the UI keeps
- * rendering rather than crashing on a missing-key.
+ * raw string verbatim — useful when a future batch adds a category
+ * before the message bundle catches up; the UI keeps rendering
+ * rather than crashing on a missing-key.
  */
+
+/** Closed set of valid `category` values. Exported as a tuple so the
+ *  admin editor dropdown and the Zod validator share a single source
+ *  of truth.
+ *
+ *  Adding a new category here requires:
+ *    1. `CATEGORY_KEYS` mapping below (CS string → i18n key).
+ *    2. `catX` entry in messages/cs.json + messages/en.json.
+ *    3. (Optional) update of any docs that enumerate categories. */
+export const CLOVER_CATEGORIES = [
+  "botany",
+  "culture",
+  "folklore",
+  "history",
+  "literature",
+  "mythology",
+  "poetry",
+  "records",
+  "science",
+  "trivia",
+] as const;
+
+export type CloverCategory = (typeof CLOVER_CATEGORIES)[number];
+
+/** Source-type badge variant rendered next to the title for
+ *  non-author entries. */
+export const CLOVER_SOURCE_TYPES = ["fact", "lore", "creative"] as const;
+
+/** Vibe overrides — only meaningful on author entries; ignored
+ *  otherwise. */
+export const CLOVER_VIBES = ["happy", "demonic"] as const;
+
+/** Known CS `kind` strings used for author entries. Free-text in the
+ *  data (admin can extend), but the listed values are the ones the
+ *  i18n mapper recognises today. Editor uses them as a datalist
+ *  suggestion rather than a hard whitelist. */
+export const CLOVER_KINDS_KNOWN = [
+  "Rada autora",
+  "Fakt o autorovi",
+  "Fakt autora",
+  "Hláška autora",
+  "Záhadný nález",
+  "Báseň autora",
+] as const;
 
 const CATEGORY_KEYS: Record<
   string,
