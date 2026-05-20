@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  CLOVER_CATEGORIES,
+  CLOVER_SOURCE_TYPES,
+  CLOVER_VIBES,
+} from "@/lib/cloverFactsLabels";
 
 /** Zod schema for `LokaceStavyPoznamky.json`. Validates the shape
  *  documented in docs/data-schema.md and accepted by scripts/sync.ts.
@@ -170,36 +175,16 @@ export type LokaceHierarchie = z.infer<typeof lokaceHierarchieSchema>;
 export const CLOVER_TEXTS_FILENAME = "clover-texts.json";
 export const CLOVER_TRANSLATIONS_FILENAME = "clover-texts.en.json";
 
-// Local re-declarations so this module doesn't import from the
-// runtime loader (which would cycle through fs/node:path). The
-// canonical exports live in src/lib/cloverFactsLabels.ts and the
-// values must match — both lists are tiny, and a duplicate is
-// cheaper than a circular import.
-const SCHEMA_CATEGORIES = [
-  "botany",
-  "culture",
-  "folklore",
-  "history",
-  "literature",
-  "mythology",
-  "poetry",
-  "records",
-  "science",
-  "trivia",
-] as const;
-const SCHEMA_SOURCE_TYPES = ["fact", "lore", "creative"] as const;
-const SCHEMA_VIBES = ["happy", "demonic"] as const;
-
 export const cloverTextSchema = z
   .strictObject({
     id: z.number().int().positive(),
-    category: z.enum(SCHEMA_CATEGORIES),
+    category: z.enum(CLOVER_CATEGORIES),
     title: z.string().min(1, "Title is required"),
     text: z.string().min(1, "Text is required"),
-    source_type: z.enum(SCHEMA_SOURCE_TYPES),
+    source_type: z.enum(CLOVER_SOURCE_TYPES),
     author: z.boolean().optional(),
     kind: z.string().min(1).optional(),
-    vibe: z.enum(SCHEMA_VIBES).optional(),
+    vibe: z.enum(CLOVER_VIBES).optional(),
     link: z.string().min(1).optional(),
   })
   .superRefine((data, ctx) => {
