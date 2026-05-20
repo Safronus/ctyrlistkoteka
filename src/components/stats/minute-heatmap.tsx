@@ -28,7 +28,6 @@ const REFERENCE_LEAP_YEAR = 2024;
 // spaced because the data is extremely sparse (most minutes have 0–1
 // finds, with a long thin tail above).
 const COLOUR_EMPTY = "oklch(0.97 0.04 145)";
-const COLOUR_TICK = "oklch(0.85 0.02 145)";
 
 function colourForCount(count: number, maxCount: number): string {
   if (count <= 0) return COLOUR_EMPTY;
@@ -163,21 +162,8 @@ export function MinuteHeatmap({ cells, initialBin = 5 }: Props) {
       ctx.fillStyle = colourForCount(b.count, maxCount);
       ctx.fillRect(x, y, cellWidthPx, DAY_HEIGHT_PX);
     }
-
-    // Faint overlay grid. Vertical 1px every 3 h, horizontal 1px at
-    // the start of each month so the viewer can orient without needing
-    // tick labels along the sides.
-    ctx.fillStyle = COLOUR_TICK;
-    const hourInterval = 180; // 3 h
-    for (let m = hourInterval; m < TOTAL_MINUTES_PER_DAY; m += hourInterval) {
-      const x = (m / bin) * cellWidthPx;
-      ctx.fillRect(x, 0, 1, TOTAL_HEIGHT_PX);
-    }
-    const monthFirsts = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
-    for (let i = 1; i < monthFirsts.length; i++) {
-      const y = (monthFirsts[i]! - 1) * DAY_HEIGHT_PX;
-      ctx.fillRect(0, y, TOTAL_WIDTH_PX, 1);
-    }
+    // Grid tick lines (3 h / month-boundary) byly odebrány na žádost —
+    // čistý look bez vodicích čar.
   }, [buckets, bin, cellWidthPx, maxCount]);
 
   const handleMove = useCallback(
@@ -239,7 +225,7 @@ export function MinuteHeatmap({ cells, initialBin = 5 }: Props) {
         <LegendStrip maxCount={maxCount} />
       </div>
 
-      <div className="relative overflow-x-auto">
+      <div className="relative">
         <canvas
           ref={canvasRef}
           onMouseMove={handleMove}
@@ -247,7 +233,12 @@ export function MinuteHeatmap({ cells, initialBin = 5 }: Props) {
           // display:block avoids the inline-image baseline gap that
           // would put a stray pixel under the canvas and break the
           // bottom border alignment.
-          className="block max-w-none border border-gray-200 bg-white"
+          //
+          // max-w-full + h-auto keeps the canvas fitting the parent's
+          // width on narrow viewports — CSS shrinks the logical 1440×732
+          // grid proportionally. Hover math uses getBoundingClientRect,
+          // so tooltips track correctly after the CSS-scale.
+          className="block h-auto w-full max-w-full border border-gray-200 bg-white"
           aria-label={t("minuteHeatmapAriaLabel")}
         />
         {hover && (
@@ -338,7 +329,14 @@ function HoverTooltip({
       <div className="font-medium text-gray-900">
         {day}. {monthName}, {timeText}
       </div>
+      {/* Debug-friendly count: always show the numeric value first
+          (even 0), then the pluralised label. ICU's =0 branch returns
+          "žádné nálezy" without a number, which made it look like the
+          tooltip was missing data on empty cells — the bulk of cells
+          in this sparse view. */}
       <div className="text-gray-600">
+        <span className="font-mono text-gray-900">{hover.count}</span>
+        {" — "}
         {t("labelFinds", { count: hover.count })}
       </div>
     </div>
