@@ -235,11 +235,57 @@ async function checkFindsWithoutDate(): Promise<CheckResult> {
   };
 }
 
+/** Check 4 — finds without EXIF GPS coordinates (and not already
+ *  flagged NO_GPS in JSON). Same family as the EXIF-date check above:
+ *  surfaces files whose upload pipeline either stripped GPS metadata
+ *  or never had it, so the find lacks a position on /mapa and in the
+ *  geo-bucket aggregations. Finds with an explicit NO_GPS state
+ *  assignment are *excluded* — the user already declared them GPSless
+ *  intentionally (e.g., the photo was taken indoors with location
+ *  services off), so listing them again is just noise.
+ *
+ *  Uses raw SQL because `Find.coordinates` is a PostGIS geometry
+ *  (Unsupported in Prisma's typed query). The NOT EXISTS subquery
+ *  keeps anonymization-orthogonal — anonymized finds *can* have GPS
+ *  in the DB, the privacy layer just hides it on render. */
+async function checkFindsWithoutGps(): Promise<CheckResult> {
+  const rows = await prisma.$queryRaw<
+    Array<{ id: number; location_id: number | null }>
+  >`
+    SELECT f.id, f.location_id
+    FROM finds f
+    WHERE f.coordinates IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM find_state_assignments fsa
+        WHERE fsa.find_id = f.id AND fsa.state = 'NO_GPS'
+      )
+    ORDER BY f.id ASC
+  `;
+  const codes = await loadLocationCodes(
+    rows.map((r) => r.location_id).filter((x): x is number => x !== null),
+  );
+  return {
+    id: "finds-without-gps",
+    title: "Nálezy bez EXIF GPS",
+    description:
+      "Nálezy, jejichž originál nemá v EXIF GPS souřadnice — chybí pak na /mapa a v geo-agregacích na /statistiky. Nálezy se stavem NO_GPS jsou vynechané (autor je označil úmyslně).",
+    offenders: rows.map((r) => ({
+      findId: r.id,
+      locationCode:
+        r.location_id !== null
+          ? (codes.get(r.location_id) ?? `#${r.location_id}`)
+          : "—",
+      detail: "Originál nemá EXIF GPS — fix: re-EXIF nebo označit NO_GPS.",
+    })),
+  };
+}
+
 export async function runAllChecks(): Promise<CheckResult[]> {
   return Promise.all([
     checkFindsInAnonLocsNotAnon(),
     checkAnonFindsInPublicLoc(),
     checkFindsWithoutDate(),
+    checkFindsWithoutGps(),
     checkOriginalsWithoutCrop(),
   ]);
 }
@@ -249,6 +295,12 @@ export async function runAllChecks(): Promise<CheckResult[]> {
  *  surface that wants to cross-reference it. Pulled into a const so
  *  refactors of the check name don't require grepping for the string. */
 export const EXIF_CHECK_ID = "finds-without-date";
+
+/** Stable id of the GPS check. Same role as EXIF_CHECK_ID — lets the
+ *  checks page render the matching link buttons + lets the summary
+ *  + file list cross-reference the check without duplicating the
+ *  literal string. */
+export const GPS_CHECK_ID = "finds-without-gps";
 
 /** Lightweight summary of all checks — used by the admin home page
  *  to colour the "Kontroly konzistence" card without rendering the
@@ -264,11 +316,13 @@ export async function runChecksSummary(): Promise<{
   failedChecks: number;
   totalChecks: number;
   exifIssues: number;
+  gpsIssues: number;
 }> {
   const results = await runAllChecks();
   let totalIssues = 0;
   let failedChecks = 0;
   let exifIssues = 0;
+  let gpsIssues = 0;
   for (const r of results) {
     if (r.offenders.length > 0) {
       failedChecks += 1;
@@ -277,12 +331,16 @@ export async function runChecksSummary(): Promise<{
     if (r.id === EXIF_CHECK_ID) {
       exifIssues = r.offenders.length;
     }
+    if (r.id === GPS_CHECK_ID) {
+      gpsIssues = r.offenders.length;
+    }
   }
   return {
     totalIssues,
     failedChecks,
     totalChecks: results.length,
     exifIssues,
+    gpsIssues,
   };
 }
 
@@ -305,5 +363,21 @@ export async function getFindIdsWithExifProblems(): Promise<Set<number>> {
     where: { foundAt: null },
     select: { id: true },
   });
+  return new Set(rows.map((r) => r.id));
+}
+
+/** Returns the set of find IDs that the GPS check flagged as missing
+ *  EXIF coordinates (excluding those already flagged NO_GPS). Same
+ *  role as `getFindIdsWithExifProblems` — drives the per-row "bez
+ *  GPS" indicator + the `?gps_broken=1` filter on file lists. */
+export async function getFindIdsWithoutGps(): Promise<Set<number>> {
+  const rows = await prisma.$queryRaw<Array<{ id: number }>>`
+    SELECT f.id FROM finds f
+    WHERE f.coordinates IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM find_state_assignments fsa
+        WHERE fsa.find_id = f.id AND fsa.state = 'NO_GPS'
+      )
+  `;
   return new Set(rows.map((r) => r.id));
 }

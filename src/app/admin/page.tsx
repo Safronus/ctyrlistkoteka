@@ -21,13 +21,87 @@ import { listCredentials } from "@/lib/admin/credentials";
 import { readRecentAudit } from "@/lib/admin/audit";
 import { runChecksSummary } from "@/lib/admin/checks";
 
+/** Time window for collapsing consecutive file.upload entries from the
+ *  same operator + scope into one summary row. Match the upload form's
+ *  rough "single batch" duration — a 50-file batch usually finishes
+ *  inside ~2 minutes, so 3 min leaves margin for slow batches without
+ *  bridging into a genuinely separate upload session. */
+const UPLOAD_BATCH_WINDOW_MS = 3 * 60 * 1000;
+
+interface UploadBatchExtra {
+  /** Number of file.upload entries merged into this row. 1 = single
+   *  upload (no aggregation), >1 = batch. */
+  batchCount: number;
+  /** Earliest timestamp in the batch (the row's `ts` is the latest). */
+  batchEarliestTs: string;
+  /** Scope value pulled from `details.scope` — finds / crops / maps. */
+  batchScope?: string;
+}
+
+type ActivityRow = Awaited<ReturnType<typeof readRecentAudit>>[number] &
+  Partial<UploadBatchExtra>;
+
+/** Folds consecutive file.upload entries from the same operator +
+ *  scope within UPLOAD_BATCH_WINDOW_MS into a single summary row.
+ *
+ *  `recent` arrives newest-first (readRecentAudit reverses the file
+ *  tail), so when walking the array `last` is more recent than `row`
+ *  and a "within batch" predicate compares `last.ts - row.ts`. */
+function aggregateUploadBatches(
+  recent: Awaited<ReturnType<typeof readRecentAudit>>,
+): ActivityRow[] {
+  const out: ActivityRow[] = [];
+  for (const row of recent) {
+    const last = out[out.length - 1];
+    const scope =
+      typeof row.details?.scope === "string" ? row.details.scope : undefined;
+    if (
+      row.action === "file.upload" &&
+      last?.action === "file.upload" &&
+      last.credentialLabel === row.credentialLabel &&
+      last.batchScope === scope &&
+      Date.parse(last.ts) - Date.parse(row.ts) < UPLOAD_BATCH_WINDOW_MS
+    ) {
+      // Merge into the existing batch row. The display row keeps the
+      // newest `ts` (so it sorts to the top) and tracks the earliest
+      // for the time range.
+      last.batchCount = (last.batchCount ?? 1) + 1;
+      last.batchEarliestTs = row.ts;
+    } else {
+      out.push({
+        ...row,
+        batchCount: 1,
+        batchEarliestTs: row.ts,
+        batchScope: scope,
+      });
+    }
+  }
+  return out;
+}
+
+function formatActivityTs(ts: string): string {
+  return new Date(ts).toLocaleString("cs-CZ", {
+    timeZone: "Europe/Prague",
+  });
+}
+
+function formatActivityTimeOnly(ts: string): string {
+  return new Date(ts).toLocaleTimeString("cs-CZ", {
+    timeZone: "Europe/Prague",
+  });
+}
+
 export default async function AdminHomePage() {
   await ensureAdminAuth();
-  const [credentials, recent, checks] = await Promise.all([
+  const [credentials, recentRaw, checks] = await Promise.all([
     listCredentials(),
-    readRecentAudit(20),
+    // Pull a larger tail than we ultimately display — when a single
+    // batch upload writes 50 rows, we still want 20 logical events on
+    // screen after aggregation.
+    readRecentAudit(200),
     runChecksSummary(),
   ]);
+  const recent = aggregateUploadBatches(recentRaw).slice(0, 20);
   const checksOk = checks.totalIssues === 0;
 
   return (
@@ -162,29 +236,45 @@ export default async function AdminHomePage() {
           <p className="text-sm text-gray-500">Zatím žádné záznamy.</p>
         ) : (
           <ul className="divide-y divide-gray-100">
-            {recent.map((row, i) => (
-              <li
-                key={`${row.ts}-${i}`}
-                className="flex items-baseline gap-3 py-1.5 text-sm"
-              >
-                <Clock
-                  className="h-3.5 w-3.5 shrink-0 text-gray-400"
-                  aria-hidden
-                />
-                <span className="font-mono text-xs tabular-nums text-gray-500">
-                  {new Date(row.ts).toLocaleString("cs-CZ", {
-                    timeZone: "Europe/Prague",
-                  })}
-                </span>
-                <span className="font-medium text-gray-900">{row.action}</span>
-                {row.credentialLabel && (
-                  <span className="text-gray-600">{row.credentialLabel}</span>
-                )}
-                <span className="ml-auto font-mono text-xs text-gray-400">
-                  {row.ip}
-                </span>
-              </li>
-            ))}
+            {recent.map((row, i) => {
+              const isBatch = (row.batchCount ?? 1) > 1;
+              return (
+                <li
+                  key={`${row.ts}-${i}`}
+                  className="flex items-baseline gap-3 py-1.5 text-sm"
+                >
+                  <Clock
+                    className="h-3.5 w-3.5 shrink-0 text-gray-400"
+                    aria-hidden
+                  />
+                  <span className="font-mono text-xs tabular-nums text-gray-500">
+                    {isBatch
+                      ? `${formatActivityTs(row.batchEarliestTs!)}–${formatActivityTimeOnly(row.ts)}`
+                      : formatActivityTs(row.ts)}
+                  </span>
+                  <span className="font-medium text-gray-900">{row.action}</span>
+                  {isBatch && (
+                    <span
+                      className="inline-flex items-center rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-800"
+                      title={
+                        row.batchScope
+                          ? `Dávka ${row.batchCount} souborů (${row.batchScope})`
+                          : `Dávka ${row.batchCount} souborů`
+                      }
+                    >
+                      ×{row.batchCount}
+                      {row.batchScope ? ` ${row.batchScope}` : ""}
+                    </span>
+                  )}
+                  {row.credentialLabel && (
+                    <span className="text-gray-600">{row.credentialLabel}</span>
+                  )}
+                  <span className="ml-auto font-mono text-xs text-gray-400">
+                    {row.ip}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

@@ -49,6 +49,10 @@ interface Props {
    *  problem even without filtering by it. Only set for finds + crops
    *  scopes — other scopes don't have the cross-reference. */
   exifProblemIds?: Set<number>;
+  /** Find IDs flagged by the GPS check as missing EXIF coordinates
+   *  (and not explicitly NO_GPS). Same UX as exifProblemIds — amber
+   *  "GPS" badge per row + drives the ?gps_broken=1 filter. */
+  gpsProblemIds?: Set<number>;
   /** NFC-normalised names that carry the "Anonymizovaná lokace" PNG
    *  flag — only set for the maps scope. Rows in this set render an
    *  "anonymizovaná" badge. */
@@ -155,6 +159,7 @@ export function FilesListClient({
   coverageFindIds,
   missingCoverageLabel,
   exifProblemIds,
+  gpsProblemIds,
   bulkRename,
   anonymizedNames,
   showNonexistentBadge,
@@ -520,6 +525,10 @@ export function FilesListClient({
             exifProblemIds !== undefined &&
             findId !== null &&
             exifProblemIds.has(findId);
+          const isGpsBroken =
+            gpsProblemIds !== undefined &&
+            findId !== null &&
+            gpsProblemIds.has(findId);
           return (
             <li
               key={e.name}
@@ -582,6 +591,14 @@ export function FilesListClient({
                   title="Tento nález nemá v DB EXIF datum (foundAt = null). Sync ho promítne bez časového zařazení — viz /admin/checks."
                 >
                   bez EXIF
+                </span>
+              )}
+              {isGpsBroken && (
+                <span
+                  className="shrink-0 rounded bg-amber-200 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-amber-900"
+                  title="Tento nález nemá v DB EXIF GPS souřadnice. Chybí na /mapa — viz /admin/checks."
+                >
+                  bez GPS
                 </span>
               )}
               {showNonexistentBadge && e.name.startsWith("NEEXISTUJE-") && (

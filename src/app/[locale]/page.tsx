@@ -520,7 +520,7 @@ function HighlightsSection({
         <CloverFactsStatCard
           total={cloverTexts.length}
           bonus={cloverTexts.filter((c) => c.author === true).length}
-          categories={distinctCategoryKeys.length}
+          categoryKeys={distinctCategoryKeys}
         />
         {peakDay ? (
           <PeakDayCard peakDay={peakDay} t={t} locale={locale} nf={nf} />

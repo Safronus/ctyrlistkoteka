@@ -9,7 +9,10 @@ import {
   Image as ImageIcon,
   Search,
 } from "lucide-react";
-import { getFindIdsWithExifProblems } from "@/lib/admin/checks";
+import {
+  getFindIdsWithExifProblems,
+  getFindIdsWithoutGps,
+} from "@/lib/admin/checks";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { readMapAnonFlags } from "@/lib/admin/mapAnon";
 import { checkSyncNeeded, type SyncScope } from "@/lib/admin/syncNeeded";
@@ -132,6 +135,11 @@ export default async function AdminScopeListPage({
   const exifBrokenOnly =
     (scope.slug === "finds" || scope.slug === "crops") &&
     pickString(sp.exif_broken) === "1";
+  // GPS-broken filter: same shape as exif_broken but driven by
+  // checkFindsWithoutGps (excludes finds explicitly flagged NO_GPS).
+  const gpsBrokenOnly =
+    (scope.slug === "finds" || scope.slug === "crops") &&
+    pickString(sp.gps_broken) === "1";
   // Maps-only filters: surface zaniklé / anonymizované entries on
   // demand. Both default off so the listing matches the rest of the
   // admin (no cluttered initial view).
@@ -216,12 +224,17 @@ export default async function AdminScopeListPage({
     anonymizedNamesNFC = await readMapAnonFlags();
   }
 
-  // EXIF-bad find IDs — DB query, cheap (single index scan + a few
-  // dozen rows in the worst case). Fetched on finds + crops so the
-  // row indicator + optional filter share one source of truth.
+  // EXIF-bad + GPS-bad find IDs — both DB queries, cheap (single
+  // index scan + a few dozen rows in the worst case). Fetched on
+  // finds + crops so the row indicators + optional filters share
+  // one source of truth.
   let exifProblemIds: Set<number> | undefined;
+  let gpsProblemIds: Set<number> | undefined;
   if (scope.slug === "finds" || scope.slug === "crops") {
-    exifProblemIds = await getFindIdsWithExifProblems();
+    [exifProblemIds, gpsProblemIds] = await Promise.all([
+      getFindIdsWithExifProblems(),
+      getFindIdsWithoutGps(),
+    ]);
   }
 
   // Sync-needed banner. Computed for finds/crops/maps because
@@ -246,7 +259,11 @@ export default async function AdminScopeListPage({
     : null;
 
   const keepName: ((name: string) => boolean) | undefined =
-    onlyNonexistent || onlyAnonymized || duplicateIdSet || exifBrokenOnly
+    onlyNonexistent ||
+    onlyAnonymized ||
+    duplicateIdSet ||
+    exifBrokenOnly ||
+    gpsBrokenOnly
       ? (name) => {
           if (onlyNonexistent && !name.startsWith("NEEXISTUJE-")) return false;
           if (
@@ -264,6 +281,12 @@ export default async function AdminScopeListPage({
           if (exifBrokenOnly && exifProblemIds) {
             const id = idExtractor?.(name);
             if (id === null || id === undefined || !exifProblemIds.has(id)) {
+              return false;
+            }
+          }
+          if (gpsBrokenOnly && gpsProblemIds) {
+            const id = idExtractor?.(name);
+            if (id === null || id === undefined || !gpsProblemIds.has(id)) {
               return false;
             }
           }
@@ -304,6 +327,7 @@ export default async function AdminScopeListPage({
       nonexistent: boolean;
       anonymized: boolean;
       exif_broken: boolean;
+      gps_broken: boolean;
     }>,
   ) => {
     const merged = {
@@ -316,6 +340,7 @@ export default async function AdminScopeListPage({
       nonexistent: onlyNonexistent,
       anonymized: onlyAnonymized,
       exif_broken: exifBrokenOnly,
+      gps_broken: gpsBrokenOnly,
       ...overrides,
     };
     const usp = new URLSearchParams();
@@ -329,6 +354,7 @@ export default async function AdminScopeListPage({
     if (merged.nonexistent) usp.set("nonexistent", "1");
     if (merged.anonymized) usp.set("anonymized", "1");
     if (merged.exif_broken) usp.set("exif_broken", "1");
+    if (merged.gps_broken) usp.set("gps_broken", "1");
     const qs = usp.toString();
     return qs ? `/admin/files/${scope.slug}?${qs}` : `/admin/files/${scope.slug}`;
   };
@@ -496,6 +522,9 @@ export default async function AdminScopeListPage({
         {exifBrokenOnly && (
           <input type="hidden" name="exif_broken" value="1" />
         )}
+        {gpsBrokenOnly && (
+          <input type="hidden" name="gps_broken" value="1" />
+        )}
         <button
           type="submit"
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
@@ -581,6 +610,26 @@ export default async function AdminScopeListPage({
                 Filtr: jen bez EXIF data ({exifProblemIds.size})
               </Link>
             ))}
+          {(scope.slug === "finds" || scope.slug === "crops") &&
+            gpsProblemIds !== undefined &&
+            gpsProblemIds.size > 0 &&
+            (gpsBrokenOnly ? (
+              <Link
+                href={buildHref({ gps_broken: false, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 font-medium text-amber-900 hover:bg-amber-100"
+              >
+                <span aria-hidden>×</span>
+                Zrušit „jen bez EXIF GPS&ldquo;
+              </Link>
+            ) : (
+              <Link
+                href={buildHref({ gps_broken: true, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-white px-2 py-0.5 text-amber-800 hover:border-amber-300 hover:bg-amber-50"
+                title="Zobrazit jen soubory, jejichž find ID je v DB bez EXIF GPS (a nemá explicitní NO_GPS)"
+              >
+                Filtr: jen bez EXIF GPS ({gpsProblemIds.size})
+              </Link>
+            ))}
           {scope.slug === "maps" &&
             (onlyNonexistent ? (
               <Link
@@ -650,6 +699,7 @@ export default async function AdminScopeListPage({
           coverageFindIds={counterpartIds}
           missingCoverageLabel={counterpartLabel}
           exifProblemIds={exifProblemIds}
+          gpsProblemIds={gpsProblemIds}
         />
       ) : scope.slug === "crops" ? (
         <FilesListClient
@@ -659,6 +709,7 @@ export default async function AdminScopeListPage({
           coverageFindIds={counterpartIds}
           missingCoverageLabel={counterpartLabel}
           exifProblemIds={exifProblemIds}
+          gpsProblemIds={gpsProblemIds}
         />
       ) : scope.slug === "maps" ? (
         <FilesListClient

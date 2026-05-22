@@ -9,6 +9,7 @@ import {
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import {
   EXIF_CHECK_ID,
+  GPS_CHECK_ID,
   runAllChecks,
   type CheckResult,
 } from "@/lib/admin/checks";
@@ -96,22 +97,26 @@ function CheckCard({ result }: { result: CheckResult }) {
 
       {!ok && (
         <>
-          {/* Cross-link to the filesystem views — for the EXIF check
-              specifically, listing the broken originals/crops side-by-side
+          {/* Cross-link to the filesystem views — for the EXIF + GPS
+              checks, listing the broken originals/crops side-by-side
               with the rest of the file tree lets the operator spot
-              patterns (e.g., a whole batch from one location lost EXIF)
-              before sync ingests them with NULL foundAt. */}
-          {result.id === EXIF_CHECK_ID && (
+              patterns (a whole batch from one location lost EXIF,
+              indoor photos missing GPS) before sync ingests them. */}
+          {(result.id === EXIF_CHECK_ID || result.id === GPS_CHECK_ID) && (
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
-                href="/admin/files/finds?exif_broken=1"
+                href={`/admin/files/finds?${
+                  result.id === EXIF_CHECK_ID ? "exif_broken" : "gps_broken"
+                }=1`}
                 className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-50"
               >
                 <ImageIcon className="h-3.5 w-3.5" aria-hidden />
                 Originály s problémem ({result.offenders.length})
               </Link>
               <Link
-                href="/admin/files/crops?exif_broken=1"
+                href={`/admin/files/crops?${
+                  result.id === EXIF_CHECK_ID ? "exif_broken" : "gps_broken"
+                }=1`}
                 className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-50"
               >
                 <Crop className="h-3.5 w-3.5" aria-hidden />
