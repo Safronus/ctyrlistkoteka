@@ -75,6 +75,27 @@ export function formatShortDateTimeCs(
 }
 
 /**
+ * Smallest useful datetime for mobile list rows ("21. 5. 2026 8:50") —
+ * drops both the weekday and the seconds so the date fits inside the
+ * ~140-px content column next to a 96-px thumbnail without overflowing
+ * into the "show on map" rail. The desktop side of the same row keeps
+ * `formatDateTimeCs` because there's room for the long form there.
+ */
+export function formatTinyDateTimeCs(
+  date: Date | null | undefined,
+  locale?: string,
+): string {
+  if (!date) return "—";
+  return new Intl.DateTimeFormat(toIntlLocale(locale), {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+/**
  * Long Czech date with weekday name and full wall-clock time, e.g.
  * "pondělí 12. května 2018, 14:23:45". Used on the find detail page,
  * the location detail panel, and the sbirka list rows where the EXIF

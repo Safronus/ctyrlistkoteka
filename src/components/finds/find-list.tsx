@@ -8,6 +8,7 @@ import {
   formatDateTimeCs,
   formatDistance,
   formatLocationId,
+  formatTinyDateTimeCs,
   locationOffsetToneClass,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
@@ -100,11 +101,22 @@ function FindListRow({
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          {/* Title row: #ID + #LocId - CODE (description), datetime right. */}
+          {/* Title row: #ID + #LocId - CODE (description), datetime right.
+           *  The date span uses ml-auto so it lands on the right edge of
+           *  whatever row it falls on (works for both the same-row and
+           *  the wrapped-to-its-own-row case). The long form would
+           *  overflow the ~140 px mobile column into the map-pin rail,
+           *  so the visible label drops to "21. 5. 2026 8:50" on phones
+           *  and only restores weekday + seconds from sm:. */}
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <FindTitle find={find} tRow={tRow} />
-            <span className="shrink-0 text-xs text-gray-500">
-              {formatDateTimeCs(find.foundAt, locale)}
+            <span className="ml-auto shrink-0 whitespace-nowrap text-xs text-gray-500">
+              <span className="sm:hidden">
+                {formatTinyDateTimeCs(find.foundAt, locale)}
+              </span>
+              <span className="hidden sm:inline">
+                {formatDateTimeCs(find.foundAt, locale)}
+              </span>
             </span>
           </div>
 
