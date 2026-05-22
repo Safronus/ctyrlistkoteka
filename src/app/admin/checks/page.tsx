@@ -1,7 +1,17 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, CheckCircle2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Crop,
+  Image as ImageIcon,
+} from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
-import { runAllChecks, type CheckResult } from "@/lib/admin/checks";
+import {
+  EXIF_CHECK_ID,
+  runAllChecks,
+  type CheckResult,
+} from "@/lib/admin/checks";
 
 export const dynamic = "force-dynamic";
 
@@ -85,35 +95,61 @@ function CheckCard({ result }: { result: CheckResult }) {
       </header>
 
       {!ok && (
-        <div className="mt-4 max-h-96 overflow-auto rounded-md border border-amber-200 bg-white">
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-gray-50 text-gray-600">
-              <tr>
-                <th className="px-2 py-1.5 text-left font-medium">ID nálezu</th>
-                <th className="px-2 py-1.5 text-left font-medium">Lokalita</th>
-                <th className="px-2 py-1.5 text-left font-medium">Detail</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {result.offenders.map((o) => (
-                <tr key={o.findId} className="hover:bg-amber-50/40">
-                  <td className="px-2 py-1.5">
-                    <Link
-                      href={`/sbirka/${o.findId}`}
-                      className="font-mono tabular-nums text-brand-700 hover:underline"
-                    >
-                      #{o.findId}
-                    </Link>
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-gray-800">
-                    {o.locationCode}
-                  </td>
-                  <td className="px-2 py-1.5 text-gray-600">{o.detail}</td>
+        <>
+          {/* Cross-link to the filesystem views — for the EXIF check
+              specifically, listing the broken originals/crops side-by-side
+              with the rest of the file tree lets the operator spot
+              patterns (e.g., a whole batch from one location lost EXIF)
+              before sync ingests them with NULL foundAt. */}
+          {result.id === EXIF_CHECK_ID && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href="/admin/files/finds?exif_broken=1"
+                className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-50"
+              >
+                <ImageIcon className="h-3.5 w-3.5" aria-hidden />
+                Originály s problémem ({result.offenders.length})
+              </Link>
+              <Link
+                href="/admin/files/crops?exif_broken=1"
+                className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-50"
+              >
+                <Crop className="h-3.5 w-3.5" aria-hidden />
+                Ořezy s problémem
+              </Link>
+            </div>
+          )}
+
+          <div className="mt-4 max-h-96 overflow-auto rounded-md border border-amber-200 bg-white">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-gray-50 text-gray-600">
+                <tr>
+                  <th className="px-2 py-1.5 text-left font-medium">ID nálezu</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Lokalita</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Detail</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {result.offenders.map((o) => (
+                  <tr key={o.findId} className="hover:bg-amber-50/40">
+                    <td className="px-2 py-1.5">
+                      <Link
+                        href={`/sbirka/${o.findId}`}
+                        className="font-mono tabular-nums text-brand-700 hover:underline"
+                      >
+                        #{o.findId}
+                      </Link>
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-gray-800">
+                      {o.locationCode}
+                    </td>
+                    <td className="px-2 py-1.5 text-gray-600">{o.detail}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </article>
   );

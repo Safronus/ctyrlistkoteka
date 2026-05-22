@@ -244,24 +244,66 @@ export async function runAllChecks(): Promise<CheckResult[]> {
   ]);
 }
 
+/** Stable id of the EXIF check — shared between the checks page (card
+ *  title), the summary helper (per-check count), and any other
+ *  surface that wants to cross-reference it. Pulled into a const so
+ *  refactors of the check name don't require grepping for the string. */
+export const EXIF_CHECK_ID = "finds-without-date";
+
 /** Lightweight summary of all checks — used by the admin home page
  *  to colour the "Kontroly konzistence" card without rendering the
  *  full offender tables. Reuses runAllChecks under the hood so a
  *  single source of truth drives both the summary and the
- *  per-check page. */
+ *  per-check page.
+ *
+ *  `exifIssues` is split out separately so the sync page + file
+ *  lists can surface a targeted warning ("X EXIF problems") without
+ *  having to re-run the full check or guess from the aggregate. */
 export async function runChecksSummary(): Promise<{
   totalIssues: number;
   failedChecks: number;
   totalChecks: number;
+  exifIssues: number;
 }> {
   const results = await runAllChecks();
   let totalIssues = 0;
   let failedChecks = 0;
+  let exifIssues = 0;
   for (const r of results) {
     if (r.offenders.length > 0) {
       failedChecks += 1;
       totalIssues += r.offenders.length;
     }
+    if (r.id === EXIF_CHECK_ID) {
+      exifIssues = r.offenders.length;
+    }
   }
-  return { totalIssues, failedChecks, totalChecks: results.length };
+  return {
+    totalIssues,
+    failedChecks,
+    totalChecks: results.length,
+    exifIssues,
+  };
+}
+
+/** Returns the set of find IDs that the EXIF check flagged as
+ *  missing `foundAt`. Used by:
+ *   - /admin/files/{finds,crops}?exif_broken=1 to filter the file
+ *     list down to only the broken rows.
+ *   - the same file list always, to render a per-row warning
+ *     indicator so the operator notices issues even when viewing
+ *     unfiltered.
+ *   - /admin/sync to gate sync runs behind a "fix EXIF first"
+ *     warning banner.
+ *
+ *  The query mirrors `checkFindsWithoutDate()` — same WHERE clause,
+ *  just returns ids instead of building a CheckResult. Kept as a
+ *  separate function so callers that only need the membership set
+ *  don't pay for the location-code lookup. */
+export async function getFindIdsWithExifProblems(): Promise<Set<number>> {
+  const rows = await prisma.find.findMany({
+    where: { foundAt: null },
+    select: { id: true },
+  });
+  return new Set(rows.map((r) => r.id));
 }

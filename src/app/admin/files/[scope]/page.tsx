@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   Search,
 } from "lucide-react";
+import { getFindIdsWithExifProblems } from "@/lib/admin/checks";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { readMapAnonFlags } from "@/lib/admin/mapAnon";
 import { checkSyncNeeded, type SyncScope } from "@/lib/admin/syncNeeded";
@@ -122,6 +123,15 @@ export default async function AdminScopeListPage({
   const duplicatesOnly = pickString(sp.dups) === "1";
   const idDuplicatesOnly = pickString(sp.id_dups) === "1";
   const uncoveredOnly = pickString(sp.uncovered) === "1";
+  // EXIF-broken filter: limits the listing to files whose leading
+  // find ID is in the set of finds missing `foundAt`. Active only on
+  // finds + crops scopes (maps and meta don't share that ID). The
+  // bad-id set is also fetched unconditionally (when applicable) so
+  // every row can render an indicator badge — see exifProblemIds
+  // prop on FilesListClient below.
+  const exifBrokenOnly =
+    (scope.slug === "finds" || scope.slug === "crops") &&
+    pickString(sp.exif_broken) === "1";
   // Maps-only filters: surface zaniklé / anonymizované entries on
   // demand. Both default off so the listing matches the rest of the
   // admin (no cluttered initial view).
@@ -206,6 +216,14 @@ export default async function AdminScopeListPage({
     anonymizedNamesNFC = await readMapAnonFlags();
   }
 
+  // EXIF-bad find IDs — DB query, cheap (single index scan + a few
+  // dozen rows in the worst case). Fetched on finds + crops so the
+  // row indicator + optional filter share one source of truth.
+  let exifProblemIds: Set<number> | undefined;
+  if (scope.slug === "finds" || scope.slug === "crops") {
+    exifProblemIds = await getFindIdsWithExifProblems();
+  }
+
   // Sync-needed banner. Computed for finds/crops/maps because
   // sync.ts reads those dirs; meta is checked on the file detail
   // page (JSON náhled) instead of here. donation/location photos
@@ -228,7 +246,7 @@ export default async function AdminScopeListPage({
     : null;
 
   const keepName: ((name: string) => boolean) | undefined =
-    onlyNonexistent || onlyAnonymized || duplicateIdSet
+    onlyNonexistent || onlyAnonymized || duplicateIdSet || exifBrokenOnly
       ? (name) => {
           if (onlyNonexistent && !name.startsWith("NEEXISTUJE-")) return false;
           if (
@@ -240,6 +258,12 @@ export default async function AdminScopeListPage({
           if (duplicateIdSet) {
             const id = idExtractor?.(name);
             if (id === null || id === undefined || !duplicateIdSet.has(id)) {
+              return false;
+            }
+          }
+          if (exifBrokenOnly && exifProblemIds) {
+            const id = idExtractor?.(name);
+            if (id === null || id === undefined || !exifProblemIds.has(id)) {
               return false;
             }
           }
@@ -279,6 +303,7 @@ export default async function AdminScopeListPage({
       uncovered: boolean;
       nonexistent: boolean;
       anonymized: boolean;
+      exif_broken: boolean;
     }>,
   ) => {
     const merged = {
@@ -290,6 +315,7 @@ export default async function AdminScopeListPage({
       uncovered: uncoveredOnly,
       nonexistent: onlyNonexistent,
       anonymized: onlyAnonymized,
+      exif_broken: exifBrokenOnly,
       ...overrides,
     };
     const usp = new URLSearchParams();
@@ -302,6 +328,7 @@ export default async function AdminScopeListPage({
     if (merged.uncovered) usp.set("uncovered", "1");
     if (merged.nonexistent) usp.set("nonexistent", "1");
     if (merged.anonymized) usp.set("anonymized", "1");
+    if (merged.exif_broken) usp.set("exif_broken", "1");
     const qs = usp.toString();
     return qs ? `/admin/files/${scope.slug}?${qs}` : `/admin/files/${scope.slug}`;
   };
@@ -466,6 +493,9 @@ export default async function AdminScopeListPage({
         {onlyAnonymized && (
           <input type="hidden" name="anonymized" value="1" />
         )}
+        {exifBrokenOnly && (
+          <input type="hidden" name="exif_broken" value="1" />
+        )}
         <button
           type="submit"
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
@@ -529,6 +559,26 @@ export default async function AdminScopeListPage({
                 className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
               >
                 Filtr: jen „{counterpartLabel}&ldquo;
+              </Link>
+            ))}
+          {(scope.slug === "finds" || scope.slug === "crops") &&
+            exifProblemIds !== undefined &&
+            exifProblemIds.size > 0 &&
+            (exifBrokenOnly ? (
+              <Link
+                href={buildHref({ exif_broken: false, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 font-medium text-amber-900 hover:bg-amber-100"
+              >
+                <span aria-hidden>×</span>
+                Zrušit „jen bez EXIF data&ldquo;
+              </Link>
+            ) : (
+              <Link
+                href={buildHref({ exif_broken: true, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-white px-2 py-0.5 text-amber-800 hover:border-amber-300 hover:bg-amber-50"
+                title="Zobrazit jen soubory, jejichž find ID je v DB bez EXIF data"
+              >
+                Filtr: jen bez EXIF data ({exifProblemIds.size})
               </Link>
             ))}
           {scope.slug === "maps" &&
@@ -599,6 +649,7 @@ export default async function AdminScopeListPage({
           bulkDelete={deleteFindsBulk}
           coverageFindIds={counterpartIds}
           missingCoverageLabel={counterpartLabel}
+          exifProblemIds={exifProblemIds}
         />
       ) : scope.slug === "crops" ? (
         <FilesListClient
@@ -607,6 +658,7 @@ export default async function AdminScopeListPage({
           bulkDelete={deleteCropsBulk}
           coverageFindIds={counterpartIds}
           missingCoverageLabel={counterpartLabel}
+          exifProblemIds={exifProblemIds}
         />
       ) : scope.slug === "maps" ? (
         <FilesListClient

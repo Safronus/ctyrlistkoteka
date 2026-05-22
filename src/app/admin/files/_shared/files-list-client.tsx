@@ -43,6 +43,12 @@ interface Props {
    *  of the filename can drift. Maps don't supply coverage. */
   coverageFindIds?: Set<number>;
   missingCoverageLabel?: string;
+  /** Find IDs that the EXIF consistency check flagged as missing
+   *  `foundAt` in the DB. Rows whose leading find ID is in the set
+   *  render an amber "EXIF" badge so the operator notices the
+   *  problem even without filtering by it. Only set for finds + crops
+   *  scopes — other scopes don't have the cross-reference. */
+  exifProblemIds?: Set<number>;
   /** NFC-normalised names that carry the "Anonymizovaná lokace" PNG
    *  flag — only set for the maps scope. Rows in this set render an
    *  "anonymizovaná" badge. */
@@ -148,6 +154,7 @@ export function FilesListClient({
   bulkDelete,
   coverageFindIds,
   missingCoverageLabel,
+  exifProblemIds,
   bulkRename,
   anonymizedNames,
   showNonexistentBadge,
@@ -471,6 +478,10 @@ export function FilesListClient({
             coverageFindIds !== undefined &&
             findId !== null &&
             !coverageFindIds.has(findId);
+          const isExifBroken =
+            exifProblemIds !== undefined &&
+            findId !== null &&
+            exifProblemIds.has(findId);
           return (
             <li
               key={e.name}
@@ -525,6 +536,14 @@ export function FilesListClient({
                   title={`Žádný odpovídající soubor v sourozenecké složce (${missingCoverageLabel})`}
                 >
                   {missingCoverageLabel}
+                </span>
+              )}
+              {isExifBroken && (
+                <span
+                  className="shrink-0 rounded bg-amber-200 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-amber-900"
+                  title="Tento nález nemá v DB EXIF datum (foundAt = null). Sync ho promítne bez časového zařazení — viz /admin/checks."
+                >
+                  bez EXIF
                 </span>
               )}
               {showNonexistentBadge && e.name.startsWith("NEEXISTUJE-") && (

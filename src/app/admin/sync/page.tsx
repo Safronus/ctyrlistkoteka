@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Crop, Image as ImageIcon } from "lucide-react";
+import { runChecksSummary } from "@/lib/admin/checks";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { getStatus } from "@/lib/admin/syncRunner";
 import { SyncPanel } from "./sync-panel";
@@ -12,7 +13,10 @@ interface PageProps {
 
 export default async function AdminSyncPage({ searchParams }: PageProps) {
   await ensureAdminAuth();
-  const status = await getStatus();
+  const [status, checks] = await Promise.all([
+    getStatus(),
+    runChecksSummary(),
+  ]);
   const sp = await searchParams;
   const presetRaw = Array.isArray(sp.preset) ? sp.preset[0] : sp.preset;
   const preset =
@@ -46,7 +50,65 @@ export default async function AdminSyncPage({ searchParams }: PageProps) {
         </p>
       </header>
 
+      {checks.exifIssues > 0 && (
+        <ExifPreSyncBanner exifIssues={checks.exifIssues} />
+      )}
+
       <SyncPanel initialStatus={status} initialPreset={preset} />
     </div>
+  );
+}
+
+/** Pre-sync warning banner. Surfaces the EXIF-missing find count so
+ *  the operator notices the issue before kicking off a sync — sync
+ *  would land those rows with NULL foundAt, dropping them out of
+ *  time-based aggregates on the public site. */
+function ExifPreSyncBanner({ exifIssues }: { exifIssues: number }) {
+  return (
+    <section className="rounded-xl border border-amber-300 bg-amber-50/60 p-4">
+      <div className="flex items-start gap-3">
+        <AlertTriangle
+          className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div>
+            <h2 className="text-sm font-semibold text-amber-900">
+              {exifIssues} {exifIssues === 1 ? "nález má" : exifIssues < 5 ? "nálezy mají" : "nálezů má"}{" "}
+              problém s EXIF datem
+            </h2>
+            <p className="mt-0.5 text-xs text-amber-900/80">
+              Tyto nálezy nemají v DB <code>foundAt</code> a sync je promítne
+              jako bez časového zařazení — vypadnou z retrospektivy + většiny
+              řad na <code>/statistiky</code>. Doporučuju nejdřív zkontrolovat
+              a opravit.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin/checks"
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-400 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-50"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+              Detail v Kontrolách
+            </Link>
+            <Link
+              href="/admin/files/finds?exif_broken=1"
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-50"
+            >
+              <ImageIcon className="h-3.5 w-3.5" aria-hidden />
+              Originály s problémem
+            </Link>
+            <Link
+              href="/admin/files/crops?exif_broken=1"
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-50"
+            >
+              <Crop className="h-3.5 w-3.5" aria-hidden />
+              Ořezy s problémem
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
