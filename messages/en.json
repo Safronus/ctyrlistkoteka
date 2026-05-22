@@ -156,7 +156,9 @@
     "navLabel": "Pagination",
     "prev": "← Previous",
     "next": "Next →",
-    "pageOf": "Page <b>{page}</b> of <b>{totalPages}</b>"
+    "pageOf": "Page <b>{page}</b> of <b>{totalPages}</b>",
+    "pageSizeLabel": "Items per page",
+    "pageSizeAria": "Number of items per page"
   },
   "BackLink": {
     "toCollection": "← Back to collection"

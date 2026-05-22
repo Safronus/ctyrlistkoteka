@@ -13,8 +13,23 @@ import {
   ViewSortToolbar,
   type FindView,
 } from "@/components/finds/view-sort-toolbar";
+import { PageSizeSelector } from "@/components/finds/page-size-selector";
 import { Pagination } from "@/components/finds/pagination";
 import { FINDS_PER_PAGE } from "@/lib/constants";
+
+/** Allowed `?size=` values for /sbirka. The Pagination layout copes
+ *  with any of these; the upper bound is bounded by how many find
+ *  cards we want to ship in one HTML payload. */
+const SBIRKA_PAGE_SIZES = [24, 48, 96, 192] as const;
+type SbirkaPageSize = (typeof SBIRKA_PAGE_SIZES)[number];
+
+function parseSbirkaPageSize(value: string | undefined): SbirkaPageSize {
+  if (!value) return FINDS_PER_PAGE as SbirkaPageSize;
+  const n = Number(value);
+  return (SBIRKA_PAGE_SIZES as readonly number[]).includes(n)
+    ? (n as SbirkaPageSize)
+    : (FINDS_PER_PAGE as SbirkaPageSize);
+}
 import {
   getCollectionProgress,
   getFilterOptions,
@@ -101,13 +116,14 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     hasRealPhoto: pickString(sp.hasPhoto) === "1" ? true : undefined,
   };
   const page = parseInt(pickString(sp.page)) ?? 1;
+  const pageSize = parseSbirkaPageSize(pickString(sp.size));
   const sort = parseSort(pickString(sp.sort));
   const view = parseView(pickString(sp.view));
 
   const locale = await getLocale();
   const [optionsRaw, result, progress] = await Promise.all([
     getFilterOptions(),
-    listFinds(filters, page, FINDS_PER_PAGE, sort),
+    listFinds(filters, page, pageSize, sort),
     getCollectionProgress(),
   ]);
   // FilterOptions.countries carries raw English (Natural Earth) names —
@@ -155,7 +171,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     return qs ? `/mapa?${qs}` : "/mapa";
   };
 
-  const buildHref = (p: number) => {
+  const composeHref = (p: number, s: number) => {
     const params = new URLSearchParams();
     if (filters.q) params.set("q", filters.q);
     if (filters.locationId) params.set("loc", String(filters.locationId));
@@ -169,9 +185,17 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     if (sort !== "desc") params.set("sort", sort);
     if (view !== "list") params.set("view", view);
     if (p > 1) params.set("page", String(p));
+    // Only set size when it differs from the default — keeps shared
+    // URLs short for the common case.
+    if (s !== FINDS_PER_PAGE) params.set("size", String(s));
     const qs = params.toString();
     return qs ? `/sbirka?${qs}` : "/sbirka";
   };
+  // Pagination expects makeHref(page: number) — preserve current size.
+  const buildHref = (p: number) => composeHref(p, pageSize);
+  // PageSizeSelector resets to page 1 because the current page index
+  // is meaningless after the size changes.
+  const buildSizeHref = (s: number) => composeHref(1, s);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
@@ -246,6 +270,16 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
         totalPages={result.totalPages}
         makeHref={buildHref}
       />
+
+      {result.total > SBIRKA_PAGE_SIZES[0] && (
+        <div className="flex justify-end">
+          <PageSizeSelector
+            current={pageSize}
+            options={SBIRKA_PAGE_SIZES}
+            makeHref={buildSizeHref}
+          />
+        </div>
+      )}
     </div>
   );
 }

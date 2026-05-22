@@ -155,7 +155,9 @@
     "navLabel": "Stránkování",
     "prev": "← Předchozí",
     "next": "Další →",
-    "pageOf": "Strana <b>{page}</b> z <b>{totalPages}</b>"
+    "pageOf": "Strana <b>{page}</b> z <b>{totalPages}</b>",
+    "pageSizeLabel": "Záznamů na stránku",
+    "pageSizeAria": "Počet záznamů na stránku"
   },
   "BackLink": {
     "toCollection": "← Zpět na sbírku"
