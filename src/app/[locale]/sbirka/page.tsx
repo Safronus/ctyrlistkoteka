@@ -278,9 +278,18 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
         page={result.page}
         totalPages={result.totalPages}
         makeHref={buildHref}
+        rightSlot={
+          result.total > SBIRKA_PAGE_SIZES[0] ? (
+            <PageSizeSelector
+              current={pageSize}
+              options={SBIRKA_PAGE_SIZES}
+              hrefsBySize={sizeHrefs}
+            />
+          ) : null
+        }
       />
 
-      {result.total > SBIRKA_PAGE_SIZES[0] && (
+      {result.totalPages <= 1 && result.total > SBIRKA_PAGE_SIZES[0] && (
         <div className="flex justify-end">
           <PageSizeSelector
             current={pageSize}

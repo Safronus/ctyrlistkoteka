@@ -155,7 +155,7 @@
     "navLabel": "Stránkování",
     "prev": "← Předchozí",
     "next": "Další →",
-    "pageOf": "Strana <b>{page}</b> z <b>{totalPages}</b>",
+    "pageAria": "Strana {page}",
     "pageSizeLabel": "Záznamů na stránku",
     "pageSizeAria": "Počet záznamů na stránku"
   },
