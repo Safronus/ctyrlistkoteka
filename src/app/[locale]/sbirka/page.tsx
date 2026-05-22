@@ -194,11 +194,17 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     const qs = params.toString();
     return qs ? `/sbirka?${qs}` : "/sbirka";
   };
-  // Pagination expects makeHref(page: number) — preserve current size.
+  // Pagination is itself a server component, so it can accept a
+  // function prop without tripping the RSC "functions can't cross
+  // into client components" rule.
   const buildHref = (p: number) => composeHref(p, pageSize);
-  // PageSizeSelector resets to page 1 because the current page index
-  // is meaningless after the size changes.
-  const buildSizeHref = (s: number) => composeHref(1, s);
+  // PageSizeSelector IS "use client" though, so we pre-compute one
+  // href per option here on the server side and pass the resulting
+  // size→href map down. Each href resets to ?page=1 — the current
+  // page index is meaningless under a different size.
+  const sizeHrefs = Object.fromEntries(
+    SBIRKA_PAGE_SIZES.map((s) => [s, composeHref(1, s)]),
+  ) as Record<SbirkaPageSize, string>;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
@@ -279,7 +285,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
           <PageSizeSelector
             current={pageSize}
             options={SBIRKA_PAGE_SIZES}
-            makeHref={buildSizeHref}
+            hrefsBySize={sizeHrefs}
           />
         </div>
       )}
