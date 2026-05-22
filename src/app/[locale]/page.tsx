@@ -238,8 +238,12 @@ function DonatedShowcase({
   const DRIFTERS = 16;
   const LOOP_S = 8;
 
+  // mt-6 instead of mt-12 — the hero already has generous bottom
+  // breathing room from its own typography, so a half-rem gap here
+  // keeps the "Komu už putovalo štěstí" line related to the totals
+  // it interprets, rather than feeling like a separate landing zone.
   return (
-    <section className="mt-12 text-center">
+    <section className="mt-6 text-center">
       <style>{`
         @keyframes ctyr-drift {
           0%   { transform: translate(82px, var(--y0)) rotate(0deg)  scale(0.7);  opacity: 0; }
@@ -282,10 +286,15 @@ function DonatedShowcase({
         {t("donatedSuffix", { count })}
       </p>
 
+      {/* viewBox cropped to 600×72 from the original 600×110 — the
+          STATIC_CLUSTER + drifters sit at y≈30–66, so the lower ~40
+          units of the viewBox were rendering as empty whitespace that
+          translated into visible padding on the page. Container
+          height shrunk to h-20/sm:h-24 to match the tighter content. */}
       <svg
-        viewBox="0 0 600 110"
+        viewBox="0 5 600 72"
         preserveAspectRatio="xMidYMid meet"
-        className="mx-auto mt-1.5 h-28 w-full max-w-2xl sm:h-32"
+        className="mx-auto mt-1.5 h-20 w-full max-w-2xl sm:h-24"
         aria-hidden
       >
         {STATIC_CLUSTER.map((c, i) => (
