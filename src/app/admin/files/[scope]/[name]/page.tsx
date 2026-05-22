@@ -38,7 +38,9 @@ import { DeleteMapButton } from "../../maps/delete-button";
 import { MapDescriptionEditor } from "../../maps/description-editor";
 import { MarkMapNonexistentButton } from "../../maps/mark-nonexistent-button";
 import { MapMetadataPreview } from "../../maps/metadata-preview";
+import { MapRealPhotoCard } from "../../maps/real-photo-card";
 import { MapReplaceDropzone } from "../../maps/replace-dropzone";
+import { resolveLocationMapPhoto } from "@/lib/locationPhotos";
 import { SyncNeededBanner } from "../../_shared/sync-needed-banner";
 import { JsonSectionsPreview } from "./json-sections-preview";
 import { LokaceStavyPoznamkyPreview } from "./lokace-stavy-preview";
@@ -173,6 +175,20 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
         label: "LokaceStavyPoznamky.json",
       }
     : null;
+
+  // For map detail: look up any real-life photo bound to this map.
+  // `info.name` doubles as the DB-stored originalFilename (sync writes
+  // it that way), so the same lookup the public site uses works here.
+  // Anonymized maps don't surface their photo on the public site, and
+  // we mirror that here — hides the upload card too because it would
+  // be confusing to allow uploading a photo that wouldn't render.
+  const mapRealPhoto =
+    scope.slug === "maps" && !isMapAnonymized
+      ? await resolveLocationMapPhoto({
+          originalFilename: info.name,
+          isAnonymized: false,
+        })
+      : null;
 
   return (
     <div className="space-y-4">
@@ -323,6 +339,10 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           filename={info.name}
           absolutePath={info.absolutePath}
         />
+      )}
+
+      {scope.slug === "maps" && !isMapAnonymized && (
+        <MapRealPhotoCard mapName={info.name} existingPhoto={mapRealPhoto} />
       )}
 
       {isPreviewableImage(info.contentType) && (

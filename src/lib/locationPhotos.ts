@@ -109,6 +109,22 @@ export async function getLocationMapPhotoUrl(params: {
   originalFilename: string;
   isAnonymized: boolean;
 }): Promise<string | null> {
+  const entry = await resolveLocationMapPhoto(params);
+  return entry?.url ?? null;
+}
+
+/**
+ * Admin-side variant of {@link getLocationMapPhotoUrl} that also yields
+ * the on-disk filename, so the map detail page can deep-link into the
+ * real-photo's own detail (`/admin/files/location-photos/<name>`) and
+ * the upload action can decide whether to refuse a duplicate. The
+ * `isAnonymized` flag is honoured: anonymized maps never expose their
+ * real photo URL, even though the on-disk file may still exist.
+ */
+export async function resolveLocationMapPhoto(params: {
+  originalFilename: string;
+  isAnonymized: boolean;
+}): Promise<{ filename: string; url: string } | null> {
   if (params.isAnonymized) return null;
   // Strip extension from `originalFilename` (e.g. ".HEIC" / ".jpg") so
   // the key matches the suffix-stripped on-disk basename. NFC + lower
@@ -126,5 +142,8 @@ export async function getLocationMapPhotoUrl(params: {
   if (!filename) return null;
   // Encode every path segment — the filename can carry diacritics, plus
   // signs, and spaces, all of which need percent-encoding for the URL.
-  return `${URL_PREFIX}/${encodeURIComponent(filename)}`;
+  return {
+    filename,
+    url: `${URL_PREFIX}/${encodeURIComponent(filename)}`,
+  };
 }
