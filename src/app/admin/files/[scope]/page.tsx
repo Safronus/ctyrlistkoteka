@@ -16,6 +16,7 @@ import {
 } from "@/lib/admin/checks";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { readMapAnonFlags } from "@/lib/admin/mapAnon";
+import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { getRealPhotoMapKeys } from "@/lib/locationPhotos";
 import { checkSyncNeeded, type SyncScope } from "@/lib/admin/syncNeeded";
 import {
@@ -324,6 +325,14 @@ export default async function AdminScopeListPage({
       if (photoKeys.has(key)) mapsWithRealPhoto.add(e.name);
     }
   }
+
+  // Finds-only: which of the page's rows belong to a find that has at
+  // least one donation photo on disk. `getFindIdsWithRealPhotos`
+  // returns the whole set in one dirCache read; we pass it through
+  // unchanged because the badge only cares about set membership and
+  // 17k IDs is still trivial JSON.
+  const findsWithDonationPhoto =
+    scope.slug === "finds" ? await getFindIdsWithRealPhotos() : undefined;
 
   // Global uncovered count for the summary line. Read this scope's
   // own ID set and count IDs missing from the counterpart.
@@ -721,6 +730,7 @@ export default async function AdminScopeListPage({
           missingCoverageLabel={counterpartLabel}
           exifProblemIds={exifProblemIds}
           gpsProblemIds={gpsProblemIds}
+          findsWithDonationPhoto={findsWithDonationPhoto}
         />
       ) : scope.slug === "crops" ? (
         <FilesListClient

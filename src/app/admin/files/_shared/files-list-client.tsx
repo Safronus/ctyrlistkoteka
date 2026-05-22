@@ -66,6 +66,12 @@ interface Props {
    *  `getRealPhotoMapKeys()` so the props payload stays bounded by
    *  page size. */
   mapsWithRealPhoto?: Set<string>;
+  /** Set of find IDs that have at least one donation photo on disk
+   *  under `generated/find-photos/<id><slot>_DAR…`. Set on the finds
+   *  scope (and matched against the row's leading find ID) so each
+   *  row can grow a "foto" badge. Mirrors the maps-scope variant
+   *  above. */
+  findsWithDonationPhoto?: Set<number>;
   /** When true, rows whose name starts with `NEEXISTUJE-` render a
    *  "zaniklá" badge. Set by the maps scope. */
   showNonexistentBadge?: boolean;
@@ -172,6 +178,7 @@ export function FilesListClient({
   bulkRename,
   anonymizedNames,
   mapsWithRealPhoto,
+  findsWithDonationPhoto,
   showNonexistentBadge,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -636,6 +643,17 @@ export function FilesListClient({
                   foto
                 </span>
               )}
+              {findsWithDonationPhoto !== undefined &&
+                findId !== null &&
+                findsWithDonationPhoto.has(findId) && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-emerald-900"
+                    title="Pro tento nález existuje aspoň jedna reálná fotka daru v generated/find-photos/"
+                  >
+                    <Camera className="h-3 w-3" aria-hidden />
+                    foto
+                  </span>
+                )}
               {(scopeSlug === "finds" || scopeSlug === "crops") &&
                 (() => {
                   const info = parseFindNameForBadges(e.name);

@@ -30,6 +30,7 @@ import { DeleteCropButton } from "../../crops/delete-button";
 import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { FindAnonymizeToggleButton } from "../../finds/anonymize-toggle-button";
+import { FindDonationPhotosCard } from "../../finds/donation-photos-card";
 import { MarkDonatedButton } from "../../finds/mark-donated-button";
 import { UnmarkDonatedButton } from "../../finds/unmark-donated-button";
 import { DeleteLocationPhotoButton } from "../../location-photos/delete-button";
@@ -40,6 +41,7 @@ import { MarkMapNonexistentButton } from "../../maps/mark-nonexistent-button";
 import { MapMetadataPreview } from "../../maps/metadata-preview";
 import { MapRealPhotoCard } from "../../maps/real-photo-card";
 import { MapReplaceDropzone } from "../../maps/replace-dropzone";
+import { getFindPhotos } from "@/lib/findPhotos";
 import { resolveLocationMapPhoto } from "@/lib/locationPhotos";
 import { SyncNeededBanner } from "../../_shared/sync-needed-banner";
 import { JsonSectionsPreview } from "./json-sections-preview";
@@ -189,6 +191,16 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           isAnonymized: false,
         })
       : null;
+
+  // For find detail: list every donation photo on disk for this find.
+  // The parser already gave us findId — reuse it to read the public
+  // dirCache so the admin and the public /sbirka/<id> page agree on
+  // what exists. Anonymized photos come back with `url: null`; the
+  // card renders an EyeOff placeholder for those.
+  const findDonationPhotos =
+    scope.slug === "finds" && findParsed?.ok
+      ? await getFindPhotos(findParsed.value.findId)
+      : [];
 
   return (
     <div className="space-y-4">
@@ -343,6 +355,14 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
 
       {scope.slug === "maps" && !isMapAnonymized && (
         <MapRealPhotoCard mapName={info.name} existingPhoto={mapRealPhoto} />
+      )}
+
+      {scope.slug === "finds" && findParsed?.ok && (
+        <FindDonationPhotosCard
+          findId={findParsed.value.findId}
+          existing={findDonationPhotos}
+          findIsAnonymizedDefault={findAnonInName}
+        />
       )}
 
       {isPreviewableImage(info.contentType) && (
