@@ -7,6 +7,7 @@ import {
   ArrowDownAZ,
   ArrowDownNarrowWide,
   Camera,
+  Clock,
   Compass,
   EyeOff,
   Globe,
@@ -26,6 +27,11 @@ const SORT_KEYS: ReadonlyArray<{
     icon: <ArrowDownNarrowWide className="h-4 w-4" />,
   },
   { value: "id", key: "sortId", icon: <Hash className="h-4 w-4" /> },
+  {
+    value: "newest",
+    key: "sortNewest",
+    icon: <Clock className="h-4 w-4" />,
+  },
   {
     value: "code",
     key: "sortCode",

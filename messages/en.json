@@ -308,6 +308,7 @@
     "sortAria": "Sort",
     "sortFinds": "Most finds",
     "sortId": "By ID",
+    "sortNewest": "Newest first",
     "sortCode": "Alphabetical",
     "sortDistAsc": "Nearest",
     "sortDistDesc": "Farthest"

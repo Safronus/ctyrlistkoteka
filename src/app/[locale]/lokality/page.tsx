@@ -37,6 +37,7 @@ function pickString(v: string | string[] | undefined): string | undefined {
 const SORT_VALUES: readonly LocationSort[] = [
   "finds",
   "id",
+  "newest",
   "code",
   "dist-asc",
   "dist-desc",

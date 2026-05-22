@@ -19,7 +19,13 @@ import { paddedIdMatches, parseIdQuery } from "@/lib/search";
  *  distance from MAP 00001. Anonymized locations have NULL distance
  *  (their coords are private) and fall to the end of distance sorts so
  *  the order can't be used to triangulate them. */
-export type LocationSort = "id" | "code" | "finds" | "dist-asc" | "dist-desc";
+export type LocationSort =
+  | "id"
+  | "code"
+  | "finds"
+  | "dist-asc"
+  | "dist-desc"
+  | "newest";
 
 export interface LocationStats {
   total: number;
@@ -248,10 +254,24 @@ export async function listLocations(
   if (filter.cadastralArea) where.cadastralArea = filter.cadastralArea;
   if (filter.q && filter.q.trim()) {
     const q = filter.q.trim();
+    // Privacy guard for the displayName match: the on-disk filename
+    // (which becomes displayName) frequently embeds a free-text
+    // note between the structured "+" segments — e.g.
+    // `VELÍKOVÁ001+Magďul & Pali za barákem…+00123.png`. For
+    // anonymized locations that note is exactly the thing we promise
+    // to hide. So displayName is only searchable when the location
+    // has NO anonymized map; `code` (structured location identifier)
+    // and `cadastralArea` (village/town) stay searchable across the
+    // board because they're public info already.
     const or: Prisma.LocationWhereInput[] = [
       { code: { contains: q, mode: "insensitive" } },
-      { displayName: { contains: q, mode: "insensitive" } },
       { cadastralArea: { contains: q, mode: "insensitive" } },
+      {
+        AND: [
+          { displayName: { contains: q, mode: "insensitive" } },
+          { maps: { none: { isAnonymized: true } } },
+        ],
+      },
     ];
     // Numeric input (e.g. "1", "0001", "#00001") additionally matches the
     // location's display ID — both as an exact integer and as a substring
@@ -476,6 +496,28 @@ export async function listLocations(
       // Anonymized locations don't expose their parent link either —
       // surfacing it would reveal which sub-parts belong to a hidden
       // master location, defeating the anonymization.
+      //
+      // What we *do* expose: the bare find count (`total`) + the
+      // count of finds within that are themselves anonymized. Neither
+      // leaks anything beyond "this place has N finds total, of which
+      // M are private" — the place itself is already named via its
+      // `code`, so the count adds nothing identifying. Everything
+      // else (dates, year range, state breakdown, first/last find
+      // pointers) is kept zeroed to avoid behavioural fingerprinting
+      // ("this location had a find on 2026-05-22" leaks too much).
+      const realStats = totalsByLoc.get(l.id) ?? EMPTY_STATS;
+      const visibleStats: LocationStats = {
+        total: realStats.total,
+        anonymized: realStats.anonymized,
+        firstYear: null,
+        lastYear: null,
+        firstFoundAt: null,
+        lastFoundAt: null,
+        firstFindId: null,
+        lastFindId: null,
+        states: [],
+        yearly: [],
+      };
       return {
         id: l.id,
         code: l.code,
@@ -492,8 +534,8 @@ export async function listLocations(
         distanceFromDefault: null,
         parentId: null,
         childCount: 0,
-        stats: EMPTY_STATS,
-        aggregateStats: EMPTY_STATS,
+        stats: visibleStats,
+        aggregateStats: visibleStats,
         // Anonymized locations don't expose photo presence — even the
         // boolean would leak whether the user has a real-life photo of
         // a private spot.
@@ -619,6 +661,12 @@ export async function listLocations(
     items.sort((a, b) => collator.compare(a.code, b.code));
   } else if (sort === "id") {
     items.sort((a, b) => a.id - b.id);
+  } else if (sort === "newest") {
+    // Location.id mirrors the map's numeric ID (5-digit MAP_ID from
+    // the location-map filename — schema invariant `location_maps.id
+    // = locations.id`). Descending here = newest map first, which is
+    // what the user expects on a "od nejnovější" toggle.
+    items.sort((a, b) => b.id - a.id);
   } else if (sort === "dist-asc" || sort === "dist-desc") {
     const dir = sort === "dist-asc" ? 1 : -1;
     items.sort((a, b) => {
