@@ -162,6 +162,12 @@ export function FilesListClient({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [batchResults, setBatchResults] = useState<BulkDeleteResult[]>([]);
+  /** Live progress for chunked bulk delete (>100 files). Drives a tiny
+   *  inline "X / N smazáno" indicator while sequential chunks fly. */
+  const [deleteProgress, setDeleteProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
   const [renameResults, setRenameResults] = useState<BulkRenameResult[]>([]);
   const [confirming, setConfirming] = useState<"delete" | "rename" | null>(
     null,
@@ -198,23 +204,42 @@ export function FilesListClient({
 
   const onConfirmDelete = () => {
     if (selected.size === 0 || isPending) return;
-    if (selected.size > MAX_BULK_DELETE_PER_REQUEST) {
-      setBannerError(
-        `Maximum je ${MAX_BULK_DELETE_PER_REQUEST} souborů na jeden bulk delete.`,
-      );
-      return;
-    }
     setBannerError(null);
     setBatchResults([]);
+    setDeleteProgress(null);
 
     startTransition(async () => {
-      const fd = new FormData();
-      for (const name of selected) fd.append("name", name);
+      // Chunk client-side. The server still caps a single request at
+      // MAX_BULK_DELETE_PER_REQUEST (protects against accidental
+      // Select-All on a 17k-entry listing), but the page size goes up
+      // to 500, so a user-visible "smazat všechno" should not bounce
+      // off the per-request cap. Splitting into sequential chunks
+      // keeps each individual request small while letting the user
+      // delete the whole page in one click.
+      const names = Array.from(selected);
+      const chunks: string[][] = [];
+      for (let i = 0; i < names.length; i += MAX_BULK_DELETE_PER_REQUEST) {
+        chunks.push(names.slice(i, i + MAX_BULK_DELETE_PER_REQUEST));
+      }
+
+      const aggregated: BulkDeleteResult[] = [];
       try {
-        const { results } = await bulkDelete(fd);
-        setBatchResults(results);
+        for (let i = 0; i < chunks.length; i++) {
+          setDeleteProgress({
+            done: i * MAX_BULK_DELETE_PER_REQUEST,
+            total: names.length,
+          });
+          const fd = new FormData();
+          for (const name of chunks[i]!) fd.append("name", name);
+          const { results } = await bulkDelete(fd);
+          aggregated.push(...results);
+          // Update batch results live so the operator sees the table
+          // grow chunk-by-chunk on long deletes (no opaque spinner).
+          setBatchResults([...aggregated]);
+        }
+        setDeleteProgress(null);
         const okNamesNFC = new Set(
-          results
+          aggregated
             .filter((r) => r.status === "ok")
             .map((r) => r.filename.normalize("NFC")),
         );
@@ -230,6 +255,7 @@ export function FilesListClient({
         });
         setConfirming(null);
       } catch (err) {
+        setDeleteProgress(null);
         setBannerError(
           err instanceof Error ? err.message : "Bulk delete selhal",
         );
@@ -341,7 +367,19 @@ export function FilesListClient({
                 Přesunout {selected.size}{" "}
                 {selected.size === 1 ? "soubor" : "souborů"} do{" "}
                 <code className="font-mono">.trash/</code>?
+                {selected.size > MAX_BULK_DELETE_PER_REQUEST && (
+                  <span className="ml-1 text-[11px] text-red-800/80">
+                    (rozdělí se na{" "}
+                    {Math.ceil(selected.size / MAX_BULK_DELETE_PER_REQUEST)}{" "}
+                    dávek po {MAX_BULK_DELETE_PER_REQUEST})
+                  </span>
+                )}
               </span>
+              {deleteProgress && (
+                <span className="font-mono text-[11px] text-red-800">
+                  {deleteProgress.done} / {deleteProgress.total}
+                </span>
+              )}
               <button
                 type="button"
                 onClick={onConfirmDelete}

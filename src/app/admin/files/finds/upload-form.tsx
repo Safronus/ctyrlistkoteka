@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   CloudUpload,
   Loader2,
+  RotateCcw,
   Upload,
   X,
   XCircle,
@@ -177,6 +178,24 @@ export function FindsUploadForm() {
     setQueue([]);
     setBannerError(null);
     if (inputRef.current) inputRef.current.value = "";
+  };
+
+  /** Resets every rejected row back to "queued" (clearing its reason
+   *  + size + findId stamps) so the next onSubmit picks them up. The
+   *  underlying File objects stayed in queue all along — re-selecting
+   *  from disk is not needed. Useful when the rejection was a
+   *  transient batch error (network blip, 413 truncation, post-success
+   *  revalidate) rather than a per-file content problem. */
+  const retryRejected = () => {
+    if (isPending) return;
+    setBannerError(null);
+    setQueue((prev) =>
+      prev.map((q) =>
+        q.status === "rejected"
+          ? { ...q, status: "queued", reason: undefined }
+          : q,
+      ),
+    );
   };
 
   const onSubmit = () => {
@@ -393,6 +412,18 @@ export function FindsUploadForm() {
               >
                 Vyčistit
               </button>
+              {rejectedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={retryRejected}
+                  disabled={isPending}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-2.5 py-1.5 text-xs font-medium text-amber-800 shadow-sm transition hover:border-amber-400 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Resetuje stav odmítnutých řádků zpět na 'queued' a spustí upload znovu — soubory v queue se nemusí znovu vybírat z disku."
+                >
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                  Zkusit znovu ({rejectedCount})
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onSubmit}
