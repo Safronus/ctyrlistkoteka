@@ -32,6 +32,31 @@ export const dynamic = "force-dynamic";
  *  busboy handles the same batches without complaint and gives us per-
  *  part info (filename + mimetype) directly. */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // Outer guard: catches anything that escapes the per-file handling
+  // (session middleware crash, mid-handler runtime error, etc.) and
+  // returns it as a structured UploadResponse instead of Next.js's
+  // generic HTML 500 page. The client renders this `error` field
+  // directly + the new "Zkopírovat chybový log" button packs the
+  // full stack into the debug report so the operator can forward it.
+  try {
+    return await handleUpload(request);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[admin/finds-upload] handler escaped", { message, stack });
+    return NextResponse.json<UploadResponse>(
+      {
+        results: [],
+        error: stack
+          ? `Server crash: ${message}\n${stack}`
+          : `Server crash: ${message}`,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function handleUpload(request: NextRequest): Promise<NextResponse> {
   const session = await getAdminSession();
   if (!isAuthenticated(session)) {
     return new NextResponse("Not found", { status: 404 });

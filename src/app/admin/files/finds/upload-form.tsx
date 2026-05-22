@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, useTransition } from "react";
 import {
+  AlertCircle,
   CheckCircle2,
+  ClipboardCopy,
   CloudUpload,
   Loader2,
   RotateCcw,
@@ -11,6 +13,11 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import {
+  formatErrorReport,
+  readBodyTruncated,
+  type UploadErrorContext,
+} from "../_shared/upload-error-report";
 import {
   MAX_BATCH_BYTES,
   MAX_FILE_BYTES,
@@ -55,24 +62,47 @@ function splitIntoBatches<T extends { file: File }>(items: T[]): T[][] {
  *  batches (request never goes over the wire, error masked as
  *  "Server Components render"). Native multipart upload streams the
  *  body without buffering everything as ArrayBuffer first. */
-async function postBatch(formData: FormData): Promise<UploadResponse> {
+interface PostBatchOutcome {
+  response: UploadResponse;
+  httpStatus: number;
+  httpStatusText: string;
+  /** Raw response body — populated only when JSON parse failed, so
+   *  the error report can include the actual HTML error page or
+   *  truncated upstream proxy message instead of a generic "HTTP 500". */
+  responseBody?: string;
+}
+
+async function postBatch(formData: FormData): Promise<PostBatchOutcome> {
   const r = await fetch("/admin/api/upload/finds", {
     method: "POST",
     body: formData,
   });
   // Try JSON regardless of status — both 200 and 413/400 carry our
-  // structured response shape. If parse fails, fall back to a
-  // synthetic error so the form can render something useful.
+  // structured response shape. If parse fails, fall back to reading
+  // the raw text body so the operator's copied error log shows what
+  // the server actually returned (usually a Next.js HTML error page
+  // when an unhandled exception escaped the route handler).
   let body: UploadResponse | null = null;
+  let raw: string | undefined;
   try {
-    body = (await r.json()) as UploadResponse;
+    body = (await r.clone().json()) as UploadResponse;
   } catch {
-    /* fall through */
+    raw = await readBodyTruncated(r);
   }
-  if (!r.ok && (!body || !body.error)) {
-    return { results: [], error: `HTTP ${r.status}` };
-  }
-  return body ?? { results: [], error: "Prázdná odpověď serveru" };
+  const response: UploadResponse =
+    body ??
+    (r.ok
+      ? { results: [], error: "Prázdná odpověď serveru" }
+      : {
+          results: [],
+          error: `HTTP ${r.status}${r.statusText ? " " + r.statusText : ""}`,
+        });
+  return {
+    response,
+    httpStatus: r.status,
+    httpStatusText: r.statusText,
+    responseBody: raw,
+  };
 }
 
 type RowStatus = "queued" | "uploading" | "ok" | "rejected";
@@ -108,6 +138,12 @@ export function FindsUploadForm() {
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [bannerError, setBannerError] = useState<string | null>(null);
+  /** Structured debug context captured on the most recent batch
+   *  failure. Drives the "Zkopírovat chybový log" panel — gives the
+   *  operator something concrete to paste back when something breaks
+   *  intermittently. Null while no error is in scope. */
+  const [lastError, setLastError] = useState<UploadErrorContext | null>(null);
+  const [reportCopied, setReportCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -184,6 +220,28 @@ export function FindsUploadForm() {
     if (inputRef.current) inputRef.current.value = "";
   };
 
+  /** Copies the structured error report (multi-line text) to the
+   *  clipboard. The operator pastes it into chat / mail. Falls back
+   *  to a console.error dump if the clipboard API is unavailable
+   *  (older browsers, file:// origins) — the data still gets out. */
+  const copyErrorReport = useCallback(async () => {
+    if (!lastError) return;
+    const text = formatErrorReport(lastError);
+    try {
+      await navigator.clipboard.writeText(text);
+      setReportCopied(true);
+      setTimeout(() => setReportCopied(false), 2500);
+    } catch (err) {
+      // Clipboard write blocked (insecure context, permissions
+      // policy). Dump to console so the operator can grab it from
+      // DevTools instead — same data, different surface.
+      console.error("Upload error report (clipboard write failed):", text, err);
+      setBannerError(
+        "Clipboard zablokovaný — log je v DevTools console (Cmd-Opt-J).",
+      );
+    }
+  }, [lastError]);
+
   /** Resets every rejected row back to "queued" (clearing its reason
    *  + size + findId stamps) so the next onSubmit picks them up. The
    *  underlying File objects stayed in queue all along — re-selecting
@@ -249,14 +307,34 @@ export function FindsUploadForm() {
         for (const q of batch) fd.append("files", q.file);
 
         try {
-          const response = await postBatch(fd);
-          const { results, error } = response;
+          const outcome = await postBatch(fd);
+          const { results, error } = outcome.response;
           // Top-level `error` means the batch never reached per-file
           // processing — auth, request shape, or post-success
           // revalidate failure. Mark every uploading row as rejected
-          // and surface the actual reason in the banner.
+          // and surface the actual reason in the banner. Capture the
+          // full HTTP context (status, response body) into lastError
+          // so the operator can copy the report and send it for
+          // debugging.
           if (error) {
             setBannerError(`Batch ${i + 1}: ${error}`);
+            setLastError({
+              ts: new Date().toISOString(),
+              scope: "finds",
+              batchIndex: i,
+              totalBatches: batches.length,
+              files: batch.map((q) => ({
+                name: q.file.name,
+                size: q.file.size,
+                reason: error,
+              })),
+              httpStatus: outcome.httpStatus,
+              httpStatusText: outcome.httpStatusText,
+              responseBody: outcome.responseBody,
+              serverError: error,
+              userAgent:
+                typeof navigator !== "undefined" ? navigator.userAgent : "n/a",
+            });
             setQueue((prev) =>
               prev.map((q) =>
                 q.status === "uploading"
@@ -298,12 +376,26 @@ export function FindsUploadForm() {
           });
 
         } catch (err) {
-          // A batch-level failure (network drop, server error) marks
-          // every still-uploading row in the queue as rejected. The
-          // user can retry by re-dropping the files; we don't auto-
-          // retry to keep the failure mode obvious.
+          // A batch-level failure (network drop, server error, fetch
+          // abort) marks every still-uploading row in the queue as
+          // rejected. The operator can retry rejected rows via the
+          // "Zkusit znovu" button or copy the lastError report via
+          // "Zkopírovat chybový log" for forwarding.
           const reason = err instanceof Error ? err.message : "Upload selhal";
           setBannerError(`Batch ${i + 1}: ${reason}`);
+          setLastError({
+            ts: new Date().toISOString(),
+            scope: "finds",
+            batchIndex: i,
+            totalBatches: batches.length,
+            files: batch.map((q) => ({
+              name: q.file.name,
+              size: q.file.size,
+            })),
+            networkError: reason,
+            userAgent:
+              typeof navigator !== "undefined" ? navigator.userAgent : "n/a",
+          });
           setQueue((prev) =>
             prev.map((q) =>
               q.status === "uploading"
@@ -388,6 +480,18 @@ export function FindsUploadForm() {
         <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-800">
           {bannerError}
         </p>
+      )}
+
+      {lastError && (
+        <ErrorReportPanel
+          ctx={lastError}
+          copied={reportCopied}
+          onCopy={copyErrorReport}
+          onDismiss={() => {
+            setLastError(null);
+            setReportCopied(false);
+          }}
+        />
       )}
 
       {queue.length > 0 && (
@@ -501,6 +605,73 @@ export function FindsUploadForm() {
         </div>
       )}
     </section>
+  );
+}
+
+/** Inline panel that surfaces the full debug context for the last
+ *  upload failure — HTTP status, server response body (when JSON
+ *  parse failed), per-file details, browser user-agent. The "Zkopírovat"
+ *  button packs it all into a single multi-line text block ready to
+ *  paste into chat / email for whoever is debugging. */
+function ErrorReportPanel({
+  ctx,
+  copied,
+  onCopy,
+  onDismiss,
+}: {
+  ctx: UploadErrorContext;
+  copied: boolean;
+  onCopy: () => void;
+  onDismiss: () => void;
+}) {
+  const shortSummary =
+    ctx.networkError ??
+    (ctx.httpStatus
+      ? `HTTP ${ctx.httpStatus}${ctx.httpStatusText ? " " + ctx.httpStatusText : ""}`
+      : "Unknown error") +
+      (ctx.serverError ? ` — ${ctx.serverError}` : "");
+  return (
+    <div className="mt-2 rounded-md border border-red-300 bg-red-50 p-3">
+      <div className="flex items-start gap-2">
+        <AlertCircle
+          className="mt-0.5 h-4 w-4 shrink-0 text-red-600"
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-xs font-semibold text-red-900">
+            Chyba při uploadu — debug log připraven
+          </p>
+          <p className="truncate font-mono text-[11px] text-red-800" title={shortSummary}>
+            {shortSummary}
+          </p>
+          <p className="text-[11px] text-red-800/80">
+            {ctx.batchIndex !== undefined && ctx.totalBatches !== undefined
+              ? `Batch ${ctx.batchIndex + 1} / ${ctx.totalBatches} · `
+              : ""}
+            {ctx.files.length}{" "}
+            {ctx.files.length === 1 ? "soubor" : "souborů"} v této dávce
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onCopy}
+            className="inline-flex items-center gap-1 rounded-md border border-red-300 bg-white px-2 py-1 text-[11px] font-medium text-red-800 shadow-sm hover:bg-red-50"
+          >
+            <ClipboardCopy className="h-3 w-3" aria-hidden />
+            {copied ? "Zkopírováno!" : "Zkopírovat log"}
+          </button>
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Skrýt"
+            className="rounded p-1 text-red-600 hover:bg-red-100"
+          >
+            <X className="h-3 w-3" aria-hidden />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

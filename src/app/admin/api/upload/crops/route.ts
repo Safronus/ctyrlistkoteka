@@ -27,6 +27,29 @@ export const dynamic = "force-dynamic";
  *  the full 6-segment filename convention OR the short `<id>.jpg`
  *  shortcut, otherwise identical to the finds variant. */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // Outer guard — see finds/route.ts for rationale. Catches handler
+  // escapes and returns a structured UploadResponse with the stack
+  // so the client's "Zkopírovat chybový log" button has something
+  // actionable to forward.
+  try {
+    return await handleUpload(request);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[admin/crops-upload] handler escaped", { message, stack });
+    return NextResponse.json<UploadResponse>(
+      {
+        results: [],
+        error: stack
+          ? `Server crash: ${message}\n${stack}`
+          : `Server crash: ${message}`,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function handleUpload(request: NextRequest): Promise<NextResponse> {
   const session = await getAdminSession();
   if (!isAuthenticated(session)) {
     return new NextResponse("Not found", { status: 404 });

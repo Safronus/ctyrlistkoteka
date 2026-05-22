@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, useTransition } from "react";
 import {
+  AlertCircle,
   CheckCircle2,
+  ClipboardCopy,
   CloudUpload,
   Loader2,
   RotateCcw,
@@ -12,25 +14,50 @@ import {
   XCircle,
 } from "lucide-react";
 import type { UploadResponse } from "./upload-types";
+import {
+  formatErrorReport,
+  readBodyTruncated,
+  type UploadErrorContext,
+} from "../_shared/upload-error-report";
+
+interface PostBatchOutcome {
+  response: UploadResponse;
+  httpStatus: number;
+  httpStatusText: string;
+  responseBody?: string;
+}
 
 /** REST POST helper — see finds/upload-form.tsx for the rationale
  *  (server-action RSC encoder chokes on big batches; native fetch
- *  multipart sidesteps that pipeline entirely). */
-async function postBatch(formData: FormData): Promise<UploadResponse> {
+ *  multipart sidesteps that pipeline entirely). Returns the full HTTP
+ *  context so the caller can stash it in lastError for the
+ *  copy-error-log button. */
+async function postBatch(formData: FormData): Promise<PostBatchOutcome> {
   const r = await fetch("/admin/api/upload/crops", {
     method: "POST",
     body: formData,
   });
   let body: UploadResponse | null = null;
+  let raw: string | undefined;
   try {
-    body = (await r.json()) as UploadResponse;
+    body = (await r.clone().json()) as UploadResponse;
   } catch {
-    /* fall through */
+    raw = await readBodyTruncated(r);
   }
-  if (!r.ok && (!body || !body.error)) {
-    return { results: [], error: `HTTP ${r.status}` };
-  }
-  return body ?? { results: [], error: "Prázdná odpověď serveru" };
+  const response: UploadResponse =
+    body ??
+    (r.ok
+      ? { results: [], error: "Prázdná odpověď serveru" }
+      : {
+          results: [],
+          error: `HTTP ${r.status}${r.statusText ? " " + r.statusText : ""}`,
+        });
+  return {
+    response,
+    httpStatus: r.status,
+    httpStatusText: r.statusText,
+    responseBody: raw,
+  };
 }
 import {
   MAX_BATCH_BYTES,
@@ -97,6 +124,8 @@ export function CropsUploadForm() {
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [bannerError, setBannerError] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<UploadErrorContext | null>(null);
+  const [reportCopied, setReportCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -168,6 +197,23 @@ export function CropsUploadForm() {
     if (inputRef.current) inputRef.current.value = "";
   };
 
+  /** Copies the structured error report to clipboard. Falls back to
+   *  console.error if clipboard API is blocked (insecure context). */
+  const copyErrorReport = useCallback(async () => {
+    if (!lastError) return;
+    const text = formatErrorReport(lastError);
+    try {
+      await navigator.clipboard.writeText(text);
+      setReportCopied(true);
+      setTimeout(() => setReportCopied(false), 2500);
+    } catch (err) {
+      console.error("Upload error report (clipboard write failed):", text, err);
+      setBannerError(
+        "Clipboard zablokovaný — log je v DevTools console (Cmd-Opt-J).",
+      );
+    }
+  }, [lastError]);
+
   /** Resets every rejected row back to "queued" so the next onSubmit
    *  picks them up. The underlying File objects stayed in queue all
    *  along — re-selecting from disk is not needed. Useful when the
@@ -224,10 +270,27 @@ export function CropsUploadForm() {
         for (const q of batch) fd.append("files", q.file);
 
         try {
-          const response = await postBatch(fd);
-          const { results, error } = response;
+          const outcome = await postBatch(fd);
+          const { results, error } = outcome.response;
           if (error) {
             setBannerError(`Batch ${i + 1}: ${error}`);
+            setLastError({
+              ts: new Date().toISOString(),
+              scope: "crops",
+              batchIndex: i,
+              totalBatches: batches.length,
+              files: batch.map((q) => ({
+                name: q.file.name,
+                size: q.file.size,
+                reason: error,
+              })),
+              httpStatus: outcome.httpStatus,
+              httpStatusText: outcome.httpStatusText,
+              responseBody: outcome.responseBody,
+              serverError: error,
+              userAgent:
+                typeof navigator !== "undefined" ? navigator.userAgent : "n/a",
+            });
             setQueue((prev) =>
               prev.map((q) =>
                 q.status === "uploading"
@@ -270,6 +333,19 @@ export function CropsUploadForm() {
         } catch (err) {
           const reason = err instanceof Error ? err.message : "Upload selhal";
           setBannerError(`Batch ${i + 1}: ${reason}`);
+          setLastError({
+            ts: new Date().toISOString(),
+            scope: "crops",
+            batchIndex: i,
+            totalBatches: batches.length,
+            files: batch.map((q) => ({
+              name: q.file.name,
+              size: q.file.size,
+            })),
+            networkError: reason,
+            userAgent:
+              typeof navigator !== "undefined" ? navigator.userAgent : "n/a",
+          });
           setQueue((prev) =>
             prev.map((q) =>
               q.status === "uploading"
@@ -345,6 +421,18 @@ export function CropsUploadForm() {
         <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-800">
           {bannerError}
         </p>
+      )}
+
+      {lastError && (
+        <ErrorReportPanel
+          ctx={lastError}
+          copied={reportCopied}
+          onCopy={copyErrorReport}
+          onDismiss={() => {
+            setLastError(null);
+            setReportCopied(false);
+          }}
+        />
       )}
 
       {queue.length > 0 && (
@@ -455,6 +543,74 @@ export function CropsUploadForm() {
         </div>
       )}
     </section>
+  );
+}
+
+/** Inline panel surfacing the full debug context for the last upload
+ *  failure. Mirrors finds/upload-form.tsx — see ErrorReportPanel
+ *  there for full rationale. */
+function ErrorReportPanel({
+  ctx,
+  copied,
+  onCopy,
+  onDismiss,
+}: {
+  ctx: UploadErrorContext;
+  copied: boolean;
+  onCopy: () => void;
+  onDismiss: () => void;
+}) {
+  const shortSummary =
+    ctx.networkError ??
+    (ctx.httpStatus
+      ? `HTTP ${ctx.httpStatus}${ctx.httpStatusText ? " " + ctx.httpStatusText : ""}`
+      : "Unknown error") +
+      (ctx.serverError ? ` — ${ctx.serverError}` : "");
+  return (
+    <div className="mt-2 rounded-md border border-red-300 bg-red-50 p-3">
+      <div className="flex items-start gap-2">
+        <AlertCircle
+          className="mt-0.5 h-4 w-4 shrink-0 text-red-600"
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-xs font-semibold text-red-900">
+            Chyba při uploadu — debug log připraven
+          </p>
+          <p
+            className="truncate font-mono text-[11px] text-red-800"
+            title={shortSummary}
+          >
+            {shortSummary}
+          </p>
+          <p className="text-[11px] text-red-800/80">
+            {ctx.batchIndex !== undefined && ctx.totalBatches !== undefined
+              ? `Batch ${ctx.batchIndex + 1} / ${ctx.totalBatches} · `
+              : ""}
+            {ctx.files.length}{" "}
+            {ctx.files.length === 1 ? "soubor" : "souborů"} v této dávce
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onCopy}
+            className="inline-flex items-center gap-1 rounded-md border border-red-300 bg-white px-2 py-1 text-[11px] font-medium text-red-800 shadow-sm hover:bg-red-50"
+          >
+            <ClipboardCopy className="h-3 w-3" aria-hidden />
+            {copied ? "Zkopírováno!" : "Zkopírovat log"}
+          </button>
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Skrýt"
+            className="rounded p-1 text-red-600 hover:bg-red-100"
+          >
+            <X className="h-3 w-3" aria-hidden />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
