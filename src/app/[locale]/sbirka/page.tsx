@@ -16,6 +16,13 @@ import {
 import { PageSizeSelector } from "@/components/finds/page-size-selector";
 import { Pagination } from "@/components/finds/pagination";
 import { FINDS_PER_PAGE } from "@/lib/constants";
+import {
+  getCollectionProgress,
+  getFilterOptions,
+  listFinds,
+  type FindFilters,
+  type FindSort,
+} from "@/lib/queries/finds";
 
 /** Allowed `?size=` values for /sbirka. 48 stays the default (matches
  *  FINDS_PER_PAGE); the larger options are deliberately the trio
@@ -33,13 +40,6 @@ function parseSbirkaPageSize(value: string | undefined): SbirkaPageSize {
     ? (n as SbirkaPageSize)
     : (FINDS_PER_PAGE as SbirkaPageSize);
 }
-import {
-  getCollectionProgress,
-  getFilterOptions,
-  listFinds,
-  type FindFilters,
-  type FindSort,
-} from "@/lib/queries/finds";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Sbirka");
