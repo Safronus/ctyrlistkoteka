@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import {
+  Camera,
   CheckSquare,
   FileText,
   Ghost,
@@ -57,6 +58,14 @@ interface Props {
    *  flag — only set for the maps scope. Rows in this set render an
    *  "anonymizovaná" badge. */
   anonymizedNames?: Set<string>;
+  /** Raw row names (no normalisation needed by caller) of maps that
+   *  have a real-life photo on disk under
+   *  `generated/location-photos/<basename>_reálné foto.*`. Set only
+   *  for the maps scope; rows here grow a small camera "foto" badge.
+   *  The page builds this by intersecting the per-page entries with
+   *  `getRealPhotoMapKeys()` so the props payload stays bounded by
+   *  page size. */
+  mapsWithRealPhoto?: Set<string>;
   /** When true, rows whose name starts with `NEEXISTUJE-` render a
    *  "zaniklá" badge. Set by the maps scope. */
   showNonexistentBadge?: boolean;
@@ -162,6 +171,7 @@ export function FilesListClient({
   gpsProblemIds,
   bulkRename,
   anonymizedNames,
+  mapsWithRealPhoto,
   showNonexistentBadge,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -615,6 +625,15 @@ export function FilesListClient({
                   title="Mapa má v PNG metadata Anonymizovaná lokace"
                 >
                   anonym.
+                </span>
+              )}
+              {mapsWithRealPhoto?.has(e.name) && (
+                <span
+                  className="inline-flex shrink-0 items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-emerald-900"
+                  title="Pro tuto mapu existuje reálná fotka v generated/location-photos/"
+                >
+                  <Camera className="h-3 w-3" aria-hidden />
+                  foto
                 </span>
               )}
               {(scopeSlug === "finds" || scopeSlug === "crops") &&

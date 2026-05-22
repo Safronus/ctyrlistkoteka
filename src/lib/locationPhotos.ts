@@ -101,6 +101,25 @@ export function invalidateLocationPhotosCache(): void {
 }
 
 /**
+ * Returns the set of map-basename keys (NFC-lower) that currently have
+ * a real photo on disk. Equivalent to running `resolveLocationMapPhoto`
+ * for every map and collecting which ones matched, but does the work
+ * in O(directory size) instead of O(maps) — fine for the /admin/files/maps
+ * listing which decorates ~130 rows per page.
+ *
+ * Does NOT honour `isAnonymized`: the listing wants to surface
+ * "photo file exists for this map" even for anonymized maps so the
+ * user can spot suppressed-on-public photos.
+ */
+export async function getRealPhotoMapKeys(): Promise<ReadonlySet<string>> {
+  const cache = await getDirCache();
+  // The Map's keys are already the NFC-lowercased basenames we need —
+  // no copy, just return a Set view. Wrap in Set so callers get the
+  // ergonomic .has() check without exposing the cache internals.
+  return new Set(cache.byKey.keys());
+}
+
+/**
  * Resolves the public URL of the real-life photo bound to a location
  * map, or null if there's no match. Anonymized maps short-circuit to
  * null — even if the file existed on disk we wouldn't surface it.

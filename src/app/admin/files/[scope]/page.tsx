@@ -9,12 +9,14 @@ import {
   Image as ImageIcon,
   Search,
 } from "lucide-react";
+import path from "node:path";
 import {
   getFindIdsWithExifProblems,
   getFindIdsWithoutGps,
 } from "@/lib/admin/checks";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { readMapAnonFlags } from "@/lib/admin/mapAnon";
+import { getRealPhotoMapKeys } from "@/lib/locationPhotos";
 import { checkSyncNeeded, type SyncScope } from "@/lib/admin/syncNeeded";
 import {
   analyzeIdRange,
@@ -303,6 +305,25 @@ export default async function AdminScopeListPage({
     keepName,
   });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // Maps-only: which of the current page's entries already have a
+  // real-life photo in generated/location-photos/. The set is keyed
+  // by the raw entry name (no NFC by caller) so the client check is
+  // a plain `.has(e.name)`. Built only for the maps scope — for
+  // other scopes the prop stays undefined and the badge is skipped.
+  let mapsWithRealPhoto: Set<string> | undefined;
+  if (scope.slug === "maps") {
+    const photoKeys = await getRealPhotoMapKeys();
+    mapsWithRealPhoto = new Set();
+    for (const e of entries) {
+      const ext = path.extname(e.name);
+      const key = e.name
+        .slice(0, e.name.length - ext.length)
+        .normalize("NFC")
+        .toLowerCase();
+      if (photoKeys.has(key)) mapsWithRealPhoto.add(e.name);
+    }
+  }
 
   // Global uncovered count for the summary line. Read this scope's
   // own ID set and count IDs missing from the counterpart.
@@ -723,6 +744,7 @@ export default async function AdminScopeListPage({
             action: markMapsNonexistentBulk,
           }}
           anonymizedNames={anonymizedNamesNFC}
+          mapsWithRealPhoto={mapsWithRealPhoto}
           showNonexistentBadge
         />
       ) : scope.slug === "donation-photos" ? (
