@@ -17,10 +17,13 @@ import { PageSizeSelector } from "@/components/finds/page-size-selector";
 import { Pagination } from "@/components/finds/pagination";
 import { FINDS_PER_PAGE } from "@/lib/constants";
 
-/** Allowed `?size=` values for /sbirka. The Pagination layout copes
- *  with any of these; the upper bound is bounded by how many find
- *  cards we want to ship in one HTML payload. */
-const SBIRKA_PAGE_SIZES = [24, 48, 96, 192] as const;
+/** Allowed `?size=` values for /sbirka. 48 stays the default (matches
+ *  FINDS_PER_PAGE); the larger options are deliberately the trio
+ *  111/222/333 — playful repdigits riffing on the project's signature
+ *  triples (#111, #666). The Pagination layout copes with any of
+ *  these; the upper bound is bounded by how many find cards we want
+ *  to ship in one HTML payload. */
+const SBIRKA_PAGE_SIZES = [48, 111, 222, 333] as const;
 type SbirkaPageSize = (typeof SBIRKA_PAGE_SIZES)[number];
 
 function parseSbirkaPageSize(value: string | undefined): SbirkaPageSize {
