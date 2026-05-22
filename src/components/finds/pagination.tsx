@@ -61,13 +61,17 @@ export function Pagination({
   const next = Math.min(totalPages, page + 1);
   const window = buildPageWindow(page, totalPages);
 
-  const stepCls =
-    "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50";
-  const numberBase =
-    "inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-md px-2 text-sm tabular-nums";
-  const numberInactive = `${numberBase} border border-gray-300 bg-white text-gray-700 hover:bg-gray-50`;
-  const numberActive = `${numberBase} border border-brand-500 bg-brand-50 font-semibold text-brand-800`;
-  const ellipsis = `${numberBase} cursor-default border border-transparent text-gray-400`;
+  // Single shared row height keeps the Prev / numbers / size-selector /
+  // Next row visually aligned. 34px matches what text-sm + py-1.5 +
+  // border renders to by default, so the previous `py-1.5` Prev/Next
+  // buttons stay the same size and the other elements drop down to
+  // match instead of standing 2px proud.
+  const rowHeight = "h-[34px]";
+  const stepCls = `inline-flex ${rowHeight} items-center rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-700 hover:bg-gray-50`;
+  const numberBase = `inline-flex ${rowHeight} min-w-[2.25rem] items-center justify-center rounded-md border px-2 text-sm tabular-nums`;
+  const numberInactive = `${numberBase} border-gray-300 bg-white text-gray-700 hover:bg-gray-50`;
+  const numberActive = `${numberBase} border-brand-500 bg-brand-50 font-semibold text-brand-800`;
+  const ellipsis = `${numberBase} cursor-default border-transparent text-gray-400`;
 
   return (
     <nav

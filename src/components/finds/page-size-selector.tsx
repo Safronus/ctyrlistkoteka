@@ -39,7 +39,7 @@ export function PageSizeSelector({
 
   return (
     <label
-      className={`inline-flex h-9 items-center gap-2 rounded-md border border-gray-300 bg-white px-2.5 text-sm text-gray-700 transition ${
+      className={`inline-flex h-[34px] items-center gap-2 rounded-md border border-gray-300 bg-white px-2.5 text-sm text-gray-700 transition ${
         isPending ? "opacity-60" : ""
       }`}
       aria-label={t("pageSizeAria")}
