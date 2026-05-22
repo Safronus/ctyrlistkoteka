@@ -9,6 +9,7 @@ import {
   CornerDownRight,
   ExternalLink,
   HelpCircle,
+  Images,
   Layers,
   MapPin,
 } from "lucide-react";
@@ -98,6 +99,12 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
                 <MapLink location={location} t={t} />
               </>
             )}
+            {/* FindsLink shown for every row including anonymized +
+                gone. Individual finds keep their own anonymization
+                on /sbirka (notes/GPS hidden per-find), so the link
+                stays privacy-safe even when the parent location is
+                anonymized. */}
+            <FindsLink location={location} t={t} />
           </div>
         </div>
         <div
@@ -280,6 +287,25 @@ function DetailLink({
     >
       <ExternalLink className="h-3.5 w-3.5" aria-hidden />
       <span>{t("detailLink")}</span>
+    </Link>
+  );
+}
+
+function FindsLink({
+  location,
+  t,
+}: {
+  location: LocationListItem;
+  t: RowT;
+}) {
+  return (
+    <Link
+      href={`/sbirka?loc=${location.id}`}
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+    >
+      <Images className="h-3.5 w-3.5" aria-hidden />
+      <span>{t("findsLink")}</span>
     </Link>
   );
 }

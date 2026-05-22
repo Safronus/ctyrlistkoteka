@@ -2,51 +2,24 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
-import {
-  Archive,
-  ArrowDownAZ,
-  ArrowDownNarrowWide,
-  Camera,
-  Clock,
-  Compass,
-  EyeOff,
-  Globe,
-  Hash,
-} from "lucide-react";
+import { Archive, ArrowUpDown, Camera, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { LocationSort } from "@/lib/queries/locations";
 
+// Sort labels live in i18n; the dropdown carries just the value + key.
+// Icons used to live on per-toggle buttons but the dropdown collapsed
+// the 6 buttons into one — the leading ArrowUpDown icon stands for
+// "řazení" generically rather than the active mode.
 const SORT_KEYS: ReadonlyArray<{
   value: LocationSort;
   key: string;
-  icon: React.ReactNode;
 }> = [
-  {
-    value: "finds",
-    key: "sortFinds",
-    icon: <ArrowDownNarrowWide className="h-4 w-4" />,
-  },
-  { value: "id", key: "sortId", icon: <Hash className="h-4 w-4" /> },
-  {
-    value: "newest",
-    key: "sortNewest",
-    icon: <Clock className="h-4 w-4" />,
-  },
-  {
-    value: "code",
-    key: "sortCode",
-    icon: <ArrowDownAZ className="h-4 w-4" />,
-  },
-  {
-    value: "dist-asc",
-    key: "sortDistAsc",
-    icon: <Compass className="h-4 w-4" />,
-  },
-  {
-    value: "dist-desc",
-    key: "sortDistDesc",
-    icon: <Globe className="h-4 w-4" />,
-  },
+  { value: "finds", key: "sortFinds" },
+  { value: "id", key: "sortId" },
+  { value: "newest", key: "sortNewest" },
+  { value: "code", key: "sortCode" },
+  { value: "dist-asc", key: "sortDistAsc" },
+  { value: "dist-desc", key: "sortDistDesc" },
 ];
 
 export function LocationsToolbar({
@@ -124,35 +97,36 @@ export function LocationsToolbar({
         )}
       </div>
 
-      <div
-        role="group"
+      {/* Sort: single dropdown instead of a 6-button group. Native
+          <select> keeps the toolbar compact and gets keyboard + mobile
+          OS-styled affordances for free. "finds" maps to no URL param
+          (it's the default), so picking it clears the param rather
+          than setting `?sort=finds`. */}
+      <label
+        className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-300 bg-white px-2.5 text-sm text-gray-700"
         aria-label={t("sortAria")}
-        className="inline-flex h-9 max-w-full overflow-x-auto rounded-md border border-gray-300 bg-white"
       >
-        {SORT_KEYS.map((opt, i) => {
-          const active = opt.value === current.sort;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() =>
-                update("sort", opt.value === "finds" ? "" : opt.value)
-              }
-              aria-pressed={active}
-              className={`flex shrink-0 items-center gap-1.5 px-3 text-sm transition ${
-                i > 0 ? "border-l border-gray-300" : ""
-              } ${
-                active
-                  ? "bg-brand-600 text-white"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              {opt.icon}
-              <span>{t(opt.key)}</span>
-            </button>
-          );
-        })}
-      </div>
+        <ArrowUpDown
+          className="h-4 w-4 shrink-0 text-gray-500"
+          aria-hidden
+        />
+        <span className="hidden text-gray-500 sm:inline">
+          {t("sortLabel")}:
+        </span>
+        <select
+          value={current.sort}
+          onChange={(e) =>
+            update("sort", e.target.value === "finds" ? "" : e.target.value)
+          }
+          className="cursor-pointer border-0 bg-transparent pr-1 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+        >
+          {SORT_KEYS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {t(opt.key)}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }
