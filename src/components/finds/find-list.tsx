@@ -109,13 +109,19 @@ function FindListRow({
           </div>
 
           {!find.isAnonymized && find.coordinates && (
+            // Each unit ("GPS pair", "uvnitř AOI", "75,8 km od mapy
+            // #00001") sits in its own whitespace-nowrap span so the
+            // line breaks only at the " · " separator on narrow mobile
+            // viewports, never inside a phrase like "uvnitř AOI".
             <p className="font-mono text-xs text-gray-500">
-              {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
+              <span className="whitespace-nowrap">
+                {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
+              </span>
               {find.locationOffset && offsetLabel && (
                 <>
                   {" · "}
                   <span
-                    className={locationOffsetToneClass(find.locationOffset)}
+                    className={`whitespace-nowrap ${locationOffsetToneClass(find.locationOffset)}`}
                     title={offsetTitle}
                   >
                     {offsetLabel}
@@ -126,7 +132,7 @@ function FindListRow({
                 <>
                   {" · "}
                   <span
-                    className="text-gray-600"
+                    className="whitespace-nowrap text-gray-600"
                     title={tOffset("fromDefaultMapTitle")}
                   >
                     {tOffset("fromDefaultMap", {

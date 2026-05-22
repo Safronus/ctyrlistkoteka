@@ -1113,14 +1113,20 @@ function CalendarSubsection({
           </div>
         ))}
       </div>
-      <div className="mt-1 flex gap-1">
+      {/* X-axis labels: on narrow mobile viewports the per-cell width
+       *  is too small to fit even a 2-char label, so we tilt them
+       *  -45° (anchored top-right of each tick) and reserve enough
+       *  vertical room. From sm: the labels go back to horizontal,
+       *  centered and truncated as before. */}
+      <div className="mt-1 flex h-12 gap-1 sm:h-auto">
         {data.map((d) => (
-          <span
-            key={d.key}
-            className="flex-1 truncate text-center font-mono text-[10px] text-gray-500"
-          >
-            {labelShort(d.key)}
-          </span>
+          <div key={d.key} className="relative flex-1">
+            <span
+              className="absolute right-1/2 top-0 origin-top-right -rotate-45 whitespace-nowrap font-mono text-[10px] text-gray-500 sm:static sm:right-auto sm:block sm:translate-x-0 sm:truncate sm:rotate-0 sm:text-center"
+            >
+              {labelShort(d.key)}
+            </span>
+          </div>
         ))}
       </div>
 

@@ -479,7 +479,7 @@
     "minuteHeatmapAxisLegend": "↔ 00:00 → 24:00  ·  ↕ 1. ledna → 31. prosince  ·  světlejší → tmavší = víc nálezů",
     "distanceHeading": "Nálezy podle vzdálenosti od lokační mapy 00001",
     "distanceSubtitle": "Logaritmické rozdělení podle vzdušné vzdálenosti od GPS středu defaultní lokační mapy. Anonymizované nálezy a nálezy bez GPS se nezahrnují.",
-    "distanceTitle": "Vzdušná vzdálenost (dekádové koše)",
+    "distanceTitle": "Vzdušná vzdálenost (logaritmické pásma)",
     "distLT10m": "do 10 m",
     "distLT10mShort": "<10 m",
     "dist10_100m": "10–100 m",

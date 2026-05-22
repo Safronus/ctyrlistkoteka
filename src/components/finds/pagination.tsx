@@ -82,7 +82,11 @@ export function Pagination({
         {t("prev")}
       </LinkOrDisabled>
 
-      <ol className="flex flex-wrap items-center gap-1">
+      {/* On mobile push the numbers onto their own row (order-3 +
+       *  w-full) so Prev / size-selector / Next stay on a single tidy
+       *  row above. From sm: numbers go back inline between Prev and
+       *  the right group. */}
+      <ol className="order-3 flex w-full flex-wrap items-center justify-center gap-1 sm:order-none sm:w-auto sm:justify-start">
         {window.map((item, idx) => {
           if (item === "…") {
             return (

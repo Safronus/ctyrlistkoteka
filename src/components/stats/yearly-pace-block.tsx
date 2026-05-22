@@ -40,12 +40,16 @@ export function YearlyPaceBlock({
         <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
           {t("paceYear")}
         </p>
+        {/* Per-button chips with their own border keep the row tidy when
+         *  the years wrap on mobile — the old "segmented" approach with
+         *  border-l between siblings left an orphan year on its own row
+         *  with a stray left-border. */}
         <div
           role="group"
           aria-label={t("yearAria")}
-          className="inline-flex flex-wrap overflow-hidden rounded-md border border-gray-300 bg-white"
+          className="flex flex-wrap items-center justify-center gap-1"
         >
-          {entries.map((e, i) => {
+          {entries.map((e) => {
             const active = e.year === selected.year;
             return (
               <button
@@ -53,12 +57,10 @@ export function YearlyPaceBlock({
                 type="button"
                 onClick={() => setSelectedYear(e.year)}
                 aria-pressed={active}
-                className={`px-2.5 py-1 text-xs font-medium tabular-nums transition ${
-                  i > 0 ? "border-l border-gray-300" : ""
-                } ${
+                className={`rounded-md border px-2.5 py-1 text-xs font-medium tabular-nums transition ${
                   active
-                    ? "bg-brand-600 text-white"
-                    : "text-gray-700 hover:bg-gray-50"
+                    ? "border-brand-600 bg-brand-600 text-white"
+                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                 }`}
               >
                 {e.year}

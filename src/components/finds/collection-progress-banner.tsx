@@ -73,29 +73,35 @@ export function CollectionProgressBanner({
           className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
           aria-hidden
         />
-        <div className="flex-1 space-y-1">
-          <p className="font-medium">{t("title")}</p>
-          <p className="text-amber-800">
-            {t("summary", {
-              count,
-              min: fmt.format(minFindId),
-              max: fmt.format(maxFindId),
-            })}{" "}
-            {leadingGap > 0 && t("olderArriving")}
-            {internalGaps > 0 && (
-              <> {t("internalMissing", { count: internalGaps })}</>
-            )}
-          </p>
+        {/* Stack the action button below the text on narrow viewports —
+         *  on a phone the side-by-side layout squeezed the paragraph into
+         *  a 6-word-wide column. Switch back to a row from sm: where
+         *  there's room for both. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="font-medium">{t("title")}</p>
+            <p className="text-amber-800">
+              {t("summary", {
+                count,
+                min: fmt.format(minFindId),
+                max: fmt.format(maxFindId),
+              })}{" "}
+              {leadingGap > 0 && t("olderArriving")}
+              {internalGaps > 0 && (
+                <> {t("internalMissing", { count: internalGaps })}</>
+              )}
+            </p>
+          </div>
+          {gaps.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="inline-flex shrink-0 items-center gap-1 self-start rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-900 shadow-sm transition hover:border-amber-500 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+            >
+              {t("showRanges")}
+            </button>
+          )}
         </div>
-        {gaps.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-900 shadow-sm transition hover:border-amber-500 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-          >
-            {t("showRanges")}
-          </button>
-        )}
       </div>
 
       <dialog
