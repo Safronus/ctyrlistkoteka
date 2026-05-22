@@ -114,17 +114,13 @@ export default async function AdminHomePage() {
         </p>
       </header>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <FeatureCard
-          icon={ShieldCheck}
-          title="Bezpečnost"
-          status="ok"
-          href="/admin/audit"
-          lines={[
-            `${credentials.length} ${credentials.length === 1 ? "passkey" : "passkeys"}`,
-            "Session 1h sliding TTL",
-          ]}
-        />
+      {/* Section 1 — Soubory sbírky.
+          Everything the rsync pipeline ships from the user's Mac to
+          the VPS and that sync.ts processes into the DB. Originály +
+          Výřezy form a tight pair (find originals + their crops),
+          Lokační mapy define the location universe, real-photo
+          uploads sit in generated/ and are an admin-only overlay. */}
+      <Group title="Soubory sbírky">
         <FeatureCard
           icon={ImageIcon}
           title="Originály nálezů"
@@ -166,6 +162,12 @@ export default async function AdminHomePage() {
             "Konvence: <mapa>_reálné foto…",
           ]}
         />
+      </Group>
+
+      {/* Section 2 — Strukturovaný obsah.
+          JSON editors + content authoring surfaces. Admin edits via
+          UI, runtime loaders pick changes up without rebuild. */}
+      <Group title="Strukturovaný obsah">
         <FeatureCard
           icon={FileCog}
           title="LokaceStavyPoznamky.json"
@@ -196,6 +198,14 @@ export default async function AdminHomePage() {
             "CRUD rotujících faktů na homepage",
           ]}
         />
+      </Group>
+
+      {/* Section 3 — Provoz.
+          Operational surfaces: trigger sync, look at consistency
+          state, manage credentials + audit. Sync first because it's
+          the most frequent action, then checks (verify), then
+          security (housekeeping). */}
+      <Group title="Provoz">
         <FeatureCard
           icon={Database}
           title="Sync"
@@ -223,7 +233,17 @@ export default async function AdminHomePage() {
                 ]
           }
         />
-      </section>
+        <FeatureCard
+          icon={ShieldCheck}
+          title="Bezpečnost"
+          status="ok"
+          href="/admin/audit"
+          lines={[
+            `${credentials.length} ${credentials.length === 1 ? "passkey" : "passkeys"}`,
+            "Session 1h sliding TTL",
+          ]}
+        />
+      </Group>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <div className="mb-3 flex items-center gap-2">
@@ -279,6 +299,30 @@ export default async function AdminHomePage() {
         )}
       </section>
     </div>
+  );
+}
+
+/** Section wrapper for the admin tile grid. Each call renders a small
+ *  uppercase section title + a responsive grid of FeatureCard children.
+ *  The page composes three such groups (Soubory sbírky / Strukturovaný
+ *  obsah / Provoz) so the tiles read as themed clusters instead of one
+ *  long undifferentiated wall. */
+function Group({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+        {title}
+      </h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {children}
+      </div>
+    </section>
   );
 }
 
