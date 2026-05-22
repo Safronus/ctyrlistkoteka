@@ -290,7 +290,9 @@ export default async function FindDetailPage({ params }: PageProps) {
         {find.locationMaps.length > 0 && (
           <LocationMapsGallery
             maps={find.locationMaps}
+            locationOffset={find.locationOffset}
             isAnonymized={find.isAnonymized}
+            locale={locale}
             t={t}
           />
         )}
@@ -317,17 +319,98 @@ type FindDetailT = (
   values?: Record<string, string | number | Date>,
 ) => string;
 
+/** Status classes for the per-map indicator banner + halo around the
+ *  existing clover pin. Mirrors the colour vocabulary used by
+ *  /sbirka's `locationOffsetToneClass` so visitors get a consistent
+ *  signal from list → detail. */
+type MapStatus = "in_polygon" | "outside_polygon" | "outside_map" | "no_gps";
+
+interface MapStatusStyle {
+  /** Tailwind classes for the status banner (background + border + text). */
+  banner: string;
+  /** Tailwind classes for the leading dot inside the banner. */
+  dot: string;
+  /** CSS `filter` chain applied to the pin SVG. Colour-tinted glow
+   *  layered on top of the existing black drop-shadow so the marker
+   *  carries its own contrast against grass/pavement/snow alike. */
+  pinFilter: string | null;
+}
+
+const MAP_STATUS_STYLES: Record<MapStatus, MapStatusStyle> = {
+  in_polygon: {
+    banner: "bg-emerald-50 border-emerald-300 text-emerald-900",
+    dot: "bg-emerald-500",
+    pinFilter:
+      "drop-shadow(0 0 8px rgba(16,185,129,0.7)) drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
+  },
+  outside_polygon: {
+    banner: "bg-amber-50 border-amber-300 text-amber-900",
+    dot: "bg-amber-500",
+    pinFilter:
+      "drop-shadow(0 0 8px rgba(245,158,11,0.75)) drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
+  },
+  outside_map: {
+    banner: "bg-rose-50 border-rose-300 text-rose-900",
+    dot: "bg-rose-500",
+    // No pin on-image when the find is outside the bbox.
+    pinFilter: null,
+  },
+  no_gps: {
+    banner: "bg-gray-100 border-gray-300 text-gray-700",
+    dot: "bg-gray-400",
+    pinFilter:
+      "drop-shadow(0 0 8px rgba(156,163,175,0.6)) drop-shadow(0 1px 2px rgba(0,0,0,0.3))",
+  },
+};
+
+/** Determines which status applies for a given map row.
+ *
+ *  Truth table:
+ *   - marker null OR no-gps                → no_gps
+ *   - marker outside                       → outside_map
+ *   - marker inside + offset says outside-polygon → outside_polygon
+ *   - else                                 → in_polygon
+ *
+ *  `locationOffset` lives on the find (one polygon-membership flag
+ *  shared by every map of the find's location), so it can refine the
+ *  green/yellow split inside the bbox; for `mode === "center"` it
+ *  has no polygon to compare against and we fall back to green. */
+function classifyMapStatus(
+  marker: PublicLocationMap["marker"],
+  offset: { meters: number; mode: "polygon" | "center"; inside: boolean } | null,
+): MapStatus {
+  if (!marker || marker.kind === "no-gps") return "no_gps";
+  if (marker.kind === "outside") return "outside_map";
+  if (offset && offset.mode === "polygon" && offset.inside === false) {
+    return "outside_polygon";
+  }
+  return "in_polygon";
+}
+
 function LocationMapsGallery({
   maps,
+  locationOffset,
   isAnonymized = false,
+  locale,
   t,
 }: {
   maps: readonly PublicLocationMap[];
+  /** Pre-computed offset from the find's location polygon/center.
+   *  Drives the green/yellow split inside the bbox; null when the
+   *  find is anonymized, has no GPS, or the location has neither a
+   *  polygon nor a centre point. */
+  locationOffset: {
+    meters: number;
+    mode: "polygon" | "center";
+    inside: boolean;
+  } | null;
   /** Anonymized finds get a `?` overlay on the placeholder map so a
    *  visitor can't mistake the substituted default location for the
    *  real one. The query layer already strips the marker (`no-gps`)
    *  and swaps in the placeholder location; this is the visual seal. */
   isAnonymized?: boolean;
+  /** Used to format the distance suffix in the status banner. */
+  locale: string;
   /** Server-side translator pre-bound to the `FindDetail` namespace.
    *  Passed as a prop instead of re-derived here so the helper stays
    *  a sync function (next-intl's `getTranslations` is async). */
@@ -335,50 +418,142 @@ function LocationMapsGallery({
 }) {
   return (
     <div className="space-y-3 pt-2">
-      {maps.map((m) => (
-        <figure
-          key={m.id}
-          className="overflow-hidden rounded-md border border-gray-200 bg-gray-50"
-        >
-          {/* Wrapper is `relative` so the find's GPS marker can be
-              positioned absolutely on top of the lazy-loaded image. */}
-          <div className="relative">
-            {/* Served by Nginx, no Next.js optimizer (docs/architecture.md). */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={m.imageUrl}
-              alt={m.description ?? t("mapImageFallback")}
-              loading="lazy"
-              decoding="async"
-              className="block h-auto w-full"
-            />
-            {!isAnonymized && m.marker?.kind === "inside" && (
-              <FindLocationMarker
-                xFrac={m.marker.xFrac}
-                yFrac={m.marker.yFrac}
-                t={t}
-              />
+      {maps.map((m) => {
+        const status = isAnonymized
+          ? null
+          : classifyMapStatus(m.marker, locationOffset);
+        const style = status ? MAP_STATUS_STYLES[status] : null;
+        return (
+          <figure
+            key={m.id}
+            className="overflow-hidden rounded-md border border-gray-200 bg-gray-50"
+          >
+            {/* Status banner — colored strip above the image so the
+                visitor sees the verdict before scanning the map for
+                the pin. Anonymized finds skip the banner because the
+                marker is stripped server-side anyway; their distinct
+                purple overlay handles the messaging. */}
+            {status && style && (
+              <div
+                className={`flex items-center gap-2 border-b px-3 py-1.5 text-xs font-medium ${style.banner}`}
+              >
+                <span
+                  aria-hidden
+                  className={`inline-block h-2 w-2 shrink-0 rounded-full ${style.dot}`}
+                />
+                <span>
+                  {statusLabel(status, locationOffset, locale, t)}
+                </span>
+              </div>
             )}
-            {isAnonymized && <AnonymizedMapOverlay t={t} />}
-          </div>
-          {m.description && !isAnonymized && (
-            <figcaption className="px-3 pt-2 text-xs text-gray-600">
-              {m.description}
-            </figcaption>
-          )}
-          {!isAnonymized && m.marker?.kind === "outside" && (
-            <p className="px-3 pb-2 pt-1 text-xs text-gray-500">
-              {t("mapMarkerOutside")}
-            </p>
-          )}
-          {!isAnonymized && m.marker?.kind === "no-gps" && (
-            <p className="px-3 pb-2 pt-1 text-xs text-gray-500">
-              {t("mapMarkerNoGps")}
-            </p>
-          )}
-        </figure>
-      ))}
+            {/* Wrapper is `relative` so the find's GPS marker can be
+                positioned absolutely on top of the lazy-loaded image. */}
+            <div className="relative">
+              {/* Served by Nginx, no Next.js optimizer (docs/architecture.md). */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={m.imageUrl}
+                alt={m.description ?? t("mapImageFallback")}
+                loading="lazy"
+                decoding="async"
+                className="block h-auto w-full"
+              />
+              {!isAnonymized && m.marker?.kind === "inside" && style && (
+                <FindLocationMarker
+                  xFrac={m.marker.xFrac}
+                  yFrac={m.marker.yFrac}
+                  pinFilter={style.pinFilter ?? undefined}
+                  t={t}
+                />
+              )}
+              {!isAnonymized && status === "no_gps" && (
+                <NoGpsMarker t={t} />
+              )}
+              {isAnonymized && <AnonymizedMapOverlay t={t} />}
+            </div>
+            {m.description && !isAnonymized && (
+              <figcaption className="px-3 pt-2 text-xs text-gray-600">
+                {m.description}
+              </figcaption>
+            )}
+          </figure>
+        );
+      })}
     </div>
+  );
+}
+
+/** Composes the status banner label. Status carries the colour, the
+ *  text fills in the distance from the offset where applicable. */
+function statusLabel(
+  status: MapStatus,
+  offset: {
+    meters: number;
+    mode: "polygon" | "center";
+    inside: boolean;
+  } | null,
+  locale: string,
+  t: FindDetailT,
+): string {
+  if (status === "no_gps") return t("mapStatusNoGps");
+  if (status === "outside_map") {
+    // Even though `marker.kind === "outside"` (the find is past the
+    // map's bbox), we may still have a numeric `meters` from the
+    // offset — surface it when known so the visitor sees how far
+    // off-map the find actually is.
+    return offset
+      ? t("mapStatusOutsideMapDistance", {
+          distance: formatDistance(offset.meters, locale),
+        })
+      : t("mapStatusOutsideMap");
+  }
+  if (status === "outside_polygon" && offset) {
+    return t("mapStatusOutsidePolygon", {
+      distance: formatDistance(offset.meters, locale),
+    });
+  }
+  // in_polygon — distance suffix is meaningful for both polygon
+  // (meters from polygon edge / centroid) and center (meters from
+  // map's centre point) modes; just shown without the "mimo" word.
+  if (offset) {
+    return t("mapStatusInPolygonDistance", {
+      distance: formatDistance(offset.meters, locale),
+    });
+  }
+  return t("mapStatusInPolygon");
+}
+
+/** Centred grey clover for the no-GPS case — substitutes for the
+ *  normal pin so the layout doesn't shift and the visitor still has
+ *  a visual cue that the map block belongs to a find (just one with
+ *  unknown coordinates). */
+function NoGpsMarker({ t }: { t: FindDetailT }) {
+  return (
+    <span
+      role="img"
+      aria-label={t("findMarkerNoGpsAria")}
+      className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
+      style={{
+        filter:
+          "drop-shadow(0 0 8px rgba(156,163,175,0.55)) drop-shadow(0 1px 2px rgba(0,0,0,0.3))",
+      }}
+    >
+      <svg viewBox="0 0 32 40" width={36} height={44} aria-hidden focusable={false}>
+        <path
+          d="M16 40 L8 26 A12 12 0 1 1 24 26 Z"
+          fill="#fff"
+          stroke="#fff"
+          strokeWidth={2}
+        />
+        <g fill="#9ca3af">
+          <circle cx={16} cy={11} r={5} />
+          <circle cx={11} cy={16} r={5} />
+          <circle cx={21} cy={16} r={5} />
+          <circle cx={16} cy={21} r={5} />
+          <circle cx={16} cy={16} r={3} fill="#6b7280" />
+        </g>
+      </svg>
+    </span>
   );
 }
 
@@ -408,14 +583,20 @@ function AnonymizedMapOverlay({ t }: { t: FindDetailT }) {
 /** Pin marker overlaid on a location-map image at the find's GPS.
  *  Anchors so the visual "tip" of the clover sits on the actual point —
  *  bottom centre via translate(-50%, -100%). White stroke + drop-shadow
- *  guarantees visibility on grass / pavement / dark roof alike. */
+ *  guarantees visibility on grass / pavement / dark roof alike.
+ *
+ *  `pinFilter` optionally replaces the default drop-shadow with a
+ *  colour-tinted glow + the same shadow underneath — drives the
+ *  status halo (emerald / amber / rose) per MAP_STATUS_STYLES. */
 function FindLocationMarker({
   xFrac,
   yFrac,
+  pinFilter,
   t,
 }: {
   xFrac: number;
   yFrac: number;
+  pinFilter?: string;
   t: FindDetailT;
 }) {
   return (
@@ -427,7 +608,7 @@ function FindLocationMarker({
         left: `${xFrac * 100}%`,
         top: `${yFrac * 100}%`,
         transform: "translate(-50%, -100%)",
-        filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
+        filter: pinFilter ?? "drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
       }}
     >
       <svg
