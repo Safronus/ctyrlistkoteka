@@ -500,23 +500,29 @@ function statusLabel(
     // Even though `marker.kind === "outside"` (the find is past the
     // map's bbox), we may still have a numeric `meters` from the
     // offset — surface it when known so the visitor sees how far
-    // off-map the find actually is.
-    return offset
-      ? t("mapStatusOutsideMapDistance", {
-          distance: formatDistance(offset.meters, locale),
-        })
-      : t("mapStatusOutsideMap");
+    // off-map the find actually is. Center-mode locations word it
+    // as "od středu mapy", polygon-mode as "od hrany polygonu".
+    if (!offset) return t("mapStatusOutsideMap");
+    const distance = formatDistance(offset.meters, locale);
+    return offset.mode === "center"
+      ? t("mapStatusOutsideMapFromCenter", { distance })
+      : t("mapStatusOutsideMapFromPolygon", { distance });
   }
   if (status === "outside_polygon" && offset) {
     return t("mapStatusOutsidePolygon", {
       distance: formatDistance(offset.meters, locale),
     });
   }
-  // in_polygon — distance suffix is meaningful for both polygon
-  // (meters from polygon edge / centroid) and center (meters from
-  // map's centre point) modes; just shown without the "mimo" word.
-  if (offset) {
-    return t("mapStatusInPolygonDistance", {
+  // in_polygon status covers two semantically different "inside"
+  // cases that must not share copy:
+  //   - polygon mode → find is inside the AOI polygon; `meters` is
+  //     distance from the polygon edge (≈0 here), not useful to
+  //     surface. Use the plain "uvnitř polygonu" wording.
+  //   - center mode → location has no polygon at all, only a centre
+  //     point. Saying "uvnitř polygonu" would be a lie. Word it as
+  //     "v mapě lokality" + distance from the map centre.
+  if (offset && offset.mode === "center") {
+    return t("mapStatusInMapFromCenter", {
       distance: formatDistance(offset.meters, locale),
     });
   }
