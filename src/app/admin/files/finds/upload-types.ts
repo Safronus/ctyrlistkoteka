@@ -48,6 +48,13 @@ export interface UploadResult {
   size?: number;
   /** Present on ok results — find ID parsed from the filename. */
   findId?: number;
+  /** Set when the uploaded file landed OK but its EXIF block is
+   *  missing a usable `DateTimeOriginal` (sync would later land
+   *  `Find.foundAt = null` and the find would fall out of every
+   *  time-based aggregate). The client renders this inline next to
+   *  the row in amber — non-blocking, just an early warning so the
+   *  operator notices before running sync. */
+  exifWarning?: string;
 }
 
 /** Top-level response shape for the upload server action. The

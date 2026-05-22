@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { atomicWrite } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
+import { readExifSafe } from "@/lib/admin/exif";
 import { parseMultipartRequest, type MultipartFile } from "@/lib/admin/multipart";
 import { safeBaseName, safeJoin } from "@/lib/admin/paths";
 import { resolveDiskPath } from "@/lib/admin/scopes";
@@ -206,6 +207,22 @@ async function processOne(
 
   await atomicWrite(absolutePath, data);
 
+  // Inspect EXIF on the crop too — softer warning than for originals
+  // because the cropping pipeline routinely strips DateTimeOriginal,
+  // and sync only writes `Find.foundAt` from the ORIGINAL's EXIF, not
+  // the crop's. So a crop with missing EXIF is fine *as long as the
+  // matching original has EXIF*. We still surface the warning so the
+  // operator can confirm the original is healthy before sync.
+  const exif = await readExifSafe(absolutePath);
+  const exifWarning =
+    exif.dateTaken === null
+      ? "Ořez nemá EXIF DateTimeOriginal — sync se opírá o EXIF originálu pro #" +
+        findId +
+        "; ověř, že originál EXIF má."
+      : !exif.dateTakenHasClock
+        ? "EXIF má datum, ale chybí čas (HH:MM:SS = 00:00:00) — pokud originál má plný timestamp, nevadí."
+        : undefined;
+
   await appendAudit({
     action: "file.upload",
     ip,
@@ -216,6 +233,8 @@ async function processOne(
       size: data.byteLength,
       findId,
       outcome: "ok",
+      exifDateTaken: exif.dateTaken?.toISOString() ?? null,
+      exifWarning: exifWarning ?? null,
     },
   });
 
@@ -225,6 +244,7 @@ async function processOne(
     status: "ok",
     size: data.byteLength,
     findId,
+    ...(exifWarning ? { exifWarning } : {}),
   };
 }
 

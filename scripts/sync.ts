@@ -27,6 +27,7 @@ import {
   type ParsedFindFilename,
   type ParsedMapFilename,
 } from "../src/lib/parseFilename";
+import { readExifSafe } from "../src/lib/admin/exif";
 import { splitLocationCode, toAsciiCode } from "../src/lib/locationCode";
 import { parseRanges } from "../src/lib/parseRanges";
 import { JSON_STATE_MAP } from "../src/lib/stateMapping";
@@ -233,122 +234,10 @@ async function readHierarchy(path: string): Promise<Hierarchy | null> {
   }
 }
 
-async function readExifSafe(path: string): Promise<{
-  dateTaken: Date | null;
-  /** True if the chosen `dateTaken` carries a non-zero clock component
-   *  (i.e. HH:MM:SS not all zero). False when EXIF only stores a date. */
-  dateTakenHasClock: boolean;
-  lat: number | null;
-  lng: number | null;
-}> {
-  try {
-    const exifr = (await import("exifr")).default;
-    // Default options give us EXIF + GPS with auto-unwrapping into top-level
-    // `latitude` / `longitude`. `pick` was previously used here together
-    // with `gps: true` and that combination filters output keys BEFORE the
-    // GPS unwrap step — leaving us with empty results. Always read the full
-    // default set; we filter to just the keys we need below.
-    const exif = (await exifr.parse(path)) as
-      | {
-          DateTimeOriginal?: Date | string;
-          DateTimeDigitized?: Date | string;
-          CreateDate?: Date | string;
-          ModifyDate?: Date | string;
-          latitude?: number;
-          longitude?: number;
-          GPSLatitude?: number | number[];
-          GPSLongitude?: number | number[];
-          GPSLatitudeRef?: string;
-          GPSLongitudeRef?: string;
-        }
-      | undefined;
-    if (!exif) {
-      return { dateTaken: null, dateTakenHasClock: false, lat: null, lng: null };
-    }
-
-    // Try every plausible EXIF date field, then prefer the first candidate
-    // that actually carries a clock component — some pipelines (older
-    // exiftool / heic-convert / WhatsApp etc.) strip the time portion of
-    // DateTimeOriginal but leave it intact in CreateDate, or vice versa.
-    const candidates = [
-      exif.DateTimeOriginal,
-      exif.DateTimeDigitized,
-      exif.CreateDate,
-      exif.ModifyDate,
-    ]
-      .map(toDate)
-      .filter((d): d is Date => d !== null);
-    const withClock = candidates.find(hasClockComponent);
-    const dateTaken = withClock ?? candidates[0] ?? null;
-
-    // Prefer the auto-unwrapped decimals; fall back to manually decoding
-    // the raw degrees/minutes/seconds tuple some HEIC variants emit.
-    const lat =
-      typeof exif.latitude === "number"
-        ? exif.latitude
-        : toDecimalDegrees(exif.GPSLatitude, exif.GPSLatitudeRef);
-    const lng =
-      typeof exif.longitude === "number"
-        ? exif.longitude
-        : toDecimalDegrees(exif.GPSLongitude, exif.GPSLongitudeRef);
-
-    return {
-      dateTaken,
-      dateTakenHasClock: dateTaken ? hasClockComponent(dateTaken) : false,
-      lat: lat !== null && Number.isFinite(lat) ? lat : null,
-      lng: lng !== null && Number.isFinite(lng) ? lng : null,
-    };
-  } catch {
-    return { dateTaken: null, dateTakenHasClock: false, lat: null, lng: null };
-  }
-}
-
-/**
- * Coerce an EXIF date field into a Date. exifr usually returns a Date
- * instance, but if the underlying value can't be parsed (unusual EXIF
- * variants, broken pipelines) it can fall back to the raw string.
- */
-function toDate(v: Date | string | undefined): Date | null {
-  if (!v) return null;
-  if (v instanceof Date) return Number.isFinite(v.getTime()) ? v : null;
-  const m = /^(\d{4}):(\d{2}):(\d{2})(?:[ T](\d{2}):(\d{2}):(\d{2}))?/.exec(v);
-  if (!m) return null;
-  const [, y, mo, d, hh, mm, ss] = m;
-  const dt = new Date(
-    Number(y),
-    Number(mo) - 1,
-    Number(d),
-    Number(hh ?? 0),
-    Number(mm ?? 0),
-    Number(ss ?? 0),
-  );
-  return Number.isFinite(dt.getTime()) ? dt : null;
-}
-
-function hasClockComponent(d: Date): boolean {
-  return d.getHours() !== 0 || d.getMinutes() !== 0 || d.getSeconds() !== 0;
-}
-
-/**
- * Converts EXIF GPS values (decimal number OR [deg, min, sec] tuple) plus a
- * direction reference ("N"/"S"/"E"/"W") into a signed decimal degree.
- */
-function toDecimalDegrees(
-  raw: number | number[] | undefined,
-  ref: string | undefined,
-): number | null {
-  if (raw === undefined) return null;
-  let dd: number;
-  if (typeof raw === "number") {
-    dd = raw;
-  } else if (Array.isArray(raw) && raw.length >= 3) {
-    dd = (raw[0] ?? 0) + (raw[1] ?? 0) / 60 + (raw[2] ?? 0) / 3600;
-  } else {
-    return null;
-  }
-  if (ref === "S" || ref === "W") dd = -dd;
-  return Number.isFinite(dd) ? dd : null;
-}
+// EXIF reading + GPS unwrap moved into src/lib/admin/exif.ts so the
+// admin upload routes can reuse the same helper. `readExifSafe` is
+// imported below; sync.ts callers keep their existing call sites
+// unchanged.
 
 // --------------------------------------------------------------------------
 //  Progress

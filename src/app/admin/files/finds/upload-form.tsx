@@ -85,6 +85,10 @@ interface QueuedFile {
   reason?: string;
   size?: number;
   findId?: number;
+  /** Set on status=ok when the server's EXIF inspection flagged a
+   *  problem (missing DateTimeOriginal etc.). Rendered inline next
+   *  to the row as an amber warning — non-blocking. */
+  exifWarning?: string;
 }
 
 const ACCEPT_EXTENSIONS = [".jpg", ".jpeg"];
@@ -287,6 +291,7 @@ export function FindsUploadForm() {
                 reason: result.reason,
                 size: result.size,
                 findId: result.findId,
+                exifWarning: result.exifWarning,
               };
             });
             return updated;
@@ -470,6 +475,14 @@ export function FindsUploadForm() {
                 {q.status === "ok" && q.findId !== undefined && (
                   <span className="shrink-0 font-mono text-emerald-700">
                     #{q.findId}
+                  </span>
+                )}
+                {q.status === "ok" && q.exifWarning && (
+                  <span
+                    className="shrink-0 max-w-[45%] truncate rounded bg-amber-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-amber-900"
+                    title={q.exifWarning}
+                  >
+                    EXIF: {q.exifWarning}
                   </span>
                 )}
                 {q.status !== "uploading" && (

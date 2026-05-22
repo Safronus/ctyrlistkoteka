@@ -21,6 +21,14 @@ export interface UploadResult {
    *  filename convention (per `scripts/apply-watermark.ts`: "ORIG
    *  and CROP can share the same basename"). */
   findId?: number;
+  /** Set when the uploaded crop landed OK but its EXIF block is
+   *  missing a usable `DateTimeOriginal`. For crops this is *softer*
+   *  than for originals — the cropping pipeline frequently strips
+   *  EXIF, and sync only writes `foundAt` from the ORIGINAL's EXIF
+   *  (not the crop's). So a crop with no EXIF is fine **as long as
+   *  the matching original has EXIF**. The warning is still surfaced
+   *  so the operator knows to verify the original before sync. */
+  exifWarning?: string;
 }
 
 /** Top-level response shape — matches finds/upload-types.ts. The

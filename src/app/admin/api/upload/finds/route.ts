@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { atomicWrite } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
+import { readExifSafe } from "@/lib/admin/exif";
 import { parseMultipartRequest, type MultipartFile } from "@/lib/admin/multipart";
 import { safeBaseName, safeJoin } from "@/lib/admin/paths";
 import { resolveDiskPath } from "@/lib/admin/scopes";
@@ -197,6 +198,20 @@ async function processOne(
 
   await atomicWrite(absolutePath, data);
 
+  // Inspect EXIF immediately after the file lands on disk. Gives the
+  // operator a pre-sync warning if DateTimeOriginal is missing —
+  // sync would otherwise write `Find.foundAt = null` later and the
+  // find would silently drop out of every time-based aggregate. The
+  // helper never throws (returns nulls on malformed EXIF) so a bad
+  // EXIF block doesn't break the upload itself.
+  const exif = await readExifSafe(absolutePath);
+  const exifWarning =
+    exif.dateTaken === null
+      ? "Chybí EXIF DateTimeOriginal — sync uloží foundAt = null a nález vypadne z časových agregátů."
+      : !exif.dateTakenHasClock
+        ? "EXIF má datum, ale chybí čas (HH:MM:SS = 00:00:00) — sync ho přiřadí na půlnoc."
+        : undefined;
+
   await appendAudit({
     action: "file.upload",
     ip,
@@ -207,6 +222,8 @@ async function processOne(
       size: data.byteLength,
       findId: parsed.value.findId,
       outcome: "ok",
+      exifDateTaken: exif.dateTaken?.toISOString() ?? null,
+      exifWarning: exifWarning ?? null,
     },
   });
 
@@ -216,6 +233,7 @@ async function processOne(
     status: "ok",
     size: data.byteLength,
     findId: parsed.value.findId,
+    ...(exifWarning ? { exifWarning } : {}),
   };
 }
 

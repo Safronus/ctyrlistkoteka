@@ -73,6 +73,11 @@ interface QueuedFile {
   reason?: string;
   size?: number;
   findId?: number;
+  /** Server-side EXIF inspection warning — surfaced on status=ok
+   *  rows when the crop is missing DateTimeOriginal. Soft warning:
+   *  sync uses the ORIGINAL's EXIF for `foundAt`, so a missing
+   *  EXIF on the crop is fine as long as the original is healthy. */
+  exifWarning?: string;
 }
 
 const ACCEPT_EXTENSIONS = [".jpg", ".jpeg"];
@@ -257,6 +262,7 @@ export function CropsUploadForm() {
                 reason: result.reason,
                 size: result.size,
                 findId: result.findId,
+                exifWarning: result.exifWarning,
               };
             });
             return updated;
@@ -423,6 +429,14 @@ export function CropsUploadForm() {
                 {q.status === "ok" && q.findId !== undefined && (
                   <span className="shrink-0 font-mono text-emerald-700">
                     #{q.findId}
+                  </span>
+                )}
+                {q.status === "ok" && q.exifWarning && (
+                  <span
+                    className="shrink-0 max-w-[45%] truncate rounded bg-amber-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-amber-900"
+                    title={q.exifWarning}
+                  >
+                    EXIF: {q.exifWarning}
                   </span>
                 )}
                 {q.status !== "uploading" && (
