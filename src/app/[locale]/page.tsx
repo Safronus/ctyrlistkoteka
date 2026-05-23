@@ -226,12 +226,10 @@ export default async function HomePage() {
       </section>
 
       {/* Popular pick sits between the summary stats row and the
-       *  retrospective grid — reads as "current community spotlight"
+       *  highlights grid — reads as "current community spotlight"
        *  rather than a footnote. Hides itself when no votes exist
        *  yet, so the cold-start page doesn't show a placeholder. */}
       <PopularFindWidget winner={popularWinner} />
-
-      {retrospective && <RetrospectiveGrid data={retrospective} />}
 
       <HighlightsSection
         highlights={data.highlights}
@@ -251,6 +249,11 @@ export default async function HomePage() {
       )}
 
       <RandomFindShowcaseWidget initial={randomFind} />
+
+      {/* Retrospective last — it's a heavy "look-back" section that
+       *  belongs at the bottom of the page, after the visitor has
+       *  seen the current state of the collection. */}
+      {retrospective && <RetrospectiveGrid data={retrospective} />}
     </div>
   );
 }

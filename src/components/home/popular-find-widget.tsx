@@ -1,3 +1,4 @@
+import { MapPin } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { CloverThumbIcon } from "@/components/icons/clover-thumb-icon";
@@ -47,12 +48,20 @@ export async function PopularFindWidget({
         : winner.location.code
       : null;
 
+  // Map deep-link mirrors LatestFindSection — non-anonymized winners
+  // with public coords go to /mapa?find=<id>; anonymized winners
+  // skip the link (their GPS is stripped on the public site).
+  const showMapLink = !winner.isAnonymized;
+
   return (
     <section
       aria-labelledby="popular-find-heading"
-      className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4 sm:p-5"
+      // mt-8 separates the widget from the summary stats above so it
+      // doesn't visually glue to the StatCards row. Matches the gap
+      // the other top-level sections (Highlights, LatestFind) leave.
+      className="mt-8 flex items-stretch overflow-hidden rounded-2xl border border-brand-200 bg-brand-50/60"
     >
-      <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
+      <div className="grid flex-1 gap-4 p-4 sm:grid-cols-[auto_1fr] sm:items-center sm:p-5">
         <Link
           href={`/sbirka/${winner.findId}`}
           className="group relative block aspect-square w-full max-w-[180px] overflow-hidden rounded-xl border border-brand-200 bg-white sm:w-40"
@@ -131,6 +140,19 @@ export async function PopularFindWidget({
           </dl>
         </div>
       </div>
+      {showMapLink && (
+        // Separate map-pin rail on the right, identical pattern to
+        // LatestFindSection. Keeps the main link to the find detail
+        // intact while offering a one-click jump to the map view.
+        <Link
+          href={`/mapa?find=${winner.findId}`}
+          aria-label={t("showOnMap")}
+          title={t("showOnMap")}
+          className="flex shrink-0 items-center justify-center border-l border-brand-200 px-3 text-brand-600 transition hover:bg-brand-100 hover:text-brand-800 focus:bg-brand-100 focus:text-brand-800 focus:outline-none sm:px-4"
+        >
+          <MapPin className="h-5 w-5" aria-hidden />
+        </Link>
+      )}
     </section>
   );
 }

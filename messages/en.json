@@ -99,7 +99,8 @@
     "tabYear": "Last 12 months",
     "voteCount": "{count, plural, =0 {0 votes} one {# vote} other {# votes}}",
     "rankPrefix": "#",
-    "openFind": "Open detail"
+    "openFind": "Open detail",
+    "showOnMap": "Show on map"
   },
   "FilterBar": {
     "search": "Search",

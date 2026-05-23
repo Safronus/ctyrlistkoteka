@@ -115,6 +115,13 @@ export default async function StatistikyPage() {
       <Suspense fallback={<JubileesSkeleton />}>
         <JubileesSection />
       </Suspense>
+      {/* Top 10 most-voted finds sits between Jubilejní nálezy and
+       *  Top 10 lokalit — both are "leaderboard" sections, so they
+       *  read better grouped than scattered with the calendar
+       *  histograms at the bottom. */}
+      <Suspense fallback={<TopFindsSkeleton />}>
+        <TopFindsSection />
+      </Suspense>
       <Suspense fallback={<TopLocationsSkeleton />}>
         <TopLocationsSection />
       </Suspense>
@@ -126,9 +133,6 @@ export default async function StatistikyPage() {
       </Suspense>
       <Suspense fallback={<CalendarSkeleton />}>
         <CalendarSection />
-      </Suspense>
-      <Suspense fallback={<TopFindsSkeleton />}>
-        <TopFindsSection />
       </Suspense>
     </div>
   );

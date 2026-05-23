@@ -98,7 +98,8 @@
     "tabYear": "Posledních 12 měsíců",
     "voteCount": "{count, plural, =0 {0 hlasů} one {# hlas} few {# hlasy} other {# hlasů}}",
     "rankPrefix": "#",
-    "openFind": "Otevřít detail"
+    "openFind": "Otevřít detail",
+    "showOnMap": "Zobrazit na mapě"
   },
   "FilterBar": {
     "search": "Hledat",

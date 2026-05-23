@@ -118,21 +118,6 @@ function FindListRow({
           alt={altText}
           className="h-24 w-24 shrink-0 rounded-md sm:h-28 sm:w-28"
         />
-        {/* Vote button as a dedicated column immediately right of the
-         *  photo. lg size mirrors the find-detail CTA so the call-to-
-         *  action reads consistently across both surfaces. The button
-         *  itself stops click propagation, so its parent Link won't
-         *  navigate when the visitor clicks the heart. */}
-        {find.primaryImage && (
-          <div className="flex shrink-0 items-center">
-            <VoteButton
-              findId={find.id}
-              initialVoted={voted}
-              initialCount={voteCount}
-              size="lg"
-            />
-          </div>
-        )}
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {/* Title row: #ID + #LocId - CODE (description), datetime right.
@@ -197,21 +182,45 @@ function FindListRow({
             <p className="line-clamp-2 text-sm text-gray-600">{find.notes}</p>
           )}
 
-          {(find.states.length > 0 || find.hasRealPhoto) && (
-            <div className="mt-auto flex flex-wrap items-center justify-end gap-1.5 self-end">
-              {find.hasRealPhoto && (
-                // Camera badge — same chip as the /lokality list, kept in
-                // its own pill so it reads as "the find has extra
-                // material" rather than as another state badge.
-                <span
-                  className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800"
-                  title={tRow("donationPhotoTitle")}
-                  aria-label={tRow("donationPhotoTitle")}
-                >
-                  <Camera className="h-3 w-3" aria-hidden />
-                </span>
+          {/* Bottom row of the content column — pushed against the
+           *  photo's bottom edge via `mt-auto`. Layout: vote button on
+           *  the LEFT (anchored to the photo it belongs to), state +
+           *  donation-photo badges on the RIGHT (ml-auto pushes them
+           *  out). When either side is empty, the other side takes
+           *  the row alone — `flex-wrap` keeps badges from clipping
+           *  on narrow mobile rows. */}
+          {(find.primaryImage ||
+            find.states.length > 0 ||
+            find.hasRealPhoto) && (
+            <div className="mt-auto flex flex-wrap items-end gap-2">
+              {find.primaryImage && (
+                <VoteButton
+                  findId={find.id}
+                  initialVoted={voted}
+                  initialCount={voteCount}
+                  size="lg"
+                />
               )}
-              {find.states.length > 0 && <StateBadges states={find.states} />}
+              {(find.states.length > 0 || find.hasRealPhoto) && (
+                <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                  {find.hasRealPhoto && (
+                    // Camera badge — same chip as the /lokality list,
+                    // kept in its own pill so it reads as "the find has
+                    // extra material" rather than as another state
+                    // badge.
+                    <span
+                      className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800"
+                      title={tRow("donationPhotoTitle")}
+                      aria-label={tRow("donationPhotoTitle")}
+                    >
+                      <Camera className="h-3 w-3" aria-hidden />
+                    </span>
+                  )}
+                  {find.states.length > 0 && (
+                    <StateBadges states={find.states} />
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
