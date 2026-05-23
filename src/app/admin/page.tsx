@@ -21,6 +21,7 @@ import { ensureAdminAuth } from "@/lib/admin/guard";
 import { listCredentials } from "@/lib/admin/credentials";
 import { readRecentAudit } from "@/lib/admin/audit";
 import { runChecksSummary } from "@/lib/admin/checks";
+import { checkSyncNeeded } from "@/lib/admin/syncNeeded";
 
 /** Time window for collapsing consecutive file.upload entries from the
  *  same operator + scope into one summary row. Match the upload form's
@@ -94,16 +95,33 @@ function formatActivityTimeOnly(ts: string): string {
 
 export default async function AdminHomePage() {
   await ensureAdminAuth();
-  const [credentials, recentRaw, checks] = await Promise.all([
+  const [
+    credentials,
+    recentRaw,
+    checks,
+    syncFinds,
+    syncMaps,
+    syncMeta,
+  ] = await Promise.all([
     listCredentials(),
     // Pull a larger tail than we ultimately display — when a single
     // batch upload writes 50 rows, we still want 20 logical events on
     // screen after aggregation.
     readRecentAudit(200),
     runChecksSummary(),
+    // Per-scope sync-needed checks for the tile indicators below.
+    // Each call does a dir-mtime vs. last-sync-success comparison —
+    // bounded by the directory count for the scope (1–2 dirs),
+    // negligible overhead even on cold cache.
+    checkSyncNeeded(["finds"]),
+    checkSyncNeeded(["maps"]),
+    checkSyncNeeded(["meta"]),
   ]);
   const recent = aggregateUploadBatches(recentRaw).slice(0, 20);
   const checksOk = checks.totalIssues === 0;
+  const findsNeedSync = syncFinds.needed;
+  const mapsNeedSync = syncMaps.needed;
+  const metaNeedSync = syncMeta.needed;
 
   return (
     <div className="space-y-6">
@@ -126,6 +144,7 @@ export default async function AdminHomePage() {
           icon={ImageIcon}
           title="Originály nálezů"
           status="ok"
+          syncNeeded={findsNeedSync}
           href="/admin/files/finds"
           lines={["data/finds/", "Drag-drop, EXIF, bulk delete"]}
         />
@@ -133,6 +152,7 @@ export default async function AdminHomePage() {
           icon={Crop}
           title="Výřezy nálezů"
           status="ok"
+          syncNeeded={findsNeedSync}
           href="/admin/files/crops"
           lines={["data/crops/", "Akceptuje i zkrácené <id>.jpg"]}
         />
@@ -140,6 +160,7 @@ export default async function AdminHomePage() {
           icon={MapIcon}
           title="Lokační mapy"
           status="ok"
+          syncNeeded={mapsNeedSync}
           href="/admin/files/maps"
           lines={["data/maps/", "Detekce duplikátů, bulk delete"]}
         />
@@ -173,6 +194,7 @@ export default async function AdminHomePage() {
           icon={FileCog}
           title="LokaceStavyPoznamky.json"
           status="ok"
+          syncNeeded={metaNeedSync}
           href="/admin/files/meta/LokaceStavyPoznamky.json"
           lines={[
             "Náhled + statistiky + lookup",
@@ -183,6 +205,7 @@ export default async function AdminHomePage() {
           icon={Network}
           title="Hierarchie lokalit"
           status="ok"
+          syncNeeded={metaNeedSync}
           href="/admin/json/lokace-hierarchie"
           lines={[
             "data/meta/LokaceHierarchie.json",
@@ -341,6 +364,7 @@ function FeatureCard({
   icon: Icon,
   title,
   status,
+  syncNeeded = false,
   lines,
   href,
 }: {
@@ -351,6 +375,11 @@ function FeatureCard({
    *           an actionable problem (e.g. failed consistency checks).
    *  "todo" — placeholder card for sections not yet implemented. */
   status: "ok" | "warn" | "todo";
+  /** Soft amber pill rendered next to the title when set — for
+   *  scopes whose data dir has changed since the last successful
+   *  `pnpm sync`. Doesn't escalate to `warn` because a pending sync
+   *  is a reminder, not a problem. */
+  syncNeeded?: boolean;
   lines: string[];
   /** When set, the card becomes an interactive link to the section.
    *  TODO cards stay as static blocks — no destination yet. */
@@ -359,16 +388,28 @@ function FeatureCard({
   const body = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Icon
-            className={`h-4 w-4 ${status === "warn" ? "text-red-700" : "text-brand-600"}`}
+            className={`h-4 w-4 shrink-0 ${status === "warn" ? "text-red-700" : "text-brand-600"}`}
             aria-hidden
           />
           <h3
-            className={`text-sm font-semibold ${status === "warn" ? "text-red-900" : "text-gray-900"}`}
+            className={`truncate text-sm font-semibold ${status === "warn" ? "text-red-900" : "text-gray-900"}`}
           >
             {title}
           </h3>
+          {syncNeeded && (
+            <span
+              title="Změny od posledního syncu — spusť sync"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900"
+            >
+              <span
+                aria-hidden
+                className="h-1.5 w-1.5 rounded-full bg-amber-500"
+              />
+              sync
+            </span>
+          )}
         </div>
         {status === "ok" ? (
           <CheckCircle2

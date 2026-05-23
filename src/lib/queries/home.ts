@@ -45,6 +45,13 @@ export interface HomeTotals {
   /** ISO date of the most recently dated find. Drives the "Poslední
    *  nález" date hint on the home stat row. */
   latestFoundAt: string | null;
+  /** ISO timestamp of the most recent INSERT of a "backfill" find —
+   *  one whose ID was lower than the max ID already in the table at
+   *  the time it was inserted. In product terms: when the user last
+   *  uploaded older finds that fill gaps in the historic range. Null
+   *  when no such insert ever happened (the user has only ever added
+   *  finds at the high end of the ID range). */
+  lastBackfillCreatedAt: string | null;
 }
 
 export interface HomeHighlights {
@@ -116,6 +123,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     topLocRows,
     monthlyRows,
     geoLocRows,
+    backfillRows,
   ] = await Promise.all([
     prisma.$queryRaw<
       Array<{
@@ -269,6 +277,27 @@ export async function getHomePageData(): Promise<HomePageData> {
         SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
       )
     `,
+
+    // "Last backfill" — most recent INSERT of a find whose ID was
+    // already below the running max at the moment of insertion. We
+    // walk the table in created_at order, computing the max-id-so-far
+    // BEFORE the row, then keep only the rows where the find's own id
+    // is below that running max. Latest such created_at is the
+    // answer. Bounded cost: one sequential scan ordered by an indexed
+    // column (createdAt — `@@index([foundAt(sort: Desc)])` doesn't
+    // cover this, but at ~17 k rows even a seq scan is sub-100 ms).
+    prisma.$queryRaw<Array<{ last_backfill_at: Date | null }>>`
+      SELECT MAX(created_at) AS last_backfill_at
+      FROM (
+        SELECT id, created_at,
+               MAX(id) OVER (
+                 ORDER BY created_at
+                 ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+               ) AS prev_max
+        FROM finds
+      ) t
+      WHERE prev_max IS NOT NULL AND id < prev_max
+    `,
   ]);
 
   const c = countsRows[0];
@@ -288,6 +317,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     }
   }
 
+  const lastBackfill = backfillRows[0]?.last_backfill_at ?? null;
   const totals: HomeTotals = {
     finds: c ? Number(c.finds) : 0,
     locations: c ? Number(c.locations) : 0,
@@ -296,6 +326,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     donated: c ? Number(c.donated) : 0,
     yearsSpan,
     latestFoundAt: c?.latest_found_at ? c.latest_found_at.toISOString() : null,
+    lastBackfillCreatedAt: lastBackfill ? lastBackfill.toISOString() : null,
   };
 
   const lf = latestFindRow;

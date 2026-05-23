@@ -254,12 +254,23 @@ export interface TopFindRich {
    *  in to having them in the leaderboard ("voting is about the
    *  image, not the location"). */
   thumbUrl: string | null;
+  /** EXIF DateTimeOriginal as ISO — null for finds without EXIF.
+   *  Surfaced for the homepage tile so the visitor sees WHEN the
+   *  winner was found, not just "find #18269". Anonymized finds keep
+   *  the date (it doesn't identify the location). */
+  foundAt: string | null;
+  /** Display name + code of the find's location. NULL for anonymized
+   *  finds — surfacing it would leak the place behind the privacy
+   *  veil. The homepage tile renders an "anonymizovaný nález"
+   *  placeholder in that case. */
+  location: { id: number; code: string; displayName: string } | null;
 }
 
 /**
  * Same as `getTopFinds` but also fetches each entry's primary
- * thumbnail in one batch. Used by the homepage tile + /statistiky
- * leaderboard so they don't need to issue per-row queries.
+ * thumbnail + minimal context (date, location name) in one batch.
+ * Used by the homepage tile + /statistiky leaderboard so they don't
+ * need to issue per-row queries.
  */
 export async function getTopFindsWithThumbs(args: {
   limit: number;
@@ -273,19 +284,31 @@ export async function getTopFindsWithThumbs(args: {
   const [findRows, imageRows] = await Promise.all([
     prisma.find.findMany({
       where: { id: { in: findIds } },
-      select: { id: true, isAnonymized: true },
+      select: {
+        id: true,
+        isAnonymized: true,
+        foundAt: true,
+        location: {
+          select: { id: true, code: true, displayName: true },
+        },
+      },
     }),
     prisma.findImage.findMany({
       where: { findId: { in: findIds }, isPrimary: true },
       select: { findId: true, thumbPath: true },
     }),
   ]);
-  const anonById = new Map(findRows.map((r) => [r.id, r.isAnonymized]));
+  const findById = new Map(findRows.map((r) => [r.id, r]));
   const thumbById = new Map(imageRows.map((r) => [r.findId, r.thumbPath]));
-  return top.map((t) => ({
-    findId: t.findId,
-    voteCount: t.voteCount,
-    isAnonymized: anonById.get(t.findId) ?? false,
-    thumbUrl: thumbById.get(t.findId) ?? null,
-  }));
+  return top.map((t) => {
+    const f = findById.get(t.findId);
+    return {
+      findId: t.findId,
+      voteCount: t.voteCount,
+      isAnonymized: f?.isAnonymized ?? false,
+      thumbUrl: thumbById.get(t.findId) ?? null,
+      foundAt: f?.foundAt ? f.foundAt.toISOString() : null,
+      location: f && !f.isAnonymized ? f.location : null,
+    };
+  });
 }

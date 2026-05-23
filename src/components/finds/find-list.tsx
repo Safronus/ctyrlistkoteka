@@ -113,28 +113,26 @@ function FindListRow({
         href={`/sbirka/${find.id}`}
         className="flex min-w-0 flex-1 items-stretch gap-4 p-3"
       >
-        {/* Thumbnail is wrapped in a relative div so the vote button
-         *  can sit absolutely positioned in the bottom-left corner of
-         *  the photo — same UX pattern the grid card uses. The
-         *  wrapper inherits `shrink-0` so the photo column keeps
-         *  its fixed 96/112-px width. */}
-        <div className="relative h-24 w-24 shrink-0 sm:h-28 sm:w-28">
-          <FindThumbnail
-            image={find.primaryImage}
-            alt={altText}
-            className="h-full w-full rounded-md"
-          />
-          {find.primaryImage && (
-            <div className="absolute bottom-1 left-1 rounded-full bg-white/90 backdrop-blur-sm shadow-sm">
-              <VoteButton
-                findId={find.id}
-                initialVoted={voted}
-                initialCount={voteCount}
-                compact
-              />
-            </div>
-          )}
-        </div>
+        <FindThumbnail
+          image={find.primaryImage}
+          alt={altText}
+          className="h-24 w-24 shrink-0 rounded-md sm:h-28 sm:w-28"
+        />
+        {/* Vote button as a dedicated column immediately right of the
+         *  photo. lg size mirrors the find-detail CTA so the call-to-
+         *  action reads consistently across both surfaces. The button
+         *  itself stops click propagation, so its parent Link won't
+         *  navigate when the visitor clicks the heart. */}
+        {find.primaryImage && (
+          <div className="flex shrink-0 items-center">
+            <VoteButton
+              findId={find.id}
+              initialVoted={voted}
+              initialCount={voteCount}
+              size="lg"
+            />
+          </div>
+        )}
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {/* Title row: #ID + #LocId - CODE (description), datetime right.

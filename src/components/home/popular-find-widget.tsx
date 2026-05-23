@@ -1,17 +1,22 @@
-import { getTranslations } from "next-intl/server";
-import { Trophy } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { CloverThumbIcon } from "@/components/icons/clover-thumb-icon";
+import { formatShortDateTimeCs } from "@/lib/format";
 import type { TopFindRich } from "@/lib/votes";
 
 /**
- * Homepage "Nejoblíbenější čtyřlístek" tile — surfaces the #1 find
- * by all-time votes. Renders nothing if no find has any vote yet
- * (we don't want a placeholder card cluttering the page in that
- * cold-start state — the leaderboard on /statistiky still shows
- * its own empty state).
+ * Homepage "Nejoblíbenější čtyřlístek" panel — surfaces the #1 find
+ * by all-time votes. Sits between the summary stats row and the
+ * Retrospective grid so it reads as an "ongoing community pick"
+ * spotlight rather than an end-of-page footnote.
  *
- * Server component: the data is read in the parent page render and
- * passed in as a prop; this just lays out the markup.
+ * Styling tracks the site's brand-green palette (no amber/orange —
+ * that fought with the otherwise green page chrome). Anonymized
+ * winner shows just the thumbnail + count + anon label; the
+ * location/date are stripped per CLAUDE.md §6.
+ *
+ * Server component: parent renders the data, this just lays out the
+ * markup.
  */
 export async function PopularFindWidget({
   winner,
@@ -21,17 +26,36 @@ export async function PopularFindWidget({
   winner: TopFindRich | null;
 }) {
   if (!winner) return null;
-  const t = await getTranslations("Popular");
+  const [t, tRow, locale] = await Promise.all([
+    getTranslations("Popular"),
+    getTranslations("FindRow"),
+    getLocale(),
+  ]);
+
+  // Two paths: anonymized vs public. The non-anonymized branch shows
+  // date + location code/displayName; the anon branch only shows the
+  // ID + thumbnail + vote count.
+  const dateLine =
+    !winner.isAnonymized && winner.foundAt
+      ? formatShortDateTimeCs(new Date(winner.foundAt), locale)
+      : null;
+  const locationLine =
+    !winner.isAnonymized && winner.location
+      ? winner.location.displayName &&
+        winner.location.displayName !== winner.location.code
+        ? `${winner.location.code} — ${winner.location.displayName}`
+        : winner.location.code
+      : null;
 
   return (
     <section
       aria-labelledby="popular-find-heading"
-      className="overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-emerald-50 shadow-sm"
+      className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4 sm:p-5"
     >
-      <div className="grid gap-4 p-4 sm:grid-cols-[auto_1fr] sm:p-5">
+      <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
         <Link
           href={`/sbirka/${winner.findId}`}
-          className="group relative block aspect-square w-full max-w-[200px] overflow-hidden rounded-xl border border-amber-200 bg-amber-100 sm:w-44"
+          className="group relative block aspect-square w-full max-w-[180px] overflow-hidden rounded-xl border border-brand-200 bg-white sm:w-40"
           aria-label={t("openFind")}
         >
           {winner.thumbUrl ? (
@@ -45,20 +69,20 @@ export async function PopularFindWidget({
               className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-amber-500">
-              <Trophy className="h-12 w-12" aria-hidden />
+            <div className="flex h-full w-full items-center justify-center text-brand-400">
+              <CloverThumbIcon filled className="h-16 w-16" />
             </div>
           )}
           <span
             aria-hidden
-            className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-white/90 px-1.5 py-0.5 text-xs font-bold text-amber-700 shadow-sm backdrop-blur-sm"
+            className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-white/90 px-1.5 py-0.5 text-xs font-bold text-brand-700 shadow-sm backdrop-blur-sm"
           >
-            <Trophy className="h-3.5 w-3.5" aria-hidden />
             {t("rankPrefix")}1
           </span>
         </Link>
-        <div className="flex flex-col justify-center gap-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-amber-700">
+        <div className="flex flex-col gap-2">
+          <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-brand-700">
+            <CloverThumbIcon filled className="h-4 w-4" />
             {t("homepageSubtitle")}
           </p>
           <h2
@@ -67,18 +91,44 @@ export async function PopularFindWidget({
           >
             {t("homepageTitle")}
           </h2>
-          <p className="font-mono text-sm tabular-nums text-gray-700">
-            #{winner.findId}
-            <span className="ml-3 text-amber-700">
-              {t("voteCount", { count: winner.voteCount })}
-            </span>
-          </p>
-          <Link
-            href={`/sbirka/${winner.findId}`}
-            className="mt-1 inline-flex w-fit items-center rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-amber-700"
-          >
-            {t("openFind")}
-          </Link>
+          <dl className="space-y-1 text-sm text-gray-700">
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <dt className="text-gray-500">{t("homepageFindLabel")}</dt>
+              <dd>
+                <Link
+                  href={`/sbirka/${winner.findId}`}
+                  className="font-mono font-semibold text-brand-700 hover:underline"
+                >
+                  #{winner.findId}
+                </Link>
+              </dd>
+            </div>
+            {dateLine && (
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <dt className="text-gray-500">{t("homepageDateLabel")}</dt>
+                <dd className="font-mono tabular-nums text-gray-700">
+                  {dateLine}
+                </dd>
+              </div>
+            )}
+            {locationLine && (
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <dt className="text-gray-500">{t("homepageLocationLabel")}</dt>
+                <dd className="truncate text-gray-700" title={locationLine}>
+                  {locationLine}
+                </dd>
+              </div>
+            )}
+            {winner.isAnonymized && (
+              <div className="text-gray-500">{tRow("anonymizedLocation")}</div>
+            )}
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <dt className="text-gray-500">{t("homepageVotesLabel")}</dt>
+              <dd className="font-mono tabular-nums font-semibold text-brand-700">
+                {t("voteCount", { count: winner.voteCount })}
+              </dd>
+            </div>
+          </dl>
         </div>
       </div>
     </section>

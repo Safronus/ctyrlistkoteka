@@ -157,6 +157,22 @@ export default async function HomePage() {
                 </span>
               </p>
             )}
+            {totals.lastBackfillCreatedAt && (
+              // "Backfill" = the user uploaded older finds that fill
+              // gaps in the historic ID range. We surface the most
+              // recent such upload's `created_at` (DB insert time, not
+              // the EXIF date) so visitors can tell when historic
+              // photos last landed in the catalog.
+              <p>
+                {t("lastBackfill")}{" "}
+                <span className="text-gray-500">
+                  {formatShortDateTimeCs(
+                    new Date(totals.lastBackfillCreatedAt),
+                    locale,
+                  )}
+                </span>
+              </p>
+            )}
           </div>
         )}
       </section>
@@ -209,6 +225,12 @@ export default async function HomePage() {
         />
       </section>
 
+      {/* Popular pick sits between the summary stats row and the
+       *  retrospective grid — reads as "current community spotlight"
+       *  rather than a footnote. Hides itself when no votes exist
+       *  yet, so the cold-start page doesn't show a placeholder. */}
+      <PopularFindWidget winner={popularWinner} />
+
       {retrospective && <RetrospectiveGrid data={retrospective} />}
 
       <HighlightsSection
@@ -219,8 +241,6 @@ export default async function HomePage() {
         nf={NF}
         cloverTexts={cloverTexts}
       />
-
-      <PopularFindWidget winner={popularWinner} />
 
       {data.latestFind && (
         <LatestFindSection
