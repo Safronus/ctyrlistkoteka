@@ -177,6 +177,7 @@ export default async function FindDetailPage({ params }: PageProps) {
                 findId={find.id}
                 initialVoted={voted}
                 initialCount={voteCount}
+                size="lg"
               />
             )}
           </div>

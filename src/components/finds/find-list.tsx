@@ -113,11 +113,28 @@ function FindListRow({
         href={`/sbirka/${find.id}`}
         className="flex min-w-0 flex-1 items-stretch gap-4 p-3"
       >
-        <FindThumbnail
-          image={find.primaryImage}
-          alt={altText}
-          className="h-24 w-24 shrink-0 rounded-md sm:h-28 sm:w-28"
-        />
+        {/* Thumbnail is wrapped in a relative div so the vote button
+         *  can sit absolutely positioned in the bottom-left corner of
+         *  the photo — same UX pattern the grid card uses. The
+         *  wrapper inherits `shrink-0` so the photo column keeps
+         *  its fixed 96/112-px width. */}
+        <div className="relative h-24 w-24 shrink-0 sm:h-28 sm:w-28">
+          <FindThumbnail
+            image={find.primaryImage}
+            alt={altText}
+            className="h-full w-full rounded-md"
+          />
+          {find.primaryImage && (
+            <div className="absolute bottom-1 left-1 rounded-full bg-white/90 backdrop-blur-sm shadow-sm">
+              <VoteButton
+                findId={find.id}
+                initialVoted={voted}
+                initialCount={voteCount}
+                compact
+              />
+            </div>
+          )}
+        </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {/* Title row: #ID + #LocId - CODE (description), datetime right.
@@ -197,21 +214,6 @@ function FindListRow({
                 </span>
               )}
               {find.states.length > 0 && <StateBadges states={find.states} />}
-            </div>
-          )}
-          {/* Public vote button — full mode so the count sits next to
-           *  the icon. Only rendered when the find has a thumbnail to
-           *  vote on; no-photo finds skip the affordance (we're voting
-           *  on the image, per the design discussion). The button
-           *  stops click propagation internally so this doesn't fire
-           *  the row's parent <Link> navigation. */}
-          {find.primaryImage && (
-            <div className="-mb-1 flex items-center justify-end self-end">
-              <VoteButton
-                findId={find.id}
-                initialVoted={voted}
-                initialCount={voteCount}
-              />
             </div>
           )}
         </div>

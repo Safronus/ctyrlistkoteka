@@ -26,15 +26,20 @@ export function VoteButton({
   findId,
   initialVoted,
   initialCount,
-  /** Compact = no count visible, just icon. Used on the grid card
-   *  variant where the row is already tight; the count is still
-   *  available via the aria-label/tooltip. */
+  /** Compact = no count visible inside the button, just icon (count
+   *  appears next to it). Used on grid cards + list-row overlays
+   *  where the surrounding chrome is already tight. */
   compact = false,
+  /** Visual size — `lg` doubles the icon for use on the find detail
+   *  header so the affordance reads as a real call-to-action, not a
+   *  metadata chip. Default `md` is what /sbirka rows use. */
+  size = "md",
 }: {
   findId: number;
   initialVoted: boolean;
   initialCount: number;
   compact?: boolean;
+  size?: "md" | "lg";
 }) {
   const t = useTranslations("Vote");
   const [voted, setVoted] = useState(initialVoted);
@@ -93,39 +98,62 @@ export function VoteButton({
 
   const label = voted ? t("buttonVoted") : t("buttonVote");
 
+  // Size-table — controls padding, icon size, count font.
+  // `lg` is the prominent detail-page CTA; `md` is the inline chip on
+  // /sbirka list rows + grid overlays.
+  const sizes =
+    size === "lg"
+      ? {
+          button: "px-3 py-2 text-base gap-1.5",
+          icon: "h-6 w-6",
+          count: "text-sm",
+        }
+      : {
+          button: "px-2 py-1 text-sm gap-1",
+          icon: "h-4 w-4",
+          count: "text-xs",
+        };
+
+  // Outline/idle state styling: gray on light bg by default, emerald
+  // brand color when voted. `lg` mode keeps a visible border + slight
+  // shadow even when not voted, so the affordance reads as "click me"
+  // instead of "metadata". `md` mode is more subtle (no border when
+  // unvoted) so it doesn't fight with the list-row chrome.
+  const stateClass = voted
+    ? "border border-brand-300 bg-brand-100 text-brand-800 hover:bg-brand-200"
+    : size === "lg"
+      ? "border border-gray-300 bg-white text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 shadow-sm"
+      : "border border-transparent text-gray-500 hover:bg-gray-100 hover:text-brand-700";
+
   return (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex items-center gap-1.5">
       <button
         type="button"
         onClick={onClick}
         disabled={isPending}
         aria-pressed={voted}
-        aria-label={
-          compact
-            ? `${label} (${count})`
-            : label
-        }
+        aria-label={compact ? `${label} (${count})` : label}
         title={voted ? t("tooltipUnvote") : t("tooltipVote")}
-        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm transition focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${
-          voted
-            ? "bg-brand-100 text-brand-700 hover:bg-brand-200"
-            : "text-gray-500 hover:bg-gray-100 hover:text-brand-700"
-        } ${isPending ? "opacity-70" : ""}`}
+        className={`inline-flex items-center rounded-full font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${sizes.button} ${stateClass} ${
+          isPending ? "opacity-70" : ""
+        }`}
       >
         <CloverThumbIcon
           filled={voted}
-          className={`h-4 w-4 transition-transform ${
-            isPending ? "scale-95" : ""
-          }`}
+          className={`${sizes.icon} transition-transform ${
+            isPending ? "scale-95" : voted ? "scale-105" : ""
+          } ${voted ? "text-brand-600" : ""}`}
         />
         {!compact && (
-          <span className="font-mono text-xs tabular-nums">{count}</span>
+          <span className={`font-mono tabular-nums ${sizes.count}`}>
+            {count}
+          </span>
         )}
       </button>
       {compact && (
         // Count rendered next to the button so the aria label and
         // visible label match. Stays grey so it reads as metadata.
-        <span className="font-mono text-xs tabular-nums text-gray-500">
+        <span className={`font-mono tabular-nums text-gray-500 ${sizes.count}`}>
           {count}
         </span>
       )}
