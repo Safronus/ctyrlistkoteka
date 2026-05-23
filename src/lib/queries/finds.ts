@@ -1004,7 +1004,7 @@ export interface FilterOptions {
 }
 
 export async function getFilterOptions(): Promise<FilterOptions> {
-  const [locations, yearRows, cities, countries, dateBounds] =
+  const [locations, yearRows, cities, countries, dateBounds, anonMaps] =
     await Promise.all([
       prisma.location.findMany({
         select: { id: true, code: true, displayName: true },
@@ -1023,20 +1023,41 @@ export async function getFilterOptions(): Promise<FilterOptions> {
         _max: { foundAt: true },
         where: { foundAt: { not: null } },
       }),
+      // Per-map anonymization flag — a Location counts as anonymized as
+      // soon as ANY of its maps has the PNG "Anonymizovaná lokace" tag
+      // set. Same rule that drives /lokality's privacy strip; reused
+      // here so the filter dropdown can suppress the displayName side
+      // of the label for those rows (the bare `code` is still public —
+      // it matches what /lokality renders for anonymized rows).
+      prisma.locationMap.findMany({
+        where: { isAnonymized: true },
+        select: { locationId: true },
+      }),
     ]);
 
+  const anonymizedLocationIds = new Set<number>(
+    anonMaps.map((m) => m.locationId),
+  );
+
   return {
-    locations: locations.map((l) => ({
-      id: l.id,
-      // Code is the formal identifier; displayName is the human note. Show
-      // both so visitors can recognize a location either way — the code
-      // matches what they see on /lokality and on filenames, the
-      // displayName describes the place.
-      label:
-        l.displayName && l.displayName.trim() && l.displayName !== l.code
-          ? `${l.code} — ${l.displayName}`
-          : l.code,
-    })),
+    locations: locations.map((l) => {
+      const isAnonymized = anonymizedLocationIds.has(l.id);
+      // Code is the formal identifier; displayName is the human note
+      // ("note" in user-speak). For anonymized locations we drop the
+      // displayName — leaving it visible here would leak through the
+      // filter UI even though /lokality already strips it. For public
+      // ones, show "<code> — <displayName>" so visitors can recognize
+      // a location either way.
+      const showDisplay =
+        !isAnonymized &&
+        l.displayName &&
+        l.displayName.trim() &&
+        l.displayName !== l.code;
+      return {
+        id: l.id,
+        label: showDisplay ? `${l.code} — ${l.displayName}` : l.code,
+      };
+    }),
     cities,
     countries,
     states: Object.values(FindState),

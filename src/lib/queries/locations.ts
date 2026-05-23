@@ -687,6 +687,33 @@ export async function listLocations(
   return interleaveChildren(items);
 }
 
+/** Narrows the Prisma `Json` value for `location_maps.image_bounds`
+ *  to the `[[swLat, swLng], [neLat, neLng]]` shape sync.ts writes.
+ *  Returns null on anything unexpected — the overlay then gracefully
+ *  skips drawing instead of misplacing the halo. */
+function parseImageBounds(
+  raw: unknown,
+): [[number, number], [number, number]] | null {
+  if (!Array.isArray(raw) || raw.length !== 2) return null;
+  const [a, b] = raw;
+  if (!Array.isArray(a) || a.length !== 2) return null;
+  if (!Array.isArray(b) || b.length !== 2) return null;
+  const [swLat, swLng] = a;
+  const [neLat, neLng] = b;
+  if (
+    typeof swLat !== "number" ||
+    typeof swLng !== "number" ||
+    typeof neLat !== "number" ||
+    typeof neLng !== "number"
+  ) {
+    return null;
+  }
+  return [
+    [swLat, swLng],
+    [neLat, neLng],
+  ];
+}
+
 /** Mutates `into` to absorb `from`'s totals, year range, first/last find
  *  and state/yearly bins. Used during the parent/child aggregation pass:
  *  every visible child's stats get folded into the parent's
@@ -830,6 +857,16 @@ export interface LocationDetailMap {
    *  exists in `${GENERATED_DIR}/location-photos/`. Resolved at request
    *  time via filename match; see src/lib/locationPhotos.ts. */
   realPhotoUrl: string | null;
+  /** GPS centre of this PNG, parsed from its filename at sync time.
+   *  Used to position the overlay dot/halo on the rendered image
+   *  (combined with `imageBounds` below). */
+  centerLat: number;
+  centerLng: number;
+  /** SW + NE corners of the PNG in lat/lng, computed at sync time
+   *  from filename's GPS + zoom + image dimensions. `null` when the
+   *  bounds row was not yet backfilled — overlays then skip render
+   *  rather than guess. Shape: `[[swLat, swLng], [neLat, neLng]]`. */
+  imageBounds: [[number, number], [number, number]] | null;
 }
 
 /** Compact handle for a related location (parent / sibling / child).
@@ -929,6 +966,13 @@ export async function getLocationDetailById(
           imageWidth: true,
           imageHeight: true,
           description: true,
+          // GPS metadata for the centre-dot overlay on locations without
+          // a polygon — the detail page draws a 5-m gradient halo and
+          // needs both the centre point (from the filename) and the
+          // pixel bounds (from sync) to position + scale it.
+          centerLat: true,
+          centerLng: true,
+          imageBounds: true,
           // Needed for the real-photo lookup — `imagePath` is sha1-hashed
           // for cache-busting, only the original (diacritics + plus
           // signs) preserves the disk-side filename of the photo.
@@ -1053,6 +1097,14 @@ export async function getLocationDetailById(
       imageHeight: m.imageHeight,
       description: m.description,
       realPhotoUrl: photoUrls[i] ?? null,
+      centerLat: m.centerLat,
+      centerLng: m.centerLng,
+      // imageBounds in DB is a Prisma `Json?` — narrow it here so the
+      // overlay can rely on a typed `[[number, number], [number,
+      // number]]`. The shape is set by sync.ts as exactly that 2x2
+      // tuple, but bad rows from older schema versions could surface
+      // as anything; tolerate them by returning null.
+      imageBounds: parseImageBounds(m.imageBounds),
     })),
     parent,
     siblings,
