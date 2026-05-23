@@ -179,7 +179,8 @@
     "sortDesc": "Newest",
     "sortAsc": "Oldest",
     "sortDistAsc": "Nearest",
-    "sortDistDesc": "Farthest"
+    "sortDistDesc": "Farthest",
+    "sortVotesDesc": "Most loved"
   },
   "Pagination": {
     "navLabel": "Pagination",

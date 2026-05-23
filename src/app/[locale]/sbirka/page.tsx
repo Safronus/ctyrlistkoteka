@@ -85,6 +85,7 @@ function parseState(value: string | undefined): FindState | undefined {
 }
 
 function parseSort(value: string | undefined): FindSort {
+  if (value === "votes-desc") return "votes-desc";
   if (value === "asc") return "asc";
   if (value === "dist-asc") return "dist-asc";
   if (value === "dist-desc") return "dist-desc";

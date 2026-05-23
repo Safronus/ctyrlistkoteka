@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { CloverThumbIcon } from "@/components/icons/clover-thumb-icon";
 
@@ -34,18 +34,52 @@ export function VoteButton({
    *  header so the affordance reads as a real call-to-action, not a
    *  metadata chip. Default `md` is what /sbirka rows use. */
   size = "md",
+  /** When true, the button asks GET /api/finds/:id/vote on mount and
+   *  reconciles its local state with what the server reports for
+   *  this visitor. Use on surfaces rendered in ISR-cached pages
+   *  (homepage Popular tile, /statistiky leaderboard) where the
+   *  server can't read per-visitor cookies during the cached render
+   *  — the freshly-mounted client fetches the truth. /sbirka pages
+   *  are dynamic and already pass the correct initial state, so
+   *  they leave this off to skip the extra round-trip. */
+  autoHydrate = false,
 }: {
   findId: number;
   initialVoted: boolean;
   initialCount: number;
   compact?: boolean;
   size?: "md" | "lg";
+  autoHydrate?: boolean;
 }) {
   const t = useTranslations("Vote");
   const [voted, setVoted] = useState(initialVoted);
   const [count, setCount] = useState(initialCount);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Self-hydration for ISR / cached surfaces — see prop docstring.
+  // Aborts in-flight when the find id changes (e.g. someone keys a
+  // remount with a different find), so a slow response can't clobber
+  // the new find's state. Failures are silent: the optimistic POST/
+  // DELETE flow handles them anyway via P2002 idempotence.
+  useEffect(() => {
+    if (!autoHydrate) return;
+    const ac = new AbortController();
+    fetch(`/api/finds/${findId}/vote`, {
+      signal: ac.signal,
+      credentials: "same-origin",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { voted?: boolean; count?: number } | null) => {
+        if (!data) return;
+        if (typeof data.voted === "boolean") setVoted(data.voted);
+        if (typeof data.count === "number") setCount(data.count);
+      })
+      .catch(() => {
+        /* swallow — aborted or offline */
+      });
+    return () => ac.abort();
+  }, [autoHydrate, findId]);
 
   const onClick = (e: React.MouseEvent) => {
     // The button often sits inside a clickable card / list row; we

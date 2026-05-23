@@ -178,7 +178,8 @@
     "sortDesc": "Nejnovější",
     "sortAsc": "Nejstarší",
     "sortDistAsc": "Nejbližší",
-    "sortDistDesc": "Nejvzdálenější"
+    "sortDistDesc": "Nejvzdálenější",
+    "sortVotesDesc": "Nejoblíbenější"
   },
   "Pagination": {
     "navLabel": "Stránkování",

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { VoteButton } from "@/components/finds/vote-button";
 import type { TopFindRich } from "@/lib/votes";
 
 interface Props {
@@ -85,10 +86,18 @@ export function TopFindsLeaderboard({ allTime, yearly, monthly }: Props) {
       ) : (
         <ol className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
           {entries.map((e, idx) => (
-            <li key={e.findId} className="relative">
+            <li
+              key={e.findId}
+              className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50 transition hover:border-brand-300 hover:shadow-sm"
+            >
+              {/* Photo + rank badge link to the find detail; the vote
+               *  button below is its own affordance so visitors can
+               *  boost a top entry without leaving the page. Two
+               *  separate clickable surfaces, no nested <a><button>
+               *  HTML invariant. */}
               <Link
                 href={`/sbirka/${e.findId}`}
-                className="group block overflow-hidden rounded-lg border border-gray-200 bg-gray-50 transition hover:border-brand-300 hover:shadow-sm"
+                className="group relative block"
                 aria-label={t("openFind")}
               >
                 {e.thumbUrl ? (
@@ -113,15 +122,29 @@ export function TopFindsLeaderboard({ allTime, yearly, monthly }: Props) {
                   {t("rankPrefix")}
                   {idx + 1}
                 </span>
-                <div className="flex items-baseline justify-between gap-2 px-2 py-1.5 text-xs">
-                  <span className="font-mono text-gray-700">
-                    #{e.findId}
-                  </span>
-                  <span className="font-mono tabular-nums text-brand-700">
-                    {t("voteCount", { count: e.voteCount })}
-                  </span>
-                </div>
               </Link>
+              <div className="flex items-center justify-between gap-2 px-2 py-1.5 text-xs">
+                <Link
+                  href={`/sbirka/${e.findId}`}
+                  className="font-mono text-gray-700 hover:underline"
+                >
+                  #{e.findId}
+                </Link>
+                {/* autoHydrate so the per-visitor voted state lands
+                 *  even though /statistiky is ISR-cached and can't
+                 *  read cookies during the cached render. The button
+                 *  starts with the public count, then GET fixes it
+                 *  on mount. Switching tabs unmounts → remounts via
+                 *  the parent's conditional render, so each tab gets
+                 *  its own fresh hydration. */}
+                <VoteButton
+                  findId={e.findId}
+                  initialVoted={false}
+                  initialCount={e.voteCount}
+                  compact
+                  autoHydrate
+                />
+              </div>
             </li>
           ))}
         </ol>

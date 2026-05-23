@@ -11,6 +11,7 @@ import {
   Globe,
   LayoutGrid,
   List,
+  ThumbsUp,
 } from "lucide-react";
 import type { FindSort } from "@/lib/queries/finds";
 
@@ -153,6 +154,11 @@ export function ViewSortToolbar({
             value: "dist-desc",
             label: t("sortDistDesc"),
             icon: <Globe className="h-4 w-4" />,
+          },
+          {
+            value: "votes-desc",
+            label: t("sortVotesDesc"),
+            icon: <ThumbsUp className="h-4 w-4" />,
           },
         ]}
         onChange={(v) => setParam("sort", v, "desc")}

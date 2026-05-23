@@ -2,6 +2,7 @@ import { MapPin } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { CloverThumbIcon } from "@/components/icons/clover-thumb-icon";
+import { VoteButton } from "@/components/finds/vote-button";
 import { formatShortDateTimeCs } from "@/lib/format";
 import type { TopFindRich } from "@/lib/votes";
 
@@ -138,6 +139,21 @@ export async function PopularFindWidget({
               </dd>
             </div>
           </dl>
+          {/* Inline vote affordance — visitor can boost the current
+           *  leader (or take their vote back) without leaving the
+           *  homepage. autoHydrate fixes the per-visitor "voted"
+           *  state from GET /api/finds/:id/vote on mount; the
+           *  homepage is ISR-cached, so the SSR render can't read
+           *  cookies. */}
+          <div className="pt-1">
+            <VoteButton
+              findId={winner.findId}
+              initialVoted={false}
+              initialCount={winner.voteCount}
+              size="lg"
+              autoHydrate
+            />
+          </div>
         </div>
       </div>
       {showMapLink && (

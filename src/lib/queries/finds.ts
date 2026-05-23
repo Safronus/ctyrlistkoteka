@@ -127,9 +127,16 @@ export interface FindListResult {
 
 /** Sort direction. `desc`/`asc` order by find ID; `dist-asc`/`dist-desc`
  *  order by great-circle distance from MAP 00001 (closest / farthest
- *  first). Anonymized finds and finds without GPS get NULL distance and
- *  fall to the end of distance sorts regardless of direction. */
-export type FindSort = "desc" | "asc" | "dist-asc" | "dist-desc";
+ *  first); `votes-desc` orders by the denormalized vote count cache
+ *  (most-loved first). Anonymized finds and finds without GPS get NULL
+ *  distance and fall to the end of distance sorts regardless of
+ *  direction. */
+export type FindSort =
+  | "desc"
+  | "asc"
+  | "dist-asc"
+  | "dist-desc"
+  | "votes-desc";
 
 /** Build the WHERE clause for a filter set. Async because numeric search
  *  queries trigger a small auxiliary lookup so that "0001" matches #00001
@@ -454,12 +461,21 @@ export async function listFinds(
     ? await mergeRealPhotoFilter(where)
     : where;
 
+  // votes-desc uses the denormalized `vote_count` column (kept in
+  // sync by the find_votes trigger) so the popularity sort is a
+  // single index scan, no group-by per page. Tie-break by id desc
+  // so the order stays stable when many finds share `voteCount = 0`.
+  const orderBy: Prisma.FindOrderByWithRelationInput[] =
+    sort === "votes-desc"
+      ? [{ voteCount: "desc" }, { id: "desc" }]
+      : [{ id: sort }];
+
   const [total, rows] = await Promise.all([
     prisma.find.count({ where: photoWhere }),
     prisma.find.findMany({
       where: photoWhere,
       include: LIST_INCLUDE,
-      orderBy: { id: sort },
+      orderBy,
       take: pageSize,
       skip: (safePage - 1) * pageSize,
     }),
