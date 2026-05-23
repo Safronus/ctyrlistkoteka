@@ -12,6 +12,7 @@ import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { BackToSbirkaLink } from "@/components/finds/sbirka-back-link";
 import { StateBadges } from "@/components/finds/state-badges";
+import { VoteButton } from "@/components/finds/vote-button";
 import {
   formatDateTimeCs,
   formatDistance,
@@ -25,6 +26,13 @@ import {
   getFindById,
   type PublicLocationMap,
 } from "@/lib/queries/finds";
+import {
+  computeFingerprint,
+  getFindVoteCount,
+  getVotedFindIds,
+  readFingerprintInputs,
+  readVoterUuid,
+} from "@/lib/votes";
 
 interface PageProps {
   params: Promise<{ id: string; locale: string }>;
@@ -109,6 +117,27 @@ export default async function FindDetailPage({ params }: PageProps) {
   // unchanged. The overlay is full-viewport `position: fixed` so it
   // sits on top of the article without affecting layout.
   const hellish = isHellishFind(find.id);
+
+  // Vote state for this find — server reads cookie + fingerprint,
+  // checks the vote table. Wrapped in try/catch so the detail page
+  // still renders if the operator hasn't set VOTE_FINGERPRINT_SALT.
+  let voted = false;
+  let voteCount = 0;
+  try {
+    const [uuid, fpInputs] = await Promise.all([
+      readVoterUuid(),
+      readFingerprintInputs(),
+    ]);
+    const fingerprint = computeFingerprint(fpInputs);
+    const [votedSet, count] = await Promise.all([
+      getVotedFindIds([find.id], uuid, fingerprint),
+      getFindVoteCount(find.id),
+    ]);
+    voted = votedSet.has(find.id);
+    voteCount = count;
+  } catch {
+    voteCount = await getFindVoteCount(find.id);
+  }
   const detail = (
     <article className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <nav
@@ -136,7 +165,21 @@ export default async function FindDetailPage({ params }: PageProps) {
           >
             {t("h1", { id: find.id })}
           </h1>
-          {find.states.length > 0 && <StateBadges states={find.states} />}
+          <div className="flex items-center gap-3">
+            {find.states.length > 0 && <StateBadges states={find.states} />}
+            {/* Public vote button — same rules as on /sbirka rows:
+             *  show only when there's a photo to vote on. NO_PHOTO
+             *  finds skip the affordance. The button is its own
+             *  client island, so cookies + fingerprint resolution
+             *  happen inline. */}
+            {!isNoPhoto && (
+              <VoteButton
+                findId={find.id}
+                initialVoted={voted}
+                initialCount={voteCount}
+              />
+            )}
+          </div>
         </div>
 
         {/* Meta row: datetime on the left, GPS + distance on the right.

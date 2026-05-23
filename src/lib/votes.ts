@@ -1,0 +1,291 @@
+import { createHash, randomUUID } from "node:crypto";
+import { cookies, headers } from "next/headers";
+import { prisma } from "@/lib/db";
+
+/**
+ * Server-side helpers for the public "thumbs up" voting feature on
+ * /sbirka. The model has two independent identities per voter:
+ *
+ *   1. `voterUuid` — random UUIDv4 in an httpOnly cookie (~1 year),
+ *      survives normal browser sessions, dies on cookie clear.
+ *   2. `fingerprint` — sha1(ip + ua + accept-lang + serverový salt).
+ *      Survives cookie clear, dies on IP change (mobile, VPN, etc).
+ *
+ * Both have unique constraints in `find_votes`, so a single visitor
+ * cannot vote twice for the SAME find without changing BOTH identities
+ * (clearing cookies *and* switching network/browser). For *different*
+ * finds, the same visitor can vote unlimited times — that's the
+ * intended product behaviour per the design discussion.
+ */
+
+const COOKIE_NAME = "vote_voter_uuid";
+const COOKIE_MAX_AGE_S = 60 * 60 * 24 * 365; // 1 year
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * Reads the voter UUID from the cookie if present and well-formed.
+ * Doesn't mint a new one — that's `ensureVoterUuid`'s job — so the
+ * detail page can call this from RSC without setting any cookies
+ * during render (a Next.js no-no for static-ish responses).
+ */
+export async function readVoterUuid(): Promise<string | null> {
+  const jar = await cookies();
+  const raw = jar.get(COOKIE_NAME)?.value;
+  if (!raw || !UUID_RE.test(raw)) return null;
+  return raw;
+}
+
+/**
+ * Read or mint a voter UUID. Used from server actions / route handlers
+ * — those CAN set cookies in their response, unlike RSC pages.
+ *
+ * Important: this function MUST NOT be called from inside an RSC page
+ * render path, or Next will throw "Cookies can only be modified in a
+ * Server Action or Route Handler".
+ */
+export async function ensureVoterUuid(): Promise<string> {
+  const existing = await readVoterUuid();
+  if (existing) return existing;
+  const fresh = randomUUID();
+  const jar = await cookies();
+  jar.set(COOKIE_NAME, fresh, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: COOKIE_MAX_AGE_S,
+  });
+  return fresh;
+}
+
+interface FingerprintInputs {
+  ip: string;
+  userAgent: string;
+  acceptLanguage: string;
+}
+
+/**
+ * Reads the inputs the fingerprint depends on from the request. Both
+ * IP and Accept-Language fall back to "" rather than throwing so a
+ * weird/forged request still gets a deterministic (if poor-quality)
+ * fingerprint instead of crashing the action.
+ */
+export async function readFingerprintInputs(): Promise<FingerprintInputs> {
+  const h = await headers();
+  const fwd = h.get("x-forwarded-for");
+  const ip = fwd ? fwd.split(",")[0]!.trim() : (h.get("x-real-ip") ?? "");
+  const userAgent = h.get("user-agent") ?? "";
+  const acceptLanguage = h.get("accept-language") ?? "";
+  return { ip, userAgent, acceptLanguage };
+}
+
+/** Returns the salt or throws — voting is disabled if the operator
+ *  hasn't set one, because a missing salt would let anyone reproduce
+ *  the fingerprint locally. We deliberately fail loud, not silent. */
+function requireSalt(): string {
+  const salt = process.env.VOTE_FINGERPRINT_SALT;
+  if (!salt || salt.length < 16) {
+    throw new Error(
+      "VOTE_FINGERPRINT_SALT is not configured (≥16 chars required)",
+    );
+  }
+  return salt;
+}
+
+/**
+ * Computes the 40-char sha1 fingerprint used as the secondary
+ * uniqueness key in `find_votes`. Same inputs always produce the same
+ * digest — `voted-or-not` lookups go through this on every render.
+ */
+export function computeFingerprint(inputs: FingerprintInputs): string {
+  const salt = requireSalt();
+  return createHash("sha1")
+    .update(salt)
+    .update("\x00")
+    .update(inputs.ip)
+    .update("\x00")
+    .update(inputs.userAgent)
+    .update("\x00")
+    .update(inputs.acceptLanguage)
+    .digest("hex");
+}
+
+/** Standalone sha1 for ip_hash (audit row). Deliberately a separate
+ *  hash so the DB column doesn't reveal anything about the voter's
+ *  full fingerprint — admin sees the IP-only hash, not the joined
+ *  fingerprint. Same salt is fine, the inputs differ. */
+export function hashIp(ip: string): string {
+  const salt = requireSalt();
+  return createHash("sha1").update(salt).update("\x00ip\x00").update(ip).digest(
+    "hex",
+  );
+}
+
+// ---------------------------------------------------------------
+// In-memory rate limiter
+// ---------------------------------------------------------------
+//
+// Pragmatic per-fingerprint sliding-window counter to soft-cap how
+// fast one visitor can vote. Doesn't replace the DB unique constraint
+// (which is the real anti-duplicate gate) but blunts script-driven
+// spam by adding a small server-side cost per vote.
+//
+// In-memory keeps it simple — for the single-node OVH VPS this is
+// fine. A second instance would have a stale view, but we don't run
+// multiple Next nodes today. If we ever do, swap to Redis (the
+// REDIS_URL env var already exists for stats cache).
+
+interface RateBucket {
+  count: number;
+  firstAt: number;
+}
+const rateBuckets = new Map<string, RateBucket>();
+const RATE_WINDOW_MS = 60_000; // 1 minute
+const RATE_MAX_HITS = 20; // votes/min per fingerprint
+
+/** Returns `true` if this fingerprint is within the per-minute budget,
+ *  `false` if it should be throttled. Increments on success. */
+export function rateLimitVote(fingerprint: string): boolean {
+  const now = Date.now();
+  const existing = rateBuckets.get(fingerprint);
+  if (!existing || now - existing.firstAt > RATE_WINDOW_MS) {
+    rateBuckets.set(fingerprint, { count: 1, firstAt: now });
+    return true;
+  }
+  if (existing.count >= RATE_MAX_HITS) return false;
+  existing.count += 1;
+  return true;
+}
+
+// ---------------------------------------------------------------
+// DB queries
+// ---------------------------------------------------------------
+
+/**
+ * For a given list of find IDs, returns the subset the current voter
+ * has voted for (matched by EITHER cookie UUID or fingerprint — both
+ * sides count, so the UI shows "voted" even if e.g. the cookie was
+ * cleared but the IP is the same).
+ */
+export async function getVotedFindIds(
+  findIds: readonly number[],
+  voterUuid: string | null,
+  fingerprint: string,
+): Promise<Set<number>> {
+  if (findIds.length === 0) return new Set();
+  const rows = await prisma.findVote.findMany({
+    where: {
+      findId: { in: [...findIds] },
+      OR: voterUuid
+        ? [{ voterUuid }, { fingerprint }]
+        : [{ fingerprint }],
+    },
+    select: { findId: true },
+  });
+  return new Set(rows.map((r) => r.findId));
+}
+
+/** Per-find vote count (uses the denormalized `finds.vote_count` so
+ *  the lookup is a single PK fetch). */
+export async function getFindVoteCount(findId: number): Promise<number> {
+  const r = await prisma.find.findUnique({
+    where: { id: findId },
+    select: { voteCount: true },
+  });
+  return r?.voteCount ?? 0;
+}
+
+/** Bulk variant of `getFindVoteCount` for /sbirka list rendering. */
+export async function getFindVoteCounts(
+  findIds: readonly number[],
+): Promise<Map<number, number>> {
+  if (findIds.length === 0) return new Map();
+  const rows = await prisma.find.findMany({
+    where: { id: { in: [...findIds] } },
+    select: { id: true, voteCount: true },
+  });
+  return new Map(rows.map((r) => [r.id, r.voteCount]));
+}
+
+export interface TopFindEntry {
+  findId: number;
+  voteCount: number;
+}
+
+/**
+ * Top N most-voted finds. `windowDays` set → only votes within the
+ * last N days count (used for the "12 měsíců" leaderboard). When
+ * unset, we use the cached `finds.vote_count` directly (all-time).
+ * Both variants exclude finds with vote_count = 0.
+ */
+export async function getTopFinds(args: {
+  limit: number;
+  windowDays?: number;
+}): Promise<TopFindEntry[]> {
+  if (!args.windowDays) {
+    const rows = await prisma.find.findMany({
+      where: { voteCount: { gt: 0 } },
+      orderBy: { voteCount: "desc" },
+      take: args.limit,
+      select: { id: true, voteCount: true },
+    });
+    return rows.map((r) => ({ findId: r.id, voteCount: r.voteCount }));
+  }
+  // Windowed: group by find_id from find_votes filtered by voted_at.
+  // groupBy needs an orderBy hint that matches a select column.
+  const cutoff = new Date(Date.now() - args.windowDays * 24 * 60 * 60 * 1000);
+  const rows = await prisma.findVote.groupBy({
+    by: ["findId"],
+    where: { votedAt: { gte: cutoff } },
+    _count: { findId: true },
+    orderBy: { _count: { findId: "desc" } },
+    take: args.limit,
+  });
+  return rows.map((r) => ({ findId: r.findId, voteCount: r._count.findId }));
+}
+
+export interface TopFindRich {
+  findId: number;
+  voteCount: number;
+  isAnonymized: boolean;
+  /** Thumbnail URL of the primary image (if any). Anonymized finds
+   *  may still surface a thumbnail because the user explicitly opted
+   *  in to having them in the leaderboard ("voting is about the
+   *  image, not the location"). */
+  thumbUrl: string | null;
+}
+
+/**
+ * Same as `getTopFinds` but also fetches each entry's primary
+ * thumbnail in one batch. Used by the homepage tile + /statistiky
+ * leaderboard so they don't need to issue per-row queries.
+ */
+export async function getTopFindsWithThumbs(args: {
+  limit: number;
+  windowDays?: number;
+}): Promise<TopFindRich[]> {
+  const top = await getTopFinds(args);
+  if (top.length === 0) return [];
+  const findIds = top.map((t) => t.findId);
+  // Pull every primary image for the top set in a single query, then
+  // join in memory. `is_primary = true` filter keeps the result small.
+  const [findRows, imageRows] = await Promise.all([
+    prisma.find.findMany({
+      where: { id: { in: findIds } },
+      select: { id: true, isAnonymized: true },
+    }),
+    prisma.findImage.findMany({
+      where: { findId: { in: findIds }, isPrimary: true },
+      select: { findId: true, thumbPath: true },
+    }),
+  ]);
+  const anonById = new Map(findRows.map((r) => [r.id, r.isAnonymized]));
+  const thumbById = new Map(imageRows.map((r) => [r.findId, r.thumbPath]));
+  return top.map((t) => ({
+    findId: t.findId,
+    voteCount: t.voteCount,
+    isAnonymized: anonById.get(t.findId) ?? false,
+    thumbUrl: thumbById.get(t.findId) ?? null,
+  }));
+}

@@ -2,7 +2,17 @@ import { getTranslations } from "next-intl/server";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindCard } from "./find-card";
 
-export async function FindGrid({ finds }: { finds: readonly PublicFind[] }) {
+export async function FindGrid({
+  finds,
+  votedSet,
+  voteCounts,
+}: {
+  finds: readonly PublicFind[];
+  /** See FindList for the contract — same shape, just consumed by
+   *  the grid card variant instead of the list row. */
+  votedSet?: ReadonlySet<number>;
+  voteCounts?: ReadonlyMap<number, number>;
+}) {
   if (finds.length === 0) {
     const t = await getTranslations("Sbirka");
     return (
@@ -16,7 +26,11 @@ export async function FindGrid({ finds }: { finds: readonly PublicFind[] }) {
     <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       {finds.map((find) => (
         <li key={find.id}>
-          <FindCard find={find} />
+          <FindCard
+            find={find}
+            voted={votedSet?.has(find.id) ?? false}
+            voteCount={voteCounts?.get(find.id) ?? 0}
+          />
         </li>
       ))}
     </ul>

@@ -4,6 +4,7 @@ import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
+import { VoteButton } from "./vote-button";
 import {
   formatDistance,
   formatLocationId,
@@ -12,7 +13,15 @@ import {
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
 
-export async function FindCard({ find }: { find: PublicFind }) {
+export async function FindCard({
+  find,
+  voted,
+  voteCount,
+}: {
+  find: PublicFind;
+  voted: boolean;
+  voteCount: number;
+}) {
   const locale = await getLocale();
   const tRow = await getTranslations("FindRow");
   const tOffset = await getTranslations("LocationOffset");
@@ -68,6 +77,22 @@ export async function FindCard({ find }: { find: PublicFind }) {
           >
             <Camera className="h-3 w-3" aria-hidden />
           </span>
+        )}
+        {/* Vote button overlay — bottom-left corner so it stays clear
+         *  of state badges (top) and the camera chip (bottom-right).
+         *  Compact mode hides the count inline (it'd crowd the corner)
+         *  and surfaces it via the aria-label only. We render only
+         *  when a thumbnail exists — no-photo finds have nothing to
+         *  vote on per the design discussion. */}
+        {find.primaryImage && (
+          <div className="absolute bottom-2 left-2 rounded-full bg-white/90 backdrop-blur-sm drop-shadow-sm">
+            <VoteButton
+              findId={find.id}
+              initialVoted={voted}
+              initialCount={voteCount}
+              compact
+            />
+          </div>
         )}
       </div>
 

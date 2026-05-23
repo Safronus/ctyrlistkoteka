@@ -4,6 +4,7 @@ import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
+import { VoteButton } from "./vote-button";
 import {
   formatDateTimeCs,
   formatDistance,
@@ -16,7 +17,19 @@ import { formatGpsApple } from "@/lib/gpsFormat";
 type RowT = Awaited<ReturnType<typeof getTranslations<"FindRow">>>;
 type OffsetT = Awaited<ReturnType<typeof getTranslations<"LocationOffset">>>;
 
-export async function FindList({ finds }: { finds: readonly PublicFind[] }) {
+export async function FindList({
+  finds,
+  votedSet,
+  voteCounts,
+}: {
+  finds: readonly PublicFind[];
+  /** Set of find IDs this visitor has already voted for — server
+   *  pre-resolved via cookie UUID + IP/UA fingerprint so the rendered
+   *  thumbs show the correct filled state without a client flash. */
+  votedSet?: ReadonlySet<number>;
+  /** Per-find vote counts. Map keyed by find ID; missing → 0. */
+  voteCounts?: ReadonlyMap<number, number>;
+}) {
   if (finds.length === 0) {
     const tSbirka = await getTranslations("Sbirka");
     return (
@@ -41,6 +54,8 @@ export async function FindList({ finds }: { finds: readonly PublicFind[] }) {
             locale={locale}
             tRow={tRow}
             tOffset={tOffset}
+            voted={votedSet?.has(find.id) ?? false}
+            voteCount={voteCounts?.get(find.id) ?? 0}
           />
         </li>
       ))}
@@ -53,11 +68,15 @@ function FindListRow({
   locale,
   tRow,
   tOffset,
+  voted,
+  voteCount,
 }: {
   find: PublicFind;
   locale: string;
   tRow: RowT;
   tOffset: OffsetT;
+  voted: boolean;
+  voteCount: number;
 }) {
   // Anonymized finds must not leak their actual location id, code, or
   // description here — mirrors the detail page's substitution. Coords
@@ -178,6 +197,21 @@ function FindListRow({
                 </span>
               )}
               {find.states.length > 0 && <StateBadges states={find.states} />}
+            </div>
+          )}
+          {/* Public vote button — full mode so the count sits next to
+           *  the icon. Only rendered when the find has a thumbnail to
+           *  vote on; no-photo finds skip the affordance (we're voting
+           *  on the image, per the design discussion). The button
+           *  stops click propagation internally so this doesn't fire
+           *  the row's parent <Link> navigation. */}
+          {find.primaryImage && (
+            <div className="-mb-1 flex items-center justify-end self-end">
+              <VoteButton
+                findId={find.id}
+                initialVoted={voted}
+                initialCount={voteCount}
+              />
             </div>
           )}
         </div>

@@ -55,8 +55,10 @@ import { getLocationIdsWithRealPhotos } from "@/lib/queries/locations";
 import { localizedCountryName } from "@/lib/world-countries";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { prisma } from "@/lib/db";
+import { getTopFindsWithThumbs } from "@/lib/votes";
 import { CalendarHeatmapTabs } from "@/components/stats/calendar-heatmap-tabs";
 import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
+import { TopFindsLeaderboard } from "@/components/stats/top-finds-leaderboard";
 import { TopLocationsCard } from "@/components/stats/top-locations-card";
 import { YearlyPaceBlock } from "@/components/stats/yearly-pace-block";
 import {
@@ -125,7 +127,38 @@ export default async function StatistikyPage() {
       <Suspense fallback={<CalendarSkeleton />}>
         <CalendarSection />
       </Suspense>
+      <Suspense fallback={<TopFindsSkeleton />}>
+        <TopFindsSection />
+      </Suspense>
     </div>
+  );
+}
+
+async function TopFindsSection() {
+  // Two queries run in parallel: cached all-time `vote_count` and a
+  // windowed group-by from find_votes. Both honour the secondary
+  // index on (vote_count) / (voted_at), so even at 17k+ finds the
+  // cost is negligible.
+  const [allTime, yearly] = await Promise.all([
+    getTopFindsWithThumbs({ limit: 10 }),
+    getTopFindsWithThumbs({ limit: 10, windowDays: 365 }),
+  ]);
+  return <TopFindsLeaderboard allTime={allTime} yearly={yearly} />;
+}
+
+function TopFindsSkeleton() {
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <div className="mb-3 h-6 w-40 animate-pulse rounded bg-gray-100" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div
+            key={i}
+            className="aspect-square animate-pulse rounded-lg bg-gray-100"
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 

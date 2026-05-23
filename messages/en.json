@@ -74,6 +74,29 @@
     "showOnMap": "Show on map",
     "noFindsMatch": "No finds match the filters."
   },
+  "Vote": {
+    "buttonVote": "Like",
+    "buttonVoted": "Liked (voted)",
+    "tooltipVote": "Vote for this clover",
+    "tooltipUnvote": "Take vote back",
+    "errorRateLimit": "Too many actions, try again shortly",
+    "errorGeneric": "Vote failed",
+    "errorNetwork": "Network error, try again",
+    "cookieNotice": "Voting saves an anonymous ID in your browser cookie (1 year). If you do not consent, please do not vote."
+  },
+  "Popular": {
+    "homepageTitle": "Most-loved clover",
+    "homepageEmpty": "No votes yet.",
+    "homepageSubtitle": "Current poll leader",
+    "leaderboardHeading": "Top 10 most-loved",
+    "leaderboardSubtitle": "Ranking by visitor votes.",
+    "leaderboardEmpty": "No votes in this period yet.",
+    "tabAllTime": "All-time",
+    "tabYear": "Last 12 months",
+    "voteCount": "{count, plural, =0 {0 votes} one {# vote} other {# votes}}",
+    "rankPrefix": "#",
+    "openFind": "Open detail"
+  },
   "FilterBar": {
     "search": "Search",
     "searchPlaceholder": "Notes or location…",

@@ -18,6 +18,8 @@ import { FindThumbnail } from "@/components/finds/find-thumbnail";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
 import { CloverFactsStatCard } from "@/components/home/clover-facts-stat-card";
+import { PopularFindWidget } from "@/components/home/popular-find-widget";
+import { getTopFindsWithThumbs } from "@/lib/votes";
 import { DonatedSearchCatcher } from "@/components/home/donated-search-catcher";
 import { RetrospectiveGrid } from "@/components/home/retrospective-grid";
 import {
@@ -50,6 +52,7 @@ export default async function HomePage() {
     retrospective,
     cloverTexts,
     cloverTranslations,
+    popularTop,
   ] = await Promise.all([
     getHomePageData(),
     getWatermarkMeta(),
@@ -57,7 +60,11 @@ export default async function HomePage() {
     getRetrospective(),
     getCloverTexts(),
     getCloverTranslations(),
+    // Top 1 across all-time — homepage "Nejoblíbenější čtyřlístek"
+    // tile picks the winner; renders nothing on empty vote table.
+    getTopFindsWithThumbs({ limit: 1 }),
   ]);
+  const popularWinner = popularTop[0] ?? null;
   const { totals, highlights } = data;
 
   return (
@@ -212,6 +219,8 @@ export default async function HomePage() {
         nf={NF}
         cloverTexts={cloverTexts}
       />
+
+      <PopularFindWidget winner={popularWinner} />
 
       {data.latestFind && (
         <LatestFindSection

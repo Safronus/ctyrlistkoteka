@@ -15,6 +15,7 @@ import {
   Network,
   ShieldCheck,
   Sticker,
+  Trophy,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { listCredentials } from "@/lib/admin/credentials";
@@ -196,6 +197,16 @@ export default async function AdminHomePage() {
           lines={[
             "data/meta/clover-texts.json + .en.json",
             "CRUD rotujících faktů na homepage",
+          ]}
+        />
+        <FeatureCard
+          icon={Trophy}
+          title="Hlasování"
+          status="ok"
+          href="/admin/votes"
+          lines={[
+            "Audit + mazání hlasů (single / fp / uuid)",
+            "Tlačítko pro kompletní reset",
           ]}
         />
       </Group>

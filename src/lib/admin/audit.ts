@@ -18,7 +18,9 @@ export type AuditAction =
   | "json.update"
   | "sync.start"
   | "sync.finish"
-  | "sync.fail";
+  | "sync.fail"
+  | "vote.delete"
+  | "vote.reset_all";
 
 export interface AuditEntry {
   action: AuditAction;

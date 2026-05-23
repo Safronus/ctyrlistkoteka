@@ -122,6 +122,12 @@ model Find {
   notes        String?   @db.Text // z JSON poznamky
   isAnonymized Boolean   @default(false) @map("is_anonymized") // z JSON anonymizace + filename
 
+  // Denormalized vote count — cache pro O(1) výpis/žebříček. Sync přes
+  // trigger v migraci (insert/delete na find_votes ↦ +1/-1 zde). Bez
+  // tohoto sloupce by Top 10 muselo na každý request groupovat všech
+  // ~17 k findů.
+  voteCount Int @default(0) @map("vote_count")
+
   coordinates Unsupported("geometry(Point, 4326)")?
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -129,13 +135,50 @@ model Find {
 
   images FindImage[]
   states FindStateAssignment[]
+  votes  FindVote[]
 
   @@index([locationId])
   @@index([mapId])
   @@index([foundAt(sort: Desc)])
   @@index([leafCount])
   @@index([isAnonymized])
+  @@index([voteCount(sort: Desc)])
   @@map("finds")
+}
+
+// ============================================================
+//  FIND VOTES (veřejné hlasování „palec nahoru")
+// ============================================================
+//
+// Každý hlas má dvě nezávislé identity:
+//   - voterUuid     — UUID v httpOnly cookie (1 rok)
+//   - fingerprint   — sha1(ip + ua + accept-lang + serverový salt)
+// Dvě unique constraints zajistí, že OBĚ se musí lišit, aby šel nový
+// hlas pro stejný nález. To zvládne casual cheating; útočník musí
+// vymazat cookies *a* změnit IP/UA, aby tutéž věc lajknul podruhé.
+//
+// Pro RŮZNÉ nálezy stejná osoba hlasuje libovolně — to není potřeba
+// chránit (dle zadání).
+//
+// `ipHash` a `userAgent` jsou jen pro audit + admin reverze (smazat
+// hlasy z konkrétní IP/UUID). Plný IP nikdy neukládáme; sha1 +
+// serverový salt → nelze přímo dohledat osobu z DB dumpu.
+
+model FindVote {
+  findId      Int       @map("find_id")
+  find        Find      @relation(fields: [findId], references: [id], onDelete: Cascade)
+  voterUuid   String    @map("voter_uuid") @db.Uuid                          // z cookie
+  fingerprint String    @map("fingerprint") @db.Char(40)                      // sha1
+  votedAt     DateTime  @default(now()) @map("voted_at") @db.Timestamptz
+  ipHash      String    @map("ip_hash") @db.Char(40)                          // audit-only, sha1
+  userAgent   String?   @map("user_agent") @db.VarChar(500)                   // audit-only
+
+  @@id([findId, voterUuid])
+  @@unique([findId, fingerprint], name: "find_votes_fingerprint_unique")
+  @@index([votedAt(sort: Desc)])
+  @@index([fingerprint])
+  @@index([voterUuid])
+  @@map("find_votes")
 }
 
 // ============================================================

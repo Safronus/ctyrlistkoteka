@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Map } from "lucide-react";
+import { Map as MapIcon } from "lucide-react";
 import { FindState } from "@prisma/client";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizedCountryName } from "@/lib/world-countries";
@@ -23,6 +23,13 @@ import {
   type FindFilters,
   type FindSort,
 } from "@/lib/queries/finds";
+import {
+  computeFingerprint,
+  getFindVoteCounts,
+  getVotedFindIds,
+  readFingerprintInputs,
+  readVoterUuid,
+} from "@/lib/votes";
 
 /** Allowed `?size=` values for /sbirka. 48 stays the default (matches
  *  FINDS_PER_PAGE); the larger options are deliberately the trio
@@ -129,6 +136,32 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     listFinds(filters, page, pageSize, sort),
     getCollectionProgress(),
   ]);
+
+  // Pre-resolve "did this visitor already vote?" + counts for the
+  // page of finds. Done at the SSR boundary so the rendered buttons
+  // start in the correct state (no client flash). Cookie + fingerprint
+  // are both checked — see src/lib/votes.ts for the OR-match rule.
+  // Wrap the lookup in try/catch: a missing VOTE_FINGERPRINT_SALT
+  // shouldn't crash /sbirka, just disables the per-row state.
+  const findIdsOnPage = result.items.map((f) => f.id);
+  let votedSet: ReadonlySet<number> = new Set<number>();
+  let voteCounts: ReadonlyMap<number, number> = new Map<number, number>();
+  try {
+    const [uuid, fpInputs] = await Promise.all([
+      readVoterUuid(),
+      readFingerprintInputs(),
+    ]);
+    const fingerprint = computeFingerprint(fpInputs);
+    [votedSet, voteCounts] = await Promise.all([
+      getVotedFindIds(findIdsOnPage, uuid, fingerprint),
+      getFindVoteCounts(findIdsOnPage),
+    ]);
+  } catch {
+    // Fingerprint salt unconfigured → load counts only, voted state
+    // stays empty. UI still renders, just everyone shows as "not
+    // voted yet" until the operator sets VOTE_FINGERPRINT_SALT.
+    voteCounts = await getFindVoteCounts(findIdsOnPage);
+  }
   // FilterOptions.countries carries raw English (Natural Earth) names —
   // localize at the page boundary so the dropdown reads in the user's
   // language while the cached upstream query stays locale-agnostic.
@@ -252,7 +285,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
             href={buildMapHref(filters)}
             className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-sm font-medium text-brand-800 shadow-sm transition hover:border-brand-500 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
           >
-            <Map className="h-4 w-4" aria-hidden />
+            <MapIcon className="h-4 w-4" aria-hidden />
             <span>{t("showOnMap")}</span>
           </Link>
         </div>
@@ -269,9 +302,17 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
       />
 
       {view === "list" ? (
-        <FindList finds={result.items} />
+        <FindList
+          finds={result.items}
+          votedSet={votedSet}
+          voteCounts={voteCounts}
+        />
       ) : (
-        <FindGrid finds={result.items} />
+        <FindGrid
+          finds={result.items}
+          votedSet={votedSet}
+          voteCounts={voteCounts}
+        />
       )}
 
       <Pagination

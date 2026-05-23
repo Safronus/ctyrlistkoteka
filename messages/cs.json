@@ -73,6 +73,29 @@
     "showOnMap": "Zobrazit na mapě",
     "noFindsMatch": "Žádné nálezy neodpovídají filtrům."
   },
+  "Vote": {
+    "buttonVote": "Líbí se mi",
+    "buttonVoted": "Líbí se mi (hlasováno)",
+    "tooltipVote": "Hlasuj pro tento čtyřlístek",
+    "tooltipUnvote": "Vzít hlas zpět",
+    "errorRateLimit": "Příliš mnoho akcí, zkus za chvíli",
+    "errorGeneric": "Hlasování se nezdařilo",
+    "errorNetwork": "Síť selhala, zkus znovu",
+    "cookieNotice": "Hlasování ukládá anonymní ID do cookie tvého prohlížeče (1 rok). Pokud nesouhlasíš, prosím nehlasuj."
+  },
+  "Popular": {
+    "homepageTitle": "Nejoblíbenější čtyřlístek",
+    "homepageEmpty": "Zatím nebylo hlasováno.",
+    "homepageSubtitle": "Aktuální vítěz hlasování",
+    "leaderboardHeading": "Top 10 nejoblíbenějších",
+    "leaderboardSubtitle": "Žebříček podle počtu hlasů od návštěvníků.",
+    "leaderboardEmpty": "Pro toto období zatím nebyly žádné hlasy.",
+    "tabAllTime": "Za celou dobu",
+    "tabYear": "Posledních 12 měsíců",
+    "voteCount": "{count, plural, =0 {0 hlasů} one {# hlas} few {# hlasy} other {# hlasů}}",
+    "rankPrefix": "#",
+    "openFind": "Otevřít detail"
+  },
   "FilterBar": {
     "search": "Hledat",
     "searchPlaceholder": "Poznámka nebo lokalita…",
