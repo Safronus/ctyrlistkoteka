@@ -60,109 +60,118 @@ export function ViewSortToolbar({
     });
   };
 
+  // Layout: two logical rows so the controls don't crash into a
+  // wall on desktop and stack predictably on mobile.
+  //   Row 1 — display preferences:  View toggle  ·  Sort segmented
+  //   Row 2 — quick filters:        S fotkou daru  ·  Date range
+  // Each row uses `flex-wrap + justify-between` so the two clusters
+  // sit on opposite ends when there's room, and stack vertically when
+  // there isn't. Sort has 5 options so on mid-width screens it wraps
+  // independently from the view toggle.
   return (
     <div
-      className={`flex flex-wrap items-center justify-between gap-3 transition-opacity ${
+      className={`flex flex-col gap-3 transition-opacity ${
         isPending ? "opacity-60" : ""
       }`}
     >
-      <Segmented
-        label={t("view")}
-        value={view}
-        options={[
-          { value: "grid", label: t("viewGrid"), icon: <LayoutGrid className="h-4 w-4" /> },
-          { value: "list", label: t("viewList"), icon: <List className="h-4 w-4" /> },
-        ]}
-        onChange={(v) => setParam("view", v, "list")}
-      />
-
-      {/* Quick "S fotkou daru" toggle — sits between the view switch
-          and the date range so dates + photo presence read as one
-          cluster of fast filters above the sort group. Visual weight
-          matches the Segmented buttons (border + brand-600 bg when
-          active) so the row stays uniform. */}
-      <button
-        type="button"
-        onClick={() => setParam("hasPhoto", hasPhoto ? "" : "1", "")}
-        aria-pressed={hasPhoto}
-        className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition ${
-          hasPhoto
-            ? "border-brand-600 bg-brand-600 text-white"
-            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-        }`}
-      >
-        <Camera className="h-4 w-4" aria-hidden />
-        <span>{t("hasPhotoToggle")}</span>
-      </button>
-
-      {/* Date range — second-stage filtration sitting between view and
-          sort. Bounded to the collection's actual span so the picker
-          can't produce a useless out-of-range query, with cross-linked
-          `min`/`max` between the two inputs preventing inverted ranges
-          via the native UI. */}
-      <div
-        role="group"
-        aria-label={t("dateGroup")}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-600"
-      >
-        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          {t("dateLabel")}
-        </span>
-        <input
-          type="date"
-          aria-label={t("dateFrom")}
-          value={dateFrom || minDate || ""}
-          min={minDate || undefined}
-          max={dateTo || maxDate || undefined}
-          onChange={(e) => setParam("from", e.currentTarget.value, "")}
-          className={DATE_INPUT_CLS}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Segmented
+          label={t("view")}
+          value={view}
+          options={[
+            { value: "grid", label: t("viewGrid"), icon: <LayoutGrid className="h-4 w-4" /> },
+            { value: "list", label: t("viewList"), icon: <List className="h-4 w-4" /> },
+          ]}
+          onChange={(v) => setParam("view", v, "list")}
         />
-        <span aria-hidden className="text-gray-400">
-          –
-        </span>
-        <input
-          type="date"
-          aria-label={t("dateTo")}
-          value={dateTo || maxDate || ""}
-          min={dateFrom || minDate || undefined}
-          max={maxDate || undefined}
-          onChange={(e) => setParam("to", e.currentTarget.value, "")}
-          className={DATE_INPUT_CLS}
+
+        <Segmented
+          label={t("sort")}
+          value={sort}
+          options={[
+            {
+              value: "desc",
+              label: t("sortDesc"),
+              icon: <ArrowDownNarrowWide className="h-4 w-4" />,
+            },
+            {
+              value: "asc",
+              label: t("sortAsc"),
+              icon: <ArrowUpNarrowWide className="h-4 w-4" />,
+            },
+            {
+              value: "dist-asc",
+              label: t("sortDistAsc"),
+              icon: <Compass className="h-4 w-4" />,
+            },
+            {
+              value: "dist-desc",
+              label: t("sortDistDesc"),
+              icon: <Globe className="h-4 w-4" />,
+            },
+            {
+              value: "votes-desc",
+              label: t("sortVotesDesc"),
+              icon: <ThumbsUp className="h-4 w-4" />,
+            },
+          ]}
+          onChange={(v) => setParam("sort", v, "desc")}
         />
       </div>
 
-      <Segmented
-        label={t("sort")}
-        value={sort}
-        options={[
-          {
-            value: "desc",
-            label: t("sortDesc"),
-            icon: <ArrowDownNarrowWide className="h-4 w-4" />,
-          },
-          {
-            value: "asc",
-            label: t("sortAsc"),
-            icon: <ArrowUpNarrowWide className="h-4 w-4" />,
-          },
-          {
-            value: "dist-asc",
-            label: t("sortDistAsc"),
-            icon: <Compass className="h-4 w-4" />,
-          },
-          {
-            value: "dist-desc",
-            label: t("sortDistDesc"),
-            icon: <Globe className="h-4 w-4" />,
-          },
-          {
-            value: "votes-desc",
-            label: t("sortVotesDesc"),
-            icon: <ThumbsUp className="h-4 w-4" />,
-          },
-        ]}
-        onChange={(v) => setParam("sort", v, "desc")}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Quick "S fotkou daru" toggle — pair with the date range
+            on the filter row so all narrow-by-content controls cluster
+            below the view/sort preferences. */}
+        <button
+          type="button"
+          onClick={() => setParam("hasPhoto", hasPhoto ? "" : "1", "")}
+          aria-pressed={hasPhoto}
+          className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition ${
+            hasPhoto
+              ? "border-brand-600 bg-brand-600 text-white"
+              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+          }`}
+        >
+          <Camera className="h-4 w-4" aria-hidden />
+          <span>{t("hasPhotoToggle")}</span>
+        </button>
+
+        {/* Date range — bounded to the collection's actual span so
+            the picker can't produce an out-of-range query, with
+            cross-linked min/max preventing inverted ranges via the
+            native UI. */}
+        <div
+          role="group"
+          aria-label={t("dateGroup")}
+          className="inline-flex flex-wrap items-center gap-1.5 text-sm text-gray-600"
+        >
+          <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            {t("dateLabel")}
+          </span>
+          <input
+            type="date"
+            aria-label={t("dateFrom")}
+            value={dateFrom || minDate || ""}
+            min={minDate || undefined}
+            max={dateTo || maxDate || undefined}
+            onChange={(e) => setParam("from", e.currentTarget.value, "")}
+            className={DATE_INPUT_CLS}
+          />
+          <span aria-hidden className="text-gray-400">
+            –
+          </span>
+          <input
+            type="date"
+            aria-label={t("dateTo")}
+            value={dateTo || maxDate || ""}
+            min={dateFrom || minDate || undefined}
+            max={maxDate || undefined}
+            onChange={(e) => setParam("to", e.currentTarget.value, "")}
+            className={DATE_INPUT_CLS}
+          />
+        </div>
+      </div>
     </div>
   );
 }

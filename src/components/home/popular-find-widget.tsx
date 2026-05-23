@@ -91,10 +91,27 @@ export async function PopularFindWidget({
           </span>
         </Link>
         <div className="flex flex-col gap-2">
-          <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-brand-700">
-            <CloverThumbIcon filled className="h-4 w-4" />
-            {t("homepageSubtitle")}
-          </p>
+          {/* Top row: editorial sub-title on the left, vote CTA on
+           *  the right. Vote button anchored top-right of the text
+           *  column so it sits ABOVE the rest of the metadata and
+           *  doesn't reflow the dl below — request was "vpravo
+           *  nahoru před tlačítko prokliku na mapu, ale zbylý text
+           *  by se neměl jinak umístit". autoHydrate so the per-
+           *  visitor voted state lands even though the homepage is
+           *  ISR-cached. */}
+          <div className="flex items-start justify-between gap-3">
+            <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-brand-700">
+              <CloverThumbIcon filled className="h-4 w-4" />
+              {t("homepageSubtitle")}
+            </p>
+            <VoteButton
+              findId={winner.findId}
+              initialVoted={false}
+              initialCount={winner.voteCount}
+              size="lg"
+              autoHydrate
+            />
+          </div>
           <h2
             id="popular-find-heading"
             className="text-2xl font-bold text-gray-900 sm:text-3xl"
@@ -139,21 +156,6 @@ export async function PopularFindWidget({
               </dd>
             </div>
           </dl>
-          {/* Inline vote affordance — visitor can boost the current
-           *  leader (or take their vote back) without leaving the
-           *  homepage. autoHydrate fixes the per-visitor "voted"
-           *  state from GET /api/finds/:id/vote on mount; the
-           *  homepage is ISR-cached, so the SSR render can't read
-           *  cookies. */}
-          <div className="pt-1">
-            <VoteButton
-              findId={winner.findId}
-              initialVoted={false}
-              initialCount={winner.voteCount}
-              size="lg"
-              autoHydrate
-            />
-          </div>
         </div>
       </div>
       {showMapLink && (
