@@ -225,12 +225,6 @@ export default async function HomePage() {
         />
       </section>
 
-      {/* Popular pick sits between the summary stats row and the
-       *  highlights grid — reads as "current community spotlight"
-       *  rather than a footnote. Hides itself when no votes exist
-       *  yet, so the cold-start page doesn't show a placeholder. */}
-      <PopularFindWidget winner={popularWinner} />
-
       <HighlightsSection
         highlights={data.highlights}
         recentMonthly={data.recentMonthly}
@@ -239,6 +233,11 @@ export default async function HomePage() {
         nf={NF}
         cloverTexts={cloverTexts}
       />
+
+      {/* Popular pick sits below "Zajímavosti" — community spotlight
+       *  follows the editorial highlights. Hides itself when no votes
+       *  exist yet, so the cold-start page doesn't show a placeholder. */}
+      <PopularFindWidget winner={popularWinner} />
 
       {data.latestFind && (
         <LatestFindSection

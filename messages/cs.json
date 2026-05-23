@@ -96,6 +96,7 @@
     "leaderboardEmpty": "Pro toto období zatím nebyly žádné hlasy.",
     "tabAllTime": "Za celou dobu",
     "tabYear": "Posledních 12 měsíců",
+    "tabMonth": "Posledních 30 dnů",
     "voteCount": "{count, plural, =0 {0 hlasů} one {# hlas} few {# hlasy} other {# hlasů}}",
     "rankPrefix": "#",
     "openFind": "Otevřít detail",

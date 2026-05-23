@@ -11,6 +11,11 @@ interface Props {
   allTime: readonly TopFindRich[];
   /** Rich entries for the rolling 12-month window. */
   yearly: readonly TopFindRich[];
+  /** Rich entries for the rolling 30-day window (the most recent
+   *  third tab). Lets visitors see who's trending RIGHT NOW without
+   *  the all-time leaderboard's heavy bias toward long-standing
+   *  favourites. */
+  monthly: readonly TopFindRich[];
 }
 
 /**
@@ -26,10 +31,11 @@ interface Props {
  * info from the link, though — the deep-link goes to the find detail
  * which already gates the anonymized stub.
  */
-export function TopFindsLeaderboard({ allTime, yearly }: Props) {
+export function TopFindsLeaderboard({ allTime, yearly, monthly }: Props) {
   const t = useTranslations("Popular");
-  const [active, setActive] = useState<"all" | "year">("all");
-  const entries = active === "all" ? allTime : yearly;
+  const [active, setActive] = useState<"all" | "year" | "month">("all");
+  const entries =
+    active === "all" ? allTime : active === "year" ? yearly : monthly;
 
   return (
     <section
@@ -63,6 +69,11 @@ export function TopFindsLeaderboard({ allTime, yearly }: Props) {
             label={t("tabYear")}
             active={active === "year"}
             onClick={() => setActive("year")}
+          />
+          <TabButton
+            label={t("tabMonth")}
+            active={active === "month"}
+            onClick={() => setActive("month")}
           />
         </div>
       </header>

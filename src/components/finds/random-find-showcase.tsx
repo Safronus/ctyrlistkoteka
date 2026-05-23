@@ -5,6 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { ArrowRight, MapPin, RefreshCw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { ImageGallery } from "./image-gallery";
+import { VoteButton } from "./vote-button";
 import { formatDateCs, formatLocationId } from "@/lib/format";
 import type { RandomFindShowcase } from "@/lib/queries/random-find";
 
@@ -35,6 +36,12 @@ export function RandomFindShowcaseWidget({
   const locale = useLocale();
   const [find, setFind] = useState<RandomFindShowcase | null>(initial);
   const [refreshing, setRefreshing] = useState(false);
+  // Per-visitor "did I already vote for THIS find?" — populated on
+  // mount + every time the find changes. Until the GET resolves we
+  // show `voted=false` (server pre-paint has no cookies anyway).
+  // Reset to null while refreshing so the button doesn't lie during
+  // the (short) gap between find swap and state hydration.
+  const [voted, setVoted] = useState<boolean>(false);
 
   const refresh = useCallback(async (manual = false) => {
     try {
@@ -67,6 +74,29 @@ export function RandomFindShowcaseWidget({
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [refresh]);
+
+  // Hydrate the per-visitor vote state whenever the find ID changes.
+  // The GET endpoint is cheap (one DB hit + cookie/header read) and
+  // sits on `private, no-store` so it never gets shared between
+  // visitors. AbortController guards against an in-flight response
+  // landing AFTER the find has already rotated again.
+  const findId = find?.id ?? null;
+  useEffect(() => {
+    if (findId === null) return;
+    const ac = new AbortController();
+    fetch(`/api/finds/${findId}/vote`, {
+      signal: ac.signal,
+      credentials: "same-origin",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { voted?: boolean } | null) => {
+        if (data && typeof data.voted === "boolean") setVoted(data.voted);
+      })
+      .catch(() => {
+        /* swallow — aborted or offline */
+      });
+    return () => ac.abort();
+  }, [findId]);
 
   if (!find) return null;
 
@@ -141,6 +171,17 @@ export function RandomFindShowcaseWidget({
           <span className="text-sm text-gray-500">{t("noLocation")}</span>
         )}
         <div className="ml-auto flex items-center gap-3">
+          {/* Vote button keyed by find.id — when the random rotation
+           *  swaps in a new find we want the button to remount with
+           *  the fresh count + the voted state we hydrated above. */}
+          {find.primaryImage && (
+            <VoteButton
+              key={find.id}
+              findId={find.id}
+              initialVoted={voted}
+              initialCount={find.voteCount}
+            />
+          )}
           {find.hasMapPosition && (
             <Link
               href={`/mapa?find=${find.id}`}

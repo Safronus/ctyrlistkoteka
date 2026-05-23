@@ -139,15 +139,22 @@ export default async function StatistikyPage() {
 }
 
 async function TopFindsSection() {
-  // Two queries run in parallel: cached all-time `vote_count` and a
-  // windowed group-by from find_votes. Both honour the secondary
-  // index on (vote_count) / (voted_at), so even at 17k+ finds the
-  // cost is negligible.
-  const [allTime, yearly] = await Promise.all([
+  // Three queries run in parallel: cached all-time `vote_count`,
+  // plus two windowed group-bys (365 d + 30 d). Both honour the
+  // secondary index on (vote_count) / (voted_at), so even at 17k+
+  // finds the cost is negligible.
+  const [allTime, yearly, monthly] = await Promise.all([
     getTopFindsWithThumbs({ limit: 10 }),
     getTopFindsWithThumbs({ limit: 10, windowDays: 365 }),
+    getTopFindsWithThumbs({ limit: 10, windowDays: 30 }),
   ]);
-  return <TopFindsLeaderboard allTime={allTime} yearly={yearly} />;
+  return (
+    <TopFindsLeaderboard
+      allTime={allTime}
+      yearly={yearly}
+      monthly={monthly}
+    />
+  );
 }
 
 function TopFindsSkeleton() {

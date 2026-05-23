@@ -4,9 +4,11 @@ import {
   computeFingerprint,
   ensureVoterUuid,
   getFindVoteCount,
+  getVotedFindIds,
   hashIp,
   rateLimitVote,
   readFingerprintInputs,
+  readVoterUuid,
 } from "@/lib/votes";
 
 /**
@@ -87,6 +89,51 @@ async function prepareVoter(): Promise<
 
 interface RouteContext {
   params: Promise<{ id: string }>;
+}
+
+/**
+ * GET /api/finds/:id/vote — read-only vote state lookup for the
+ * currently-rendered visitor (matched by cookie UUID + IP/UA
+ * fingerprint, see src/lib/votes.ts). Used by the home page random
+ * find widget to hydrate the VoteButton state without a full POST
+ * round-trip on every find rotation.
+ *
+ * Returns `voted=false` if the salt is unconfigured (lib throws);
+ * the count comes from the denormalized cache regardless, so the
+ * count display still works while voting itself is disabled.
+ */
+export async function GET(_req: Request, { params }: RouteContext) {
+  const { id: rawId } = await params;
+  const findId = parseId(rawId);
+  if (!findId) {
+    return NextResponse.json({ error: "Invalid find id" }, { status: 400 });
+  }
+  if (!(await findExists(findId))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const count = await getFindVoteCount(findId);
+  let voted = false;
+  try {
+    const inputs = await readFingerprintInputs();
+    const fingerprint = computeFingerprint(inputs);
+    const voterUuid = await readVoterUuid();
+    const votedSet = await getVotedFindIds([findId], voterUuid, fingerprint);
+    voted = votedSet.has(findId);
+  } catch {
+    // Fingerprint salt missing — answer with the public count, voted
+    // stays false. UI degrades gracefully (button shows "not voted"),
+    // never crashes.
+  }
+
+  return NextResponse.json(
+    { voted, count },
+    {
+      // Per-browser cache only — the `voted` half depends on cookies
+      // so a shared CDN cache would leak state across visitors.
+      headers: { "cache-control": "private, no-store" },
+    },
+  );
 }
 
 export async function POST(_req: Request, { params }: RouteContext) {

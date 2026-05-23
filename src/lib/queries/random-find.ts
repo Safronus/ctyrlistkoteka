@@ -27,6 +27,13 @@ export interface RandomFindShowcase {
    *  here (the showcase doesn't display them anywhere); the map page
    *  resolves them itself from `?find=<id>`. */
   hasMapPosition: boolean;
+  /** Denormalized public vote count for the find. Same column that
+   *  drives the /sbirka list rows + Top 10 leaderboard, so it's
+   *  always cheap to ship along with the showcase payload. The
+   *  per-visitor "did I vote?" flag is fetched separately by the
+   *  client (GET /api/finds/<id>/vote) because including it here
+   *  would force the random-find endpoint to be visitor-specific. */
+  voteCount: number;
 }
 
 export async function getRandomFindShowcase(): Promise<RandomFindShowcase | null> {
@@ -64,6 +71,7 @@ export async function getRandomFindShowcase(): Promise<RandomFindShowcase | null
       id: true,
       foundAt: true,
       isAnonymized: true,
+      voteCount: true,
       location: { select: { id: true, code: true, displayName: true } },
       images: {
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
@@ -94,5 +102,6 @@ export async function getRandomFindShowcase(): Promise<RandomFindShowcase | null
     primaryImage,
     cropImage,
     hasMapPosition,
+    voteCount: find.voteCount,
   };
 }

@@ -97,6 +97,7 @@
     "leaderboardEmpty": "No votes in this period yet.",
     "tabAllTime": "All-time",
     "tabYear": "Last 12 months",
+    "tabMonth": "Last 30 days",
     "voteCount": "{count, plural, =0 {0 votes} one {# vote} other {# votes}}",
     "rankPrefix": "#",
     "openFind": "Open detail",
