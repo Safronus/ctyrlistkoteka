@@ -4,14 +4,10 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { useTranslations } from "next-intl";
 import {
-  ArrowDownNarrowWide,
-  ArrowUpNarrowWide,
+  ArrowUpDown,
   Camera,
-  Compass,
-  Globe,
   LayoutGrid,
   List,
-  ThumbsUp,
 } from "lucide-react";
 import type { FindSort } from "@/lib/queries/finds";
 
@@ -85,38 +81,35 @@ export function ViewSortToolbar({
           onChange={(v) => setParam("view", v, "list")}
         />
 
-        <Segmented
-          label={t("sort")}
-          value={sort}
-          options={[
-            {
-              value: "desc",
-              label: t("sortDesc"),
-              icon: <ArrowDownNarrowWide className="h-4 w-4" />,
-            },
-            {
-              value: "asc",
-              label: t("sortAsc"),
-              icon: <ArrowUpNarrowWide className="h-4 w-4" />,
-            },
-            {
-              value: "dist-asc",
-              label: t("sortDistAsc"),
-              icon: <Compass className="h-4 w-4" />,
-            },
-            {
-              value: "dist-desc",
-              label: t("sortDistDesc"),
-              icon: <Globe className="h-4 w-4" />,
-            },
-            {
-              value: "votes-desc",
-              label: t("sortVotesDesc"),
-              icon: <ThumbsUp className="h-4 w-4" />,
-            },
-          ]}
-          onChange={(v) => setParam("sort", v, "desc")}
-        />
+        {/* Sort: native <select> dropdown, mirroring /lokality. The
+            segmented form had 5 options and overflowed on mobile —
+            the OS-rendered dropdown is compact, gets keyboard +
+            mobile chrome for free, and matches LocationsToolbar's
+            visual language. Label hides under sm: to keep the
+            trigger tight on phones. */}
+        <label
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-300 bg-white px-2.5 text-sm text-gray-700"
+          aria-label={t("sort")}
+        >
+          <ArrowUpDown
+            className="h-4 w-4 shrink-0 text-gray-500"
+            aria-hidden
+          />
+          <span className="hidden text-gray-500 sm:inline">
+            {t("sort")}:
+          </span>
+          <select
+            value={sort}
+            onChange={(e) => setParam("sort", e.target.value, "desc")}
+            className="cursor-pointer border-0 bg-transparent pr-1 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+          >
+            <option value="desc">{t("sortDesc")}</option>
+            <option value="asc">{t("sortAsc")}</option>
+            <option value="dist-asc">{t("sortDistAsc")}</option>
+            <option value="dist-desc">{t("sortDistDesc")}</option>
+            <option value="votes-desc">{t("sortVotesDesc")}</option>
+          </select>
+        </label>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">

@@ -91,14 +91,18 @@ export async function PopularFindWidget({
           </span>
         </Link>
         {/* `relative` hosts the absolutely-positioned vote CTA below
-         *  so it floats top-right WITHOUT contributing to the flex
-         *  column's row heights — that's what made the previous flex
-         *  layout open a vertical gap between subtitle and title
-         *  (the row took the button's height, not the subtitle's).
-         *  Subtitle + title get a right padding wide enough to clear
-         *  the button so they never slide behind it. */}
+         *  on sm:+ so it floats top-right WITHOUT contributing to
+         *  the flex column's row heights (avoids the vertical gap
+         *  between subtitle and title that a normal-flow flex row
+         *  would open). On mobile the absolute position is dropped
+         *  and the button drops to the bottom of the column via
+         *  `order-last` — there's no horizontal room to float it
+         *  top-right next to the subtitle without colliding with
+         *  the map-pin rail or wrapping the title prematurely.
+         *  Subtitle + title get sm:pr-24 to clear the desktop float;
+         *  on mobile they take the full column width. */}
         <div className="relative flex flex-col gap-2">
-          <div className="absolute right-0 top-0">
+          <div className="order-last pt-1 sm:absolute sm:right-0 sm:top-0 sm:order-none sm:pt-0">
             <VoteButton
               findId={winner.findId}
               initialVoted={false}
@@ -107,13 +111,13 @@ export async function PopularFindWidget({
               autoHydrate
             />
           </div>
-          <p className="flex items-center gap-2 pr-24 text-xs font-medium uppercase tracking-wide text-brand-700">
+          <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-brand-700 sm:pr-24">
             <CloverThumbIcon filled className="h-4 w-4" />
             {t("homepageSubtitle")}
           </p>
           <h2
             id="popular-find-heading"
-            className="pr-24 text-2xl font-bold text-gray-900 sm:text-3xl"
+            className="text-2xl font-bold text-gray-900 sm:pr-24 sm:text-3xl"
           >
             {t("homepageTitle")}
           </h2>
