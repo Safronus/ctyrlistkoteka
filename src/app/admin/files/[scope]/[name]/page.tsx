@@ -39,6 +39,7 @@ import { FindAnonymizeToggleButton } from "../../finds/anonymize-toggle-button";
 import { FindDonationPhotosCard } from "../../finds/donation-photos-card";
 import { FindFreePhotosCard } from "../../finds/free-photos-card";
 import { FindGigantToggleButton } from "../../finds/gigant-toggle-button";
+import { FindQrButton } from "../../finds/qr-button";
 import { MarkDonatedButton } from "../../finds/mark-donated-button";
 import { UnmarkDonatedButton } from "../../finds/unmark-donated-button";
 import { parseRanges } from "@/lib/parseRanges";
@@ -324,6 +325,9 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
                     filename={info.name}
                     currentlyGigant={findIsGigant}
                   />
+                )}
+                {findParsed?.ok && (
+                  <FindQrButton findId={findParsed.value.findId} />
                 )}
                 {canMarkDonated && (
                   <MarkDonatedButton filename={info.name} />

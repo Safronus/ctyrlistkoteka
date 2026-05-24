@@ -60,3 +60,6 @@ next-env.d.ts
 # Dočasné
 tmp/
 *.tsbuildinfo
+
+# Mockup output (regenerable from scripts/mockups/*.mjs)
+scripts/mockups/*.svg
