@@ -13,6 +13,7 @@ import {
   runAllChecks,
   type CheckResult,
 } from "@/lib/admin/checks";
+import { AckCheckButton } from "./ack-button";
 
 export const dynamic = "force-dynamic";
 
@@ -167,7 +168,15 @@ function CheckCard({ result }: { result: CheckResult }) {
                         <td className="px-2 py-1.5 font-mono text-gray-800">
                           {o.locationCode}
                         </td>
-                        <td className="px-2 py-1.5 text-gray-600">{o.detail}</td>
+                        <td className="px-2 py-1.5 text-gray-600">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="min-w-0 flex-1">{o.detail}</span>
+                            <AckCheckButton
+                              checkId={result.id}
+                              offenderId={o.mapId}
+                            />
+                          </div>
+                        </td>
                       </tr>
                     ))}
               </tbody>

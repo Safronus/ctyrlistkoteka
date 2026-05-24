@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { readCheckAckSet } from "./checkAcks";
 
 /** Result of a single consistency check. The page renders one card
  *  per result; an empty `offenders` array is the green-check case.
@@ -324,43 +325,54 @@ async function checkFindsWithoutGps(): Promise<CheckResult> {
  *  `ST_Within` so a center sitting exactly on the polygon edge
  *  passes (lenient: edge cases are usually fine, not bugs). */
 async function checkMapCenterOutsidePolygon(): Promise<MapCheckResult> {
-  const rows = await prisma.$queryRaw<
-    Array<{
-      id: number;
-      original_filename: string;
-      location_code: string;
-      center_lat: number;
-      center_lng: number;
-    }>
-  >`
-    SELECT lm.id,
-           lm.original_filename,
-           lm.location_code,
-           lm.center_lat,
-           lm.center_lng
-    FROM location_maps lm
-    JOIN locations l ON l.id = lm.location_id
-    WHERE l.polygon IS NOT NULL
-      AND NOT ST_Covers(
-        l.polygon,
-        ST_SetSRID(ST_MakePoint(lm.center_lng, lm.center_lat), 4326)
-      )
-    ORDER BY lm.id ASC
-  `;
+  const [rows, acked] = await Promise.all([
+    prisma.$queryRaw<
+      Array<{
+        id: number;
+        original_filename: string;
+        location_code: string;
+        center_lat: number;
+        center_lng: number;
+      }>
+    >`
+      SELECT lm.id,
+             lm.original_filename,
+             lm.location_code,
+             lm.center_lat,
+             lm.center_lng
+      FROM location_maps lm
+      JOIN locations l ON l.id = lm.location_id
+      WHERE l.polygon IS NOT NULL
+        AND NOT ST_Covers(
+          l.polygon,
+          ST_SetSRID(ST_MakePoint(lm.center_lng, lm.center_lat), 4326)
+        )
+      ORDER BY lm.id ASC
+    `,
+    readCheckAckSet(MAP_CENTER_POLYGON_CHECK_ID),
+  ]);
   return {
     kind: "map",
-    id: "map-center-outside-polygon",
+    id: MAP_CENTER_POLYGON_CHECK_ID,
     title: "Lokační mapa: střed mimo polygon",
     description:
-      "Mapa má v lokalitě nakreslený polygon, ale středový bod (z GPS v názvu) leží mimo něj. Obvykle špatně obtažený polygon nebo překlep v souřadnicích.",
-    offenders: rows.map((r) => ({
-      mapId: r.id,
-      originalFilename: r.original_filename,
-      locationCode: r.location_code,
-      detail: `Střed ${r.center_lat.toFixed(5)}, ${r.center_lng.toFixed(5)} mimo polygon lokality.`,
-    })),
+      "Mapa má v lokalitě nakreslený polygon, ale středový bod (z GPS v názvu) leží mimo něj. Obvykle špatně obtažený polygon nebo překlep v souřadnicích. Potvrzené záznamy (tlačítko \"OK\") jsou skryté.",
+    offenders: rows
+      .filter((r) => !acked.has(r.id))
+      .map((r) => ({
+        mapId: r.id,
+        originalFilename: r.original_filename,
+        locationCode: r.location_code,
+        detail: `Střed ${r.center_lat.toFixed(5)}, ${r.center_lng.toFixed(5)} mimo polygon lokality.`,
+      })),
   };
 }
+
+/** Stable id for the map-center / polygon mismatch check. Exported
+ *  so the ack server action can validate the incoming check id
+ *  against this exact value (no free-form check ids = no risk of an
+ *  attacker writing arbitrary keys into check-acks.json). */
+export const MAP_CENTER_POLYGON_CHECK_ID = "map-center-outside-polygon";
 
 export async function runAllChecks(): Promise<CheckResult[]> {
   return Promise.all([
