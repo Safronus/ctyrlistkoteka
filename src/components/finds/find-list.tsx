@@ -126,16 +126,28 @@ function FindListRow({
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          {/* Title row: #ID + #LocId - CODE (description), datetime right.
-           *  The date span uses ml-auto so it lands on the right edge of
-           *  whatever row it falls on (works for both the same-row and
-           *  the wrapped-to-its-own-row case). The long form would
-           *  overflow the ~140 px mobile column into the map-pin rail,
-           *  so the visible label drops to "21. 5. 2026 8:50" on phones
-           *  and only restores weekday + seconds from sm:. */}
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <FindTitle find={find} tRow={tRow} />
-            <span className="ml-auto shrink-0 whitespace-nowrap text-xs text-gray-500">
+          {/* Row 1 — find-centric line: `#id` + optional find note +
+           *  date right. The outer `items-start` anchors the date in
+           *  the top-right corner even when the note wraps to a second
+           *  line below the find ID, so the date never drifts down
+           *  into the coords row (the bug behind the prior layout's
+           *  broken vote-button alignment on long notes). The inner
+           *  left column flex-wraps so the note flows below `#id`
+           *  when it's too long to share one row. Date drops to a
+           *  short "21. 5. 2026 8:50" on phones; full weekday +
+           *  seconds restore from sm:. */}
+          <div className="flex items-start gap-x-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span className="shrink-0 text-base font-semibold text-brand-700 group-hover:underline">
+                #{find.id}
+              </span>
+              {find.notes && (
+                <span className="line-clamp-2 text-sm text-gray-700">
+                  {find.notes}
+                </span>
+              )}
+            </div>
+            <span className="shrink-0 whitespace-nowrap text-xs text-gray-500">
               <span className="sm:hidden">
                 {formatTinyDateTimeCs(find.foundAt, locale)}
               </span>
@@ -145,11 +157,12 @@ function FindListRow({
             </span>
           </div>
 
+          {/* Row 2 — geographic line: GPS + offset to its location +
+           *  great-circle distance to default map #00001. Each unit
+           *  is wrapped in its own `whitespace-nowrap` span so the
+           *  break only ever happens at " · " on narrow viewports,
+           *  never inside a phrase like "uvnitř AOI". */}
           {!find.isAnonymized && find.coordinates && (
-            // Each unit ("GPS pair", "uvnitř AOI", "75,8 km od mapy
-            // #00001") sits in its own whitespace-nowrap span so the
-            // line breaks only at the " · " separator on narrow mobile
-            // viewports, never inside a phrase like "uvnitř AOI".
             <p className="font-mono text-xs text-gray-500">
               <span className="whitespace-nowrap">
                 {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
@@ -184,8 +197,41 @@ function FindListRow({
             </p>
           )}
 
-          {find.notes && (
-            <p className="line-clamp-2 text-sm text-gray-600">{find.notes}</p>
+          {/* Row 3 — location-centric line: map id + code + (cleaned)
+           *  description. Anonymized finds collapse this to a single
+           *  placeholder. The description is rendered without the
+           *  wrapping parens it carries in the source JSON — the
+           *  visual grouping was redundant once the description sits
+           *  on its own row. */}
+          {find.isAnonymized ? (
+            <p className="text-sm text-gray-500">{tRow("anonymizedLocation")}</p>
+          ) : find.location ? (
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+              <span className="shrink-0 font-mono text-xs text-gray-500">
+                {formatLocationId(find.location.id)}
+              </span>
+              <span className="shrink-0 text-gray-400">–</span>
+              <span
+                className="truncate text-gray-800"
+                title={find.location.code}
+              >
+                {find.location.code}
+              </span>
+              {(() => {
+                const cleaned = stripOuterParens(find.location.displayName);
+                if (!cleaned || cleaned === find.location.code) return null;
+                return (
+                  <span
+                    className="truncate text-gray-500"
+                    title={cleaned}
+                  >
+                    {cleaned}
+                  </span>
+                );
+              })()}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">{tRow("noLocation")}</p>
           )}
 
           {/* Bottom row of the content column — pushed against the
@@ -278,47 +324,21 @@ function FindListRow({
   );
 }
 
-function FindTitle({ find, tRow }: { find: PublicFind; tRow: RowT }) {
-  if (find.isAnonymized) {
-    return (
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <span className="text-base font-semibold text-brand-700 group-hover:underline">
-          #{find.id}
-        </span>
-        <span className="truncate text-sm text-gray-700">
-          {tRow("anonymizedLocation")}
-        </span>
-      </div>
-    );
+/** Strips a single pair of wrapping parens from a location's display
+ *  description so it can sit on its own row without the visual
+ *  grouping marks it inherits from the source JSON. Only the outer
+ *  pair is touched; nested parens (e.g. "Vedle pomníku Rotary
+ *  International (200 m od Ground Zero)") survive intact. Returns
+ *  null for null / undefined input. */
+function stripOuterParens(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (
+    trimmed.length >= 2 &&
+    trimmed.startsWith("(") &&
+    trimmed.endsWith(")")
+  ) {
+    return trimmed.slice(1, -1).trim();
   }
-
-  const loc = find.location;
-  return (
-    <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-      <span className="text-base font-semibold text-brand-700 group-hover:underline">
-        #{find.id}
-      </span>
-      {loc ? (
-        <>
-          <span className="font-mono text-xs text-gray-500">
-            {formatLocationId(loc.id)}
-          </span>
-          <span className="text-gray-400">–</span>
-          <span className="truncate text-sm text-gray-800" title={loc.code}>
-            {loc.code}
-          </span>
-          {loc.displayName && loc.displayName !== loc.code && (
-            <span
-              className="truncate text-sm text-gray-500"
-              title={loc.displayName}
-            >
-              ({loc.displayName})
-            </span>
-          )}
-        </>
-      ) : (
-        <span className="text-sm text-gray-700">{tRow("noLocation")}</span>
-      )}
-    </div>
-  );
+  return trimmed;
 }
