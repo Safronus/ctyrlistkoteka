@@ -480,15 +480,18 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
       )}
 
       {isPreviewableImage(info.contentType) && (
-        <figure className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2">
+        <figure className="flex max-h-[60vh] items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2">
           {/* `<img>` rather than next/image — admin previews are
               one-off, no need to push them through the optimizer +
-              the file isn't on a public URL anyway. */}
+              the file isn't on a public URL anyway. `block` cancels
+              the default inline baseline gap that otherwise leaves a
+              ~4 px strip of figure background visible under the
+              image and visually pushes the photo "below" the card. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={fileUrl}
             alt={info.name}
-            className="mx-auto max-h-[70vh] w-auto rounded"
+            className="block max-h-full max-w-full w-auto rounded"
           />
         </figure>
       )}

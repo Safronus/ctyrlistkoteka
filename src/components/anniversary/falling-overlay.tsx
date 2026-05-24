@@ -49,7 +49,13 @@ let cssIdCounter = 0;
 export function FallingOverlay({
   kinds,
   count,
-  zIndex = 50,
+  // Above Leaflet's max pane (popup pane = 700) so the falling
+  // particles read above map tiles on /mapa. Tailwind's z-50 (the
+  // previous default) sat under every Leaflet pane and made the
+  // effect disappear behind the tile grid. The overlay is
+  // pointer-events-none everywhere, so painting on top of any
+  // modal / sidebar UI is harmless — clicks still pass through.
+  zIndex = 800,
   /** Vertical-only flag for variants where horizontal swing reads as
    *  unnatural (e.g. tight digits without an aerodynamic shape). */
   noSway = false,

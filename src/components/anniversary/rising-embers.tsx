@@ -32,7 +32,7 @@ const EMBER_SPECS: ReadonlyArray<EmberSpec> = Array.from(
   }),
 );
 
-export function RisingEmbersLayer({ zIndex = 49 }: { zIndex?: number }) {
+export function RisingEmbersLayer({ zIndex = 799 }: { zIndex?: number }) {
   return (
     <div
       aria-hidden
