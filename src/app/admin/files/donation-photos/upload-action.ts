@@ -94,6 +94,8 @@ export async function uploadDonationPhotos(
   if (results.some((r) => r.status === "ok")) {
     invalidateFindPhotosCache();
     revalidatePath("/admin/files/donation-photos");
+    revalidatePath("/admin/files/finds", "layout");
+    revalidatePath("/sbirka", "layout");
   }
   return { results };
 }

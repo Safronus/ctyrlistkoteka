@@ -178,6 +178,13 @@ export async function uploadFindFreePhotos(
     invalidateFindFreePhotosCache();
     revalidatePath("/admin/files/free-photos");
     revalidatePath("/admin/files/finds", "layout");
+    // Public-facing pages: `/sbirka` listing (badge) + `/sbirka/<id>`
+    // detail (gallery). ISR keeps these cached for 24h otherwise — a
+    // visitor refreshing right after the upload would see stale state
+    // until the next revalidation. `layout` mode catches every locale
+    // prefix (as-needed default + /en/…). Matches the votes action's
+    // broad invalidation.
+    revalidatePath("/sbirka", "layout");
   }
   return { results };
 }

@@ -205,6 +205,10 @@ export async function uploadFindDonationPhotos(
     // list via the same dirCache — bust the RSC cache so the new
     // photo appears in the card on next render.
     revalidatePath("/admin/files/finds", "layout");
+    // Public listing + detail are ISR-cached for 24 h; without this a
+    // visitor refreshing right after the upload would see stale state.
+    // `layout` catches every locale prefix.
+    revalidatePath("/sbirka", "layout");
   }
   return { results };
 }

@@ -9,6 +9,7 @@ import {
   Database,
   FileCog,
   Image as ImageIcon,
+  Images as ImagesIcon,
   ListChecks,
   MapPinned,
   Map as MapIcon,
@@ -172,6 +173,16 @@ export default async function AdminHomePage() {
           lines={[
             "generated/find-photos/",
             "Konvence: <id><slot>_DAR[_ANON]",
+          ]}
+        />
+        <FeatureCard
+          icon={ImagesIcon}
+          title="Volné fotky nálezů"
+          status="ok"
+          href="/admin/files/free-photos"
+          lines={[
+            "generated/find-free-photos/",
+            "Konvence: <id><slot>_FOTO • >2 MB → WebP",
           ]}
         />
         <FeatureCard

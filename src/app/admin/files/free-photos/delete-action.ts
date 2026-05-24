@@ -20,10 +20,11 @@ import type { BulkDeleteResult } from "../_shared/list-types";
 
 const TRASH_SUBDIR = "free-photos";
 
-/** Move one free photo from `generated/find-free-photos/` to
- *  `data/.trash/<ts>/free-photos/`. Mirrors the donation-photo delete
- *  flow — cross-filesystem renames may fall back to copy+unlink. */
-export async function deleteFreePhoto(formData: FormData): Promise<void> {
+/** Shared body for both the redirecting standalone-scope variant and
+ *  the inline find-detail variant. Pulled out so the only difference
+ *  between the two exported actions is whether they call `redirect()`
+ *  at the end. */
+async function performDeleteFreePhoto(formData: FormData): Promise<void> {
   const session = await getAdminSession();
   if (!isAuthenticated(session)) {
     throw new Error("Unauthenticated");
@@ -71,7 +72,30 @@ export async function deleteFreePhoto(formData: FormData): Promise<void> {
 
   revalidatePath("/admin/files/free-photos");
   revalidatePath("/admin/files/finds", "layout");
+  // Public detail page + listing: see comment in
+  // src/app/admin/files/finds/free-photos-action.ts for the rationale.
+  revalidatePath("/sbirka", "layout");
+}
+
+/** Move one free photo from `generated/find-free-photos/` to
+ *  `data/.trash/<ts>/free-photos/`. Mirrors the donation-photo delete
+ *  flow — cross-filesystem renames may fall back to copy+unlink.
+ *  Redirects to the standalone scope listing on success — appropriate
+ *  for the button on the file detail page (the detail itself would
+ *  404 after the file moves to trash). */
+export async function deleteFreePhoto(formData: FormData): Promise<void> {
+  await performDeleteFreePhoto(formData);
   redirect("/admin/files/free-photos");
+}
+
+/** Same delete, no redirect. The find-detail card invokes this so the
+ *  user stays on the find's admin page and sees the row vanish on
+ *  re-render. revalidatePath inside `performDeleteFreePhoto` covers
+ *  the RSC refresh. */
+export async function deleteFreePhotoInline(
+  formData: FormData,
+): Promise<void> {
+  await performDeleteFreePhoto(formData);
 }
 
 /** Bulk variant — mirrors `deleteDonationPhotosBulk`. */
@@ -161,6 +185,7 @@ export async function deleteFreePhotosBulk(
     invalidateFindFreePhotosCache();
     revalidatePath("/admin/files/free-photos");
     revalidatePath("/admin/files/finds", "layout");
+    revalidatePath("/sbirka", "layout");
   }
   return { results };
 }

@@ -38,6 +38,9 @@ import path from "node:path";
 const PHOTOS_SUBDIR = "find-free-photos";
 const URL_PREFIX = "/generated/find-free-photos";
 const ALLOWED_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+/** Hard upper bound — a stat-mtime miss in PM2 cluster mode (e.g. a
+ *  worker that never touched the dir before this read) still recovers
+ *  within this window even if mtime polling missed an update. */
 const DIR_CACHE_TTL_MS = 5 * 60 * 1000;
 const FILENAME_RE = /^(\d+)([a-z])_FOTO\.(jpe?g|png|webp)$/i;
 
@@ -54,6 +57,13 @@ export interface FindFreePhotoEntry {
 interface DirCache {
   byFindId: Map<number, FindFreePhotoEntry[]>;
   loadedAt: number;
+  /** Directory mtime captured at load time. POSIX bumps this on any
+   *  create / delete / rename inside the dir, so a single fs.stat per
+   *  cache check lets every PM2 worker notice changes made by its
+   *  siblings — no IPC, no Redis. The single-user write rate is way
+   *  below mtime's 1 s POSIX resolution so we don't need finer
+   *  signals. */
+  dirMtimeMs: number;
 }
 
 let dirCache: DirCache | null = null;
@@ -63,11 +73,24 @@ function getPhotosDir(): string {
   return path.join(generatedDir, PHOTOS_SUBDIR);
 }
 
+async function getDirMtimeMs(dir: string): Promise<number | null> {
+  try {
+    const stat = await fs.stat(dir);
+    return stat.mtimeMs;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw e;
+  }
+}
+
 async function loadDirCache(): Promise<DirCache> {
   const dir = getPhotosDir();
   let entries: string[] = [];
+  let dirMtimeMs = 0;
   try {
     entries = await fs.readdir(dir);
+    const stat = await fs.stat(dir);
+    dirMtimeMs = stat.mtimeMs;
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
   }
@@ -95,13 +118,20 @@ async function loadDirCache(): Promise<DirCache> {
   for (const list of byFindId.values()) {
     list.sort((a, b) => a.slot.localeCompare(b.slot));
   }
-  return { byFindId, loadedAt: Date.now() };
+  return { byFindId, loadedAt: Date.now(), dirMtimeMs };
 }
 
 async function getDirCache(): Promise<DirCache> {
   const now = Date.now();
   if (dirCache && now - dirCache.loadedAt < DIR_CACHE_TTL_MS) {
-    return dirCache;
+    // Mtime hot-check: if the directory hasn't been touched since the
+    // last load, skip the readdir entirely. If it has — even by a
+    // sibling PM2 worker — reload. Single fs.stat is sub-millisecond
+    // on a hot inode and amortises across hundreds of public reads.
+    const currentMtime = await getDirMtimeMs(getPhotosDir());
+    if (currentMtime !== null && currentMtime === dirCache.dirMtimeMs) {
+      return dirCache;
+    }
   }
   dirCache = await loadDirCache();
   return dirCache;

@@ -71,6 +71,8 @@ export async function deleteDonationPhoto(formData: FormData): Promise<void> {
   });
 
   revalidatePath("/admin/files/donation-photos");
+  revalidatePath("/admin/files/finds", "layout");
+  revalidatePath("/sbirka", "layout");
   redirect("/admin/files/donation-photos");
 }
 
@@ -160,6 +162,8 @@ export async function deleteDonationPhotosBulk(
   if (results.some((r) => r.status === "ok")) {
     invalidateFindPhotosCache();
     revalidatePath("/admin/files/donation-photos");
+    revalidatePath("/admin/files/finds", "layout");
+    revalidatePath("/sbirka", "layout");
   }
   return { results };
 }

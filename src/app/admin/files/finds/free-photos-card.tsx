@@ -11,7 +11,9 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { uploadFindFreePhotos } from "./free-photos-action";
+import { deleteFreePhotoInline } from "../free-photos/delete-action";
 
 interface ExistingEntry {
   slot: string;
@@ -199,13 +201,41 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
                 <span className="rounded bg-brand-100 px-1.5 py-0.5 font-mono font-semibold uppercase text-brand-800">
                   {p.slot}
                 </span>
-                <Link
-                  href={`/admin/files/free-photos/${encodeURIComponent(p.filename)}`}
-                  className="shrink-0 rounded border border-gray-300 bg-white px-2 py-0.5 font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
-                  title="Otevřít detail fotky"
-                >
-                  Detail
-                </Link>
+                <div className="flex shrink-0 items-center gap-1">
+                  {/* Inline delete — `window.confirm` is enough friction
+                      for an admin-only workflow; the full two-step
+                      pattern lives on the standalone scope's detail
+                      page for users who prefer that. Form posts the
+                      server action directly so the row goes away on
+                      success without a client round-trip. */}
+                  <form action={deleteFreePhotoInline}>
+                    <input type="hidden" name="name" value={p.filename} />
+                    <button
+                      type="submit"
+                      onClick={(e) => {
+                        if (
+                          !window.confirm(
+                            `Smazat fotku ${p.filename}? Soubor půjde do data/.trash/.`,
+                          )
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      title="Smazat fotku"
+                      aria-label={`Smazat fotku ${p.filename}`}
+                      className="rounded border border-red-200 bg-white p-1 text-red-700 transition hover:border-red-300 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3 w-3" aria-hidden />
+                    </button>
+                  </form>
+                  <Link
+                    href={`/admin/files/free-photos/${encodeURIComponent(p.filename)}`}
+                    className="rounded border border-gray-300 bg-white px-2 py-0.5 font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
+                    title="Otevřít detail fotky"
+                  >
+                    Detail
+                  </Link>
+                </div>
               </div>
             </li>
           ))}

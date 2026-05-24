@@ -300,6 +300,35 @@ export function extractFindId(filename: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** Scans `data/finds/` for the original photo of a given find ID and
+ *  returns its on-disk filename. The match is anchored: the filename's
+ *  leading digit run must equal `findId` exactly (so #18 doesn't pick
+ *  up #182). Returns null when no match exists (find without an
+ *  original on disk yet, or wrong ID). Used by photo detail pages to
+ *  deep-link "back to the find original" without the user having to
+ *  search.
+ *
+ *  Cheap enough to call per render — single readdir on a directory
+ *  we already scan elsewhere, and the OS keeps it warm. */
+export async function findOriginalFilenameById(
+  findId: number,
+): Promise<string | null> {
+  if (!Number.isInteger(findId) || findId <= 0) return null;
+  const root = ADMIN_ROOTS.findOriginals;
+  let names: string[];
+  try {
+    names = await fs.readdir(root);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+  for (const name of names) {
+    if (name.startsWith(".")) continue;
+    if (extractFindId(name) === findId) return name;
+  }
+  return null;
+}
+
 /** Extracts the map ID from a location-map filename — the trailing
  *  5-digit run before the extension (per `parseMapFilename`'s regex).
  *  Returns null when the name doesn't conform. */

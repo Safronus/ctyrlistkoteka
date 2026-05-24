@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Camera, ChevronLeft, ChevronRight, Lock, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, Gift, Lock, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { FindPhotoEntry } from "@/lib/findPhotos";
 import { unlockFindPhotos } from "@/lib/actions/findPhotoUnlock";
@@ -83,9 +83,21 @@ export function DonationPhotosButton({
         onClick={() => setOpen(true)}
         title={t("openTitle", { total })}
         aria-label={t("openAria", { total })}
+        // The Camera sits at full size with a small Gift badge anchored
+        // to the lower-right corner — combo cue that this gallery is
+        // specifically for donation photos (vs the plain `Images`
+        // button below for the generic free-photo gallery). The ring +
+        // brand-tinted background on the Gift lifts it off the camera
+        // outline so the two icons read as distinct shapes.
         className="absolute right-3 top-16 rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
       >
-        <Camera className="h-5 w-5" />
+        <span className="relative inline-flex">
+          <Camera className="h-5 w-5" aria-hidden />
+          <Gift
+            aria-hidden
+            className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-amber-100 p-0.5 text-amber-700 ring-1 ring-white"
+          />
+        </span>
       </button>
 
       <dialog

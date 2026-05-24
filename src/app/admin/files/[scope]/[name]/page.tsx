@@ -15,7 +15,11 @@ import {
   type LSPAnalysis,
 } from "@/lib/admin/lokaceStavyAnalysis";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
-import { getScope, statScopeFile } from "@/lib/admin/scopes";
+import {
+  findOriginalFilenameById,
+  getScope,
+  statScopeFile,
+} from "@/lib/admin/scopes";
 import { checkSyncNeeded } from "@/lib/admin/syncNeeded";
 import {
   LOKACE_STAVY_POZNAMKY_FILENAME,
@@ -225,6 +229,25 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
       ? await getFindFreePhotos(findParsed.value.findId)
       : [];
 
+  // For photo-detail pages (donation + free), resolve the find ID
+  // embedded in the photo filename back to the matching original on
+  // disk so we can offer a one-click "back to original" link. The
+  // photo filename pattern is `<findId><slot>_DAR…` or
+  // `<findId><slot>_FOTO…` — both share the same leading-digit run
+  // convention. When the original isn't on disk we still surface a
+  // shallower fallback link to the finds listing filtered by that ID.
+  const photoFindIdMatch =
+    scope.slug === "donation-photos" || scope.slug === "free-photos"
+      ? /^(\d+)/.exec(info.name)
+      : null;
+  const photoFindId = photoFindIdMatch
+    ? Number(photoFindIdMatch[1])
+    : null;
+  const photoOriginalName =
+    photoFindId !== null
+      ? await findOriginalFilenameById(photoFindId)
+      : null;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -324,6 +347,31 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
                 <DeleteMapButton filename={info.name} />
               </>
             )}
+            {(scope.slug === "donation-photos" ||
+              scope.slug === "free-photos") &&
+              photoFindId !== null && (
+                <Link
+                  // Prefer the direct deep-link to the find original's
+                  // detail page; fall back to the finds listing filtered
+                  // by ID when the original isn't on disk. Either way
+                  // the user gets back to the find's context in one
+                  // click.
+                  href={
+                    photoOriginalName
+                      ? `/admin/files/finds/${encodeURIComponent(photoOriginalName)}`
+                      : `/admin/files/finds?q=${photoFindId}`
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-brand-50 px-2.5 py-1.5 text-xs font-medium text-brand-800 transition hover:border-brand-400 hover:bg-brand-100"
+                  title={
+                    photoOriginalName
+                      ? `Otevřít originál nálezu #${photoFindId}`
+                      : `Najít originál nálezu #${photoFindId}`
+                  }
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                  Originál nálezu #{photoFindId}
+                </Link>
+              )}
             {scope.slug === "donation-photos" && (
               <DeleteDonationPhotoButton filename={info.name} />
             )}
