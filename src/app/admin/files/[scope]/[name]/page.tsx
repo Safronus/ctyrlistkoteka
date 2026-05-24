@@ -97,9 +97,17 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
   const info = await statScopeFile(scope, name).catch(() => null);
   if (!info) notFound();
 
+  // Mtime suffix busts the browser's max-age=60 cache after a
+  // replace. Without it, the admin detail page showed the old map
+  // PNG for up to a minute after the replace landed on disk — even
+  // a manual reload kept hitting the cache because the URL was
+  // identical. With the suffix every mtime change yields a new URL,
+  // and the underlying ETag still lets the browser short-circuit
+  // unchanged fetches via 304.
+  const fileVersion = Date.parse(info.mtime).toString(36);
   const fileUrl = `/api/admin/file?scope=${encodeURIComponent(
     scope.slug,
-  )}&name=${encodeURIComponent(info.name)}`;
+  )}&name=${encodeURIComponent(info.name)}&v=${fileVersion}`;
 
   const isMetaJson =
     scope.slug === "meta" && info.name === LOKACE_STAVY_POZNAMKY_FILENAME;
