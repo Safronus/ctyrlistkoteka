@@ -488,18 +488,24 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
       )}
 
       {isPreviewableImage(info.contentType) && (
-        <figure className="flex max-h-[60vh] items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2">
+        <figure className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2">
           {/* `<img>` rather than next/image — admin previews are
               one-off, no need to push them through the optimizer +
               the file isn't on a public URL anyway. `block` cancels
               the default inline baseline gap that otherwise leaves a
               ~4 px strip of figure background visible under the
-              image and visually pushes the photo "below" the card. */}
+              image. max-h lives directly on the <img>: percentage
+              max-heights (max-h-full) need an explicit parent
+              height to resolve, but vh units are viewport-relative
+              and reliable regardless of parent sizing — earlier
+              attempt to cap via the figure failed because the
+              figure's height was `auto` and the image fell back to
+              its intrinsic pixel size, overflowing the page. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={fileUrl}
             alt={info.name}
-            className="block max-h-full max-w-full w-auto rounded"
+            className="mx-auto block max-h-[60vh] w-auto rounded"
           />
         </figure>
       )}
