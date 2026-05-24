@@ -51,8 +51,14 @@ export const STAVY_KEYS = [
   "ZTRACENY",
 ] as const;
 
-const stavyShape: Record<string, typeof rangesField> = {};
-for (const k of STAVY_KEYS) stavyShape[k] = rangesField;
+// Each stavy key is optional so the schema tolerates JSONs that
+// pre-date a newly added state (e.g. GIGANT shipped after the
+// production JSON was already in place). Consumers downstream
+// coalesce missing keys with `?? []`. The strict-object rejection
+// of UNKNOWN keys still stands — only the known-but-absent case
+// is now legal.
+const stavyShape: Record<string, z.ZodOptional<typeof rangesField>> = {};
+for (const k of STAVY_KEYS) stavyShape[k] = rangesField.optional();
 
 export const anonymizaceSchema = z.strictObject({
   ANONYMIZOVANE: rangesField,

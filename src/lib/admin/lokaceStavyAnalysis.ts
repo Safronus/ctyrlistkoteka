@@ -72,7 +72,10 @@ export function analyzeLokaceStavyPoznamky(
   const findsInStavy: Record<string, number> = {};
   const stavyFindSet = new Set<number>();
   for (const [key, ranges] of Object.entries(parsed.stavy)) {
-    const ids = expandSafe(ranges);
+    // ranges is `string[] | undefined` since each stavy key became
+    // optional in the schema — coalesce missing keys to an empty
+    // array so the analysis stays a no-op for absent state lists.
+    const ids = expandSafe(ranges ?? []);
     findsInStavy[key] = new Set(ids).size;
     for (const id of ids) {
       stavyFindSet.add(id);
