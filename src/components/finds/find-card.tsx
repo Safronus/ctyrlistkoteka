@@ -1,5 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
-import { Camera } from "lucide-react";
+import { Camera, Images } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
@@ -66,17 +66,31 @@ export async function FindCard({
             <StateBadges states={find.states} className="drop-shadow-sm" />
           </div>
         )}
-        {find.hasRealPhoto && (
-          // Camera-only chip — same look as the /lokality list. Bottom-
-          // right corner so it doesn't fight with the state badges that
-          // anchor at the top.
-          <span
-            className="pointer-events-none absolute bottom-2 right-2 inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800 drop-shadow-sm"
-            title={tRow("donationPhotoTitle")}
-            aria-label={tRow("donationPhotoTitle")}
-          >
-            <Camera className="h-3 w-3" aria-hidden />
-          </span>
+        {(find.hasRealPhoto || find.hasFreePhoto) && (
+          // Stack the gallery chips bottom-right. Camera (donation)
+          // first when present, then Images (free) — same emerald hue
+          // for hasRealPhoto, sky for hasFreePhoto so the two are
+          // visually distinct without screaming.
+          <div className="pointer-events-none absolute bottom-2 right-2 flex items-center gap-1">
+            {find.hasRealPhoto && (
+              <span
+                className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800 drop-shadow-sm"
+                title={tRow("donationPhotoTitle")}
+                aria-label={tRow("donationPhotoTitle")}
+              >
+                <Camera className="h-3 w-3" aria-hidden />
+              </span>
+            )}
+            {find.hasFreePhoto && (
+              <span
+                className="inline-flex items-center rounded-md bg-sky-100 px-1 py-0.5 text-sky-800 drop-shadow-sm"
+                title={tRow("freePhotoTitle")}
+                aria-label={tRow("freePhotoTitle")}
+              >
+                <Images className="h-3 w-3" aria-hidden />
+              </span>
+            )}
+          </div>
         )}
         {/* Vote button overlay — bottom-left corner so it stays clear
          *  of state badges (top) and the camera chip (bottom-right).

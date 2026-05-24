@@ -25,6 +25,7 @@ export const ADMIN_ROOTS = {
   meta: path.join(DATA_DIR, "meta"),
   trash: path.join(DATA_DIR, ".trash"),
   donationPhotos: path.join(GENERATED_DIR, "find-photos"),
+  freePhotos: path.join(GENERATED_DIR, "find-free-photos"),
   locationPhotos: path.join(GENERATED_DIR, "location-photos"),
   secure: SECURE_DIR,
 } as const;

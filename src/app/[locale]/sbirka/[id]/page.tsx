@@ -272,6 +272,7 @@ export default async function FindDetailPage({ params }: PageProps) {
         altBase={t("imageAlt", { id: find.id })}
         findId={find.id}
         donationPhotos={find.donationPhotos}
+        freePhotos={find.freePhotos}
       />
 
       {find.isAnonymized && (

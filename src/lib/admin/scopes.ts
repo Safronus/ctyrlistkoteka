@@ -52,6 +52,7 @@ export type ScopeSlug =
   | "maps"
   | "meta"
   | "donation-photos"
+  | "free-photos"
   | "location-photos";
 
 interface ScopeDef {
@@ -96,6 +97,14 @@ export const SCOPES: readonly ScopeDef[] = [
     label: "Reálné fotky darů",
     description:
       "generated/find-photos/ — fotky darů (např. \"16330a_DAR.jpeg\").",
+    writable: true,
+  },
+  {
+    slug: "free-photos",
+    rootKey: "freePhotos",
+    label: "Volné fotky nálezů",
+    description:
+      "generated/find-free-photos/ — další fotky nálezu (např. \"16330a_FOTO.webp\").",
     writable: true,
   },
   {

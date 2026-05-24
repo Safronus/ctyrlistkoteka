@@ -14,6 +14,11 @@ import {
   getFindPhotos,
   type FindPhotoEntry,
 } from "@/lib/findPhotos";
+import {
+  getFindFreePhotos,
+  getFindIdsWithFreePhotos,
+  type FindFreePhotoEntry,
+} from "@/lib/findFreePhotos";
 import { countryFromCoords } from "@/lib/geo";
 import { listCadastralAreas, listCountries } from "@/lib/queries/locations";
 import { parseIdQuery } from "@/lib/search";
@@ -67,6 +72,12 @@ export interface PublicFind {
    *  their parent find as having a photo (so the gallery button can
    *  show a placeholder + unlock UI). */
   hasRealPhoto: boolean;
+  /** True when the find has at least one "free" photo on disk under
+   *  `${GENERATED_DIR}/find-free-photos/`. Drives a secondary badge on
+   *  the /sbirka list rows — independent from hasRealPhoto so the two
+   *  galleries surface separately. Anonymized finds force false (same
+   *  rationale as hasRealPhoto). */
+  hasFreePhoto: boolean;
   /** Offset of the find's GPS from its own location. When the location
    *  has a polygon, `meters` is the great-circle distance to the nearest
    *  polygon edge — 0 when the point is inside the AOI, positive when
@@ -440,6 +451,9 @@ async function hydrate(
       // index isn't in scope here. Anonymized finds force false to keep
       // the indicator from leaking that hidden donations exist.
       hasRealPhoto: false,
+      // Same shape for the free-photo indicator, decorated by
+      // attachFreePhotoFlags. Anonymized → false.
+      hasFreePhoto: false,
     };
   });
 }
@@ -455,6 +469,19 @@ async function attachRealPhotoFlags(finds: PublicFind[]): Promise<void> {
   for (const f of finds) {
     if (f.isAnonymized) continue;
     if (ids.has(f.id)) f.hasRealPhoto = true;
+  }
+}
+
+/** In-place: flips `hasFreePhoto` to true for finds with at least one
+ *  `_FOTO` file on disk. Distinct from donation photos so the row can
+ *  render two independent badges. Anonymized → no badge. */
+async function attachFreePhotoFlags(finds: PublicFind[]): Promise<void> {
+  if (finds.length === 0) return;
+  const ids = await getFindIdsWithFreePhotos();
+  if (ids.size === 0) return;
+  for (const f of finds) {
+    if (f.isAnonymized) continue;
+    if (ids.has(f.id)) f.hasFreePhoto = true;
   }
 }
 
@@ -527,6 +554,7 @@ export async function listFinds(
   const items = await hydrate(rows);
   await attachLocationThumbs(items);
   await attachRealPhotoFlags(items);
+  await attachFreePhotoFlags(items);
   return {
     items,
     total,
@@ -649,6 +677,7 @@ async function listFindsByDistance(
   const items = await hydrate(ordered);
   await attachLocationThumbs(items);
   await attachRealPhotoFlags(items);
+  await attachFreePhotoFlags(items);
   return {
     items,
     total,
@@ -721,6 +750,10 @@ export interface PublicFindDetail extends PublicFind {
    *  `url: null` — the modal renders a placeholder until the visitor
    *  unlocks them via the unlockFindPhotos server action. */
   donationPhotos: readonly FindPhotoEntry[];
+  /** "Free" photos — extra snapshots the author chose to publish for
+   *  this find. Always public (no anonymized variant). Empty for
+   *  anonymized finds — same rationale as donationPhotos: no leak. */
+  freePhotos: readonly FindFreePhotoEntry[];
 }
 
 export async function getFindById(
@@ -750,6 +783,7 @@ export async function getFindById(
       location: placeholder,
       locationMaps: placeholderMaps,
       donationPhotos: [],
+      freePhotos: [],
     };
   }
 
@@ -758,20 +792,23 @@ export async function getFindById(
   // queries findPhotos here so the helper's directory cache stays
   // warm for the matching list query within the same revalidate
   // window.
-  const [locationMaps, donationPhotos] = await Promise.all([
+  const [locationMaps, donationPhotos, freePhotos] = await Promise.all([
     hydrated.location
       ? fetchLocationMaps(hydrated.location.id, hydrated.coordinates)
       : Promise.resolve([] as PublicLocationMap[]),
     getFindPhotos(hydrated.id),
+    getFindFreePhotos(hydrated.id),
   ]);
   // hasRealPhoto is the public flag the list rows already use; mirror it
   // on the detail so card-equivalent gates (e.g. share buttons) stay
   // consistent even when the visitor lands directly on /sbirka/N.
+  // hasFreePhoto follows the same idea for the secondary gallery.
   const detailWithFlag = {
     ...hydrated,
     hasRealPhoto: donationPhotos.length > 0,
+    hasFreePhoto: freePhotos.length > 0,
   };
-  return { ...detailWithFlag, locationMaps, donationPhotos };
+  return { ...detailWithFlag, locationMaps, donationPhotos, freePhotos };
 }
 
 async function fetchPublicLocation(

@@ -29,9 +29,11 @@ import { parseFindFilename } from "@/lib/parseFilename";
 import { FindState } from "@prisma/client";
 import { DeleteCropButton } from "../../crops/delete-button";
 import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
+import { DeleteFreePhotoButton } from "../../free-photos/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { FindAnonymizeToggleButton } from "../../finds/anonymize-toggle-button";
 import { FindDonationPhotosCard } from "../../finds/donation-photos-card";
+import { FindFreePhotosCard } from "../../finds/free-photos-card";
 import { FindGigantToggleButton } from "../../finds/gigant-toggle-button";
 import { MarkDonatedButton } from "../../finds/mark-donated-button";
 import { UnmarkDonatedButton } from "../../finds/unmark-donated-button";
@@ -45,6 +47,7 @@ import { MapMetadataPreview } from "../../maps/metadata-preview";
 import { MapRealPhotoCard } from "../../maps/real-photo-card";
 import { MapReplaceDropzone } from "../../maps/replace-dropzone";
 import { getFindPhotos } from "@/lib/findPhotos";
+import { getFindFreePhotos } from "@/lib/findFreePhotos";
 import { resolveLocationMapPhoto } from "@/lib/locationPhotos";
 import { SyncNeededBanner } from "../../_shared/sync-needed-banner";
 import { JsonSectionsPreview } from "./json-sections-preview";
@@ -214,6 +217,14 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
       ? await getFindPhotos(findParsed.value.findId)
       : [];
 
+  // Same shape as donation photos but for the free-photo gallery. The
+  // public site reads from the same lib; the admin reuses it so both
+  // sides agree on what exists.
+  const findFreePhotos =
+    scope.slug === "finds" && findParsed?.ok
+      ? await getFindFreePhotos(findParsed.value.findId)
+      : [];
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -316,6 +327,9 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
             {scope.slug === "donation-photos" && (
               <DeleteDonationPhotoButton filename={info.name} />
             )}
+            {scope.slug === "free-photos" && (
+              <DeleteFreePhotoButton filename={info.name} />
+            )}
             {scope.slug === "location-photos" && (
               <DeleteLocationPhotoButton filename={info.name} />
             )}
@@ -380,6 +394,13 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           findId={findParsed.value.findId}
           existing={findDonationPhotos}
           findIsAnonymizedDefault={findAnonInName}
+        />
+      )}
+
+      {scope.slug === "finds" && findParsed?.ok && (
+        <FindFreePhotosCard
+          findId={findParsed.value.findId}
+          existing={findFreePhotos}
         />
       )}
 

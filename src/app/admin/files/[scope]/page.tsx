@@ -36,6 +36,7 @@ import { deleteCropsBulk } from "../crops/delete-action";
 import { CropsUploadForm } from "../crops/upload-form";
 import { deleteDonationPhotosBulk } from "../donation-photos/delete-action";
 import { DonationPhotosUploadForm } from "../donation-photos/upload-form";
+import { deleteFreePhotosBulk } from "../free-photos/delete-action";
 import { deleteFindsBulk } from "../finds/delete-action";
 import { FindsUploadForm } from "../finds/upload-form";
 import { deleteLocationPhotosBulk } from "../location-photos/delete-action";
@@ -448,10 +449,12 @@ export default async function AdminScopeListPage({
       )}
 
       {(scope.slug === "donation-photos" ||
+        scope.slug === "free-photos" ||
         scope.slug === "location-photos") && (
         <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600">
-          Reálné fotky se nečtou přes sync — cache se invaliduje
-          automaticky při uploadu/mazání.
+          {scope.slug === "free-photos"
+            ? "Nahrávání volných fotek probíhá přes detail nálezu (Originály nálezů → konkrétní soubor). Cache se invaliduje automaticky při uploadu/mazání."
+            : "Reálné fotky se nečtou přes sync — cache se invaliduje automaticky při uploadu/mazání."}
         </p>
       )}
 
@@ -762,6 +765,12 @@ export default async function AdminScopeListPage({
           entries={entries}
           scopeSlug={scope.slug}
           bulkDelete={deleteDonationPhotosBulk}
+        />
+      ) : scope.slug === "free-photos" ? (
+        <FilesListClient
+          entries={entries}
+          scopeSlug={scope.slug}
+          bulkDelete={deleteFreePhotosBulk}
         />
       ) : scope.slug === "location-photos" ? (
         <FilesListClient

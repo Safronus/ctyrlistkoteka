@@ -120,6 +120,7 @@
     "anonymizedLocation": "Anonymized location",
     "noLocation": "No location",
     "donationPhotoTitle": "Find has a donation photo",
+    "freePhotoTitle": "Find has additional free photos",
     "showOnMap": "Show find on map"
   },
   "LocationOffset": {
@@ -157,6 +158,15 @@
     "placeholderAria": "Anonymized photo — a code is required to view it",
     "placeholderSlot": "Slot {slot} · anonymized",
     "placeholderHint": "Enter the code below to view it."
+  },
+  "FreePhotos": {
+    "openTitle": "More photos of the find ({total})",
+    "openAria": "Show more photos of the find ({total})",
+    "modalTitle": "More photos — find #{findId}",
+    "photoAlt": "Additional photo of find #{findId}, {slot}",
+    "prevPhoto": "Previous photo",
+    "nextPhoto": "Next photo",
+    "photoSlot": "Photo {slot}"
   },
   "CollectionProgress": {
     "title": "The collection is being filled in",

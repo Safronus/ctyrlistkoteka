@@ -5,7 +5,9 @@ import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import type { PublicImage } from "@/lib/queries/finds";
 import type { FindPhotoEntry } from "@/lib/findPhotos";
+import type { FindFreePhotoEntry } from "@/lib/findFreePhotos";
 import { DonationPhotosButton } from "./donation-photos-button";
+import { FreePhotosButton } from "./free-photos-button";
 
 /**
  * Renders the find's main photo (ORIGINAL) with an optional zoom button.
@@ -15,7 +17,9 @@ import { DonationPhotosButton } from "./donation-photos-button";
  *
  * The optional Camera button sits directly under the magnifier (top-right
  * stack) and opens the donation-photos modal when the find has any
- * matching files in `${GENERATED_DIR}/find-photos/`.
+ * matching files in `${GENERATED_DIR}/find-photos/`. A second "Images"
+ * button stacks below it for the "free" photo gallery — extra
+ * find-of-the-clover snapshots that don't carry a donation context.
  */
 export function ImageGallery({
   image,
@@ -23,22 +27,30 @@ export function ImageGallery({
   altBase,
   findId,
   donationPhotos = [],
+  freePhotos = [],
 }: {
   image: PublicImage | null;
   cropImage: PublicImage | null;
   altBase: string;
-  /** Find ID — only required when `donationPhotos` is non-empty so the
-   *  modal can post the unlock action with the right key. Callers that
-   *  don't surface donation photos (e.g. the home-page random-find
-   *  showcase) can omit it. */
+  /** Find ID — required when either gallery is non-empty so the modals
+   *  can render with the right context. */
   findId?: number;
   /** Photos for the donation modal. Empty array (default) hides the
    *  Camera button. */
   donationPhotos?: readonly FindPhotoEntry[];
+  /** Photos for the free-photos modal. Empty array (default) hides the
+   *  second (Images) button. */
+  freePhotos?: readonly FindFreePhotoEntry[];
 }) {
   const t = useTranslations("ImageGallery");
   const tCommon = useTranslations("Common");
   const [showCrop, setShowCrop] = useState(false);
+
+  // The free-photo button stacks below the camera (top-28) when both
+  // galleries are present; otherwise it takes the camera's top-16 slot
+  // so the visitor always sees a control aligned with the magnifier.
+  const freeButtonStack: "top" | "below-camera" =
+    donationPhotos.length > 0 ? "below-camera" : "top";
 
   if (!image) {
     return (
@@ -47,14 +59,21 @@ export function ImageGallery({
           🍀
         </span>
         <span className="sr-only">{tCommon("noPhoto")}</span>
-        {/* No main photo doesn't preclude donation photos (e.g.
-            NO_PHOTO state but the recipient still got a card). The
-            button still mounts so visitors with the unlock code can
-            see the artwork. */}
+        {/* No main photo doesn't preclude attached galleries (e.g.
+            NO_PHOTO state but the recipient still got a card, or the
+            author shot the spot itself). Both buttons still mount so
+            the visitor can browse what's there. */}
         {donationPhotos.length > 0 && findId !== undefined && (
           <DonationPhotosButton
             findId={findId}
             photos={donationPhotos}
+          />
+        )}
+        {freePhotos.length > 0 && findId !== undefined && (
+          <FreePhotosButton
+            findId={findId}
+            photos={freePhotos}
+            stack={freeButtonStack}
           />
         )}
       </div>
@@ -104,6 +123,15 @@ export function ImageGallery({
           `${GENERATED_DIR}/find-photos/` AND a findId was passed. */}
       {donationPhotos.length > 0 && findId !== undefined && (
         <DonationPhotosButton findId={findId} photos={donationPhotos} />
+      )}
+      {/* Images button — free-photo modal. Sits below the camera when
+          both galleries exist, otherwise takes the camera's slot. */}
+      {freePhotos.length > 0 && findId !== undefined && (
+        <FreePhotosButton
+          findId={findId}
+          photos={freePhotos}
+          stack={freeButtonStack}
+        />
       )}
     </div>
   );

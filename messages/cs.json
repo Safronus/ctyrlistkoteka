@@ -119,6 +119,7 @@
     "anonymizedLocation": "Anonymizovaná lokalita",
     "noLocation": "Bez lokality",
     "donationPhotoTitle": "Nález má reálnou fotku daru",
+    "freePhotoTitle": "Nález má další volnou fotku",
     "showOnMap": "Zobrazit nález na mapě"
   },
   "LocationOffset": {
@@ -156,6 +157,15 @@
     "placeholderAria": "Anonymizovaná fotka — pro zobrazení je potřeba kód",
     "placeholderSlot": "Slot {slot} · anonymizováno",
     "placeholderHint": "Pro zobrazení zadej kód níže."
+  },
+  "FreePhotos": {
+    "openTitle": "Další fotky nálezu ({total})",
+    "openAria": "Zobrazit další fotky nálezu ({total})",
+    "modalTitle": "Další fotky — nález #{findId}",
+    "photoAlt": "Další fotka nálezu #{findId}, {slot}",
+    "prevPhoto": "Předchozí fotka",
+    "nextPhoto": "Další fotka",
+    "photoSlot": "Fotka {slot}"
   },
   "CollectionProgress": {
     "title": "Sbírka se postupně doplňuje",

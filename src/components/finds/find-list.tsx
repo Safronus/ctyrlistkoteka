@@ -1,5 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
-import { Camera, MapPin } from "lucide-react";
+import { Camera, Images, MapPin } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
@@ -191,7 +191,8 @@ function FindListRow({
            *  on narrow mobile rows. */}
           {(find.primaryImage ||
             find.states.length > 0 ||
-            find.hasRealPhoto) && (
+            find.hasRealPhoto ||
+            find.hasFreePhoto) && (
             <div className="mt-auto flex flex-wrap items-end gap-2">
               {find.primaryImage && (
                 <VoteButton
@@ -201,7 +202,9 @@ function FindListRow({
                   size="lg"
                 />
               )}
-              {(find.states.length > 0 || find.hasRealPhoto) && (
+              {(find.states.length > 0 ||
+                find.hasRealPhoto ||
+                find.hasFreePhoto) && (
                 <div className="ml-auto flex flex-wrap items-center gap-1.5">
                   {find.hasRealPhoto && (
                     // Camera badge — same chip as the /lokality list,
@@ -214,6 +217,15 @@ function FindListRow({
                       aria-label={tRow("donationPhotoTitle")}
                     >
                       <Camera className="h-3 w-3" aria-hidden />
+                    </span>
+                  )}
+                  {find.hasFreePhoto && (
+                    <span
+                      className="inline-flex items-center rounded-md bg-sky-100 px-1 py-0.5 text-sky-800"
+                      title={tRow("freePhotoTitle")}
+                      aria-label={tRow("freePhotoTitle")}
+                    >
+                      <Images className="h-3 w-3" aria-hidden />
                     </span>
                   )}
                   {find.states.length > 0 && (
