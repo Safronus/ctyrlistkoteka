@@ -207,8 +207,7 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
       // Notes search runs only against finds that are PUBLIC AND
       // non-donated. Anonymized → no notes leak. Donated → notes
       // typically name the recipient, so even surfacing "this find
-      // matches keyword X" reveals private context. Code/displayName
-      // joins on location stay open: those are public attributes.
+      // matches keyword X" reveals private context.
       {
         AND: [
           { isAnonymized: false },
@@ -216,7 +215,18 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
           { notes: { contains: q, mode: "insensitive" } },
         ],
       },
-      { location: { displayName: { contains: q, mode: "insensitive" } } },
+      // displayName branch — only matches when the location has NO
+      // anonymized map. Anonymized locations' displayName is the
+      // "popisek z lokační mapy" (human note like "Magďul & Pali
+      // zahrádka"), which counts as identifying info per CLAUDE.md
+      // §6. Code stays open (it's the formal identifier the public
+      // /lokality list also shows).
+      {
+        location: {
+          displayName: { contains: q, mode: "insensitive" },
+          maps: { none: { isAnonymized: true } },
+        },
+      },
       { location: { code: { contains: q, mode: "insensitive" } } },
     ];
 
@@ -284,6 +294,25 @@ async function hydrate(
   }>,
 ): Promise<PublicFind[]> {
   if (rows.length === 0) return [];
+
+  // Anonymized location IDs — same definition as everywhere else in
+  // this codebase: a location counts as anonymized as soon as ANY
+  // of its maps has the PNG "Anonymizovaná lokace" tag. Locations
+  // here keep their public `code` (the formal identifier shown on
+  // /lokality anyway), but `displayName`, `cadastralArea`, and
+  // `locationType` get redacted in the per-find return below — they
+  // come from the same map description / filename parts that the
+  // anonymization rule is meant to suppress.
+  const locIdsOnPage = Array.from(
+    new Set(rows.map((r) => r.location?.id).filter((id): id is number => id !== undefined)),
+  );
+  const anonLocRows = locIdsOnPage.length > 0
+    ? await prisma.locationMap.findMany({
+        where: { locationId: { in: locIdsOnPage }, isAnonymized: true },
+        select: { locationId: true },
+      })
+    : [];
+  const anonymizedLocationIds = new Set(anonLocRows.map((r) => r.locationId));
 
   const ids = rows.map((r) => r.id);
   const coordRows = await prisma.$queryRaw<
@@ -373,13 +402,28 @@ async function hydrate(
     // on the detail page. Centralising the rule here means consumers
     // never have to remember to guard on state.
     const notes = states.includes(FindState.DONATED) ? null : safe.notes;
+    // Redact identifying metadata for finds whose LOCATION is
+    // anonymized — even if the find itself is non-anonymized. The
+    // code stays (formal identifier, public on /lokality); display
+    // name + cadastral area + location type all derive from the map
+    // description and would defeat the location-level anonymization.
+    const locationOut =
+      r.location && anonymizedLocationIds.has(r.location.id)
+        ? {
+            id: r.location.id,
+            code: r.location.code,
+            displayName: "",
+            cadastralArea: "",
+            locationType: null,
+          }
+        : r.location;
     return {
       id: r.id,
       foundAt: r.foundAt,
       notes,
       isAnonymized: r.isAnonymized,
       coordinates: safe.coordinates,
-      location: r.location,
+      location: locationOut,
       states,
       images,
       primaryImage: images[0] ?? null,

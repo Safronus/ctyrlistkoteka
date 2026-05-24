@@ -14,6 +14,7 @@ import {
   analyzeLokaceStavyPoznamky,
   type LSPAnalysis,
 } from "@/lib/admin/lokaceStavyAnalysis";
+import { ADMIN_ROOTS } from "@/lib/admin/paths";
 import { getScope, statScopeFile } from "@/lib/admin/scopes";
 import { checkSyncNeeded } from "@/lib/admin/syncNeeded";
 import {
@@ -31,8 +32,10 @@ import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { FindAnonymizeToggleButton } from "../../finds/anonymize-toggle-button";
 import { FindDonationPhotosCard } from "../../finds/donation-photos-card";
+import { FindGigantToggleButton } from "../../finds/gigant-toggle-button";
 import { MarkDonatedButton } from "../../finds/mark-donated-button";
 import { UnmarkDonatedButton } from "../../finds/unmark-donated-button";
+import { parseRanges } from "@/lib/parseRanges";
 import { DeleteLocationPhotoButton } from "../../location-photos/delete-button";
 import { MapAnonymizeToggleButton } from "../../maps/anonymize-toggle-button";
 import { DeleteMapButton } from "../../maps/delete-button";
@@ -116,6 +119,15 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
   const canUnmarkDonated = findStateInName === FindState.DONATED;
   const findAnonInName = findParsed?.ok
     ? findParsed.value.isAnonymized
+    : false;
+
+  // Is this find currently flagged GIGANT in LokaceStavyPoznamky.json?
+  // Read the meta file inline — it's small (< 256 KB), cached by the
+  // OS page cache between renders, and the alternative (pre-loading
+  // the whole JSON on every scope page) would be wasteful for the
+  // 5 % of cases that hit this branch.
+  const findIsGigant: boolean = findParsed?.ok
+    ? (await readGigantFindIds()).has(findParsed.value.findId)
     : false;
 
   let textPreview: { content: string; truncated: boolean } | null = null;
@@ -273,6 +285,12 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
                     currentlyAnonymized={findAnonInName}
                   />
                 )}
+                {findParsed?.ok && (
+                  <FindGigantToggleButton
+                    filename={info.name}
+                    currentlyGigant={findIsGigant}
+                  />
+                )}
                 {canMarkDonated && (
                   <MarkDonatedButton filename={info.name} />
                 )}
@@ -415,4 +433,27 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
       )}
     </div>
   );
+}
+
+/** Reads the current GIGANT find-id set from LokaceStavyPoznamky.json.
+ *  Tolerates a missing file (returns empty set) and any JSON parse /
+ *  schema error (also empty set + console.warn) — the find-detail
+ *  toggle defaults to "not gigant" then, which the operator can flip
+ *  to true with one click anyway. The full validation happens at
+ *  toggle-time inside the server action. */
+async function readGigantFindIds(): Promise<Set<number>> {
+  const target = `${ADMIN_ROOTS.meta}/${LOKACE_STAVY_POZNAMKY_FILENAME}`;
+  try {
+    const raw = await fs.readFile(target, "utf8");
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const stavy = (parsed.stavy ?? {}) as Record<string, unknown>;
+    const gigant = stavy.GIGANT;
+    if (!Array.isArray(gigant)) return new Set();
+    const stringEntries = gigant.filter((x): x is string => typeof x === "string");
+    return new Set(parseRanges(stringEntries));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return new Set();
+    console.warn("[admin/finds] readGigantFindIds failed", err);
+    return new Set();
+  }
 }

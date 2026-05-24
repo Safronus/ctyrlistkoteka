@@ -11,6 +11,7 @@ export const STATE_LABELS: Readonly<Record<FindState, string>> = {
   [FindState.LOCATION_MISSING]: "Bez lokality",
   [FindState.LOCATION_GONE]: "Zaniklá lokalita",
   [FindState.NOT_PICKED]: "Neutržený",
+  [FindState.GIGANT]: "Gigant",
 };
 
 /** Tailwind badge class for each state. */
@@ -24,4 +25,5 @@ export const STATE_BADGE: Readonly<Record<FindState, string>> = {
   [FindState.LOCATION_MISSING]: "bg-orange-100 text-orange-700",
   [FindState.LOCATION_GONE]: "bg-rose-100 text-rose-800",
   [FindState.NOT_PICKED]: "bg-blue-100 text-blue-700",
+  [FindState.GIGANT]: "bg-emerald-100 text-emerald-800",
 };

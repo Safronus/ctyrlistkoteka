@@ -61,7 +61,8 @@
     "NO_PHOTO": "Bez fotky",
     "LOCATION_MISSING": "Bez lokality",
     "LOCATION_GONE": "Zaniklá lokalita",
-    "NOT_PICKED": "Neutržený"
+    "NOT_PICKED": "Neutržený",
+    "GIGANT": "Gigant"
   },
   "Sbirka": {
     "metaTitle": "Sbírka",

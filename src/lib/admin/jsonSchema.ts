@@ -45,6 +45,7 @@ export const STAVY_KEYS = [
   "BEZGPS",
   "BEZLOKACE",
   "DAROVANY",
+  "GIGANT",
   "LOKACE-NEEXISTUJE",
   "NEUTRZEN",
   "ZTRACENY",

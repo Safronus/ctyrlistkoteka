@@ -56,6 +56,7 @@ export const JSON_STATE_MAP: Readonly<Record<string, FindState>> = {
   BEZGPS: FindState.NO_GPS,
   BEZLOKACE: FindState.LOCATION_MISSING,
   DAROVANY: FindState.DONATED,
+  GIGANT: FindState.GIGANT,
   "LOKACE-NEEXISTUJE": FindState.LOCATION_GONE,
   NEUTRZEN: FindState.NOT_PICKED,
   ZTRACENY: FindState.LOST,

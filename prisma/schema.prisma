@@ -26,6 +26,7 @@ enum FindState {
   LOCATION_MISSING // nález není přiřazen k žádné lokalitě (BEZLOKACE)
   LOCATION_GONE // lokalita existovala, ale fyzicky zanikla (LOKACE-NEEXISTUJE) — kód lokality má prefix "NEEXISTUJE-"
   NOT_PICKED
+  GIGANT // čtyřlístek mimořádně velkých rozměrů — kosmetický stav nesený přes LokaceStavyPoznamky.json (stavy.GIGANT)
 }
 
 enum ImageType {

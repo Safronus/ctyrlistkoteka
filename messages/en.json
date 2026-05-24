@@ -62,7 +62,8 @@
     "NO_PHOTO": "No photo",
     "LOCATION_MISSING": "No location",
     "LOCATION_GONE": "Former location",
-    "NOT_PICKED": "Not picked"
+    "NOT_PICKED": "Not picked",
+    "GIGANT": "Giant"
   },
   "Sbirka": {
     "metaTitle": "Collection",
