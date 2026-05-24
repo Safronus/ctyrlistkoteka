@@ -1,25 +1,53 @@
 import { prisma } from "@/lib/db";
 
 /** Result of a single consistency check. The page renders one card
- *  per result; an empty `offenders` array is the green-check case. */
-export interface CheckResult {
+ *  per result; an empty `offenders` array is the green-check case.
+ *
+ *  Checks come in two flavours: most flag *finds* (linking to
+ *  /sbirka/<id>), one flags *location maps* (linking to the admin
+ *  map detail page). The discriminated union keeps the table layout
+ *  type-safe — every check knows which row shape it produces and
+ *  the page renders the matching column headers + link targets. */
+export type CheckResult = FindCheckResult | MapCheckResult;
+
+interface BaseCheckResult {
+  /** Stable id for cross-referencing (file-list filters, summary
+   *  helpers). Renames here require updating EXIF_CHECK_ID / GPS_CHECK_ID
+   *  + every consumer that hard-codes the string. */
   id: string;
   /** Czech title for the card header. */
   title: string;
   /** One-sentence description of what the invariant says. */
   description: string;
-  /** Per-row offenders. Each entry references a find id + a short
-   *  context line (location code / name / "no location"). */
-  offenders: CheckOffender[];
 }
 
-export interface CheckOffender {
+export interface FindCheckResult extends BaseCheckResult {
+  kind: "find";
+  offenders: FindOffender[];
+}
+
+export interface MapCheckResult extends BaseCheckResult {
+  kind: "map";
+  offenders: MapOffender[];
+}
+
+export interface FindOffender {
   findId: number;
   /** Location code when the find has one; "—" otherwise. */
   locationCode: string;
   /** Human-readable label / explanation of the violation. */
   detail: string;
 }
+
+export interface MapOffender {
+  mapId: number;
+  /** PNG filename on disk — used to link the offender row to
+   *  /admin/files/maps/<filename>. */
+  originalFilename: string;
+  locationCode: string;
+  detail: string;
+}
+
 
 /** Returns the set of location ids that should be treated as
  *  anonymised — i.e. those with at least one LocationMap row whose
@@ -56,6 +84,7 @@ async function checkFindsInAnonLocsNotAnon(): Promise<CheckResult> {
   const anonLocIds = await getAnonymizedLocationIds();
   if (anonLocIds.size === 0) {
     return {
+      kind: "find",
       id: "finds-in-anon-loc-not-anon",
       title: "Nálezy v anonymizované lokalitě bez anonymizace",
       description:
@@ -75,6 +104,7 @@ async function checkFindsInAnonLocsNotAnon(): Promise<CheckResult> {
     finds.map((f) => f.locationId).filter((x): x is number => x !== null),
   );
   return {
+    kind: "find",
     id: "finds-in-anon-loc-not-anon",
     title: "Nálezy v anonymizované lokalitě bez anonymizace",
     description:
@@ -101,7 +131,7 @@ async function checkAnonFindsInPublicLoc(): Promise<CheckResult> {
     select: { id: true, locationId: true },
     orderBy: { id: "asc" },
   });
-  const offenders: CheckOffender[] = [];
+  const offenders: FindOffender[] = [];
   const idsForCodes: number[] = [];
   for (const f of anonFinds) {
     if (f.locationId === null) {
@@ -133,6 +163,7 @@ async function checkAnonFindsInPublicLoc(): Promise<CheckResult> {
     }
   }
   return {
+    kind: "find",
     id: "anon-finds-in-public-loc",
     title: "Anonymizované nálezy mimo anonymizovanou lokalitu",
     description:
@@ -170,6 +201,7 @@ async function checkOriginalsWithoutCrop(): Promise<CheckResult> {
     .sort((a, b) => a - b);
   if (missing.length === 0) {
     return {
+      kind: "find",
       id: "originals-without-crop",
       title: "Originály bez výřezu",
       description:
@@ -187,6 +219,7 @@ async function checkOriginalsWithoutCrop(): Promise<CheckResult> {
   );
   const findById = new Map(finds.map((f) => [f.id, f]));
   return {
+    kind: "find",
     id: "originals-without-crop",
     title: "Originály bez výřezu",
     description:
@@ -220,6 +253,7 @@ async function checkFindsWithoutDate(): Promise<CheckResult> {
     finds.map((f) => f.locationId).filter((x): x is number => x !== null),
   );
   return {
+    kind: "find",
     id: "finds-without-date",
     title: "Nálezy bez EXIF data",
     description:
@@ -265,6 +299,7 @@ async function checkFindsWithoutGps(): Promise<CheckResult> {
     rows.map((r) => r.location_id).filter((x): x is number => x !== null),
   );
   return {
+    kind: "find",
     id: "finds-without-gps",
     title: "Nálezy bez EXIF GPS",
     description:
@@ -280,6 +315,53 @@ async function checkFindsWithoutGps(): Promise<CheckResult> {
   };
 }
 
+/** Check 6 — location maps whose center marker (the black dot from
+ *  the filename's GPS segment) sits OUTSIDE the polygon stored on
+ *  the parent location. A polygon traced wrong, a typo in the
+ *  filename's GPS coordinates, or a map paired to the wrong
+ *  location all surface as this inconsistency. PostGIS does the
+ *  containment test in one query — `ST_Covers` instead of
+ *  `ST_Within` so a center sitting exactly on the polygon edge
+ *  passes (lenient: edge cases are usually fine, not bugs). */
+async function checkMapCenterOutsidePolygon(): Promise<MapCheckResult> {
+  const rows = await prisma.$queryRaw<
+    Array<{
+      id: number;
+      original_filename: string;
+      location_code: string;
+      center_lat: number;
+      center_lng: number;
+    }>
+  >`
+    SELECT lm.id,
+           lm.original_filename,
+           lm.location_code,
+           lm.center_lat,
+           lm.center_lng
+    FROM location_maps lm
+    JOIN locations l ON l.id = lm.location_id
+    WHERE l.polygon IS NOT NULL
+      AND NOT ST_Covers(
+        l.polygon,
+        ST_SetSRID(ST_MakePoint(lm.center_lng, lm.center_lat), 4326)
+      )
+    ORDER BY lm.id ASC
+  `;
+  return {
+    kind: "map",
+    id: "map-center-outside-polygon",
+    title: "Lokační mapa: střed mimo polygon",
+    description:
+      "Mapa má v lokalitě nakreslený polygon, ale středový bod (z GPS v názvu) leží mimo něj. Obvykle špatně obtažený polygon nebo překlep v souřadnicích.",
+    offenders: rows.map((r) => ({
+      mapId: r.id,
+      originalFilename: r.original_filename,
+      locationCode: r.location_code,
+      detail: `Střed ${r.center_lat.toFixed(5)}, ${r.center_lng.toFixed(5)} mimo polygon lokality.`,
+    })),
+  };
+}
+
 export async function runAllChecks(): Promise<CheckResult[]> {
   return Promise.all([
     checkFindsInAnonLocsNotAnon(),
@@ -287,6 +369,7 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     checkFindsWithoutDate(),
     checkFindsWithoutGps(),
     checkOriginalsWithoutCrop(),
+    checkMapCenterOutsidePolygon(),
   ]);
 }
 

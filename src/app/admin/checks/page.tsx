@@ -129,28 +129,47 @@ function CheckCard({ result }: { result: CheckResult }) {
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-gray-50 text-gray-600">
                 <tr>
-                  <th className="px-2 py-1.5 text-left font-medium">ID nálezu</th>
+                  <th className="px-2 py-1.5 text-left font-medium">
+                    {result.kind === "map" ? "ID mapy" : "ID nálezu"}
+                  </th>
                   <th className="px-2 py-1.5 text-left font-medium">Lokalita</th>
                   <th className="px-2 py-1.5 text-left font-medium">Detail</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {result.offenders.map((o) => (
-                  <tr key={o.findId} className="hover:bg-amber-50/40">
-                    <td className="px-2 py-1.5">
-                      <Link
-                        href={`/sbirka/${o.findId}`}
-                        className="font-mono tabular-nums text-brand-700 hover:underline"
-                      >
-                        #{o.findId}
-                      </Link>
-                    </td>
-                    <td className="px-2 py-1.5 font-mono text-gray-800">
-                      {o.locationCode}
-                    </td>
-                    <td className="px-2 py-1.5 text-gray-600">{o.detail}</td>
-                  </tr>
-                ))}
+                {result.kind === "find"
+                  ? result.offenders.map((o) => (
+                      <tr key={o.findId} className="hover:bg-amber-50/40">
+                        <td className="px-2 py-1.5">
+                          <Link
+                            href={`/sbirka/${o.findId}`}
+                            className="font-mono tabular-nums text-brand-700 hover:underline"
+                          >
+                            #{o.findId}
+                          </Link>
+                        </td>
+                        <td className="px-2 py-1.5 font-mono text-gray-800">
+                          {o.locationCode}
+                        </td>
+                        <td className="px-2 py-1.5 text-gray-600">{o.detail}</td>
+                      </tr>
+                    ))
+                  : result.offenders.map((o) => (
+                      <tr key={o.mapId} className="hover:bg-amber-50/40">
+                        <td className="px-2 py-1.5">
+                          <Link
+                            href={`/admin/files/maps/${encodeURIComponent(o.originalFilename)}`}
+                            className="font-mono tabular-nums text-brand-700 hover:underline"
+                          >
+                            #{o.mapId.toString().padStart(5, "0")}
+                          </Link>
+                        </td>
+                        <td className="px-2 py-1.5 font-mono text-gray-800">
+                          {o.locationCode}
+                        </td>
+                        <td className="px-2 py-1.5 text-gray-600">{o.detail}</td>
+                      </tr>
+                    ))}
               </tbody>
             </table>
           </div>
