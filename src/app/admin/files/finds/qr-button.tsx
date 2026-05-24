@@ -78,7 +78,7 @@ export function FindQrButton({ findId }: Props) {
           onClick={() => setOpen(false)}
         >
           <div
-            className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 shadow-xl"
+            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-4 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
@@ -109,7 +109,7 @@ export function FindQrButton({ findId }: Props) {
                 />
               ) : (
                 <div
-                  className="w-full"
+                  className="w-full [&_svg]:h-auto [&_svg]:max-w-full"
                   dangerouslySetInnerHTML={{ __html: svg }}
                 />
               )}
