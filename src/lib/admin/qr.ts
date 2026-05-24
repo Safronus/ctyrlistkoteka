@@ -102,12 +102,18 @@ export function renderFindQrSvg(
     (r < 8 && c >= SIZE - 8) ||
     (r >= SIZE - 8 && c < 8);
 
-  // Geometry
+  // Geometry — sized for a printed sticker / card. The header band
+  // used to be 90 px tall with 56 px text, making the card visibly
+  // taller than wide (632×722, awkward when laminating onto square
+  // clover cards). Tighter HEADER_H + smaller font lands at ~1:1.07
+  // aspect, which prints cleanly onto a 6×6 cm clover card with
+  // room for the find-ID line above.
   const MODULE = Math.floor(targetQrPx / SIZE);
   const QR_PX = SIZE * MODULE;
-  const PADDING = 20;
+  const PADDING = 16;
   const CARD_W = QR_PX + PADDING * 2;
-  const HEADER_H = 90;
+  const HEADER_H = 56;
+  const HEADER_FONT = 36;
   const CARD_H = HEADER_H + QR_PX + PADDING * 2;
 
   // Center smiley hole — 32 % per design review. Padded by 1 module
@@ -154,7 +160,7 @@ export function renderFindQrSvg(
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CARD_W} ${CARD_H}" width="${CARD_W}" height="${CARD_H}" font-family="Inter, system-ui, sans-serif">
   <defs>${CLOVER_SYMBOL}</defs>
   <rect x="0" y="0" width="${CARD_W}" height="${CARD_H}" fill="#ffffff"/>
-  <text x="${CARD_W / 2}" y="${HEADER_H / 2 + 18}" text-anchor="middle" font-size="56" font-weight="700" fill="#111827" letter-spacing="-1">${escapeXml(header)}</text>
+  <text x="${CARD_W / 2}" y="${HEADER_H / 2 + HEADER_FONT / 3}" text-anchor="middle" font-size="${HEADER_FONT}" font-weight="700" fill="#111827" letter-spacing="-1">${escapeXml(header)}</text>
   ${structuralSquares.join("\n  ")}
   ${cloverUses.join("\n  ")}
   ${smileyImage}

@@ -314,6 +314,7 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           <div className="flex shrink-0 items-center gap-2">
             {scope.slug === "finds" && (
               <>
+                {/* State toggles — non-destructive flag/state mutations. */}
                 {findParsed?.ok && (
                   <FindAnonymizeToggleButton
                     filename={info.name}
@@ -326,16 +327,25 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
                     currentlyGigant={findIsGigant}
                   />
                 )}
-                {findParsed?.ok && (
-                  <FindQrButton findId={findParsed.value.findId} />
-                )}
                 {canMarkDonated && (
                   <MarkDonatedButton filename={info.name} />
                 )}
                 {canUnmarkDonated && (
                   <UnmarkDonatedButton filename={info.name} />
                 )}
-                <DeleteFindButton filename={info.name} />
+                {/* Exports group — visual gap from state toggles via a
+                    1px divider so the user reads "different kind of
+                    action" without needing the text. QR + raw download
+                    are both read-only outputs. */}
+                {findParsed?.ok && (
+                  <div
+                    className="mx-1 h-6 w-px shrink-0 bg-gray-300"
+                    aria-hidden
+                  />
+                )}
+                {findParsed?.ok && (
+                  <FindQrButton findId={findParsed.value.findId} />
+                )}
               </>
             )}
             {scope.slug === "crops" && (
@@ -402,6 +412,19 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
               <Download className="h-3.5 w-3.5" aria-hidden />
               Stáhnout
             </a>
+            {/* Destructive action — pushed to the end, separated by a
+                divider so a stray click in the toggle/export area
+                can't hit Delete. Finds only; other scopes keep their
+                Delete inline above (lower-stakes deletes). */}
+            {scope.slug === "finds" && (
+              <>
+                <div
+                  className="mx-1 h-6 w-px shrink-0 bg-gray-300"
+                  aria-hidden
+                />
+                <DeleteFindButton filename={info.name} />
+              </>
+            )}
           </div>
         </div>
       </header>
