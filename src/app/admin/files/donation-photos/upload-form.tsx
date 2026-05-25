@@ -10,12 +10,42 @@ import {
   XCircle,
 } from "lucide-react";
 import {
+  MAX_BATCH_BYTES,
   MAX_FILE_BYTES,
   MAX_FILES_PER_REQUEST,
   MAX_QUEUE_FILES,
   type UploadResponse,
   type UploadResult,
 } from "./upload-types";
+
+/** Splits queued files into batches that respect both the per-batch
+ *  count cap (MAX_FILES_PER_REQUEST) and the total-byte cap
+ *  (MAX_BATCH_BYTES). The byte cap is load-bearing: somewhere
+ *  upstream of Next.js the request body gets truncated near 10 MB,
+ *  so every batch stays below 8 MB. A single oversized file
+ *  (>MAX_BATCH_BYTES) ships in its own batch even though it'll
+ *  trip the per-file cap on the server — the row comes back
+ *  rejected with a clear reason instead of taking the whole batch
+ *  with it. */
+function splitIntoBatches<T extends { file: File }>(items: T[]): T[][] {
+  const batches: T[][] = [];
+  let current: T[] = [];
+  let currentBytes = 0;
+  for (const item of items) {
+    const wouldExceedCount = current.length >= MAX_FILES_PER_REQUEST;
+    const wouldExceedBytes =
+      current.length > 0 && currentBytes + item.file.size > MAX_BATCH_BYTES;
+    if (wouldExceedCount || wouldExceedBytes) {
+      batches.push(current);
+      current = [];
+      currentBytes = 0;
+    }
+    current.push(item);
+    currentBytes += item.file.size;
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
 
 /** Plain-fetch wrapper. Server actions buffer the whole multipart
  *  body via the RSC encoder and choke on 20+ files × 5 MB; the route
@@ -151,9 +181,11 @@ export function DonationPhotosUploadForm() {
       return;
     }
     setBannerError(null);
-    const firstBatchIds = new Set(
-      toUpload.slice(0, MAX_FILES_PER_REQUEST).map((q) => q.id),
-    );
+    // Compute byte-aware batches up front. Loop uses the precomputed
+    // structure rather than re-slicing on each iteration so the
+    // batch-number reported in errors matches what the user sees.
+    const batches = splitIntoBatches(toUpload);
+    const firstBatchIds = new Set(batches[0]?.map((q) => q.id) ?? []);
     setQueue((prev) =>
       prev.map((q) =>
         firstBatchIds.has(q.id) ? { ...q, status: "uploading" } : q,
@@ -161,12 +193,11 @@ export function DonationPhotosUploadForm() {
     );
 
     startTransition(async () => {
-      const total = toUpload.length;
       let aborted = false;
 
-      for (let i = 0; i < total; i += MAX_FILES_PER_REQUEST) {
+      for (let i = 0; i < batches.length; i++) {
         if (aborted) break;
-        const batch = toUpload.slice(i, i + MAX_FILES_PER_REQUEST);
+        const batch = batches[i]!;
         const batchIds = new Set(batch.map((q) => q.id));
         setQueue((prev) =>
           prev.map((q) =>
@@ -186,9 +217,7 @@ export function DonationPhotosUploadForm() {
           // the operator sees what actually broke (no more generic
           // "Server Components render" obscuring the real cause).
           if (error) {
-            setBannerError(
-              `Batch ${Math.floor(i / MAX_FILES_PER_REQUEST) + 1}: ${error}`,
-            );
+            setBannerError(`Batch ${i + 1}: ${error}`);
             setQueue((prev) =>
               prev.map((q) =>
                 q.status === "uploading"
@@ -233,9 +262,7 @@ export function DonationPhotosUploadForm() {
           // so this catch is only reached if `fetch` itself rejected (DNS,
           // CORS, etc.). Treat the same as a fatal batch-level error.
           const reason = err instanceof Error ? err.message : "Upload selhal";
-          setBannerError(
-            `Batch ${Math.floor(i / MAX_FILES_PER_REQUEST) + 1}: ${reason}`,
-          );
+          setBannerError(`Batch ${i + 1}: ${reason}`);
           setQueue((prev) =>
             prev.map((q) =>
               q.status === "uploading"

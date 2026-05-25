@@ -7,6 +7,18 @@ export const MAX_FILE_BYTES = 25 * 1024 * 1024;
 export const MAX_FILES_PER_REQUEST = 50;
 export const MAX_QUEUE_FILES = 1000;
 
+/** Per-batch byte cap. Mirrors the finds uploader: there's an
+ *  empirical ~10 MB body-truncation cap somewhere between the
+ *  browser and Next.js (nginx? OVH proxy? HTTP/2 stream buffering?
+ *  not yet isolated). Symptom is "Body length mismatch: read N
+ *  bytes, Content-Length said M" surfacing from busboy because the
+ *  trailing ~1–2 MB of the multipart body never arrives. Keeping
+ *  every batch below 8 MB leaves headroom for multipart framing
+ *  overhead. Donation photos average ~3–8 MB each, so most batches
+ *  will end up as 1–2 files; the form chunks the queue
+ *  accordingly. */
+export const MAX_BATCH_BYTES = 8 * 1024 * 1024;
+
 export interface UploadResult {
   index: number;
   filename: string;
