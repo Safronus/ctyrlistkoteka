@@ -374,6 +374,62 @@ async function checkMapCenterOutsidePolygon(): Promise<MapCheckResult> {
  *  attacker writing arbitrary keys into check-acks.json). */
 export const MAP_CENTER_POLYGON_CHECK_ID = "map-center-outside-polygon";
 
+/** Check 7 — invariant: at most one `FindImage` per find may carry
+ *  `isPrimary = true`. The current sequential sync loop preserves
+ *  the rule by construction (ORIGINAL is inserted before CROP, the
+ *  second row sees `hasAnyPrimary = true` and inserts with `false`),
+ *  but a future parallel pipeline that processes ORIGINAL + CROP
+ *  streams concurrently would race the `findFirst(isPrimary=true)`
+ *  check between them and could land two primaries. This check
+ *  surfaces that drift immediately instead of waiting for a
+ *  visitor to notice the "wrong" thumbnail being chosen on /sbirka.
+ *
+ *  Pure SQL aggregate — cheaper than pulling N rows and counting in
+ *  JS, and the GROUP BY ... HAVING idiom matches what a DB-side
+ *  trigger would do if we ever promoted this to a hard constraint. */
+async function checkMultiplePrimaryImages(): Promise<FindCheckResult> {
+  const rows = await prisma.$queryRaw<
+    Array<{ find_id: number; cnt: bigint }>
+  >`
+    SELECT find_id, COUNT(*)::bigint AS cnt
+    FROM find_images
+    WHERE is_primary = true
+    GROUP BY find_id
+    HAVING COUNT(*) > 1
+    ORDER BY find_id ASC
+  `;
+  const findIds = rows.map((r) => r.find_id);
+  // Resolve location codes for the offenders' rows. Single trip via
+  // the existing helper so the table column reads the same as every
+  // other check.
+  const finds = findIds.length
+    ? await prisma.find.findMany({
+        where: { id: { in: findIds } },
+        select: { id: true, locationId: true },
+      })
+    : [];
+  const codes = await loadLocationCodes(
+    finds.map((f) => f.locationId).filter((x): x is number => x !== null),
+  );
+  const locById = new Map(finds.map((f) => [f.id, f.locationId]));
+  return {
+    kind: "find",
+    id: "multi-primary-find-images",
+    title: "Nálezy s více než jedním primárním obrázkem",
+    description:
+      "Invariant: každý nález má nejvýš jeden FindImage s isPrimary = true (ORIGINAL je primární, CROP ne). Více primárních obrázků naruší výběr náhledu na /sbirka a /home — fix je nastavit isPrimary = false na nadbytečném řádku (ručně v DB nebo přes re-sync s --force-regen).",
+    offenders: rows.map((r) => {
+      const locId = locById.get(r.find_id) ?? null;
+      return {
+        findId: r.find_id,
+        locationCode:
+          locId !== null ? (codes.get(locId) ?? `#${locId}`) : "—",
+        detail: `${r.cnt} řádků find_images má is_primary = true.`,
+      };
+    }),
+  };
+}
+
 export async function runAllChecks(): Promise<CheckResult[]> {
   return Promise.all([
     checkFindsInAnonLocsNotAnon(),
@@ -382,6 +438,7 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     checkFindsWithoutGps(),
     checkOriginalsWithoutCrop(),
     checkMapCenterOutsidePolygon(),
+    checkMultiplePrimaryImages(),
   ]);
 }
 

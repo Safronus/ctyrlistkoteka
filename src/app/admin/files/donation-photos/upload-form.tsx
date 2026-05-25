@@ -9,13 +9,39 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { uploadDonationPhotos } from "./upload-action";
 import {
   MAX_FILE_BYTES,
   MAX_FILES_PER_REQUEST,
   MAX_QUEUE_FILES,
+  type UploadResponse,
   type UploadResult,
 } from "./upload-types";
+
+/** Plain-fetch wrapper. Server actions buffer the whole multipart
+ *  body via the RSC encoder and choke on 20+ files × 5 MB; the route
+ *  at /admin/api/upload/donation-photos streams via busboy and
+ *  handles MAX_FILES_PER_REQUEST batches reliably. */
+async function postBatch(formData: FormData): Promise<UploadResponse> {
+  const r = await fetch("/admin/api/upload/donation-photos", {
+    method: "POST",
+    body: formData,
+  });
+  let body: UploadResponse | null = null;
+  try {
+    body = (await r.clone().json()) as UploadResponse;
+  } catch {
+    // Server crashed with a non-JSON response (Next.js HTML 500 page
+    // or upstream proxy error). Surface a synthetic UploadResponse so
+    // the caller still gets a usable error string in the banner.
+    return {
+      results: [],
+      error: r.ok
+        ? "Server vrátil neparsovatelnou odpověď."
+        : `HTTP ${r.status}${r.statusText ? " " + r.statusText : ""}`,
+    };
+  }
+  return body;
+}
 
 type RowStatus = "queued" | "uploading" | "ok" | "rejected";
 
@@ -154,7 +180,25 @@ export function DonationPhotosUploadForm() {
         for (const q of batch) fd.append("files", q.file);
 
         try {
-          const { results } = await uploadDonationPhotos(fd);
+          const { results, error } = await postBatch(fd);
+          // A batch-level error (parse failure, auth, crash) is fatal
+          // for the rest of the queue — bail with the banner set so
+          // the operator sees what actually broke (no more generic
+          // "Server Components render" obscuring the real cause).
+          if (error) {
+            setBannerError(
+              `Batch ${Math.floor(i / MAX_FILES_PER_REQUEST) + 1}: ${error}`,
+            );
+            setQueue((prev) =>
+              prev.map((q) =>
+                q.status === "uploading"
+                  ? { ...q, status: "rejected", reason: error }
+                  : q,
+              ),
+            );
+            aborted = true;
+            break;
+          }
           const byBatchIndex = new Map<number, UploadResult>();
           for (const r of results) byBatchIndex.set(r.index, r);
 
@@ -185,6 +229,9 @@ export function DonationPhotosUploadForm() {
             return updated;
           });
         } catch (err) {
+          // postBatch already maps network errors to UploadResponse.error,
+          // so this catch is only reached if `fetch` itself rejected (DNS,
+          // CORS, etc.). Treat the same as a fatal batch-level error.
           const reason = err instanceof Error ? err.message : "Upload selhal";
           setBannerError(
             `Batch ${Math.floor(i / MAX_FILES_PER_REQUEST) + 1}: ${reason}`,

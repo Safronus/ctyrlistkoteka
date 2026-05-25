@@ -1,4 +1,4 @@
-// Caps for the donation-photo upload action. Smaller per-file budget
+// Caps for the donation-photo upload endpoint. Smaller per-file budget
 // than finds/crops because these are (typically) single-camera shots
 // that don't need 25 MB of headroom — but we still allow up to 1000
 // in the queue so a bulk import is one motion.
@@ -19,4 +19,12 @@ export interface UploadResult {
   slot?: string;
   /** True when the filename carried the optional `_ANON` token. */
   isAnonymized?: boolean;
+}
+
+/** Top-level response shape. Mirrors the finds upload route — `error`
+ *  is set when the whole batch failed (parse error, auth, crash) and
+ *  the form surfaces it in the banner without per-row processing. */
+export interface UploadResponse {
+  results: UploadResult[];
+  error?: string;
 }
