@@ -250,6 +250,39 @@ async function readHierarchy(path: string): Promise<Hierarchy | null> {
  * existing Logger so the output ends up in both stdout (visible to a
  * `| tee` user) and the JSON sync-*.log file.
  */
+/** Bounded-concurrency parallel map. Pulls items off a shared cursor;
+ *  each worker calls `fn` for one item, awaits it, then pulls the next.
+ *  Items finish out-of-order — the caller must not rely on input order.
+ *
+ *  Returns when every item has completed (success or rejection). A
+ *  single `fn` rejection propagates via `Promise.all` and aborts the
+ *  remaining workers' pulls — same fail-fast semantics as the
+ *  pre-existing sequential `for..of await` loop, so any error in any
+ *  file stops the phase exactly as before.
+ *
+ *  No new dependency: this is the kernel of `p-limit` / `p-map` in
+ *  ~15 lines without the ergonomic surface (priorities, abort signals)
+ *  we don't need here. */
+async function pMap<T>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) return;
+  let cursor = 0;
+  const workerCount = Math.min(concurrency, items.length);
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (true) {
+      // Single statement read+increment — atomic under V8's event-loop
+      // model (no preemption between the read and the postfix bump).
+      const idx = cursor++;
+      if (idx >= items.length) return;
+      await fn(items[idx]!);
+    }
+  });
+  await Promise.all(workers);
+}
+
 function makeProgressTicker(label: string, total: number, log: Logger) {
   const startedAt = Date.now();
   let lastLoggedAt = 0;
@@ -723,6 +756,16 @@ async function phaseFinds(
 
   const { generateWebPVariants, sha1File } = await import("../src/lib/images");
 
+  // Cap each sharp pipeline to a single libvips thread. The default
+  // (~num_cpus) would let four concurrent sharp calls allocate up to
+  // 24 worker threads on the 6-vCPU VPS, fighting heic-convert + the
+  // event loop for cycles. With concurrency=1 a 4-worker outer pool
+  // (2 originals + 2 crops) spends at most 4 libvips threads — sized
+  // for the box without context-switch overhead. Idempotent: calling
+  // it on an already-loaded sharp is a no-op past the first call.
+  const sharpLib = (await import("sharp")).default;
+  sharpLib.concurrency(1);
+
   // Fast-path skip lookup: which (findId, filename) pairs are already in
   // DB and when. Combined with the file's current mtime this lets us
   // skip every file the user hasn't touched since the last import — no
@@ -765,6 +808,56 @@ async function phaseFinds(
     );
   }
 
+  // Pre-fetch existing FindImage rows keyed by (findId, imageType).
+  // Replaces the per-file `findFirst` lookup inside the worker with
+  // a Map.get — saves one DB round-trip per file (≈ 17k saved trips
+  // on a full sync) and is the only way the parallel pipeline can
+  // resolve "does this row already exist?" without racing with its
+  // sibling worker on the same findId. Includes every field the
+  // worker compares against (sha1, filename, paths, width, height)
+  // so the diff happens in JS without a follow-up read.
+  const existingImagesByKey = new Map<
+    string,
+    {
+      id: number;
+      originalSha1: string | null;
+      originalFilename: string;
+      webPath: string;
+      thumbPath: string;
+      width: number;
+      height: number;
+    }
+  >();
+  for (const r of await ctx.prisma.findImage.findMany({
+    select: {
+      id: true,
+      findId: true,
+      imageType: true,
+      originalSha1: true,
+      originalFilename: true,
+      webPath: true,
+      thumbPath: true,
+      width: true,
+      height: true,
+    },
+  })) {
+    existingImagesByKey.set(`${r.findId}:${r.imageType}`, {
+      id: r.id,
+      originalSha1: r.originalSha1,
+      originalFilename: r.originalFilename,
+      webPath: r.webPath,
+      thumbPath: r.thumbPath,
+      width: r.width,
+      height: r.height,
+    });
+  }
+
+  // Counters mutated from the parallel workers below. Plain `+= 1` on
+  // a primitive is safe in V8: the read-and-increment is a single
+  // bytecode op with no `await` straddling it, so the event loop
+  // cannot interleave another worker's increment in the middle. (If
+  // we ever swap a counter for a more complex shared object the same
+  // guarantee will no longer hold and these will need a real atomic.)
   let withGps = 0;
   let withoutGps = 0;
   let unexpectedNoGps = 0;
@@ -774,7 +867,21 @@ async function phaseFinds(
 
   const progress = makeProgressTicker("finds.upsert", all.length, ctx.log);
 
-  for (const f of all) {
+  /** Process a single ORIGINAL or CROP file. Pure async function with
+   *  no shared mutable state besides the counters above and the
+   *  progress ticker — both interleave-safe at await boundaries.
+   *  Called concurrently from `pMap` once per stream (originals,
+   *  crops). Behaviour matches the prior sequential loop byte-for-
+   *  byte, with two consequence-free refactors:
+   *    1. `existingImagesByKey` Map lookup replaces a per-file
+   *       `findImage.findFirst({findId, imageType})` round-trip.
+   *    2. The "is this the first image of any kind for this find?"
+   *       check that decided `isPrimary` is replaced by a
+   *       deterministic rule based on `imageType` + the pre-built
+   *       `originalsByFindId` set. See the comment on `isPrimary`
+   *       below for why this matches the sequential outcome
+   *       exactly. */
+  async function processOne(f: FindFileInfo): Promise<void> {
     if (!ctx.opts.forceRegen) {
       const known = ingestedAt.get(
         `${f.parsed.findId}:${f.imageType}:${f.filename}`,
@@ -784,7 +891,7 @@ async function phaseFinds(
         if (st.mtimeMs <= known) {
           skipped += 1;
           progress.tick();
-          continue;
+          return;
         }
       }
     }
@@ -808,15 +915,22 @@ async function phaseFinds(
     else if (!exif.dateTakenHasClock) dateOnlyExif += 1;
 
     // ORIGINAL is the canonical source of `foundAt`. CROP files often
-    // have EXIF DateTimeOriginal stripped by the cropping pipeline,
-    // and the loop processes ORIGINAL first then CROP for the same
-    // findId — so an unconditional `foundAt = exif.dateTaken ?? null`
-    // on the CROP iteration would clobber the good date the ORIGINAL
-    // iteration wrote moments earlier. (This was the cause of finds
-    // surfacing on /admin/checks → "Nálezy bez EXIF data" — every
-    // such find had a CROP whose EXIF lacked DateTimeOriginal.) For
-    // the rare CROP-without-ORIGINAL case, the CREATE branch still
-    // accepts the CROP's EXIF date, so we don't regress that path.
+    // have EXIF DateTimeOriginal stripped by the cropping pipeline.
+    // In the prior sequential run the loop processed ORIGINAL before
+    // CROP for the same findId — so an unconditional `foundAt =
+    // exif.dateTaken ?? null` on the CROP iteration would clobber
+    // the good date the ORIGINAL iteration wrote moments earlier.
+    // The parallel version preserves this exact convergence:
+    //   - update only sets foundAt when isOriginal → CROP never
+    //     overwrites a date written by ORIGINAL, regardless of
+    //     execution order;
+    //   - create always sets foundAt → the rare CROP-without-
+    //     ORIGINAL case still ends up with whatever date the CROP
+    //     had (matches the prior fallback behaviour).
+    // Both upserts compile to one INSERT ... ON CONFLICT DO UPDATE,
+    // which Postgres serializes via the primary-key row lock, so
+    // even simultaneous concurrent execution converges to the same
+    // result the sequential loop produced.
     const isOriginal = f.imageType === ImageType.ORIGINAL;
     await ctx.prisma.find.upsert({
       where: { id: f.parsed.findId },
@@ -862,9 +976,9 @@ async function phaseFinds(
     // row's sha1/paths. That left ~139 zombie rows in production for
     // finds 15903–16044 — visible only as duplicate find_images entries
     // pointing to orphan WebP files.
-    const existing = await ctx.prisma.findImage.findFirst({
-      where: { findId: f.parsed.findId, imageType: f.imageType },
-    });
+    const existing = existingImagesByKey.get(
+      `${f.parsed.findId}:${f.imageType}`,
+    );
     if (existing) {
       // Only write when something actually changed — minimises DB churn
       // on the common "same file, same content" sync.
@@ -889,11 +1003,24 @@ async function phaseFinds(
         });
       }
     } else {
-      // First image of this type for the find — make it primary when no
-      // sibling already claims that flag.
-      const hasAnyPrimary = await ctx.prisma.findImage.findFirst({
-        where: { findId: f.parsed.findId, isPrimary: true },
-      });
+      // Deterministic isPrimary — the sequential loop iterated
+      // originals first then crops, so for any find that had both an
+      // ORIGINAL and a CROP the ORIGINAL was inserted first (no
+      // existing primary → isPrimary=true) and the CROP second (saw
+      // ORIGINAL's primary → isPrimary=false). A CROP without a
+      // matching ORIGINAL was processed alone (no existing primary →
+      // isPrimary=true). With ORIGINAL + CROP streams now running
+      // concurrently, the order-dependent rule races: both workers
+      // could find no primary and create two `isPrimary=true` rows,
+      // exactly the corner case the new
+      // `multi-primary-find-images` check on /admin/checks watches
+      // for. Rewriting the rule against the static `originalsByFindId`
+      // set (built before the loop) yields the same outcomes
+      // deterministically, independent of execution order.
+      const isPrimary =
+        f.imageType === ImageType.ORIGINAL ||
+        (f.imageType === ImageType.CROP &&
+          !originalsByFindId.has(f.parsed.findId));
       await ctx.prisma.findImage.create({
         data: {
           findId: f.parsed.findId,
@@ -904,7 +1031,7 @@ async function phaseFinds(
           thumbPath: image.thumbPath,
           width: image.width,
           height: image.height,
-          isPrimary: !hasAnyPrimary,
+          isPrimary,
           sortOrder: 0,
         },
       });
@@ -912,6 +1039,20 @@ async function phaseFinds(
 
     progress.tick();
   }
+
+  // Two parallel streams — ORIGINAL and CROP — with 2 workers each
+  // (= 4 concurrent processOne calls total). Sized for the 6-vCPU
+  // VPS with `sharp.concurrency(1)` set above: at most 4 sharp
+  // pipelines × 1 libvips thread = 4 threads, leaving 2 vCPUs for
+  // Postgres + heic-convert + the Node event loop. Going wider
+  // started oversubscribing in local testing without measurable
+  // throughput gain — the per-file work is dominated by sha1
+  // streaming + WebP encode, both of which hit disk/CPU limits
+  // before adding more concurrency helps.
+  await Promise.all([
+    pMap(finds, 2, processOne),
+    pMap(crops, 2, processOne),
+  ]);
 
   ctx.log.log({
     event: "finds.done",
