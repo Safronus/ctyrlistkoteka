@@ -5,6 +5,7 @@ import { useTransition } from "react";
 import { useTranslations } from "next-intl";
 import {
   ArrowUpDown,
+  CalendarCheck,
   Camera,
   EyeOff,
   LayoutGrid,
@@ -69,6 +70,37 @@ export function ViewSortToolbar({
       router.push(`${pathname}?${params.toString()}`);
     });
   };
+
+  /** Batched two-param update — for buttons that need to set `from`
+   *  and `to` at the same instant (e.g. "Dnes"). Calling `setParam`
+   *  twice in sequence would race two router.push calls and the
+   *  second push would clobber the first. */
+  const setDateRange = (from: string, to: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (from === "") params.delete("from");
+    else params.set("from", from);
+    if (to === "") params.delete("to");
+    else params.set("to", to);
+    params.delete("page");
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
+  };
+
+  /** Today's date in Europe/Prague as the `YYYY-MM-DD` string
+   *  `<input type="date">` expects. `en-CA` is the canonical locale
+   *  that emits ISO-style dates regardless of the user's browser
+   *  language; the `Europe/Prague` timezone keeps "today" anchored
+   *  to local CE time so a midnight click in Asia still files
+   *  yesterday's CZ-day finds, matching the rest of the project
+   *  (sync's `foundAt`, the anniversary overlay, all CE-anchored). */
+  const todayInPrague = (): string =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Prague",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
 
   // Single-row layout: view toggle, sort dropdown, has-photo toggle
   // and date range cluster all sit on one wrappable flex row. With
@@ -198,6 +230,26 @@ export function ViewSortToolbar({
           onChange={(e) => setParam("to", e.currentTarget.value, "")}
           className={DATE_INPUT_CLS}
         />
+        {/* "Dnes" shortcut — sets both `from` and `to` to today's
+            local CE date so the listing collapses to "what was
+            found today". Common after a sync run on the day of
+            collecting; manual two-input typing for the same query
+            is fiddly with the native date picker. Both params go
+            through `setDateRange` in one router.push to avoid the
+            second click clobbering the first. */}
+        <button
+          type="button"
+          onClick={() => {
+            const today = todayInPrague();
+            setDateRange(today, today);
+          }}
+          title={t("dateToday")}
+          aria-label={t("dateToday")}
+          className="inline-flex h-8 items-center gap-1 rounded-md border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
+        >
+          <CalendarCheck className="h-3.5 w-3.5" aria-hidden />
+          <span>{t("dateToday")}</span>
+        </button>
       </div>
     </div>
   );

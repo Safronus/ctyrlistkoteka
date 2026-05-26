@@ -188,6 +188,7 @@
     "dateLabel": "Date",
     "dateFrom": "Date from",
     "dateTo": "Date to",
+    "dateToday": "Today",
     "sort": "Sort",
     "sortDesc": "Newest",
     "sortAsc": "Oldest",

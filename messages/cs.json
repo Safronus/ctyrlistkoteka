@@ -187,6 +187,7 @@
     "dateLabel": "Datum",
     "dateFrom": "Datum od",
     "dateTo": "Datum do",
+    "dateToday": "Dnes",
     "sort": "Řazení",
     "sortDesc": "Nejnovější",
     "sortAsc": "Nejstarší",
