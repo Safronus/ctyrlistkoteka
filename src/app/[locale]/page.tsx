@@ -1,5 +1,14 @@
 import Image from "next/image";
-import { ArrowRight, ExternalLink, ListIcon, MapPin } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  ExternalLink,
+  Images,
+  ListIcon,
+  Map as MapIcon,
+  MapPin,
+  type LucideIcon,
+} from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getHomePageData, type HomePageData } from "@/lib/queries/home";
@@ -184,21 +193,25 @@ export default async function HomePage() {
           href="/sbirka"
           title={t("navSbirkaTitle")}
           description={t("navSbirkaDesc")}
+          icon={Images}
         />
         <NavCard
           href="/lokality"
           title={t("navLokalityTitle")}
           description={t("navLokalityDesc")}
+          icon={MapPin}
         />
         <NavCard
           href="/mapa"
           title={t("navMapaTitle")}
           description={t("navMapaDesc")}
+          icon={MapIcon}
         />
         <NavCard
           href="/statistiky"
           title={t("navStatistikyTitle")}
           description={t("navStatistikyDesc")}
+          icon={BarChart3}
         />
       </section>
 
@@ -405,20 +418,35 @@ function NavCard({
   href,
   title,
   description,
+  icon: Icon,
 }: {
   href: string;
   title: string;
   description: string;
+  /** Lucide icon component rendered in the top-right corner — gives
+   *  each destination an at-a-glance affordance. The clover-theme
+   *  `bg-gray-50` background reads as faint mint green, matching the
+   *  PaceCell tiles on /statistiky so the home page nav feels like
+   *  the same family of surfaces rather than plain white buttons. */
+  icon: LucideIcon;
 }) {
   return (
     <Link
       href={href}
-      className="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-brand-200 hover:shadow-sm"
+      className="group relative rounded-xl border border-gray-200 bg-gray-50 p-5 transition hover:border-brand-200 hover:bg-brand-50/40 hover:shadow-sm"
     >
-      <h2 className="text-lg font-semibold text-gray-900 group-hover:text-brand-700">
+      <Icon
+        className="absolute right-4 top-4 h-5 w-5 text-gray-400 transition group-hover:text-brand-600"
+        aria-hidden
+      />
+      {/* pr-8 reserves space for the absolute-positioned icon so a
+          long title never collides with it; description gets less
+          padding because lowercase body type lands well below the
+          icon's optical center. */}
+      <h2 className="pr-8 text-lg font-semibold text-gray-900 group-hover:text-brand-700">
         {title}
       </h2>
-      <p className="mt-1 text-sm text-gray-600">{description}</p>
+      <p className="mt-1 pr-2 text-sm text-gray-600">{description}</p>
     </Link>
   );
 }

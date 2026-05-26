@@ -287,4 +287,4 @@ NODE_ENV=production
 - Produkční server: **OVH VPS-2** (6 vCPU, 12 GB RAM, 100 GB SSD), Gravelines (GRA), Ubuntu 24.04 LTS.
 - IP adresy, hostname a přihlašovací údaje jsou v `docs/deployment.md` a `.env` — **nedávej je do commitnutých souborů** mimo `.env.example`.
 - Uživatel používá **Termius** pro SSH. Claude Code generuje příkazy, uživatel je spouští sám.
-- GitHub repo: **privátní**, vytvořit přes `gh repo create`.
+- GitHub repo: **veřejné** ([github.com/Safronus/ctyrlistkoteka](https://github.com/Safronus/ctyrlistkoteka)). Bylo původně privátní, autor ho v průběhu vývoje přepnul na public — celý zdrojový kód je tedy otevřený. Citlivé věci (DB heslo, `VOTE_FINGERPRINT_SALT`, `FIND_PHOTO_UNLOCK_CODE`, admin credentials) zůstávají v `.env` na VPS, do gitu nejdou — `.gitignore` je drží mimo. Při každém commitu stejně zkontroluj, že žádné tajemství neutíká.
