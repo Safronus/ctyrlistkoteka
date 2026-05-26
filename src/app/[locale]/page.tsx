@@ -2,7 +2,11 @@ import Image from "next/image";
 import {
   ArrowRight,
   BarChart3,
+  Building2,
+  CalendarRange,
+  Clover,
   ExternalLink,
+  Globe,
   Images,
   ListIcon,
   Map as MapIcon,
@@ -219,22 +223,27 @@ export default async function HomePage() {
         <StatCard
           value={NF.format(totals.finds)}
           label={t("statFinds", { count: totals.finds })}
+          icon={Clover}
         />
         <StatCard
           value={NF.format(totals.locations)}
           label={t("statLocations", { count: totals.locations })}
+          icon={MapPin}
         />
         <StatCard
           value={NF.format(totals.cities)}
           label={t("statCities", { count: totals.cities })}
+          icon={Building2}
         />
         <StatCard
           value={NF.format(totals.countries)}
           label={t("statCountries", { count: totals.countries })}
+          icon={Globe}
         />
         <StatCard
           value={totals.yearsSpan ? String(totals.yearsSpan) : "—"}
           label={t("statYears", { count: totals.yearsSpan ?? 0 })}
+          icon={CalendarRange}
         />
       </section>
 
@@ -405,9 +414,27 @@ const STATIC_CLUSTER: ReadonlyArray<{
   { x: 65, y: 48, s: 0.65, o: 0.8 },
 ];
 
-function StatCard({ value, label }: { value: string; label: string }) {
+function StatCard({
+  value,
+  label,
+  icon: Icon,
+}: {
+  value: string;
+  label: string;
+  /** Lucide icon pinned to the top-right, matching the NavCard
+   *  pattern above. Color sits at brand-500 — readable against the
+   *  brand-50 background but muted enough that the big numeric
+   *  value (brand-700) stays the focal point. No hover state: the
+   *  card isn't interactive, the icon is a static visual cue for
+   *  "this stat is about X". */
+  icon: LucideIcon;
+}) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-brand-50 p-4 text-center">
+    <div className="relative rounded-xl border border-gray-200 bg-brand-50 p-4 text-center">
+      <Icon
+        className="absolute right-3 top-3 h-4 w-4 text-brand-500"
+        aria-hidden
+      />
       <p className="text-2xl font-bold text-brand-700 sm:text-3xl">{value}</p>
       <p className="mt-1 text-xs text-gray-600 sm:text-sm">{label}</p>
     </div>
