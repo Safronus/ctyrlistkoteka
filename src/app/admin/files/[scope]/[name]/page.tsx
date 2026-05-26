@@ -33,6 +33,7 @@ import { parseFindFilename } from "@/lib/parseFilename";
 import { FindState } from "@prisma/client";
 import { DeleteCropButton } from "../../crops/delete-button";
 import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
+import { UnlockCodePanel } from "../../donation-photos/unlock-code-panel";
 import { DeleteFreePhotoButton } from "../../free-photos/delete-button";
 import { DeleteFindButton } from "../../finds/delete-button";
 import { FindAnonymizeToggleButton } from "../../finds/anonymize-toggle-button";
@@ -51,6 +52,7 @@ import { MarkMapNonexistentButton } from "../../maps/mark-nonexistent-button";
 import { MapMetadataPreview } from "../../maps/metadata-preview";
 import { MapRealPhotoCard } from "../../maps/real-photo-card";
 import { MapReplaceDropzone } from "../../maps/replace-dropzone";
+import { prisma } from "@/lib/db";
 import { getFindPhotos } from "@/lib/findPhotos";
 import { getFindFreePhotos } from "@/lib/findFreePhotos";
 import { resolveLocationMapPhoto } from "@/lib/locationPhotos";
@@ -255,6 +257,21 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
   const photoOriginalName =
     photoFindId !== null
       ? await findOriginalFilenameById(photoFindId)
+      : null;
+
+  // Per-find unlock code lookup — only the donation-photos detail page
+  // exposes the panel that mutates this column (free-photos are never
+  // anonymous, so they don't need an unlock code). Single SELECT keyed
+  // by the find id parsed from the photo filename. `null` for the
+  // whole row means the find doesn't exist yet (sync hasn't run); the
+  // panel hides in that case. A row with unlockCode = null is fine —
+  // the panel shows the empty editor state.
+  const unlockCodeRow =
+    scope.slug === "donation-photos" && photoFindId !== null
+      ? await prisma.find.findUnique({
+          where: { id: photoFindId },
+          select: { unlockCode: true },
+        })
       : null;
 
   return (
@@ -509,6 +526,21 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
           />
         </figure>
       )}
+
+      {/* Per-find unlock code editor — donation-photos detail only.
+          Sits below the photo preview so the operator sees what
+          photo they're configuring the code for, then the panel
+          right under it. Free-photos (the public variant) doesn't
+          get this panel because those photos aren't anonymous and
+          have no unlock flow. */}
+      {scope.slug === "donation-photos" &&
+        photoFindId !== null &&
+        unlockCodeRow !== null && (
+          <UnlockCodePanel
+            findId={photoFindId}
+            initialCode={unlockCodeRow.unlockCode}
+          />
+        )}
 
       {!isPreviewableImage(info.contentType) &&
         info.contentType.startsWith("image/") && (

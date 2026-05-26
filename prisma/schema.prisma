@@ -129,6 +129,14 @@ model Find {
   // ~17 k findů.
   voteCount Int @default(0) @map("vote_count")
 
+  /// Optional per-find unlock code for anonymized donation photos.
+  /// NULL means the find inherits the global FIND_PHOTO_UNLOCK_CODE
+  /// env var; a non-null value overrides that secret for THIS find
+  /// only — recipients of one gift get a personal code while the
+  /// rest of the collection stays on the shared default. Set / cleared
+  /// from /admin/files/donation-photos/<filename>.
+  unlockCode String? @map("unlock_code") @db.VarChar(256)
+
   coordinates Unsupported("geometry(Point, 4326)")?
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz

@@ -2,6 +2,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { prisma } from "@/lib/db";
 import { getFindPhotos, resolveAnonPhotoPath } from "@/lib/findPhotos";
 import {
   FIND_PHOTO_UNLOCK_INITIAL,
@@ -16,10 +17,15 @@ import {
  * level (see deploy/nginx.conf.template), so a leaked URL guess can't
  * exfiltrate the image.
  *
- * The code lives in `FIND_PHOTO_UNLOCK_CODE` env var on the VPS.
- * Missing config is reported back to the modal as `missing-config`
- * instead of silently failing — the author should know they haven't
- * set a code before sharing photos with recipients.
+ * Per-find override takes precedence: when `Find.unlockCode` is set
+ * (managed via /admin/files/donation-photos/<name>), THAT value is
+ * the only accepted code for unlocking this find's anonymous donation
+ * photos — the global FIND_PHOTO_UNLOCK_CODE env var is ignored for
+ * this find. When `unlockCode` is null/empty the global secret is
+ * used as a fallback so existing recipients keep working without per-
+ * find configuration. Missing both ways is reported back as
+ * `missing-config` so the author notices before sharing photos with
+ * recipients.
  *
  * Brute-force defences (layered with Nginx's ctyr_main zone, 20 r/s
  * burst 40):
@@ -59,7 +65,19 @@ export async function unlockFindPhotos(
     await failDelay();
     return { ...FIND_PHOTO_UNLOCK_INITIAL, status: "invalid" };
   }
-  const expected = process.env.FIND_PHOTO_UNLOCK_CODE;
+  // Per-find code takes precedence; global env var is fallback.
+  // Single SELECT — the row hit here is the same find row the
+  // unlock action would touch anyway, no extra round-trip cost over
+  // the previous global-only path.
+  const findRow = await prisma.find.findUnique({
+    where: { id: findId },
+    select: { unlockCode: true },
+  });
+  const perFindCode = findRow?.unlockCode ?? null;
+  const expected =
+    perFindCode && perFindCode.length > 0
+      ? perFindCode
+      : process.env.FIND_PHOTO_UNLOCK_CODE;
   if (!expected || expected.length === 0) {
     return { ...FIND_PHOTO_UNLOCK_INITIAL, status: "missing-config" };
   }
