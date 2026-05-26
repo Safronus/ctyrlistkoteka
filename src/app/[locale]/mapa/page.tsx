@@ -8,6 +8,7 @@ import {
   getHighlightFind,
   type FindFilters,
 } from "@/lib/queries/finds";
+import { DOMINANT_LOCATION_ID } from "@/lib/constants";
 import { MapaShell } from "@/components/map/mapa-shell";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -66,6 +67,7 @@ export default async function MapaPage({ searchParams }: PageProps) {
   // page resolves the matching find ID set server-side and dims everything
   // outside it on the canvas. Param names mirror /sbirka exactly so a
   // "Zobrazit na mapě" button there can just copy the URL search string.
+  const hideDominantOnMap = pickString(sp.hideTop) === "1";
   const findFilters: FindFilters = {
     q: pickString(sp.q) ?? undefined,
     locationId: parseInt(pickString(sp.loc)),
@@ -75,6 +77,7 @@ export default async function MapaPage({ searchParams }: PageProps) {
     year: parseInt(pickString(sp.year)),
     dateFrom: parseDateOnly(pickString(sp.from)),
     dateTo: parseDateOnly(pickString(sp.to)),
+    excludeLocationId: hideDominantOnMap ? DOMINANT_LOCATION_ID : undefined,
   };
   const hasFindFilter = !!(
     findFilters.q ||
@@ -84,7 +87,8 @@ export default async function MapaPage({ searchParams }: PageProps) {
     findFilters.state ||
     findFilters.year ||
     findFilters.dateFrom ||
-    findFilters.dateTo
+    findFilters.dateTo ||
+    findFilters.excludeLocationId
   );
 
   // Sidebar lists only locations actually visible on the map — anonymized

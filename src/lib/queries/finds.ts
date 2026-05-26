@@ -126,6 +126,14 @@ export interface FindFilters {
    *  Applied as a post-filter against the on-disk index because
    *  `find-photos/` is filesystem-only — no DB column to query. */
   hasRealPhoto?: boolean;
+  /** When set, REMOVE finds whose location id is this value or whose
+   *  location is a direct child of it (parent/child hierarchy from
+   *  data/meta/LokaceHierarchie.json). Mirrors the inclusion behaviour
+   *  of `locationId` so the same parent→children traversal applies in
+   *  reverse. Wired to the "Skrýt největší lokalitu" one-click toggle
+   *  on /sbirka — the dominant location holds ~80 % of the collection
+   *  and the user often wants to browse "everything else". */
+  excludeLocationId?: number;
 }
 
 export interface FindListResult {
@@ -173,6 +181,33 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
       const ids = [f.locationId, ...childRows.map((r) => r.id)];
       and.push({ locationId: { in: ids } });
     }
+  }
+  if (f.excludeLocationId) {
+    // Mirror the inclusion branch above — gather the target location +
+    // all direct children (max depth 2) and exclude every find pinned
+    // to one of them. The toggle on /sbirka uses this to drop the
+    // dominant location's thousands of records in one click. A find
+    // with `locationId = null` (location-missing) is never matched by
+    // `NOT IN (...)` in SQL — null comparisons are unknown — but
+    // Prisma's `not` operator translates to an IS NOT NULL guard
+    // around the IN, which would silently drop those finds too. Using
+    // an explicit OR with `locationId: null` keeps null-location
+    // finds visible, matching the user's expectation: this filter is
+    // about a specific known location, not "anything we know about".
+    const exChildRows = await prisma.location.findMany({
+      where: { parentId: f.excludeLocationId },
+      select: { id: true },
+    });
+    const exIds = [
+      f.excludeLocationId,
+      ...exChildRows.map((r) => r.id),
+    ];
+    and.push({
+      OR: [
+        { locationId: null },
+        { locationId: { notIn: exIds } },
+      ],
+    });
   }
   if (f.cadastralArea) {
     and.push({ location: { cadastralArea: f.cadastralArea } });

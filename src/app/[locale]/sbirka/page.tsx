@@ -15,7 +15,8 @@ import {
 } from "@/components/finds/view-sort-toolbar";
 import { PageSizeSelector } from "@/components/finds/page-size-selector";
 import { Pagination } from "@/components/finds/pagination";
-import { FINDS_PER_PAGE } from "@/lib/constants";
+import { DOMINANT_LOCATION_ID, FINDS_PER_PAGE } from "@/lib/constants";
+import { prisma } from "@/lib/db";
 import {
   getCollectionProgress,
   getFilterOptions,
@@ -115,6 +116,12 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   await params;
   const t = await getTranslations("Sbirka");
 
+  // The "Skrýt největší lokalitu" toggle posts `?hideTop=1` rather
+  // than `?exLoc=<id>` so the user-visible URL stays stable across
+  // any future change to `DOMINANT_LOCATION_ID`. The constant gates
+  // the id we actually exclude; the URL just carries the boolean
+  // intent.
+  const hideDominant = pickString(sp.hideTop) === "1";
   const filters: FindFilters = {
     q: pickString(sp.q) ?? undefined,
     locationId: parseInt(pickString(sp.loc)),
@@ -125,6 +132,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     dateFrom: parseDateOnly(pickString(sp.from)),
     dateTo: parseDateOnly(pickString(sp.to)),
     hasRealPhoto: pickString(sp.hasPhoto) === "1" ? true : undefined,
+    excludeLocationId: hideDominant ? DOMINANT_LOCATION_ID : undefined,
   };
   const page = parseInt(pickString(sp.page)) ?? 1;
   const pageSize = parseSbirkaPageSize(pickString(sp.size));
@@ -132,10 +140,20 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const view = parseView(pickString(sp.view));
 
   const locale = await getLocale();
-  const [optionsRaw, result, progress] = await Promise.all([
+  // Resolve the dominant location's code for the toggle's hover label
+  // ("Skrýt #00003 — ZLÍN_JSVAHY-KŘIBY-V001"). Single trip, cached
+  // per-request because the dynamic page already short-circuits the
+  // RSC cache; the cost is negligible next to listFinds. Null when
+  // the configured id doesn't exist yet (early dev, fresh DB) — the
+  // toggle hides itself in that case.
+  const [optionsRaw, result, progress, dominantLocation] = await Promise.all([
     getFilterOptions(),
     listFinds(filters, page, pageSize, sort),
     getCollectionProgress(),
+    prisma.location.findUnique({
+      where: { id: DOMINANT_LOCATION_ID },
+      select: { id: true, code: true },
+    }),
   ]);
 
   // Pre-resolve "did this visitor already vote?" + counts for the
@@ -187,7 +205,8 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     filters.year ||
     filters.dateFrom ||
     filters.dateTo ||
-    filters.hasRealPhoto
+    filters.hasRealPhoto ||
+    filters.excludeLocationId
   );
 
   // /mapa accepts the same filter param shape (q, loc, city, country,
@@ -204,6 +223,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     if (f.dateFrom) params.set("from", dateToString(f.dateFrom));
     if (f.dateTo) params.set("to", dateToString(f.dateTo));
     if (f.hasRealPhoto) params.set("hasPhoto", "1");
+    if (f.excludeLocationId) params.set("hideTop", "1");
     const qs = params.toString();
     return qs ? `/mapa?${qs}` : "/mapa";
   };
@@ -219,6 +239,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     if (filters.dateFrom) params.set("from", dateToString(filters.dateFrom));
     if (filters.dateTo) params.set("to", dateToString(filters.dateTo));
     if (filters.hasRealPhoto) params.set("hasPhoto", "1");
+    if (filters.excludeLocationId) params.set("hideTop", "1");
     if (sort !== "desc") params.set("sort", sort);
     if (view !== "list") params.set("view", view);
     if (p > 1) params.set("page", String(p));
@@ -300,6 +321,14 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
         minDate={options.minDate}
         maxDate={options.maxDate}
         hasPhoto={filters.hasRealPhoto === true}
+        hideDominant={hideDominant}
+        // Pass the dominant location's code through so the toggle's
+        // title attribute shows the user *which* location is being
+        // hidden — better than a context-free "Skrýt největší
+        // lokalitu" if a year from now they forgot which one that
+        // is. Hides the toggle entirely when the configured id
+        // doesn't resolve (fresh DB / wrong constant).
+        dominantLocationCode={dominantLocation?.code ?? null}
       />
 
       {view === "list" ? (

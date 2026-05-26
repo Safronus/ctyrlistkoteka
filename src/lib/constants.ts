@@ -29,3 +29,18 @@ export const ANON_GPS_PRECISION = 3;
  * convention assigns location id 1 to a generic placeholder map.
  */
 export const DEFAULT_LOCATION_ID = 1;
+
+/**
+ * The single location that historically holds ~80 % of the collection's
+ * finds (and probably always will — it's the user's home patch with a
+ * dense cluster of sub-maps). /sbirka exposes a one-click toggle to
+ * exclude this location + all its descendants from the listing so the
+ * "rest of the world" is browsable without paging through thousands
+ * of rows from one place.
+ *
+ * Lives here, not inlined in the page, so updating it as the
+ * collection grows is one constant change. The id matches
+ * `LocationMap.id` = MAP_ID from the filename of the canonical map for
+ * that location.
+ */
+export const DOMINANT_LOCATION_ID = 3;

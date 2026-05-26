@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import {
   ArrowUpDown,
   Camera,
+  EyeOff,
   LayoutGrid,
   List,
 } from "lucide-react";
@@ -24,6 +25,8 @@ export function ViewSortToolbar({
   minDate,
   maxDate,
   hasPhoto,
+  hideDominant,
+  dominantLocationCode,
 }: {
   view: FindView;
   sort: FindSort;
@@ -39,6 +42,17 @@ export function ViewSortToolbar({
    *  date range so it reads as a quick-narrow filter alongside dates,
    *  not buried in the FilterBar dropdown stack. URL param: hasPhoto=1. */
   hasPhoto: boolean;
+  /** "Skrýt největší lokalitu" toggle — drops finds whose location is
+   *  the configured `DOMINANT_LOCATION_ID` (or any of its child
+   *  locations) so the user can browse the rest of the collection
+   *  without paging past thousands of rows from a single dense
+   *  patch. URL param: `hideTop=1`. */
+  hideDominant: boolean;
+  /** Display code of the dominant location — used as the toggle's
+   *  hover title so it's clear *which* location gets hidden. `null`
+   *  hides the toggle entirely (configured location id doesn't
+   *  resolve, e.g. fresh DB). */
+  dominantLocationCode: string | null;
 }) {
   const t = useTranslations("ViewSortToolbar");
   const router = useRouter();
@@ -124,6 +138,29 @@ export function ViewSortToolbar({
         <Camera className="h-4 w-4" aria-hidden />
         <span>{t("hasPhotoToggle")}</span>
       </button>
+
+      {/* "Skrýt největší lokalitu" toggle — same visual contract as
+          the hasPhoto button so the toolbar stays consistent. Hidden
+          when the configured dominant location id doesn't resolve to
+          anything in the DB (fresh deploy, wrong constant). Title
+          attribute carries the actual location code so a hover
+          confirms which location gets dropped. */}
+      {dominantLocationCode && (
+        <button
+          type="button"
+          onClick={() => setParam("hideTop", hideDominant ? "" : "1", "")}
+          aria-pressed={hideDominant}
+          title={t("hideDominantTitle", { code: dominantLocationCode })}
+          className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition ${
+            hideDominant
+              ? "border-brand-600 bg-brand-600 text-white"
+              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+          }`}
+        >
+          <EyeOff className="h-4 w-4" aria-hidden />
+          <span>{t("hideDominantToggle")}</span>
+        </button>
+      )}
 
       {/* Date range pushed to the right edge of the row via ml-auto
           so the wide cluster doesn't fight the toggles for space —

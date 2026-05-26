@@ -181,6 +181,8 @@
     "viewGrid": "Dlaždice",
     "viewList": "Seznam",
     "hasPhotoToggle": "S fotkou daru",
+    "hideDominantToggle": "Skrýt největší lokalitu",
+    "hideDominantTitle": "Skrýt nálezy z {code} a jejích podlokací",
     "dateGroup": "Datum nálezu",
     "dateLabel": "Datum",
     "dateFrom": "Datum od",
