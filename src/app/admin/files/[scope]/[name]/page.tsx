@@ -32,6 +32,7 @@ import {
 import { parseFindFilename } from "@/lib/parseFilename";
 import { FindState } from "@prisma/client";
 import { DeleteCropButton } from "../../crops/delete-button";
+import { DonationPhotoAnonymizeToggleButton } from "../../donation-photos/anonymize-toggle-button";
 import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
 import { UnlockCodePanel } from "../../donation-photos/unlock-code-panel";
 import { DeleteFreePhotoButton } from "../../free-photos/delete-button";
@@ -274,6 +275,16 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
         })
       : null;
 
+  // Donation-photo anonymization is encoded in the filename's `_ANON`
+  // token — same convention as the public file reader uses to decide
+  // whether to block via Nginx. Cheap regex match here so the action
+  // row can render the right toggle (Anonymizovat vs. Zrušit
+  // anonymizaci) and the action server-side double-checks before any
+  // rename.
+  const donationPhotoIsAnonymized =
+    scope.slug === "donation-photos" &&
+    /_DAR_ANON\.[A-Za-z]+$/i.test(info.name);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -412,7 +423,13 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
                 </Link>
               )}
             {scope.slug === "donation-photos" && (
-              <DeleteDonationPhotoButton filename={info.name} />
+              <>
+                <DonationPhotoAnonymizeToggleButton
+                  filename={info.name}
+                  currentlyAnonymized={donationPhotoIsAnonymized}
+                />
+                <DeleteDonationPhotoButton filename={info.name} />
+              </>
             )}
             {scope.slug === "free-photos" && (
               <DeleteFreePhotoButton filename={info.name} />
