@@ -71,22 +71,6 @@ export function ViewSortToolbar({
     });
   };
 
-  /** Batched two-param update — for buttons that need to set `from`
-   *  and `to` at the same instant (e.g. "Dnes"). Calling `setParam`
-   *  twice in sequence would race two router.push calls and the
-   *  second push would clobber the first. */
-  const setDateRange = (from: string, to: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (from === "") params.delete("from");
-    else params.set("from", from);
-    if (to === "") params.delete("to");
-    else params.set("to", to);
-    params.delete("page");
-    startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`);
-    });
-  };
-
   /** Today's date in Europe/Prague as the `YYYY-MM-DD` string
    *  `<input type="date">` expects. `en-CA` is the canonical locale
    *  that emits ISO-style dates regardless of the user's browser
@@ -209,49 +193,75 @@ export function ViewSortToolbar({
         <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
           {t("dateLabel")}
         </span>
-        <input
-          type="date"
-          aria-label={t("dateFrom")}
-          value={dateFrom || minDate || ""}
-          min={minDate || undefined}
-          max={dateTo || maxDate || undefined}
-          onChange={(e) => setParam("from", e.currentTarget.value, "")}
-          className={DATE_INPUT_CLS}
-        />
+        <div className="inline-flex items-center gap-0.5">
+          <input
+            type="date"
+            aria-label={t("dateFrom")}
+            value={dateFrom || minDate || ""}
+            min={minDate || undefined}
+            max={dateTo || maxDate || undefined}
+            onChange={(e) => setParam("from", e.currentTarget.value, "")}
+            className={DATE_INPUT_CLS}
+          />
+          {/* Per-input "Dnes" shortcut. The native date picker
+              opens at the input's current value; with no `from`
+              set the field falls back to `minDate` (the very
+              first find from years ago) and reaching today by
+              hand means clicking through dozens of months.
+              One click here sets the value to today, so the next
+              picker click opens at today's month and tweaking
+              ±a few days back is one motion. */}
+          <DateTodayButton
+            label={t("dateToday")}
+            onClick={() => setParam("from", todayInPrague(), "")}
+          />
+        </div>
         <span aria-hidden className="text-gray-400">
           –
         </span>
-        <input
-          type="date"
-          aria-label={t("dateTo")}
-          value={dateTo || maxDate || ""}
-          min={dateFrom || minDate || undefined}
-          max={maxDate || undefined}
-          onChange={(e) => setParam("to", e.currentTarget.value, "")}
-          className={DATE_INPUT_CLS}
-        />
-        {/* "Dnes" shortcut — sets both `from` and `to` to today's
-            local CE date so the listing collapses to "what was
-            found today". Common after a sync run on the day of
-            collecting; manual two-input typing for the same query
-            is fiddly with the native date picker. Both params go
-            through `setDateRange` in one router.push to avoid the
-            second click clobbering the first. */}
-        <button
-          type="button"
-          onClick={() => {
-            const today = todayInPrague();
-            setDateRange(today, today);
-          }}
-          title={t("dateToday")}
-          aria-label={t("dateToday")}
-          className="inline-flex h-8 items-center gap-1 rounded-md border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
-        >
-          <CalendarCheck className="h-3.5 w-3.5" aria-hidden />
-          <span>{t("dateToday")}</span>
-        </button>
+        <div className="inline-flex items-center gap-0.5">
+          <input
+            type="date"
+            aria-label={t("dateTo")}
+            value={dateTo || maxDate || ""}
+            min={dateFrom || minDate || undefined}
+            max={maxDate || undefined}
+            onChange={(e) => setParam("to", e.currentTarget.value, "")}
+            className={DATE_INPUT_CLS}
+          />
+          <DateTodayButton
+            label={t("dateToday")}
+            onClick={() => setParam("to", todayInPrague(), "")}
+          />
+        </div>
       </div>
     </div>
+  );
+}
+
+/** Tight icon-only square button that sits flush against a date
+ *  input. Same `h-8` height as DATE_INPUT_CLS so the pair reads as
+ *  a single compound control rather than two stacked widgets.
+ *  Single click sets the input's URL param to today — the next
+ *  picker click then opens at today's month, which makes "back N
+ *  days from today" a fast follow-up motion. */
+function DateTodayButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-500 transition hover:border-gray-400 hover:bg-gray-50 hover:text-gray-700"
+    >
+      <CalendarCheck className="h-3.5 w-3.5" aria-hidden />
+    </button>
   );
 }
 
