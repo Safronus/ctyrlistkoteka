@@ -603,9 +603,16 @@ async function checkFilenameNotInJson(): Promise<FindCheckResult> {
     ]),
   );
   const anonSet = new Set(parseRanges(json.anonymizace.ANONYMIZOVANE));
+  // json.lokace is keyed by MAP NUMBER as a decimal string (not the
+  // human location code, not zero-padded). Example fragment:
+  //   "lokace": { "1": ["15-35"], "10": [...], "100": [...] }
+  // Filenames carry mapNumber as a 5-digit zero-padded segment
+  // (`00001` / `00010` / `00100`), so we have to convert to the
+  // decimal-string form before looking up. Confirmed against
+  // scripts/examples/LokaceStavyPoznamky.sample.json.
   const lokaceMembers: Map<string, Set<number>> = new Map();
-  for (const [code, ranges] of Object.entries(json.lokace)) {
-    lokaceMembers.set(code, new Set(parseRanges(ranges)));
+  for (const [mapKey, ranges] of Object.entries(json.lokace)) {
+    lokaceMembers.set(mapKey, new Set(parseRanges(ranges)));
   }
 
   const offenders: FindOffender[] = [];
@@ -639,16 +646,18 @@ async function checkFilenameNotInJson(): Promise<FindCheckResult> {
       }
     }
 
-    // LOCATION_CODE: filename's code must list this id in
-    // json.lokace[code]. If the code isn't in JSON at all → flag.
-    const locMembers = lokaceMembers.get(parsed.locationCode);
+    // MAP_NUMBER: filename's map number must list this id in
+    // json.lokace[<mapNumber>]. Compare decimal-string forms (JSON
+    // is unpadded). If the map number isn't a JSON key at all → flag.
+    const mapKey = String(parsed.mapNumber);
+    const locMembers = lokaceMembers.get(mapKey);
     if (!locMembers) {
       issues.push(
-        `název má lokaci ${parsed.locationCode}, JSON.lokace ten kód nezná`,
+        `název má mapu č. ${mapKey}, JSON.lokace ten klíč nezná`,
       );
     } else if (!locMembers.has(findId)) {
       issues.push(
-        `název má lokaci ${parsed.locationCode}, ale JSON.lokace[${parsed.locationCode}] tento nález neobsahuje`,
+        `název má mapu č. ${mapKey}, ale JSON.lokace[${mapKey}] tento nález neobsahuje`,
       );
     }
 
@@ -751,17 +760,24 @@ async function checkJsonNotInFilename(): Promise<FindCheckResult> {
     }
   }
 
-  for (const [code, ranges] of Object.entries(json.lokace)) {
+  for (const [mapKey, ranges] of Object.entries(json.lokace)) {
+    // JSON keys are unpadded decimal map numbers ("1", "10", "100").
+    // Filename mapNumber is the same number padded to 5 digits.
+    // Compare on the numeric value so padding can't trip us.
+    const expectedMapNumber = Number(mapKey);
     for (const id of parseRanges(ranges)) {
       const parsed = originals.get(id);
       if (!parsed) {
-        push(id, `JSON.lokace[${code}] obsahuje nález, na disku ale není žádný originál`);
-        continue;
-      }
-      if (parsed.locationCode !== code) {
         push(
           id,
-          `JSON.lokace[${code}] obsahuje nález, název souboru ale uvádí lokaci ${parsed.locationCode}`,
+          `JSON.lokace[${mapKey}] obsahuje nález, na disku ale není žádný originál`,
+        );
+        continue;
+      }
+      if (parsed.mapNumber !== expectedMapNumber) {
+        push(
+          id,
+          `JSON.lokace[${mapKey}] obsahuje nález, název souboru ale uvádí mapu č. ${parsed.mapNumber}`,
         );
       }
     }
@@ -782,12 +798,14 @@ async function checkJsonNotInFilename(): Promise<FindCheckResult> {
       .map((f) => f.locationId)
       .filter((x): x is number => x !== null),
   );
-  // Cheap reverse map id → location_code from JSON for finds that
-  // aren't in DB yet.
-  const idToCode = new Map<number, string>();
-  for (const [code, ranges] of Object.entries(json.lokace)) {
+  // Reverse map id → map number from JSON lokace. JSON keys are
+  // map numbers as decimal strings — so the fallback label is
+  // "mapa č. N" rather than a real location code, which we can't
+  // derive without a DB hit for orphan finds.
+  const idToMapKey = new Map<number, string>();
+  for (const [mapKey, ranges] of Object.entries(json.lokace)) {
     for (const id of parseRanges(ranges)) {
-      if (!idToCode.has(id)) idToCode.set(id, code);
+      if (!idToMapKey.has(id)) idToMapKey.set(id, mapKey);
     }
   }
   const finds = await prisma.find.findMany({
@@ -799,10 +817,11 @@ async function checkJsonNotInFilename(): Promise<FindCheckResult> {
   const offenders: FindOffender[] = findIds.map((id) => {
     const dbLocId = dbLocByFind.get(id) ?? null;
     const locFromDb = dbLocId !== null ? codes.get(dbLocId) ?? null : null;
-    const locFromJson = idToCode.get(id) ?? null;
+    const mapKey = idToMapKey.get(id) ?? null;
     return {
       findId: id,
-      locationCode: locFromDb ?? locFromJson ?? "—",
+      locationCode:
+        locFromDb ?? (mapKey !== null ? `mapa č. ${mapKey}` : "—"),
       detail: (issuesById.get(id) ?? []).join("; "),
     };
   });
