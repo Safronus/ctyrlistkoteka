@@ -195,31 +195,46 @@ function FindOffenderRow({ offender }: { offender: FindOffender }) {
           <div className="min-w-0 flex-1">
             <div>{offender.detail}</div>
             {offender.filename && (
+              <div
+                className="mt-1 break-all font-mono text-[11px] text-gray-500"
+                title={offender.filename}
+              >
+                {offender.filename}
+              </div>
+            )}
+          </div>
+          {/* Twin chips: filename-link to the admin file detail and
+              (when subCategory is set) the JSON editor pre-focused on
+              the matching section. Mirroring chip styling makes both
+              actions feel like equal-weight options — earlier the
+              filename was a thin gray underline that didn't read as
+              clickable. Originál chip appears whenever there's a
+              filename; JSON chip is gated on subCategory so legacy
+              checks stay tidy. */}
+          <div className="flex shrink-0 items-center gap-1">
+            {offender.filename && (
               <Link
                 href={`/admin/files/finds/${encodeURIComponent(offender.filename)}`}
                 title={`Otevřít originál v adminu: ${offender.filename}`}
-                className="mt-1 inline-block break-all font-mono text-[11px] text-gray-500 underline-offset-2 hover:text-brand-700 hover:underline"
+                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800"
               >
-                {offender.filename}
+                Originál →
+              </Link>
+            )}
+            {offender.subCategory && (
+              <Link
+                href={jsonHref}
+                title={
+                  jsonTab
+                    ? `Otevřít LokaceStavyPoznamky.json — sekce ${jsonTab}`
+                    : "Otevřít LokaceStavyPoznamky.json"
+                }
+                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800"
+              >
+                JSON →
               </Link>
             )}
           </div>
-          {/* JSON deep-link — only useful for the JSON-aware checks
-              (the ones that set subCategory). Skipping it for legacy
-              find-level checks keeps the table tidy. */}
-          {offender.subCategory && (
-            <Link
-              href={jsonHref}
-              title={
-                jsonTab
-                  ? `Otevřít LokaceStavyPoznamky.json — sekce ${jsonTab}`
-                  : "Otevřít LokaceStavyPoznamky.json"
-              }
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800"
-            >
-              JSON →
-            </Link>
-          )}
         </div>
       </td>
     </tr>

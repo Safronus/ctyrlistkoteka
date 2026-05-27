@@ -35,9 +35,25 @@ interface Props {
  *  differs (parseFindFilename for finds + crops with short-form
  *  fallback, parseMapFilename for maps), but the operator-facing
  *  interaction is identical. */
+/** Split a filename into (stem, extension-with-dot). The extension
+ *  is everything from the LAST dot onward — same convention every
+ *  filename parser in this project uses. Names without a dot get an
+ *  empty extension; both halves are returned so the caller can
+ *  reassemble the original name via `stem + ext`. */
+function splitExtension(name: string): { stem: string; ext: string } {
+  const dot = name.lastIndexOf(".");
+  if (dot === -1) return { stem: name, ext: "" };
+  return { stem: name.slice(0, dot), ext: name.slice(dot) };
+}
+
 export function RenameButton({ currentName, scopeSlug, action }: Props) {
+  const { stem: currentStem, ext: currentExt } = splitExtension(currentName);
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(currentName);
+  // Edit field holds the *stem only* — the extension is shown as a
+  // read-only suffix next to the input and re-appended on submit.
+  // Avoids accidental ".jpg" deletion, which would have been the
+  // single most common rename mistake.
+  const [value, setValue] = useState(currentStem);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -71,17 +87,26 @@ export function RenameButton({ currentName, scopeSlug, action }: Props) {
   const submit = () => {
     setError(null);
     setNotice(null);
-    if (value.trim().length === 0) {
+    const trimmedStem = value.trim();
+    if (trimmedStem.length === 0) {
       setError("Nový název nemůže být prázdný.");
       return;
     }
-    if (value === currentName) {
+    // Defence: if the user manually retyped the extension into the
+    // stem field (paste from somewhere), strip a trailing copy of
+    // the original extension before re-attaching. Avoids ending up
+    // with names like `foo.jpg.jpg`.
+    const newStem = trimmedStem.endsWith(currentExt)
+      ? trimmedStem.slice(0, -currentExt.length)
+      : trimmedStem;
+    const newName = newStem + currentExt;
+    if (newName === currentName) {
       setEditing(false);
       return;
     }
     const fd = new FormData();
     fd.append("oldName", currentName);
-    fd.append("newName", value);
+    fd.append("newName", newName);
     startTransition(async () => {
       const r = await action(fd);
       if (!r.ok) {
@@ -113,7 +138,7 @@ export function RenameButton({ currentName, scopeSlug, action }: Props) {
             setEditing(false);
             return;
           }
-          setValue(currentName);
+          setValue(currentStem);
           setError(null);
           setNotice(null);
           setEditing(true);
@@ -143,21 +168,37 @@ export function RenameButton({ currentName, scopeSlug, action }: Props) {
           className="absolute right-0 top-full z-20 mt-1 w-[32rem] max-w-[90vw] rounded-lg border border-gray-300 bg-white p-3 shadow-lg"
         >
           <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500">
-            Nový název
+            Nový název (bez přípony{currentExt && `, ta zůstane "${currentExt}"`})
           </label>
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            disabled={isPending}
-            spellCheck={false}
-            autoFocus
-            className="block w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 font-mono text-xs text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submit();
-              if (e.key === "Escape" && !isPending) setEditing(false);
-            }}
-          />
+          {/* Input holds the stem only; the (read-only) extension
+              sits flush against the right edge as a visual cue
+              that ".jpg" / ".heic" stays put. Same border styles
+              as the standalone input so the compound looks like
+              one control. */}
+          <div className="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/30">
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              disabled={isPending}
+              spellCheck={false}
+              autoFocus
+              className="block w-full border-0 bg-transparent px-2.5 py-1.5 font-mono text-xs text-gray-900 focus:outline-none focus:ring-0"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submit();
+                if (e.key === "Escape" && !isPending) setEditing(false);
+              }}
+            />
+            {currentExt && (
+              <span
+                aria-hidden
+                title="Přípona se nemění"
+                className="select-none border-l border-gray-200 bg-gray-50 px-2 py-1.5 font-mono text-xs text-gray-500"
+              >
+                {currentExt}
+              </span>
+            )}
+          </div>
           <div className="mt-2 flex items-center justify-end gap-1.5">
             <button
               type="button"
