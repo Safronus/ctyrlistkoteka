@@ -1,5 +1,19 @@
+import path from "node:path";
+import { promises as fs } from "node:fs";
+import { FindState } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { readCheckAckSet } from "./checkAcks";
+import { parseRanges } from "@/lib/parseRanges";
+import {
+  parseFindFilename,
+  type ParsedFindFilename,
+} from "@/lib/parseFilename";
+import {
+  LOKACE_STAVY_POZNAMKY_FILENAME,
+  lokaceStavyPoznamkySchema,
+  type LokaceStavyPoznamky,
+} from "./jsonSchema";
+import { ADMIN_ROOTS } from "./paths";
 
 /** Result of a single consistency check. The page renders one card
  *  per result; an empty `offenders` array is the green-check case.
@@ -20,7 +34,38 @@ interface BaseCheckResult {
   title: string;
   /** One-sentence description of what the invariant says. */
   description: string;
+  /** Section label rendered as a heading on /admin/checks. Checks
+   *  sharing a group render under the same heading, in the order
+   *  they appear in runAllChecks(). Keep groups few and recognisable
+   *  — three is the current sweet spot. */
+  group: CheckGroup;
 }
+
+/** Top-level grouping. `data-integrity` covers invariants that live
+ *  purely in the DB; `filesystem-vs-json` is for inconsistencies
+ *  between on-disk filenames and the LokaceStavyPoznamky.json source
+ *  of truth; `filename-cross-ref` is for cross-file consistency
+ *  (original ↔ crop). The string values are stable so future tags /
+ *  filtering won't shift. */
+export type CheckGroup =
+  | "data-integrity"
+  | "filesystem-vs-json"
+  | "filename-cross-ref";
+
+export const CHECK_GROUP_LABELS: Record<CheckGroup, string> = {
+  "data-integrity": "Konzistence dat v DB",
+  "filesystem-vs-json": "Konzistence názvů souborů a JSON",
+  "filename-cross-ref": "Originály ↔ ořezy",
+};
+
+/** Render order for the page — fixed so groups appear top-down in a
+ *  meaningful sequence (DB facts first, then file-system, then
+ *  cross-file). */
+export const CHECK_GROUP_ORDER: readonly CheckGroup[] = [
+  "data-integrity",
+  "filesystem-vs-json",
+  "filename-cross-ref",
+];
 
 export interface FindCheckResult extends BaseCheckResult {
   kind: "find";
@@ -86,6 +131,7 @@ async function checkFindsInAnonLocsNotAnon(): Promise<CheckResult> {
   if (anonLocIds.size === 0) {
     return {
       kind: "find",
+      group: "data-integrity",
       id: "finds-in-anon-loc-not-anon",
       title: "Nálezy v anonymizované lokalitě bez anonymizace",
       description:
@@ -106,6 +152,7 @@ async function checkFindsInAnonLocsNotAnon(): Promise<CheckResult> {
   );
   return {
     kind: "find",
+    group: "data-integrity",
     id: "finds-in-anon-loc-not-anon",
     title: "Nálezy v anonymizované lokalitě bez anonymizace",
     description:
@@ -165,6 +212,7 @@ async function checkAnonFindsInPublicLoc(): Promise<CheckResult> {
   }
   return {
     kind: "find",
+    group: "data-integrity",
     id: "anon-finds-in-public-loc",
     title: "Anonymizované nálezy mimo anonymizovanou lokalitu",
     description:
@@ -203,6 +251,7 @@ async function checkOriginalsWithoutCrop(): Promise<CheckResult> {
   if (missing.length === 0) {
     return {
       kind: "find",
+      group: "data-integrity",
       id: "originals-without-crop",
       title: "Originály bez výřezu",
       description:
@@ -221,6 +270,7 @@ async function checkOriginalsWithoutCrop(): Promise<CheckResult> {
   const findById = new Map(finds.map((f) => [f.id, f]));
   return {
     kind: "find",
+    group: "data-integrity",
     id: "originals-without-crop",
     title: "Originály bez výřezu",
     description:
@@ -255,6 +305,7 @@ async function checkFindsWithoutDate(): Promise<CheckResult> {
   );
   return {
     kind: "find",
+    group: "data-integrity",
     id: "finds-without-date",
     title: "Nálezy bez EXIF data",
     description:
@@ -301,6 +352,7 @@ async function checkFindsWithoutGps(): Promise<CheckResult> {
   );
   return {
     kind: "find",
+    group: "data-integrity",
     id: "finds-without-gps",
     title: "Nálezy bez EXIF GPS",
     description:
@@ -353,6 +405,7 @@ async function checkMapCenterOutsidePolygon(): Promise<MapCheckResult> {
   ]);
   return {
     kind: "map",
+    group: "data-integrity",
     id: MAP_CENTER_POLYGON_CHECK_ID,
     title: "Lokační mapa: střed mimo polygon",
     description:
@@ -414,6 +467,7 @@ async function checkMultiplePrimaryImages(): Promise<FindCheckResult> {
   const locById = new Map(finds.map((f) => [f.id, f.locationId]));
   return {
     kind: "find",
+    group: "data-integrity",
     id: "multi-primary-find-images",
     title: "Nálezy s více než jedním primárním obrázkem",
     description:
@@ -430,6 +484,464 @@ async function checkMultiplePrimaryImages(): Promise<FindCheckResult> {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  Filesystem ↔ JSON consistency checks (group: filesystem-vs-json)
+// ─────────────────────────────────────────────────────────────────
+
+/** Read + parse data/meta/LokaceStavyPoznamky.json. Returns null on
+ *  any read/parse/validation failure — the check itself will surface
+ *  a single "JSON missing" offender row rather than crash the page. */
+async function loadLokaceStavyPoznamky(): Promise<LokaceStavyPoznamky | null> {
+  try {
+    const raw = await fs.readFile(
+      path.join(ADMIN_ROOTS.meta, LOKACE_STAVY_POZNAMKY_FILENAME),
+      "utf8",
+    );
+    const parsed = lokaceStavyPoznamkySchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Parsed find filename + the raw on-disk name. The pair lets the
+ *  consistency checks both compare segments (state, anon, lokace)
+ *  and report the offending filename verbatim in the offender
+ *  detail string. */
+type ParsedFindOnDisk = ParsedFindFilename & { filename: string };
+
+/** Read every original from `data/finds/`, parse each filename, and
+ *  return a `findId → parsed metadata` map. Names that fail the
+ *  parser are skipped (a separate "Originály bez crops" / EXIF
+ *  pipeline would already surface a parse-broken original). One
+ *  readdir per call; fine for the ~17 k file directory we work with. */
+async function loadOriginalParsedByFindId(): Promise<
+  Map<number, ParsedFindOnDisk>
+> {
+  const dir = ADMIN_ROOTS.findOriginals;
+  let names: string[];
+  try {
+    names = await fs.readdir(dir);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return new Map();
+    throw err;
+  }
+  const out = new Map<number, ParsedFindOnDisk>();
+  for (const name of names) {
+    if (name.startsWith(".")) continue;
+    const parsed = parseFindFilename(name);
+    if (!parsed.ok) continue;
+    out.set(parsed.value.findId, { ...parsed.value, filename: name });
+  }
+  return out;
+}
+
+/** Map from JSON stavy keys → the FindState enum the filename's
+ *  STATE segment must resolve to so the two are consistent. Only
+ *  the states encodable in a filename appear here; JSON-only states
+ *  (LOST, GIGANT, LOCATION_*…) live entirely in JSON and don't
+ *  flag the filename either way. */
+const FILENAME_ENCODED_STATE_KEYS: ReadonlyArray<{
+  jsonKey: string;
+  state: FindState;
+  jsonLabel: string;
+  filenameLabel: string;
+}> = [
+  { jsonKey: "DAROVANY", state: FindState.DONATED, jsonLabel: "DAROVANY", filenameLabel: "DAROVANÝ" },
+  { jsonKey: "BEZGPS", state: FindState.NO_GPS, jsonLabel: "BEZGPS", filenameLabel: "BEZGPS" },
+  { jsonKey: "BEZFOTKY", state: FindState.NO_PHOTO, jsonLabel: "BEZFOTKY", filenameLabel: "BEZFOTKY" },
+];
+
+/** Check — every original on disk must have its segments backed by
+ *  the JSON source of truth. Surfaces:
+ *
+ *   - STATE token in filename (DAROVANÝ / BEZGPS / BEZFOTKY) but
+ *     the find id is NOT in the matching JSON `stavy` range.
+ *   - ANON_FLAG = ANO but id not in `anonymizace.ANONYMIZOVANE`.
+ *   - NOTE_OR_FLAG carries a real note but `poznamky[id]` empty/missing.
+ *   - LOCATION_CODE used but id not in `lokace[<code>]` range.
+ *
+ *  One offender row per find, with `detail` listing every mismatch
+ *  comma-separated so a single visual scan covers the find's full
+ *  diff against JSON.
+ *
+ *  This is the "did I forget to update JSON after a rename?" half
+ *  of the pair — its counterpart `checkJsonNotInFilename` walks
+ *  the inverse direction. */
+async function checkFilenameNotInJson(): Promise<FindCheckResult> {
+  const [originals, json] = await Promise.all([
+    loadOriginalParsedByFindId(),
+    loadLokaceStavyPoznamky(),
+  ]);
+  const baseResult = {
+    kind: "find" as const,
+    group: "filesystem-vs-json" as const,
+    id: "filename-not-in-json",
+    title: "Originály bez opory v JSON",
+    description:
+      "Originál na disku nese hodnotu (stav / ANO / poznámka / kód lokace), kterou LokaceStavyPoznamky.json nepotvrzuje — pravděpodobně chybí update JSONu po přejmenování souboru.",
+  };
+  if (!json) {
+    return {
+      ...baseResult,
+      offenders: [
+        {
+          findId: 0,
+          locationCode: "—",
+          detail:
+            "LokaceStavyPoznamky.json se nepodařilo načíst nebo neprošel validací — kontrolu nelze spustit.",
+        },
+      ],
+    };
+  }
+  // Pre-build O(1) lookups from the JSON ranges so the inner loop
+  // doesn't re-parse the same range string thousands of times.
+  const stavyMembers: ReadonlyMap<string, Set<number>> = new Map(
+    FILENAME_ENCODED_STATE_KEYS.map(({ jsonKey }) => [
+      jsonKey,
+      new Set(parseRanges(json.stavy[jsonKey as keyof typeof json.stavy] ?? [])),
+    ]),
+  );
+  const anonSet = new Set(parseRanges(json.anonymizace.ANONYMIZOVANE));
+  const lokaceMembers: Map<string, Set<number>> = new Map();
+  for (const [code, ranges] of Object.entries(json.lokace)) {
+    lokaceMembers.set(code, new Set(parseRanges(ranges)));
+  }
+
+  const offenders: FindOffender[] = [];
+  for (const [findId, parsed] of originals) {
+    const issues: string[] = [];
+
+    // STATE: only the three states a filename can encode are
+    // checked. NORMAL filenames need nothing; JSON-only states
+    // (LOST, GIGANT, …) can sit on a NORMÁLNÍ filename.
+    for (const spec of FILENAME_ENCODED_STATE_KEYS) {
+      if (parsed.state === spec.state) {
+        const members = stavyMembers.get(spec.jsonKey);
+        if (!members || !members.has(findId)) {
+          issues.push(
+            `název má stav ${spec.filenameLabel}, JSON.stavy.${spec.jsonLabel} ho ale neobsahuje`,
+          );
+        }
+      }
+    }
+
+    // ANON: ANO ⇒ JSON.anonymizace.ANONYMIZOVANE
+    if (parsed.isAnonymized && !anonSet.has(findId)) {
+      issues.push("název má ANO, JSON.anonymizace.ANONYMIZOVANE ho ale neobsahuje");
+    }
+
+    // Note presence: filename carries free-form note ⇒ JSON.poznamky entry
+    if (parsed.hasNote) {
+      const jsonNote = json.poznamky[String(findId)];
+      if (!jsonNote || jsonNote.trim().length === 0) {
+        issues.push("název má poznámku, JSON.poznamky pro tento nález nic nemá");
+      }
+    }
+
+    // LOCATION_CODE: filename's code must list this id in
+    // json.lokace[code]. If the code isn't in JSON at all → flag.
+    const locMembers = lokaceMembers.get(parsed.locationCode);
+    if (!locMembers) {
+      issues.push(
+        `název má lokaci ${parsed.locationCode}, JSON.lokace ten kód nezná`,
+      );
+    } else if (!locMembers.has(findId)) {
+      issues.push(
+        `název má lokaci ${parsed.locationCode}, ale JSON.lokace[${parsed.locationCode}] tento nález neobsahuje`,
+      );
+    }
+
+    if (issues.length > 0) {
+      offenders.push({
+        findId,
+        locationCode: parsed.locationCode,
+        detail: issues.join("; "),
+      });
+    }
+  }
+
+  return { ...baseResult, offenders };
+}
+
+/** Inverse check — JSON claims something about a find, but the
+ *  filename on disk doesn't carry the matching token. Surfaces the
+ *  "I updated JSON but forgot to rename the file" case. */
+async function checkJsonNotInFilename(): Promise<FindCheckResult> {
+  const [originals, json] = await Promise.all([
+    loadOriginalParsedByFindId(),
+    loadLokaceStavyPoznamky(),
+  ]);
+  const baseResult = {
+    kind: "find" as const,
+    group: "filesystem-vs-json" as const,
+    id: "json-not-in-filename",
+    title: "JSON položky bez odpovídajícího názvu souboru",
+    description:
+      "JSON.LokaceStavyPoznamky pro nález uvádí stav / anonymizaci / poznámku / lokaci, kterou ale název souboru originálu neodráží — pravděpodobně chybí přejmenování souboru po updatu JSONu.",
+  };
+  if (!json) {
+    return {
+      ...baseResult,
+      offenders: [
+        {
+          findId: 0,
+          locationCode: "—",
+          detail:
+            "LokaceStavyPoznamky.json se nepodařilo načíst nebo neprošel validací — kontrolu nelze spustit.",
+        },
+      ],
+    };
+  }
+
+  // Collect all ids the JSON has something to say about. Map id →
+  // issues[] so multiple discrepancies for the same find collapse
+  // into a single offender row.
+  const issuesById = new Map<number, string[]>();
+  const push = (id: number, msg: string) => {
+    const arr = issuesById.get(id) ?? [];
+    arr.push(msg);
+    issuesById.set(id, arr);
+  };
+
+  for (const spec of FILENAME_ENCODED_STATE_KEYS) {
+    const ids = parseRanges(
+      json.stavy[spec.jsonKey as keyof typeof json.stavy] ?? [],
+    );
+    for (const id of ids) {
+      const parsed = originals.get(id);
+      if (!parsed) {
+        // No original on disk at all. Could be deliberate (the find
+        // exists only in JSON for some reason) but it's still
+        // surface-worthy — flag once.
+        push(id, `JSON.stavy.${spec.jsonLabel} obsahuje nález, na disku ale není žádný originál`);
+        continue;
+      }
+      if (parsed.state !== spec.state) {
+        push(
+          id,
+          `JSON.stavy.${spec.jsonLabel} obsahuje nález, název souboru má stav ${stateToFilenameLabel(parsed.state)}`,
+        );
+      }
+    }
+  }
+
+  for (const id of parseRanges(json.anonymizace.ANONYMIZOVANE)) {
+    const parsed = originals.get(id);
+    if (!parsed) {
+      push(id, "JSON.anonymizace.ANONYMIZOVANE obsahuje nález, na disku ale není žádný originál");
+      continue;
+    }
+    if (!parsed.isAnonymized) {
+      push(id, "JSON.anonymizace.ANONYMIZOVANE obsahuje nález, název souboru má NE");
+    }
+  }
+
+  for (const [idStr, note] of Object.entries(json.poznamky)) {
+    if (!note || note.trim().length === 0) continue;
+    const id = Number(idStr);
+    if (!Number.isInteger(id)) continue;
+    const parsed = originals.get(id);
+    if (!parsed) {
+      push(id, "JSON.poznamky má text pro nález, na disku ale není žádný originál");
+      continue;
+    }
+    if (!parsed.hasNote) {
+      push(id, "JSON.poznamky má text pro nález, název souboru má BezPoznámky");
+    }
+  }
+
+  for (const [code, ranges] of Object.entries(json.lokace)) {
+    for (const id of parseRanges(ranges)) {
+      const parsed = originals.get(id);
+      if (!parsed) {
+        push(id, `JSON.lokace[${code}] obsahuje nález, na disku ale není žádný originál`);
+        continue;
+      }
+      if (parsed.locationCode !== code) {
+        push(
+          id,
+          `JSON.lokace[${code}] obsahuje nález, název souboru ale uvádí lokaci ${parsed.locationCode}`,
+        );
+      }
+    }
+  }
+
+  const findIds = Array.from(issuesById.keys()).sort((a, b) => a - b);
+  // Resolve location codes for the offender's locationCode column.
+  // Use DB lookup so finds completely missing from disk also get
+  // a stable column label (their JSON.lokace membership maps to a
+  // code, but a per-id reverse-lookup needs a tiny pass).
+  const codes = await loadLocationCodes(
+    (
+      await prisma.find.findMany({
+        where: { id: { in: findIds } },
+        select: { locationId: true },
+      })
+    )
+      .map((f) => f.locationId)
+      .filter((x): x is number => x !== null),
+  );
+  // Cheap reverse map id → location_code from JSON for finds that
+  // aren't in DB yet.
+  const idToCode = new Map<number, string>();
+  for (const [code, ranges] of Object.entries(json.lokace)) {
+    for (const id of parseRanges(ranges)) {
+      if (!idToCode.has(id)) idToCode.set(id, code);
+    }
+  }
+  const finds = await prisma.find.findMany({
+    where: { id: { in: findIds } },
+    select: { id: true, locationId: true },
+  });
+  const dbLocByFind = new Map(finds.map((f) => [f.id, f.locationId]));
+
+  const offenders: FindOffender[] = findIds.map((id) => {
+    const dbLocId = dbLocByFind.get(id) ?? null;
+    const locFromDb = dbLocId !== null ? codes.get(dbLocId) ?? null : null;
+    const locFromJson = idToCode.get(id) ?? null;
+    return {
+      findId: id,
+      locationCode: locFromDb ?? locFromJson ?? "—",
+      detail: (issuesById.get(id) ?? []).join("; "),
+    };
+  });
+
+  return { ...baseResult, offenders };
+}
+
+/** Converts a FindState to the Czech label a filename would carry.
+ *  Inverse of FILENAME_STATE_MAP from stateMapping.ts, restricted
+ *  to the states a filename can carry. Unknown states (anything
+ *  beyond the four encodable ones) get the literal enum value as a
+ *  fallback — better than a confusing empty string. */
+function stateToFilenameLabel(state: FindState): string {
+  switch (state) {
+    case FindState.NORMAL:
+      return "NORMÁLNÍ";
+    case FindState.DONATED:
+      return "DAROVANÝ";
+    case FindState.NO_GPS:
+      return "BEZGPS";
+    case FindState.NO_PHOTO:
+      return "BEZFOTKY";
+    default:
+      return state;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Filename cross-ref checks (group: filename-cross-ref)
+// ─────────────────────────────────────────────────────────────────
+
+/** Check — original ↔ crop filename divergence. For each find with
+ *  BOTH an original and a long-form crop on disk, the basename
+ *  (everything before the final dot) must match exactly. Short-form
+ *  crops (`<id>.jpg`) are *intentional shorthand* (see
+ *  scripts/sync.ts → scanFindDir) and skipped from this check.
+ *
+ *  This surfaces cases where the user renamed one but not the other
+ *  — e.g. changed STATE to DAROVANÝ on the original via the admin
+ *  toggle but the crop file kept the old name. Sync paths typically
+ *  rename both, but ad-hoc rsync-after-Mac-rename can split them. */
+async function checkOriginalCropFilenameMismatch(): Promise<FindCheckResult> {
+  const [originalNames, cropNames] = await Promise.all([
+    readScopeFilenames(ADMIN_ROOTS.findOriginals),
+    readScopeFilenames(ADMIN_ROOTS.findCrops),
+  ]);
+  // Build id → {original, crop} pair for finds that have both. Use
+  // parseFindFilename's findId — handles long-form on both sides.
+  // Crop short-form (`<id>.jpg`) is matched by a dedicated regex so
+  // we can skip it explicitly (intentional shorthand, no rename
+  // expected).
+  const SHORT_CROP_RE = /^(\d+)\.(jpe?g|png|webp)$/i;
+  const originalsByFindId = new Map<number, string>();
+  for (const name of originalNames) {
+    const parsed = parseFindFilename(name);
+    if (parsed.ok) originalsByFindId.set(parsed.value.findId, name);
+  }
+  const cropsByFindId = new Map<number, { name: string; shortForm: boolean }>();
+  for (const name of cropNames) {
+    const short = SHORT_CROP_RE.exec(name);
+    if (short) {
+      const id = Number(short[1]);
+      if (Number.isInteger(id)) {
+        cropsByFindId.set(id, { name, shortForm: true });
+      }
+      continue;
+    }
+    const parsed = parseFindFilename(name);
+    if (parsed.ok) {
+      cropsByFindId.set(parsed.value.findId, { name, shortForm: false });
+    }
+  }
+
+  // Stem = filename without the trailing `.<ext>`. Diacritics + `+`
+  // separators on both sides come from the same authoring pipeline,
+  // so a byte-level compare on the NFC-normalised stem is correct.
+  const stem = (name: string): string => {
+    const dot = name.lastIndexOf(".");
+    return (dot === -1 ? name : name.slice(0, dot)).normalize("NFC");
+  };
+
+  const offenders: FindOffender[] = [];
+  for (const [findId, originalName] of originalsByFindId) {
+    const crop = cropsByFindId.get(findId);
+    if (!crop) continue; // no crop = a separate check's concern
+    if (crop.shortForm) continue; // intentional shorthand
+    if (stem(originalName) === stem(crop.name)) continue;
+    offenders.push({
+      findId,
+      locationCode: "—",
+      detail: `originál: "${originalName}" · ořez: "${crop.name}"`,
+    });
+  }
+  offenders.sort((a, b) => a.findId - b.findId);
+
+  // Resolve location codes for the offender column. Single trip,
+  // matches the pattern other checks use.
+  const finds =
+    offenders.length > 0
+      ? await prisma.find.findMany({
+          where: { id: { in: offenders.map((o) => o.findId) } },
+          select: { id: true, locationId: true },
+        })
+      : [];
+  const codes = await loadLocationCodes(
+    finds.map((f) => f.locationId).filter((x): x is number => x !== null),
+  );
+  const locByFind = new Map(finds.map((f) => [f.id, f.locationId]));
+  for (const o of offenders) {
+    const locId = locByFind.get(o.findId) ?? null;
+    o.locationCode = locId !== null ? codes.get(locId) ?? `#${locId}` : "—";
+  }
+
+  return {
+    kind: "find",
+    group: "filename-cross-ref",
+    id: "original-crop-filename-mismatch",
+    title: "Originál a ořez se v názvu liší",
+    description:
+      "Pro nálezy s originálem i ořezem na disku má být název souborů (bez přípony) shodný. Krátká forma ořezu `<id>.jpg` se vynechává — je to záměrná zkratka.",
+    offenders,
+  };
+}
+
+/** readdir helper used by the cross-ref checks. Returns NFC-normalised
+ *  names (filenames coming from rsync-from-macOS arrive in NFD on
+ *  some paths; parseFindFilename normalises again internally, so the
+ *  caller's compares stay consistent either way). Returns [] when
+ *  the directory doesn't exist yet (ENOENT). */
+async function readScopeFilenames(dir: string): Promise<string[]> {
+  try {
+    const names = await fs.readdir(dir);
+    return names.filter((n) => !n.startsWith("."));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw err;
+  }
+}
+
 export async function runAllChecks(): Promise<CheckResult[]> {
   return Promise.all([
     checkFindsInAnonLocsNotAnon(),
@@ -439,6 +951,9 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     checkOriginalsWithoutCrop(),
     checkMapCenterOutsidePolygon(),
     checkMultiplePrimaryImages(),
+    checkFilenameNotInJson(),
+    checkJsonNotInFilename(),
+    checkOriginalCropFilenameMismatch(),
   ]);
 }
 

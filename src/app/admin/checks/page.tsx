@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import {
+  CHECK_GROUP_LABELS,
+  CHECK_GROUP_ORDER,
   EXIF_CHECK_ID,
   GPS_CHECK_ID,
   runAllChecks,
@@ -48,12 +50,68 @@ export default async function AdminChecksPage() {
         </p>
       </header>
 
-      <section className="space-y-4">
-        {results.map((r) => (
-          <CheckCard key={r.id} result={r} />
-        ))}
-      </section>
+      {/* Group results by their `group` tag and render one section
+          per group in CHECK_GROUP_ORDER. Within a section the
+          original runAllChecks order is preserved — that's the
+          author's choice, more meaningful than re-sorting by id or
+          offender count. Empty groups are skipped so the page
+          doesn't accidentally grow stub headings. */}
+      {CHECK_GROUP_ORDER.map((group) => {
+        const inGroup = results.filter((r) => r.group === group);
+        if (inGroup.length === 0) return null;
+        const groupFailures = inGroup.reduce(
+          (n, r) => n + (r.offenders.length > 0 ? 1 : 0),
+          0,
+        );
+        return (
+          <CheckGroupSection
+            key={group}
+            label={CHECK_GROUP_LABELS[group]}
+            failureCount={groupFailures}
+            totalChecks={inGroup.length}
+          >
+            {inGroup.map((r) => (
+              <CheckCard key={r.id} result={r} />
+            ))}
+          </CheckGroupSection>
+        );
+      })}
     </div>
+  );
+}
+
+function CheckGroupSection({
+  label,
+  failureCount,
+  totalChecks,
+  children,
+}: {
+  label: string;
+  failureCount: number;
+  totalChecks: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      aria-label={label}
+      className="space-y-3 rounded-2xl border border-gray-200 bg-white/40 p-4"
+    >
+      <header className="flex items-baseline justify-between gap-3 border-b border-gray-200 pb-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+          {label}
+        </h2>
+        <span
+          className={`text-xs font-medium ${
+            failureCount === 0 ? "text-emerald-700" : "text-amber-700"
+          }`}
+        >
+          {failureCount === 0
+            ? `OK · ${totalChecks}`
+            : `${failureCount} / ${totalChecks} s problémy`}
+        </span>
+      </header>
+      <div className="space-y-4">{children}</div>
+    </section>
   );
 }
 
