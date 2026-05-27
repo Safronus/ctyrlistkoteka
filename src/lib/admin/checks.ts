@@ -83,7 +83,34 @@ export interface FindOffender {
   locationCode: string;
   /** Human-readable label / explanation of the violation. */
   detail: string;
+  /** Original filename on disk — set by checks that touch the file
+   *  level (filename↔JSON) so the offender row can show the full
+   *  name verbatim under the detail. Optional so DB-only checks
+   *  don't have to pretend they care about a filename they never
+   *  loaded. */
+  filename?: string;
+  /** Sub-category within the check — e.g. "Lokace" / "Stav" /
+   *  "Poznámka". When set on at least one offender, the page
+   *  renders the check's table grouped by category, with a small
+   *  heading per group. Category labels are free-form strings;
+   *  CHECK_SUBCATEGORY_ORDER below pins the display order so the
+   *  same labels always appear in the same sequence. */
+  subCategory?: CheckSubCategory;
 }
+
+/** Pre-defined sub-category labels used by the filename↔JSON checks.
+ *  Keeping them in an enum-shaped union (not free-form strings) lets
+ *  the render order be defined exactly once + the typechecker catches
+ *  typos at the call site. The display order on /admin/checks
+ *  follows the array order below. */
+export const CHECK_SUBCATEGORIES = [
+  "Lokace",
+  "Stav",
+  "Poznámka",
+  "Anonymizace",
+  "Chybějící originál",
+] as const;
+export type CheckSubCategory = (typeof CHECK_SUBCATEGORIES)[number];
 
 export interface MapOffender {
   mapId: number;
@@ -615,10 +642,13 @@ async function checkFilenameNotInJson(): Promise<FindCheckResult> {
     lokaceMembers.set(mapKey, new Set(parseRanges(ranges)));
   }
 
+  // One row per (findId, subCategory) so a find with multiple
+  // inconsistencies (e.g. wrong state AND wrong anon flag) appears
+  // in every relevant sub-group on the page. Earlier the row would
+  // collapse all issues into a single semicolon-separated detail —
+  // worked but made cross-category browsing hard.
   const offenders: FindOffender[] = [];
   for (const [findId, parsed] of originals) {
-    const issues: string[] = [];
-
     // STATE: only the three states a filename can encode are
     // checked. NORMAL filenames need nothing; JSON-only states
     // (LOST, GIGANT, …) can sit on a NORMÁLNÍ filename.
@@ -626,23 +656,41 @@ async function checkFilenameNotInJson(): Promise<FindCheckResult> {
       if (parsed.state === spec.state) {
         const members = stavyMembers.get(spec.jsonKey);
         if (!members || !members.has(findId)) {
-          issues.push(
-            `název má stav ${spec.filenameLabel}, JSON.stavy.${spec.jsonLabel} ho ale neobsahuje`,
-          );
+          offenders.push({
+            findId,
+            locationCode: parsed.locationCode,
+            filename: parsed.filename,
+            subCategory: "Stav",
+            detail: `Název má stav ${spec.filenameLabel}, JSON.stavy.${spec.jsonLabel} ho ale neobsahuje.`,
+          });
         }
       }
     }
 
     // ANON: ANO ⇒ JSON.anonymizace.ANONYMIZOVANE
     if (parsed.isAnonymized && !anonSet.has(findId)) {
-      issues.push("název má ANO, JSON.anonymizace.ANONYMIZOVANE ho ale neobsahuje");
+      offenders.push({
+        findId,
+        locationCode: parsed.locationCode,
+        filename: parsed.filename,
+        subCategory: "Anonymizace",
+        detail:
+          "Název má ANO, JSON.anonymizace.ANONYMIZOVANE ho ale neobsahuje.",
+      });
     }
 
     // Note presence: filename carries free-form note ⇒ JSON.poznamky entry
     if (parsed.hasNote) {
       const jsonNote = json.poznamky[String(findId)];
       if (!jsonNote || jsonNote.trim().length === 0) {
-        issues.push("název má poznámku, JSON.poznamky pro tento nález nic nemá");
+        offenders.push({
+          findId,
+          locationCode: parsed.locationCode,
+          filename: parsed.filename,
+          subCategory: "Poznámka",
+          detail:
+            "Název má poznámku, JSON.poznamky pro tento nález nic nemá.",
+        });
       }
     }
 
@@ -652,24 +700,29 @@ async function checkFilenameNotInJson(): Promise<FindCheckResult> {
     const mapKey = String(parsed.mapNumber);
     const locMembers = lokaceMembers.get(mapKey);
     if (!locMembers) {
-      issues.push(
-        `název má mapu č. ${mapKey}, JSON.lokace ten klíč nezná`,
-      );
-    } else if (!locMembers.has(findId)) {
-      issues.push(
-        `název má mapu č. ${mapKey}, ale JSON.lokace[${mapKey}] tento nález neobsahuje`,
-      );
-    }
-
-    if (issues.length > 0) {
       offenders.push({
         findId,
         locationCode: parsed.locationCode,
-        detail: issues.join("; "),
+        filename: parsed.filename,
+        subCategory: "Lokace",
+        detail: `Název má mapu č. ${mapKey}, JSON.lokace ten klíč nezná.`,
+      });
+    } else if (!locMembers.has(findId)) {
+      offenders.push({
+        findId,
+        locationCode: parsed.locationCode,
+        filename: parsed.filename,
+        subCategory: "Lokace",
+        detail: `Název má mapu č. ${mapKey}, ale JSON.lokace[${mapKey}] tento nález neobsahuje.`,
       });
     }
   }
 
+  // Within a sub-category rows stay sorted by find id ascending
+  // (existing convention). The page renderer groups by subCategory
+  // in CHECK_SUBCATEGORIES order; offender order inside a group
+  // is whatever this array provides, hence the explicit sort.
+  offenders.sort((a, b) => a.findId - b.findId);
   return { ...baseResult, offenders };
 }
 
@@ -703,14 +756,28 @@ async function checkJsonNotInFilename(): Promise<FindCheckResult> {
     };
   }
 
-  // Collect all ids the JSON has something to say about. Map id →
-  // issues[] so multiple discrepancies for the same find collapse
-  // into a single offender row.
-  const issuesById = new Map<number, string[]>();
-  const push = (id: number, msg: string) => {
-    const arr = issuesById.get(id) ?? [];
-    arr.push(msg);
-    issuesById.set(id, arr);
+  // One row per (findId, subCategory) so a find with multiple JSON
+  // claims that don't match the filename appears once per category
+  // — easier to scan than a semicolon-glued mega-detail. Missing
+  // originals collapse into a single "Chybějící originál" row
+  // regardless of which JSON section first referenced the find, so
+  // a find appearing in stavy+anonymizace+poznamky doesn't get
+  // three duplicate "no file" rows.
+  const offenders: FindOffender[] = [];
+
+  // Track which find IDs have already been recorded as missing
+  // originals so we emit one row per file, not per JSON section.
+  const missingOriginalIds = new Set<number>();
+  const recordMissing = (id: number, sectionLabel: string) => {
+    if (missingOriginalIds.has(id)) return;
+    missingOriginalIds.add(id);
+    offenders.push({
+      findId: id,
+      // locationCode filled in below from DB / JSON
+      locationCode: "—",
+      subCategory: "Chybějící originál",
+      detail: `Na disku není originál pro tento nález (poprvé zmíněn v ${sectionLabel}).`,
+    });
   };
 
   for (const spec of FILENAME_ENCODED_STATE_KEYS) {
@@ -720,17 +787,17 @@ async function checkJsonNotInFilename(): Promise<FindCheckResult> {
     for (const id of ids) {
       const parsed = originals.get(id);
       if (!parsed) {
-        // No original on disk at all. Could be deliberate (the find
-        // exists only in JSON for some reason) but it's still
-        // surface-worthy — flag once.
-        push(id, `JSON.stavy.${spec.jsonLabel} obsahuje nález, na disku ale není žádný originál`);
+        recordMissing(id, `JSON.stavy.${spec.jsonLabel}`);
         continue;
       }
       if (parsed.state !== spec.state) {
-        push(
-          id,
-          `JSON.stavy.${spec.jsonLabel} obsahuje nález, název souboru má stav ${stateToFilenameLabel(parsed.state)}`,
-        );
+        offenders.push({
+          findId: id,
+          locationCode: parsed.locationCode,
+          filename: parsed.filename,
+          subCategory: "Stav",
+          detail: `JSON.stavy.${spec.jsonLabel} obsahuje nález, název souboru má stav ${stateToFilenameLabel(parsed.state)}.`,
+        });
       }
     }
   }
@@ -738,11 +805,18 @@ async function checkJsonNotInFilename(): Promise<FindCheckResult> {
   for (const id of parseRanges(json.anonymizace.ANONYMIZOVANE)) {
     const parsed = originals.get(id);
     if (!parsed) {
-      push(id, "JSON.anonymizace.ANONYMIZOVANE obsahuje nález, na disku ale není žádný originál");
+      recordMissing(id, "JSON.anonymizace.ANONYMIZOVANE");
       continue;
     }
     if (!parsed.isAnonymized) {
-      push(id, "JSON.anonymizace.ANONYMIZOVANE obsahuje nález, název souboru má NE");
+      offenders.push({
+        findId: id,
+        locationCode: parsed.locationCode,
+        filename: parsed.filename,
+        subCategory: "Anonymizace",
+        detail:
+          "JSON.anonymizace.ANONYMIZOVANE obsahuje nález, název souboru má NE.",
+      });
     }
   }
 
@@ -752,11 +826,18 @@ async function checkJsonNotInFilename(): Promise<FindCheckResult> {
     if (!Number.isInteger(id)) continue;
     const parsed = originals.get(id);
     if (!parsed) {
-      push(id, "JSON.poznamky má text pro nález, na disku ale není žádný originál");
+      recordMissing(id, "JSON.poznamky");
       continue;
     }
     if (!parsed.hasNote) {
-      push(id, "JSON.poznamky má text pro nález, název souboru má BezPoznámky");
+      offenders.push({
+        findId: id,
+        locationCode: parsed.locationCode,
+        filename: parsed.filename,
+        subCategory: "Poznámka",
+        detail:
+          "JSON.poznamky má text pro nález, název souboru má BezPoznámky.",
+      });
     }
   }
 
@@ -768,64 +849,60 @@ async function checkJsonNotInFilename(): Promise<FindCheckResult> {
     for (const id of parseRanges(ranges)) {
       const parsed = originals.get(id);
       if (!parsed) {
-        push(
-          id,
-          `JSON.lokace[${mapKey}] obsahuje nález, na disku ale není žádný originál`,
-        );
+        recordMissing(id, `JSON.lokace[${mapKey}]`);
         continue;
       }
       if (parsed.mapNumber !== expectedMapNumber) {
-        push(
-          id,
-          `JSON.lokace[${mapKey}] obsahuje nález, název souboru ale uvádí mapu č. ${parsed.mapNumber}`,
-        );
+        offenders.push({
+          findId: id,
+          locationCode: parsed.locationCode,
+          filename: parsed.filename,
+          subCategory: "Lokace",
+          detail: `JSON.lokace[${mapKey}] obsahuje nález, název souboru uvádí mapu č. ${parsed.mapNumber}.`,
+        });
       }
     }
   }
 
-  const findIds = Array.from(issuesById.keys()).sort((a, b) => a - b);
-  // Resolve location codes for the offender's locationCode column.
-  // Use DB lookup so finds completely missing from disk also get
-  // a stable column label (their JSON.lokace membership maps to a
-  // code, but a per-id reverse-lookup needs a tiny pass).
+  // Resolve location codes for the offender column. Two sources:
+  //   - DB find row's locationId → location.code (for finds with
+  //     a row, which is the common case)
+  //   - JSON.lokace key → "mapa č. <N>" fallback (for finds whose
+  //     entire original is missing — there's no DB row to lean on)
+  const missingIds = Array.from(missingOriginalIds);
   const codes = await loadLocationCodes(
     (
       await prisma.find.findMany({
-        where: { id: { in: findIds } },
+        where: { id: { in: missingIds } },
         select: { locationId: true },
       })
     )
       .map((f) => f.locationId)
       .filter((x): x is number => x !== null),
   );
-  // Reverse map id → map number from JSON lokace. JSON keys are
-  // map numbers as decimal strings — so the fallback label is
-  // "mapa č. N" rather than a real location code, which we can't
-  // derive without a DB hit for orphan finds.
   const idToMapKey = new Map<number, string>();
   for (const [mapKey, ranges] of Object.entries(json.lokace)) {
     for (const id of parseRanges(ranges)) {
       if (!idToMapKey.has(id)) idToMapKey.set(id, mapKey);
     }
   }
-  const finds = await prisma.find.findMany({
-    where: { id: { in: findIds } },
-    select: { id: true, locationId: true },
-  });
+  const finds = missingIds.length
+    ? await prisma.find.findMany({
+        where: { id: { in: missingIds } },
+        select: { id: true, locationId: true },
+      })
+    : [];
   const dbLocByFind = new Map(finds.map((f) => [f.id, f.locationId]));
+  for (const offender of offenders) {
+    if (offender.subCategory !== "Chybějící originál") continue;
+    const dbLocId = dbLocByFind.get(offender.findId) ?? null;
+    const fromDb = dbLocId !== null ? codes.get(dbLocId) ?? null : null;
+    const mapKey = idToMapKey.get(offender.findId) ?? null;
+    offender.locationCode =
+      fromDb ?? (mapKey !== null ? `mapa č. ${mapKey}` : "—");
+  }
 
-  const offenders: FindOffender[] = findIds.map((id) => {
-    const dbLocId = dbLocByFind.get(id) ?? null;
-    const locFromDb = dbLocId !== null ? codes.get(dbLocId) ?? null : null;
-    const mapKey = idToMapKey.get(id) ?? null;
-    return {
-      findId: id,
-      locationCode:
-        locFromDb ?? (mapKey !== null ? `mapa č. ${mapKey}` : "—"),
-      detail: (issuesById.get(id) ?? []).join("; "),
-    };
-  });
-
+  offenders.sort((a, b) => a.findId - b.findId);
   return { ...baseResult, offenders };
 }
 

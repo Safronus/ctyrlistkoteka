@@ -10,10 +10,12 @@ import { ensureAdminAuth } from "@/lib/admin/guard";
 import {
   CHECK_GROUP_LABELS,
   CHECK_GROUP_ORDER,
+  CHECK_SUBCATEGORIES,
   EXIF_CHECK_ID,
   GPS_CHECK_ID,
   runAllChecks,
   type CheckResult,
+  type FindOffender,
 } from "@/lib/admin/checks";
 import { AckCheckButton } from "./ack-button";
 
@@ -77,6 +79,99 @@ export default async function AdminChecksPage() {
         );
       })}
     </div>
+  );
+}
+
+/** Renders the body rows of a find-kind check. Splits into two
+ *  shapes:
+ *    - subgrouped: any offender carries a `subCategory`, so we group
+ *      by it in CHECK_SUBCATEGORIES order and emit a colspan row
+ *      between groups as a small subheading. Within a group rows
+ *      keep their existing findId-ascending order.
+ *    - flat: no subCategory present (legacy checks), single sweep.
+ *
+ *  Returns an array of <tr> nodes — the caller is the <tbody> so
+ *  the rows merge cleanly into the surrounding table layout. */
+function renderFindOffenderRows(offenders: readonly FindOffender[]): React.ReactNode[] {
+  const hasSubgroups = offenders.some((o) => o.subCategory !== undefined);
+  if (!hasSubgroups) {
+    return offenders.map((o, i) => (
+      <FindOffenderRow key={`${o.findId}:${i}`} offender={o} />
+    ));
+  }
+
+  // Pre-bucket offenders by sub-category so each render pass is
+  // O(N) regardless of how many groups we have. Unknown / missing
+  // categories collapse into "Ostatní" at the bottom — defensive,
+  // we don't expect it given the enum-typed source but the renderer
+  // shouldn't drop rows if the data is loose.
+  const buckets = new Map<string, FindOffender[]>();
+  for (const o of offenders) {
+    const key: string = o.subCategory ?? "Ostatní";
+    const arr = buckets.get(key) ?? [];
+    arr.push(o);
+    buckets.set(key, arr);
+  }
+
+  const orderedKeys = [
+    ...CHECK_SUBCATEGORIES.filter((k) => buckets.has(k)),
+    ...Array.from(buckets.keys()).filter(
+      (k) => !(CHECK_SUBCATEGORIES as readonly string[]).includes(k),
+    ),
+  ];
+
+  const rows: React.ReactNode[] = [];
+  for (const key of orderedKeys) {
+    const bucket = buckets.get(key) ?? [];
+    if (bucket.length === 0) continue;
+    rows.push(
+      <tr key={`subhdr-${key}`} className="bg-amber-100/60">
+        <td
+          colSpan={3}
+          className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-900"
+        >
+          {key} · {bucket.length}
+        </td>
+      </tr>,
+    );
+    bucket.forEach((o, i) => {
+      rows.push(<FindOffenderRow key={`${key}:${o.findId}:${i}`} offender={o} />);
+    });
+  }
+  return rows;
+}
+
+/** One offender row inside a find-kind check table. Shows the find
+ *  id (linked to /sbirka), location code, then detail + (optional)
+ *  full filename on a second monospace line. The filename is
+ *  populated by the JSON↔filename checks so the operator can
+ *  identify the file without first opening it. */
+function FindOffenderRow({ offender }: { offender: FindOffender }) {
+  return (
+    <tr className="hover:bg-amber-50/40">
+      <td className="px-2 py-1.5 align-top">
+        <Link
+          href={`/sbirka/${offender.findId}`}
+          className="font-mono tabular-nums text-brand-700 hover:underline"
+        >
+          #{offender.findId}
+        </Link>
+      </td>
+      <td className="px-2 py-1.5 align-top font-mono text-gray-800">
+        {offender.locationCode}
+      </td>
+      <td className="px-2 py-1.5 text-gray-600">
+        <div>{offender.detail}</div>
+        {offender.filename && (
+          <div
+            className="mt-1 break-all font-mono text-[11px] text-gray-500"
+            title={offender.filename}
+          >
+            {offender.filename}
+          </div>
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -197,22 +292,7 @@ function CheckCard({ result }: { result: CheckResult }) {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {result.kind === "find"
-                  ? result.offenders.map((o) => (
-                      <tr key={o.findId} className="hover:bg-amber-50/40">
-                        <td className="px-2 py-1.5">
-                          <Link
-                            href={`/sbirka/${o.findId}`}
-                            className="font-mono tabular-nums text-brand-700 hover:underline"
-                          >
-                            #{o.findId}
-                          </Link>
-                        </td>
-                        <td className="px-2 py-1.5 font-mono text-gray-800">
-                          {o.locationCode}
-                        </td>
-                        <td className="px-2 py-1.5 text-gray-600">{o.detail}</td>
-                      </tr>
-                    ))
+                  ? renderFindOffenderRows(result.offenders)
                   : result.offenders.map((o) => (
                       <tr key={o.mapId} className="hover:bg-amber-50/40">
                         <td className="px-2 py-1.5">
