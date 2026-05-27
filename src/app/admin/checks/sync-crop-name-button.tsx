@@ -49,6 +49,16 @@ export function SyncCropNameButton({ originalFilename, cropFilename }: Props) {
     const { stem: originalStem } = splitExt(originalFilename);
     const { ext: cropExt } = splitExt(cropFilename);
     const newCropName = originalStem + cropExt;
+    // Diagnostic log — temporary. If the operator clicks the button
+    // and the file doesn't rename, this line tells us in DevTools
+    // whether the click handler even fired and what payload it
+    // intends to send. Drop the console.log once the flow is
+    // confirmed working in prod.
+    console.log("[sync-crop-name] submit", {
+      originalFilename,
+      cropFilename,
+      newCropName,
+    });
     // No client-side equality guard — if newCropName happens to byte-
     // match cropFilename (NFC vs NFD weirdness in the source data),
     // the server action returns a structured "stejný jako starý"
@@ -61,7 +71,9 @@ export function SyncCropNameButton({ originalFilename, cropFilename }: Props) {
     fd.append("newName", newCropName);
     startTransition(async () => {
       try {
+        console.log("[sync-crop-name] calling renameCrop…");
         const r = await renameCrop(fd);
+        console.log("[sync-crop-name] renameCrop returned", r);
         if (!r.ok) {
           setError(r.error ?? "Přejmenování ořezu selhalo");
           return;
