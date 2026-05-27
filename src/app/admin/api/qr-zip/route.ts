@@ -1,4 +1,3 @@
-import archiver from "archiver";
 import { NextResponse, type NextRequest } from "next/server";
 import { appendAudit } from "@/lib/admin/audit";
 import { renderFindQrSvg } from "@/lib/admin/qr";
@@ -96,10 +95,19 @@ export async function POST(request: NextRequest): Promise<Response> {
     );
   }
 
-  // Lazy import — sharp is heavy (libvips bindings) and the cost of
-  // requiring it only matters when somebody actually generates a ZIP.
-  // Same lazy-load pattern as src/lib/images.ts.
-  const sharp = (await import("sharp")).default;
+  // CommonJS interop — archiver exports `module.exports = fn`, which
+  // Next.js's ESM compiler trips over when imported via the `import x
+  // from "y"` form (compiles to `(0, _y.default)(...)` and the .default
+  // property doesn't exist on a function-typed CJS export, surfacing
+  // as the runtime `TypeError: (0, e.default) is not a function` we
+  // hit the first deploy. Same require-with-typecast pattern
+  // src/lib/images.ts uses for sharp. Also lazy — pulls ~5 MB of
+  // dependencies we don't want on the cold path of any unrelated
+  // admin page.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const archiver = require("archiver") as typeof import("archiver");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const sharp = require("sharp") as typeof import("sharp");
 
   // archiver streams into a Web ReadableStream so the response can
   // start flushing the ZIP header before all PNGs are rasterised.
