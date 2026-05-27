@@ -1,4 +1,4 @@
-import archiver from "archiver";
+import JSZip from "jszip";
 import { NextResponse, type NextRequest } from "next/server";
 import { appendAudit } from "@/lib/admin/audit";
 import { renderFindQrSvg } from "@/lib/admin/qr";
@@ -13,30 +13,32 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Hard cap on the number of QR PNGs produced per request. Larger
- *  batches need more memory for the in-flight buffers (each PNG is
- *  ~30-80 kB at the QR card's natural size) and tie up sharp longer
- *  than a single-shot request should. Splitting a 500-find selection
- *  into two 250-find downloads is a fine UX. */
+/** Hard cap on the number of QR PNGs produced per request. 500 PNGs
+ *  at ~50 kB each → ~25 MB peak in-memory, fine on the 12 GB box.
+ *  Splitting a 1000-find selection into two 500-find downloads is a
+ *  fine UX. */
 const MAX_QR_ZIP = 500;
 
 /** POST /admin/api/qr-zip
  *
  *  Body: `multipart/form-data` with one or more `filename` fields
  *  (mirrors the bulk-delete shape so the client can reuse the same
- *  selection set). Each filename is parsed for its find ID via the
- *  existing parseFindFilename — invalid names are skipped silently
- *  rather than aborting the whole batch (the operator still gets
- *  whatever's valid).
+ *  selection set). Each filename is parsed for its find ID via
+ *  parseFindFilename — invalid names are skipped silently rather
+ *  than aborting the whole batch (the operator still gets whatever's
+ *  valid).
  *
- *  Response: a streamed `application/zip` named `qr-codes.zip`
- *  containing one PNG per resolved find ID:
- *    ctyrlistek-<findId>.png
+ *  Response: `application/zip` named `qr-codes-<count>.zip`
+ *  containing one PNG per resolved find ID: `ctyrlistek-<findId>.png`.
  *
- *  Sharp rasterises each SVG (librsvg-backed) at 2× density so the
- *  PNG print quality matches the per-find modal's PNG download. The
- *  whole pipeline streams through archiver — no monolithic buffer
- *  on the server, no temp files on disk. */
+ *  Sharp rasterises each SVG (librsvg-backed) at 144 DPI so the PNG
+ *  print quality matches the per-find modal's PNG export. JSZip
+ *  collects everything in memory and finalises a single buffer.
+ *  We tried streaming via archiver first but Next.js's webpack
+ *  bundler reshapes archiver's CJS deps in a way that breaks the
+ *  call site (`(0, e.default)` referring to a function-typed
+ *  module export); JSZip is pure JS, no native bindings, no CJS-ESM
+ *  interop surprises. */
 export async function POST(request: NextRequest): Promise<Response> {
   const session = await getAdminSession();
   if (!isAuthenticated(session)) {
@@ -67,10 +69,9 @@ export async function POST(request: NextRequest): Promise<Response> {
     );
   }
 
-  // Resolve find IDs in input order. Duplicate IDs (same find selected
-  // twice somehow) collapse — there's no value in rendering identical
-  // QR PNGs side-by-side in the ZIP. Invalid names are skipped with a
-  // server-side log entry so a corrupted selection doesn't poison the
+  // Resolve find IDs in input order. Duplicates collapse — no value
+  // in rendering identical QR PNGs side-by-side. Invalid names are
+  // logged + skipped so a single bad filename doesn't poison the
   // whole download.
   const seen = new Set<number>();
   const findIds: number[] = [];
@@ -96,80 +97,43 @@ export async function POST(request: NextRequest): Promise<Response> {
     );
   }
 
-  // sharp stays as a lazy require inside the handler — the lib is
-  // heavy (libvips bindings) and Next.js's default external list
-  // already covers it, so the typecast keeps types crisp without
-  // pulling sharp into every admin page's cold path. archiver lives
-  // at the top of the file as a regular ESM import; it's registered
-  // in next.config.ts → serverExternalPackages so Next emits a
-  // native Node import that resolves the CJS `module.exports = fn`
-  // shape correctly. Either of those alone broke the route in
-  // production (bundled archiver mangled to "k is not a function";
-  // external require()'d archiver triggered Next's "external
-  // packages must use import" build error). The two-pronged setup
-  // is the combination Next supports.
+  // Sharp is heavy and stays as a lazy CJS require here — same
+  // pattern as src/lib/images.ts. Already on Next's default
+  // external list (auto-detected as image processor), so we don't
+  // need a config flag for it.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const sharp = require("sharp") as typeof import("sharp");
 
-  // archiver streams into a Web ReadableStream so the response can
-  // start flushing the ZIP header before all PNGs are rasterised.
-  // For the ~500-cap that means a perceived "download started" within
-  // the first PNG's encode time (~50-100 ms), not after the whole
-  // batch completes.
-  const archive = archiver("zip", {
+  const zip = new JSZip();
+  for (const findId of findIds) {
+    try {
+      const svg = renderFindQrSvg(findId);
+      const png = await sharp(Buffer.from(svg), { density: 144 })
+        .png()
+        .toBuffer();
+      zip.file(`ctyrlistek-${findId}.png`, png);
+    } catch (err) {
+      // Single-file failure: log it and keep going. The operator
+      // gets whatever rasterised correctly.
+      console.error("[admin/qr-zip] render failed", {
+        findId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  const buffer = await zip.generateAsync({
+    type: "nodebuffer",
     // Light compression — PNGs are already deflate-compressed
-    // internally, so high zip levels yield single-digit % savings at
-    // 5-10× CPU cost. Level 1 is fine for "bundle these files".
-    zlib: { level: 1 },
-  });
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      archive.on("data", (chunk: Buffer) => {
-        controller.enqueue(new Uint8Array(chunk));
-      });
-      archive.on("end", () => controller.close());
-      archive.on("error", (err) => controller.error(err));
-      archive.on("warning", (err) => {
-        // ENOENT et al. — log but don't fail the whole stream.
-        console.warn("[admin/qr-zip] archiver warning", err);
-      });
-
-      // Drive the encode loop on a microtask so the stream's reader
-      // (Next.js) gets the response promise back immediately. Inside
-      // this async function each find's PNG is appended sequentially
-      // — parallelising would only add sharp memory pressure without
-      // helping wall-time at this batch size.
-      (async () => {
-        for (const findId of findIds) {
-          try {
-            const svg = renderFindQrSvg(findId);
-            const png = await sharp(Buffer.from(svg), { density: 144 })
-              .png()
-              .toBuffer();
-            archive.append(png, { name: `ctyrlistek-${findId}.png` });
-          } catch (err) {
-            // Single-file failure: log it and keep going. The
-            // operator gets whatever rasterised correctly.
-            console.error("[admin/qr-zip] render failed", {
-              findId,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        }
-        await archive.finalize();
-      })().catch((err) => controller.error(err));
-    },
-    cancel() {
-      // Client disconnected mid-download. Abort the archive so the
-      // remaining PNG encodes don't keep CPU+memory busy on a stream
-      // nobody's reading.
-      archive.abort();
-    },
+    // internally, so high zip levels yield single-digit % savings
+    // at 5-10× CPU cost. Level 1 is fine for "bundle these files".
+    compression: "DEFLATE",
+    compressionOptions: { level: 1 },
   });
 
-  // Audit the request so a leaked PAT or session-cookie misuse leaves
-  // a trail. Only the count + first few IDs go in — the full list of
-  // hundreds of IDs would just bloat the JSONL log.
+  // Audit the request so a leaked PAT or session-cookie misuse
+  // leaves a trail. Only the count + first few IDs go in — the
+  // full list of hundreds would just bloat the JSONL log.
   await appendAudit({
     action: "file.download",
     ip,
@@ -183,10 +147,11 @@ export async function POST(request: NextRequest): Promise<Response> {
     },
   });
 
-  return new Response(stream, {
+  return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="qr-codes-${findIds.length}.zip"`,
+      "Content-Length": String(buffer.byteLength),
       "Cache-Control": "private, no-store",
     },
   });
