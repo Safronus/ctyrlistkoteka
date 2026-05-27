@@ -8,6 +8,7 @@ import {
   Download,
   FileText,
   Image as ImageIcon,
+  Map as MapIcon,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
@@ -35,6 +36,10 @@ import {
 import { parseFindFilename } from "@/lib/parseFilename";
 import { FindState } from "@prisma/client";
 import { DeleteCropButton } from "../../crops/delete-button";
+import { renameCrop } from "../../crops/rename-action";
+import { renameFindOriginal } from "../../finds/rename-action";
+import { renameMapFile } from "../../maps/rename-action";
+import { RenameButton } from "../../_shared/rename-button";
 import { DonationPhotoAnonymizeToggleButton } from "../../donation-photos/anonymize-toggle-button";
 import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
 import { UnlockCodePanel } from "../../donation-photos/unlock-code-panel";
@@ -296,6 +301,20 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
     scope.slug === "donation-photos" &&
     /_DAR_ANON\.[A-Za-z]+$/i.test(info.name);
 
+  // Location-map cross-link for find originals — the filename's
+  // MAP_NUMBER segment is the LocationMap.id, so a single
+  // findUnique resolves the matching map's on-disk filename for
+  // the "Lokační mapa" deep-link button in the action row. Null
+  // when the map isn't synced yet (rare, but the button hides in
+  // that case rather than 404ing on a missing detail URL).
+  const linkedMap =
+    scope.slug === "finds" && findParsed?.ok
+      ? await prisma.locationMap.findUnique({
+          where: { id: findParsed.value.mapNumber },
+          select: { id: true, originalFilename: true, locationCode: true },
+        })
+      : null;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-500">
@@ -448,10 +467,44 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
                 {findParsed?.ok && (
                   <FindQrButton findId={findParsed.value.findId} />
                 )}
+                {/* Generic free-form rename — sibling of the state
+                    toggles but lets the operator edit any segment
+                    (typo in location code, manual state correction
+                    that bulk-toggles don't cover, etc.). The action
+                    re-validates via parseFindFilename + auto-renames
+                    a matching long-form crop in lockstep. */}
+                <RenameButton
+                  currentName={info.name}
+                  scopeSlug="finds"
+                  action={renameFindOriginal}
+                />
+                {/* Deep-link to the linked LocationMap detail. The
+                    MAP_NUMBER in the filename binds to LocationMap.id
+                    1:1, so we can land the operator straight on the
+                    map for context (descriptions, AOI polygon edits,
+                    real-life photo). Hidden when the map isn't on
+                    disk yet — typically means sync hasn't seen it. */}
+                {linkedMap && (
+                  <Link
+                    href={`/admin/files/maps/${encodeURIComponent(linkedMap.originalFilename)}`}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-brand-50 px-2.5 py-1.5 text-xs font-medium text-brand-800 transition hover:border-brand-400 hover:bg-brand-100"
+                    title={`Otevřít lokační mapu ${linkedMap.locationCode} (#${linkedMap.id.toString().padStart(5, "0")})`}
+                  >
+                    <MapIcon className="h-3.5 w-3.5" aria-hidden />
+                    Lokační mapa #{linkedMap.id.toString().padStart(5, "0")}
+                  </Link>
+                )}
               </>
             )}
             {scope.slug === "crops" && (
-              <DeleteCropButton filename={info.name} />
+              <>
+                <RenameButton
+                  currentName={info.name}
+                  scopeSlug="crops"
+                  action={renameCrop}
+                />
+                <DeleteCropButton filename={info.name} />
+              </>
             )}
             {scope.slug === "maps" && (
               <>
@@ -460,6 +513,11 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
                   currentlyAnonymized={isMapAnonymized}
                 />
                 <MarkMapNonexistentButton filename={info.name} />
+                <RenameButton
+                  currentName={info.name}
+                  scopeSlug="maps"
+                  action={renameMapFile}
+                />
                 <DeleteMapButton filename={info.name} />
               </>
             )}

@@ -75,6 +75,103 @@ export async function restoreMapNonexistent(formData: FormData): Promise<void> {
   redirect(`/admin/files/maps/${encodeURIComponent(newName)}`);
 }
 
+export interface RenameFileResult {
+  ok: boolean;
+  newFilename?: string;
+  error?: string;
+}
+
+/** Generic rename action for map files — takes (oldName, newName)
+ *  and renames atomically on disk after validating the new name
+ *  through parseMapFilename. Sibling of `renameMapDescription`
+ *  above; the difference is that THIS one accepts any new name
+ *  (could change locationCode, GPS, zoom, mapId — anything that
+ *  parseMapFilename still understands), whereas description-only
+ *  edits use the dedicated helper for its constrained UI. Used
+ *  from the detail-page generic "Upravit název" inline editor. */
+export async function renameMapFile(
+  formData: FormData,
+): Promise<RenameFileResult> {
+  const session = await getAdminSession();
+  if (!isAuthenticated(session)) {
+    return { ok: false, error: "Unauthenticated" };
+  }
+  const credentialLabel = session.credentialLabel!;
+  const ip = await getRequestIp();
+  await touchSession();
+
+  const rawOld = formData.get("oldName");
+  const rawNew = formData.get("newName");
+  if (typeof rawOld !== "string" || rawOld.length === 0) {
+    return { ok: false, error: "Chybí oldName" };
+  }
+  if (typeof rawNew !== "string" || rawNew.length === 0) {
+    return { ok: false, error: "Chybí newName" };
+  }
+
+  let oldBase: string;
+  let newBase: string;
+  try {
+    oldBase = safeBaseName(rawOld);
+    newBase = safeBaseName(rawNew);
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+  if (oldBase === newBase) {
+    return { ok: false, error: "Nový název je stejný jako starý." };
+  }
+
+  // The map parser is lazy-imported here so the action doesn't pay
+  // the cost for unrelated maps routes (delete, anonymize, etc.).
+  // Same lazy-load pattern other map actions follow.
+  const { parseMapFilename } = await import("@/lib/parseFilename");
+  const parsed = parseMapFilename(newBase);
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      error: `Nový název nejde rozparsovat: ${parsed.error}`,
+    };
+  }
+
+  const oldResolved = await resolveDiskPath("locationMaps", oldBase);
+  if (!oldResolved) {
+    return { ok: false, error: "Soubor neexistuje" };
+  }
+
+  let newAbs: string;
+  try {
+    newAbs = safeJoin("locationMaps", newBase);
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+  try {
+    await fs.access(newAbs);
+    return { ok: false, error: `Cíl "${newBase}" už v maps/ existuje.` };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+  }
+
+  await fs.rename(oldResolved.absolutePath, newAbs);
+
+  await appendAudit({
+    action: "file.rename",
+    ip,
+    credentialLabel,
+    details: {
+      scope: "maps",
+      from: oldResolved.name,
+      to: newBase,
+      reason: "manual-rename",
+    },
+  });
+
+  revalidatePath("/admin/files/maps");
+  revalidatePath(`/admin/files/maps/${encodeURIComponent(oldResolved.name)}`);
+  revalidatePath(`/admin/files/maps/${encodeURIComponent(newBase)}`);
+  revalidatePath("/mapa", "layout");
+  return { ok: true, newFilename: newBase };
+}
+
 export interface DescriptionEditResult {
   ok: boolean;
   /** New on-disk name on success, raw old name otherwise. */
