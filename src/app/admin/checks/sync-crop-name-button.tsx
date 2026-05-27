@@ -3,93 +3,49 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeftRight, Loader2 } from "lucide-react";
-import { renameCrop } from "@/app/admin/files/crops/rename-action";
+import { syncCropNameToOriginal } from "./sync-crop-name-action";
 
 interface Props {
-  /** Original's filename on disk (lives in data/finds/). Source of
-   *  truth for the stem — we copy that across to the crop. */
-  originalFilename: string;
-  /** Crop's current filename on disk (lives in data/crops/). The
-   *  crop's own extension is preserved — the original is often a
-   *  .HEIC while the crop is a .JPG/.WEBP, and the rename should
-   *  not change that. */
-  cropFilename: string;
+  /** Find ID — the server uses it as the lookup key to find BOTH
+   *  the current original filename and the current crop filename
+   *  fresh from disk at action time. This sidesteps the staleness
+   *  bug from the previous round: when the operator manually
+   *  renamed the original in its detail page (fixing case in a
+   *  diacritic, for example) and then clicked sync here without
+   *  refreshing the check, the client had the OLD original name
+   *  baked into the row props and the server faithfully renamed
+   *  the crop to match the OLD name — undoing the fix. Reading
+   *  both sides on the server eliminates the race entirely. */
+  findId: number;
 }
 
-/** Splits a filename into (stem, extension-with-dot). Matches the
- *  helper in _shared/rename-button.tsx; inline here so the client
- *  bundle doesn't pull in the rename-button module just for two
- *  lines of logic. */
-function splitExt(name: string): { stem: string; ext: string } {
-  const dot = name.lastIndexOf(".");
-  if (dot === -1) return { stem: name, ext: "" };
-  return { stem: name.slice(0, dot), ext: name.slice(dot) };
-}
-
-/** Per-row action on the "Originál a ořez se v názvu liší" check.
- *  Click → server-side rename of the crop to `<original-stem>.<crop-
- *  ext>`. Extension stays intact because the two files are usually
- *  in different formats (HEIC original, JPG/WEBP crop), and the
- *  matter at hand is the stem, not the extension.
- *
- *  Reuses the existing renameCrop server action — same validation
- *  (parseFindFilename OR short-form regex), same audit log entry,
- *  same atomic fs.rename. Just driven from here instead of the
- *  detail-page popover.
- *
- *  On success: router.refresh() so the check re-runs and the row
- *  disappears from the next render. */
-export function SyncCropNameButton({ originalFilename, cropFilename }: Props) {
+/** One-click action that renames the find's crop on disk so its
+ *  basename equals the original's basename, while keeping the
+ *  crop's own extension (a .JPG crop stays a .JPG even if the
+ *  original is .HEIC). The server reads both filenames fresh
+ *  from disk — no client-supplied filenames are trusted. */
+export function SyncCropNameButton({ findId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   const submit = () => {
     setError(null);
-    const { stem: originalStem } = splitExt(originalFilename);
-    const { ext: cropExt } = splitExt(cropFilename);
-    const newCropName = originalStem + cropExt;
-    // Diagnostic log — temporary. If the operator clicks the button
-    // and the file doesn't rename, this line tells us in DevTools
-    // whether the click handler even fired and what payload it
-    // intends to send. Drop the console.log once the flow is
-    // confirmed working in prod.
-    console.log("[sync-crop-name] submit", {
-      originalFilename,
-      cropFilename,
-      newCropName,
-    });
-    // No client-side equality guard — if newCropName happens to byte-
-    // match cropFilename (NFC vs NFD weirdness in the source data),
-    // the server action returns a structured "stejný jako starý"
-    // error and the UI surfaces it. Cheaper than running this
-    // check twice + safer (the previous early-return swallowed
-    // such cases silently, leaving the operator with "nic se
-    // nestalo").
     const fd = new FormData();
-    fd.append("oldName", cropFilename);
-    fd.append("newName", newCropName);
+    fd.append("findId", String(findId));
     startTransition(async () => {
       try {
-        console.log("[sync-crop-name] calling renameCrop…");
-        const r = await renameCrop(fd);
-        console.log("[sync-crop-name] renameCrop returned", r);
+        const r = await syncCropNameToOriginal(fd);
         if (!r.ok) {
           setError(r.error ?? "Přejmenování ořezu selhalo");
           return;
         }
-        // The check page is force-dynamic, so refresh() re-runs the
-        // server component and the offender row drops out — no
-        // optimistic-update logic needed on the client.
+        // Check page is force-dynamic, so refresh() re-runs the
+        // server component and the (now-resolved) row drops out.
         router.refresh();
       } catch (err) {
-        // Server actions can throw (network blip, RSC encoding
-        // failure, etc.). Without a catch the rejection is
-        // swallowed by the transition wrapper and the operator
-        // sees the button finish without effect. Surface the
-        // message inline + log to console for the deeper diagnosis.
         const message = err instanceof Error ? err.message : String(err);
-        console.error("[sync-crop-name] renameCrop threw", err);
+        console.error("[sync-crop-name] action threw", err);
         setError(`Akce selhala: ${message}`);
       }
     });
@@ -101,9 +57,7 @@ export function SyncCropNameButton({ originalFilename, cropFilename }: Props) {
         type="button"
         onClick={submit}
         disabled={isPending}
-        title={`Přejmenovat ořez na "${
-          splitExt(originalFilename).stem + splitExt(cropFilename).ext
-        }"`}
+        title="Přejmenovat ořez tak, aby měl stejný název (bez přípony) jako originál"
         className="inline-flex items-center gap-1 rounded-md border border-brand-300 bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-800 transition hover:border-brand-400 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isPending ? (

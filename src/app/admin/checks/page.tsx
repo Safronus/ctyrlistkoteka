@@ -245,16 +245,15 @@ function FindOffenderRow({ offender }: { offender: FindOffender }) {
                 Ořez →
               </Link>
             )}
-            {/* One-click resolution of the mismatch — copies the
-                original's stem onto the crop while preserving the
-                crop's own extension. Only shown when both names are
-                known, which is exactly the original↔crop mismatch
-                check that produced the row. */}
+            {/* One-click resolution of the mismatch. Passes only
+                findId — the server then re-reads both originals and
+                crops directories at action time and computes the
+                rename from fresh disk state. The previous round
+                passed filenames straight through and renamed the
+                crop to match a STALE original filename when the
+                operator had fixed the original in another tab. */}
             {offender.filename && offender.cropFilename && (
-              <SyncCropNameButton
-                originalFilename={offender.filename}
-                cropFilename={offender.cropFilename}
-              />
+              <SyncCropNameButton findId={offender.findId} />
             )}
             {offender.subCategory && (
               <Link
