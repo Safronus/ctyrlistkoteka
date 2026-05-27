@@ -89,6 +89,13 @@ export interface FindOffender {
    *  don't have to pretend they care about a filename they never
    *  loaded. */
   filename?: string;
+  /** Matching crop filename, used by the original ↔ crop mismatch
+   *  check. When set, the page renders a sibling "Ořez →" chip
+   *  next to the "Originál →" chip, linking to the crop's admin
+   *  detail page. Kept separate from `filename` (which always
+   *  refers to the original) so the renderer can wire each chip
+   *  to its own scope (/admin/files/finds vs /admin/files/crops). */
+  cropFilename?: string;
   /** Sub-category within the check — e.g. "Lokace" / "Stav" /
    *  "Poznámka". When set on at least one offender, the page
    *  renders the check's table grouped by category, with a small
@@ -989,7 +996,14 @@ async function checkOriginalCropFilenameMismatch(): Promise<FindCheckResult> {
     offenders.push({
       findId,
       locationCode: "—",
-      detail: `originál: "${originalName}" · ořez: "${crop.name}"`,
+      // Names are surfaced via the per-row chips (Originál → / Ořez
+      // →) rather than the detail text — saves the operator from
+      // having to copy-paste either name. Detail keeps a short
+      // human summary in case both chips are hidden by some future
+      // styling change.
+      detail: "Originál a ořez mají rozdílný název bez přípony.",
+      filename: originalName,
+      cropFilename: crop.name,
     });
   }
   offenders.sort((a, b) => a.findId - b.findId);

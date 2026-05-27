@@ -194,23 +194,37 @@ function FindOffenderRow({ offender }: { offender: FindOffender }) {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div>{offender.detail}</div>
+            {/* Show both filenames as identifier text when both are
+                set (original-vs-crop mismatch). For single-file
+                checks the original filename alone sits below. The
+                chips on the right are the actionable links. */}
             {offender.filename && (
               <div
                 className="mt-1 break-all font-mono text-[11px] text-gray-500"
                 title={offender.filename}
               >
+                {offender.cropFilename ? "originál: " : ""}
                 {offender.filename}
               </div>
             )}
+            {offender.cropFilename && (
+              <div
+                className="break-all font-mono text-[11px] text-gray-500"
+                title={offender.cropFilename}
+              >
+                ořez: {offender.cropFilename}
+              </div>
+            )}
           </div>
-          {/* Twin chips: filename-link to the admin file detail and
-              (when subCategory is set) the JSON editor pre-focused on
-              the matching section. Mirroring chip styling makes both
-              actions feel like equal-weight options — earlier the
-              filename was a thin gray underline that didn't read as
-              clickable. Originál chip appears whenever there's a
-              filename; JSON chip is gated on subCategory so legacy
-              checks stay tidy. */}
+          {/* Action chips — equal-weight links sitting at the right
+              edge of the row. Up to three of them:
+                - Originál → → /admin/files/finds/<name>
+                - Ořez →    → /admin/files/crops/<name> (only when
+                  the offender carries cropFilename, i.e. the
+                  original-vs-crop mismatch check)
+                - JSON →    → /admin/json/lokace-stavy-poznamky?tab=…
+                  (only when subCategory is set — the JSON-aware
+                  filename↔JSON checks) */}
           <div className="flex shrink-0 items-center gap-1">
             {offender.filename && (
               <Link
@@ -219,6 +233,15 @@ function FindOffenderRow({ offender }: { offender: FindOffender }) {
                 className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800"
               >
                 Originál →
+              </Link>
+            )}
+            {offender.cropFilename && (
+              <Link
+                href={`/admin/files/crops/${encodeURIComponent(offender.cropFilename)}`}
+                title={`Otevřít ořez v adminu: ${offender.cropFilename}`}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800"
+              >
+                Ořez →
               </Link>
             )}
             {offender.subCategory && (
