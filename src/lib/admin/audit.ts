@@ -15,6 +15,7 @@ export type AuditAction =
   | "file.replace"
   | "file.rename"
   | "file.restore"
+  | "file.download"
   | "json.update"
   | "sync.start"
   | "sync.finish"

@@ -734,6 +734,7 @@ export default async function AdminScopeListPage({
           exifProblemIds={exifProblemIds}
           gpsProblemIds={gpsProblemIds}
           findsWithDonationPhoto={findsWithDonationPhoto}
+          showQrZip
         />
       ) : scope.slug === "crops" ? (
         <FilesListClient
