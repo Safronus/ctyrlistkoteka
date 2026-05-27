@@ -49,25 +49,37 @@ export function SyncCropNameButton({ originalFilename, cropFilename }: Props) {
     const { stem: originalStem } = splitExt(originalFilename);
     const { ext: cropExt } = splitExt(cropFilename);
     const newCropName = originalStem + cropExt;
-    if (newCropName === cropFilename) {
-      // Should never happen (the check filtered names that already
-      // match), but defensive guard avoids a 400 round-trip when
-      // it does.
-      return;
-    }
+    // No client-side equality guard — if newCropName happens to byte-
+    // match cropFilename (NFC vs NFD weirdness in the source data),
+    // the server action returns a structured "stejný jako starý"
+    // error and the UI surfaces it. Cheaper than running this
+    // check twice + safer (the previous early-return swallowed
+    // such cases silently, leaving the operator with "nic se
+    // nestalo").
     const fd = new FormData();
     fd.append("oldName", cropFilename);
     fd.append("newName", newCropName);
     startTransition(async () => {
-      const r = await renameCrop(fd);
-      if (!r.ok) {
-        setError(r.error ?? "Přejmenování ořezu selhalo");
-        return;
+      try {
+        const r = await renameCrop(fd);
+        if (!r.ok) {
+          setError(r.error ?? "Přejmenování ořezu selhalo");
+          return;
+        }
+        // The check page is force-dynamic, so refresh() re-runs the
+        // server component and the offender row drops out — no
+        // optimistic-update logic needed on the client.
+        router.refresh();
+      } catch (err) {
+        // Server actions can throw (network blip, RSC encoding
+        // failure, etc.). Without a catch the rejection is
+        // swallowed by the transition wrapper and the operator
+        // sees the button finish without effect. Surface the
+        // message inline + log to console for the deeper diagnosis.
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("[sync-crop-name] renameCrop threw", err);
+        setError(`Akce selhala: ${message}`);
       }
-      // The check page is force-dynamic, so refresh() re-runs the
-      // server component and the offender row drops out — no
-      // optimistic-update logic needed on the client.
-      router.refresh();
     });
   };
 
@@ -87,14 +99,14 @@ export function SyncCropNameButton({ originalFilename, cropFilename }: Props) {
         ) : (
           <ArrowLeftRight className="h-3 w-3" aria-hidden />
         )}
-        Sjednotit ořez s originálem
+        Přejmenovat ořez dle originálu
       </button>
       {error && (
         <span
-          className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] text-red-800"
+          className="block max-w-[24rem] break-all rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] text-red-800"
           title={error}
         >
-          {error.length > 32 ? `${error.slice(0, 32)}…` : error}
+          {error}
         </span>
       )}
     </div>
