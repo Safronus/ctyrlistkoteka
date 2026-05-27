@@ -111,8 +111,31 @@ async function loadSections(): Promise<{
   return { sections, mtimeIso, loadError };
 }
 
-export default async function LokaceStavyPoznamkyPage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+/** Optional `?tab=` URL param lets deep-links land on a specific
+ *  section (lokace / stavy / poznamky / anonymizace). Used by
+ *  /admin/checks rows that surface JSON-vs-filename mismatches so
+ *  the operator opens straight on the offending sub-section
+ *  instead of clicking around. Unknown values fall back to "lokace"
+ *  (the editor's own default), so a stale link from older code
+ *  doesn't break navigation. */
+function parseInitialTab(raw: string | undefined): SectionKey | undefined {
+  if (!raw) return undefined;
+  return (SECTION_KEYS as readonly string[]).includes(raw)
+    ? (raw as SectionKey)
+    : undefined;
+}
+
+export default async function LokaceStavyPoznamkyPage({
+  searchParams,
+}: PageProps) {
   await ensureAdminAuth();
+  const sp = await searchParams;
+  const rawTab = Array.isArray(sp.tab) ? sp.tab[0] : sp.tab;
+  const initialTab = parseInitialTab(rawTab);
   const { sections, mtimeIso, loadError } = await loadSections();
 
   return (
@@ -161,6 +184,7 @@ export default async function LokaceStavyPoznamkyPage() {
         key={mtimeIso ?? "empty"}
         initialSections={sections}
         fileMtime={mtimeIso}
+        initialTab={initialTab}
       />
 
       <MergeSectionForm />

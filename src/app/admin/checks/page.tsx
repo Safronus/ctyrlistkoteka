@@ -141,12 +141,42 @@ function renderFindOffenderRows(offenders: readonly FindOffender[]): React.React
   return rows;
 }
 
+/** Sub-category → JSON editor tab. Matches the editor's section keys
+ *  (lokace / stavy / poznamky / anonymizace). "Chybějící originál"
+ *  isn't section-specific (the find can be missing because it's in
+ *  any of the four sections) so it returns null — the JSON link
+ *  there opens the editor on its default tab. */
+function subCategoryToJsonTab(
+  sub: FindOffender["subCategory"],
+): string | null {
+  switch (sub) {
+    case "Lokace":
+      return "lokace";
+    case "Stav":
+      return "stavy";
+    case "Poznámka":
+      return "poznamky";
+    case "Anonymizace":
+      return "anonymizace";
+    default:
+      return null;
+  }
+}
+
 /** One offender row inside a find-kind check table. Shows the find
  *  id (linked to /sbirka), location code, then detail + (optional)
- *  full filename on a second monospace line. The filename is
- *  populated by the JSON↔filename checks so the operator can
- *  identify the file without first opening it. */
+ *  full filename on a second monospace line. The filename, when
+ *  present, doubles as a deep-link to the admin file-detail page —
+ *  one click takes the operator straight to the rename / state
+ *  toggle surface for that file. A small "JSON →" chip on the
+ *  right opens the LokaceStavyPoznamky editor pre-focused on the
+ *  matching section, so the operator can fix the other side
+ *  without navigating manually. */
 function FindOffenderRow({ offender }: { offender: FindOffender }) {
+  const jsonTab = subCategoryToJsonTab(offender.subCategory);
+  const jsonHref = jsonTab
+    ? `/admin/json/lokace-stavy-poznamky?tab=${jsonTab}`
+    : "/admin/json/lokace-stavy-poznamky";
   return (
     <tr className="hover:bg-amber-50/40">
       <td className="px-2 py-1.5 align-top">
@@ -161,15 +191,36 @@ function FindOffenderRow({ offender }: { offender: FindOffender }) {
         {offender.locationCode}
       </td>
       <td className="px-2 py-1.5 text-gray-600">
-        <div>{offender.detail}</div>
-        {offender.filename && (
-          <div
-            className="mt-1 break-all font-mono text-[11px] text-gray-500"
-            title={offender.filename}
-          >
-            {offender.filename}
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div>{offender.detail}</div>
+            {offender.filename && (
+              <Link
+                href={`/admin/files/finds/${encodeURIComponent(offender.filename)}`}
+                title={`Otevřít originál v adminu: ${offender.filename}`}
+                className="mt-1 inline-block break-all font-mono text-[11px] text-gray-500 underline-offset-2 hover:text-brand-700 hover:underline"
+              >
+                {offender.filename}
+              </Link>
+            )}
           </div>
-        )}
+          {/* JSON deep-link — only useful for the JSON-aware checks
+              (the ones that set subCategory). Skipping it for legacy
+              find-level checks keeps the table tidy. */}
+          {offender.subCategory && (
+            <Link
+              href={jsonHref}
+              title={
+                jsonTab
+                  ? `Otevřít LokaceStavyPoznamky.json — sekce ${jsonTab}`
+                  : "Otevřít LokaceStavyPoznamky.json"
+              }
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800"
+            >
+              JSON →
+            </Link>
+          )}
+        </div>
       </td>
     </tr>
   );

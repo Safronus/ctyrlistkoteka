@@ -32,6 +32,11 @@ interface Props {
   initialSections: Record<SectionKey, string>;
   /** ISO timestamp of the file's last write — shown in the header. */
   fileMtime: string | null;
+  /** Section to focus on first mount. Used by deep-links from
+   *  /admin/checks rows — e.g. a "Stav" mismatch row points
+   *  the operator straight at the `stavy` tab. Falls back to
+   *  the editor's default (`lokace`) when unset or unknown. */
+  initialTab?: SectionKey;
 }
 
 interface SectionStatus {
@@ -69,10 +74,11 @@ function validateSection(key: SectionKey, content: string): SectionStatus {
 export function LokaceStavyPoznamkyEditor({
   initialSections,
   fileMtime,
+  initialTab,
 }: Props) {
   const [sections, setSections] =
     useState<Record<SectionKey, string>>(initialSections);
-  const [activeTab, setActiveTab] = useState<SectionKey>("lokace");
+  const [activeTab, setActiveTab] = useState<SectionKey>(initialTab ?? "lokace");
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [serverIssues, setServerIssues] = useState<
