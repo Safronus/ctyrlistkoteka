@@ -18,6 +18,7 @@ import {
   type FindOffender,
 } from "@/lib/admin/checks";
 import { AckCheckButton } from "./ack-button";
+import { SyncCropNameButton } from "./sync-crop-name-button";
 
 export const dynamic = "force-dynamic";
 
@@ -243,6 +244,17 @@ function FindOffenderRow({ offender }: { offender: FindOffender }) {
               >
                 Ořez →
               </Link>
+            )}
+            {/* One-click resolution of the mismatch — copies the
+                original's stem onto the crop while preserving the
+                crop's own extension. Only shown when both names are
+                known, which is exactly the original↔crop mismatch
+                check that produced the row. */}
+            {offender.filename && offender.cropFilename && (
+              <SyncCropNameButton
+                originalFilename={offender.filename}
+                cropFilename={offender.cropFilename}
+              />
             )}
             {offender.subCategory && (
               <Link
