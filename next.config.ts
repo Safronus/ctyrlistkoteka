@@ -15,6 +15,17 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // archiver pulls a tree of CJS deps (zip-stream, compress-commons,
+  // glob, …) that Next.js's webpack server bundle reshapes into
+  // `(0, _archiver.default)(...)` calls — the actual `module.exports =
+  // createArchiver` function ends up wrapped into an object literal
+  // and the call site throws `TypeError: k is not a function`.
+  // `serverExternalPackages` opts the package out of bundling — Next
+  // emits a plain `require("archiver")` and Node loads it via the
+  // normal CJS resolver, which yields the function the typedef
+  // promises. Same escape hatch Next applies by default for sharp /
+  // prisma; we just need to register the one we add ourselves.
+  serverExternalPackages: ["archiver"],
   experimental: {
     serverActions: {
       // Admin upload of find photos: each JPEG after prepare-upload is
