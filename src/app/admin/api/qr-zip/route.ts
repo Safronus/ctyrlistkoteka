@@ -1,3 +1,4 @@
+import archiver from "archiver";
 import { NextResponse, type NextRequest } from "next/server";
 import { appendAudit } from "@/lib/admin/audit";
 import { renderFindQrSvg } from "@/lib/admin/qr";
@@ -95,17 +96,18 @@ export async function POST(request: NextRequest): Promise<Response> {
     );
   }
 
-  // CommonJS interop — archiver exports `module.exports = fn`, which
-  // Next.js's ESM compiler trips over when imported via the `import x
-  // from "y"` form (compiles to `(0, _y.default)(...)` and the .default
-  // property doesn't exist on a function-typed CJS export, surfacing
-  // as the runtime `TypeError: (0, e.default) is not a function` we
-  // hit the first deploy. Same require-with-typecast pattern
-  // src/lib/images.ts uses for sharp. Also lazy — pulls ~5 MB of
-  // dependencies we don't want on the cold path of any unrelated
-  // admin page.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const archiver = require("archiver") as typeof import("archiver");
+  // sharp stays as a lazy require inside the handler — the lib is
+  // heavy (libvips bindings) and Next.js's default external list
+  // already covers it, so the typecast keeps types crisp without
+  // pulling sharp into every admin page's cold path. archiver lives
+  // at the top of the file as a regular ESM import; it's registered
+  // in next.config.ts → serverExternalPackages so Next emits a
+  // native Node import that resolves the CJS `module.exports = fn`
+  // shape correctly. Either of those alone broke the route in
+  // production (bundled archiver mangled to "k is not a function";
+  // external require()'d archiver triggered Next's "external
+  // packages must use import" build error). The two-pronged setup
+  // is the combination Next supports.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const sharp = require("sharp") as typeof import("sharp");
 
