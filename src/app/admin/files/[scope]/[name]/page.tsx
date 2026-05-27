@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { promises as fs } from "node:fs";
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Download,
   FileText,
   Image as ImageIcon,
@@ -18,6 +20,7 @@ import { ADMIN_ROOTS } from "@/lib/admin/paths";
 import {
   findOriginalFilenameById,
   getScope,
+  getScopeNeighbors,
   statScopeFile,
 } from "@/lib/admin/scopes";
 import { checkSyncNeeded } from "@/lib/admin/syncNeeded";
@@ -98,6 +101,14 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
   const scope = getScope(scopeSlug);
   if (!scope) notFound();
   const info = await statScopeFile(scope, name).catch(() => null);
+  // Resolve prev/next neighbours for the same scope's sorted listing
+  // so the detail page can offer keyboard-free hopping through the
+  // batch — saves clicking back to the list between every row.
+  // Single readdir per render, cheap for admin's traffic. Skipped
+  // when the current file doesn't exist (we'd 404 below anyway).
+  const neighbors = info
+    ? await getScopeNeighbors(scope, info.name)
+    : { prev: null, next: null, index: -1, total: 0 };
   if (!info) notFound();
 
   // Mtime suffix busts the browser's max-age=60 cache after a
@@ -287,25 +298,80 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-gray-500">
-        <Link
-          href="/admin/files"
-          className="inline-flex items-center gap-1 hover:text-gray-900"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-          Soubory
-        </Link>
-        <span aria-hidden>/</span>
-        <Link
-          href={`/admin/files/${scope.slug}`}
-          className="hover:text-gray-900"
-        >
-          {scope.label}
-        </Link>
-        <span aria-hidden>/</span>
-        <span className="truncate text-gray-900" title={info.name}>
-          {info.name}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-500">
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/files"
+            className="inline-flex items-center gap-1 hover:text-gray-900"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+            Soubory
+          </Link>
+          <span aria-hidden>/</span>
+          <Link
+            href={`/admin/files/${scope.slug}`}
+            className="hover:text-gray-900"
+          >
+            {scope.label}
+          </Link>
+          <span aria-hidden>/</span>
+          <span className="truncate text-gray-900" title={info.name}>
+            {info.name}
+          </span>
+        </div>
+        {/* Prev/next within the same scope's sorted listing. The
+            position counter (`5 / 1248`) is the same sort the file
+            list uses; clicking past either edge wouldn't have a
+            target so the boundary button just disables itself. The
+            UI lives in the breadcrumb row so it doesn't crowd the
+            file-action row below, which is per-scope busy enough. */}
+        {neighbors.total > 0 && (
+          <div className="inline-flex items-center gap-1 text-xs">
+            {neighbors.prev ? (
+              <Link
+                href={`/admin/files/${scope.slug}/${encodeURIComponent(neighbors.prev)}`}
+                title={neighbors.prev}
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-gray-300 bg-white px-2 font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">Předchozí</span>
+              </Link>
+            ) : (
+              <span
+                aria-disabled
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 font-medium text-gray-400"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">Předchozí</span>
+              </span>
+            )}
+            {neighbors.index >= 0 && (
+              <span className="px-1.5 font-mono tabular-nums text-gray-500">
+                {neighbors.index + 1}
+                <span className="text-gray-400"> / </span>
+                {neighbors.total}
+              </span>
+            )}
+            {neighbors.next ? (
+              <Link
+                href={`/admin/files/${scope.slug}/${encodeURIComponent(neighbors.next)}`}
+                title={neighbors.next}
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-gray-300 bg-white px-2 font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800"
+              >
+                <span className="hidden sm:inline">Další</span>
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+              </Link>
+            ) : (
+              <span
+                aria-disabled
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 font-medium text-gray-400"
+              >
+                <span className="hidden sm:inline">Další</span>
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <header className="rounded-xl border border-gray-200 bg-white p-5">

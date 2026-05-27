@@ -300,6 +300,48 @@ export function extractFindId(filename: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** Returns the prev/next siblings of a file inside its scope's
+ *  default sorted listing — same `cs` localeCompare + `numeric: true`
+ *  order the file list shows. NFC-aware: the lookup matches both
+ *  NFC-normalised names (rsync from macOS sometimes drops NFD), so
+ *  a detail page can land on a URL that came in either form and
+ *  still find its neighbours.
+ *
+ *  Used by the detail page's prev/next buttons. The whole directory
+ *  is read on every call — fine for admin's traffic level (single
+ *  operator, low concurrency) and avoids any stale-cache divergence
+ *  with the actual listing. */
+export async function getScopeNeighbors(
+  scope: ScopeDef,
+  currentName: string,
+): Promise<{ prev: string | null; next: string | null; index: number; total: number }> {
+  const root = ADMIN_ROOTS[scope.rootKey];
+  let names: string[];
+  try {
+    names = await fs.readdir(root);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return { prev: null, next: null, index: -1, total: 0 };
+    }
+    throw err;
+  }
+  const filtered = names.filter((n) => !n.startsWith("."));
+  filtered.sort((a, b) =>
+    a.localeCompare(b, "cs", { numeric: true, sensitivity: "base" }),
+  );
+  const currentNFC = currentName.normalize("NFC");
+  const idx = filtered.findIndex((n) => n.normalize("NFC") === currentNFC);
+  if (idx === -1) {
+    return { prev: null, next: null, index: -1, total: filtered.length };
+  }
+  return {
+    prev: idx > 0 ? filtered[idx - 1]! : null,
+    next: idx < filtered.length - 1 ? filtered[idx + 1]! : null,
+    index: idx,
+    total: filtered.length,
+  };
+}
+
 /** Scans `data/finds/` for the original photo of a given find ID and
  *  returns its on-disk filename. The match is anchored: the filename's
  *  leading digit run must equal `findId` exactly (so #18 doesn't pick
