@@ -3,6 +3,8 @@
 import { useCallback, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
+  ArrowDown,
+  ArrowUp,
   CheckCircle2,
   CloudUpload,
   Images,
@@ -13,6 +15,7 @@ import {
 } from "lucide-react";
 import { Trash2 } from "lucide-react";
 import { uploadFindFreePhotos } from "./free-photos-action";
+import { moveFreePhoto } from "./free-photos-move-action";
 import { deleteFreePhotoInline } from "../free-photos/delete-action";
 
 interface ExistingEntry {
@@ -184,7 +187,14 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
 
       {existing.length > 0 ? (
         <ul className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {existing.map((p) => (
+          {existing.map((p, i) => {
+            const isFirst = i === 0;
+            const isLast = i === existing.length - 1;
+            // Reorder buttons only appear when there's something to
+            // reorder — single-photo galleries get no chrome. The
+            // first row can't move up; the last can't move down.
+            const canReorder = existing.length > 1;
+            return (
             <li
               key={p.filename}
               className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
@@ -202,6 +212,46 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
                   {p.slot}
                 </span>
                 <div className="flex shrink-0 items-center gap-1">
+                  {canReorder && (
+                    <>
+                      {/* Up/Down forms post moveFreePhoto with
+                          findId/slot/direction. The action swaps slot
+                          letters via three-step rename and revalidates
+                          this page — the new order shows on the
+                          re-render without client state. Buttons stay
+                          rendered (not hidden) on the edges and just
+                          disable to keep the row layout stable when
+                          the gallery has only 2 items. */}
+                      <form action={moveFreePhoto}>
+                        <input type="hidden" name="findId" value={findId} />
+                        <input type="hidden" name="slot" value={p.slot} />
+                        <input type="hidden" name="direction" value="up" />
+                        <button
+                          type="submit"
+                          disabled={isFirst}
+                          title="Posunout výš"
+                          aria-label={`Posunout fotku ${p.slot} výš`}
+                          className="rounded border border-gray-300 bg-white p-1 text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+                        >
+                          <ArrowUp className="h-3 w-3" aria-hidden />
+                        </button>
+                      </form>
+                      <form action={moveFreePhoto}>
+                        <input type="hidden" name="findId" value={findId} />
+                        <input type="hidden" name="slot" value={p.slot} />
+                        <input type="hidden" name="direction" value="down" />
+                        <button
+                          type="submit"
+                          disabled={isLast}
+                          title="Posunout níž"
+                          aria-label={`Posunout fotku ${p.slot} níž`}
+                          className="rounded border border-gray-300 bg-white p-1 text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+                        >
+                          <ArrowDown className="h-3 w-3" aria-hidden />
+                        </button>
+                      </form>
+                    </>
+                  )}
                   {/* Inline delete — `window.confirm` is enough friction
                       for an admin-only workflow; the full two-step
                       pattern lives on the standalone scope's detail
@@ -238,7 +288,8 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
                 </div>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       ) : (
         <p className="mb-3 text-xs text-gray-500">
