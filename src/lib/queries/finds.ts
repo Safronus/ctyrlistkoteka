@@ -803,13 +803,21 @@ export interface PublicFindDetail extends PublicFind {
    *  anonymized finds — same rationale as donationPhotos: no leak. */
   freePhotos: readonly FindFreePhotoEntry[];
   /** This find's date-order position among all finds at the same
-   *  location. `null` when the find has no location, OR when it's
-   *  anonymized (the displayed "location" is the privacy placeholder
-   *  — counting against placeholder finds would be misleading). The
-   *  ordering is `found_at ASC NULLS LAST, id ASC`, which mirrors
-   *  what the operator sees if they filter /sbirka by that location
-   *  + sort by oldest. */
-  rankAtLocation: { rank: number; total: number } | null;
+   *  location, plus neighbour-find IDs in the same ordering for the
+   *  prev/next navigation chips. `null` when the find has no
+   *  location, OR when it's anonymized (the displayed "location" is
+   *  the privacy placeholder — counting against placeholder finds
+   *  would be misleading). The ordering is `found_at ASC NULLS LAST,
+   *  id ASC`, which mirrors what the operator sees if they filter
+   *  /sbirka by that location + sort by oldest. `prevId` / `nextId`
+   *  are null at the chain boundaries (first/last find at the
+   *  location). */
+  rankAtLocation: {
+    rank: number;
+    total: number;
+    prevId: number | null;
+    nextId: number | null;
+  } | null;
 }
 
 export async function getFindById(
@@ -881,10 +889,18 @@ export async function getFindById(
   };
 }
 
-/** This find's date-order position among finds at the same location.
+/** This find's date-order position among finds at the same location,
+ *  plus neighbour-find IDs (LAG/LEAD) for the prev/next nav chips
+ *  the detail page shows under the rank line.
+ *
  *  Ordering: `found_at ASC NULLS LAST, id ASC` — dated finds first
  *  oldest-to-newest, undated ones at the end by id (matches the
  *  /sbirka "oldest first" sort for the same location filter).
+ *
+ *  Single window pass shares the ORDER BY across ROW_NUMBER + LAG +
+ *  LEAD via a named WINDOW clause so the planner doesn't sort the
+ *  partition twice. `prev_id` / `next_id` come back null at the
+ *  chain boundaries (first/last find at the location).
  *
  *  Returns `null` when the find isn't actually present at the
  *  location anymore (shouldn't happen in practice — the caller has
@@ -894,23 +910,41 @@ export async function getFindById(
 async function fetchRankAtLocation(
   findId: number,
   locationId: number,
-): Promise<{ rank: number; total: number } | null> {
-  type Row = { rank: number; total: number };
+): Promise<{
+  rank: number;
+  total: number;
+  prevId: number | null;
+  nextId: number | null;
+} | null> {
+  type Row = {
+    rank: number;
+    total: number;
+    prev_id: number | null;
+    next_id: number | null;
+  };
   const rows = await prisma.$queryRaw<Row[]>`
-    SELECT rank, total
+    SELECT rank, total, prev_id, next_id
     FROM (
       SELECT
         id,
-        (ROW_NUMBER() OVER (
-          ORDER BY found_at ASC NULLS LAST, id ASC
-        ))::int AS rank,
-        (COUNT(*) OVER ())::int AS total
+        (ROW_NUMBER() OVER w)::int AS rank,
+        (COUNT(*) OVER ())::int AS total,
+        LAG(id) OVER w AS prev_id,
+        LEAD(id) OVER w AS next_id
       FROM finds
       WHERE location_id = ${locationId}
+      WINDOW w AS (ORDER BY found_at ASC NULLS LAST, id ASC)
     ) ranked
     WHERE id = ${findId}
   `;
-  return rows[0] ?? null;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    rank: row.rank,
+    total: row.total,
+    prevId: row.prev_id,
+    nextId: row.next_id,
+  };
 }
 
 async function fetchPublicLocation(

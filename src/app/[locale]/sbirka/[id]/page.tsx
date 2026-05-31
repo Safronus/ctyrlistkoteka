@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { FindState, ImageType } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
@@ -284,68 +284,100 @@ export default async function FindDetailPage({ params }: PageProps) {
       <Panel
         title={t("panelLocation")}
         rightSlot={
-          find.location && (
+          /* Hide the location-id chip for anonymized finds — the
+             id would be the privacy placeholder (#00001) and
+             showing it next to the "skutečná lokalita se
+             nezobrazuje" notice is contradictory. */
+          !find.isAnonymized && find.location && (
             <span className="font-mono text-xs text-gray-500">
               {formatLocationId(find.location.id)}
             </span>
           )
         }
       >
-        {find.isAnonymized && (
+        {find.isAnonymized ? (
+          /* Anonymized finds get only the short notice + the
+             placeholder map (question-mark watermark) — no
+             location code, no displayName, no rank, no prev/next
+             nav, no "show on map" link. Everything the panel
+             would normally surface is either the privacy
+             placeholder (misleading to show) or a real location
+             field (an outright leak). */
           <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
-            {t("anonymizedLocationNotice", {
-              placeholderId: find.location
-                ? formatLocationId(find.location.id)
-                : "",
-            })}
+            {t("anonymizedLocationNotice")}
           </p>
-        )}
-        {!find.isAnonymized && isFormerLocation(find.location?.code) && (
-          <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
-            {t("formerLocationNotice")}
-          </p>
-        )}
-        {find.location ? (
+        ) : (
           <>
-            <KeyValue label={t("kvCode")} value={find.location.code} />
-            <KeyValue label={t("kvDescription")} value={find.location.displayName} />
-            {/* "Nth find of M" line, present only on non-anonymized
-                finds with a location (the query layer returns null
-                for anonymized — see fetchRankAtLocation). Ordered
-                by foundAt ASC NULLS LAST, id ASC so the count
-                mirrors the "oldest first" /sbirka sort filtered by
-                the same location. */}
-            {find.rankAtLocation && (
-              <KeyValue
-                label={t("kvOrderAtLocation")}
-                value={t("orderAtLocationValue", {
-                  rank: find.rankAtLocation.rank,
-                  total: find.rankAtLocation.total,
-                })}
-              />
+            {isFormerLocation(find.location?.code) && (
+              <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+                {t("formerLocationNotice")}
+              </p>
             )}
-            {/* Map deep-link mirrors the row-level icon in /sbirka:
-                `?find=N` highlights the specific find on the canvas
-                (single marker + auto-fit). Only public finds with GPS
-                qualify — anonymized ones never expose a position, so
-                the button is hidden for them. The location-only
-                fallback (`?focus=`) was confusing: visitors arriving
-                from the detail expected to see THIS find, not the
-                whole location dot soup. */}
-            {!find.isAnonymized && find.coordinates && (
-              <div className="pt-1">
-                <Link
-                  href={`/mapa?find=${find.id}`}
-                  className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
-                >
-                  <MapPin className="h-3.5 w-3.5" aria-hidden />
-                  <span>{t("showOnMap")}</span>
-                </Link>
-              </div>
+            {find.location ? (
+              <>
+                <KeyValue label={t("kvCode")} value={find.location.code} />
+                <KeyValue
+                  label={t("kvDescription")}
+                  value={find.location.displayName}
+                />
+                {/* "Nth find of M" line — ordering matches the
+                    /sbirka "oldest first" sort filtered by the same
+                    location, so the visitor can scroll the listing
+                    to find the same neighbour. Query layer returns
+                    null when the rank can't be computed (no
+                    location, or anonymized — but anonymized takes
+                    the other branch above anyway). */}
+                {find.rankAtLocation && (
+                  <KeyValue
+                    label={t("kvOrderAtLocation")}
+                    value={t("orderAtLocationValue", {
+                      rank: find.rankAtLocation.rank,
+                      total: find.rankAtLocation.total,
+                    })}
+                  />
+                )}
+                {/* Prev/next at the same location, in the same
+                    date-first ordering as the rank line. Each
+                    chip is rendered even at the chain boundary
+                    (just disabled) so the layout doesn't jump
+                    between finds. Hidden entirely on single-find
+                    locations where the whole row would be
+                    "← Předchozí (n/a) | Další (n/a) →". */}
+                {find.rankAtLocation && find.rankAtLocation.total > 1 && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <LocationNavLink
+                      direction="prev"
+                      targetId={find.rankAtLocation.prevId}
+                      label={t("prevAtLocation")}
+                    />
+                    <LocationNavLink
+                      direction="next"
+                      targetId={find.rankAtLocation.nextId}
+                      label={t("nextAtLocation")}
+                    />
+                  </div>
+                )}
+                {/* Map deep-link mirrors the row-level icon in
+                    /sbirka: `?find=N` highlights the specific
+                    find on the canvas (single marker + auto-fit).
+                    Only public finds with GPS qualify — the
+                    anonymized branch above never reaches here. */}
+                {find.coordinates && (
+                  <div className="pt-1">
+                    <Link
+                      href={`/mapa?find=${find.id}`}
+                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+                    >
+                      <MapPin className="h-3.5 w-3.5" aria-hidden />
+                      <span>{t("showOnMap")}</span>
+                    </Link>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-600">{t("noLocation")}</p>
             )}
           </>
-        ) : (
-          <p className="text-sm text-gray-600">{t("noLocation")}</p>
         )}
         {find.locationMaps.length > 0 && (
           <LocationMapsGallery
@@ -772,5 +804,46 @@ function KeyValue({ label, value }: { label: string; value: string }) {
       <dt className="text-xs font-medium text-gray-500">{label}</dt>
       <dd className="text-sm text-gray-800">{value}</dd>
     </div>
+  );
+}
+
+/** Prev / next chip rendered under the rank line in the Lokalita
+ *  panel. When `targetId` is null the chip stays in place but
+ *  renders as a faded, non-interactive span — keeping both slots
+ *  visible at the chain edges so the next/prev pair doesn't shift
+ *  around between finds. */
+function LocationNavLink({
+  direction,
+  targetId,
+  label,
+}: {
+  direction: "prev" | "next";
+  targetId: number | null;
+  label: string;
+}) {
+  const Icon = direction === "prev" ? ChevronLeft : ChevronRight;
+  const baseCls =
+    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium transition";
+  if (targetId === null) {
+    return (
+      <span
+        aria-disabled
+        className={`${baseCls} cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400`}
+      >
+        {direction === "prev" && <Icon className="h-3.5 w-3.5" aria-hidden />}
+        {label}
+        {direction === "next" && <Icon className="h-3.5 w-3.5" aria-hidden />}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={`/sbirka/${targetId}`}
+      className={`${baseCls} border-gray-200 bg-white text-brand-700 hover:border-brand-200 hover:shadow-sm`}
+    >
+      {direction === "prev" && <Icon className="h-3.5 w-3.5" aria-hidden />}
+      {label}
+      {direction === "next" && <Icon className="h-3.5 w-3.5" aria-hidden />}
+    </Link>
   );
 }
