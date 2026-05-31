@@ -135,13 +135,7 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
     const propSlots = [...existing].map((p) => p.slot).sort().join(",");
     const stateSlots = [...photos].map((p) => p.slot).sort().join(",");
     if (propSlots !== stateSlots) {
-      console.log("[free-photos-move] prop slot set changed, syncing", {
-        propSlots,
-        stateSlots,
-      });
       setPhotos(existing);
-    } else {
-      console.log("[free-photos-move] prop changed but slot set identical — keeping local order");
     }
     // photos intentionally omitted from deps — we only react to the
     // prop, not our own setPhotos calls.
@@ -154,26 +148,10 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
   const [movingKey, setMovingKey] = useState<string | null>(null);
 
   const handleMove = (slot: string, direction: "up" | "down") => {
-    console.log("[free-photos-move] click", {
-      slot,
-      direction,
-      photosLen: photos.length,
-      currentSlots: photos.map((p) => p.slot),
-    });
     const idx = photos.findIndex((p) => p.slot === slot);
-    if (idx === -1) {
-      console.warn("[free-photos-move] slot not found in state", { slot });
-      return;
-    }
+    if (idx === -1) return;
     const targetIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (targetIdx < 0 || targetIdx >= photos.length) {
-      console.warn("[free-photos-move] targetIdx out of range", {
-        idx,
-        targetIdx,
-        photosLen: photos.length,
-      });
-      return;
-    }
+    if (targetIdx < 0 || targetIdx >= photos.length) return;
     const key = `${slot}:${direction}`;
     setMovingKey(key);
 
@@ -182,15 +160,12 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
     // is preserved); the URL + filename pair swap between the two
     // positions. Filenames get rebuilt because they embed the slot
     // letter and the extension of the source file moves with the
-    // content. Cache-bust token forces <img> to refetch even when
-    // filenames don't change (same-extension case).
+    // content. The cacheBust token forces <img> to refetch even
+    // when filenames don't change (same-extension case — see
+    // swapAtPositions for the gory details).
     const before = photos;
     const cacheBust = Date.now();
     const after = swapAtPositions(photos, idx, targetIdx, findId, cacheBust);
-    console.log("[free-photos-move] optimistic swap", {
-      before: before.map((p) => ({ slot: p.slot, url: p.url })),
-      after: after.map((p) => ({ slot: p.slot, url: p.url })),
-    });
     setPhotos(after);
 
     const fd = new FormData();
@@ -200,9 +175,7 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
     fd.append("currentPath", pathname);
     startTransition(async () => {
       try {
-        console.log("[free-photos-move] awaiting server action");
         await moveFreePhoto(fd);
-        console.log("[free-photos-move] action resolved, calling router.refresh()");
         // Best-effort sync for the rest of the page tree — even
         // though the gallery is now driven by local state, other
         // chunks of the detail page (sibling cards, breadcrumbs,
@@ -212,7 +185,7 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
         // Action threw — revert the optimistic swap. Real failures
         // are rare here (auth gate, missing file race) but worth
         // not lying to the operator about.
-        console.error("[free-photos-move] action threw, reverting", err);
+        console.error("[free-photos-move] action failed", err);
         setPhotos(before);
       } finally {
         setMovingKey(null);
