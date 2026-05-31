@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
+  BarChart3,
   Camera,
   CheckCircle2,
   Clock,
@@ -277,6 +278,16 @@ export default async function AdminHomePage() {
                   "Klikni pro detail a opravu",
                 ]
           }
+        />
+        <FeatureCard
+          icon={BarChart3}
+          title="Návštěvnost"
+          status="ok"
+          href="/admin/visitors"
+          lines={[
+            "GoatCounter — denní graf + top stránky",
+            "7d / 30d / 365d / vše + země a prohlížeče",
+          ]}
         />
         <FeatureCard
           icon={ShieldCheck}
