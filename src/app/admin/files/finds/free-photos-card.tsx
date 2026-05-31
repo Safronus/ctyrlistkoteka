@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
@@ -61,15 +61,43 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
-  // The host page lives under a dynamic route segment
-  // (/admin/files/[scope]/[name]). revalidatePath inside the move
-  // action needs the resolved URL to invalidate THIS specific page —
-  // pure literal paths don't propagate through the dynamic segments
-  // even with "layout" mode. usePathname gives us the URL the user is
-  // actually looking at, the action validates it server-side and
-  // revalidates it directly so the re-rendered RSC payload comes
-  // back with the action response.
   const pathname = usePathname();
+  // Empirically the server-action's revalidatePath() on this
+  // dynamic route (/admin/files/[scope]/[name]) did NOT trigger the
+  // client router to refetch the segment — the gallery only reflected
+  // the swap after a manual F5. Likely the page is force-dynamic and
+  // sits outside the Full Route Cache, so revalidatePath has nothing
+  // to flag and the action response carries no fresh RSC payload.
+  // router.refresh() bypasses that whole song and dance: it tells
+  // the client router to re-render the current route from a fresh
+  // RSC fetch, which always works regardless of caching mode.
+  const router = useRouter();
+  /** Which (slot, direction) pair is currently in flight. Lets every
+   *  button on the row disable itself the moment one of them is
+   *  clicked — prevents the operator from queueing two moves and
+   *  ending up at an unintended position. */
+  const [movingKey, setMovingKey] = useState<string | null>(null);
+
+  const handleMove = (slot: string, direction: "up" | "down") => {
+    const key = `${slot}:${direction}`;
+    setMovingKey(key);
+    const fd = new FormData();
+    fd.append("findId", String(findId));
+    fd.append("slot", slot);
+    fd.append("direction", direction);
+    fd.append("currentPath", pathname);
+    startTransition(async () => {
+      try {
+        await moveFreePhoto(fd);
+        // Force a fresh RSC fetch of the current route so the
+        // re-sorted gallery re-renders. router.refresh is the only
+        // reliable trigger here — see the comment above.
+        router.refresh();
+      } finally {
+        setMovingKey(null);
+      }
+    });
+  };
 
   const addFiles = useCallback((incoming: FileList | File[]) => {
     setBannerError(null);
@@ -224,52 +252,49 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
                 <div className="flex shrink-0 items-center gap-1">
                   {canReorder && (
                     <>
-                      {/* Up/Down forms post moveFreePhoto with
-                          findId/slot/direction. The action swaps slot
-                          letters via three-step rename and revalidates
-                          this page — the new order shows on the
-                          re-render without client state. Buttons stay
-                          rendered (not hidden) on the edges and just
-                          disable to keep the row layout stable when
-                          the gallery has only 2 items. */}
-                      <form action={moveFreePhoto}>
-                        <input type="hidden" name="findId" value={findId} />
-                        <input type="hidden" name="slot" value={p.slot} />
-                        <input type="hidden" name="direction" value="up" />
-                        <input
-                          type="hidden"
-                          name="currentPath"
-                          value={pathname}
-                        />
-                        <button
-                          type="submit"
-                          disabled={isFirst}
-                          title="Posunout výš"
-                          aria-label={`Posunout fotku ${p.slot} výš`}
-                          className="rounded border border-gray-300 bg-white p-1 text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
-                        >
+                      {/* Up/Down buttons drive moveFreePhoto via a
+                          controlled handler (not <form action={...}>)
+                          so we can call router.refresh() after the
+                          action returns — the server-side
+                          revalidatePath doesn't reliably reach this
+                          dynamic route's client router. movingKey
+                          disables every button on the row the moment
+                          one is clicked, so a double-click can't queue
+                          two moves and end up at a wrong slot. */}
+                      <button
+                        type="button"
+                        onClick={() => handleMove(p.slot, "up")}
+                        disabled={isFirst || movingKey !== null}
+                        title="Posunout výš"
+                        aria-label={`Posunout fotku ${p.slot} výš`}
+                        className="rounded border border-gray-300 bg-white p-1 text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+                      >
+                        {movingKey === `${p.slot}:up` ? (
+                          <Loader2
+                            className="h-3 w-3 animate-spin"
+                            aria-hidden
+                          />
+                        ) : (
                           <ArrowUp className="h-3 w-3" aria-hidden />
-                        </button>
-                      </form>
-                      <form action={moveFreePhoto}>
-                        <input type="hidden" name="findId" value={findId} />
-                        <input type="hidden" name="slot" value={p.slot} />
-                        <input type="hidden" name="direction" value="down" />
-                        <input
-                          type="hidden"
-                          name="currentPath"
-                          value={pathname}
-                        />
-                        <button
-                          type="submit"
-                          disabled={isLast}
-                          title="Posunout níž"
-                          aria-label={`Posunout fotku ${p.slot} níž`}
-                          className="rounded border border-gray-300 bg-white p-1 text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
-                        >
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMove(p.slot, "down")}
+                        disabled={isLast || movingKey !== null}
+                        title="Posunout níž"
+                        aria-label={`Posunout fotku ${p.slot} níž`}
+                        className="rounded border border-gray-300 bg-white p-1 text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+                      >
+                        {movingKey === `${p.slot}:down` ? (
+                          <Loader2
+                            className="h-3 w-3 animate-spin"
+                            aria-hidden
+                          />
+                        ) : (
                           <ArrowDown className="h-3 w-3" aria-hidden />
-                        </button>
-                      </form>
+                        )}
+                      </button>
                     </>
                   )}
                   {/* Inline delete — `window.confirm` is enough friction
