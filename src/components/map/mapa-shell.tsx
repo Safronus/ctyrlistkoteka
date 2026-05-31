@@ -40,12 +40,21 @@ export function MapaShell({
   mapData,
   sidebarLocations,
   urlFocusId,
+  urlShowFinds,
   highlightFind,
   highlightFindIds,
 }: {
   mapData: MapData;
   sidebarLocations: readonly LocationListItem[];
   urlFocusId: number | null;
+  /** `true` when the page received `?showFinds=1` — forces the Nálezy
+   *  layer ON regardless of what the visitor's last session toggled
+   *  (overrides both the highlight-defaults-off rule and the
+   *  localStorage rehydration). Used by /sbirka's "Zobrazit na mapě"
+   *  chip so the filter dim/bright cues are actually visible on
+   *  arrival. `null` when the param isn't present — the existing
+   *  defaults apply. */
+  urlShowFinds: boolean | null;
   /** Set when the page received `?find=N` and the find resolved to public
    *  GPS — the map then renders a single highlighted marker, auto-zooms
    *  to it, and starts with the bulk Nálezy layer hidden so the focus
@@ -126,7 +135,15 @@ export function MapaShell({
   // came from a single-find link, the other 17k dots would just drown
   // the marker they were sent to. They can flip the layer back on in
   // the sidebar if they want full context; the highlight stays.
-  const [showFinds, setShowFinds] = useState(highlightFind === null);
+  //
+  // `urlShowFinds === true` (from /sbirka's "Zobrazit na mapě" chip)
+  // explicitly overrides that highlight-defaults-off rule — the
+  // chip's whole point is to make the filtered subset visible, and
+  // the filter cues (dim/bright on dots, focus zoom) are useless if
+  // the layer is hidden.
+  const [showFinds, setShowFinds] = useState(
+    urlShowFinds === true ? true : highlightFind === null,
+  );
   // Once the visitor explicitly picks a different location (sidebar or
   // polygon), the URL-driven highlight is no longer the primary subject
   // and must step aside — otherwise MapView's bounds memo keeps the
@@ -290,11 +307,15 @@ export function MapaShell({
   // still flip it on by hand, and we save that choice so a manual
   // override survives across reloads.
   const hasHighlight = highlightFind !== null;
+  // `?showFinds=1` also wins against the saved localStorage preference
+  // — if the visitor previously turned the layer off and we let that
+  // value win here, we'd promptly undo what the URL just forced on.
+  const urlForcesFindsOn = urlShowFinds === true;
   useEffect(() => {
     try {
       const sl = window.localStorage.getItem(LS_KEY_LOCATIONS);
       if (sl === "false") setShowLocations(false);
-      if (!hasHighlight) {
+      if (!hasHighlight && !urlForcesFindsOn) {
         const sf = window.localStorage.getItem(LS_KEY_FINDS);
         if (sf === "false") setShowFinds(false);
       }
@@ -306,7 +327,7 @@ export function MapaShell({
     } catch {
       /* localStorage unavailable — keep defaults */
     }
-  }, [hasHighlight]);
+  }, [hasHighlight, urlForcesFindsOn]);
 
   useEffect(() => {
     try {

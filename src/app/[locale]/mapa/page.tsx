@@ -62,6 +62,14 @@ export default async function MapaPage({ searchParams }: PageProps) {
     focusRaw && /^\d+$/.test(focusRaw) ? Number(focusRaw) : null;
   const findRaw = pickString(sp.find);
   const findId = findRaw && /^\d+$/.test(findRaw) ? Number(findRaw) : null;
+  // `?showFinds=1` from /sbirka's "Zobrazit na mapě" chip forces the
+  // Nálezy layer on regardless of what the visitor's last session had
+  // toggled — the dim/bright highlight + zoom-to-marker cues are
+  // invisible if the finds layer is hidden. null when the param isn't
+  // present, so MapaShell falls back to its existing default + the
+  // localStorage rehydration.
+  const showFindsRaw = pickString(sp.showFinds);
+  const urlShowFinds = showFindsRaw === "1" ? true : null;
 
   // /sbirka filter pass-through. When any of these params is present the
   // page resolves the matching find ID set server-side and dims everything
@@ -115,6 +123,7 @@ export default async function MapaPage({ searchParams }: PageProps) {
           mapData={data}
           sidebarLocations={sidebarLocations}
           urlFocusId={urlFocusId}
+          urlShowFinds={urlShowFinds}
           highlightFind={highlightFind}
           highlightFindIds={highlightFindIds}
         />

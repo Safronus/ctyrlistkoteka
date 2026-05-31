@@ -218,12 +218,11 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   // Result-aware /mapa deep-link for the "Zobrazit na mapě" toolbar
   // chip. /mapa accepts the same filter param shape (q, loc, city,
   // country, state, year, from, to) and dims everything outside the
-  // resolved find-id set — but plain filter pass-through doesn't
-  // trigger any *zoom*, so a user filtered to a handful of finds in a
-  // single town landed on the world-view map with no visible cue that
-  // anything had been narrowed. They reported the button as broken.
+  // resolved find-id set, but only two narrow filter shapes translate
+  // to a meaningful map experience — see `mapLinkApplies` below for
+  // the gate. The other combos hide the chip entirely.
   //
-  // Two enhancements:
+  // Two supported shapes:
   //
   //   1. `result.total === 1` → use /mapa?find=<id>. Same URL the
   //      per-row MapPin chip emits → /mapa highlights + zooms-to-find
@@ -239,16 +238,17 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   //      the matching subset stays distinguishable from the rest of
   //      that location's finds.
   //
-  // Other filter combos (q without single hit, city, country, state-
-  // only, etc.) stay pass-through — multi-region results can't usefully
-  // auto-zoom, and the dimming will at least colour-code the matches
-  // once the user pans/zooms manually.
+  // Both shapes also append `showFinds=1` to force the "Nálezy" layer
+  // on regardless of what the visitor's last /mapa session set — the
+  // dim/bright + zoom-to-marker cues are invisible if the dots layer
+  // is hidden, and arriving from this chip with no dots was the
+  // single biggest reason users called the chip broken.
+  const singleFindId =
+    result.total === 1 ? (result.items[0]?.id ?? null) : null;
+  const mapLinkApplies = singleFindId !== null || !!filters.locationId;
   const buildMapHref = (f: typeof filters) => {
-    if (result.total === 1) {
-      const singleFindId = result.items[0]?.id;
-      if (singleFindId !== undefined) {
-        return `/mapa?find=${singleFindId}`;
-      }
+    if (singleFindId !== null) {
+      return `/mapa?find=${singleFindId}&showFinds=1`;
     }
     const params = new URLSearchParams();
     if (f.q) params.set("q", f.q);
@@ -265,8 +265,8 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     // map already accepts `focus` from /lokality deep-links so we can
     // piggy-back on that path here.
     if (f.locationId) params.set("focus", String(f.locationId));
-    const qs = params.toString();
-    return qs ? `/mapa?${qs}` : "/mapa";
+    params.set("showFinds", "1");
+    return `/mapa?${params.toString()}`;
   };
 
   const composeHref = (p: number, s: number) => {
@@ -344,13 +344,21 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
               {t("filterMatches", { count: result.total })}
             </strong>
           </span>
-          <Link
-            href={buildMapHref(filters)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-sm font-medium text-brand-800 shadow-sm transition hover:border-brand-500 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-          >
-            <MapIcon className="h-4 w-4" aria-hidden />
-            <span>{t("showOnMap")}</span>
-          </Link>
+          {/* Map link only renders for the two filter shapes that
+              translate to a meaningful map view — see mapLinkApplies
+              above. City / country / state-only / etc. multi-region
+              filters hide the chip; for them /mapa would just show
+              the world with diffuse highlight dim, which the user
+              flagged as worse than no chip at all. */}
+          {mapLinkApplies && (
+            <Link
+              href={buildMapHref(filters)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-sm font-medium text-brand-800 shadow-sm transition hover:border-brand-500 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            >
+              <MapIcon className="h-4 w-4" aria-hidden />
+              <span>{t("showOnMap")}</span>
+            </Link>
+          )}
         </div>
       )}
 
