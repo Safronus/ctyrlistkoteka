@@ -743,7 +743,7 @@
     "sectionNavigation1": "Zoom: mouse wheel or pinch on touchpad / mobile. Pan: mouse drag or finger drag.",
     "sectionNavigation2": "At higher zoom each location's detailed PNG overlay appears in the background (OpenStreetMap tiles + AOI).",
     "sectionSidebarTitle": "Locations sidebar",
-    "sectionSidebar1": "The sidebar on the left (a bottom sheet on mobile) lets you search by id, code or name. Clicking a row zooms to that location.",
+    "sectionSidebar1": "The sidebar on the right (a bottom sheet on mobile) lets you search by id, code or name. Clicking a row zooms to that location.",
     "sectionDeepLinksTitle": "Arriving from other pages",
     "sectionDeepLinks1": "When you reach the map from a find detail or from the \"Show on map\" button in the Collection, the map auto-zooms to that find or location and highlights the matching dots.",
     "sectionDeepLinks2": "When the Collection filter is something other than location (a state, a year, a country, etc.), the button is deliberately missing — the results would be scattered across the world and the map wouldn't be useful."

@@ -121,6 +121,23 @@
   --color-rose-200: oklch(0.34 0.10 12);
   --color-rose-800: oklch(0.86 0.10 12);
 
+  /* Warnings — amber. Mirrors the purple/rose recipe so the
+     `bg-amber-50 / text-amber-900` notice cards (CollectionProgress
+     banner on /sbirka, admin sync EXIF warning, several
+     /admin/checks rows) read as dark amber-tinted surfaces with
+     light text instead of bright cream islands on near-black page
+     bg. Hue 80° matches Tailwind's amber family. */
+  --color-amber-50: oklch(0.22 0.06 80);
+  --color-amber-100: oklch(0.27 0.08 80);
+  --color-amber-200: oklch(0.34 0.10 80);
+  --color-amber-300: oklch(0.42 0.12 80);
+  --color-amber-400: oklch(0.58 0.16 80);
+  --color-amber-500: oklch(0.66 0.18 80);
+  --color-amber-600: oklch(0.72 0.17 80);
+  --color-amber-700: oklch(0.80 0.14 80);
+  --color-amber-800: oklch(0.86 0.10 80);
+  --color-amber-900: oklch(0.92 0.06 80);
+
   /* Black-line logo / watermark needs to flip to white silhouette on
      near-black surfaces, otherwise it disappears. The image file itself
      is black-on-transparent, so a simple invert is enough — opt-in via

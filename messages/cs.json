@@ -734,7 +734,7 @@
     "modalTitle": "Mapa — nápověda",
     "intro": "Mapa zobrazuje všechny lokality (jako polygony) a všechny nálezy s GPS (jako body). Anonymizované lokality nejsou na mapě vidět.",
     "sectionLayersTitle": "Vrstvy",
-    "sectionLayers1": "„Lokality“ jsou zelené polygony lokačních map. Klik na polygon nebo na řádek v seznamu vlevo vás přiblíží na lokalitu.",
+    "sectionLayers1": "„Lokality“ jsou zelené polygony lokačních map. Klik na polygon nebo na řádek v seznamu vpravo vás přiblíží na lokalitu.",
     "sectionLayers2": "„Nálezy“ jsou ~17 tisíc malých bodů (každý jeden nález s GPS). Klik na bod otevře popup s číslem, miniaturou a odkazem na detail.",
     "sectionLayers3": "„Zaniklé“ (opt-in) zobrazí lokality s prefixem NEEXISTUJE- — červené pruhované polygony.",
     "sectionLayers4": "Stav přepínačů se ukládá v prohlížeči, takže příští návštěva začne tam, kde jste skončili.",
@@ -742,7 +742,7 @@
     "sectionNavigation1": "Zoom: kolečko myši nebo pinch na touchpadu / mobilu. Posun: tah myší nebo prstem.",
     "sectionNavigation2": "Na vyšším zoomu se na pozadí každé lokační mapy objeví detailní PNG překryv (OpenStreetMap dlaždice + AOI).",
     "sectionSidebarTitle": "Sidebar lokalit",
-    "sectionSidebar1": "Seznam vlevo (na mobilu se otevírá zezdola) má vyhledávání podle ID, kódu nebo názvu. Klik na řádek vás přiblíží na příslušnou lokalitu.",
+    "sectionSidebar1": "Seznam vpravo (na mobilu se otevírá zezdola) má vyhledávání podle ID, kódu nebo názvu. Klik na řádek vás přiblíží na příslušnou lokalitu.",
     "sectionDeepLinksTitle": "Příchod z jiných stránek",
     "sectionDeepLinks1": "Pokud na mapu přijdete z detailu nálezu nebo z tlačítka „Zobrazit na mapě“ na stránce Sbírka, mapa se automaticky přiblíží na ten nález nebo na vybranou lokalitu a zvýrazní odpovídající body.",
     "sectionDeepLinks2": "Při příchodu z filtru jiné než lokační (samostatný stav, datum atd.) tlačítko v Sbírce schválně chybí — výsledky by pak byly rozeseté po světě a mapa by nedávala smysl."
