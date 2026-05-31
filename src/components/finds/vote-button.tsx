@@ -30,9 +30,11 @@ export function VoteButton({
    *  appears next to it). Used on grid cards + list-row overlays
    *  where the surrounding chrome is already tight. */
   compact = false,
-  /** Visual size — `lg` doubles the icon for use on the find detail
-   *  header so the affordance reads as a real call-to-action, not a
-   *  metadata chip. Default `md` is what /sbirka rows use. */
+  /** Visual size — `lg` doubles the icon for use as a real
+   *  call-to-action: the find detail header AND the /sbirka list-row
+   *  bottom strip both prefer it for the bigger tap target. `md` is
+   *  reserved for tight surfaces (grid-card overlays, leaderboard
+   *  rows). */
   size = "md",
   /** When true, the button asks GET /api/finds/:id/vote on mount and
    *  reconciles its local state with what the server reports for
@@ -133,12 +135,20 @@ export function VoteButton({
   const label = voted ? t("buttonVoted") : t("buttonVote");
 
   // Size-table — controls padding, icon size, count font.
-  // `lg` is the prominent detail-page CTA; `md` is the inline chip on
-  // /sbirka list rows + grid overlays.
+  // `lg` is the prominent detail-page CTA + the /sbirka list-row
+  // strip; `md` is the inline chip on grid overlays + leaderboard.
+  //
+  // py-1.5 (not py-2) on lg: the /sbirka list rows put this button at
+  // the bottom of the content column next to a 112 px photo
+  // thumbnail. With the default py-2 padding the total button height
+  // pushed the column past 112 px and the button's bottom edge sat
+  // visibly below the photo's bottom edge. py-1.5 brings the button
+  // back into alignment without dropping the icon size, so the CTA
+  // character is preserved on the detail-page header too.
   const sizes =
     size === "lg"
       ? {
-          button: "px-3 py-2 text-base gap-1.5",
+          button: "px-3 py-1.5 text-base gap-1.5",
           icon: "h-6 w-6",
           count: "text-sm",
         }
