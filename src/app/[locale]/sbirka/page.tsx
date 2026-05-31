@@ -215,10 +215,41 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     filters.excludeLocationId
   );
 
-  // /mapa accepts the same filter param shape (q, loc, city, country,
-  // state, year, from, to) — copy the active filters across so the map
-  // page can resolve the same find ID set and dim everything outside it.
+  // Result-aware /mapa deep-link for the "Zobrazit na mapě" toolbar
+  // chip. /mapa accepts the same filter param shape (q, loc, city,
+  // country, state, year, from, to) and dims everything outside the
+  // resolved find-id set — but plain filter pass-through doesn't
+  // trigger any *zoom*, so a user filtered to a handful of finds in a
+  // single town landed on the world-view map with no visible cue that
+  // anything had been narrowed. They reported the button as broken.
+  //
+  // Two enhancements:
+  //
+  //   1. `result.total === 1` → use /mapa?find=<id>. Same URL the
+  //      per-row MapPin chip emits → /mapa highlights + zooms-to-find
+  //      via its existing `findId` deep-link path. Cleanest match for
+  //      "I filtered by exact ID and want THAT one on the map."
+  //
+  //   2. `filters.locationId` set (with or without additional filters
+  //      narrowing the set further) → append ?focus=<id>. The map
+  //      treats focus like the deep-link from /lokality and fitBounds
+  //      to that location's polygon, so the visitor lands on a useful
+  //      zoom level instead of the world view. Highlight dimming
+  //      still kicks in for any extra filters (state, year, ...) so
+  //      the matching subset stays distinguishable from the rest of
+  //      that location's finds.
+  //
+  // Other filter combos (q without single hit, city, country, state-
+  // only, etc.) stay pass-through — multi-region results can't usefully
+  // auto-zoom, and the dimming will at least colour-code the matches
+  // once the user pans/zooms manually.
   const buildMapHref = (f: typeof filters) => {
+    if (result.total === 1) {
+      const singleFindId = result.items[0]?.id;
+      if (singleFindId !== undefined) {
+        return `/mapa?find=${singleFindId}`;
+      }
+    }
     const params = new URLSearchParams();
     if (f.q) params.set("q", f.q);
     if (f.locationId) params.set("loc", String(f.locationId));
@@ -230,6 +261,10 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     if (f.dateTo) params.set("to", dateToString(f.dateTo));
     if (f.hasRealPhoto) params.set("hasPhoto", "1");
     if (f.excludeLocationId) params.set("hideTop", "1");
+    // Auto-zoom to the location whenever it's part of the filter. The
+    // map already accepts `focus` from /lokality deep-links so we can
+    // piggy-back on that path here.
+    if (f.locationId) params.set("focus", String(f.locationId));
     const qs = params.toString();
     return qs ? `/mapa?${qs}` : "/mapa";
   };
