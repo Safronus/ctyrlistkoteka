@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
@@ -60,6 +61,15 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  // The host page lives under a dynamic route segment
+  // (/admin/files/[scope]/[name]). revalidatePath inside the move
+  // action needs the resolved URL to invalidate THIS specific page —
+  // pure literal paths don't propagate through the dynamic segments
+  // even with "layout" mode. usePathname gives us the URL the user is
+  // actually looking at, the action validates it server-side and
+  // revalidates it directly so the re-rendered RSC payload comes
+  // back with the action response.
+  const pathname = usePathname();
 
   const addFiles = useCallback((incoming: FileList | File[]) => {
     setBannerError(null);
@@ -226,6 +236,11 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
                         <input type="hidden" name="findId" value={findId} />
                         <input type="hidden" name="slot" value={p.slot} />
                         <input type="hidden" name="direction" value="up" />
+                        <input
+                          type="hidden"
+                          name="currentPath"
+                          value={pathname}
+                        />
                         <button
                           type="submit"
                           disabled={isFirst}
@@ -240,6 +255,11 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
                         <input type="hidden" name="findId" value={findId} />
                         <input type="hidden" name="slot" value={p.slot} />
                         <input type="hidden" name="direction" value="down" />
+                        <input
+                          type="hidden"
+                          name="currentPath"
+                          value={pathname}
+                        />
                         <button
                           type="submit"
                           disabled={isLast}

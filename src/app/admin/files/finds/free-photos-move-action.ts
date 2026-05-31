@@ -50,6 +50,7 @@ export async function moveFreePhoto(formData: FormData): Promise<void> {
   const findIdRaw = formData.get("findId");
   const slotRaw = formData.get("slot");
   const directionRaw = formData.get("direction");
+  const currentPathRaw = formData.get("currentPath");
 
   if (typeof findIdRaw !== "string" || !/^\d+$/.test(findIdRaw)) return;
   if (typeof slotRaw !== "string" || !/^[a-z]$/.test(slotRaw)) return;
@@ -62,6 +63,17 @@ export async function moveFreePhoto(formData: FormData): Promise<void> {
   const findId = Number(findIdRaw);
   const slot = slotRaw;
   const direction = directionRaw as "up" | "down";
+  // Optional — the card sends it via usePathname so the action can
+  // revalidate the exact dynamic-segment URL the user is looking at.
+  // Validated as an admin route below; missing/bogus values fall back
+  // to the broader layout-mode revalidation (still works on listings,
+  // just not the specific detail page).
+  const currentPath =
+    typeof currentPathRaw === "string" &&
+    currentPathRaw.startsWith("/admin/") &&
+    !currentPathRaw.includes("\n")
+      ? currentPathRaw
+      : null;
 
   const entries = await getFindFreePhotos(findId);
   const idx = entries.findIndex((e) => e.slot === slot);
@@ -195,6 +207,17 @@ export async function moveFreePhoto(formData: FormData): Promise<void> {
 
   revalidatePath("/admin/files/free-photos");
   revalidatePath("/admin/files/finds", "layout");
+  // The card lives on /admin/files/[scope]/[name] — a dynamic
+  // route. revalidatePath with the literal parent (above) doesn't
+  // propagate through dynamic segments, so the detail page the user
+  // is looking at would stay cached and the gallery wouldn't reflect
+  // the swap until a manual reload. Pull the actual URL from the
+  // form (set client-side via usePathname) and revalidate it
+  // directly so the action response carries a fresh RSC payload for
+  // this exact page.
+  if (currentPath) {
+    revalidatePath(currentPath, "page");
+  }
   // Public-facing pages — the /sbirka detail's gallery + the listing
   // badge order both flip. layout mode covers locale prefixes.
   revalidatePath("/sbirka", "layout");
