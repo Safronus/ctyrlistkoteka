@@ -6,11 +6,14 @@ import { ensureAdminAuth } from "@/lib/admin/guard";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
 import {
   LOKACE_STAVY_POZNAMKY_FILENAME,
+  lokaceStavyPoznamkySchema,
   SECTION_KEYS,
   type SectionKey,
 } from "@/lib/admin/jsonSchema";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
 import { LokaceStavyPoznamkyEditor } from "./editor";
+import { findInconsistencies, type JsonInconsistencies } from "./inconsistencies";
+import { InconsistenciesPanel } from "./inconsistencies-panel";
 import { MergeSectionForm } from "./merge-form";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +51,10 @@ async function loadSections(): Promise<{
   sections: Record<SectionKey, string>;
   mtimeIso: string | null;
   loadError: string | null;
+  /** Inconsistency checks across the file — multi-location finds +
+   *  duplicate poznamky keys. Null when the file is missing/broken
+   *  enough that the checks can't run (panel hides in that case). */
+  inconsistencies: JsonInconsistencies | null;
 }> {
   let raw: string;
   let mtimeIso: string | null;
@@ -63,7 +70,12 @@ async function loadSections(): Promise<{
         poznamky: pretty(EMPTY_SECTIONS.poznamky),
         anonymizace: pretty(EMPTY_SECTIONS.anonymizace),
       };
-      return { sections: empty, mtimeIso: null, loadError: null };
+      return {
+        sections: empty,
+        mtimeIso: null,
+        loadError: null,
+        inconsistencies: null,
+      };
     }
     throw err;
   }
@@ -88,6 +100,7 @@ async function loadSections(): Promise<{
         err instanceof Error
           ? `Soubor neparsuje jako JSON: ${err.message}. Editor startuje s prázdnými sekcemi — zkontroluj/uprav, pak ulož.`
           : "Soubor neparsuje jako JSON",
+      inconsistencies: null,
     };
   }
 
@@ -108,7 +121,19 @@ async function loadSections(): Promise<{
       ? `Pozor: ze souboru se nepřevedly tyto klíče (editor je ignoruje): ${unknownKeys.join(", ")}`
       : null;
 
-  return { sections, mtimeIso, loadError };
+  // Inconsistency checks. Only run when the parsed JSON satisfies the
+  // full schema — otherwise the helpers would have to defensively
+  // crawl unknown shapes, and any inconsistencies they'd report would
+  // be drowned out by the structural errors the editor already
+  // surfaces section by section. The raw text is passed so the
+  // duplicate-poznamky check can catch keys JSON.parse would have
+  // silently collapsed.
+  const validated = lokaceStavyPoznamkySchema.safeParse(parsed);
+  const inconsistencies: JsonInconsistencies | null = validated.success
+    ? findInconsistencies(validated.data, raw)
+    : null;
+
+  return { sections, mtimeIso, loadError, inconsistencies };
 }
 
 interface PageProps {
@@ -136,7 +161,8 @@ export default async function LokaceStavyPoznamkyPage({
   const sp = await searchParams;
   const rawTab = Array.isArray(sp.tab) ? sp.tab[0] : sp.tab;
   const initialTab = parseInitialTab(rawTab);
-  const { sections, mtimeIso, loadError } = await loadSections();
+  const { sections, mtimeIso, loadError, inconsistencies } =
+    await loadSections();
 
   return (
     <div className="space-y-4">
@@ -186,6 +212,10 @@ export default async function LokaceStavyPoznamkyPage({
         fileMtime={mtimeIso}
         initialTab={initialTab}
       />
+
+      {inconsistencies && (
+        <InconsistenciesPanel inconsistencies={inconsistencies} />
+      )}
 
       <MergeSectionForm />
     </div>

@@ -385,7 +385,7 @@ export async function mergeSectionInto(
   };
 }
 
-interface RangeMergeResult {
+export interface RangeMergeResult {
   /** Compacted, sorted, range-merged result. */
   merged: string[];
   /** IDs newly added (not in existing). */
@@ -395,7 +395,11 @@ interface RangeMergeResult {
   alreadyPresent: number[];
 }
 
-function mergeRanges(
+/** Range-array union with diff tracking. Shared between the per-
+ *  section merge action and the whole-file merge — same compaction
+ *  rules + the "added vs alreadyPresent" split that drives the result
+ *  panel. Exposed module-wide. */
+export function mergeRanges(
   existing: readonly string[],
   incoming: readonly string[],
 ): RangeMergeResult {
