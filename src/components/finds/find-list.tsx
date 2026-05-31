@@ -116,13 +116,16 @@ function FindListRow({
         <FindThumbnail
           image={find.primaryImage}
           alt={altText}
-          // `self-center` keeps the thumbnail vertically centered when
-          // the content column grows past 112 px (long location title +
-          // a multi-line note). Without it the thumb stays anchored to
-          // the top of the row and the bottom half reads as broken
-          // empty space — matches the centered MapPin column on the
-          // far right.
-          className="h-24 w-24 shrink-0 self-center rounded-md sm:h-28 sm:w-28"
+          // `self-end` pins the thumbnail's bottom edge to the row
+          // bottom — same level as the vote button and the right-side
+          // state badges (which sit at column bottom via `mt-auto` +
+          // `items-end`). When the content column grows past 112 px
+          // (long location title + a multi-line note) the empty
+          // space appears ABOVE the thumb instead of straddling top
+          // and bottom; everything in the row reads off a single
+          // bottom baseline. Mirrored on the location-map thumbnail
+          // on the far right.
+          className="h-24 w-24 shrink-0 self-end rounded-md sm:h-28 sm:w-28"
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -289,13 +292,16 @@ function FindListRow({
           )}
         </div>
 
-        {/* Location map thumbnail — kept off small screens to preserve room
-         *  for the title text. Hidden entirely for anonymized finds.
-         *  `self-center` mirrors the find thumbnail above so both
-         *  images stay balanced when the content column grows beyond
-         *  112 px (long location description + a multi-line note). */}
+        {/* Location map thumbnail — kept off small screens to preserve
+         *  room for the title text. Hidden entirely for anonymized
+         *  finds. `self-end` mirrors the find thumbnail on the left,
+         *  pinning the map's bottom edge to the row bottom so it
+         *  lines up with the state-badge / photo-icon cluster
+         *  (which sits at column bottom via `mt-auto` + `items-end`).
+         *  Together the two thumbs + the bottom-row chips read off
+         *  one shared bottom baseline. */}
         {find.locationThumbUrl && (
-          <div className="hidden shrink-0 self-center sm:block">
+          <div className="hidden shrink-0 self-end sm:block">
             {/* Served by Nginx; Next Image optimizer not needed. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
