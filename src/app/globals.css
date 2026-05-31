@@ -286,10 +286,21 @@
   display: none !important;
 }
 
-html,
-body {
+html {
   height: 100%;
 }
+
+/* NOTE: body intentionally does NOT have `height: 100%`. Body uses
+ * `flex min-h-screen flex-col` (set in RootLayout) — a flex column
+ * with min-height: 100vh. Adding a fixed `height: 100%` on top would
+ * cap body at exactly 100vh and trigger flex-shrink on the only child
+ * (admin layout's `<div className="min-h-screen bg-gray-50">`),
+ * collapsing it back to 100vh too. The content inside still overflows
+ * (it's taller than viewport), but the admin div's `bg-gray-50` only
+ * covers its own 100vh box — body's `bg-white` ends up visible behind
+ * the overflowing cards. With body auto-height + min-h-screen, body
+ * grows with content, admin div grows with it, the dark mint bg
+ * covers everything. */
 
 body {
   /* `bg-white` follows the theme: pure white in light, faint-green in
