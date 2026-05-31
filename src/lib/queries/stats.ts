@@ -21,6 +21,7 @@ import { prisma } from "@/lib/db";
 import { DEFAULT_LOCATION_ID } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import { cityFromCadastralArea } from "@/lib/locationCode";
+import { listCadastralAreas } from "@/lib/queries/locations";
 
 /** Hard ceiling for jubilee ID generation. The collection currently sits
  *  near 17 000; one million covers ~30 years of growth at 30 k/year and
@@ -253,8 +254,11 @@ export interface StatsTotalsResult {
    *  with GPS (regardless of finds). Sourced from the same geo rows
    *  as `byCountry`, so both fetchers share the cached query. */
   countryCount: number;
-  /** Total distinct cities that host any non-anonymized, non-former
-   *  location (regardless of finds). */
+  /** Total distinct cities across ALL locations (incl. anonymized
+   *  ones and former `NEEXISTUJE-` rows, which collapse onto the
+   *  canonical city bucket). Matches the count of options the
+   *  operator sees in the "Město" dropdown on /sbirka and /lokality —
+   *  that's the same source. */
   cityCount: number;
 }
 
@@ -497,9 +501,17 @@ const fetchGeoLocRows = cache(async (): Promise<GeoLocRow[]> => {
 // separate `<Suspense>` boundaries to stream sections as they finish.
 
 export async function getStatsTotals(): Promise<StatsTotalsResult> {
-  const [totalsRow, geoRows] = await Promise.all([
+  const [totalsRow, geoRows, cityList] = await Promise.all([
     fetchTotalsRow(),
     fetchGeoLocRows(),
+    // Same source the /sbirka and /lokality city dropdown reads —
+    // distinct cadastralAreas across ALL locations (incl. anonymized
+    // ones), normalized via cityFromCadastralArea. The stats card
+    // count must match what the operator sees in the filter UI;
+    // buildGeoBreakdowns' city accumulator is GPS-joined and skips
+    // locations whose maps are anonymized, which silently shaves
+    // cities off the headline tally even though they're real.
+    listCadastralAreas(),
   ]);
   const t = totalsRow;
   const totals: StatsTotals = {
@@ -517,8 +529,12 @@ export async function getStatsTotals(): Promise<StatsTotalsResult> {
     firstYear: t?.first_year ?? null,
     lastYear: t?.last_year ?? null,
   };
-  const { countryCount, cityCount } = buildGeoBreakdowns(geoRows);
-  return { totals, countryCount, cityCount };
+  // Discard buildGeoBreakdowns' cityCount in favor of cityList.length
+  // (see comment above). countryCount stays GPS-derived — country is
+  // public-facing aggregate territory info, and anonymized locations
+  // legitimately don't contribute to it.
+  const { countryCount } = buildGeoBreakdowns(geoRows);
+  return { totals, countryCount, cityCount: cityList.length };
 }
 
 /** New session opens whenever two consecutive finds inside one

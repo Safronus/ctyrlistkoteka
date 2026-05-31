@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, Crop, Image as ImageIcon } from "lucide-react
 import { runChecksSummary } from "@/lib/admin/checks";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { getStatus } from "@/lib/admin/syncRunner";
+import { Pm2RestartButton } from "./pm2-restart-button";
 import { SyncPanel } from "./sync-panel";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,8 @@ export default async function AdminSyncPage({ searchParams }: PageProps) {
       )}
 
       <SyncPanel initialStatus={status} initialPreset={preset} />
+
+      <Pm2RestartButton />
     </div>
   );
 }

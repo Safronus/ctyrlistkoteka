@@ -20,6 +20,7 @@ export type AuditAction =
   | "sync.start"
   | "sync.finish"
   | "sync.fail"
+  | "pm2.restart"
   | "vote.delete"
   | "vote.reset_all";
 

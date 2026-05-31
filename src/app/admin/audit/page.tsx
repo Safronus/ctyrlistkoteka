@@ -19,6 +19,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   "sync.start": "Sync — start",
   "sync.finish": "Sync — konec",
   "sync.fail": "Sync — chyba",
+  "pm2.restart": "PM2 restart",
   "vote.delete": "Smazání hlasu",
   "vote.reset_all": "Reset všech hlasů",
 };
@@ -38,6 +39,7 @@ const ACTION_TONE: Record<AuditAction, string> = {
   "sync.start": "bg-cyan-100 text-cyan-800",
   "sync.finish": "bg-emerald-100 text-emerald-800",
   "sync.fail": "bg-rose-100 text-rose-800",
+  "pm2.restart": "bg-amber-100 text-amber-800",
   "vote.delete": "bg-amber-100 text-amber-800",
   "vote.reset_all": "bg-rose-100 text-rose-800",
 };
