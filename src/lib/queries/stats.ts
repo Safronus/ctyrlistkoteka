@@ -46,6 +46,12 @@ const JUBILEE_CANDIDATE_IDS: ReadonlyArray<number> = (() => {
 
 export interface StatsTotals {
   finds: number;
+  /** Highest find ID currently in the table. Mirrors the home tile's
+   *  `maxFindId` — the canonical "size of the numbered series" figure
+   *  the operator sorts by. Differs from `finds` only when there's a
+   *  backfill gap (a few late uploads still pending), in which case
+   *  the UI surfaces both numbers side-by-side. */
+  maxFindId: number | null;
   locations: number;
   photographed: number;
   anonymized: number;
@@ -57,6 +63,11 @@ export interface StatsTotals {
   lostFinds: number;
   /** Distinct finds tagged with the NO_PHOTO state. */
   noPhotoFinds: number;
+  /** Distinct finds tagged with the GIGANT state — abnormally large
+   *  clovers (kosmetický cosmetic state, see schema.prisma:29). The
+   *  first totals tile surfaces this as a small badge so the operator
+   *  has a single glance count of "specials". */
+  gigantFinds: number;
   /** Locations where at least one location_map is flagged anonymized.
    *  Mirrors the same "any anonymized map → whole location is private"
    *  rule used in `listLocations`, so the number on /statistiky lines
@@ -398,12 +409,14 @@ type FarthestRow = HighlightRow & { dist_m: number | null };
 
 type TotalsRow = {
   finds: bigint;
+  max_find_id: number | null;
   locations: bigint;
   photographed: bigint;
   anonymized: bigint;
   donated_finds: bigint;
   lost_finds: bigint;
   no_photo_finds: bigint;
+  gigant_finds: bigint;
   anonymized_locations: bigint;
   gone_locations: bigint;
   first_year: number | null;
@@ -430,6 +443,7 @@ const fetchTotalsRow = cache(async (): Promise<TotalsRow | undefined> => {
   const rows = await prisma.$queryRaw<TotalsRow[]>`
     SELECT
       (SELECT COUNT(*) FROM finds) AS finds,
+      (SELECT MAX(id) FROM finds)::int AS max_find_id,
       (SELECT COUNT(*) FROM locations) AS locations,
       (SELECT COUNT(DISTINCT find_id) FROM find_images) AS photographed,
       (SELECT COUNT(*) FROM finds WHERE is_anonymized = true) AS anonymized,
@@ -439,6 +453,8 @@ const fetchTotalsRow = cache(async (): Promise<TotalsRow | undefined> => {
          WHERE state = 'LOST') AS lost_finds,
       (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
          WHERE state = 'NO_PHOTO') AS no_photo_finds,
+      (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
+         WHERE state = 'GIGANT') AS gigant_finds,
       (SELECT COUNT(DISTINCT location_id) FROM location_maps
          WHERE is_anonymized = true) AS anonymized_locations,
       (SELECT COUNT(*) FROM locations
@@ -488,12 +504,14 @@ export async function getStatsTotals(): Promise<StatsTotalsResult> {
   const t = totalsRow;
   const totals: StatsTotals = {
     finds: t ? Number(t.finds) : 0,
+    maxFindId: t?.max_find_id ?? null,
     locations: t ? Number(t.locations) : 0,
     photographed: t ? Number(t.photographed) : 0,
     anonymized: t ? Number(t.anonymized) : 0,
     donatedFinds: t ? Number(t.donated_finds) : 0,
     lostFinds: t ? Number(t.lost_finds) : 0,
     noPhotoFinds: t ? Number(t.no_photo_finds) : 0,
+    gigantFinds: t ? Number(t.gigant_finds) : 0,
     anonymizedLocations: t ? Number(t.anonymized_locations) : 0,
     goneLocations: t ? Number(t.gone_locations) : 0,
     firstYear: t?.first_year ?? null,

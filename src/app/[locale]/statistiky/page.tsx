@@ -8,6 +8,7 @@ import {
   Camera,
   Clock,
   Compass,
+  Crown,
   EyeOff,
   Gift,
   Globe2,
@@ -209,12 +210,32 @@ async function TotalsSection() {
       <TotalCard
         tone="brand"
         label={t("labelTotalFinds")}
-        value={fmt.format(totals.finds)}
+        value={
+          totals.maxFindId !== null
+            ? fmt.format(totals.maxFindId)
+            : fmt.format(totals.finds)
+        }
+        // Mirror the home page's finds tile: big number is the max
+        // find ID (the "size of the numbered series"), and the
+        // uploaded count appears as a small hint underneath only when
+        // it differs (backfill gap). When the two match the hint
+        // would just repeat the number and add visual noise.
+        valueHint={
+          totals.maxFindId !== null && totals.maxFindId !== totals.finds
+            ? t("labelUploadedHint", { count: totals.finds })
+            : undefined
+        }
         cornerLeft={{
           icon: Gift,
           label: t("labelDonated"),
           value: fmt.format(totals.donatedFinds),
           href: "/sbirka?state=DONATED",
+        }}
+        cornerRight={{
+          icon: Crown,
+          label: t("labelGiants"),
+          value: fmt.format(totals.gigantFinds),
+          href: "/sbirka?state=GIGANT",
         }}
         subStats={[
           {
@@ -399,6 +420,7 @@ interface SubStat {
 function TotalCard({
   label,
   value,
+  valueHint,
   cornerLeft,
   cornerRight,
   subStats = [],
@@ -406,6 +428,12 @@ function TotalCard({
 }: {
   label: string;
   value: string;
+  /** Optional small line of muted text rendered immediately under the
+   *  main label — mirrors the `hint` prop on the home page's StatCard.
+   *  Used on the finds tile to surface "<count> nahraných" beneath
+   *  the headline max-find-id when the two diverge. Omit for tiles
+   *  that don't need a secondary number. */
+  valueHint?: string;
   cornerLeft?: SubStat;
   cornerRight?: SubStat;
   subStats?: readonly SubStat[];
@@ -426,7 +454,7 @@ function TotalCard({
           ) : (
             <div />
           )}
-          <MainNumber value={value} label={label} />
+          <MainNumber value={value} label={label} hint={valueHint} />
           {cornerRight ? (
             <CornerStat stat={cornerRight} align="right" />
           ) : (
@@ -435,7 +463,7 @@ function TotalCard({
         </div>
       ) : (
         <div className="flex flex-col items-center">
-          <MainNumber value={value} label={label} />
+          <MainNumber value={value} label={label} hint={valueHint} />
         </div>
       )}
       {subStats.length > 0 && (
@@ -594,11 +622,20 @@ function TimeAndPaceSkeleton() {
   );
 }
 
-function MainNumber({ value, label }: { value: string; label: string }) {
+function MainNumber({
+  value,
+  label,
+  hint,
+}: {
+  value: string;
+  label: string;
+  hint?: string;
+}) {
   return (
     <div className="flex flex-col items-center">
       <p className="text-4xl font-bold text-brand-700">{value}</p>
       <p className="mt-1 text-sm text-gray-500">{label}</p>
+      {hint && <p className="mt-0.5 text-[11px] text-gray-500">{hint}</p>}
     </div>
   );
 }
