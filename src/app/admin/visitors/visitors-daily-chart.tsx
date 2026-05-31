@@ -13,9 +13,16 @@ import { BRAND } from "@/components/stats/palette";
 import type { DailyPoint } from "@/lib/queries/visitorStats";
 
 /** Daily-hits bar chart for /admin/visitors. Mirrors the YearlyBarChart
- *  on /statistiky shape so the visual language stays consistent across
- *  the project. Two-series tooltip surfaces total + unique side by side
- *  so the operator can eyeball the bounce-rate proxy at a glance. */
+ *  on /statistiky shape so the visual language stays consistent
+ *  across the project.
+ *
+ *  One `<Bar>` only — when there are two side-by-side series Recharts
+ *  splits each category band between them and the first bar sits in
+ *  the LEFT half of the band, off-centre from the tick label. Since
+ *  total hits and unique visitors aren't additive (a unique visitor
+ *  IS one of the hits — stacking would visually double-count) we
+ *  collapse the visualization to a single bar for total hits and
+ *  surface the unique-visitor count in the tooltip alongside. */
 export function VisitorsDailyChart({
   data,
 }: {
@@ -53,27 +60,46 @@ export function VisitorsDailyChart({
           allowDecimals={false}
         />
         <Tooltip
-          formatter={(v, name) => {
-            if (name === "Návštěvníci") return [v as number, "Návštěvníci"];
-            return [v as number, "Zobrazení"];
+          // Custom content so both `hits` and `hitsUnique` show even
+          // though only one series is rendered as a Bar. Recharts'
+          // default Tooltip pulls only from rendered series; we read
+          // the raw data row off `payload[0].payload` instead.
+          content={({ active, payload, label }) => {
+            if (!active || !payload || payload.length === 0) return null;
+            const row = payload[0]?.payload as DailyPoint | undefined;
+            if (!row) return null;
+            return (
+              <div
+                style={{
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  padding: "6px 10px",
+                  fontSize: 12,
+                  color: "#111827",
+                }}
+              >
+                <div style={{ color: "#6b7280", marginBottom: 2 }}>
+                  {String(label)}
+                </div>
+                <div>
+                  <span style={{ color: BRAND, fontWeight: 600 }}>
+                    {row.hits}
+                  </span>{" "}
+                  zobrazení
+                </div>
+                <div style={{ color: "#6b7280" }}>
+                  {row.hitsUnique} návštěvníků
+                </div>
+              </div>
+            );
           }}
-          contentStyle={{
-            borderRadius: 8,
-            border: "1px solid #e5e7eb",
-            fontSize: 12,
-          }}
+          cursor={{ fill: "rgba(0,0,0,0.04)" }}
         />
         <Bar
           dataKey="hits"
           name="Zobrazení"
           fill={BRAND}
-          radius={[4, 4, 0, 0]}
-          isAnimationActive={false}
-        />
-        <Bar
-          dataKey="hitsUnique"
-          name="Návštěvníci"
-          fill="#10b981"
           radius={[4, 4, 0, 0]}
           isAnimationActive={false}
         />

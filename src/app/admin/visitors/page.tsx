@@ -142,8 +142,9 @@ export default async function AdminVisitorsPage({ searchParams }: PageProps) {
               <VisitorsDailyChart data={daily} />
             </div>
             <p className="mt-2 text-[11px] text-gray-500">
-              Zelené sloupce = unikátní návštěvníci (jeden návštěvník může
-              mít víc zobrazení).
+              Sloupec = počet zobrazení daný den. Najetím myší zobrazíš i
+              počet unikátních návštěvníků (jeden návštěvník může mít víc
+              zobrazení).
             </p>
           </section>
 
