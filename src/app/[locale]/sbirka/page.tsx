@@ -6,6 +6,7 @@ import { localizedCountryName } from "@/lib/world-countries";
 import { Link } from "@/i18n/navigation";
 import { CollectionProgressBanner } from "@/components/finds/collection-progress-banner";
 import { FilterBar } from "@/components/finds/filter-bar";
+import { HelpDialog } from "@/components/help/help-dialog";
 import { RememberSbirkaSearch } from "@/components/finds/sbirka-back-link";
 import { FindGrid } from "@/components/finds/find-grid";
 import { FindList } from "@/components/finds/find-list";
@@ -116,6 +117,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   // requires the prop to be awaited if we declare it on PageProps.
   await params;
   const t = await getTranslations("Sbirka");
+  const tHelp = await getTranslations("SbirkaHelp");
 
   // The "Skrýt největší lokalitu" toggle posts `?hideTop=1` rather
   // than `?exLoc=<id>` so the user-visible URL stays stable across
@@ -306,7 +308,51 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <RememberSbirkaSearch />
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
+          {/* Help dialog button. MAINTENANCE: when you change the
+              filters, sort options, layers, or any other public-page
+              feature listed in the dialog, update the matching
+              SbirkaHelp.* keys in cs.json / en.json. The help text
+              is part of the page's UX contract. */}
+          <HelpDialog
+            title={tHelp("modalTitle")}
+            buttonTitle={tHelp("buttonTitle")}
+            buttonAriaLabel={tHelp("buttonAria")}
+            intro={tHelp("intro")}
+            sections={[
+              {
+                heading: tHelp("sectionFiltersTitle"),
+                items: [
+                  tHelp("sectionFilters1"),
+                  tHelp("sectionFilters2"),
+                  tHelp("sectionFilters3"),
+                  tHelp("sectionFilters4"),
+                ],
+              },
+              {
+                heading: tHelp("sectionViewsTitle"),
+                items: [
+                  tHelp("sectionViews1"),
+                  tHelp("sectionViews2"),
+                  tHelp("sectionViews3"),
+                ],
+              },
+              {
+                heading: tHelp("sectionMapTitle"),
+                items: [tHelp("sectionMap1"), tHelp("sectionMap2")],
+              },
+              {
+                heading: tHelp("sectionVoteTitle"),
+                items: [tHelp("sectionVote1"), tHelp("sectionVote2")],
+              },
+              {
+                heading: tHelp("sectionDetailTitle"),
+                items: [tHelp("sectionDetail1")],
+              },
+            ]}
+          />
+        </div>
         <p className="text-gray-600">
           {t("totalSummary", {
             count: result.total,

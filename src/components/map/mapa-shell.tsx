@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { MapLoader } from "./map-loader";
 import { MapSidebar } from "./map-sidebar";
 import { LocationTopSheet } from "./location-top-sheet";
+import { HelpDialog } from "@/components/help/help-dialog";
 import type { MapData } from "@/lib/queries/map";
 import type { LocationListItem } from "@/lib/queries/locations";
 import type { HighlightFind } from "@/lib/queries/finds";
@@ -600,6 +601,7 @@ function LayerToggleCard({
   onToggleExpanded: () => void;
 }) {
   const t = useTranslations("Mapa");
+  const tHelp = useTranslations("MapaHelp");
   const locale = useLocale();
   const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
   // Visitors comparing the home page (e.g. "1 735 nálezů") with this
@@ -608,23 +610,68 @@ function LayerToggleCard({
   const hiddenFinds = Math.max(0, findCountTotal - findCount);
   return (
     <div className="rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm shadow-md">
-      <button
-        type="button"
-        onClick={onToggleExpanded}
-        className="flex w-full items-center justify-between gap-2 rounded text-left"
-        aria-expanded={expanded}
-        aria-label={expanded ? t("layersCollapse") : t("layersExpand")}
-      >
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-          {t("layersHeading")}
-        </h3>
-        <ChevronDown
-          className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
-            expanded ? "" : "-rotate-90"
-          }`}
-          aria-hidden
+      {/* The toggle button and the help button sit side-by-side; the
+          help button is OUTSIDE the toggle so clicking it doesn't also
+          collapse the Vrstvy panel. */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          className="flex flex-1 items-center justify-between gap-2 rounded text-left"
+          aria-expanded={expanded}
+          aria-label={expanded ? t("layersCollapse") : t("layersExpand")}
+        >
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            {t("layersHeading")}
+          </h3>
+          <ChevronDown
+            className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
+              expanded ? "" : "-rotate-90"
+            }`}
+            aria-hidden
+          />
+        </button>
+        {/* Help dialog. MAINTENANCE: any change to layer behavior,
+            deep-link params, zoom controls etc. needs the matching
+            MapaHelp.* keys updated in cs.json / en.json so visible
+            help doesn't drift from actual UI. */}
+        <HelpDialog
+          title={tHelp("modalTitle")}
+          buttonTitle={tHelp("buttonTitle")}
+          buttonAriaLabel={tHelp("buttonAria")}
+          intro={tHelp("intro")}
+          buttonClassName="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+          sections={[
+            {
+              heading: tHelp("sectionLayersTitle"),
+              items: [
+                tHelp("sectionLayers1"),
+                tHelp("sectionLayers2"),
+                tHelp("sectionLayers3"),
+                tHelp("sectionLayers4"),
+              ],
+            },
+            {
+              heading: tHelp("sectionNavigationTitle"),
+              items: [
+                tHelp("sectionNavigation1"),
+                tHelp("sectionNavigation2"),
+              ],
+            },
+            {
+              heading: tHelp("sectionSidebarTitle"),
+              items: [tHelp("sectionSidebar1")],
+            },
+            {
+              heading: tHelp("sectionDeepLinksTitle"),
+              items: [
+                tHelp("sectionDeepLinks1"),
+                tHelp("sectionDeepLinks2"),
+              ],
+            },
+          ]}
         />
-      </button>
+      </div>
       {expanded && (
         <div className="mt-1 space-y-0.5">
           <ToggleRow

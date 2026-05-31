@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Archive, X } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { HelpDialog } from "@/components/help/help-dialog";
 import { LocationsFilterBar } from "@/components/locations/locations-filter-bar";
 import { LocationsToolbar } from "@/components/locations/locations-toolbar";
 import { LocationListRow } from "@/components/locations/location-list-row";
@@ -51,6 +52,7 @@ function parseSort(v: string | undefined): LocationSort {
 export default async function LokalityPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const t = await getTranslations("Lokality");
+  const tHelp = await getTranslations("LokalityHelp");
   const q = pickString(sp.q) ?? "";
   // Normalize via cityFromCadastralArea so a stale URL with
   // `?city=NEEXISTUJE-ZLÍN` is treated as `?city=ZLÍN` — both the
@@ -100,7 +102,48 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
+          {/* Help dialog button. MAINTENANCE: when you change the
+              filters, sort options or anything else listed in the
+              dialog, update the matching LokalityHelp.* keys in
+              cs.json / en.json. */}
+          <HelpDialog
+            title={tHelp("modalTitle")}
+            buttonTitle={tHelp("buttonTitle")}
+            buttonAriaLabel={tHelp("buttonAria")}
+            intro={tHelp("intro")}
+            sections={[
+              {
+                heading: tHelp("sectionFiltersTitle"),
+                items: [
+                  tHelp("sectionFilters1"),
+                  tHelp("sectionFilters2"),
+                  tHelp("sectionFilters3"),
+                ],
+              },
+              {
+                heading: tHelp("sectionSortTitle"),
+                items: [tHelp("sectionSort1")],
+              },
+              {
+                heading: tHelp("sectionAnonGoneTitle"),
+                items: [
+                  tHelp("sectionAnonGone1"),
+                  tHelp("sectionAnonGone2"),
+                ],
+              },
+              {
+                heading: tHelp("sectionExpandTitle"),
+                items: [tHelp("sectionExpand1")],
+              },
+              {
+                heading: tHelp("sectionDetailTitle"),
+                items: [tHelp("sectionDetail1")],
+              },
+            ]}
+          />
+        </div>
         <p className="text-gray-600">
           {t("summary", {
             count: locations.length,
