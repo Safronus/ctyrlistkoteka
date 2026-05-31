@@ -90,21 +90,38 @@ function FindListRow({
   // — pinning them precisely on the map would defeat anonymization.
   const showMapLink = !find.isAnonymized && find.coordinates !== null;
 
+  // Red-zone finds (outside every location-map bbox) win over the
+  // polygon/centre labels — what matters most is "this find sits
+  // outside the location's mapped area", with the distance to the
+  // nearest map edge as the actionable number. Yellow + green keep
+  // the existing AOI / centre framing.
+  const offsetOutsideMap =
+    find.locationOffset &&
+    !find.locationOffset.withinMap &&
+    find.locationOffset.metersOutsideMap !== null
+      ? find.locationOffset.metersOutsideMap
+      : null;
   const offsetLabel = find.locationOffset
-    ? find.locationOffset.mode === "polygon"
-      ? find.locationOffset.inside
-        ? tOffset("inside")
-        : tOffset("polygonEdge", {
+    ? offsetOutsideMap !== null
+      ? tOffset("outsideMap", {
+          distance: formatDistance(offsetOutsideMap, locale),
+        })
+      : find.locationOffset.mode === "polygon"
+        ? find.locationOffset.inside
+          ? tOffset("inside")
+          : tOffset("polygonEdge", {
+              distance: formatDistance(find.locationOffset.meters, locale),
+            })
+        : tOffset("mapCenter", {
             distance: formatDistance(find.locationOffset.meters, locale),
           })
-      : tOffset("mapCenter", {
-          distance: formatDistance(find.locationOffset.meters, locale),
-        })
     : null;
   const offsetTitle = find.locationOffset
-    ? find.locationOffset.mode === "polygon"
-      ? tOffset("polygonTitle")
-      : tOffset("centerTitle")
+    ? offsetOutsideMap !== null
+      ? tOffset("outsideMapTitle")
+      : find.locationOffset.mode === "polygon"
+        ? tOffset("polygonTitle")
+        : tOffset("centerTitle")
     : "";
 
   return (

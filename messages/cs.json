@@ -127,6 +127,8 @@
     "inside": "uvnitř AOI",
     "polygonEdge": "{distance} od hrany AOI",
     "mapCenter": "{distance} od středu mapy",
+    "outsideMap": "{distance} od hrany lokační mapy",
+    "outsideMapTitle": "Vzdušná vzdálenost k nejbližšímu okraji bbox některé z lokačních map dané lokality",
     "polygonTitle": "Vzdušná vzdálenost od hrany polygonu lokace (0 = uvnitř AOI)",
     "centerTitle": "Vzdušná vzdálenost od GPS středu lokační mapy",
     "fromDefaultMap": "{distance} od mapy #00001",

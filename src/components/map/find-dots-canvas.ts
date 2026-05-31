@@ -205,11 +205,25 @@ const FindDotsLayer = L.Layer.extend({
         : focusLocs !== null
           ? (c) => focusLocs.has(c[2])
           : null;
+    // `Skrýt odchýlené` semantic:
+    //   - No focus active → hide deviated finds across the whole
+    //     catalog (the visitor wants a globally cleaner canvas).
+    //   - Focus active (sidebar location picked, deep-link arrival)
+    //     → only hide deviated AT the focused location's subtree;
+    //     other locations' deviated stay visible (dimmed by the
+    //     focus pass). Without this restriction the toggle was
+    //     hiding finds outside the focus the visitor never asked
+    //     to filter.
+    const shouldHide = (c: FindCoord): boolean => {
+      if (!hideDeviated || c[4] !== 1) return false;
+      if (focusLocs === null) return true;
+      return focusLocs.has(c[2]);
+    };
     // Two-pass paint when a dim filter is active: dim ones first so the
     // bright dots end up on top. Single pass otherwise. This keeps
     // overlapping markers in dense clusters readable instead of a
     // bright dot disappearing under a later-iterated dim neighbour.
-    // The `hideDeviated` guard is checked FIRST in both branches —
+    // The `shouldHide` guard is checked FIRST in both branches —
     // hiding wins over both dim/bright passes since the goal is "don't
     // render at all".
     if (isBright !== null) {
@@ -217,7 +231,7 @@ const FindDotsLayer = L.Layer.extend({
       for (let i = 0; i < coords.length; i++) {
         const c = coords[i];
         if (!c) continue;
-        if (hideDeviated && c[4] === 1) continue;
+        if (shouldHide(c)) continue;
         if (isBright(c)) continue;
         const lat = c[0];
         const lng = c[1];
@@ -233,7 +247,7 @@ const FindDotsLayer = L.Layer.extend({
       for (let i = 0; i < coords.length; i++) {
         const c = coords[i];
         if (!c) continue;
-        if (hideDeviated && c[4] === 1) continue;
+        if (shouldHide(c)) continue;
         if (!isBright(c)) continue;
         const lat = c[0];
         const lng = c[1];
@@ -251,7 +265,7 @@ const FindDotsLayer = L.Layer.extend({
     for (let i = 0; i < coords.length; i++) {
       const c = coords[i];
       if (!c) continue;
-      if (hideDeviated && c[4] === 1) continue;
+      if (shouldHide(c)) continue;
       const lat = c[0];
       const lng = c[1];
       if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) {

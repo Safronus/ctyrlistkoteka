@@ -110,6 +110,14 @@ export interface PublicFind {
      *  not-green + outside-all-maps = red. Always false when the
      *  location has no usable map bbox. */
     withinMap: boolean;
+    /** Distance (in metres) to the nearest location-map image bbox
+     *  edge — 0 when the find is inside any map bbox (i.e. when
+     *  `withinMap` is true), positive when it isn't. Surfaces in the
+     *  /sbirka row + find-detail Lokalita section as "X od hrany
+     *  mapy" so the visitor can tell HOW far off the linked location
+     *  the find sits. `null` when the location has no map with a
+     *  recorded bbox. */
+    metersOutsideMap: number | null;
   } | null;
 }
 
@@ -391,6 +399,7 @@ async function hydrate(
       loc_offset_mode: "polygon" | "center" | null;
       loc_offset_inside: boolean | null;
       loc_offset_within_map: boolean | null;
+      loc_offset_map_edge_m: number | null;
     }>
   >`
     WITH ref AS (
@@ -440,7 +449,30 @@ async function hydrate(
                       BETWEEN (lm.image_bounds->0->>1)::float8
                           AND (lm.image_bounds->1->>1)::float8
                 )
-           END AS loc_offset_within_map
+           END AS loc_offset_within_map,
+           -- Distance to nearest location-map bbox edge in metres.
+           -- 0 when the find is inside any bbox (within_map = true),
+           -- positive otherwise. Geography cast keeps the result in
+           -- metres and respects WGS84 great-circle distance.
+           CASE WHEN f.is_anonymized = false THEN
+                (
+                  SELECT MIN(
+                    ST_Distance(
+                      f.coordinates::geography,
+                      ST_MakeEnvelope(
+                        (lm.image_bounds->0->>1)::float8,
+                        (lm.image_bounds->0->>0)::float8,
+                        (lm.image_bounds->1->>1)::float8,
+                        (lm.image_bounds->1->>0)::float8,
+                        4326
+                      )::geography
+                    )
+                  )
+                  FROM location_maps lm
+                  WHERE lm.location_id = f.location_id
+                    AND lm.image_bounds IS NOT NULL
+                )
+           END AS loc_offset_map_edge_m
     FROM finds f
     LEFT JOIN locations l ON l.id = f.location_id
     WHERE f.id IN (${Prisma.join(ids)}) AND f.coordinates IS NOT NULL
@@ -454,6 +486,7 @@ async function hydrate(
       mode: "polygon" | "center";
       inside: boolean;
       withinMap: boolean;
+      metersOutsideMap: number | null;
     }
   >();
   for (const c of coordRows) {
@@ -471,6 +504,7 @@ async function hydrate(
         // for center mode so consumers don't have to guard on `mode`.
         inside: c.loc_offset_inside === true,
         withinMap: c.loc_offset_within_map === true,
+        metersOutsideMap: c.loc_offset_map_edge_m,
       });
     }
   }

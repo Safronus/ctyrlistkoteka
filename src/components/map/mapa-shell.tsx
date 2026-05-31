@@ -372,21 +372,60 @@ export function MapaShell({
   }, [hideDeviatedFinds]);
 
   /**
+   * Set of locationIds belonging to the focused location's subtree
+   * (focusId itself + every descendant transitively). Built only on
+   * focusId / locations change. Used for both the Vrstvy count
+   * narrowing AND the canvas-side "Skrýt odchýlené" restriction so
+   * the two stay in lockstep.
+   *
+   * Why descendants matter: finds attach to their LEAF location_id
+   * (the child where the polygon / centre lives). A parent
+   * location's row in mapData has no direct finds — so a naive
+   * `c[2] === focusId` check would return 0 for every parent. Walk
+   * the children-by-parent index once and treat focus as "this
+   * location and everything under it".
+   */
+  const focusedLocationIds = useMemo<ReadonlySet<number> | null>(() => {
+    if (focusId === null) return null;
+    const childrenByParent = new Map<number, number[]>();
+    for (const loc of mapData.locations) {
+      if (loc.parentId !== null) {
+        const arr = childrenByParent.get(loc.parentId) ?? [];
+        arr.push(loc.id);
+        childrenByParent.set(loc.parentId, arr);
+      }
+    }
+    const ids = new Set<number>([focusId]);
+    const stack: number[] = [focusId];
+    while (stack.length > 0) {
+      const cur = stack.pop()!;
+      const kids = childrenByParent.get(cur);
+      if (!kids) continue;
+      for (const k of kids) {
+        if (!ids.has(k)) {
+          ids.add(k);
+          stack.push(k);
+        }
+      }
+    }
+    return ids;
+  }, [focusId, mapData.locations]);
+
+  /**
    * Counts shown next to the Nálezy + Skrýt odchýlené toggles. When
-   * the visitor has selected a location (sidebar click, deep-link),
-   * the counts narrow to just that location's finds so the numbers
-   * match what's actually highlighted on the canvas. Without focus
-   * we fall back to the whole catalog and surface the "+ N hidden"
-   * subtitle (anonymized + GPS-less finds excluded from the map).
+   * a location is focused (sidebar click, deep-link), the counts
+   * narrow to just that subtree's finds so the numbers match what's
+   * actually highlighted on the canvas. Without focus we fall back
+   * to the whole catalog and surface the "+ N hidden" subtitle
+   * (anonymized + GPS-less finds excluded from the map).
    *
    * Performance: single pass over findCoords (~17k tuples) per
-   * focusId change; cheap enough not to need memoisation across
-   * deeper deps.
+   * focusId change; cheap enough not to need deeper memo deps.
    */
   const { visibleFindCount, visibleDeviatedCount, hiddenFindCount } =
     useMemo(() => {
       const all = mapData.findCoords;
-      if (focusId === null) {
+      if (focusedLocationIds === null) {
         let dev = 0;
         for (const c of all) if (c[4] === 1) dev++;
         return {
@@ -398,7 +437,7 @@ export function MapaShell({
       let total = 0;
       let dev = 0;
       for (const c of all) {
-        if (c[2] !== focusId) continue;
+        if (!focusedLocationIds.has(c[2])) continue;
         total++;
         if (c[4] === 1) dev++;
       }
@@ -406,13 +445,12 @@ export function MapaShell({
         visibleFindCount: total,
         visibleDeviatedCount: dev,
         // Focused mode: the "hidden" subtitle would need a per-
-        // location total (incl. anonymized / no-GPS / child
-        // locations) we don't currently push down. Skip the
-        // subtitle in this mode rather than show a misleading
-        // global figure.
+        // subtree total (incl. anonymized / no-GPS) we don't push
+        // down. Skip the subtitle here rather than show a
+        // misleading global figure.
         hiddenFindCount: 0,
       };
-    }, [mapData.findCoords, mapData.findCountTotal, focusId]);
+    }, [mapData.findCoords, mapData.findCountTotal, focusedLocationIds]);
 
   return (
     <div className="relative h-full w-full">

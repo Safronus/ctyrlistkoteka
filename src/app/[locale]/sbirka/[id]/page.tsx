@@ -202,26 +202,40 @@ export default async function FindDetailPage({ params }: PageProps) {
               />
               {find.locationOffset && (() => {
                 const offset = find.locationOffset;
+                // Red-zone: outside every location-map bbox →
+                // surface distance to the nearest map edge instead
+                // of AOI / centre offset. Same logic as /sbirka
+                // list / grid rows.
+                const outsideMap =
+                  !offset.withinMap && offset.metersOutsideMap !== null
+                    ? offset.metersOutsideMap
+                    : null;
                 const label =
-                  offset.mode === "polygon"
-                    ? offset.inside
-                      ? tOffset("inside")
-                      : tOffset("polygonEdge", {
+                  outsideMap !== null
+                    ? tOffset("outsideMap", {
+                        distance: formatDistance(outsideMap, locale),
+                      })
+                    : offset.mode === "polygon"
+                      ? offset.inside
+                        ? tOffset("inside")
+                        : tOffset("polygonEdge", {
+                            distance: formatDistance(offset.meters, locale),
+                          })
+                      : tOffset("mapCenter", {
                           distance: formatDistance(offset.meters, locale),
-                        })
-                    : tOffset("mapCenter", {
-                        distance: formatDistance(offset.meters, locale),
-                      });
+                        });
+                const title =
+                  outsideMap !== null
+                    ? tOffset("outsideMapTitle")
+                    : offset.mode === "polygon"
+                      ? t("offsetTitlePolygon")
+                      : t("offsetTitleCenter");
                 return (
                   <span
                     className={`text-xs ${
                       hellish ? "text-red-300/80" : "text-gray-500"
                     }`}
-                    title={
-                      offset.mode === "polygon"
-                        ? t("offsetTitlePolygon")
-                        : t("offsetTitleCenter")
-                    }
+                    title={title}
                   >
                     <span
                       className={`font-mono tabular-nums ${

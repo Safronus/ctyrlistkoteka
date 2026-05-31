@@ -128,6 +128,8 @@
     "inside": "inside the AOI",
     "polygonEdge": "{distance} from the AOI edge",
     "mapCenter": "{distance} from the map centre",
+    "outsideMap": "{distance} from the location map edge",
+    "outsideMapTitle": "Great-circle distance to the nearest edge of any location-map image bbox at this location",
     "polygonTitle": "Great-circle distance from the location polygon edge (0 = inside the AOI)",
     "centerTitle": "Great-circle distance from the location map's GPS centre",
     "fromDefaultMap": "{distance} from map #00001",

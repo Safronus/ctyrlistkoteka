@@ -124,15 +124,35 @@ export function MapView({
   // Highlight-by-focus: when the visitor picks a sidebar location (or
   // arrives via `?focus=N` from /lokality), build the set of location
   // ids whose finds should stay full-opacity on the canvas — the focus
-  // itself plus any direct children, since /sbirka treats
-  // parent-with-children as one logical group. Everything else fades to
-  // 20 % so the picked spot's clovers pop out of the surrounding density.
+  // itself plus every transitive descendant, since /sbirka treats a
+  // parent with its whole subtree as one logical group and finds
+  // attach to the LEAF location id. Everything else fades to 20 % so
+  // the picked spot's clovers pop out of the surrounding density. The
+  // same subtree set also gates the "Skrýt odchýlené" hide in the
+  // canvas (so toggling it while a parent is focused only hides
+  // deviations under that parent, not at unrelated locations).
   const focusFindIds = useMemo<ReadonlySet<number> | null>(() => {
     if (focusLocationId === null) return null;
-    const set = new Set<number>();
-    set.add(focusLocationId);
+    const childrenByParent = new Map<number, number[]>();
     for (const loc of data.locations) {
-      if (loc.parentId === focusLocationId) set.add(loc.id);
+      if (loc.parentId !== null) {
+        const arr = childrenByParent.get(loc.parentId) ?? [];
+        arr.push(loc.id);
+        childrenByParent.set(loc.parentId, arr);
+      }
+    }
+    const set = new Set<number>([focusLocationId]);
+    const stack: number[] = [focusLocationId];
+    while (stack.length > 0) {
+      const cur = stack.pop()!;
+      const kids = childrenByParent.get(cur);
+      if (!kids) continue;
+      for (const k of kids) {
+        if (!set.has(k)) {
+          set.add(k);
+          stack.push(k);
+        }
+      }
     }
     return set;
   }, [focusLocationId, data.locations]);

@@ -30,21 +30,37 @@ export async function FindCard({
     ? tRow("anonymizedAlt", { id: find.id })
     : tRow("findAlt", { id: find.id });
 
+  // Red-zone finds (outside every location-map bbox) show distance
+  // to the nearest map edge instead of AOI / centre offset — what
+  // matters most is "this find sits outside the location's mapped
+  // area". See find-list.tsx for the parallel logic.
+  const offsetOutsideMap =
+    find.locationOffset &&
+    !find.locationOffset.withinMap &&
+    find.locationOffset.metersOutsideMap !== null
+      ? find.locationOffset.metersOutsideMap
+      : null;
   const offsetLabel = find.locationOffset
-    ? find.locationOffset.mode === "polygon"
-      ? find.locationOffset.inside
-        ? tOffset("inside")
-        : tOffset("polygonEdge", {
+    ? offsetOutsideMap !== null
+      ? tOffset("outsideMap", {
+          distance: formatDistance(offsetOutsideMap, locale),
+        })
+      : find.locationOffset.mode === "polygon"
+        ? find.locationOffset.inside
+          ? tOffset("inside")
+          : tOffset("polygonEdge", {
+              distance: formatDistance(find.locationOffset.meters, locale),
+            })
+        : tOffset("mapCenter", {
             distance: formatDistance(find.locationOffset.meters, locale),
           })
-      : tOffset("mapCenter", {
-          distance: formatDistance(find.locationOffset.meters, locale),
-        })
     : null;
   const offsetTitle = find.locationOffset
-    ? find.locationOffset.mode === "polygon"
-      ? tOffset("polygonTitle")
-      : tOffset("centerTitle")
+    ? offsetOutsideMap !== null
+      ? tOffset("outsideMapTitle")
+      : find.locationOffset.mode === "polygon"
+        ? tOffset("polygonTitle")
+        : tOffset("centerTitle")
     : "";
 
   return (
