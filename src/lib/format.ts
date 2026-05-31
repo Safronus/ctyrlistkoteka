@@ -1,3 +1,5 @@
+import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+
 /**
  * Locale-aware formatting helpers.
  *
@@ -358,30 +360,29 @@ export function formatDistance(meters: number, locale?: string): string {
   }).format(km)} km`;
 }
 
-/** Tailwind color class for a find's offset, signalling at a glance
- *  whether the find is well-placed (green: inside AOI / very close),
- *  in a tolerable range (amber: tens of metres), or far enough that
- *  the visitor probably wants to double-check (rose: well outside).
- *  Polygon and centre modes use different thresholds because "far
- *  from a polygon edge" and "far from a centre point" mean different
- *  things — a polygon AOI already is the location, a centre point
- *  is just the photo's anchor. */
+/** Tailwind color class for a find's offset — binary green / red:
+ *  inside the AOI polygon (or within `FIND_DEVIATION_RADIUS_M` of the
+ *  centre for polygon-less locations) reads as green, anything beyond
+ *  reads as red. Same threshold as the /mapa "Skrýt odchýlené nálezy"
+ *  toggle so the colour and the layer filter agree on what counts as
+ *  a deviation.
+ *
+ *  Imports `FIND_DEVIATION_RADIUS_M` at call time (not as a default
+ *  arg) so future tweaks to the constant ripple through every render
+ *  without having to thread a parameter down. */
 export function locationOffsetToneClass(offset: {
   meters: number;
   mode: "polygon" | "center";
   inside: boolean;
 }): string {
   if (offset.mode === "polygon") {
-    if (offset.inside) return "text-emerald-700 font-medium";
-    if (offset.meters < 10) return "text-emerald-600";
-    if (offset.meters < 50) return "text-amber-600";
-    return "text-rose-600";
+    return offset.inside
+      ? "text-emerald-700 font-medium"
+      : "text-rose-600";
   }
-  // Centre-only locations don't have an AOI to compare against; loosen
-  // the bands so a 60 m offset doesn't read as a problem.
-  if (offset.meters < 50) return "text-emerald-600";
-  if (offset.meters < 200) return "text-amber-600";
-  return "text-rose-600";
+  return offset.meters <= FIND_DEVIATION_RADIUS_M
+    ? "text-emerald-700 font-medium"
+    : "text-rose-600";
 }
 
 export function formatAreaM2(m2: number): string {

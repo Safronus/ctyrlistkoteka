@@ -19,20 +19,30 @@ export function FindDotsLayer({
   coords,
   focusFindIds,
   highlightFindIds,
+  hideDeviated,
 }: {
-  coords: ReadonlyArray<readonly [number, number, number, number]>;
+  coords: ReadonlyArray<readonly [number, number, number, number, number]>;
   focusFindIds: ReadonlySet<number> | null;
   highlightFindIds: ReadonlySet<number> | null;
+  /** Vrstvy → Nálezy → "Skrýt odchýlené nálezy" sub-toggle. When true,
+   *  finds whose `deviated` flag is set (5th slot in the coord tuple)
+   *  are skipped in the canvas hot loop. */
+  hideDeviated: boolean;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    const layer = createFindDotsLayer(coords, focusFindIds, highlightFindIds);
+    const layer = createFindDotsLayer(
+      coords,
+      focusFindIds,
+      highlightFindIds,
+      hideDeviated,
+    );
     layer.addTo(map);
     return () => {
       layer.remove();
     };
-  }, [map, coords, focusFindIds, highlightFindIds]);
+  }, [map, coords, focusFindIds, highlightFindIds, hideDeviated]);
 
   return null;
 }

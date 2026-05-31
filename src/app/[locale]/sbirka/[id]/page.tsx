@@ -19,6 +19,7 @@ import {
   formatLocationId,
   locationOffsetToneClass,
 } from "@/lib/format";
+import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { isFormerLocation } from "@/lib/locationCode";
 import {
   getAdjacentFindIds,
@@ -443,10 +444,14 @@ const MAP_STATUS_STYLES: Record<MapStatus, MapStatusStyle> = {
       "drop-shadow(0 0 8px rgba(16,185,129,0.7)) drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
   },
   outside_polygon: {
-    banner: "bg-amber-50 border-amber-300 text-amber-900",
-    dot: "bg-amber-500",
+    // Same red as `outside_map` — both signal "find isn't where the
+    // location's geometry expects it". /sbirka rows and the offset
+    // tone class also use green/red (no amber middle band) for
+    // consistency across all three surfaces.
+    banner: "bg-rose-50 border-rose-300 text-rose-900",
+    dot: "bg-rose-500",
     pinFilter:
-      "drop-shadow(0 0 8px rgba(245,158,11,0.75)) drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
+      "drop-shadow(0 0 8px rgba(244,63,94,0.75)) drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
   },
   outside_map: {
     banner: "bg-rose-50 border-rose-300 text-rose-900",
@@ -480,8 +485,17 @@ function classifyMapStatus(
 ): MapStatus {
   if (!marker || marker.kind === "no-gps") return "no_gps";
   if (marker.kind === "outside") return "outside_map";
-  if (offset && offset.mode === "polygon" && offset.inside === false) {
-    return "outside_polygon";
+  if (offset) {
+    // Polygon mode: inside flag drives green/red directly.
+    // Centre mode (no polygon): apply the same FIND_DEVIATION_RADIUS_M
+    // threshold the /sbirka tone class and the /mapa "Skrýt
+    // odchýlené" toggle use, so all three surfaces agree.
+    if (offset.mode === "polygon" && offset.inside === false) {
+      return "outside_polygon";
+    }
+    if (offset.mode === "center" && offset.meters > FIND_DEVIATION_RADIUS_M) {
+      return "outside_polygon";
+    }
   }
   return "in_polygon";
 }

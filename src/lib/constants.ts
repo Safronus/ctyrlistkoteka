@@ -12,6 +12,25 @@ export const WEB_QUALITY = 85;
 export const FINDS_PER_PAGE = 48;
 export const MAP_CLUSTER_RADIUS = 80;
 
+/**
+ * Radius (in metres) around a location's centre point that still counts
+ * as "at the location" for finds at locations WITHOUT a polygon AOI.
+ * Beyond this radius the find is treated as a deviation — coloured red
+ * on the /sbirka rows and find-detail Lokalita section, and hidable as
+ * a group via the "Skrýt odchýlené nálezy" toggle on /mapa.
+ *
+ * Locations WITH a polygon use `ST_Covers(polygon, coord)` instead;
+ * the polygon already defines "at the location" without needing a
+ * scalar radius. This constant only kicks in for the polygon-less
+ * fallback.
+ *
+ * 5 m is deliberately strict — the centre point of a polygon-less
+ * location is usually the exact spot the author wanted to anchor the
+ * find to, not a vague neighbourhood, so even a few metres away reads
+ * as a deviation.
+ */
+export const FIND_DEVIATION_RADIUS_M = 5;
+
 // ISR revalidation (seconds)
 export const HOME_REVALIDATE = 60 * 60; // 1 h
 export const FIND_REVALIDATE = 24 * 60 * 60; // 24 h

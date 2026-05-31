@@ -10,6 +10,7 @@
  * locations never make it into the public payload.
  */
 
+import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { prisma } from "@/lib/db";
 import { isFormerLocation } from "@/lib/locationCode";
 
@@ -36,16 +37,31 @@ export interface MapLocation {
 
 export interface MapData {
   locations: MapLocation[];
-  /** Tightly-packed `[lat, lng, locationId, findId]` of every
-   *  non-anonymized find that has GPS recorded. The /mapa page paints
-   *  them as tiny clover dots in a single canvas overlay (interactive
-   *  only as a density visualisation — no popups, no clicks). The
-   *  location id lets the canvas dim finds outside the currently
-   *  focused location; the find id supports the orthogonal /sbirka
-   *  filter dim, where only the IDs that match the user's filter stay
-   *  bright. Finds without a location use 0 in slot 2. Tuples instead
-   *  of objects to keep the payload small. */
-  findCoords: ReadonlyArray<readonly [number, number, number, number]>;
+  /** Tightly-packed `[lat, lng, locationId, findId, deviated]` of
+   *  every non-anonymized find that has GPS recorded. The /mapa page
+   *  paints them as tiny clover dots in a single canvas overlay
+   *  (interactive only as a density visualisation — no popups, no
+   *  clicks).
+   *
+   *  Slot meanings:
+   *   - [0] lat, [1] lng — placement
+   *   - [2] locationId   — dim by focus-location (0 for findings without
+   *                        a location)
+   *   - [3] findId       — dim by /sbirka filter (which IDs match the
+   *                        user's narrowing)
+   *   - [4] deviated     — 1 when the find's GPS falls outside its
+   *                        location's polygon, or beyond
+   *                        FIND_DEVIATION_RADIUS_M of the centre for
+   *                        polygon-less locations. 0 otherwise (or for
+   *                        finds without a location). Drives the
+   *                        "Skrýt odchýlené nálezy" sub-toggle under
+   *                        Nálezy in the Vrstvy panel.
+   *
+   *  Tuples instead of objects keep the payload small (5×17k floats ≈
+   *  680 KB pre-gzip), and the canvas reads them by index. */
+  findCoords: ReadonlyArray<
+    readonly [number, number, number, number, number]
+  >;
   /** Total find count in the DB. Used by the Vrstvy card to surface
    *  the gap between "what /sbirka shows" and "what's on the map" —
    *  anonymized finds and finds without GPS never enter `findCoords`,
@@ -94,20 +110,42 @@ export async function getMapData(): Promise<MapData> {
     `,
     // Per-find coordinates for the canvas density layer. Anonymized
     // finds and finds without GPS are excluded server-side — there's no
-    // client filter that could leak them. Returned as
-    // `{lat, lng, lid, fid}` rows; we tuple-pack just before
-    // serialising. `lid` is 0 for finds without a location so the
-    // canvas can use a single typed-array; `fid` is the find id, used
-    // by the /sbirka-filter dim path.
+    // client filter that could leak them. Returned as `{lat, lng,
+    // lid, fid, deviated}` rows; we tuple-pack just before serialising.
+    //
+    // `deviated` flag: 1 when the find sits OUTSIDE the location's
+    // polygon (ST_Covers false), or further than
+    // FIND_DEVIATION_RADIUS_M metres from the centre for polygon-less
+    // locations. Polygon-bearing locations dominate the dataset, so
+    // the LEFT JOIN + CASE only adds one nested-loop predicate per
+    // find — fast enough not to need denormalisation. Finds with no
+    // location_id (and so no expectation of "at the location") map to
+    // 0.
     prisma.$queryRaw<
-      Array<{ lat: number; lng: number; lid: number | null; fid: number }>
+      Array<{
+        lat: number;
+        lng: number;
+        lid: number | null;
+        fid: number;
+        deviated: boolean;
+      }>
     >`
-      SELECT ST_Y(coordinates)::float8 AS lat,
-             ST_X(coordinates)::float8 AS lng,
-             location_id AS lid,
-             id AS fid
-      FROM finds
-      WHERE is_anonymized = false AND coordinates IS NOT NULL
+      SELECT ST_Y(f.coordinates)::float8 AS lat,
+             ST_X(f.coordinates)::float8 AS lng,
+             f.location_id AS lid,
+             f.id AS fid,
+             CASE
+               WHEN l.polygon IS NOT NULL THEN
+                 NOT ST_Covers(l.polygon::geography, f.coordinates::geography)
+               WHEN l.center_point IS NOT NULL THEN
+                 ST_DistanceSphere(f.coordinates, l.center_point)
+                   > ${FIND_DEVIATION_RADIUS_M}
+               ELSE
+                 false
+             END AS deviated
+      FROM finds f
+      LEFT JOIN locations l ON l.id = f.location_id
+      WHERE f.is_anonymized = false AND f.coordinates IS NOT NULL
     `,
   ]);
 
@@ -155,7 +193,8 @@ export async function getMapData(): Promise<MapData> {
 
   const findCoords = coordRows.map(
     (r) =>
-      [r.lat, r.lng, r.lid ?? 0, r.fid] as readonly [
+      [r.lat, r.lng, r.lid ?? 0, r.fid, r.deviated ? 1 : 0] as readonly [
+        number,
         number,
         number,
         number,

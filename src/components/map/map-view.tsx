@@ -23,6 +23,7 @@ export function MapView({
   showLocations,
   showFinds,
   showGone,
+  hideDeviatedFinds,
   enabledChildPolygonIds,
   highlightFind,
   highlightFindIds,
@@ -40,6 +41,10 @@ export function MapView({
   showLocations: boolean;
   showFinds: boolean;
   showGone: boolean;
+  /** Vrstvy → Nálezy → "Skrýt odchýlené nálezy" sub-toggle. Skips
+   *  finds whose `deviated` server flag is set so the canvas isn't
+   *  cluttered with GPS outliers. */
+  hideDeviatedFinds: boolean;
   enabledChildPolygonIds: ReadonlySet<number>;
   highlightFind: HighlightFind | null;
   /** Find IDs to keep bright on the canvas — typically populated when
@@ -173,6 +178,7 @@ export function MapView({
           coords={data.findCoords}
           focusFindIds={focusFindIds}
           highlightFindIds={highlightFindIds}
+          hideDeviated={hideDeviatedFinds}
         />
       )}
       {highlightFind && (

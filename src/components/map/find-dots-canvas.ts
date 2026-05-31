@@ -14,7 +14,11 @@ import L from "leaflet";
  * never make it into `coords` — the server query already filters them.
  */
 
-type FindCoord = readonly [number, number, number, number];
+/** Coord tuple per find — see MapData.findCoords JSDoc on the server
+ *  for slot semantics. The 5th slot (deviated, 0/1) drives the
+ *  optional "Skrýt odchýlené nálezy" filter under the Vrstvy → Nálezy
+ *  toggle. */
+type FindCoord = readonly [number, number, number, number, number];
 
 // Sprite size in CSS pixels. Small enough to read as a dot at country
 // scale, large enough to recognise the clover shape when zoomed in.
@@ -41,6 +45,12 @@ interface FindDotsLayerOptions extends L.LayerOptions {
   /** Find ids to keep bright. Set when /mapa receives /sbirka filter
    *  params; the resulting set wins over `focusFindIds`. */
   highlightFindIds: ReadonlySet<number> | null;
+  /** When true, finds whose `deviated` flag is set (GPS outside the
+   *  polygon AOI, or beyond FIND_DEVIATION_RADIUS_M of the centre for
+   *  polygon-less locations) are skipped entirely — they don't paint,
+   *  not even dimmed. Used by the Vrstvy → Nálezy → "Skrýt odchýlené"
+   *  sub-toggle to declutter the canvas of GPS outliers. */
+  hideDeviated: boolean;
 }
 
 // We can't extend L.Layer directly here — `_map` is protected on the
@@ -53,6 +63,7 @@ type FindDotsLayerInstance = {
   _coords: ReadonlyArray<FindCoord>;
   _focusFindIds: ReadonlySet<number> | null;
   _highlightFindIds: ReadonlySet<number> | null;
+  _hideDeviated: boolean;
   _dpr: number;
   _reset(): void;
   _redraw(): void;
@@ -65,6 +76,7 @@ const FindDotsLayer = L.Layer.extend({
     this._coords = options.coords;
     this._focusFindIds = options.focusFindIds;
     this._highlightFindIds = options.highlightFindIds;
+    this._hideDeviated = options.hideDeviated;
   },
 
   onAdd(this: FindDotsLayerInstance, map: L.Map) {
@@ -186,6 +198,7 @@ const FindDotsLayer = L.Layer.extend({
     //   neither set → all bright, single pass
     const highlightFinds = this._highlightFindIds;
     const focusLocs = this._focusFindIds;
+    const hideDeviated = this._hideDeviated;
     const isBright: ((c: FindCoord) => boolean) | null =
       highlightFinds !== null
         ? (c) => highlightFinds.has(c[3])
@@ -196,11 +209,15 @@ const FindDotsLayer = L.Layer.extend({
     // bright dots end up on top. Single pass otherwise. This keeps
     // overlapping markers in dense clusters readable instead of a
     // bright dot disappearing under a later-iterated dim neighbour.
+    // The `hideDeviated` guard is checked FIRST in both branches —
+    // hiding wins over both dim/bright passes since the goal is "don't
+    // render at all".
     if (isBright !== null) {
       ctx.globalAlpha = DIM_ALPHA;
       for (let i = 0; i < coords.length; i++) {
         const c = coords[i];
         if (!c) continue;
+        if (hideDeviated && c[4] === 1) continue;
         if (isBright(c)) continue;
         const lat = c[0];
         const lng = c[1];
@@ -216,6 +233,7 @@ const FindDotsLayer = L.Layer.extend({
       for (let i = 0; i < coords.length; i++) {
         const c = coords[i];
         if (!c) continue;
+        if (hideDeviated && c[4] === 1) continue;
         if (!isBright(c)) continue;
         const lat = c[0];
         const lng = c[1];
@@ -233,6 +251,7 @@ const FindDotsLayer = L.Layer.extend({
     for (let i = 0; i < coords.length; i++) {
       const c = coords[i];
       if (!c) continue;
+      if (hideDeviated && c[4] === 1) continue;
       const lat = c[0];
       const lng = c[1];
       if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) {
@@ -250,13 +269,14 @@ export function createFindDotsLayer(
   coords: ReadonlyArray<FindCoord>,
   focusFindIds: ReadonlySet<number> | null,
   highlightFindIds: ReadonlySet<number> | null,
+  hideDeviated: boolean,
 ): L.Layer {
   // L.Layer.extend returns an `any`-typed constructor by design; cast to
   // the typed instance shape we declared above.
   const Ctor = FindDotsLayer as unknown as new (
     options: FindDotsLayerOptions,
   ) => L.Layer;
-  return new Ctor({ coords, focusFindIds, highlightFindIds });
+  return new Ctor({ coords, focusFindIds, highlightFindIds, hideDeviated });
 }
 
 /**

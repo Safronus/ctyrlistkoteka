@@ -36,6 +36,7 @@ const DEFAULT_FOCUS_ID = 1;
 const LS_KEY_LOCATIONS = "mapa.layers.locations";
 const LS_KEY_FINDS = "mapa.layers.finds";
 const LS_KEY_GONE = "mapa.layers.gone";
+const LS_KEY_HIDE_DEVIATED = "mapa.layers.hideDeviated";
 
 export function MapaShell({
   mapData,
@@ -158,6 +159,10 @@ export function MapaShell({
   // visitor wants to browse active places. Toggling them on reveals the
   // red striped polygons + dots; legend swatch matches either way.
   const [showGone, setShowGone] = useState(false);
+  /** "Skrýt odchýlené nálezy" sub-toggle under Nálezy. Default off so
+   *  a new visitor sees the full dataset; persisted to localStorage
+   *  once they flip it on (LS_KEY_HIDE_DEVIATED). */
+  const [hideDeviatedFinds, setHideDeviatedFinds] = useState(false);
 
   // Children of polygon-owning parents are hidden by default — they'd
   // stack on top of the parent's polygon and clutter the view. The
@@ -325,6 +330,10 @@ export function MapaShell({
       // hidden, matching the default.
       const sg = window.localStorage.getItem(LS_KEY_GONE);
       if (sg === "true") setShowGone(true);
+      // hideDeviatedFinds is opt-in for the same reason — default off,
+      // only honour an explicit "true" from a prior session.
+      const sd = window.localStorage.getItem(LS_KEY_HIDE_DEVIATED);
+      if (sd === "true") setHideDeviatedFinds(true);
     } catch {
       /* localStorage unavailable — keep defaults */
     }
@@ -351,6 +360,16 @@ export function MapaShell({
       /* ignore */
     }
   }, [showGone]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        LS_KEY_HIDE_DEVIATED,
+        String(hideDeviatedFinds),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [hideDeviatedFinds]);
 
   return (
     <div className="relative h-full w-full">
@@ -361,6 +380,7 @@ export function MapaShell({
         showLocations={showLocations}
         showFinds={showFinds}
         showGone={showGone}
+        hideDeviatedFinds={hideDeviatedFinds}
         enabledChildPolygonIds={enabledChildPolygonIds}
         highlightFind={effectiveHighlightFind}
         highlightFindIds={highlightFindIds}
@@ -514,10 +534,16 @@ export function MapaShell({
             onToggleFinds={setShowFinds}
             showGone={showGone}
             onToggleGone={setShowGone}
+            hideDeviatedFinds={hideDeviatedFinds}
+            onToggleHideDeviatedFinds={setHideDeviatedFinds}
             locationCount={activeLocationCount}
             goneCount={goneLocationCount}
             findCount={mapData.findCoords.length}
             findCountTotal={mapData.findCountTotal}
+            deviatedFindCount={mapData.findCoords.reduce(
+              (acc, c) => acc + (c[4] === 1 ? 1 : 0),
+              0,
+            )}
             expanded={layersExpanded}
             onToggleExpanded={() => setLayersExpanded((v) => !v)}
           />
@@ -580,10 +606,13 @@ function LayerToggleCard({
   onToggleFinds,
   showGone,
   onToggleGone,
+  hideDeviatedFinds,
+  onToggleHideDeviatedFinds,
   locationCount,
   goneCount,
   findCount,
   findCountTotal,
+  deviatedFindCount,
   expanded,
   onToggleExpanded,
 }: {
@@ -593,10 +622,16 @@ function LayerToggleCard({
   onToggleFinds: (v: boolean) => void;
   showGone: boolean;
   onToggleGone: (v: boolean) => void;
+  hideDeviatedFinds: boolean;
+  onToggleHideDeviatedFinds: (v: boolean) => void;
   locationCount: number;
   goneCount: number;
   findCount: number;
   findCountTotal: number;
+  /** Number of finds the `deviated` server flag is set on — surfaced
+   *  in the sub-toggle count slot so the operator can see at a glance
+   *  what flipping the switch would hide. */
+  deviatedFindCount: number;
   expanded: boolean;
   onToggleExpanded: () => void;
 }) {
@@ -649,6 +684,7 @@ function LayerToggleCard({
                 tHelp("sectionLayers2"),
                 tHelp("sectionLayers3"),
                 tHelp("sectionLayers4"),
+                tHelp("sectionLayers5"),
               ],
             },
             {
@@ -706,6 +742,21 @@ function LayerToggleCard({
                 : undefined
             }
           />
+          {/* "Skrýt odchýlené" as a visual sub-row of Nálezy, same
+           *  ml-2 + left-rule pattern as Zaniklé under Lokality.
+           *  Disabled when the parent Nálezy toggle is off (there's
+           *  nothing to filter when the whole layer is hidden). */}
+          <div className="ml-2 border-l border-gray-200 pl-2">
+            <ToggleRow
+              label={t("layerHideDeviatedFinds")}
+              count={deviatedFindCount}
+              checked={hideDeviatedFinds}
+              onChange={onToggleHideDeviatedFinds}
+              disabled={!showFinds}
+              numFmt={numFmt}
+              subtitle={t("layerHideDeviatedFindsSubtitle")}
+            />
+          </div>
         </div>
       )}
     </div>
