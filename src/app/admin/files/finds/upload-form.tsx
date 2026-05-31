@@ -144,6 +144,15 @@ export function FindsUploadForm() {
    *  intermittently. Null while no error is in scope. */
   const [lastError, setLastError] = useState<UploadErrorContext | null>(null);
   const [reportCopied, setReportCopied] = useState(false);
+  /** Which batch is currently in flight (1-indexed) out of how many
+   *  total. Set inside the upload loop and cleared when the loop
+   *  exits (success, abort, or error). Drives the "Dávka X/Y" pill
+   *  in the status row so the operator sees progress while the
+   *  sequential per-batch await would otherwise look frozen on a
+   *  large queue. */
+  const [batchProgress, setBatchProgress] = useState<
+    { current: number; total: number } | null
+  >(null);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -280,6 +289,10 @@ export function FindsUploadForm() {
         firstBatchIds.has(q.id) ? { ...q, status: "uploading" } : q,
       ),
     );
+    // Seed the batch counter before the transition kicks off so the
+    // "Dávka 1/N" pill shows up the same render that flips the first
+    // batch's rows to "uploading" — no flash of "Ve frontě" only.
+    setBatchProgress({ current: 1, total: batches.length });
 
     startTransition(async () => {
       let aborted = false;
@@ -290,9 +303,11 @@ export function FindsUploadForm() {
       // truncation cap and respects MAX_FILES_PER_REQUEST as a
       // secondary count cap. A transient failure only loses the
       // in-flight batch.
+      try {
       for (let i = 0; i < batches.length; i += 1) {
         if (aborted) break;
         const batch = batches[i]!;
+        setBatchProgress({ current: i + 1, total: batches.length });
 
         const batchIds = new Set(batch.map((q) => q.id));
         setQueue((prev) =>
@@ -406,6 +421,13 @@ export function FindsUploadForm() {
           aborted = true;
         }
       }
+      } finally {
+        // Always clear the batch counter — success, abort, or thrown
+        // error. Otherwise the "Dávka X/Y" pill would stick after the
+        // loop exits and confuse the operator into thinking a batch is
+        // still in flight.
+        setBatchProgress(null);
+      }
 
       // Refresh the surrounding RSC tree so the listing/header counts
       // pick up the new files. Done on the client (instead of via
@@ -419,6 +441,7 @@ export function FindsUploadForm() {
   };
 
   const queuedCount = queue.filter((q) => q.status === "queued").length;
+  const uploadingCount = queue.filter((q) => q.status === "uploading").length;
   const okCount = queue.filter((q) => q.status === "ok").length;
   const rejectedCount = queue.filter((q) => q.status === "rejected").length;
 
@@ -501,6 +524,23 @@ export function FindsUploadForm() {
               <span>
                 Ve frontě: <strong>{queuedCount}</strong>
               </span>
+              {uploadingCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-amber-700">
+                  <Loader2
+                    className="h-3 w-3 animate-spin"
+                    aria-hidden
+                  />
+                  Nahrávám: <strong>{uploadingCount}</strong>
+                </span>
+              )}
+              {batchProgress && (
+                <span className="text-amber-700">
+                  Dávka{" "}
+                  <strong>
+                    {batchProgress.current}/{batchProgress.total}
+                  </strong>
+                </span>
+              )}
               {okCount > 0 && (
                 <span className="text-emerald-700">
                   Hotovo: <strong>{okCount}</strong>
