@@ -20,7 +20,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_LOCATION_ID } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
-import { isFormerLocation } from "@/lib/locationCode";
+import { cityFromCadastralArea } from "@/lib/locationCode";
 
 /** Hard ceiling for jubilee ID generation. The collection currently sits
  *  near 17 000; one million covers ~30 years of growth at 30 k/year and
@@ -1328,9 +1328,13 @@ function buildGeoBreakdowns(
 ): {
   byCountry: CountryPoint[];
   byCity: CategoryPoint[];
-  /** Total number of distinct cities that host at least one real
-   *  (non-anonymized, non-former) location, even if its finds are
-   *  still zero. Used by the corner card on /statistiky. */
+  /** Total number of distinct cities that host at least one non-
+   *  anonymized location, even if its finds are still zero. Former
+   *  locations (`NEEXISTUJE-`) collapse onto the canonical city
+   *  bucket — see cityFromCadastralArea — so they don't bump this
+   *  count when a surviving location in the same town already does,
+   *  but a town that exists ONLY as former locations still counts as
+   *  1 city. Used by the corner card on /statistiky. */
   cityCount: number;
   /** Total number of distinct countries that host at least one
    *  non-anonymized location with GPS, even if no finds yet. */
@@ -1341,19 +1345,21 @@ function buildGeoBreakdowns(
 
   for (const r of rows) {
     const c = Number(r.count);
-    // Vanished places ("NEEXISTUJE-PRAGUE_…") still get counted in the
-    // country breakdown — they were physically *somewhere* — but the
-    // city tally would otherwise list rows like "NEEXISTUJE-ZLÍN" next
-    // to "ZLÍN", which is misleading. Drop them here.
+    // Bucket by the canonical city — `cityFromCadastralArea` strips
+    // the `NEEXISTUJE-` prefix so a town with both surviving and
+    // former locations counts once. The same helper drives the
+    // dropdown on /sbirka and /lokality, so the count card here lines
+    // up with the number of city entries the operator sees in the
+    // filter UI.
     //
-    // No c > 0 gate: a city is registered as soon as a real (non-vanished)
-    // location exists there, even if it has zero finds yet. The same
-    // holds for countries — geoLocRows comes from a LEFT JOIN so empty
-    // locations contribute count = 0 (still bumps the dictionary entry).
-    // The byCity / byCountry arrays returned to the table renderer then
-    // re-filter to count > 0 so empty places don't clutter the breakdown.
-    if (!isFormerLocation(r.code)) {
-      const cityKey = r.cadastral || r.code;
+    // No c > 0 gate: a city is registered as soon as a location exists
+    // there, even with zero finds. geoLocRows comes from a LEFT JOIN
+    // so empty locations contribute count = 0 (still bumps the
+    // dictionary entry). The byCity / byCountry arrays returned to
+    // the table renderer then re-filter to count > 0 so empty places
+    // don't clutter the breakdown.
+    const cityKey = cityFromCadastralArea(r.cadastral) || r.code;
+    if (cityKey) {
       cityAcc.set(cityKey, (cityAcc.get(cityKey) ?? 0) + c);
     }
     if (r.lat !== null && r.lng !== null) {

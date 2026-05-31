@@ -258,6 +258,13 @@ describe("splitLocationCode — best-effort decomposition", () => {
       "KRAKÓW_WAWEL001",
       { cadastralArea: "KRAKÓW", locationType: "WAWEL", number: 1, subpart: null },
     ],
+    // Regression: trailing underscore before the 3-digit block (no
+    // type segment) used to leak into the cadastral as
+    // "NOVÝSMOKOVEC_", splitting the city dropdown into two buckets.
+    [
+      "NOVÝSMOKOVEC_001",
+      { cadastralArea: "NOVÝSMOKOVEC", locationType: null, number: 1, subpart: null },
+    ],
   ])("splits %s", (code, expected) => {
     expect(splitLocationCode(code)).toEqual(expected);
   });

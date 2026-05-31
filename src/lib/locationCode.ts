@@ -56,11 +56,18 @@ export function splitLocationCode(code: string): LocationCodeParts {
   }
 
   // Shape 2: CADASTRAL### (no type separator, still has 3-digit suffix).
+  // Catches cases where the code has a trailing underscore but no type
+  // segment between it and the digits — e.g. `NOVÝSMOKOVEC_001`
+  // (location's filename pattern lacks the location-type slot). The
+  // greedy cadastral capture would otherwise keep the trailing `_`,
+  // turning two locations in the same town into separate city
+  // buckets ("NOVÝSMOKOVEC" vs "NOVÝSMOKOVEC_"). Strip the same way
+  // trimTypeTail handles the type segment.
   const simple = /^(.+?)(\d{3})([a-z]?)$/.exec(trimmed);
   if (simple) {
     const [, cadastral, nnn, sub] = simple;
     return {
-      cadastralArea: cadastral!,
+      cadastralArea: stripCadastralTail(cadastral!),
       locationType: null,
       number: Number(nnn),
       subpart: sub ? sub : null,
@@ -79,8 +86,10 @@ export function splitLocationCode(code: string): LocationCodeParts {
   }
 
   // Shape 4: anything else — keep the whole string as cadastral.
+  // Apply the same trailing-separator strip as Shape 2 so a freeform
+  // code like `FOO_` doesn't leak the underscore into the dropdown.
   return {
-    cadastralArea: trimmed,
+    cadastralArea: stripCadastralTail(trimmed),
     locationType: null,
     number: null,
     subpart: null,
@@ -138,4 +147,13 @@ function trimTypeTail(t: string): string | null {
   // Strip trailing separator before the 3-digit block ("FOO-" → "FOO").
   const cleaned = t.replace(/[-_]+$/, "");
   return cleaned ? cleaned : null;
+}
+
+/** Strip trailing `_` / `-` from a cadastral capture. Used when the
+ *  code has the form `CADASTRAL_###` with no type segment between
+ *  the underscore and the digits — the greedy capture would
+ *  otherwise keep the underscore. Empty result is impossible here
+ *  because Shapes 2/4 always pass a non-empty captured string in. */
+function stripCadastralTail(c: string): string {
+  return c.replace(/[-_]+$/, "");
 }
