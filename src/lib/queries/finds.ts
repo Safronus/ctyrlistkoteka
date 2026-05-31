@@ -20,6 +20,10 @@ import {
   type FindFreePhotoEntry,
 } from "@/lib/findFreePhotos";
 import { countryFromCoords } from "@/lib/geo";
+import {
+  cityFromCadastralArea,
+  NEEXISTUJE_PREFIX,
+} from "@/lib/locationCode";
 import { listCadastralAreas, listCountries } from "@/lib/queries/locations";
 import { parseIdQuery } from "@/lib/search";
 
@@ -210,7 +214,16 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
     });
   }
   if (f.cadastralArea) {
-    and.push({ location: { cadastralArea: f.cadastralArea } });
+    // Same NEEXISTUJE- collapse rule as listLocations: a dropdown
+    // pick of "ZLÍN" must also surface finds whose location's
+    // cadastralArea is "NEEXISTUJE-ZLÍN" (former locations in the
+    // same city). See cityFromCadastralArea() for the rationale.
+    const city = cityFromCadastralArea(f.cadastralArea);
+    and.push({
+      location: {
+        cadastralArea: { in: [city, `${NEEXISTUJE_PREFIX}${city}`] },
+      },
+    });
   }
   if (f.country) {
     // Country lookup runs against the location's center point — same
@@ -1146,7 +1159,7 @@ export async function getFilterOptions(): Promise<FilterOptions> {
         SELECT DISTINCT EXTRACT(YEAR FROM found_at)::int AS year
         FROM finds
         WHERE found_at IS NOT NULL
-        ORDER BY year DESC
+        ORDER BY year ASC
       `,
       listCadastralAreas(),
       listCountries(),

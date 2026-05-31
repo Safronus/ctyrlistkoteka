@@ -11,6 +11,7 @@ import {
   listLocations,
   type LocationSort,
 } from "@/lib/queries/locations";
+import { cityFromCadastralArea } from "@/lib/locationCode";
 import { localizedCountryName } from "@/lib/world-countries";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -51,7 +52,13 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const t = await getTranslations("Lokality");
   const q = pickString(sp.q) ?? "";
-  const city = pickString(sp.city) ?? "";
+  // Normalize via cityFromCadastralArea so a stale URL with
+  // `?city=NEEXISTUJE-ZLÍN` is treated as `?city=ZLÍN` — both the
+  // dropdown selection and the query layer agree on the canonical
+  // form. See cityFromCadastralArea() in lib/locationCode for the
+  // why ("NEEXISTUJE-" marks the location as gone, not a separate
+  // city bucket).
+  const city = cityFromCadastralArea(pickString(sp.city));
   const country = pickString(sp.country) ?? "";
   const sort = parseSort(pickString(sp.sort));
   const showAnonymized = pickString(sp.showAnon) === "1";

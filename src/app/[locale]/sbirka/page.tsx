@@ -17,6 +17,7 @@ import { PageSizeSelector } from "@/components/finds/page-size-selector";
 import { Pagination } from "@/components/finds/pagination";
 import { DOMINANT_LOCATION_ID, FINDS_PER_PAGE } from "@/lib/constants";
 import { prisma } from "@/lib/db";
+import { cityFromCadastralArea } from "@/lib/locationCode";
 import {
   getCollectionProgress,
   getFilterOptions,
@@ -125,7 +126,12 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const filters: FindFilters = {
     q: pickString(sp.q) ?? undefined,
     locationId: parseInt(pickString(sp.loc)),
-    cadastralArea: pickString(sp.city) || undefined,
+    // Normalize the URL value to the canonical city (strip
+    // NEEXISTUJE-). The query layer expands it back to match both
+    // spellings, but keeping the filter object in canonical form
+    // ensures the dropdown's selected value lines up with what the
+    // user sees in the list.
+    cadastralArea: cityFromCadastralArea(pickString(sp.city)) || undefined,
     country: pickString(sp.country) || undefined,
     state: parseState(pickString(sp.state)),
     year: parseInt(pickString(sp.year)),

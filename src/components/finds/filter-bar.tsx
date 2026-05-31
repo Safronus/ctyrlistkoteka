@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 import type { FilterOptions } from "@/lib/queries/finds";
@@ -90,6 +90,18 @@ export function FilterBar({
       router.push(qs ? `${pathname}?${qs}` : pathname);
     });
   };
+
+  // Sort state options by their localized label so the dropdown reads
+  // alphabetically in the user's language (Czech: "Anonymizovaný",
+  // "Bez fotky", "Bez GPS", …; English would resort accordingly).
+  // Done in a memo on the client side because the upstream `states`
+  // list is a static `Object.values(FindState)` from the enum (no
+  // locale context on the server when it's built).
+  const sortedStates = useMemo(() => {
+    return [...options.states].sort((a, b) =>
+      tStates(a as FindState).localeCompare(tStates(b as FindState), "cs"),
+    );
+  }, [options.states, tStates]);
 
   const hasAny =
     current.q ||
@@ -207,7 +219,7 @@ export function FilterBar({
               className={`${SELECT_CLS} w-full`}
             >
               <option value="">{tCommon("all")}</option>
-              {options.states.map((s) => (
+              {sortedStates.map((s) => (
                 <option key={s} value={s}>
                   {tStates(s as FindState)}
                 </option>

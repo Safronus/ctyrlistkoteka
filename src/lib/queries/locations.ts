@@ -12,7 +12,11 @@ import { prisma } from "@/lib/db";
 import { DEFAULT_LOCATION_ID } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import { getLocationMapPhotoUrl } from "@/lib/locationPhotos";
-import { isFormerLocation } from "@/lib/locationCode";
+import {
+  cityFromCadastralArea,
+  isFormerLocation,
+  NEEXISTUJE_PREFIX,
+} from "@/lib/locationCode";
 import { paddedIdMatches, parseIdQuery } from "@/lib/search";
 
 /** Sort key. `dist-asc` / `dist-desc` order locations by great-circle
@@ -178,15 +182,23 @@ export async function getLocationIdsWithRealPhotos(): Promise<Set<number>> {
   return result;
 }
 
-/** Returns the alphabetic list of distinct cadastral areas for the city
- *  filter dropdown. */
+/** Returns the alphabetic list of distinct city names for the filter
+ *  dropdown. Cadastral areas like `NEEXISTUJE-ZLÍN` collapse onto the
+ *  plain `ZLÍN` bucket — the `NEEXISTUJE-` prefix marks the location
+ *  as gone, not a separate city — so the same dropdown entry covers
+ *  both surviving and former rows. Czech-collated alphabetic sort
+ *  (e.g. "Č" between "C" and "D", not after "Z"). */
 export async function listCadastralAreas(): Promise<string[]> {
   const rows = await prisma.location.findMany({
     distinct: ["cadastralArea"],
     select: { cadastralArea: true },
-    orderBy: { cadastralArea: "asc" },
   });
-  return rows.map((r) => r.cadastralArea).filter((v) => v.length > 0);
+  const cities = new Set<string>();
+  for (const r of rows) {
+    const city = cityFromCadastralArea(r.cadastralArea);
+    if (city.length > 0) cities.add(city);
+  }
+  return [...cities].sort((a, b) => a.localeCompare(b, "cs"));
 }
 
 /** Distinct countries hosting at least one non-anonymized location with
@@ -251,7 +263,14 @@ export async function listLocations(
   if (filter.id !== undefined) where.id = filter.id;
   else if (filter.idIn && filter.idIn.length > 0)
     where.id = { in: [...filter.idIn] };
-  if (filter.cadastralArea) where.cadastralArea = filter.cadastralArea;
+  if (filter.cadastralArea) {
+    // The dropdown bucket "ZLÍN" must match BOTH `cadastralArea =
+    // 'ZLÍN'` and `cadastralArea = 'NEEXISTUJE-ZLÍN'` rows — see
+    // listCadastralAreas() above for why the prefix is stripped on
+    // the way out. Match both spellings here on the way back in.
+    const city = cityFromCadastralArea(filter.cadastralArea);
+    where.cadastralArea = { in: [city, `${NEEXISTUJE_PREFIX}${city}`] };
+  }
   if (filter.q && filter.q.trim()) {
     const q = filter.q.trim();
     // Privacy guard for the displayName match: the on-disk filename

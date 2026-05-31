@@ -100,6 +100,12 @@ export function toAsciiCode(code: string): string {
     .replace(/[^\x20-\x7E]/g, "_"); // any remaining non-ASCII → _
 }
 
+/** Prefix on location codes (and the cadastralArea derived from them)
+ *  that marks the place as former / no-longer-existing. Kept as a
+ *  module-level constant so the value is searchable and the city-
+ *  stripping helper below stays in sync with `isFormerLocation`. */
+export const NEEXISTUJE_PREFIX = "NEEXISTUJE-";
+
 /**
  * True when the location code marks a former / no-longer-existing place.
  * Convention: location-map filenames for these get the `NEEXISTUJE-`
@@ -108,7 +114,24 @@ export function toAsciiCode(code: string): string {
 export function isFormerLocation(
   code: string | null | undefined,
 ): boolean {
-  return typeof code === "string" && code.startsWith("NEEXISTUJE-");
+  return typeof code === "string" && code.startsWith(NEEXISTUJE_PREFIX);
+}
+
+/** Canonical "city" value derived from a cadastralArea string. The
+ *  `NEEXISTUJE-` prefix exists solely to mark a location as gone — it
+ *  must NOT split the city into two filter buckets ("ZLÍN" vs
+ *  "NEEXISTUJE-ZLÍN"). Strip it everywhere we treat the cadastralArea
+ *  as a city/town key (filter dropdowns, dedup, URL params), while
+ *  keeping `isFormerLocation` for the actual "is gone" check. Empty
+ *  input returns "" so callers can use `|| undefined` to drop the
+ *  filter entirely. */
+export function cityFromCadastralArea(
+  cadastral: string | null | undefined,
+): string {
+  if (typeof cadastral !== "string") return "";
+  return cadastral.startsWith(NEEXISTUJE_PREFIX)
+    ? cadastral.slice(NEEXISTUJE_PREFIX.length)
+    : cadastral;
 }
 
 function trimTypeTail(t: string): string | null {
