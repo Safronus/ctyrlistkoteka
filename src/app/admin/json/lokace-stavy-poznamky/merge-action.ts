@@ -18,13 +18,13 @@ import {
   type SectionKey,
 } from "@/lib/admin/jsonSchema";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
-import { compactToRanges, parseRanges } from "@/lib/parseRanges";
 import {
   getAdminSession,
   getRequestIp,
   isAuthenticated,
   touchSession,
 } from "@/lib/admin/session";
+import { mergeRanges } from "./merge-ranges";
 
 const META_TARGET_PATH = path.join(
   ADMIN_ROOTS.meta,
@@ -385,39 +385,3 @@ export async function mergeSectionInto(
   };
 }
 
-export interface RangeMergeResult {
-  /** Compacted, sorted, range-merged result. */
-  merged: string[];
-  /** IDs newly added (not in existing). */
-  added: number[];
-  /** IDs already covered by existing — these are the "duplicates"
-   *  the user was warned would be skipped. */
-  alreadyPresent: number[];
-}
-
-/** Range-array union with diff tracking. Shared between the per-
- *  section merge action and the whole-file merge — same compaction
- *  rules + the "added vs alreadyPresent" split that drives the result
- *  panel. Exposed module-wide. */
-export function mergeRanges(
-  existing: readonly string[],
-  incoming: readonly string[],
-): RangeMergeResult {
-  const existingIds = new Set(parseRanges(existing));
-  const incomingIds = parseRanges(incoming);
-  const added: number[] = [];
-  const alreadyPresent: number[] = [];
-  for (const id of incomingIds) {
-    if (existingIds.has(id)) {
-      alreadyPresent.push(id);
-    } else {
-      existingIds.add(id);
-      added.push(id);
-    }
-  }
-  return {
-    merged: compactToRanges([...existingIds]),
-    added: [...new Set(added)].sort((a, b) => a - b),
-    alreadyPresent: [...new Set(alreadyPresent)].sort((a, b) => a - b),
-  };
-}

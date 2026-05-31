@@ -19,7 +19,8 @@ import {
   isAuthenticated,
   touchSession,
 } from "@/lib/admin/session";
-import { mergeRanges, type MergeConflict } from "./merge-action";
+import type { MergeConflict } from "./merge-action";
+import { mergeRanges } from "./merge-ranges";
 
 const META_TARGET_PATH = path.join(
   ADMIN_ROOTS.meta,
