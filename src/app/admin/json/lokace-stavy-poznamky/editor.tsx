@@ -26,6 +26,8 @@ import {
 } from "@/lib/admin/jsonSchema";
 import { parseRanges } from "@/lib/parseRanges";
 import { saveLokaceStavyPoznamky, type SaveResult } from "./save-action";
+import type { JsonInconsistencies } from "./inconsistencies";
+import { InconsistenciesIndicator } from "./inconsistencies-indicator";
 
 interface Props {
   /** Pre-split per-section JSON strings (already pretty-printed). */
@@ -37,6 +39,11 @@ interface Props {
    *  the operator straight at the `stavy` tab. Falls back to
    *  the editor's default (`lokace`) when unset or unknown. */
   initialTab?: SectionKey;
+  /** Cross-section integrity check result computed on the server
+   *  from the current on-disk file. `null` when the file isn't
+   *  parseable enough to run the checks (no indicator rendered in
+   *  that case — the editor's per-section errors take precedence). */
+  inconsistencies: JsonInconsistencies | null;
 }
 
 interface SectionStatus {
@@ -75,6 +82,7 @@ export function LokaceStavyPoznamkyEditor({
   initialSections,
   fileMtime,
   initialTab,
+  inconsistencies,
 }: Props) {
   const [sections, setSections] =
     useState<Record<SectionKey, string>>(initialSections);
@@ -229,6 +237,13 @@ export function LokaceStavyPoznamkyEditor({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Inconsistencies indicator sits LEFT of OverallBadge —
+              same row of editor status chips. Hidden entirely when
+              the file's too broken to run the checks (the per-section
+              parse errors below take the operator's attention). */}
+          {inconsistencies && (
+            <InconsistenciesIndicator inconsistencies={inconsistencies} />
+          )}
           <OverallBadge allValid={allValid} dirty={dirty} />
           {savedAt && (
             <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800">

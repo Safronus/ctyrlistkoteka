@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, MapPin, MessageSquare } from "lucide-react";
 import type { JsonInconsistencies } from "./inconsistencies";
@@ -68,7 +70,7 @@ export function InconsistenciesPanel({
   );
 }
 
-function MultipleLocationsBlock({
+export function MultipleLocationsBlock({
   offenders,
 }: {
   offenders: JsonInconsistencies["multipleLocations"];
@@ -120,7 +122,7 @@ function MultipleLocationsBlock({
   );
 }
 
-function DuplicatePoznamkyBlock({
+export function DuplicatePoznamkyBlock({
   offenders,
 }: {
   offenders: JsonInconsistencies["duplicatePoznamky"];
