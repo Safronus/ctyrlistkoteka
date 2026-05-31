@@ -739,7 +739,7 @@
     "sectionLayers1": "„Lokality“ jsou zelené polygony lokačních map. Klik na polygon nebo na řádek v seznamu vpravo vás přiblíží na lokalitu.",
     "sectionLayers2": "„Nálezy“ jsou ~17 tisíc malých bodů (každý jeden nález s GPS). Klik na bod otevře popup s číslem, miniaturou a odkazem na detail.",
     "sectionLayers3": "„Zaniklé“ (opt-in) zobrazí lokality s prefixem NEEXISTUJE- — červené pruhované polygony.",
-    "sectionLayers4": "Pod „Nálezy“ je přepínač „Skrýt odchýlené“ — schová ty body, které leží mimo polygon lokality, případně více než 5 m od středu u lokalit bez polygonu (stejný práh řídí i zelené/červené barvy odchylky v seznamu sbírky a na detailu nálezu).",
+    "sectionLayers4": "Pod „Nálezy“ je přepínač „Skrýt odchýlené“ — schová body mimo polygon lokality nebo více než 5 m od středu u lokalit bez polygonu. Stejný práh řídí třípásmové (zelená/žlutá/červená) barvení odchylky v seznamu sbírky a na detailu nálezu — žlutá = mimo polygon ale uvnitř lokační mapy, červená = mimo lokační mapu. Když si v sidebaru vyberete konkrétní lokalitu, počty u obou přepínačů se přepočítají jen na nálezy té lokality.",
     "sectionLayers5": "Stav přepínačů se ukládá v prohlížeči, takže příští návštěva začne tam, kde jste skončili.",
     "sectionNavigationTitle": "Pohyb a zoom",
     "sectionNavigation1": "Zoom: kolečko myši nebo pinch na touchpadu / mobilu. Posun: tah myší nebo prstem.",

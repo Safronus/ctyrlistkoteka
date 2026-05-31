@@ -29,6 +29,7 @@ import {
 import { formatGpsApple } from "@/lib/gpsFormat";
 import { FindThumbnail } from "@/components/finds/find-thumbnail";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
+import { VoteButton } from "@/components/finds/vote-button";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
 import { CloverFactsStatCard } from "@/components/home/clover-facts-stat-card";
 import { PopularFindWidget } from "@/components/home/popular-find-widget";
@@ -583,13 +584,27 @@ async function LatestFindSection({
               )}
             </p>
           )}
-          <p className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-700">
-            {t("latestFindDetail")}
-            <ArrowRight
-              className="h-4 w-4 transition group-hover:translate-x-0.5"
-              aria-hidden
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            {/* Vote button on the latest-find tile — same prominent
+                CTA size as the Popular widget so visitors can like a
+                fresh upload without scrolling to the leaderboard.
+                `autoHydrate` lets it sync `voted`/`count` for this
+                visitor against the cached server render of /. */}
+            <VoteButton
+              findId={latestFind.id}
+              initialVoted={false}
+              initialCount={0}
+              size="lg"
+              autoHydrate
             />
-          </p>
+            <span className="inline-flex items-center gap-1 text-sm font-medium text-brand-700">
+              {t("latestFindDetail")}
+              <ArrowRight
+                className="h-4 w-4 transition group-hover:translate-x-0.5"
+                aria-hidden
+              />
+            </span>
+          </div>
         </div>
       </Link>
       {showMapLink && (

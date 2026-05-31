@@ -444,14 +444,15 @@ const MAP_STATUS_STYLES: Record<MapStatus, MapStatusStyle> = {
       "drop-shadow(0 0 8px rgba(16,185,129,0.7)) drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
   },
   outside_polygon: {
-    // Same red as `outside_map` — both signal "find isn't where the
-    // location's geometry expects it". /sbirka rows and the offset
-    // tone class also use green/red (no amber middle band) for
-    // consistency across all three surfaces.
-    banner: "bg-rose-50 border-rose-300 text-rose-900",
-    dot: "bg-rose-500",
+    // Amber middle band — the find IS inside the location-map's
+    // image bbox (otherwise it would classify as `outside_map`
+    // instead) but not inside the AOI polygon / within 5 m of the
+    // centre. Mirrors the yellow band in `locationOffsetToneClass`
+    // on /sbirka rows.
+    banner: "bg-amber-50 border-amber-300 text-amber-900",
+    dot: "bg-amber-500",
     pinFilter:
-      "drop-shadow(0 0 8px rgba(244,63,94,0.75)) drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
+      "drop-shadow(0 0 8px rgba(245,158,11,0.75)) drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
   },
   outside_map: {
     banner: "bg-rose-50 border-rose-300 text-rose-900",

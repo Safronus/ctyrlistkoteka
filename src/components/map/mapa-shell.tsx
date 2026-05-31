@@ -371,6 +371,49 @@ export function MapaShell({
     }
   }, [hideDeviatedFinds]);
 
+  /**
+   * Counts shown next to the Nálezy + Skrýt odchýlené toggles. When
+   * the visitor has selected a location (sidebar click, deep-link),
+   * the counts narrow to just that location's finds so the numbers
+   * match what's actually highlighted on the canvas. Without focus
+   * we fall back to the whole catalog and surface the "+ N hidden"
+   * subtitle (anonymized + GPS-less finds excluded from the map).
+   *
+   * Performance: single pass over findCoords (~17k tuples) per
+   * focusId change; cheap enough not to need memoisation across
+   * deeper deps.
+   */
+  const { visibleFindCount, visibleDeviatedCount, hiddenFindCount } =
+    useMemo(() => {
+      const all = mapData.findCoords;
+      if (focusId === null) {
+        let dev = 0;
+        for (const c of all) if (c[4] === 1) dev++;
+        return {
+          visibleFindCount: all.length,
+          visibleDeviatedCount: dev,
+          hiddenFindCount: Math.max(0, mapData.findCountTotal - all.length),
+        };
+      }
+      let total = 0;
+      let dev = 0;
+      for (const c of all) {
+        if (c[2] !== focusId) continue;
+        total++;
+        if (c[4] === 1) dev++;
+      }
+      return {
+        visibleFindCount: total,
+        visibleDeviatedCount: dev,
+        // Focused mode: the "hidden" subtitle would need a per-
+        // location total (incl. anonymized / no-GPS / child
+        // locations) we don't currently push down. Skip the
+        // subtitle in this mode rather than show a misleading
+        // global figure.
+        hiddenFindCount: 0,
+      };
+    }, [mapData.findCoords, mapData.findCountTotal, focusId]);
+
   return (
     <div className="relative h-full w-full">
       <MapLoader
@@ -538,12 +581,9 @@ export function MapaShell({
             onToggleHideDeviatedFinds={setHideDeviatedFinds}
             locationCount={activeLocationCount}
             goneCount={goneLocationCount}
-            findCount={mapData.findCoords.length}
-            findCountTotal={mapData.findCountTotal}
-            deviatedFindCount={mapData.findCoords.reduce(
-              (acc, c) => acc + (c[4] === 1 ? 1 : 0),
-              0,
-            )}
+            findCount={visibleFindCount}
+            hiddenFindCount={hiddenFindCount}
+            deviatedFindCount={visibleDeviatedCount}
             expanded={layersExpanded}
             onToggleExpanded={() => setLayersExpanded((v) => !v)}
           />
@@ -611,7 +651,7 @@ function LayerToggleCard({
   locationCount,
   goneCount,
   findCount,
-  findCountTotal,
+  hiddenFindCount,
   deviatedFindCount,
   expanded,
   onToggleExpanded,
@@ -627,7 +667,11 @@ function LayerToggleCard({
   locationCount: number;
   goneCount: number;
   findCount: number;
-  findCountTotal: number;
+  /** Pre-computed gap between the catalog's total and what's actually
+   *  on the map (anonymized + GPS-less finds). 0 in focus mode — the
+   *  caller can't compute a meaningful per-location hidden figure
+   *  cheaply, so the subtitle just disappears in that case. */
+  hiddenFindCount: number;
   /** Number of finds the `deviated` server flag is set on — surfaced
    *  in the sub-toggle count slot so the operator can see at a glance
    *  what flipping the switch would hide. */
@@ -639,10 +683,6 @@ function LayerToggleCard({
   const tHelp = useTranslations("MapaHelp");
   const locale = useLocale();
   const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
-  // Visitors comparing the home page (e.g. "1 735 nálezů") with this
-  // count saw the difference and assumed a bug; calling out the gap
-  // explains it: anonymized + GPS-less finds aren't on the map.
-  const hiddenFinds = Math.max(0, findCountTotal - findCount);
   return (
     <div className="rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm shadow-md">
       {/* The toggle button and the help button sit side-by-side; the
@@ -737,8 +777,10 @@ function LayerToggleCard({
             onChange={onToggleFinds}
             numFmt={numFmt}
             subtitle={
-              hiddenFinds > 0
-                ? t("layerHiddenFinds", { count: numFmt.format(hiddenFinds) })
+              hiddenFindCount > 0
+                ? t("layerHiddenFinds", {
+                    count: numFmt.format(hiddenFindCount),
+                  })
                 : undefined
             }
           />

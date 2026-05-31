@@ -360,29 +360,39 @@ export function formatDistance(meters: number, locale?: string): string {
   }).format(km)} km`;
 }
 
-/** Tailwind color class for a find's offset — binary green / red:
- *  inside the AOI polygon (or within `FIND_DEVIATION_RADIUS_M` of the
- *  centre for polygon-less locations) reads as green, anything beyond
- *  reads as red. Same threshold as the /mapa "Skrýt odchýlené nálezy"
- *  toggle so the colour and the layer filter agree on what counts as
- *  a deviation.
+/** Tailwind color class for a find's offset — three-band signal:
  *
- *  Imports `FIND_DEVIATION_RADIUS_M` at call time (not as a default
- *  arg) so future tweaks to the constant ripple through every render
- *  without having to thread a parameter down. */
+ *    green  → find is "at the location"
+ *      polygon mode: GPS inside the AOI polygon
+ *      centre mode:  GPS within `FIND_DEVIATION_RADIUS_M` of centre
+ *
+ *    amber  → find is off-target but still inside one of the
+ *      location's location-map image bounding boxes (i.e. it would
+ *      render as a pin inside the location-map PNG on the detail
+ *      page). The visitor probably wants to double-check, but the
+ *      find is plausibly in the right ballpark.
+ *
+ *    rose   → find is outside every one of the location's maps —
+ *      "this find isn't where the location expects it" — the GPS is
+ *      likely wrong or the wrong location is linked. Same band the
+ *      /mapa "Skrýt odchýlené nálezy" toggle hides (yellow + red).
+ *
+ *  Polygon-mode `inside` and centre-mode `≤ FIND_DEVIATION_RADIUS_M`
+ *  share the same green semantic; the threshold lives in constants.ts
+ *  so future tweaks ripple through every render. */
 export function locationOffsetToneClass(offset: {
   meters: number;
   mode: "polygon" | "center";
   inside: boolean;
+  withinMap: boolean;
 }): string {
-  if (offset.mode === "polygon") {
-    return offset.inside
-      ? "text-emerald-700 font-medium"
-      : "text-rose-600";
-  }
-  return offset.meters <= FIND_DEVIATION_RADIUS_M
-    ? "text-emerald-700 font-medium"
-    : "text-rose-600";
+  const isGreen =
+    offset.mode === "polygon"
+      ? offset.inside
+      : offset.meters <= FIND_DEVIATION_RADIUS_M;
+  if (isGreen) return "text-emerald-700 font-medium";
+  if (offset.withinMap) return "text-amber-600";
+  return "text-rose-600";
 }
 
 export function formatAreaM2(m2: number): string {
