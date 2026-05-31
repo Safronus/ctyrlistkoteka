@@ -101,7 +101,8 @@
     "voteCount": "{count, plural, =0 {0 hlasů} one {# hlas} few {# hlasy} other {# hlasů}}",
     "rankPrefix": "#",
     "openFind": "Otevřít detail",
-    "showOnMap": "Zobrazit na mapě"
+    "showOnMap": "Zobrazit na mapě",
+    "donatedBadge": "Darovaný"
   },
   "FilterBar": {
     "search": "Hledat",

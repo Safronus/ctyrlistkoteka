@@ -223,26 +223,52 @@ export async function getTopFinds(args: {
   limit: number;
   windowDays?: number;
 }): Promise<TopFindEntry[]> {
+  // Ties on vote_count break by the *sorted sequence of vote
+  // timestamps* — the find that got its first vote earliest wins;
+  // on identical first votes the second-vote time decides; and so
+  // on. PostgreSQL compares arrays lexicographically, so a single
+  // `ORDER BY array_agg(voted_at ORDER BY voted_at) ASC` clause
+  // gives us the full waterfall in one go. In practice the
+  // first-vote tiebreak resolves nearly all ties (millisecond-
+  // resolution timestamps make collisions on the first vote
+  // astronomically unlikely), but encoding the whole sequence
+  // matches the user's spec exactly and costs nothing extra.
+  //
+  // The raw SQL replaces what used to be a plain
+  // `find.findMany({ orderBy: { voteCount: 'desc' }})` because
+  // Prisma's structured orderBy can't express "then by a sorted
+  // aggregate of a related table's timestamps". Same shape goes
+  // for the windowed variant.
   if (!args.windowDays) {
-    const rows = await prisma.find.findMany({
-      where: { voteCount: { gt: 0 } },
-      orderBy: { voteCount: "desc" },
-      take: args.limit,
-      select: { id: true, voteCount: true },
-    });
-    return rows.map((r) => ({ findId: r.id, voteCount: r.voteCount }));
+    const rows = await prisma.$queryRaw<
+      Array<{ id: number; vote_count: number }>
+    >`
+      SELECT f.id, f.vote_count
+      FROM finds f
+      LEFT JOIN find_votes fv ON fv.find_id = f.id
+      WHERE f.vote_count > 0
+      GROUP BY f.id, f.vote_count
+      ORDER BY f.vote_count DESC,
+               ARRAY_AGG(fv.voted_at ORDER BY fv.voted_at) ASC NULLS LAST,
+               f.id ASC
+      LIMIT ${args.limit}
+    `;
+    return rows.map((r) => ({ findId: r.id, voteCount: r.vote_count }));
   }
-  // Windowed: group by find_id from find_votes filtered by voted_at.
-  // groupBy needs an orderBy hint that matches a select column.
   const cutoff = new Date(Date.now() - args.windowDays * 24 * 60 * 60 * 1000);
-  const rows = await prisma.findVote.groupBy({
-    by: ["findId"],
-    where: { votedAt: { gte: cutoff } },
-    _count: { findId: true },
-    orderBy: { _count: { findId: "desc" } },
-    take: args.limit,
-  });
-  return rows.map((r) => ({ findId: r.findId, voteCount: r._count.findId }));
+  const rows = await prisma.$queryRaw<
+    Array<{ find_id: number; cnt: bigint }>
+  >`
+    SELECT fv.find_id, COUNT(*)::bigint AS cnt
+    FROM find_votes fv
+    WHERE fv.voted_at >= ${cutoff}
+    GROUP BY fv.find_id
+    ORDER BY COUNT(*) DESC,
+             ARRAY_AGG(fv.voted_at ORDER BY fv.voted_at) ASC,
+             fv.find_id ASC
+    LIMIT ${args.limit}
+  `;
+  return rows.map((r) => ({ findId: r.find_id, voteCount: Number(r.cnt) }));
 }
 
 export interface TopFindRich {
@@ -264,6 +290,13 @@ export interface TopFindRich {
    *  veil. The homepage tile renders an "anonymizovaný nález"
    *  placeholder in that case. */
   location: { id: number; code: string; displayName: string } | null;
+  /** True when the find carries the DONATED state assignment in
+   *  data/meta/LokaceStavyPoznamky.json. Anonymized finds force
+   *  false so the state itself stays hidden — same privacy stance
+   *  the jubilee tile uses. Surfaced as a small badge in the
+   *  top/bottom-right corner of the tile depending on the call
+   *  site. */
+  isDonated: boolean;
 }
 
 /**
@@ -281,7 +314,7 @@ export async function getTopFindsWithThumbs(args: {
   const findIds = top.map((t) => t.findId);
   // Pull every primary image for the top set in a single query, then
   // join in memory. `is_primary = true` filter keeps the result small.
-  const [findRows, imageRows] = await Promise.all([
+  const [findRows, imageRows, donatedRows] = await Promise.all([
     prisma.find.findMany({
       where: { id: { in: findIds } },
       select: {
@@ -297,18 +330,31 @@ export async function getTopFindsWithThumbs(args: {
       where: { findId: { in: findIds }, isPrimary: true },
       select: { findId: true, thumbPath: true },
     }),
+    // DONATED-state membership in one IN-list query. Builds a Set the
+    // map step below treats as O(1) lookup. Same pattern the
+    // JubileeFind row uses, just batched across multiple ids.
+    prisma.findStateAssignment.findMany({
+      where: { findId: { in: findIds }, state: "DONATED" },
+      select: { findId: true },
+    }),
   ]);
   const findById = new Map(findRows.map((r) => [r.id, r]));
   const thumbById = new Map(imageRows.map((r) => [r.findId, r.thumbPath]));
+  const donatedSet = new Set(donatedRows.map((r) => r.findId));
   return top.map((t) => {
     const f = findById.get(t.findId);
+    const isAnonymized = f?.isAnonymized ?? false;
     return {
       findId: t.findId,
       voteCount: t.voteCount,
-      isAnonymized: f?.isAnonymized ?? false,
+      isAnonymized,
       thumbUrl: thumbById.get(t.findId) ?? null,
       foundAt: f?.foundAt ? f.foundAt.toISOString() : null,
       location: f && !f.isAnonymized ? f.location : null,
+      // Anonymized winners hide the donated flag for the same
+      // reason notes/GPS/location are hidden — the state itself
+      // is part of the privacy contract.
+      isDonated: !isAnonymized && donatedSet.has(t.findId),
     };
   });
 }

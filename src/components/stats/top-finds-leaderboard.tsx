@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Trophy } from "lucide-react";
+import { Heart, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { VoteButton } from "@/components/finds/vote-button";
 import type { TopFindRich } from "@/lib/votes";
@@ -122,6 +122,21 @@ export function TopFindsLeaderboard({ allTime, yearly, monthly }: Props) {
                   {t("rankPrefix")}
                   {idx + 1}
                 </span>
+                {/* Top-right "Darovaný" badge — surfaced when the
+                    find carries DONATED state. Sibling to the rank
+                    chip so both sit on the photo. Heart icon +
+                    rose tint matches the jubilee tile variant so
+                    the two surfaces feel like the same family. */}
+                {e.isDonated && (
+                  <span
+                    className="absolute right-2 top-2 inline-flex items-center gap-0.5 rounded-md bg-rose-100/95 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800 shadow-sm backdrop-blur-sm"
+                    aria-label={t("donatedBadge")}
+                    title={t("donatedBadge")}
+                  >
+                    <Heart className="h-2.5 w-2.5" aria-hidden />
+                    {t("donatedBadge")}
+                  </span>
+                )}
               </Link>
               <div className="flex items-center justify-between gap-2 px-2 py-1.5 text-xs">
                 <Link

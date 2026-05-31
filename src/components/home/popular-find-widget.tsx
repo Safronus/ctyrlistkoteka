@@ -1,4 +1,4 @@
-import { MapPin } from "lucide-react";
+import { Heart, MapPin } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { CloverThumbIcon } from "@/components/icons/clover-thumb-icon";
@@ -89,6 +89,19 @@ export async function PopularFindWidget({
           >
             {t("rankPrefix")}1
           </span>
+          {/* "Darovaný" badge — bottom-right per the request. Same
+              rose-tinted shape as the jubilee tile + /statistiky
+              leaderboard so all three surfaces feel consistent. */}
+          {winner.isDonated && (
+            <span
+              className="absolute bottom-2 right-2 inline-flex items-center gap-0.5 rounded-md bg-rose-100/95 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800 shadow-sm backdrop-blur-sm"
+              aria-label={t("donatedBadge")}
+              title={t("donatedBadge")}
+            >
+              <Heart className="h-2.5 w-2.5" aria-hidden />
+              {t("donatedBadge")}
+            </span>
+          )}
         </Link>
         {/* `relative` hosts the absolutely-positioned vote CTA below
          *  on sm:+ so it floats top-right WITHOUT contributing to
