@@ -11,6 +11,7 @@ import {
   EyeOff,
   Gift,
   Globe2,
+  Heart,
   HelpCircle,
   ImageOff,
   MapPin,
@@ -48,6 +49,7 @@ import {
   type MinuteHeatmapCell,
   type MonthDayPoint,
   type PeakBucket,
+  type PeakSlidingWindow,
   type StatsTimeAndPaceResult,
   type YearlyPoint,
 } from "@/lib/queries/stats";
@@ -1258,6 +1260,9 @@ function PeakBucketsSection({
     week: PeakBucket | null;
     month: PeakBucket | null;
     year: PeakBucket | null;
+    slidingHour: PeakSlidingWindow | null;
+    slidingDay: PeakSlidingWindow | null;
+    slidingWeek: PeakSlidingWindow | null;
   };
   t: StatsT;
   locale: string;
@@ -1270,6 +1275,8 @@ function PeakBucketsSection({
     peaks.month ||
     peaks.year;
   if (!anyPeak) return null;
+  const anySliding =
+    peaks.slidingHour || peaks.slidingDay || peaks.slidingWeek;
 
   const cards: ReadonlyArray<{
     granularity: PeakGranularity;
@@ -1314,21 +1321,134 @@ function PeakBucketsSection({
       peak: peaks.year,
     },
   ];
+  const slidingCards: ReadonlyArray<{
+    window: PeakSlidingGranularity;
+    label: string;
+    icon: LucideIcon;
+    peak: PeakSlidingWindow | null;
+  }> = [
+    {
+      window: "slidingHour",
+      label: t("peakSlidingHour"),
+      icon: Clock,
+      peak: peaks.slidingHour,
+    },
+    {
+      window: "slidingDay",
+      label: t("peakSlidingDay"),
+      icon: Calendar,
+      peak: peaks.slidingDay,
+    },
+    {
+      window: "slidingWeek",
+      label: t("peakSlidingWeek"),
+      icon: CalendarRange,
+      peak: peaks.slidingWeek,
+    },
+  ];
   return (
-    <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-      {cards.map(({ granularity, label, icon, peak }) => (
-        <PeakBucketCard
-          key={granularity}
-          granularity={granularity}
-          label={label}
-          icon={icon}
-          peak={peak}
-          t={t}
-          locale={locale}
-        />
-      ))}
-    </section>
+    <div className="space-y-4">
+      <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        {cards.map(({ granularity, label, icon, peak }) => (
+          <PeakBucketCard
+            key={granularity}
+            granularity={granularity}
+            label={label}
+            icon={icon}
+            peak={peak}
+            t={t}
+            locale={locale}
+          />
+        ))}
+      </section>
+      {anySliding && (
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {slidingCards.map(({ window, label, icon, peak }) => (
+            <PeakSlidingCard
+              key={window}
+              label={label}
+              icon={icon}
+              peak={peak}
+              t={t}
+              locale={locale}
+            />
+          ))}
+        </section>
+      )}
+    </div>
   );
+}
+
+type PeakSlidingGranularity = "slidingHour" | "slidingDay" | "slidingWeek";
+
+function PeakSlidingCard({
+  label,
+  icon: Icon,
+  peak,
+  t,
+  locale,
+}: {
+  label: string;
+  icon: LucideIcon;
+  peak: PeakSlidingWindow | null;
+  t: StatsT;
+  locale: string;
+}) {
+  return (
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-brand-700" aria-hidden />
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          {label}
+        </h3>
+      </div>
+      {peak ? (
+        <>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
+            {peak.count}
+            <span className="ml-1 text-sm font-normal text-gray-500">
+              {t("labelFinds", { count: peak.count })}
+            </span>
+          </p>
+          <p className="mt-1 text-xs leading-snug text-gray-600">
+            {formatSlidingWindow(peak.startsAt, peak.endsAt, locale)}
+          </p>
+        </>
+      ) : (
+        <p className="mt-2 text-sm text-gray-400">—</p>
+      )}
+    </div>
+  );
+}
+
+function formatSlidingWindow(
+  startIso: string,
+  endIso: string,
+  locale: string,
+): string {
+  const intlLocale = toIntlLocale(locale);
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  const sameDay =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+  const fullDate = (d: Date) =>
+    new Intl.DateTimeFormat(intlLocale, {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(d);
+  const time = (d: Date) =>
+    new Intl.DateTimeFormat(intlLocale, {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Europe/Prague",
+    }).format(d);
+  if (sameDay) {
+    return `${fullDate(start)} · ${time(start)}–${time(end)}`;
+  }
+  return `${fullDate(start)} ${time(start)} – ${fullDate(end)} ${time(end)}`;
 }
 
 function PeakBucketCard({
@@ -1548,12 +1668,30 @@ function JubileeCard({
   const isSpecial = variant === "special";
   return (
     <div
-      className={`flex h-full flex-col rounded-md border transition hover:shadow-sm ${
+      className={`relative flex h-full flex-col rounded-md border transition hover:shadow-sm ${
         isSpecial
           ? "border-brand-200 bg-brand-50/60 hover:border-brand-300 hover:bg-brand-50"
           : "border-gray-200 bg-gray-50 hover:border-brand-200 hover:bg-brand-50"
       }`}
     >
+      {/* "Darovaný" badge in the top-right corner — surfaced only for
+          jubilee finds that actually carry the DONATED state. Hidden
+          for anonymized finds (the server already forced isDonated
+          to false in that case, but the explicit guard documents the
+          privacy stance). z-10 lifts it above the <Link>'s ::after
+          focus-ring overlay so it stays clickable in theory; we
+          render it as plain non-interactive text so the parent's
+          Link semantics still own the whole card. */}
+      {find.isDonated && !find.isAnonymized && (
+        <span
+          className="absolute right-1.5 top-1.5 z-10 inline-flex items-center gap-0.5 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800"
+          aria-label={t("jubileeDonated")}
+          title={t("jubileeDonated")}
+        >
+          <Heart className="h-2.5 w-2.5" aria-hidden />
+          {t("jubileeDonated")}
+        </span>
+      )}
       <Link
         href={`/sbirka/${find.id}`}
         className="flex flex-1 flex-col gap-1 p-3 text-sm"

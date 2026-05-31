@@ -189,6 +189,23 @@ export interface PeakBucket {
   count: number;
 }
 
+/** Sliding-window peak — the busiest stretch of N consecutive
+ *  minutes / hours / days across the timeline, anchored to whatever
+ *  find timestamp produced the highest count. Distinct from
+ *  PeakBucket: calendar buckets snap to "14:00–14:59 on a given
+ *  day", whereas a sliding window can start at 13:45 if that 60-
+ *  minute stretch is denser than any whole-hour bucket. */
+export interface PeakSlidingWindow {
+  /** ISO timestamp of the earliest find inside the winning window. */
+  startsAt: string;
+  /** ISO timestamp of the latest find inside the winning window.
+   *  May equal startsAt when the window contains a single find,
+   *  which would be odd here but keeps the shape regular. */
+  endsAt: string;
+  /** Number of finds inside the window. */
+  count: number;
+}
+
 /** Find at a "milestone" position in the sequence — every 1000th find,
  *  three repunits (111, 1111, 11111) and the two devil-numbers
  *  (666, 6666). Renders as a clickable list on /statistiky.
@@ -201,6 +218,14 @@ export interface JubileeFind {
   foundAt: string | null;
   isAnonymized: boolean;
   location: { code: string; displayName: string } | null;
+  /** True when the find carries the DONATED state assignment in
+   *  data/meta/LokaceStavyPoznamky.json (and so its find_state_
+   *  assignments row exists in DB). Rendered as a small badge in
+   *  the top-right corner of the jubilee tile so the user can tell
+   *  at a glance which milestones have already been gifted. Honour
+   *  the anonymization flag — anonymized finds don't expose the
+   *  state, matching the privacy stance everywhere else. */
+  isDonated: boolean;
   /** Same role as on FindHighlight — gates the map deep-link button. */
   hasGps: boolean;
 }
@@ -313,6 +338,12 @@ export interface StatsPeaksResult {
   week: PeakBucket | null;
   month: PeakBucket | null;
   year: PeakBucket | null;
+  /** Sliding 60-minute window with the highest find count. */
+  slidingHour: PeakSlidingWindow | null;
+  /** Sliding 24-hour window with the highest find count. */
+  slidingDay: PeakSlidingWindow | null;
+  /** Sliding 7-day window with the highest find count. */
+  slidingWeek: PeakSlidingWindow | null;
 }
 
 export interface StatsJubileesResult {
@@ -771,6 +802,14 @@ export async function getStatsPeaks(): Promise<StatsPeaksResult> {
   // Each query truncates `found_at` to its granularity, groups, and
   // picks the row with the highest count (ties broken by earliest
   // bucket so the chosen result is deterministic across runs).
+  //
+  // Sliding-window peaks (slidingHour/Day/Week) sit alongside —
+  // same shape of "max count over a time window" but the window
+  // floats with the data instead of snapping to calendar
+  // boundaries. PostgreSQL evaluates them with a window function
+  // (RANGE BETWEEN CURRENT ROW AND INTERVAL '<X>' FOLLOWING) so
+  // the cost stays linear in N rather than the O(N²) you'd get
+  // from a naïve self-join.
   const [
     peakMinuteRow,
     peakHourRow,
@@ -778,6 +817,9 @@ export async function getStatsPeaks(): Promise<StatsPeaksResult> {
     peakWeekRow,
     peakMonthRow,
     peakYearRow,
+    slidingHourRow,
+    slidingDayRow,
+    slidingWeekRow,
   ] = await Promise.all([
     prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
       SELECT date_trunc('minute', found_at) AS bucket, COUNT(*) AS count
@@ -809,6 +851,87 @@ export async function getStatsPeaks(): Promise<StatsPeaksResult> {
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
     `,
+    // Sliding 60-minute window. For each find, count how many other
+    // finds fall in the [found_at, found_at + INTERVAL '1 hour']
+    // range, then pick the row whose count is highest. The CTE
+    // captures the count + window endpoints so the outer ORDER BY /
+    // LIMIT can pick the winner in one shot.
+    //
+    // window_end uses MAX(found_at) OVER the same range so the UI
+    // can render "from X to Y" instead of just "from X". The same
+    // sliding window function evaluates both — single pass.
+    //
+    // Ties on count break by earlier window_start, same convention
+    // as the calendar peaks above.
+    prisma.$queryRaw<
+      Array<{ window_start: Date; window_end: Date; count: bigint }>
+    >`
+      WITH windowed AS (
+        SELECT
+          found_at AS window_start,
+          MAX(found_at) OVER (
+            ORDER BY found_at
+            RANGE BETWEEN CURRENT ROW
+                      AND INTERVAL '1 hour' FOLLOWING
+          ) AS window_end,
+          COUNT(*) OVER (
+            ORDER BY found_at
+            RANGE BETWEEN CURRENT ROW
+                      AND INTERVAL '1 hour' FOLLOWING
+          ) AS count
+        FROM finds WHERE found_at IS NOT NULL
+      )
+      SELECT window_start, window_end, count
+      FROM windowed
+      ORDER BY count DESC, window_start ASC
+      LIMIT 1
+    `,
+    prisma.$queryRaw<
+      Array<{ window_start: Date; window_end: Date; count: bigint }>
+    >`
+      WITH windowed AS (
+        SELECT
+          found_at AS window_start,
+          MAX(found_at) OVER (
+            ORDER BY found_at
+            RANGE BETWEEN CURRENT ROW
+                      AND INTERVAL '24 hours' FOLLOWING
+          ) AS window_end,
+          COUNT(*) OVER (
+            ORDER BY found_at
+            RANGE BETWEEN CURRENT ROW
+                      AND INTERVAL '24 hours' FOLLOWING
+          ) AS count
+        FROM finds WHERE found_at IS NOT NULL
+      )
+      SELECT window_start, window_end, count
+      FROM windowed
+      ORDER BY count DESC, window_start ASC
+      LIMIT 1
+    `,
+    prisma.$queryRaw<
+      Array<{ window_start: Date; window_end: Date; count: bigint }>
+    >`
+      WITH windowed AS (
+        SELECT
+          found_at AS window_start,
+          MAX(found_at) OVER (
+            ORDER BY found_at
+            RANGE BETWEEN CURRENT ROW
+                      AND INTERVAL '7 days' FOLLOWING
+          ) AS window_end,
+          COUNT(*) OVER (
+            ORDER BY found_at
+            RANGE BETWEEN CURRENT ROW
+                      AND INTERVAL '7 days' FOLLOWING
+          ) AS count
+        FROM finds WHERE found_at IS NOT NULL
+      )
+      SELECT window_start, window_end, count
+      FROM windowed
+      ORDER BY count DESC, window_start ASC
+      LIMIT 1
+    `,
   ]);
 
   return {
@@ -818,6 +941,27 @@ export async function getStatsPeaks(): Promise<StatsPeaksResult> {
     week: toPeakBucket(peakWeekRow),
     month: toPeakBucket(peakMonthRow),
     year: toPeakBucket(peakYearRow),
+    slidingHour: toPeakSliding(slidingHourRow),
+    slidingDay: toPeakSliding(slidingDayRow),
+    slidingWeek: toPeakSliding(slidingWeekRow),
+  };
+}
+
+/** Lift the single-row LIMIT 1 sliding-window result to the public
+ *  shape, mirroring `toPeakBucket` for the calendar variant. */
+function toPeakSliding(
+  rows: ReadonlyArray<{
+    window_start: Date;
+    window_end: Date;
+    count: bigint;
+  }>,
+): PeakSlidingWindow | null {
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    startsAt: row.window_start.toISOString(),
+    endsAt: row.window_end.toISOString(),
+    count: Number(row.count),
   };
 }
 
@@ -836,6 +980,7 @@ export async function getStatsJubilees(): Promise<StatsJubileesResult> {
       location_code: string | null;
       location_display_name: string | null;
       has_gps: boolean;
+      is_donated: boolean;
     }>
   >`
     SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
@@ -843,7 +988,17 @@ export async function getStatsJubilees(): Promise<StatsJubileesResult> {
            CASE WHEN f.is_anonymized THEN NULL
                 ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
            END AS location_display_name,
-           (f.coordinates IS NOT NULL) AS has_gps
+           (f.coordinates IS NOT NULL) AS has_gps,
+           -- DONATED flag for the jubilee tile badge. Anonymized
+           -- finds force false so the state itself stays hidden —
+           -- matches the privacy stance for notes / GPS / location
+           -- code everywhere else.
+           CASE WHEN f.is_anonymized THEN false
+                ELSE EXISTS (
+                  SELECT 1 FROM find_state_assignments fsa
+                  WHERE fsa.find_id = f.id AND fsa.state = 'DONATED'
+                )
+           END AS is_donated
     FROM finds f
     LEFT JOIN locations l ON l.id = f.location_id
     WHERE f.id IN (${Prisma.join(JUBILEE_CANDIDATE_IDS)})
@@ -865,6 +1020,7 @@ export async function getStatsJubilees(): Promise<StatsJubileesResult> {
             }
           : null,
       hasGps: r.has_gps === true,
+      isDonated: r.is_donated === true,
     })),
   };
 }
