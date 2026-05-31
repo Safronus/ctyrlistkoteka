@@ -221,9 +221,22 @@ export default async function HomePage() {
 
       <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard
-          value={NF.format(totals.finds)}
-          label={t("statFinds", { count: totals.finds })}
+          value={
+            totals.maxFindId !== null ? NF.format(totals.maxFindId) : "—"
+          }
+          label={t("statFinds", {
+            count: totals.maxFindId ?? totals.finds,
+          })}
           icon={Clover}
+          hint={
+            // Only surface the uploaded count when it actually differs
+            // from the headline max id (i.e. there's a backfill gap).
+            // When the two match the line would just repeat the big
+            // number and add visual noise.
+            totals.maxFindId !== null && totals.maxFindId !== totals.finds
+              ? t("statFindsUploadedHint", { count: totals.finds })
+              : undefined
+          }
         />
         <StatCard
           value={NF.format(totals.locations)}
@@ -418,6 +431,7 @@ function StatCard({
   value,
   label,
   icon: Icon,
+  hint,
 }: {
   value: string;
   label: string;
@@ -428,6 +442,11 @@ function StatCard({
    *  card isn't interactive, the icon is a static visual cue for
    *  "this stat is about X". */
   icon: LucideIcon;
+  /** Optional small line of muted text below the label — used on
+   *  the finds tile to surface the "<count> nahraných" qualifier
+   *  under the headline max-find-id. Card collapses gracefully
+   *  when omitted (legacy behaviour for the other tiles). */
+  hint?: string;
 }) {
   return (
     <div className="relative rounded-xl border border-gray-200 bg-brand-50 p-4 text-center">
@@ -437,6 +456,9 @@ function StatCard({
       />
       <p className="text-2xl font-bold text-brand-700 sm:text-3xl">{value}</p>
       <p className="mt-1 text-xs text-gray-600 sm:text-sm">{label}</p>
+      {hint && (
+        <p className="mt-0.5 text-[11px] text-gray-500">{hint}</p>
+      )}
     </div>
   );
 }

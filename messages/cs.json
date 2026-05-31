@@ -229,6 +229,7 @@
     "navStatistikyTitle": "Statistiky",
     "navStatistikyDesc": "Přehled sbírky v grafech, číslech a milnících.",
     "statFinds": "{count, plural, one {nález} few {nálezy} other {nálezů}}",
+    "statFindsUploadedHint": "{count, number} nahraných",
     "statLocations": "{count, plural, one {lokalita} few {lokality} other {lokalit}}",
     "statCities": "{count, plural, one {město} few {města} other {měst}}",
     "statCountries": "{count, plural, one {země} few {země} other {zemí}}",

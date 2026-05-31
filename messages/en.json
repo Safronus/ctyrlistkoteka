@@ -230,6 +230,7 @@
     "navStatistikyTitle": "Statistics",
     "navStatistikyDesc": "Collection at a glance — charts, numbers and milestones.",
     "statFinds": "{count, plural, one {find} other {finds}}",
+    "statFindsUploadedHint": "{count, number} uploaded",
     "statLocations": "{count, plural, one {location} other {locations}}",
     "statCities": "{count, plural, one {city} other {cities}}",
     "statCountries": "{count, plural, one {country} other {countries}}",

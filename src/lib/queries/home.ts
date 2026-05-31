@@ -30,7 +30,18 @@ export interface HomeLatestFind {
 }
 
 export interface HomeTotals {
+  /** Total count of `finds` rows in the DB — the actual number of
+   *  finds the project has uploaded photos for. Used as the small
+   *  "X nahraných" hint under the headline number. */
   finds: number;
+  /** Maximum `find.id` in the DB. Drives the headline number on the
+   *  home page tile — represents the "highest find number we've
+   *  reached" rather than the count, because the user numbers
+   *  chronologically and the count diverges from the max when older
+   *  finds get backfilled later (ID 17000 exists but the count is
+   *  only 16800 because 200 historic finds haven't been uploaded
+   *  yet). Null when the table is empty. */
+  maxFindId: number | null;
   locations: number;
   cities: number;
   countries: number;
@@ -128,6 +139,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     prisma.$queryRaw<
       Array<{
         finds: bigint;
+        max_find_id: number | null;
         locations: bigint;
         donated: bigint;
         first_year: number | null;
@@ -138,6 +150,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     >`
       SELECT
         (SELECT COUNT(*) FROM finds) AS finds,
+        (SELECT MAX(id) FROM finds) AS max_find_id,
         (SELECT COUNT(*) FROM locations) AS locations,
         (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
            WHERE state = 'DONATED') AS donated,
@@ -320,6 +333,7 @@ export async function getHomePageData(): Promise<HomePageData> {
   const lastBackfill = backfillRows[0]?.last_backfill_at ?? null;
   const totals: HomeTotals = {
     finds: c ? Number(c.finds) : 0,
+    maxFindId: c?.max_find_id ?? null,
     locations: c ? Number(c.locations) : 0,
     cities: cityKeys.size,
     countries: countryKeys.size,
