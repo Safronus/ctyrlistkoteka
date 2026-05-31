@@ -336,41 +336,48 @@ export default async function FindDetailPage({ params }: PageProps) {
                     })}
                   />
                 )}
-                {/* Prev/next at the same location, in the same
-                    date-first ordering as the rank line. Each
-                    chip is rendered even at the chain boundary
-                    (just disabled) so the layout doesn't jump
-                    between finds. Hidden entirely on single-find
-                    locations where the whole row would be
-                    "← Předchozí (n/a) | Další (n/a) →". */}
-                {find.rankAtLocation && find.rankAtLocation.total > 1 && (
+                {/* Map deep-link + prev/next chips share one row:
+                    "Zobrazit na mapě" anchors LEFT, prev/next
+                    cluster sits flush RIGHT via `ml-auto`. With
+                    flex-wrap the cluster falls below the map link
+                    on narrow widths instead of overlapping.
+                    Map link only renders for finds with GPS
+                    (`?find=N` deep-link drives the highlight +
+                    auto-fit on /mapa — anonymized finds never
+                    reach this branch).
+                    Prev/next cluster only renders when the
+                    location has more than one find; each chip
+                    stays rendered at the chain boundary as a
+                    faded non-interactive span so the row doesn't
+                    jump between finds. */}
+                {(find.coordinates ||
+                  (find.rankAtLocation &&
+                    find.rankAtLocation.total > 1)) && (
                   <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <LocationNavLink
-                      direction="prev"
-                      targetId={find.rankAtLocation.prevId}
-                      label={t("prevAtLocation")}
-                    />
-                    <LocationNavLink
-                      direction="next"
-                      targetId={find.rankAtLocation.nextId}
-                      label={t("nextAtLocation")}
-                    />
-                  </div>
-                )}
-                {/* Map deep-link mirrors the row-level icon in
-                    /sbirka: `?find=N` highlights the specific
-                    find on the canvas (single marker + auto-fit).
-                    Only public finds with GPS qualify — the
-                    anonymized branch above never reaches here. */}
-                {find.coordinates && (
-                  <div className="pt-1">
-                    <Link
-                      href={`/mapa?find=${find.id}`}
-                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
-                    >
-                      <MapPin className="h-3.5 w-3.5" aria-hidden />
-                      <span>{t("showOnMap")}</span>
-                    </Link>
+                    {find.coordinates && (
+                      <Link
+                        href={`/mapa?find=${find.id}`}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+                      >
+                        <MapPin className="h-3.5 w-3.5" aria-hidden />
+                        <span>{t("showOnMap")}</span>
+                      </Link>
+                    )}
+                    {find.rankAtLocation &&
+                      find.rankAtLocation.total > 1 && (
+                        <div className="ml-auto flex flex-wrap items-center gap-2">
+                          <LocationNavLink
+                            direction="prev"
+                            targetId={find.rankAtLocation.prevId}
+                            label={t("prevAtLocation")}
+                          />
+                          <LocationNavLink
+                            direction="next"
+                            targetId={find.rankAtLocation.nextId}
+                            label={t("nextAtLocation")}
+                          />
+                        </div>
+                      )}
                   </div>
                 )}
               </>
