@@ -662,6 +662,8 @@
     "formerLocationNotice": "This location no longer physically exists (built over, terrain change, etc.). The map shows the original spot.",
     "kvCode": "Location code",
     "kvDescription": "Location description",
+    "kvOrderAtLocation": "Order at location",
+    "orderAtLocationValue": "Find {rank, number} of {total, number}",
     "noLocation": "No location is assigned to this find.",
     "showOnMap": "Show on map",
     "distanceFromMap": "from map #00001",

@@ -661,6 +661,8 @@
     "formerLocationNotice": "Tato lokalita už fyzicky neexistuje (zástavba, terénní úprava apod.). Mapa zobrazuje původní místo.",
     "kvCode": "Kód lokality",
     "kvDescription": "Popis lokality",
+    "kvOrderAtLocation": "Pořadí na lokalitě",
+    "orderAtLocationValue": "{rank, number}. nález z {total, number}",
     "noLocation": "Lokalita není k tomuto nálezu přiřazena.",
     "showOnMap": "Zobrazit na mapě",
     "distanceFromMap": "od mapy #00001",

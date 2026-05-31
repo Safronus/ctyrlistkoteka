@@ -802,6 +802,14 @@ export interface PublicFindDetail extends PublicFind {
    *  this find. Always public (no anonymized variant). Empty for
    *  anonymized finds — same rationale as donationPhotos: no leak. */
   freePhotos: readonly FindFreePhotoEntry[];
+  /** This find's date-order position among all finds at the same
+   *  location. `null` when the find has no location, OR when it's
+   *  anonymized (the displayed "location" is the privacy placeholder
+   *  — counting against placeholder finds would be misleading). The
+   *  ordering is `found_at ASC NULLS LAST, id ASC`, which mirrors
+   *  what the operator sees if they filter /sbirka by that location
+   *  + sort by oldest. */
+  rankAtLocation: { rank: number; total: number } | null;
 }
 
 export async function getFindById(
@@ -832,6 +840,10 @@ export async function getFindById(
       locationMaps: placeholderMaps,
       donationPhotos: [],
       freePhotos: [],
+      // Anonymized finds get no rank: the displayed location is a
+      // privacy placeholder, not where the find actually is, so
+      // counting against the placeholder's finds would mislead.
+      rankAtLocation: null,
     };
   }
 
@@ -840,13 +852,17 @@ export async function getFindById(
   // queries findPhotos here so the helper's directory cache stays
   // warm for the matching list query within the same revalidate
   // window.
-  const [locationMaps, donationPhotos, freePhotos] = await Promise.all([
-    hydrated.location
-      ? fetchLocationMaps(hydrated.location.id, hydrated.coordinates)
-      : Promise.resolve([] as PublicLocationMap[]),
-    getFindPhotos(hydrated.id),
-    getFindFreePhotos(hydrated.id),
-  ]);
+  const [locationMaps, donationPhotos, freePhotos, rankAtLocation] =
+    await Promise.all([
+      hydrated.location
+        ? fetchLocationMaps(hydrated.location.id, hydrated.coordinates)
+        : Promise.resolve([] as PublicLocationMap[]),
+      getFindPhotos(hydrated.id),
+      getFindFreePhotos(hydrated.id),
+      hydrated.location
+        ? fetchRankAtLocation(hydrated.id, hydrated.location.id)
+        : Promise.resolve(null),
+    ]);
   // hasRealPhoto is the public flag the list rows already use; mirror it
   // on the detail so card-equivalent gates (e.g. share buttons) stay
   // consistent even when the visitor lands directly on /sbirka/N.
@@ -856,7 +872,45 @@ export async function getFindById(
     hasRealPhoto: donationPhotos.length > 0,
     hasFreePhoto: freePhotos.length > 0,
   };
-  return { ...detailWithFlag, locationMaps, donationPhotos, freePhotos };
+  return {
+    ...detailWithFlag,
+    locationMaps,
+    donationPhotos,
+    freePhotos,
+    rankAtLocation,
+  };
+}
+
+/** This find's date-order position among finds at the same location.
+ *  Ordering: `found_at ASC NULLS LAST, id ASC` — dated finds first
+ *  oldest-to-newest, undated ones at the end by id (matches the
+ *  /sbirka "oldest first" sort for the same location filter).
+ *
+ *  Returns `null` when the find isn't actually present at the
+ *  location anymore (shouldn't happen in practice — the caller has
+ *  already loaded the find with a valid location_id — but the typed
+ *  null lets the page hide the row instead of rendering "?. find of
+ *  ?" if data drifts mid-render). */
+async function fetchRankAtLocation(
+  findId: number,
+  locationId: number,
+): Promise<{ rank: number; total: number } | null> {
+  type Row = { rank: number; total: number };
+  const rows = await prisma.$queryRaw<Row[]>`
+    SELECT rank, total
+    FROM (
+      SELECT
+        id,
+        (ROW_NUMBER() OVER (
+          ORDER BY found_at ASC NULLS LAST, id ASC
+        ))::int AS rank,
+        (COUNT(*) OVER ())::int AS total
+      FROM finds
+      WHERE location_id = ${locationId}
+    ) ranked
+    WHERE id = ${findId}
+  `;
+  return rows[0] ?? null;
 }
 
 async function fetchPublicLocation(

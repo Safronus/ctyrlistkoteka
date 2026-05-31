@@ -309,6 +309,21 @@ export default async function FindDetailPage({ params }: PageProps) {
           <>
             <KeyValue label={t("kvCode")} value={find.location.code} />
             <KeyValue label={t("kvDescription")} value={find.location.displayName} />
+            {/* "Nth find of M" line, present only on non-anonymized
+                finds with a location (the query layer returns null
+                for anonymized — see fetchRankAtLocation). Ordered
+                by foundAt ASC NULLS LAST, id ASC so the count
+                mirrors the "oldest first" /sbirka sort filtered by
+                the same location. */}
+            {find.rankAtLocation && (
+              <KeyValue
+                label={t("kvOrderAtLocation")}
+                value={t("orderAtLocationValue", {
+                  rank: find.rankAtLocation.rank,
+                  total: find.rankAtLocation.total,
+                })}
+              />
+            )}
             {/* Map deep-link mirrors the row-level icon in /sbirka:
                 `?find=N` highlights the specific find on the canvas
                 (single marker + auto-fit). Only public finds with GPS
