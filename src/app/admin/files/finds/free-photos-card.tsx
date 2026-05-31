@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -50,6 +50,48 @@ function fmtSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const FREE_PHOTOS_URL_PREFIX = "/generated/find-free-photos";
+
+/** Optimistic mirror of `moveFreePhoto`'s on-disk three-step rename.
+ *  Slot letters stay anchored to their positions in the displayed
+ *  array; only the URL + filename pair (carrying the file's
+ *  extension) swap between the two positions. Filenames have to be
+ *  rebuilt because the slot letter is embedded in them. */
+function swapAtPositions(
+  photos: readonly ExistingEntry[],
+  idx: number,
+  targetIdx: number,
+  findId: number,
+): ExistingEntry[] {
+  const a = photos[idx]!;
+  const b = photos[targetIdx]!;
+  // `\.[^.]+$` grabs the last extension including the dot.
+  // Missing extension shouldn't happen — discovery regex requires
+  // jpg/jpeg/png/webp — but stays graceful with an empty fallback.
+  const aExt = (a.filename.match(/\.[^.]+$/) ?? [""])[0];
+  const bExt = (b.filename.match(/\.[^.]+$/) ?? [""])[0];
+  const buildName = (slot: string, ext: string): string =>
+    `${findId}${slot}_FOTO${ext}`;
+  const buildUrl = (filename: string): string =>
+    `${FREE_PHOTOS_URL_PREFIX}/${encodeURIComponent(filename)}`;
+  // At position idx (where A used to live): B's content now sits
+  // there. New filename uses idx's slot letter + B's original ext.
+  const newAtIdx: ExistingEntry = {
+    slot: a.slot,
+    filename: buildName(a.slot, bExt),
+    url: buildUrl(buildName(a.slot, bExt)),
+  };
+  const newAtTargetIdx: ExistingEntry = {
+    slot: b.slot,
+    filename: buildName(b.slot, aExt),
+    url: buildUrl(buildName(b.slot, aExt)),
+  };
+  const next = [...photos];
+  next[idx] = newAtIdx;
+  next[targetIdx] = newAtTargetIdx;
+  return next;
+}
+
 /** Find-detail card for the "volné fotky nálezu" gallery — extra
  *  snapshots without donation context. Mirrors the donation card but
  *  is simpler: no anonymizovat checkbox (all entries are public), no
@@ -62,16 +104,21 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
-  // Empirically the server-action's revalidatePath() on this
-  // dynamic route (/admin/files/[scope]/[name]) did NOT trigger the
-  // client router to refetch the segment — the gallery only reflected
-  // the swap after a manual F5. Likely the page is force-dynamic and
-  // sits outside the Full Route Cache, so revalidatePath has nothing
-  // to flag and the action response carries no fresh RSC payload.
-  // router.refresh() bypasses that whole song and dance: it tells
-  // the client router to re-render the current route from a fresh
-  // RSC fetch, which always works regardless of caching mode.
   const router = useRouter();
+  // Local mirror of the gallery list. Two earlier attempts
+  // (revalidatePath + router.refresh()) both failed to bring the
+  // re-ordered prop down from the server — most likely a combo of PM2
+  // cluster cache + browser router cache on a dynamic admin route.
+  // Rather than chase the right invalidation chant, we keep the
+  // ordering authoritative on the CLIENT during the lifetime of the
+  // card: a move click swaps the entries locally first, then fires
+  // the action to mirror the rename on disk. The useEffect below
+  // re-syncs whenever the prop genuinely changes (e.g. an upload or
+  // delete updates the parent's data).
+  const [photos, setPhotos] = useState<readonly ExistingEntry[]>(existing);
+  useEffect(() => {
+    setPhotos(existing);
+  }, [existing]);
   /** Which (slot, direction) pair is currently in flight. Lets every
    *  button on the row disable itself the moment one of them is
    *  clicked — prevents the operator from queueing two moves and
@@ -79,8 +126,23 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
   const [movingKey, setMovingKey] = useState<string | null>(null);
 
   const handleMove = (slot: string, direction: "up" | "down") => {
+    const idx = photos.findIndex((p) => p.slot === slot);
+    if (idx === -1) return;
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= photos.length) return;
     const key = `${slot}:${direction}`;
     setMovingKey(key);
+
+    // Optimistic local swap — mirrors the server's three-step
+    // rename. The slot LETTERS stay where they are (a, b, c order
+    // is preserved); the URL + filename pair swap between the two
+    // positions. Filenames get rebuilt because they embed the slot
+    // letter and the extension of the source file moves with the
+    // content.
+    const before = photos;
+    const after = swapAtPositions(photos, idx, targetIdx, findId);
+    setPhotos(after);
+
     const fd = new FormData();
     fd.append("findId", String(findId));
     fd.append("slot", slot);
@@ -89,10 +151,16 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
     startTransition(async () => {
       try {
         await moveFreePhoto(fd);
-        // Force a fresh RSC fetch of the current route so the
-        // re-sorted gallery re-renders. router.refresh is the only
-        // reliable trigger here — see the comment above.
+        // Best-effort sync for the rest of the page tree — even
+        // though the gallery is now driven by local state, other
+        // chunks of the detail page (sibling cards, breadcrumbs,
+        // audit summary lines) may still want the fresh data.
         router.refresh();
+      } catch {
+        // Action threw — revert the optimistic swap. Real failures
+        // are rare here (auth gate, missing file race) but worth
+        // not lying to the operator about.
+        setPhotos(before);
       } finally {
         setMovingKey(null);
       }
@@ -219,19 +287,19 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
       <header className="mb-3 flex items-center gap-2">
         <Images className="h-4 w-4 text-brand-600" aria-hidden />
         <h2 className="text-sm font-semibold text-gray-900">
-          Volné fotky nálezu ({existing.length})
+          Volné fotky nálezu ({photos.length})
         </h2>
       </header>
 
-      {existing.length > 0 ? (
+      {photos.length > 0 ? (
         <ul className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {existing.map((p, i) => {
+          {photos.map((p, i) => {
             const isFirst = i === 0;
-            const isLast = i === existing.length - 1;
+            const isLast = i === photos.length - 1;
             // Reorder buttons only appear when there's something to
             // reorder — single-photo galleries get no chrome. The
             // first row can't move up; the last can't move down.
-            const canReorder = existing.length > 1;
+            const canReorder = photos.length > 1;
             return (
             <li
               key={p.filename}
