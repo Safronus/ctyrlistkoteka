@@ -61,7 +61,16 @@ export function HelpDialog({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={(e) => {
+          // Stop the click from toggling an ancestor <details> when the
+          // marker lives inside a <summary> (e.g. the /statistiky
+          // deviation tile). preventDefault cancels the summary's toggle
+          // default action; stopPropagation keeps it off other handlers.
+          // Both are no-ops for the h1-adjacent placements on other pages.
+          e.stopPropagation();
+          e.preventDefault();
+          setOpen(true);
+        }}
         title={buttonTitle}
         aria-label={buttonAriaLabel}
         className={

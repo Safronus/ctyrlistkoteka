@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Heart, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { VoteButton } from "@/components/finds/vote-button";
+import { CollapsibleSection } from "@/components/stats/collapsible-section";
 import type { TopFindRich } from "@/lib/votes";
 
 interface Props {
@@ -39,23 +40,16 @@ export function TopFindsLeaderboard({ allTime, yearly, monthly }: Props) {
     active === "all" ? allTime : active === "year" ? yearly : monthly;
 
   return (
-    <section
-      aria-labelledby="leaderboard-heading"
-      className="rounded-xl border border-gray-200 bg-white p-5"
+    <CollapsibleSection
+      title={
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+          <Trophy className="h-5 w-5 text-amber-500" aria-hidden />
+          {t("leaderboardHeading")}
+        </h2>
+      }
+      subtitle={t("leaderboardSubtitle")}
     >
-      <header className="mb-3 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2
-            id="leaderboard-heading"
-            className="flex items-center gap-2 text-lg font-semibold text-gray-900"
-          >
-            <Trophy className="h-5 w-5 text-amber-500" aria-hidden />
-            {t("leaderboardHeading")}
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            {t("leaderboardSubtitle")}
-          </p>
-        </div>
+      <div className="mb-3 flex justify-end">
         <div
           role="tablist"
           aria-label={t("leaderboardHeading")}
@@ -77,7 +71,7 @@ export function TopFindsLeaderboard({ allTime, yearly, monthly }: Props) {
             onClick={() => setActive("month")}
           />
         </div>
-      </header>
+      </div>
 
       {entries.length === 0 ? (
         <p className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
@@ -164,7 +158,7 @@ export function TopFindsLeaderboard({ allTime, yearly, monthly }: Props) {
           ))}
         </ol>
       )}
-    </section>
+    </CollapsibleSection>
   );
 }
 

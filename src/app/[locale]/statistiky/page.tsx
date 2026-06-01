@@ -65,6 +65,8 @@ import { localizedCountryName } from "@/lib/world-countries";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { prisma } from "@/lib/db";
 import { getTopFindsWithThumbs } from "@/lib/votes";
+import { HelpDialog, type HelpSection } from "@/components/help/help-dialog";
+import { CollapsibleSection } from "@/components/stats/collapsible-section";
 import { CalendarHeatmapTabs } from "@/components/stats/calendar-heatmap-tabs";
 import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
 import { TopFindsLeaderboard } from "@/components/stats/top-finds-leaderboard";
@@ -648,6 +650,38 @@ function TimeAndPaceSkeleton() {
   );
 }
 
+/** Builds the help-dialog content for the deviation tile from the
+ *  Statistiky namespace, threading in the deviation radius constant. */
+function deviationHelpSections(t: StatsT): HelpSection[] {
+  const radius = FIND_DEVIATION_RADIUS_M;
+  return [
+    {
+      heading: t("deviationHelpRuleHeading"),
+      items: [
+        t("deviationHelpRule1"),
+        t("deviationHelpRule2", { radius }),
+        t("deviationHelpRule3"),
+      ],
+    },
+    {
+      heading: t("deviationHelpMeasureHeading"),
+      items: [
+        t("deviationHelpMeasure1"),
+        t("deviationHelpMeasure2"),
+        t("deviationHelpMeasure3"),
+      ],
+    },
+    {
+      heading: t("deviationHelpProbHeading"),
+      items: [
+        t("deviationHelpProb1"),
+        t("deviationHelpProb2"),
+        t("deviationHelpProb3"),
+      ],
+    },
+  ];
+}
+
 function DeviationStatsCard({
   data,
   t,
@@ -686,9 +720,18 @@ function DeviationStatsCard({
             aria-hidden
           />
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {t("deviationHeading")}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {t("deviationHeading")}
+              </h2>
+              <HelpDialog
+                title={t("deviationHelpTitle")}
+                buttonAriaLabel={t("deviationHelpButtonAria")}
+                buttonTitle={t("deviationHelpButtonTitle")}
+                intro={t("deviationHelpIntro")}
+                sections={deviationHelpSections(t)}
+              />
+            </div>
             <p className="mt-0.5 text-sm text-gray-700">
               {t("deviationHeadline", {
                 deviated: numFmt.format(data.deviated),
@@ -1056,47 +1099,44 @@ function GeoStatsSection({
     name: localizedCountryName(c.name, locale),
   }));
   return (
-    <section className="space-y-4">
-      <header>
-        <h2 className="text-lg font-semibold text-gray-900">
-          {t("geoHeading")}
-        </h2>
-        <p className="text-sm text-gray-500">
-          {t.rich("geoSubtitle", {
-            code: (chunks) => <code>{chunks}</code>,
-          })}
-        </p>
-      </header>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <CountTable
-          title={t("geoTopCountries")}
-          rows={localizedByCountry.map((c) => ({
-            key: c.code,
-            label: c.name,
-            count: c.count,
-          }))}
-          t={t}
-        />
-        <CountTable
-          title={t("geoTopCities")}
-          rows={byCity.map((c) => ({
-            key: c.name,
-            label: c.name,
-            count: c.count,
-          }))}
-          maxRows={10}
-          t={t}
-        />
-      </div>
-      {localizedByCountry.length > 0 && (
-        <div>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            {t("geoMapHeading")}
-          </h3>
-          <WorldChoroplethMap byCountry={localizedByCountry} />
+    <CollapsibleSection
+      title={t("geoHeading")}
+      subtitle={t.rich("geoSubtitle", {
+        code: (chunks) => <code>{chunks}</code>,
+      })}
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <CountTable
+            title={t("geoTopCountries")}
+            rows={localizedByCountry.map((c) => ({
+              key: c.code,
+              label: c.name,
+              count: c.count,
+            }))}
+            t={t}
+          />
+          <CountTable
+            title={t("geoTopCities")}
+            rows={byCity.map((c) => ({
+              key: c.name,
+              label: c.name,
+              count: c.count,
+            }))}
+            maxRows={10}
+            t={t}
+          />
         </div>
-      )}
-    </section>
+        {localizedByCountry.length > 0 && (
+          <div>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+              {t("geoMapHeading")}
+            </h3>
+            <WorldChoroplethMap byCountry={localizedByCountry} />
+          </div>
+        )}
+      </div>
+    </CollapsibleSection>
   );
 }
 
@@ -1212,55 +1252,53 @@ function CalendarStatsSection({
   );
 
   return (
-    <section className="space-y-4">
-      <header>
-        <h2 className="text-lg font-semibold text-gray-900">
-          {t("calendarHeading")}
-        </h2>
-        <p className="text-sm text-gray-500">{t("calendarSubtitle")}</p>
-      </header>
+    <CollapsibleSection
+      title={t("calendarHeading")}
+      subtitle={t("calendarSubtitle")}
+    >
+      <div className="space-y-4">
+        <CalendarSubsection
+          title={t("byHour")}
+          data={hourly}
+          labelLong={(k) => `${String(k).padStart(2, "0")}:00`}
+          labelShort={(k) => String(k).padStart(2, "0")}
+          tableColumns={2}
+          t={t}
+        />
 
-      <CalendarSubsection
-        title={t("byHour")}
-        data={hourly}
-        labelLong={(k) => `${String(k).padStart(2, "0")}:00`}
-        labelShort={(k) => String(k).padStart(2, "0")}
-        tableColumns={2}
-        t={t}
-      />
+        <CalendarSubsection
+          title={t("byDayOfWeek")}
+          data={daily}
+          labelLong={(k) => t(`weekDay${k}`)}
+          labelShort={(k) => t(`weekDay${k}Short`)}
+          tableColumns={1}
+          t={t}
+        />
 
-      <CalendarSubsection
-        title={t("byDayOfWeek")}
-        data={daily}
-        labelLong={(k) => t(`weekDay${k}`)}
-        labelShort={(k) => t(`weekDay${k}Short`)}
-        tableColumns={1}
-        t={t}
-      />
+        <CalendarSubsection
+          title={t("byMonthOfYear")}
+          data={monthly}
+          labelLong={(k) => t(`monthLong${k}`)}
+          labelShort={(k) => monthShortKey(k, t)}
+          tableColumns={1}
+          t={t}
+        />
 
-      <CalendarSubsection
-        title={t("byMonthOfYear")}
-        data={monthly}
-        labelLong={(k) => t(`monthLong${k}`)}
-        labelShort={(k) => monthShortKey(k, t)}
-        tableColumns={1}
-        t={t}
-      />
+        <CalendarSubsection
+          title={t("byYear")}
+          data={yearlySeries}
+          labelLong={(k) => String(k)}
+          labelShort={(k) => String(k)}
+          tableColumns={1}
+          t={t}
+        />
 
-      <CalendarSubsection
-        title={t("byYear")}
-        data={yearlySeries}
-        labelLong={(k) => String(k)}
-        labelShort={(k) => String(k)}
-        tableColumns={1}
-        t={t}
-      />
-
-      <CalendarHeatmapTabs
-        daysView={<MonthDayHeatmap data={byMonthDay} t={t} />}
-        minuteCells={byMinute}
-      />
-    </section>
+        <CalendarHeatmapTabs
+          daysView={<MonthDayHeatmap data={byMonthDay} t={t} />}
+          minuteCells={byMinute}
+        />
+      </div>
+    </CollapsibleSection>
   );
 }
 
@@ -1897,64 +1935,64 @@ function JubileeFindsSection({
   );
 
   return (
-    <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
-      <header>
-        <h2 className="text-lg font-semibold text-gray-900">
-          {t("jubileeHeading")}
-        </h2>
-        <p className="text-sm text-gray-500">{t("jubileeSubtitle")}</p>
-      </header>
-
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {slottedSpecials.map((slot) =>
-          slot.kind === "find" ? (
-            <li key={slot.find.id}>
-              <JubileeCard find={slot.find} variant="special" t={t} locale={locale} />
-            </li>
-          ) : (
-            <li key={`empty-${slot.id}`}>
-              <JubileeEmptyCard id={slot.id} variant="special" t={t} />
-            </li>
-          ),
-        )}
-      </ul>
-
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {slottedMilestones.map((slot) =>
-          slot.kind === "find" ? (
-            <li key={slot.find.id}>
-              <JubileeCard find={slot.find} t={t} locale={locale} />
-            </li>
-          ) : (
-            <li key={`empty-${slot.id}`}>
-              <JubileeEmptyCard id={slot.id} t={t} />
-            </li>
-          ),
-        )}
-      </ul>
-
-      {hiddenMilestones.length > 0 && (
-        <details className="group">
-          <summary className="flex cursor-pointer justify-center [&::-webkit-details-marker]:hidden">
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-brand-200 hover:text-brand-700">
-              <span className="group-open:hidden">
-                {t("jubileeShowMore", { count: hiddenMilestones.length })}
-              </span>
-              <span className="hidden group-open:inline">
-                {t("jubileeHideMore")}
-              </span>
-            </span>
-          </summary>
-          <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {hiddenMilestones.map((j) => (
-              <li key={j.id}>
-                <JubileeCard find={j} t={t} locale={locale} />
+    <CollapsibleSection title={t("jubileeHeading")} subtitle={t("jubileeSubtitle")}>
+      <div className="space-y-4">
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {slottedSpecials.map((slot) =>
+            slot.kind === "find" ? (
+              <li key={slot.find.id}>
+                <JubileeCard
+                  find={slot.find}
+                  variant="special"
+                  t={t}
+                  locale={locale}
+                />
               </li>
-            ))}
-          </ul>
-        </details>
-      )}
-    </section>
+            ) : (
+              <li key={`empty-${slot.id}`}>
+                <JubileeEmptyCard id={slot.id} variant="special" t={t} />
+              </li>
+            ),
+          )}
+        </ul>
+
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {slottedMilestones.map((slot) =>
+            slot.kind === "find" ? (
+              <li key={slot.find.id}>
+                <JubileeCard find={slot.find} t={t} locale={locale} />
+              </li>
+            ) : (
+              <li key={`empty-${slot.id}`}>
+                <JubileeEmptyCard id={slot.id} t={t} />
+              </li>
+            ),
+          )}
+        </ul>
+
+        {hiddenMilestones.length > 0 && (
+          <details className="group">
+            <summary className="flex cursor-pointer justify-center [&::-webkit-details-marker]:hidden">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-brand-200 hover:text-brand-700">
+                <span className="group-open:hidden">
+                  {t("jubileeShowMore", { count: hiddenMilestones.length })}
+                </span>
+                <span className="hidden group-open:inline">
+                  {t("jubileeHideMore")}
+                </span>
+              </span>
+            </summary>
+            <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {hiddenMilestones.map((j) => (
+                <li key={j.id}>
+                  <JubileeCard find={j} t={t} locale={locale} />
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+    </CollapsibleSection>
   );
 }
 

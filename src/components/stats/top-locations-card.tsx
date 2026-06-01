@@ -10,6 +10,7 @@ import {
   formatLocationId,
   locationDetailHref,
 } from "@/lib/format";
+import { CollapsibleSection } from "@/components/stats/collapsible-section";
 import type {
   LocationDensityPoint,
   LocationPoint,
@@ -40,28 +41,29 @@ export function TopLocationsCard({
   const activeMode: Mode = !hasDensity ? "count" : mode;
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-5">
-      <header className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            {activeMode === "count"
-              ? t("topLocationsHeading", { count: byCount.length })
-              : t("topByDensityHeading", { count: byDensity.length })}
-          </h2>
-          <p className="text-sm text-gray-500">
-            {activeMode === "count"
-              ? t("topLocationsSubtitle")
-              : t("topByDensitySubtitle")}
-          </p>
+    <CollapsibleSection
+      title={
+        activeMode === "count"
+          ? t("topLocationsHeading", { count: byCount.length })
+          : t("topByDensityHeading", { count: byDensity.length })
+      }
+      subtitle={
+        activeMode === "count"
+          ? t("topLocationsSubtitle")
+          : t("topByDensitySubtitle")
+      }
+    >
+      {showToggle && (
+        <div className="mb-4 flex justify-end">
+          <ModeToggle mode={activeMode} onChange={setMode} t={t} />
         </div>
-        {showToggle && <ModeToggle mode={activeMode} onChange={setMode} t={t} />}
-      </header>
+      )}
       {activeMode === "count" ? (
         <CountList rows={byCount} numFmt={numFmt} t={t} />
       ) : (
         <DensityList rows={byDensity} numFmt={numFmt} t={t} />
       )}
-    </section>
+    </CollapsibleSection>
   );
 }
 
