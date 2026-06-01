@@ -973,9 +973,9 @@ function ParentSwatch() {
       <rect
         width={SWATCH_W}
         height={SWATCH_H}
-        fill="#8b5cf6"
-        fillOpacity={0.25}
-        stroke="#6d28d9"
+        fill="#9ca3af"
+        fillOpacity={0.5}
+        stroke="#4b5563"
         strokeWidth={2}
       />
     </svg>

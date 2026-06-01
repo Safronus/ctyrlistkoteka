@@ -747,7 +747,7 @@
     "modalTitle": "Mapa — nápověda",
     "intro": "Mapa zobrazuje všechny lokality (jako polygony) a všechny nálezy s GPS (jako body). Anonymizované lokality nejsou na mapě vidět.",
     "sectionLayersTitle": "Vrstvy",
-    "sectionLayers1": "„Lokality“ jsou zelené polygony lokačních map. Klik na polygon nebo na řádek v seznamu vpravo vás přiblíží na lokalitu.",
+    "sectionLayers1": "„Lokality“ jsou polygony lokačních map — aktivní modře, rodičovské (které mají dílčí části) šedě. Klik na polygon nebo na řádek v seznamu vpravo vás přiblíží na lokalitu.",
     "sectionLayers2": "„Nálezy“ jsou ~17 tisíc malých bodů (každý jeden nález s GPS). Klik na bod otevře popup s číslem, miniaturou a odkazem na detail.",
     "sectionLayers3": "„Zaniklé“ (opt-in) zobrazí lokality s prefixem NEEXISTUJE- — červené pruhované polygony.",
     "sectionLayers4": "Pod „Nálezy“ je přepínač „Skrýt odchýlené“ — schová body mimo polygon lokality nebo více než 5 m od středu u lokalit bez polygonu. Stejný práh řídí třípásmové (zelená/žlutá/červená) barvení odchylky v seznamu sbírky a na detailu nálezu — žlutá = mimo polygon ale uvnitř lokační mapy, červená = mimo lokační mapu. Když si v sidebaru vyberete konkrétní lokalitu, počty u obou přepínačů se přepočítají jen na nálezy té lokality.",

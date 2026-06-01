@@ -63,9 +63,9 @@ export function LocationPolygons({
   const parentById = new Map<number, number | null>();
   for (const l of locations) parentById.set(l.id, l.parentId);
   // Ids that are themselves a parent (some other location points at
-  // them). Drives the distinct violet "Rodičovská" palette below so a
-  // master area reads differently from an ordinary leaf polygon — and
-  // matches the legend swatch.
+  // them). Drives the distinct grey "Rodičovská" palette below so a
+  // master area reads differently from an ordinary (blue) leaf polygon
+  // — and matches the legend swatch.
   const parentIds = new Set<number>();
   for (const l of locations) {
     if (l.parentId !== null) parentIds.add(l.parentId);
@@ -196,8 +196,9 @@ export function LocationPolygons({
         // Four palettes, four distinct hues so the visitor can name
         // each at a glance without consulting the legend:
         //   active   — blue    (#1e40af / #3b82f6)
-        //   parent   — violet  (#6d28d9 / #8b5cf6) — the enclosing master
-        //              area that holds sub-parts; drawn under its blue
+        //   parent   — grey    (#4b5563 / #9ca3af) — the enclosing master
+        //              area that holds sub-parts; grey reads clearly
+        //              apart from the blue leaves and sits under its
         //              children (depth sort) so both stay readable.
         //   former   — rose    (pink-red border + striped pattern fill)
         //   focused  — amber   (#b45309 / #fbbf24) — warm but clearly
@@ -223,10 +224,10 @@ export function LocationPolygons({
         }
         if (parent) {
           return {
-            color: "#6d28d9",
+            color: "#4b5563",
             weight: 2,
-            fillColor: "#8b5cf6",
-            fillOpacity: 0.12,
+            fillColor: "#9ca3af",
+            fillOpacity: 0.25,
           };
         }
         return {
