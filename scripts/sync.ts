@@ -104,7 +104,11 @@ type Meta = z.infer<typeof MetaSchema>;
 // --------------------------------------------------------------------------
 // Standalone optional file, intentionally separate from
 // LokaceStavyPoznamky.json (the user explicitly wants those concerns
-// kept apart). Top-level shape: { parent_code: [child_code, ...] }.
+// kept apart). Top-level shape: { parent_code: [ child, ... ] } where
+// each child is EITHER a bare "child_code" string (default-hidden on
+// /mapa) OR an object { "code": "child_code", "map": true } (overlays
+// the parent polygon on /mapa by default). The string form is legacy;
+// `map` defaults to false.
 // Validation rules — enforced in phaseHierarchy:
 //   1. Both parent and every child must exist in the locations table.
 //   2. A child can have at most one parent.
@@ -113,8 +117,22 @@ type Meta = z.infer<typeof MetaSchema>;
 //   4. No self-references (a code can't be its own parent).
 // Violations are logged and skipped — they never fail the whole sync.
 
-const HierarchySchema = z.record(z.string(), z.array(z.string()));
+const HierarchyChildSchema = z.union([
+  z.string(),
+  z.object({ code: z.string(), map: z.boolean().optional() }),
+]);
+const HierarchySchema = z.record(z.string(), z.array(HierarchyChildSchema));
 type Hierarchy = z.infer<typeof HierarchySchema>;
+type HierarchyChild = z.infer<typeof HierarchyChildSchema>;
+
+/** Code of a hierarchy child entry regardless of string/object form. */
+function hierarchyChildCode(child: HierarchyChild): string {
+  return typeof child === "string" ? child : child.code;
+}
+/** Whether a child opts into the /mapa default-overlay. */
+function hierarchyChildMapDefault(child: HierarchyChild): boolean {
+  return typeof child === "string" ? false : child.map === true;
+}
 
 // --------------------------------------------------------------------------
 //  Logging
@@ -1306,8 +1324,9 @@ async function phaseHierarchy(
   const resolved = new Map<number, number[]>(); // parent_id → [child_id, ...]
   const declaredParents = new Set<number>(); // for cycle / depth check
   const claimedChildren = new Set<number>(); // 1 child → 1 parent
+  const mapDefaultChildIds = new Set<number>(); // children with `map: true`
 
-  for (const [parentCode, childCodes] of Object.entries(hierarchy)) {
+  for (const [parentCode, children] of Object.entries(hierarchy)) {
     const parentId = idByCode.get(parentCode);
     if (parentId === undefined) {
       ctx.log.failure({
@@ -1320,7 +1339,8 @@ async function phaseHierarchy(
     declaredParents.add(parentId);
 
     const validChildIds: number[] = [];
-    for (const childCode of childCodes) {
+    for (const childEntry of children) {
+      const childCode = hierarchyChildCode(childEntry);
       if (childCode === parentCode) {
         ctx.log.failure({
           file: "meta/LokaceHierarchie.json",
@@ -1348,6 +1368,9 @@ async function phaseHierarchy(
       }
       claimedChildren.add(childId);
       validChildIds.push(childId);
+      if (hierarchyChildMapDefault(childEntry)) {
+        mapDefaultChildIds.add(childId);
+      }
     }
     if (validChildIds.length > 0) resolved.set(parentId, validChildIds);
   }
@@ -1368,6 +1391,16 @@ async function phaseHierarchy(
     }
   }
 
+  // A parent dropped by the depth check above takes its children's
+  // map-default flags with it — keep mapDefaultChildIds in sync with
+  // whatever survived in `resolved`.
+  const survivingChildIds = new Set<number>();
+  for (const arr of resolved.values())
+    for (const id of arr) survivingChildIds.add(id);
+  for (const id of [...mapDefaultChildIds]) {
+    if (!survivingChildIds.has(id)) mapDefaultChildIds.delete(id);
+  }
+
   if (ctx.opts.dryRun) {
     let totalChildren = 0;
     for (const arr of resolved.values()) totalChildren += arr.length;
@@ -1376,23 +1409,33 @@ async function phaseHierarchy(
       level: "info",
       would_set_parents: resolved.size,
       would_link_children: totalChildren,
+      would_map_default: mapDefaultChildIds.size,
     });
     return;
   }
 
   // Second pass: clear every parent_id that points at one of the
   // parents we're about to (re)write — that frees up children which
-  // were unlinked in the latest JSON edit. Then bulk-set the new links.
-  // This makes the operation idempotent even when the JSON shrinks.
+  // were unlinked in the latest JSON edit. Reset their
+  // show_on_map_by_default to false in the same sweep so a child that
+  // dropped its `map: true` flag in the JSON gets cleared too. Then
+  // bulk-set the new links and re-apply the map-default flags. This
+  // keeps the whole operation idempotent even when the JSON shrinks.
   if (resolved.size > 0) {
     await ctx.prisma.location.updateMany({
       where: { parentId: { in: [...resolved.keys()] } },
-      data: { parentId: null },
+      data: { parentId: null, showOnMapByDefault: false },
     });
     for (const [parentId, childIds] of resolved.entries()) {
       await ctx.prisma.location.updateMany({
         where: { id: { in: childIds } },
         data: { parentId },
+      });
+    }
+    if (mapDefaultChildIds.size > 0) {
+      await ctx.prisma.location.updateMany({
+        where: { id: { in: [...mapDefaultChildIds] } },
+        data: { showOnMapByDefault: true },
       });
     }
   }
@@ -1404,6 +1447,7 @@ async function phaseHierarchy(
     level: "info",
     parents: resolved.size,
     children_linked: appliedChildren,
+    map_default_children: mapDefaultChildIds.size,
     failures_logged: ctx.log.failures,
   });
 }

@@ -199,6 +199,13 @@ export function MapaShell({
     Set<number>
   >(() => {
     const set = new Set<number>();
+    // Operator-flagged children: those carrying `showOnMapByDefault`
+    // (the `{ "code": ..., "map": true }` form in LokaceHierarchie.json)
+    // overlay their parent's polygon on first paint without any sidebar
+    // opt-in. Every other child stays hidden until toggled.
+    for (const loc of mapData.locations) {
+      if (loc.parentId !== null && loc.showOnMapByDefault) set.add(loc.id);
+    }
     // The deep-link target — either the location requested via
     // `?focus=<id>` or the home location of a `?find=<n>` find — gets
     // its child polygon opted in by default. Without this, a visitor

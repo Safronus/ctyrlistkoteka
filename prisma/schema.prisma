@@ -62,6 +62,13 @@ model Location {
   parent   Location?  @relation("LocationParent", fields: [parentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   children Location[] @relation("LocationParent")
 
+  // For child locations only: when true their polygon overlays the
+  // parent on /mapa by default (no sidebar opt-in needed). Driven by
+  // the `{ "code": ..., "map": true }` form in LokaceHierarchie.json;
+  // sync sets it. Always false for top-level locations (they're shown
+  // regardless). See docs/admin-overview.md.
+  showOnMapByDefault Boolean @default(false) @map("show_on_map_by_default")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 

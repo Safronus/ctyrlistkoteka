@@ -1,6 +1,6 @@
 {
   "RATIBOŘ_POLE001": [
-    "RATIBOŘ_POLE001a",
+    { "code": "RATIBOŘ_POLE001a", "map": true },
     "RATIBOŘ_POLE001b",
     "RATIBOŘ_POLE001c",
     "RATIBOŘ_POLE001d",

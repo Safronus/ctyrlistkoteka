@@ -8,6 +8,7 @@ import { appendAudit } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
 import {
+  hierarchyChildCode,
   LOKACE_HIERARCHIE_FILENAME,
   lokaceHierarchieSchema,
 } from "@/lib/admin/jsonSchema";
@@ -103,7 +104,7 @@ export async function saveLokaceHierarchie(
   const codesInJson = new Set<string>();
   for (const [parent, children] of Object.entries(result.data)) {
     codesInJson.add(parent);
-    for (const c of children) codesInJson.add(c);
+    for (const c of children) codesInJson.add(hierarchyChildCode(c));
   }
   if (codesInJson.size > 0) {
     const existing = await prisma.location.findMany({
@@ -120,10 +121,11 @@ export async function saveLokaceHierarchie(
         });
       }
       children.forEach((child, i) => {
-        if (!existingSet.has(child)) {
+        const childCode = hierarchyChildCode(child);
+        if (!existingSet.has(childCode)) {
           issues.push({
             path: [parent, i],
-            message: `Dětská lokace "${child}" neexistuje v DB`,
+            message: `Dětská lokace "${childCode}" neexistuje v DB`,
           });
         }
       });

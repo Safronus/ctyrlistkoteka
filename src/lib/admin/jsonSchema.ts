@@ -113,7 +113,17 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
 // ---------------------------------------------------------------------------
 // LokaceHierarchie.json — parent/child mapping between location codes.
 //
-// Shape: { "<parent_code>": ["<child_code>", "<child_code>", ...], ... }
+// Shape: { "<parent_code>": [ <child>, <child>, ... ], ... }
+// where each <child> is EITHER:
+//   - a plain string "<child_code>"               (default-hidden on /mapa)
+//   - an object { "code": "<child_code>", "map": true }
+//                                                  (default-OVERLAYS the
+//                                                   parent polygon on /mapa)
+//
+// The string form is the legacy shape — every pre-existing entry keeps
+// parsing, and a child only becomes an object once the operator flips
+// its "default na mapě" toggle. `map` defaults to false when omitted.
+//
 // Same shape that `scripts/sync.ts` reads (readHierarchyJson). Sync
 // enforces the same invariants referentially against the DB; we mirror
 // the structural ones here so the admin save fails fast with field-
@@ -122,15 +132,39 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
 
 export const LOKACE_HIERARCHIE_FILENAME = "LokaceHierarchie.json";
 
+/** One child entry — legacy bare string or the richer object form. */
+export const hierarchyChildSchema = z.union([
+  z.string().min(1),
+  z
+    .strictObject({
+      code: z.string().min(1),
+      /** When true the child's polygon is shown on /mapa by default,
+       *  overlaying the parent. Omitted / false = default-hidden. */
+      map: z.boolean().optional(),
+    }),
+]);
+export type HierarchyChild = z.infer<typeof hierarchyChildSchema>;
+
+/** Code of a child entry regardless of which form it took. */
+export function hierarchyChildCode(child: HierarchyChild): string {
+  return typeof child === "string" ? child : child.code;
+}
+
+/** Whether a child entry opts into being shown on /mapa by default. */
+export function hierarchyChildMapDefault(child: HierarchyChild): boolean {
+  return typeof child === "string" ? false : child.map === true;
+}
+
 export const lokaceHierarchieSchema = z
-  .record(z.string().min(1), z.array(z.string().min(1)).min(1))
+  .record(z.string().min(1), z.array(hierarchyChildSchema).min(1))
   .superRefine((data, ctx) => {
     const parents = new Set(Object.keys(data));
     const childToParent = new Map<string, string>();
 
     for (const [parent, children] of Object.entries(data)) {
       const seenInGroup = new Set<string>();
-      children.forEach((child, i) => {
+      children.forEach((entry, i) => {
+        const child = hierarchyChildCode(entry);
         if (child === parent) {
           ctx.addIssue({
             code: "custom",

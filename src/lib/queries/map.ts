@@ -24,6 +24,11 @@ export interface MapLocation {
    *  — child polygons stay off until the user opts them in via the
    *  sidebar toggle, since they'd otherwise stack on the parent's. */
   parentId: number | null;
+  /** Child locations only: when true the polygon overlays the parent
+   *  on /mapa by default (no sidebar opt-in needed). Set from the
+   *  `{ "code": ..., "map": true }` form in LokaceHierarchie.json via
+   *  sync. Always false for top-level locations. */
+  showOnMapByDefault: boolean;
   /** True when the location code starts with `NEEXISTUJE-`, marking the
    *  place as physically gone. The map paints these polygons + dots in
    *  red with diagonal hatching so visitors can spot vanished places at
@@ -88,6 +93,7 @@ export async function getMapData(): Promise<MapData> {
     code: string;
     display_name: string;
     parent_id: number | null;
+    show_on_map_by_default: boolean;
     center_lat: number | null;
     center_lng: number | null;
     polygon_geojson: string | null;
@@ -100,6 +106,7 @@ export async function getMapData(): Promise<MapData> {
              l.code,
              l.display_name,
              l.parent_id,
+             l.show_on_map_by_default,
              ST_Y(l.center_point)::float8 AS center_lat,
              ST_X(l.center_point)::float8 AS center_lng,
              ST_AsGeoJSON(l.polygon) AS polygon_geojson,
@@ -183,6 +190,7 @@ export async function getMapData(): Promise<MapData> {
       code: r.code,
       displayName: r.display_name,
       parentId: r.parent_id,
+      showOnMapByDefault: r.show_on_map_by_default,
       isGone: isFormerLocation(r.code),
       centerLat: r.center_lat,
       centerLng: r.center_lng,

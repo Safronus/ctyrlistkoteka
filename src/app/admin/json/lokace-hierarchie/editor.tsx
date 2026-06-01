@@ -6,6 +6,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Database,
+  Eye,
+  EyeOff,
   Loader2,
   Plus,
   RotateCcw,
@@ -14,7 +16,11 @@ import {
   X,
 } from "lucide-react";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
-import type { LokaceHierarchie } from "@/lib/admin/jsonSchema";
+import {
+  hierarchyChildCode,
+  hierarchyChildMapDefault,
+  type LokaceHierarchie,
+} from "@/lib/admin/jsonSchema";
 import type { LocationOption } from "./page";
 import { saveLokaceHierarchie, type SaveResult } from "./save-action";
 
@@ -23,21 +29,40 @@ interface Props {
   locations: LocationOption[];
 }
 
+/** One child in the editor. `map` mirrors the `{ "code": ..., "map":
+ *  true }` form in LokaceHierarchie.json — true means the child's
+ *  polygon overlays the parent on /mapa by default. */
+interface ChildEntry {
+  code: string;
+  map: boolean;
+}
+
 interface Group {
   parent: string;
-  children: string[];
+  children: ChildEntry[];
 }
 
 function hierarchyToGroups(h: LokaceHierarchie): Group[] {
   return Object.entries(h).map(([parent, children]) => ({
     parent,
-    children: [...children],
+    children: children.map((c) => ({
+      code: hierarchyChildCode(c),
+      map: hierarchyChildMapDefault(c),
+    })),
   }));
 }
 
 function groupsToHierarchy(groups: Group[]): LokaceHierarchie {
   const out: LokaceHierarchie = {};
-  for (const g of groups) out[g.parent] = [...g.children];
+  // Serialise back to the union shape: a plain string when the child
+  // is default-hidden (the legacy form, keeps diffs minimal) and the
+  // `{ code, map: true }` object only for children flagged to overlay
+  // the parent on /mapa.
+  for (const g of groups) {
+    out[g.parent] = g.children.map((c) =>
+      c.map ? { code: c.code, map: true } : c.code,
+    );
+  }
   return out;
 }
 
@@ -68,7 +93,7 @@ export function LokaceHierarchieEditor({
     const set = new Set<string>();
     for (const g of groups) {
       set.add(g.parent);
-      for (const c of g.children) set.add(c);
+      for (const c of g.children) set.add(c.code);
     }
     return set;
   }, [groups]);
@@ -111,7 +136,10 @@ export function LokaceHierarchieEditor({
     setGroups((prev) =>
       prev.map((g) =>
         g.parent === parentCode
-          ? { ...g, children: [...g.children, childCode] }
+          ? {
+              ...g,
+              children: [...g.children, { code: childCode, map: false }],
+            }
           : g,
       ),
     );
@@ -122,7 +150,26 @@ export function LokaceHierarchieEditor({
     setGroups((prev) =>
       prev.map((g) =>
         g.parent === parentCode
-          ? { ...g, children: g.children.filter((c) => c !== childCode) }
+          ? { ...g, children: g.children.filter((c) => c.code !== childCode) }
+          : g,
+      ),
+    );
+    setSavedAt(null);
+  }
+
+  // Flip a child's "default na mapě" flag — when on, its polygon
+  // overlays the parent on /mapa without a sidebar opt-in (the
+  // `{ code, map: true }` shape). Off = legacy default-hidden string.
+  function toggleChildMap(parentCode: string, childCode: string) {
+    setGroups((prev) =>
+      prev.map((g) =>
+        g.parent === parentCode
+          ? {
+              ...g,
+              children: g.children.map((c) =>
+                c.code === childCode ? { ...c, map: !c.map } : c,
+              ),
+            }
           : g,
       ),
     );
@@ -174,6 +221,17 @@ export function LokaceHierarchieEditor({
 
   return (
     <div className="space-y-4 pb-20">
+      <div className="flex items-start gap-2 rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+        <Eye className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+        <p>
+          Ikona oka u dítěte přepíná „defaultně na mapě“ — když je{" "}
+          <span className="font-medium text-emerald-700">zelená</span>, polygon
+          dítěte se na <span className="font-mono">/mapa</span> zobrazí přes
+          rodičovský polygon hned po načtení (bez nutnosti zapnout ho v
+          postranním panelu). Změny se projeví až po spuštění synchronizace.
+        </p>
+      </div>
+
       {childlessParents.length > 0 && (
         <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
           Skupiny bez dětí budou při uložení vynechány:{" "}
@@ -234,18 +292,23 @@ export function LokaceHierarchieEditor({
                 {g.children.length > 0 && (
                   <ul className="flex flex-wrap gap-1.5">
                     {g.children.map((c) => {
-                      const childInfo = locationsByCode.get(c);
+                      const childInfo = locationsByCode.get(c.code);
                       return (
-                        <li key={c}>
-                          <button
-                            type="button"
-                            onClick={() => removeChild(g.parent, c)}
-                            className="group inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 py-1 pl-2 pr-1.5 text-xs text-gray-700 hover:border-red-300 hover:bg-red-50"
-                            title="Kliknutím odstraníš"
+                        <li key={c.code}>
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border py-1 pl-2 pr-1 text-xs ${
+                              c.map
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                                : "border-gray-200 bg-gray-50 text-gray-700"
+                            }`}
                           >
-                            <span className="font-mono">{c}</span>
+                            <span className="font-mono">{c.code}</span>
                             {childInfo ? (
-                              <span className="text-gray-500">
+                              <span
+                                className={
+                                  c.map ? "text-emerald-700" : "text-gray-500"
+                                }
+                              >
                                 — {childInfo.name}
                               </span>
                             ) : (
@@ -254,11 +317,36 @@ export function LokaceHierarchieEditor({
                                 není v DB
                               </span>
                             )}
-                            <X
-                              className="h-3 w-3 text-gray-400 group-hover:text-red-600"
-                              aria-hidden
-                            />
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleChildMap(g.parent, c.code)}
+                              aria-pressed={c.map}
+                              className={`ml-0.5 inline-flex items-center rounded-full p-1 ${
+                                c.map
+                                  ? "text-emerald-700 hover:bg-emerald-100"
+                                  : "text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                              }`}
+                              title={
+                                c.map
+                                  ? "Defaultně na mapě — kliknutím skryješ"
+                                  : "Defaultně skryté na mapě — kliknutím zobrazíš"
+                              }
+                            >
+                              {c.map ? (
+                                <Eye className="h-3.5 w-3.5" aria-hidden />
+                              ) : (
+                                <EyeOff className="h-3.5 w-3.5" aria-hidden />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeChild(g.parent, c.code)}
+                              className="inline-flex items-center rounded-full p-1 text-gray-400 hover:bg-red-100 hover:text-red-600"
+                              title="Odebrat dítě"
+                            >
+                              <X className="h-3.5 w-3.5" aria-hidden />
+                            </button>
+                          </span>
                         </li>
                       );
                     })}
