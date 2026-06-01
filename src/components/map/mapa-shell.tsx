@@ -325,7 +325,15 @@ export function MapaShell({
   // `?showFinds=1` also wins against the saved localStorage preference
   // — if the visitor previously turned the layer off and we let that
   // value win here, we'd promptly undo what the URL just forced on.
-  const urlForcesFindsOn = urlShowFinds === true;
+  //
+  // A location deep-link (`?focus=<id>` from /lokality, /statistiky's
+  // Top-10 + deviation tile, the map popup, …) forces the layer on too:
+  // the visitor came to SEE that location's finds, so a saved "off"
+  // shouldn't leave them staring at an empty polygon. `?find=<n>`
+  // highlights are the exception — that flow deliberately starts with
+  // the bulk layer hidden so the single marker stands out.
+  const urlForcesFindsOn =
+    urlShowFinds === true || (urlFocusId !== null && !hasHighlight);
   useEffect(() => {
     try {
       const sl = window.localStorage.getItem(LS_KEY_LOCATIONS);

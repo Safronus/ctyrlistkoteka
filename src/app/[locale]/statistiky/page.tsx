@@ -6,7 +6,6 @@ import {
   CalendarDays,
   CalendarRange,
   Camera,
-  ChevronDown,
   Clock,
   Compass,
   Crosshair,
@@ -118,14 +117,14 @@ export default async function StatistikyPage() {
       <Suspense fallback={<HighlightsSkeleton />}>
         <HighlightsSection />
       </Suspense>
-      <Suspense fallback={<DeviationsSkeleton />}>
-        <DeviationsSection />
-      </Suspense>
       <Suspense fallback={<TimeAndPaceSkeleton />}>
         <TimeAndPaceSection />
       </Suspense>
       <Suspense fallback={<PeaksSkeleton />}>
         <PeaksSection />
+      </Suspense>
+      <Suspense fallback={<DeviationsSkeleton />}>
+        <DeviationsSection />
       </Suspense>
       <Suspense fallback={<JubileesSkeleton />}>
         <JubileesSection />
@@ -714,49 +713,39 @@ function DeviationStatsCard({
     isDominant: o.octant === dom,
     tooltip: `${t(`compassName${o.octant}`)}: ${t("deviationRoseCount")} ${numFmt.format(o.count)} · ${t("deviationRoseDistance")} ${dist(o.meanMeters)}`,
   }));
+  const coord = (lat: number, lng: number) =>
+    `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
   return (
-    <details className="group rounded-xl border border-brand-200 bg-brand-50 p-5">
-      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
-        <div className="flex items-start gap-3">
-          <Crosshair
-            className="mt-0.5 h-5 w-5 shrink-0 text-brand-700"
-            aria-hidden
+    <CollapsibleSection
+      storageKey="deviations"
+      title={
+        <div className="flex items-center gap-2">
+          <Crosshair className="h-5 w-5 shrink-0 text-brand-700" aria-hidden />
+          <h2 className="text-lg font-semibold text-gray-900">
+            {t("deviationHeading")}
+          </h2>
+          <HelpDialog
+            title={t("deviationHelpTitle")}
+            buttonAriaLabel={t("deviationHelpButtonAria")}
+            buttonTitle={t("deviationHelpButtonTitle")}
+            intro={t("deviationHelpIntro")}
+            sections={deviationHelpSections(t)}
           />
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {t("deviationHeading")}
-              </h2>
-              <HelpDialog
-                title={t("deviationHelpTitle")}
-                buttonAriaLabel={t("deviationHelpButtonAria")}
-                buttonTitle={t("deviationHelpButtonTitle")}
-                intro={t("deviationHelpIntro")}
-                sections={deviationHelpSections(t)}
-              />
-            </div>
-            <p className="mt-0.5 text-sm text-gray-700">
-              {t("deviationHeadline", {
-                deviated: numFmt.format(data.deviated),
-                eligible: numFmt.format(data.eligible),
-                pct,
-                oneIn,
-              })}
-            </p>
-          </div>
         </div>
-        <ChevronDown
-          className="mt-1 h-5 w-5 shrink-0 text-gray-400 transition group-open:rotate-180"
-          aria-hidden
-        />
-      </summary>
-
+      }
+      subtitle={t("deviationHeadline", {
+        deviated: numFmt.format(data.deviated),
+        eligible: numFmt.format(data.eligible),
+        pct,
+        oneIn,
+      })}
+    >
       {data.deviated === 0 ? (
-        <p className="mt-4 text-sm text-gray-600">{t("deviationNone")}</p>
+        <p className="text-sm text-gray-600">{t("deviationNone")}</p>
       ) : (
         <>
-          <p className="mt-3 text-xs text-gray-500">
+          <p className="text-xs text-gray-500">
             {t("deviationSubtitle", { radius: FIND_DEVIATION_RADIUS_M })}
           </p>
 
@@ -840,22 +829,22 @@ function DeviationStatsCard({
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {data.topLocation && (
               <DeviationStat label={t("deviationTopLocationLabel")}>
-                <Link
-                  href={locationDetailHref(data.topLocation.id)}
-                  className="inline-flex items-baseline gap-2 hover:underline"
-                  title={t("deviationTopLocationAt")}
-                >
-                  <span className="inline-flex items-baseline gap-1 font-mono text-sm font-semibold text-brand-700">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <Link
+                    href={locationDetailHref(data.topLocation.id)}
+                    className="inline-flex items-baseline gap-1 font-mono text-sm font-semibold text-brand-700 hover:underline"
+                    title={t("deviationTopLocationAt")}
+                  >
                     <MapPin
                       className="h-3.5 w-3.5 shrink-0 translate-y-0.5 text-brand-700"
                       aria-hidden
                     />
                     {data.topLocation.code}
-                  </span>
+                  </Link>
                   <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
                     {pctFmt.format(data.topLocation.rate)}
                   </span>
-                </Link>
+                </div>
                 {data.topLocation.displayName !== data.topLocation.code && (
                   <p
                     className="truncate text-xs text-gray-500"
@@ -870,21 +859,21 @@ function DeviationStatsCard({
                     total: numFmt.format(data.topLocation.total),
                   })}
                 </p>
-                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                <div className="mt-auto flex flex-wrap justify-end gap-2 pt-3">
                   <Link
                     href={`/mapa?focus=${data.topLocation.id}`}
-                    className="inline-flex items-center gap-1 text-gray-500 transition hover:text-brand-700 hover:underline"
+                    className={`${DEVIATION_BTN} text-gray-600 hover:text-brand-700`}
                     title={t("showOnMapTitle")}
                   >
-                    <MapPin className="h-3.5 w-3.5" aria-hidden />
+                    <MapPin className="h-4 w-4" aria-hidden />
                     {t("showOnMapLabel")}
                   </Link>
                   <Link
                     href={`/sbirka?loc=${data.topLocation.id}`}
-                    className="inline-flex items-center gap-1 text-gray-500 transition hover:text-brand-700 hover:underline"
+                    className={`${DEVIATION_BTN} text-brand-700`}
                     title={t("deviationShowFindsTitle")}
                   >
-                    <Search className="h-3.5 w-3.5" aria-hidden />
+                    <Search className="h-4 w-4" aria-hidden />
                     {t("deviationShowFinds")}
                   </Link>
                 </div>
@@ -894,12 +883,9 @@ function DeviationStatsCard({
             {data.mostDeviated && (
               <DeviationStat label={t("deviationMostDeviatedLabel")}>
                 <div className="flex flex-wrap items-baseline gap-x-2">
-                  <Link
-                    href={`/sbirka/${data.mostDeviated.id}`}
-                    className="font-mono text-sm font-semibold text-brand-700 hover:underline"
-                  >
+                  <span className="font-mono text-sm font-semibold text-brand-700">
                     #{data.mostDeviated.id}
-                  </Link>
+                  </span>
                   <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
                     {formatDistance(data.mostDeviated.meters, locale)}
                   </span>
@@ -909,18 +895,46 @@ function DeviationStatsCard({
                       : t("deviationModeCenter")}
                   </span>
                 </div>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-500">
-                  {data.mostDeviated.location && (
-                    <span className="font-mono">
-                      {data.mostDeviated.location.code}
-                    </span>
-                  )}
+                {data.mostDeviated.location && (
+                  <p className="font-mono text-xs text-gray-500">
+                    {data.mostDeviated.location.code}
+                  </p>
+                )}
+                <dl className="mt-1 space-y-0.5 text-xs">
+                  <div className="flex gap-1.5">
+                    <dt className="text-gray-400">{t("deviationGpsFind")}</dt>
+                    <dd className="font-mono text-gray-600">
+                      {coord(data.mostDeviated.findLat, data.mostDeviated.findLng)}
+                    </dd>
+                  </div>
+                  {data.mostDeviated.locLat !== null &&
+                    data.mostDeviated.locLng !== null && (
+                      <div className="flex gap-1.5">
+                        <dt className="text-gray-400">
+                          {t("deviationGpsLocation")}
+                        </dt>
+                        <dd className="font-mono text-gray-600">
+                          {coord(
+                            data.mostDeviated.locLat,
+                            data.mostDeviated.locLng,
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                </dl>
+                <div className="mt-auto flex flex-wrap justify-end gap-2 pt-3">
+                  <Link
+                    href={`/sbirka/${data.mostDeviated.id}`}
+                    className={`${DEVIATION_BTN} text-brand-700`}
+                  >
+                    {t("deviationOpenDetail")}
+                  </Link>
                   <Link
                     href={`/mapa?find=${data.mostDeviated.id}`}
-                    className="inline-flex items-center gap-1 text-gray-500 hover:text-brand-700 hover:underline"
+                    className={`${DEVIATION_BTN} text-gray-600 hover:text-brand-700`}
                     title={t("showOnMapTitle")}
                   >
-                    <MapPin className="h-3.5 w-3.5" aria-hidden />
+                    <MapPin className="h-4 w-4" aria-hidden />
                     {t("showOnMapLabel")}
                   </Link>
                 </div>
@@ -929,12 +943,13 @@ function DeviationStatsCard({
           </div>
         </>
       )}
-    </details>
+    </CollapsibleSection>
   );
 }
 
 /** Small white labelled sub-card used inside the brand-tinted deviation
- *  tile. */
+ *  tile. Full-height flex column so a child action row can sit flush to
+ *  the bottom (`mt-auto`) and line up across cards in the same grid. */
 function DeviationStat({
   label,
   children,
@@ -943,14 +958,19 @@ function DeviationStat({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-brand-100 bg-white p-3">
+    <div className="flex h-full flex-col rounded-lg border border-brand-100 bg-white p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
         {label}
       </p>
-      <div className="mt-1">{children}</div>
+      <div className="mt-1 flex flex-1 flex-col">{children}</div>
     </div>
   );
 }
+
+/** Button styling for the deviation tile's action links — mirrors the
+ *  outline buttons in the First/Last/Farthest highlight cards. */
+const DEVIATION_BTN =
+  "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium transition hover:border-brand-200 hover:shadow-sm";
 
 function MainNumber({
   value,
@@ -1118,6 +1138,7 @@ function GeoStatsSection({
   }));
   return (
     <CollapsibleSection
+      storageKey="geo"
       title={t("geoHeading")}
       subtitle={t.rich("geoSubtitle", {
         code: (chunks) => <code>{chunks}</code>,
@@ -1271,6 +1292,7 @@ function CalendarStatsSection({
 
   return (
     <CollapsibleSection
+      storageKey="calendar"
       title={t("calendarHeading")}
       subtitle={t("calendarSubtitle")}
     >
@@ -1589,13 +1611,11 @@ function DistanceStatsSection({
     DISTANCE_BUCKET_INDICES,
   );
   return (
-    <section className="space-y-4">
-      <header>
-        <h2 className="text-lg font-semibold text-gray-900">
-          {t("distanceHeading")}
-        </h2>
-        <p className="text-sm text-gray-500">{t("distanceSubtitle")}</p>
-      </header>
+    <CollapsibleSection
+      storageKey="distance"
+      title={t("distanceHeading")}
+      subtitle={t("distanceSubtitle")}
+    >
       <CalendarSubsection
         title={t("distanceTitle")}
         data={series}
@@ -1604,7 +1624,7 @@ function DistanceStatsSection({
         tableColumns={1}
         t={t}
       />
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -1953,7 +1973,11 @@ function JubileeFindsSection({
   );
 
   return (
-    <CollapsibleSection title={t("jubileeHeading")} subtitle={t("jubileeSubtitle")}>
+    <CollapsibleSection
+      storageKey="jubilee"
+      title={t("jubileeHeading")}
+      subtitle={t("jubileeSubtitle")}
+    >
       <div className="space-y-4">
         <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {slottedSpecials.map((slot) =>

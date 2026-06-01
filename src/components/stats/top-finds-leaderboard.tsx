@@ -41,6 +41,7 @@ export function TopFindsLeaderboard({ allTime, yearly, monthly }: Props) {
 
   return (
     <CollapsibleSection
+      storageKey="topFinds"
       title={
         <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
           <Trophy className="h-5 w-5 text-amber-500" aria-hidden />

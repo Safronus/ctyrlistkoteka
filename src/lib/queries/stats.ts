@@ -1348,6 +1348,12 @@ export interface DeviationMostDeviated {
   mode: "polygon" | "center";
   foundAt: string | null;
   location: { code: string; displayName: string } | null;
+  /** Find's GPS (non-anonymized by construction). */
+  findLat: number;
+  findLng: number;
+  /** The location's recorded centre GPS, when present. */
+  locLat: number | null;
+  locLng: number | null;
 }
 
 export interface StatsDeviationsResult {
@@ -1379,6 +1385,10 @@ type DeviatedRow = {
   azimuth_deg: number | null;
   code: string;
   display_name: string;
+  f_lat: number;
+  f_lng: number;
+  c_lat: number | null;
+  c_lng: number | null;
 };
 
 export async function getStatsDeviations(): Promise<StatsDeviationsResult> {
@@ -1410,7 +1420,11 @@ export async function getStatsDeviations(): Promise<StatsDeviationsResult> {
                  )::float8
              END AS azimuth_deg,
              l.code,
-             COALESCE(NULLIF(l.display_name, ''), l.code) AS display_name
+             COALESCE(NULLIF(l.display_name, ''), l.code) AS display_name,
+             ST_Y(f.coordinates)::float8 AS f_lat,
+             ST_X(f.coordinates)::float8 AS f_lng,
+             ST_Y(l.center_point)::float8 AS c_lat,
+             ST_X(l.center_point)::float8 AS c_lng
       FROM finds f
       JOIN locations l ON l.id = f.location_id
       WHERE f.is_anonymized = false
@@ -1546,6 +1560,10 @@ export async function getStatsDeviations(): Promise<StatsDeviationsResult> {
           mode: top.mode,
           foundAt: top.found_at ? top.found_at.toISOString() : null,
           location: { code: top.code, displayName: top.display_name },
+          findLat: top.f_lat,
+          findLng: top.f_lng,
+          locLat: top.c_lat,
+          locLng: top.c_lng,
         }
       : null;
 
