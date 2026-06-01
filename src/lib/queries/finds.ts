@@ -870,19 +870,26 @@ export interface PublicFindDetail extends PublicFind {
   freePhotos: readonly FindFreePhotoEntry[];
   /** This find's date-order position among all finds at the same
    *  location, plus neighbour-find IDs in the same ordering for the
-   *  prev/next navigation chips. `null` when the find has no
-   *  location, OR when it's anonymized (the displayed "location" is
-   *  the privacy placeholder — counting against placeholder finds
-   *  would be misleading). The ordering is `found_at ASC NULLS LAST,
-   *  id ASC`, which mirrors what the operator sees if they filter
-   *  /sbirka by that location + sort by oldest. `prevId` / `nextId`
-   *  are null at the chain boundaries (first/last find at the
-   *  location). */
+   *  prev/next/first/last navigation chips on the find-detail
+   *  Lokalita panel. `null` when the find has no location, OR when
+   *  it's anonymized (the displayed "location" is the privacy
+   *  placeholder — counting against placeholder finds would be
+   *  misleading). The ordering is `found_at ASC NULLS LAST, id ASC`,
+   *  which mirrors what the operator sees if they filter /sbirka by
+   *  that location + sort by oldest.
+   *
+   *  - `prevId` / `nextId`: null at the chain boundaries.
+   *  - `firstId` / `lastId`: rank 1 / rank `total` IDs. When the
+   *    current find IS the first or last these still resolve (they
+   *    just equal `id`), so the UI gates the "jump to first/last"
+   *    chips on rank === 1 / rank === total instead of null. */
   rankAtLocation: {
     rank: number;
     total: number;
     prevId: number | null;
     nextId: number | null;
+    firstId: number;
+    lastId: number;
   } | null;
 }
 
@@ -981,22 +988,34 @@ async function fetchRankAtLocation(
   total: number;
   prevId: number | null;
   nextId: number | null;
+  firstId: number;
+  lastId: number;
 } | null> {
   type Row = {
     rank: number;
     total: number;
     prev_id: number | null;
     next_id: number | null;
+    first_id: number;
+    last_id: number;
   };
   const rows = await prisma.$queryRaw<Row[]>`
-    SELECT rank, total, prev_id, next_id
+    SELECT rank, total, prev_id, next_id, first_id, last_id
     FROM (
       SELECT
         id,
         (ROW_NUMBER() OVER w)::int AS rank,
         (COUNT(*) OVER ())::int AS total,
         LAG(id) OVER w AS prev_id,
-        LEAD(id) OVER w AS next_id
+        LEAD(id) OVER w AS next_id,
+        FIRST_VALUE(id) OVER w AS first_id,
+        -- LAST_VALUE with the default frame stops at CURRENT ROW;
+        -- use FIRST_VALUE over the reverse ordering instead.
+        -- Mirror "ORDER BY found_at ASC NULLS LAST, id ASC" by
+        -- flipping every clause.
+        FIRST_VALUE(id) OVER (
+          ORDER BY found_at DESC NULLS FIRST, id DESC
+        ) AS last_id
       FROM finds
       WHERE location_id = ${locationId}
       WINDOW w AS (ORDER BY found_at ASC NULLS LAST, id ASC)
@@ -1010,6 +1029,8 @@ async function fetchRankAtLocation(
     total: row.total,
     prevId: row.prev_id,
     nextId: row.next_id,
+    firstId: row.first_id,
+    lastId: row.last_id,
   };
 }
 

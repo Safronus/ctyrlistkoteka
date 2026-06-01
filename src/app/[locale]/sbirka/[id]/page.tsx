@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  MapPin,
+} from "lucide-react";
 import { FindState, ImageType } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
@@ -17,6 +22,7 @@ import {
   formatDateTimeCs,
   formatDistance,
   formatLocationId,
+  locationDetailHref,
   locationOffsetToneClass,
 } from "@/lib/format";
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
@@ -381,6 +387,18 @@ export default async function FindDetailPage({ params }: PageProps) {
                     {find.rankAtLocation &&
                       find.rankAtLocation.total > 1 && (
                         <div className="ml-auto flex flex-wrap items-center gap-2">
+                          {/* "1." → first find at location. Stays
+                              rendered (disabled) when the visitor
+                              IS the first one so the row's button
+                              positions don't shift between finds.
+                              Mirror for the "Total." chip on the
+                              right. */}
+                          <LocationExtremeLink
+                            targetId={find.rankAtLocation.firstId}
+                            label="1."
+                            ariaLabel={t("firstAtLocation")}
+                            isCurrent={find.rankAtLocation.rank === 1}
+                          />
                           <LocationNavLink
                             direction="prev"
                             targetId={find.rankAtLocation.prevId}
@@ -390,6 +408,17 @@ export default async function FindDetailPage({ params }: PageProps) {
                             direction="next"
                             targetId={find.rankAtLocation.nextId}
                             label={t("nextAtLocation")}
+                          />
+                          <LocationExtremeLink
+                            targetId={find.rankAtLocation.lastId}
+                            label={`${find.rankAtLocation.total.toLocaleString(
+                              locale === "en" ? "en-GB" : "cs-CZ",
+                            )}.`}
+                            ariaLabel={t("lastAtLocation")}
+                            isCurrent={
+                              find.rankAtLocation.rank ===
+                              find.rankAtLocation.total
+                            }
                           />
                         </div>
                       )}
@@ -406,6 +435,13 @@ export default async function FindDetailPage({ params }: PageProps) {
             maps={find.locationMaps}
             locationOffset={find.locationOffset}
             isAnonymized={find.isAnonymized}
+            /* locationId is non-null only when the gallery actually
+               represents the find's real location — anonymized finds
+               render the placeholder location and we don't want the
+               overlay to deep-link to that. */
+            locationId={
+              find.isAnonymized ? null : (find.location?.id ?? null)
+            }
             locale={locale}
             t={t}
           />
@@ -519,6 +555,7 @@ function LocationMapsGallery({
   maps,
   locationOffset,
   isAnonymized = false,
+  locationId,
   locale,
   t,
 }: {
@@ -537,6 +574,12 @@ function LocationMapsGallery({
    *  real one. The query layer already strips the marker (`no-gps`)
    *  and swaps in the placeholder location; this is the visual seal. */
   isAnonymized?: boolean;
+  /** The find's actual location id, used by the per-map overlay
+   *  chips that link to /lokality/<id> and /mapa?focus=<id>. Null
+   *  when the find is anonymized (the gallery shows a placeholder
+   *  map and the deep-link would point to the wrong place) OR when
+   *  the find has no location at all. */
+  locationId: number | null;
   /** Used to format the distance suffix in the status banner. */
   locale: string;
   /** Server-side translator pre-bound to the `FindDetail` namespace.
@@ -598,6 +641,37 @@ function LocationMapsGallery({
                 <NoGpsMarker t={t} />
               )}
               {isAnonymized && <AnonymizedMapOverlay t={t} />}
+              {/* Top-right deep-link chips mirror the per-row buttons
+                  in /statistiky's "Top {N} lokalit" table — a quick
+                  jump to the location detail page and to the focused
+                  /mapa view, accessible without scrolling away from
+                  the location map image. Hidden for anonymized finds
+                  (the gallery renders a placeholder map; deep-linking
+                  to its real location is exactly what we're hiding). */}
+              {locationId !== null && (
+                <div className="absolute right-2 top-2 z-10 flex items-center gap-1.5">
+                  <Link
+                    href={`/mapa?focus=${locationId}`}
+                    aria-label={t("locMapAria")}
+                    title={t("locMapAria")}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white/95 px-2 py-1 text-xs font-medium text-brand-700 shadow-md backdrop-blur transition hover:border-brand-200 hover:shadow-lg"
+                  >
+                    <MapPin className="h-3.5 w-3.5" aria-hidden />
+                    <span className="hidden sm:inline">{t("locMap")}</span>
+                  </Link>
+                  <Link
+                    href={locationDetailHref(locationId)}
+                    aria-label={t("locDetailAria")}
+                    title={t("locDetailAria")}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white/95 px-2 py-1 text-xs font-medium text-brand-700 shadow-md backdrop-blur transition hover:border-brand-200 hover:shadow-lg"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                    <span className="hidden sm:inline">
+                      {t("locDetail")}
+                    </span>
+                  </Link>
+                </div>
+              )}
             </div>
             {m.description && !isAnonymized && (
               <figcaption className="px-3 pt-2 text-xs text-gray-600">
@@ -880,6 +954,48 @@ function LocationNavLink({
       {direction === "prev" && <Icon className="h-3.5 w-3.5" aria-hidden />}
       {label}
       {direction === "next" && <Icon className="h-3.5 w-3.5" aria-hidden />}
+    </Link>
+  );
+}
+
+/** Chip rendering a "jump to first / last find at this location" link
+ *  — just the rank number with a period (`1.`, `23.`). When the
+ *  current find IS the first / last, the chip renders as a faded
+ *  non-interactive span so the navigation row's button positions
+ *  stay stable across finds. Sibling of `LocationNavLink`. */
+function LocationExtremeLink({
+  targetId,
+  label,
+  ariaLabel,
+  isCurrent,
+}: {
+  targetId: number;
+  label: string;
+  ariaLabel: string;
+  isCurrent: boolean;
+}) {
+  const baseCls =
+    "inline-flex items-center justify-center rounded-md border px-2 py-1.5 text-xs font-mono font-semibold tabular-nums transition";
+  if (isCurrent) {
+    return (
+      <span
+        aria-disabled
+        aria-label={ariaLabel}
+        title={ariaLabel}
+        className={`${baseCls} cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400`}
+      >
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={`/sbirka/${targetId}`}
+      aria-label={ariaLabel}
+      title={ariaLabel}
+      className={`${baseCls} border-gray-200 bg-white text-brand-700 hover:border-brand-200 hover:shadow-sm`}
+    >
+      {label}
     </Link>
   );
 }
