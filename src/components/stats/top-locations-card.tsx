@@ -27,13 +27,23 @@ function toIntlLocale(locale: string): string {
 export function TopLocationsCard({
   byCount,
   byDensity,
+  avgCount,
+  avgDensity,
 }: {
   byCount: readonly LocationPoint[];
   byDensity: readonly LocationDensityPoint[];
+  /** Mean finds per location, shown beside the "by count" toggle. */
+  avgCount: number;
+  /** Mean density (clovers / 100 m²), shown beside the "by density"
+   *  toggle. */
+  avgDensity: number;
 }) {
   const t = useTranslations("Statistiky");
   const locale = useLocale();
   const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
+  const avgFmt = new Intl.NumberFormat(toIntlLocale(locale), {
+    maximumFractionDigits: 1,
+  });
   const [mode, setMode] = useState<Mode>("count");
 
   const hasDensity = byDensity.length > 0;
@@ -54,11 +64,25 @@ export function TopLocationsCard({
           : t("topByDensitySubtitle")
       }
     >
-      {showToggle && (
-        <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <p
+          className="text-xs text-gray-500"
+          title={
+            activeMode === "count"
+              ? t("topAvgCountTitle")
+              : t("topAvgDensityTitle")
+          }
+        >
+          {activeMode === "count"
+            ? t("topAvgCount", { avg: avgFmt.format(avgCount) })
+            : t("topAvgDensity", {
+                avg: formatDensityPer100m2(avgDensity),
+              })}
+        </p>
+        {showToggle && (
           <ModeToggle mode={activeMode} onChange={setMode} t={t} />
-        </div>
-      )}
+        )}
+      </div>
       {activeMode === "count" ? (
         <CountList rows={byCount} numFmt={numFmt} t={t} />
       ) : (

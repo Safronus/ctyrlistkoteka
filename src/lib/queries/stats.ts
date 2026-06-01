@@ -368,6 +368,14 @@ export interface StatsJubileesResult {
 export interface StatsTopLocationsResult {
   topLocations: LocationPoint[];
   topLocationsByDensity: LocationDensityPoint[];
+  /** Mean finds per location across every location = located finds /
+   *  location count. Shown beside the "by count" toggle as a baseline. */
+  avgFindsPerLocation: number;
+  /** Mean of every location's own density (clovers / 100 m²) over the
+   *  locations that have at least one find. Polygon-less locations are
+   *  included with a 5 m-radius circle as their area. Shown beside the
+   *  "by density" toggle. */
+  avgDensityPer100m2: number;
 }
 
 export interface StatsGeoResult {
@@ -1060,7 +1068,7 @@ export async function getStatsJubilees(): Promise<StatsJubileesResult> {
 }
 
 export async function getStatsTopLocations(): Promise<StatsTopLocationsResult> {
-  const [topLocRows, topDensityRows] = await Promise.all([
+  const [topLocRows, topDensityRows, avgRows] = await Promise.all([
     // Top 10 locations by find count.
     // - Anonymized locations are dropped (their code/name/findCount can't
     //   be exposed publicly per CLAUDE.md §6).
@@ -1125,9 +1133,16 @@ export async function getStatsTopLocations(): Promise<StatsTopLocationsResult> {
         GROUP BY location_id
       ),
       areas AS (
-        SELECT id, ST_Area(polygon::geography)::float8 AS area_m2
+        -- Polygon locations use their real AOI area; polygon-less ones
+        -- fall back to a 5 m-radius circle (π·r²) so they can take part
+        -- in the density ranking too.
+        SELECT id,
+               CASE
+                 WHEN polygon IS NOT NULL
+                   THEN ST_Area(polygon::geography)::float8
+                 ELSE pi() * (${FIND_DEVIATION_RADIUS_M} * ${FIND_DEVIATION_RADIUS_M})
+               END AS area_m2
         FROM locations
-        WHERE polygon IS NOT NULL
       )
       SELECT l.id,
              CASE WHEN l.id IN (SELECT location_id FROM anon)
@@ -1147,8 +1162,51 @@ export async function getStatsTopLocations(): Promise<StatsTopLocationsResult> {
       ORDER BY density DESC, l.id
       LIMIT 10
     `,
+    // Baselines beside the toggle: mean finds per location (all located
+    // finds / all locations) and mean density across locations that have
+    // a find (polygon area, or a 5 m circle for polygon-less ones). No
+    // ≥10 threshold here — this is the whole-population average.
+    prisma.$queryRaw<
+      Array<{
+        total_located: number;
+        loc_count: number;
+        avg_density: number | null;
+      }>
+    >`
+      WITH counts AS (
+        SELECT location_id, COUNT(*)::float8 AS cnt
+        FROM finds
+        WHERE location_id IS NOT NULL
+        GROUP BY location_id
+      ),
+      areas AS (
+        SELECT id,
+               CASE
+                 WHEN polygon IS NOT NULL
+                   THEN ST_Area(polygon::geography)::float8
+                 ELSE pi() * (${FIND_DEVIATION_RADIUS_M} * ${FIND_DEVIATION_RADIUS_M})
+               END AS area_m2
+        FROM locations
+      )
+      SELECT
+        (SELECT COUNT(*) FROM finds WHERE location_id IS NOT NULL)::float8
+          AS total_located,
+        (SELECT COUNT(*) FROM locations)::float8 AS loc_count,
+        (SELECT AVG(c.cnt / a.area_m2 * 100)
+           FROM counts c
+           JOIN areas a ON a.id = c.location_id
+           WHERE a.area_m2 > 0)::float8 AS avg_density
+    `,
   ]);
+  const avg = avgRows[0];
+  const locCount = avg ? Number(avg.loc_count) : 0;
+  const avgFindsPerLocation =
+    avg && locCount > 0 ? Number(avg.total_located) / locCount : 0;
+  const avgDensityPer100m2 =
+    avg && avg.avg_density !== null ? Number(avg.avg_density) : 0;
   return {
+    avgFindsPerLocation,
+    avgDensityPer100m2,
     topLocations: topLocRows.map((r) => ({
       id: r.id,
       code: r.code,

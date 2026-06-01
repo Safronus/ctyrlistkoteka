@@ -390,12 +390,19 @@ async function JubileesSection() {
 }
 
 async function TopLocationsSection() {
-  const { topLocations, topLocationsByDensity } = await getStatsTopLocations();
+  const {
+    topLocations,
+    topLocationsByDensity,
+    avgFindsPerLocation,
+    avgDensityPer100m2,
+  } = await getStatsTopLocations();
   if (topLocations.length === 0) return null;
   return (
     <TopLocationsCard
       byCount={topLocations}
       byDensity={topLocationsByDensity}
+      avgCount={avgFindsPerLocation}
+      avgDensity={avgDensityPer100m2}
     />
   );
 }
