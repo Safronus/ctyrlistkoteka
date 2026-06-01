@@ -996,8 +996,15 @@ function MainNumber({
   return (
     <div className="flex flex-col items-center">
       <p className="text-4xl font-bold text-brand-700">{value}</p>
-      <p className="mt-1 text-sm text-gray-500">{label}</p>
-      {hint && <p className="mt-0.5 text-[11px] text-gray-500">{hint}</p>}
+      {/* The optional hint (e.g. "16 500 nahraných") rides inline in
+       *  parentheses after the label rather than on its own line, so the
+       *  tile keeps the same height as the location tile next to it. */}
+      <p className="mt-1 text-sm text-gray-500">
+        {label}
+        {hint && (
+          <span className="text-gray-400"> ({hint})</span>
+        )}
+      </p>
     </div>
   );
 }
@@ -1052,8 +1059,15 @@ function FindHighlightCard({
   locale: string;
 }) {
   const date = find.foundAt ? new Date(find.foundAt) : null;
+  // Only the "Nejvzdálenější nález" card is tinted grey (it's the one
+  // passing distanceMeters); First + Last stay white.
+  const tinted = distanceMeters !== undefined;
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-5">
+    <div
+      className={`flex flex-col rounded-xl border border-gray-200 p-5 ${
+        tinted ? "bg-gray-50" : "bg-white"
+      }`}
+    >
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
           {label}
@@ -1763,6 +1777,9 @@ function PeakBucketsSection({
               label={label}
               icon={icon}
               peak={peak}
+              // Only the 60-minute + 24-hour windows are tinted grey;
+              // the 7-day window stays white.
+              tinted={window === "slidingHour" || window === "slidingDay"}
               t={t}
               locale={locale}
             />
@@ -1779,17 +1796,23 @@ function PeakSlidingCard({
   label,
   icon: Icon,
   peak,
+  tinted,
   t,
   locale,
 }: {
   label: string;
   icon: LucideIcon;
   peak: PeakSlidingWindow | null;
+  tinted: boolean;
   t: StatsT;
   locale: string;
 }) {
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-4">
+    <div
+      className={`flex flex-col rounded-xl border border-gray-200 p-4 ${
+        tinted ? "bg-gray-50" : "bg-white"
+      }`}
+    >
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-brand-700" aria-hidden />
         <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -1860,8 +1883,18 @@ function PeakBucketCard({
   t: StatsT;
   locale: string;
 }) {
+  // Only the hour / day / month buckets are tinted grey; minute, week
+  // and year stay white.
+  const tinted =
+    granularity === "hour" ||
+    granularity === "day" ||
+    granularity === "month";
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-4">
+    <div
+      className={`flex flex-col rounded-xl border border-gray-200 p-4 ${
+        tinted ? "bg-gray-50" : "bg-white"
+      }`}
+    >
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-brand-700" aria-hidden />
         <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
