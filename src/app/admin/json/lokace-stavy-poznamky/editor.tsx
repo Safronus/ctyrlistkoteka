@@ -22,6 +22,7 @@ import {
   SECTION_KEYS,
   SECTION_LABELS,
   SECTION_SCHEMAS,
+  STAVY_KEYS,
   type SectionKey,
 } from "@/lib/admin/jsonSchema";
 import { parseRanges } from "@/lib/parseRanges";
@@ -34,11 +35,13 @@ interface Props {
   initialSections: Record<SectionKey, string>;
   /** ISO timestamp of the file's last write — shown in the header. */
   fileMtime: string | null;
-  /** Section to focus on first mount. Used by deep-links from
-   *  /admin/checks rows — e.g. a "Stav" mismatch row points
-   *  the operator straight at the `stavy` tab. Falls back to
-   *  the editor's default (`lokace`) when unset or unknown. */
-  initialTab?: SectionKey;
+  /** Active section, controlled by the parent EditorMergeLayout so
+   *  the merge form's section toggles can drive this. */
+  activeTab: SectionKey;
+  /** Fires when the operator clicks a section tab in the editor's
+   *  own nav — the parent layout reflects the change so it stays in
+   *  sync with the merge form's mode. */
+  onActiveTabChange: (tab: SectionKey) => void;
   /** Cross-section integrity check result computed on the server
    *  from the current on-disk file. `null` when the file isn't
    *  parseable enough to run the checks (no indicator rendered in
@@ -81,12 +84,13 @@ function validateSection(key: SectionKey, content: string): SectionStatus {
 export function LokaceStavyPoznamkyEditor({
   initialSections,
   fileMtime,
-  initialTab,
+  activeTab,
+  onActiveTabChange,
   inconsistencies,
 }: Props) {
   const [sections, setSections] =
     useState<Record<SectionKey, string>>(initialSections);
-  const [activeTab, setActiveTab] = useState<SectionKey>(initialTab ?? "lokace");
+  const setActiveTab = onActiveTabChange;
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [serverIssues, setServerIssues] = useState<
@@ -134,6 +138,41 @@ export function LokaceStavyPoznamkyEditor({
     () => SECTION_KEYS.every((k) => statuses[k].ok),
     [statuses],
   );
+
+  /**
+   * Per-state counts inside the `stavy` section — total find IDs (after
+   * parseRanges expansion) for each STAVY_KEY. Rendered as a row of
+   * compact pills next to "Aktivní:" when the stavy tab is open so
+   * the operator can eyeball the distribution before merging anything
+   * in. Computed only when the stavy tab is active (no wasted parse
+   * work on other tabs); a malformed half-typed range surfaces as a
+   * `?` rather than throwing the whole row away.
+   */
+  const stavyStateCounts = useMemo<Record<string, number | null> | null>(() => {
+    if (activeTab !== "stavy") return null;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(sections.stavy);
+    } catch {
+      return null;
+    }
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const obj = parsed as Record<string, unknown>;
+    const out: Record<string, number | null> = {};
+    for (const key of STAVY_KEYS) {
+      const value = obj[key];
+      if (!Array.isArray(value)) {
+        out[key] = 0;
+        continue;
+      }
+      try {
+        out[key] = parseRanges(value as string[]).length;
+      } catch {
+        out[key] = null;
+      }
+    }
+    return out;
+  }, [activeTab, sections.stavy]);
 
   const onChangeSection = (key: SectionKey, value: string) => {
     setSections((prev) => ({ ...prev, [key]: value }));
@@ -338,6 +377,43 @@ export function LokaceStavyPoznamkyEditor({
         <span className="font-semibold text-gray-900">
           {SECTION_LABELS[activeTab]}
         </span>
+        {/* Stavy tab only — surface the per-state counts as compact
+            pills so the operator sees how many finds are flagged
+            with each state without scanning the JSON. STAVY_KEYS
+            order is the same as the JSON schema declares so the
+            row reads predictably across mounts. */}
+        {activeTab === "stavy" && stavyStateCounts && (
+          <span className="flex flex-wrap items-center gap-1">
+            {STAVY_KEYS.map((key) => {
+              // Coalesce undefined → null. STAVY_KEYS always seeds
+              // every key in the useMemo, so undefined would only
+              // appear if the constant ever drifts away from the
+              // schema enum — treat that as "neplatný" rather than
+              // silently skipping.
+              const count = stavyStateCounts[key] ?? null;
+              return (
+                <span
+                  key={key}
+                  className="inline-flex items-center gap-1 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-700"
+                  title={`Stav ${key}: ${count === null ? "neplatný range" : `${count} ID`}`}
+                >
+                  <span className="text-gray-500">{key}</span>
+                  <strong
+                    className={`tabular-nums ${
+                      count === null
+                        ? "text-red-600"
+                        : count === 0
+                          ? "text-gray-400"
+                          : "text-gray-900"
+                    }`}
+                  >
+                    {count === null ? "?" : count.toLocaleString("cs-CZ")}
+                  </strong>
+                </span>
+              );
+            })}
+          </span>
+        )}
         <button
           type="button"
           onClick={() => onFormat(activeTab)}

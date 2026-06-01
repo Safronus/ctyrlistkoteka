@@ -11,9 +11,8 @@ import {
   type SectionKey,
 } from "@/lib/admin/jsonSchema";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
-import { LokaceStavyPoznamkyEditor } from "./editor";
+import { EditorMergeLayout } from "./editor-merge-layout";
 import { findInconsistencies, type JsonInconsistencies } from "./inconsistencies";
-import { MergeSectionForm } from "./merge-form";
 
 export const dynamic = "force-dynamic";
 
@@ -198,35 +197,24 @@ export default async function LokaceStavyPoznamkyPage({
         </p>
       )}
 
-      {/* Two-column layout on xl+ (≥1280 px): editor on the left,
-          "Hromadný merge" form on the right so the operator can
-          paste a fragment and watch the editor refresh next to it
-          on the same screen. Below xl the columns stack vertically
-          (default grid behaviour with a single column at narrower
-          widths). `items-start` keeps each card sized to its own
-          content — otherwise the merge form would stretch to the
-          editor's height and the result panel would float in the
-          middle of an empty column.
-
-          `key={mtimeIso}` on the editor forces a clean remount
-          whenever the file is rewritten (save action OR merge form
-          OR out-of-band CLI edit). Without this the editor's
-          internal `sections` useState would freeze on first mount's
-          initialSections and silently drift from disk after a merge
-          — looking like "you have unsaved changes" when in reality
-          the server has fresh state and the editor is the stale
-          side. */}
-      <div className="grid gap-4 xl:grid-cols-[3fr_2fr] xl:items-start">
-        <LokaceStavyPoznamkyEditor
-          key={mtimeIso ?? "empty"}
-          initialSections={sections}
-          fileMtime={mtimeIso}
-          initialTab={initialTab}
-          inconsistencies={inconsistencies}
-        />
-
-        <MergeSectionForm />
-      </div>
+      {/* `key={mtimeIso}` on the layout forces a clean remount of
+          BOTH the editor and the merge form whenever the file is
+          rewritten (save action OR merge form OR out-of-band CLI
+          edit). Without this the editor's internal `sections`
+          useState would freeze on first mount's initialSections and
+          silently drift from disk after a merge — looking like "you
+          have unsaved changes" when in reality the server has fresh
+          state and the editor is the stale side. The shared
+          `activeTab` state lifted into EditorMergeLayout lets the
+          merge form's section toggles drive the editor's tab in
+          one click. */}
+      <EditorMergeLayout
+        key={mtimeIso ?? "empty"}
+        initialSections={sections}
+        fileMtime={mtimeIso}
+        initialTab={initialTab}
+        inconsistencies={inconsistencies}
+      />
     </div>
   );
 }

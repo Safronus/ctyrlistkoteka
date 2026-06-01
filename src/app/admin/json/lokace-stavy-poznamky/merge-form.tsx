@@ -81,7 +81,15 @@ const HINTS: Record<SectionKey, string> = {
  *  Ušetří klikání v editoru, když má operátor seznam IDs / poznámek
  *  připravený jinde a chce ho jen nalít — duplicity se zahodí, range
  *  pole se sjednotí a recompactují. */
-export function MergeSectionForm() {
+export function MergeSectionForm({
+  /** Optional sibling-callback fired when the operator clicks a
+   *  section tab (NOT "Celý soubor"). Wired up by the parent
+   *  EditorMergeLayout so the editor on the left auto-switches to
+   *  the same section the operator just picked here. */
+  onSectionChange,
+}: {
+  onSectionChange?: (section: SectionKey) => void;
+} = {}) {
   const [mode, setMode] = useState<MergeMode>("lokace");
   const [content, setContent] = useState("");
   const [sectionResult, setSectionResult] =
@@ -156,6 +164,11 @@ export function MergeSectionForm() {
               onClick={() => {
                 setMode(key);
                 clearResults();
+                // Sibling sync: tell the editor to switch its tab
+                // to the same section so the operator sees what
+                // they're about to merge into. Whole-file mode
+                // below intentionally does NOT fire this.
+                onSectionChange?.(key);
               }}
               disabled={isPending}
               className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
