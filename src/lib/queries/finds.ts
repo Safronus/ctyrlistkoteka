@@ -893,6 +893,22 @@ export interface PublicFindDetail extends PublicFind {
   } | null;
 }
 
+/** Count of finds pinned to a location subtree (the location itself
+ *  plus its direct children) — mirrors the `excludeLocationId` filter
+ *  in buildWhere so the "Skrýt největší lokalitu" toggle on /sbirka
+ *  can label itself with how many finds it would drop. Direct
+ *  children only (one level), matching the exclude branch. */
+export async function countFindsAtLocationSubtree(
+  locationId: number,
+): Promise<number> {
+  const childRows = await prisma.location.findMany({
+    where: { parentId: locationId },
+    select: { id: true },
+  });
+  const ids = [locationId, ...childRows.map((r) => r.id)];
+  return prisma.find.count({ where: { locationId: { in: ids } } });
+}
+
 export async function getFindById(
   id: number,
 ): Promise<PublicFindDetail | null> {

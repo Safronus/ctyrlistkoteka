@@ -26,7 +26,9 @@ export function ViewSortToolbar({
   minDate,
   maxDate,
   hasPhoto,
+  hasPhotoCount,
   hideDominant,
+  hideDominantCount,
   dominantLocationCode,
 }: {
   view: FindView;
@@ -39,16 +41,24 @@ export function ViewSortToolbar({
    *  Null when the collection has no dated finds yet. */
   minDate: string | null;
   maxDate: string | null;
-  /** "S reálnou fotkou" toggle — sits between the view switch and the
+  /** "S fotkou daru" toggle — sits between the view switch and the
    *  date range so it reads as a quick-narrow filter alongside dates,
    *  not buried in the FilterBar dropdown stack. URL param: hasPhoto=1. */
   hasPhoto: boolean;
+  /** Total finds that carry a donation photo (filter-independent) —
+   *  rendered as `(N)` after the toggle label so the visitor sees
+   *  the pool size before flipping it. */
+  hasPhotoCount: number;
   /** "Skrýt největší lokalitu" toggle — drops finds whose location is
    *  the configured `DOMINANT_LOCATION_ID` (or any of its child
    *  locations) so the user can browse the rest of the collection
    *  without paging past thousands of rows from a single dense
    *  patch. URL param: `hideTop=1`. */
   hideDominant: boolean;
+  /** Number of finds the "Skrýt největší lokalitu" toggle would
+   *  hide (dominant location + its direct children). Rendered as
+   *  `(N)` after the label. */
+  hideDominantCount: number;
   /** Display code of the dominant location — used as the toggle's
    *  hover title so it's clear *which* location gets hidden. `null`
    *  hides the toggle entirely (configured location id doesn't
@@ -140,12 +150,13 @@ export function ViewSortToolbar({
 
       {/* Quick "S fotkou daru" toggle. Visual weight matches the
           Segmented buttons (border + brand-600 bg when active) so
-          the row stays uniform. */}
+          the row stays uniform. `h-9` matches the sort combobox +
+          Segmented so every control in the row is the same height. */}
       <button
         type="button"
         onClick={() => setParam("hasPhoto", hasPhoto ? "" : "1", "")}
         aria-pressed={hasPhoto}
-        className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition ${
+        className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition ${
           hasPhoto
             ? "border-brand-600 bg-brand-600 text-white"
             : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
@@ -153,6 +164,7 @@ export function ViewSortToolbar({
       >
         <Camera className="h-4 w-4" aria-hidden />
         <span>{t("hasPhotoToggle")}</span>
+        <ToggleCount value={hasPhotoCount} pressed={hasPhoto} />
       </button>
 
       {/* "Skrýt největší lokalitu" toggle — same visual contract as
@@ -167,7 +179,7 @@ export function ViewSortToolbar({
           onClick={() => setParam("hideTop", hideDominant ? "" : "1", "")}
           aria-pressed={hideDominant}
           title={t("hideDominantTitle", { code: dominantLocationCode })}
-          className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition ${
+          className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition ${
             hideDominant
               ? "border-brand-600 bg-brand-600 text-white"
               : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
@@ -175,6 +187,7 @@ export function ViewSortToolbar({
         >
           <EyeOff className="h-4 w-4" aria-hidden />
           <span>{t("hideDominantToggle")}</span>
+          <ToggleCount value={hideDominantCount} pressed={hideDominant} />
         </button>
       )}
 
@@ -265,6 +278,29 @@ function DateTodayButton({
   );
 }
 
+/** `(N)` count chip appended to a toggle label — monospace, faded so
+ *  it reads as metadata, color flips to white-ish when the toggle is
+ *  pressed (brand-600 bg). Hidden when value is 0. Mirrors the
+ *  LocationsToolbar count chip on /lokality. */
+function ToggleCount({
+  value,
+  pressed,
+}: {
+  value: number;
+  pressed: boolean;
+}) {
+  if (value <= 0) return null;
+  return (
+    <span
+      className={`font-mono tabular-nums text-xs ${
+        pressed ? "text-white/80" : "text-gray-500"
+      }`}
+    >
+      ({value.toLocaleString("cs-CZ")})
+    </span>
+  );
+}
+
 function Segmented<T extends string>({
   label,
   value,
@@ -290,7 +326,7 @@ function Segmented<T extends string>({
             type="button"
             onClick={() => onChange(opt.value)}
             aria-pressed={active}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition ${
+            className={`flex h-9 items-center gap-1.5 px-3 text-sm transition ${
               i > 0 ? "border-l border-gray-300" : ""
             } ${
               active

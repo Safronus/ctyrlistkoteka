@@ -8,6 +8,7 @@ import { LocationsToolbar } from "@/components/locations/locations-toolbar";
 import { LocationListRow } from "@/components/locations/location-list-row";
 import {
   countAnonymizedAndFormerLocations,
+  getLocationIdsWithRealPhotos,
   listCadastralAreas,
   listCountries,
   listLocations,
@@ -70,21 +71,24 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   const hasRealPhoto = pickString(sp.hasPhoto) === "1";
 
   const locale = await getLocale();
-  const [cities, countriesRaw, locations, toggleCounts] = await Promise.all([
-    listCadastralAreas(),
-    listCountries(),
-    listLocations({
-      q: q || undefined,
-      cadastralArea: city || undefined,
-      country: country || undefined,
-      sort,
-      showAnonymized,
-      showGone,
-      onlyGone: onlyGone || undefined,
-      hasRealPhoto: hasRealPhoto || undefined,
-    }),
-    countAnonymizedAndFormerLocations(),
-  ]);
+  const [cities, countriesRaw, locations, toggleCounts, realPhotoIds] =
+    await Promise.all([
+      listCadastralAreas(),
+      listCountries(),
+      listLocations({
+        q: q || undefined,
+        cadastralArea: city || undefined,
+        country: country || undefined,
+        sort,
+        showAnonymized,
+        showGone,
+        onlyGone: onlyGone || undefined,
+        hasRealPhoto: hasRealPhoto || undefined,
+      }),
+      countAnonymizedAndFormerLocations(),
+      // Filter-independent count for the "S reálnou fotkou" toggle.
+      getLocationIdsWithRealPhotos(),
+    ]);
 
   // Country names from listCountries are raw English (Natural Earth).
   // Localize at the page boundary so the dropdown renders the user's
@@ -179,6 +183,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
         }}
         anonymizedCount={toggleCounts.anonymized}
         formerCount={toggleCounts.former}
+        realPhotoCount={realPhotoIds.size}
       />
 
       {onlyGone && (

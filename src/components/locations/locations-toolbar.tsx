@@ -26,6 +26,7 @@ export function LocationsToolbar({
   current,
   anonymizedCount,
   formerCount,
+  realPhotoCount,
 }: {
   current: {
     sort: LocationSort;
@@ -42,6 +43,9 @@ export function LocationsToolbar({
   /** Same idea for the "Zaniklé" toggle — count of NEEXISTUJE-
    *  prefixed locations across the whole catalog. */
   formerCount: number;
+  /** Count of locations that have their own real photo of the place
+   *  (filter-independent) — shown on the "S reálnou fotkou" toggle. */
+  realPhotoCount: number;
 }) {
   const t = useTranslations("LocationsToolbar");
   const router = useRouter();
@@ -97,6 +101,7 @@ export function LocationsToolbar({
           onClick={() => toggleFlag("hasPhoto", !current.hasRealPhoto)}
           icon={<Camera className="h-4 w-4" />}
           label={t("hasRealPhoto")}
+          count={realPhotoCount}
         />
         {current.hasFilters && (
           <button
