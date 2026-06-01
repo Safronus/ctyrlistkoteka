@@ -56,6 +56,24 @@ export function LocationPolygons({
   // openPopup() on whichever layer the focus param targets.
   const layerRefs = useRef<Map<number, Layer>>(new Map());
 
+  // parentId lookup over EVERY location (not just the rendered subset)
+  // so hierarchy depth resolves even when an intermediate ancestor
+  // isn't itself drawn (e.g. an anonymized parent filtered out
+  // server-side). Used by the depth sort below.
+  const parentById = new Map<number, number | null>();
+  for (const l of locations) parentById.set(l.id, l.parentId);
+  const depthOf = (id: number): number => {
+    let depth = 0;
+    let cur = parentById.get(id) ?? null;
+    const seen = new Set<number>();
+    while (cur !== null && !seen.has(cur)) {
+      seen.add(cur); // cycle guard — malformed data can't hang the render
+      depth += 1;
+      cur = parentById.get(cur) ?? null;
+    }
+    return depth;
+  };
+
   const features: GeoJSON.Feature[] = locations
     .filter((l): l is MapLocation & { polygon: GeoJSON.Polygon } =>
       l.polygon !== null,
@@ -64,6 +82,15 @@ export function LocationPolygons({
       (l) => l.parentId === null || enabledChildPolygonIds.has(l.id),
     )
     .filter((l) => showGone || !l.isGone)
+    // Shallow first → deep last. Leaflet has no z-index within a pane;
+    // SVG stacking is DOM order, and a single GeoJSON layer appends
+    // features in array order. Rendering parents before their
+    // descendants puts children visually ON TOP, so a click inside a
+    // child lands on the child (its handler stops propagation),
+    // while the parent stays clickable only in the gaps its children
+    // don't cover. Sort is stable (V8) so order within a depth tier
+    // is preserved.
+    .sort((a, b) => depthOf(a.id) - depthOf(b.id))
     .map((l) => ({
       type: "Feature" as const,
       properties: {
