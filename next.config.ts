@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
@@ -5,6 +6,22 @@ import createNextIntlPlugin from "next-intl/plugin";
 // `src/i18n/request.ts` (locale + messages bundle per request). Wrap
 // the regular config below so the plugin can hook into the build.
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+
+// Total commit count on HEAD, baked into the bundle at build time — the
+// footer shows it as a "build number" next to the GitHub link. The VPS
+// deploy builds from a full `git reset --hard origin/main` checkout so
+// the count is accurate there; falls back to "" (footer hides it) when
+// git isn't available (e.g. a tarball build).
+function gitCommitCount(): string {
+  try {
+    return execSync("git rev-list --count HEAD", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+}
 
 // Content-Security-Policy is set per-request in src/middleware.ts so the
 // nonce can be regenerated for every response. Static security headers
@@ -15,6 +32,9 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  env: {
+    NEXT_PUBLIC_COMMIT_COUNT: gitCommitCount(),
+  },
   experimental: {
     serverActions: {
       // Admin upload of find photos: each JPEG after prepare-upload is

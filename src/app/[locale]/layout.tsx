@@ -114,6 +114,14 @@ export default async function PublicLayout({
             >
               <Github className="h-4 w-4" aria-hidden />
             </a>
+            {process.env.NEXT_PUBLIC_COMMIT_COUNT && (
+              <span
+                className="font-mono text-xs text-gray-400"
+                title={t("commitCountTitle")}
+              >
+                #{process.env.NEXT_PUBLIC_COMMIT_COUNT}
+              </span>
+            )}
           </span>
           <span aria-hidden>·</span>
           <span className="inline-flex items-center gap-1.5">
@@ -126,7 +134,7 @@ export default async function PublicLayout({
               title={t("claudeTitle")}
               className="font-medium text-gray-700 underline-offset-2 hover:text-brand-700 hover:underline"
             >
-              Claude Opus 4.7
+              Claude Opus 4.8
             </a>
             <span className="text-gray-400">{t("via")}</span>
             <a

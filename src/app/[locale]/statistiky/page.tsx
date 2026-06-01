@@ -827,9 +827,12 @@ function DeviationStatsCard({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 content-start">
+            <div className="flex flex-col gap-3">
             {data.topLocation && (
-              <DeviationStat label={t("deviationTopLocationLabel")}>
+              <DeviationStat
+                label={t("deviationTopLocationLabel")}
+                className="flex-1"
+              >
                 <div className="flex flex-wrap items-baseline gap-2">
                   <Link
                     href={locationDetailHref(data.topLocation.id)}
@@ -882,7 +885,10 @@ function DeviationStatsCard({
             )}
 
             {data.mostDeviated && (
-              <DeviationStat label={t("deviationMostDeviatedLabel")}>
+              <DeviationStat
+                label={t("deviationMostDeviatedLabel")}
+                className="flex-1"
+              >
                 <div className="flex flex-wrap items-baseline gap-x-2">
                   <span className="font-mono text-sm font-semibold text-brand-700">
                     #{data.mostDeviated.id}
@@ -955,12 +961,16 @@ function DeviationStatsCard({
 function DeviationStat({
   label,
   children,
+  className = "",
 }: {
   label: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="flex h-full flex-col rounded-lg border border-brand-100 bg-white p-3">
+    <div
+      className={`flex h-full flex-col rounded-lg border border-brand-100 bg-white p-3 ${className}`}
+    >
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
         {label}
       </p>
@@ -1043,7 +1053,7 @@ function FindHighlightCard({
 }) {
   const date = find.foundAt ? new Date(find.foundAt) : null;
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-5">
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-5">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
           {label}
@@ -1779,7 +1789,7 @@ function PeakSlidingCard({
   locale: string;
 }) {
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-4">
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-brand-700" aria-hidden />
         <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -1851,7 +1861,7 @@ function PeakBucketCard({
   locale: string;
 }) {
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4">
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-4">
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-brand-700" aria-hidden />
         <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
