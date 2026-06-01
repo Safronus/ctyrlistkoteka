@@ -1,8 +1,10 @@
 /**
- * READ-ONLY diagnostic for the "location id drifted away from its map's
- * MAP_ID" bug. Run it on the box that has the DB + DATA_DIR:
+ * Diagnostic (and optional repair) for the "location id drifted away
+ * from its map's MAP_ID" bug. Run it on the box that has the DB +
+ * DATA_DIR:
  *
- *   pnpm diagnose:locations
+ *   pnpm diagnose:locations            # READ-ONLY report
+ *   pnpm diagnose:locations -- --fix   # apply the corrective renumber
  *
  * Background: each location-map filename ends in a 5-digit MAP_ID, and
  * `location_maps.id` is set straight from it (always correct). The
@@ -10,21 +12,24 @@
  * sync.ts has a "fork" path (scripts/sync.ts, the
  * `maps.location_forked` branch) that, when a MAP_ID slot is already
  * held by a different code, creates the Location with `id = max(id)+1`
- * instead. Once that happens the `byCode` branch pins the location at
- * the wrong id forever and the freed slot is never reused, so every id
- * above the fork point reads one too high (e.g. map 00156 shows as
- * 00157, and 00156 "disappears").
+ * instead. Renaming location CODES in /admin (without touching
+ * MAP_IDs) is the usual trigger — the reshuffled codes collide on
+ * existing MAP_ID slots and fork. Once that happens the `byCode`
+ * branch pins the location at the wrong id and the freed slot is never
+ * reused, so ids above the fork point read too high (e.g. map 00156
+ * shows as 00157, and 00156 "disappears").
  *
- * This script makes NO writes. It reports:
- *   1. Duplicate MAP_IDs across filenames (the usual trigger).
+ * Without --fix the script makes NO writes. It reports:
+ *   1. Duplicate MAP_IDs across filenames.
  *   2. Map files that fail to parse.
  *   3. Locations whose id matches none of their maps' ids ("drifted")
  *      and locations with no map at all ("mapless").
- *   4. MAP_IDs that have no Location sitting on that id ("holes" — the
- *      slots a corrective renumber would move drifted rows back into).
- *   5. A proposed corrective transaction (review before running — all
- *      three FKs are ON UPDATE CASCADE, so moving a Location's id
- *      carries finds, maps and child parent_id with it).
+ *   4. MAP_IDs that have no Location sitting on that id ("holes").
+ *   5. The corrective renumber, ordered so each target id is free when
+ *      its UPDATE runs. With --fix it's executed inside one
+ *      transaction; otherwise just printed. All three FKs are ON
+ *      UPDATE CASCADE, so moving a Location's id carries its finds,
+ *      maps and child parent_id along.
  */
 
 import { join } from "node:path";
@@ -33,6 +38,73 @@ import { PrismaClient } from "@prisma/client";
 import { parseMapFilename } from "../src/lib/parseFilename";
 
 const prisma = new PrismaClient();
+
+interface PlannedMove {
+  from: number;
+  to: number;
+  note: string;
+}
+
+/**
+ * Orders renumber moves so each target id is free at the moment its
+ * UPDATE runs. The move set is closed when every occupied target is
+ * itself a moving row, which holds for genuine drift (a slot is taken
+ * either by a hole, or by another drifted location that also moves).
+ * A greedy "do whatever target is free now" pass drains all chains; a
+ * pure rotation with no hole is broken by parking one member at a temp
+ * id first, then placing it last once its target frees.
+ *
+ * Throws if a target is blocked by a row that is NOT in the move set
+ * (e.g. unresolved multi-map drift) — better to refuse than to loop or
+ * emit a plan that would hit a unique-violation.
+ */
+function planRenumber(
+  moves: ReadonlyArray<{ from: number; to: number; note: string }>,
+  currentLocationIds: readonly number[],
+  allMapIds: readonly number[],
+): PlannedMove[] {
+  const occupied = new Set<number>(currentLocationIds);
+  const remaining = new Map<number, { to: number; note: string }>();
+  for (const m of moves) remaining.set(m.from, { to: m.to, note: m.note });
+  const plan: PlannedMove[] = [];
+  let tempNext = Math.max(0, ...currentLocationIds, ...allMapIds) + 1;
+  let guard = moves.length * 4 + 16;
+
+  while (remaining.size > 0) {
+    if (guard-- <= 0) {
+      throw new Error("planRenumber: no progress — move set is not closed");
+    }
+    const doable = [...remaining].filter(([, v]) => !occupied.has(v.to));
+    if (doable.length > 0) {
+      for (const [from, v] of doable) {
+        plan.push({ from, to: v.to, note: v.note });
+        occupied.delete(from);
+        occupied.add(v.to);
+        remaining.delete(from);
+      }
+      continue;
+    }
+    // No target free. Either a true cycle (break it) or a blocker that
+    // isn't moving (refuse).
+    const pendingFroms = new Set(remaining.keys());
+    const blockedByNonMover = [...remaining].some(
+      ([, v]) => occupied.has(v.to) && !pendingFroms.has(v.to),
+    );
+    if (blockedByNonMover) {
+      throw new Error(
+        "planRenumber: a target is occupied by a non-moving row — manual fix needed",
+      );
+    }
+    const [from, v] = [...remaining][0]!;
+    const temp = tempNext++;
+    plan.push({ from, to: temp, note: `${v.note} (park → ${temp})` });
+    occupied.delete(from);
+    occupied.add(temp);
+    remaining.delete(from);
+    remaining.set(temp, v);
+  }
+  return plan;
+}
 
 async function listMapFiles(dir: string): Promise<string[]> {
   try {
@@ -157,42 +229,76 @@ async function main() {
   else line("  " + holes.map((n) => String(n).padStart(5, "0")).join(", "));
   line("");
 
-  // ---- 5. proposed corrective transaction --------------------------------
-  // Only auto-suggest for single-map drifted locations whose target slot
-  // (the map's id) is currently a hole. Sort by target ascending so an
-  // upward +1 shift frees each slot just before the next move needs it.
-  const moves = drifted
-    .filter((d) => d.mapIds.length === 1 && holes.includes(d.mapIds[0]!))
-    .map((d) => ({ from: d.id, to: d.mapIds[0]!, code: d.code }))
-    .sort((a, b) => a.to - b.to);
+  // ---- 5. corrective renumber -------------------------------------------
+  // Single-map drift is auto-planned: the location's only map's id IS
+  // the slot it belongs in. Multi-map drift is ambiguous (which map
+  // should the id follow?) so it's flagged for manual handling instead.
+  const singleMapMoves = drifted
+    .filter((d) => d.mapIds.length === 1)
+    .map((d) => ({ from: d.id, to: d.mapIds[0]!, note: d.code }));
+  const multiMapDrift = drifted.filter((d) => d.mapIds.length > 1);
 
-  line("── 5. Proposed corrective renumber (REVIEW BEFORE RUNNING) ──");
+  line("── 5. Corrective renumber ──────────────────────────────────");
   if (duplicateMapIds.length > 0) {
-    line("  Fix the duplicate filenames in section 1 FIRST (renumber one");
-    line("  of each pair to a free unique MAP_ID, rsync, re-sync). Only");
-    line("  then renumber the already-drifted rows below.");
+    line("  ⚠ Fix the duplicate filenames in section 1 FIRST, then re-run.");
     line("");
   }
-  if (moves.length === 0) {
-    line("  nothing auto-suggestable (no single-map drift into a free hole).");
+  for (const d of multiMapDrift) {
+    line(
+      `  ⚠ MANUAL: location ${String(d.id).padStart(5, "0")} (${d.code}) has ` +
+        `several maps (${d.mapIds.map((n) => String(n).padStart(5, "0")).join(", ")}) ` +
+        `— decide which id it should take by hand.`,
+    );
+  }
+
+  let plan: PlannedMove[] = [];
+  let planError: string | null = null;
+  try {
+    plan = planRenumber(
+      singleMapMoves,
+      locations.map((l) => l.id),
+      maps.map((m) => m.id),
+    );
+  } catch (err) {
+    planError = err instanceof Error ? err.message : String(err);
+  }
+
+  const apply = process.argv.slice(2).includes("--fix");
+
+  if (planError) {
+    line(`  ✗ Could not build a safe plan: ${planError}`);
+  } else if (plan.length === 0) {
+    line("  nothing to renumber — every location sits on its map id. ✓");
   } else {
-    line("  All of finds.location_id, location_maps.location_id and");
-    line("  locations.parent_id are ON UPDATE CASCADE, so each UPDATE below");
-    line("  carries its finds, maps and children along. Order matters: it");
-    line("  assumes a simple upward shift (each target freed by the prior");
-    line("  move). Verify against sections 3–4, then run inside ONE txn:");
+    line("  finds.location_id, location_maps.location_id and");
+    line("  locations.parent_id are ON UPDATE CASCADE — each UPDATE carries");
+    line("  its dependents along. Order is computed so each target is free");
+    line("  when its UPDATE runs:");
     line("");
     line("  BEGIN;");
-    for (const mv of moves) {
-      line(
-        `    UPDATE locations SET id = ${mv.to} WHERE id = ${mv.from}; ` +
-          `-- ${mv.code}`,
-      );
+    for (const mv of plan) {
+      line(`    UPDATE locations SET id = ${mv.to} WHERE id = ${mv.from}; -- ${mv.note}`);
     }
     line("  COMMIT;");
     line("");
-    line("  (Then bump the id sequence if one exists, and re-run this");
-    line("   script to confirm everything is clean.)");
+
+    if (apply) {
+      if (duplicateMapIds.length > 0 || multiMapDrift.length > 0) {
+        line("  ✗ Refusing --fix while duplicate filenames or multi-map");
+        line("    drift remain (see warnings above). Resolve those first.");
+      } else {
+        line("  --fix given → applying inside a transaction…");
+        await prisma.$transaction(async (tx) => {
+          for (const mv of plan) {
+            await tx.$executeRaw`UPDATE locations SET id = ${mv.to} WHERE id = ${mv.from}`;
+          }
+        });
+        line(`  ✓ Applied ${plan.length} renumber(s). Re-run without --fix to confirm.`);
+      }
+    } else {
+      line("  (read-only) Re-run with `-- --fix` to apply this transaction,");
+      line("  or paste the SQL above into psql. Take a pg_dump backup first.");
+    }
   }
   line("════════════════════════════════════════════════════════════");
 
