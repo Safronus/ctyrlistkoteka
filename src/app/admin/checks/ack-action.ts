@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { addCheckAck } from "@/lib/admin/checkAcks";
-import { MAP_CENTER_POLYGON_CHECK_ID } from "@/lib/admin/checks";
+import {
+  LOCATION_ID_DRIFT_CHECK_ID,
+  MAP_CENTER_POLYGON_CHECK_ID,
+} from "@/lib/admin/checks";
 import { appendAudit } from "@/lib/admin/audit";
 import {
   getAdminSession,
@@ -16,7 +19,10 @@ import {
  *  check-acks.json — bound it explicitly to the ids that have an
  *  ack UI today (currently just the map/polygon check). Add to
  *  this set when wiring acks for additional checks. */
-const ACKABLE_CHECK_IDS = new Set<string>([MAP_CENTER_POLYGON_CHECK_ID]);
+const ACKABLE_CHECK_IDS = new Set<string>([
+  MAP_CENTER_POLYGON_CHECK_ID,
+  LOCATION_ID_DRIFT_CHECK_ID,
+]);
 
 /** Marks a single check offender as "OK, intentionally" — the row
  *  disappears from the next render of /admin/checks. The ack

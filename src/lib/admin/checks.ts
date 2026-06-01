@@ -461,6 +461,90 @@ async function checkMapCenterOutsidePolygon(): Promise<MapCheckResult> {
  *  attacker writing arbitrary keys into check-acks.json). */
 export const MAP_CENTER_POLYGON_CHECK_ID = "map-center-outside-polygon";
 
+/** Stable id for the location-id ↔ MAP_ID drift check. Same role as
+ *  the polygon check id — lets the ack action whitelist it. */
+export const LOCATION_ID_DRIFT_CHECK_ID = "location-id-drift";
+
+/** Zero-pads a numeric id to the 5-digit `#00156` form the rest of
+ *  the admin uses for maps + locations. */
+function formatPaddedId(n: number): string {
+  return `#${n.toString().padStart(5, "0")}`;
+}
+
+/** Check 8 — a Location's id must equal the MAP_ID of one of its maps.
+ *  `location_maps.id` always comes straight from the filename (correct
+ *  by construction), but sync.ts's fork path can create the Location
+ *  with `id = max(id)+1` when a MAP_ID slot is already taken by a
+ *  different code. Once that happens the location is pinned at the
+ *  wrong id and reads one (or more) too high — e.g. map 00156 shows as
+ *  00157 on /lokality + /mapa, and 00156 "disappears". This check
+ *  flags every map whose number no longer matches the id of the
+ *  location it belongs to, and notes whether the correct slot is free
+ *  (so a corrective renumber is straightforward). A location with
+ *  several maps is only flagged when NONE of them matches its id —
+ *  that's the genuine drift, not the normal "one location, many maps"
+ *  case. Acked (button "OK") rows are hidden. */
+async function checkLocationIdDrift(): Promise<MapCheckResult> {
+  const base = {
+    kind: "map" as const,
+    group: "data-integrity" as const,
+    id: LOCATION_ID_DRIFT_CHECK_ID,
+    title: "Id lokality ≠ číslo mapy (drift)",
+    description:
+      "Id lokality má odpovídat číslu (MAP_ID) některé z jejích map. Když se rozejdou (typicky po forku v synchronizaci), lokalita se zobrazuje pod cizím číslem a původní číslo v seznamu „chybí“. Potvrzené záznamy (tlačítko „OK“) jsou skryté.",
+  };
+
+  const [locations, maps, acked] = await Promise.all([
+    prisma.location.findMany({ select: { id: true, code: true } }),
+    prisma.locationMap.findMany({
+      select: { id: true, locationId: true, originalFilename: true },
+      orderBy: { id: "asc" },
+    }),
+    readCheckAckSet(LOCATION_ID_DRIFT_CHECK_ID),
+  ]);
+
+  const codeByLoc = new Map(locations.map((l) => [l.id, l.code]));
+  const locIdSet = new Set(locations.map((l) => l.id));
+
+  // location id → set of MAP_IDs that belong to it. A location is
+  // "drifted" when its own id is in none of those — i.e. no map
+  // carries the number the location is filed under.
+  const mapIdsByLoc = new Map<number, Set<number>>();
+  for (const m of maps) {
+    const set = mapIdsByLoc.get(m.locationId) ?? new Set<number>();
+    set.add(m.id);
+    mapIdsByLoc.set(m.locationId, set);
+  }
+
+  const offenders: MapOffender[] = [];
+  for (const m of maps) {
+    if (acked.has(m.id)) continue;
+    if (m.id === m.locationId) continue; // map sits on its own id — fine
+    const sibling = mapIdsByLoc.get(m.locationId);
+    // Healthy multi-map location: some OTHER map already carries the
+    // location's id, so this map legitimately differs. Skip it.
+    if (sibling?.has(m.locationId)) continue;
+
+    const code = codeByLoc.get(m.locationId) ?? "—";
+    // The natural target slot for a renumber is this map's own id.
+    // Free when no location currently occupies it.
+    const slotFree = !locIdSet.has(m.id);
+    offenders.push({
+      mapId: m.id,
+      originalFilename: m.originalFilename,
+      locationCode: code,
+      detail:
+        `Mapa ${formatPaddedId(m.id)} je navázaná na lokalitu ` +
+        `${formatPaddedId(m.locationId)} (${code}) — číslo mapy ≠ id lokality. ` +
+        (slotFree
+          ? `Slot ${formatPaddedId(m.id)} je volný — lze narovnat.`
+          : `Cílový slot ${formatPaddedId(m.id)} obsazuje jiná lokalita.`),
+    });
+  }
+
+  return { ...base, offenders };
+}
+
 /** Check 7 — invariant: at most one `FindImage` per find may carry
  *  `isPrimary = true`. The current sequential sync loop preserves
  *  the rule by construction (ORIGINAL is inserted before CROP, the
@@ -1060,6 +1144,7 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     checkFindsWithoutGps(),
     checkOriginalsWithoutCrop(),
     checkMapCenterOutsidePolygon(),
+    checkLocationIdDrift(),
     checkMultiplePrimaryImages(),
     checkFilenameNotInJson(),
     checkJsonNotInFilename(),
