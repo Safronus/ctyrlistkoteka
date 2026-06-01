@@ -14,6 +14,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx scripts/seed.ts",
     "sync": "tsx scripts/sync.ts",
+    "diagnose:locations": "tsx scripts/diagnose-location-ids.ts",
     "generate-images": "tsx scripts/generate-images.ts",
     "watermark": "tsx scripts/apply-watermark.ts"
   },
