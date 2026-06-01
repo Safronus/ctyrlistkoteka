@@ -18,7 +18,7 @@
 import { cache } from "react";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { DEFAULT_LOCATION_ID } from "@/lib/constants";
+import { DEFAULT_LOCATION_ID, FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import { cityFromCadastralArea } from "@/lib/locationCode";
 import { listCadastralAreas } from "@/lib/queries/locations";
@@ -1299,6 +1299,266 @@ export async function getStatsDistance(): Promise<StatsDistanceResult> {
       bucket: r.bucket,
       count: Number(r.count),
     })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Deviated finds — GPS that lands outside where the find "should" be.
+//
+// Deviation rule (mirrors /mapa's `deviated` flag and the find-detail
+// offset):
+//   - polygon location   → find sits OUTSIDE the AOI polygon (any
+//                           distance), tested with ST_Covers.
+//   - polygon-less        → find is further than FIND_DEVIATION_RADIUS_M
+//                           metres from the recorded centre point.
+// "Deviation distance" reuses the existing offset metric: distance to
+// the nearest polygon edge for AOI locations, distance from the centre
+// for polygon-less ones. Direction is the compass bearing from the
+// location's centre point to the find (8-way octant). Anonymized finds
+// never enter any of this (privacy — no GPS leaves the server for them).
+
+/** Minimum non-anonymized GPS finds a location needs before it can win
+ *  "highest deviation probability" — keeps a lone 1/1 = 100 % outlier
+ *  from topping the chart. Matches the ≥10 floor used by topByDensity. */
+const DEVIATION_TOP_LOCATION_MIN_FINDS = 10;
+
+export interface DeviationOctant {
+  /** 0 = N, 1 = NE, 2 = E, 3 = SE, 4 = S, 5 = SW, 6 = W, 7 = NW. */
+  octant: number;
+  count: number;
+}
+
+export interface DeviationTopLocation {
+  id: number;
+  code: string;
+  displayName: string;
+  total: number;
+  deviated: number;
+  /** deviated / total, 0..1. */
+  rate: number;
+}
+
+export interface DeviationMostDeviated {
+  id: number;
+  meters: number;
+  mode: "polygon" | "center";
+  foundAt: string | null;
+  location: { code: string; displayName: string } | null;
+}
+
+export interface StatsDeviationsResult {
+  /** Non-anonymized finds with GPS AND a location that has a polygon or
+   *  a centre point — the denominator for the deviation rate. */
+  eligible: number;
+  deviated: number;
+  /** deviated / eligible, 0..1. */
+  rate: number;
+  medianMeters: number | null;
+  meanMeters: number | null;
+  /** Deviated finds whose location has a polygon (outside-AOI rule). */
+  deviatedPolygon: number;
+  /** Deviated finds at polygon-less locations (>radius-from-centre rule). */
+  deviatedCenter: number;
+  /** Dominant compass octant among deviated finds, or null when none. */
+  dominantOctant: number | null;
+  /** 8-bucket octant histogram (always length 8, zero-filled). */
+  octants: DeviationOctant[];
+  topLocation: DeviationTopLocation | null;
+  mostDeviated: DeviationMostDeviated | null;
+}
+
+type DeviatedRow = {
+  id: number;
+  found_at: Date | null;
+  mode: "polygon" | "center";
+  offset_m: number | null;
+  azimuth_deg: number | null;
+  code: string;
+  display_name: string;
+};
+
+export async function getStatsDeviations(): Promise<StatsDeviationsResult> {
+  // Shared SQL predicate for "this find is deviated". Inlined into each
+  // query below (Prisma raw templates can't share a fragment cleanly).
+  // Kept identical to /mapa's map.ts deviated CASE.
+  const [eligibleRows, deviatedRows, topRows] = await Promise.all([
+    prisma.$queryRaw<Array<{ eligible: bigint }>>`
+      SELECT COUNT(*)::bigint AS eligible
+      FROM finds f
+      JOIN locations l ON l.id = f.location_id
+      WHERE f.is_anonymized = false
+        AND f.coordinates IS NOT NULL
+        AND (l.polygon IS NOT NULL OR l.center_point IS NOT NULL)
+    `,
+    prisma.$queryRaw<DeviatedRow[]>`
+      SELECT f.id,
+             f.found_at,
+             CASE WHEN l.polygon IS NOT NULL THEN 'polygon' ELSE 'center' END AS mode,
+             CASE
+               WHEN l.polygon IS NOT NULL
+                 THEN ST_Distance(f.coordinates::geography, l.polygon::geography)::float8
+               ELSE ST_DistanceSphere(f.coordinates, l.center_point)::float8
+             END AS offset_m,
+             CASE
+               WHEN l.center_point IS NOT NULL
+                 THEN degrees(
+                   ST_Azimuth(l.center_point::geography, f.coordinates::geography)
+                 )::float8
+             END AS azimuth_deg,
+             l.code,
+             COALESCE(NULLIF(l.display_name, ''), l.code) AS display_name
+      FROM finds f
+      JOIN locations l ON l.id = f.location_id
+      WHERE f.is_anonymized = false
+        AND f.coordinates IS NOT NULL
+        AND (
+          (l.polygon IS NOT NULL
+            AND NOT ST_Covers(l.polygon::geography, f.coordinates::geography))
+          OR (l.polygon IS NULL
+            AND l.center_point IS NOT NULL
+            AND ST_DistanceSphere(f.coordinates, l.center_point) > ${FIND_DEVIATION_RADIUS_M})
+        )
+      ORDER BY offset_m DESC NULLS LAST
+    `,
+    // Location with the highest deviation rate (≥ floor finds), skipping
+    // anonymized locations so a private spot is never surfaced by name.
+    prisma.$queryRaw<
+      Array<{
+        id: number;
+        code: string;
+        display_name: string;
+        total: bigint;
+        deviated: bigint;
+      }>
+    >`
+      SELECT l.id,
+             l.code,
+             COALESCE(NULLIF(l.display_name, ''), l.code) AS display_name,
+             COUNT(*)::bigint AS total,
+             COUNT(*) FILTER (
+               WHERE (l.polygon IS NOT NULL
+                       AND NOT ST_Covers(l.polygon::geography, f.coordinates::geography))
+                  OR (l.polygon IS NULL
+                       AND l.center_point IS NOT NULL
+                       AND ST_DistanceSphere(f.coordinates, l.center_point) > ${FIND_DEVIATION_RADIUS_M})
+             )::bigint AS deviated
+      FROM finds f
+      JOIN locations l ON l.id = f.location_id
+      WHERE f.is_anonymized = false
+        AND f.coordinates IS NOT NULL
+        AND (l.polygon IS NOT NULL OR l.center_point IS NOT NULL)
+        AND NOT EXISTS (
+          SELECT 1 FROM location_maps lm
+          WHERE lm.location_id = l.id AND lm.is_anonymized = true
+        )
+      GROUP BY l.id, l.code, l.display_name
+      HAVING COUNT(*) >= ${DEVIATION_TOP_LOCATION_MIN_FINDS}
+         AND COUNT(*) FILTER (
+               WHERE (l.polygon IS NOT NULL
+                       AND NOT ST_Covers(l.polygon::geography, f.coordinates::geography))
+                  OR (l.polygon IS NULL
+                       AND l.center_point IS NOT NULL
+                       AND ST_DistanceSphere(f.coordinates, l.center_point) > ${FIND_DEVIATION_RADIUS_M})
+             ) > 0
+      ORDER BY
+        (COUNT(*) FILTER (
+          WHERE (l.polygon IS NOT NULL
+                  AND NOT ST_Covers(l.polygon::geography, f.coordinates::geography))
+             OR (l.polygon IS NULL
+                  AND l.center_point IS NOT NULL
+                  AND ST_DistanceSphere(f.coordinates, l.center_point) > ${FIND_DEVIATION_RADIUS_M})
+        ))::float8 / COUNT(*) DESC,
+        deviated DESC
+      LIMIT 1
+    `,
+  ]);
+
+  const eligible = Number(eligibleRows[0]?.eligible ?? 0n);
+  const deviated = deviatedRows.length;
+
+  // Offset stats — median + mean over the existing offset metric.
+  const offsets = deviatedRows
+    .map((r) => r.offset_m)
+    .filter((m): m is number => m !== null && Number.isFinite(m))
+    .sort((a, b) => a - b);
+  const meanMeters =
+    offsets.length > 0
+      ? offsets.reduce((s, m) => s + m, 0) / offsets.length
+      : null;
+  const medianMeters =
+    offsets.length === 0
+      ? null
+      : offsets.length % 2 === 1
+        ? offsets[(offsets.length - 1) / 2]!
+        : (offsets[offsets.length / 2 - 1]! + offsets[offsets.length / 2]!) / 2;
+
+  // Location-type split.
+  let deviatedPolygon = 0;
+  let deviatedCenter = 0;
+  for (const r of deviatedRows) {
+    if (r.mode === "polygon") deviatedPolygon += 1;
+    else deviatedCenter += 1;
+  }
+
+  // Octant histogram (0 = N, clockwise). Round the bearing to the
+  // nearest 45° and wrap 360°→0 (N).
+  const octantCounts = new Array<number>(8).fill(0);
+  for (const r of deviatedRows) {
+    if (r.azimuth_deg === null || !Number.isFinite(r.azimuth_deg)) continue;
+    const idx = (Math.round(r.azimuth_deg / 45) % 8 + 8) % 8;
+    octantCounts[idx] = (octantCounts[idx] ?? 0) + 1;
+  }
+  const octants: DeviationOctant[] = octantCounts.map((count, octant) => ({
+    octant,
+    count,
+  }));
+  let dominantOctant: number | null = null;
+  let best = -1;
+  for (let i = 0; i < octantCounts.length; i++) {
+    if ((octantCounts[i] ?? 0) > best) {
+      best = octantCounts[i] ?? 0;
+      dominantOctant = i;
+    }
+  }
+  if (best <= 0) dominantOctant = null;
+
+  // Most-deviated find — rows are already ordered by offset desc.
+  const top = deviatedRows[0];
+  const mostDeviated: DeviationMostDeviated | null =
+    top && top.offset_m !== null
+      ? {
+          id: top.id,
+          meters: top.offset_m,
+          mode: top.mode,
+          foundAt: top.found_at ? top.found_at.toISOString() : null,
+          location: { code: top.code, displayName: top.display_name },
+        }
+      : null;
+
+  const topRow = topRows[0];
+  const topLocation: DeviationTopLocation | null = topRow
+    ? {
+        id: topRow.id,
+        code: topRow.code,
+        displayName: topRow.display_name,
+        total: Number(topRow.total),
+        deviated: Number(topRow.deviated),
+        rate: Number(topRow.deviated) / Number(topRow.total),
+      }
+    : null;
+
+  return {
+    eligible,
+    deviated,
+    rate: eligible > 0 ? deviated / eligible : 0,
+    medianMeters,
+    meanMeters,
+    deviatedPolygon,
+    deviatedCenter,
+    dominantOctant,
+    octants,
+    topLocation,
+    mostDeviated,
   };
 }
 

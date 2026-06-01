@@ -6,8 +6,10 @@ import {
   CalendarDays,
   CalendarRange,
   Camera,
+  ChevronDown,
   Clock,
   Compass,
+  Crosshair,
   Crown,
   EyeOff,
   Gift,
@@ -30,9 +32,11 @@ import {
   formatLocationId,
   formatLongDuration,
   formatTimeSinceCs,
+  locationDetailHref,
 } from "@/lib/format";
 import {
   getStatsCalendar,
+  getStatsDeviations,
   getStatsDistance,
   getStatsGeo,
   getStatsHighlights,
@@ -47,6 +51,7 @@ import {
   type DistanceBucket,
   type FindHighlight,
   type JubileeFind,
+  type StatsDeviationsResult,
   type MinuteHeatmapCell,
   type MonthDayPoint,
   type PeakBucket,
@@ -54,6 +59,7 @@ import {
   type StatsTimeAndPaceResult,
   type YearlyPoint,
 } from "@/lib/queries/stats";
+import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { getLocationIdsWithRealPhotos } from "@/lib/queries/locations";
 import { localizedCountryName } from "@/lib/world-countries";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
@@ -108,6 +114,9 @@ export default async function StatistikyPage() {
       </Suspense>
       <Suspense fallback={<HighlightsSkeleton />}>
         <HighlightsSection />
+      </Suspense>
+      <Suspense fallback={<DeviationsSkeleton />}>
+        <DeviationsSection />
       </Suspense>
       <Suspense fallback={<TimeAndPaceSkeleton />}>
         <TimeAndPaceSection />
@@ -336,6 +345,23 @@ async function HighlightsSection() {
         />
       )}
     </section>
+  );
+}
+
+async function DeviationsSection() {
+  const data = await getStatsDeviations();
+  if (data.eligible === 0) return null;
+  const t = await getTranslations("Statistiky");
+  const locale = await getLocale();
+  return <DeviationStatsCard data={data} t={t} locale={locale} />;
+}
+
+function DeviationsSkeleton() {
+  return (
+    <section
+      className="h-28 animate-pulse rounded-xl border border-brand-200 bg-brand-50 p-5"
+      aria-hidden
+    />
   );
 }
 
@@ -619,6 +645,249 @@ function TimeAndPaceSkeleton() {
       className="h-44 animate-pulse rounded-xl border border-gray-200 bg-white p-6"
       aria-hidden
     />
+  );
+}
+
+function DeviationStatsCard({
+  data,
+  t,
+  locale,
+}: {
+  data: StatsDeviationsResult;
+  t: StatsT;
+  locale: string;
+}) {
+  const intlLocale = toIntlLocale(locale);
+  const numFmt = new Intl.NumberFormat(intlLocale, {
+    maximumFractionDigits: 0,
+  });
+  const pctFmt = new Intl.NumberFormat(intlLocale, {
+    style: "percent",
+    maximumFractionDigits: 1,
+  });
+  const pct = pctFmt.format(data.rate);
+  const oneIn = data.rate > 0 ? numFmt.format(Math.round(1 / data.rate)) : "—";
+
+  const dist = (m: number | null) =>
+    m === null ? "—" : formatDistance(m, locale);
+
+  const dom = data.dominantOctant;
+  const roseMax = data.octants.reduce((m, o) => Math.max(m, o.count), 0);
+
+  return (
+    <details
+      open
+      className="group rounded-xl border border-brand-200 bg-brand-50 p-5"
+    >
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <div className="flex items-start gap-3">
+          <Crosshair
+            className="mt-0.5 h-5 w-5 shrink-0 text-brand-700"
+            aria-hidden
+          />
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {t("deviationHeading")}
+            </h2>
+            <p className="mt-0.5 text-sm text-gray-700">
+              {t("deviationHeadline", {
+                deviated: numFmt.format(data.deviated),
+                eligible: numFmt.format(data.eligible),
+                pct,
+                oneIn,
+              })}
+            </p>
+          </div>
+        </div>
+        <ChevronDown
+          className="mt-1 h-5 w-5 shrink-0 text-gray-400 transition group-open:rotate-180"
+          aria-hidden
+        />
+      </summary>
+
+      {data.deviated === 0 ? (
+        <p className="mt-4 text-sm text-gray-600">{t("deviationNone")}</p>
+      ) : (
+        <>
+          <p className="mt-3 text-xs text-gray-500">
+            {t("deviationSubtitle", { radius: FIND_DEVIATION_RADIUS_M })}
+          </p>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <DeviationStat label={t("deviationProbabilityLabel")}>
+              <p className="text-2xl font-bold tabular-nums text-brand-700">
+                {pct}
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                {t("deviationOneIn", { n: oneIn })}
+              </p>
+            </DeviationStat>
+
+            <DeviationStat label={t("deviationDistanceLabel")}>
+              <p className="text-sm text-gray-900">
+                <span className="text-gray-500">{t("deviationMedian")} </span>
+                <span className="font-mono font-semibold tabular-nums">
+                  {dist(data.medianMeters)}
+                </span>
+              </p>
+              <p className="text-sm text-gray-900">
+                <span className="text-gray-500">{t("deviationMean")} </span>
+                <span className="font-mono font-semibold tabular-nums">
+                  {dist(data.meanMeters)}
+                </span>
+              </p>
+            </DeviationStat>
+
+            <DeviationStat label={t("deviationByTypeLabel")}>
+              <p className="text-sm text-gray-900">
+                <span className="font-mono font-semibold tabular-nums">
+                  {numFmt.format(data.deviatedPolygon)}
+                </span>{" "}
+                <span className="text-gray-500">
+                  {t("deviationPolygonSplit")}
+                </span>
+              </p>
+              <p className="text-sm text-gray-900">
+                <span className="font-mono font-semibold tabular-nums">
+                  {numFmt.format(data.deviatedCenter)}
+                </span>{" "}
+                <span className="text-gray-500">
+                  {t("deviationCenterSplit", {
+                    radius: FIND_DEVIATION_RADIUS_M,
+                  })}
+                </span>
+              </p>
+            </DeviationStat>
+          </div>
+
+          {/* Direction rose — dominant octant + 8-way distribution. */}
+          <div className="mt-3 rounded-lg border border-brand-100 bg-white p-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {t("deviationDirectionLabel")}
+              </p>
+              {dom !== null && (
+                <p className="text-sm text-gray-900">
+                  <Compass
+                    className="mr-1 inline h-4 w-4 text-brand-700 align-text-bottom"
+                    aria-hidden
+                  />
+                  <span className="font-semibold">
+                    {t(`compassName${dom}`)}
+                  </span>{" "}
+                  <span className="font-mono text-gray-500">
+                    ({t(`compassAbbr${dom}`)})
+                  </span>
+                </p>
+              )}
+            </div>
+            <div className="mt-3 flex h-20 items-end gap-1">
+              {data.octants.map((o) => (
+                <div key={o.octant} className="flex flex-1 flex-col items-center">
+                  <span className="mb-0.5 font-mono text-[10px] tabular-nums text-gray-600">
+                    {o.count > 0 ? o.count : ""}
+                  </span>
+                  <div className="flex w-full flex-1 items-end">
+                    <div
+                      className={`w-full rounded-t ${
+                        o.octant === dom ? "bg-brand-600" : "bg-brand-300"
+                      }`}
+                      style={{
+                        height:
+                          roseMax > 0 ? `${(o.count / roseMax) * 100}%` : "0%",
+                        minHeight: o.count > 0 ? "2px" : "0",
+                      }}
+                    />
+                  </div>
+                  <span className="mt-1 font-mono text-[10px] text-gray-500">
+                    {t(`compassAbbr${o.octant}`)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {data.topLocation && (
+              <DeviationStat label={t("deviationTopLocationLabel")}>
+                <Link
+                  href={locationDetailHref(data.topLocation.id)}
+                  className="inline-flex items-baseline gap-2 hover:underline"
+                >
+                  <span className="font-mono text-sm font-semibold text-brand-700">
+                    {data.topLocation.code}
+                  </span>
+                  <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
+                    {pctFmt.format(data.topLocation.rate)}
+                  </span>
+                </Link>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  {t("deviationTopLocationStat", {
+                    deviated: numFmt.format(data.topLocation.deviated),
+                    total: numFmt.format(data.topLocation.total),
+                  })}
+                </p>
+              </DeviationStat>
+            )}
+
+            {data.mostDeviated && (
+              <DeviationStat label={t("deviationMostDeviatedLabel")}>
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <Link
+                    href={`/sbirka/${data.mostDeviated.id}`}
+                    className="font-mono text-sm font-semibold text-brand-700 hover:underline"
+                  >
+                    #{data.mostDeviated.id}
+                  </Link>
+                  <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
+                    {formatDistance(data.mostDeviated.meters, locale)}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {data.mostDeviated.mode === "polygon"
+                      ? t("deviationModePolygon")
+                      : t("deviationModeCenter")}
+                  </span>
+                </div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-500">
+                  {data.mostDeviated.location && (
+                    <span className="font-mono">
+                      {data.mostDeviated.location.code}
+                    </span>
+                  )}
+                  <Link
+                    href={`/mapa?find=${data.mostDeviated.id}`}
+                    className="inline-flex items-center gap-1 text-gray-500 hover:text-brand-700 hover:underline"
+                    title={t("showOnMapTitle")}
+                  >
+                    <MapPin className="h-3.5 w-3.5" aria-hidden />
+                    {t("showOnMapLabel")}
+                  </Link>
+                </div>
+              </DeviationStat>
+            )}
+          </div>
+        </>
+      )}
+    </details>
+  );
+}
+
+/** Small white labelled sub-card used inside the brand-tinted deviation
+ *  tile. */
+function DeviationStat({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-brand-100 bg-white p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+      <div className="mt-1">{children}</div>
+    </div>
   );
 }
 
