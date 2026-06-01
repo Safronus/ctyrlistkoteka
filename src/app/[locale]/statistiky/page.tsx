@@ -796,9 +796,10 @@ function DeviationStatsCard({
             </DeviationStat>
           </div>
 
-          {/* Direction rose — dominant octant + 8-way distribution. */}
-          <div className="mt-3 rounded-lg border border-brand-100 bg-white p-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {/* Direction rose — dominant octant + 8-way distribution. */}
+            <div className="rounded-lg border border-brand-100 bg-white p-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                 {t("deviationDirectionLabel")}
               </p>
@@ -817,16 +818,16 @@ function DeviationStatsCard({
                 </p>
               )}
             </div>
-            <div className="mt-3">
-              <DeviationCompass
-                points={compassPoints}
-                countLabel={t("deviationRoseCount")}
-                distanceLabel={t("deviationRoseDistance")}
-              />
+              <div className="mt-3">
+                <DeviationCompass
+                  points={compassPoints}
+                  countLabel={t("deviationRoseCount")}
+                  distanceLabel={t("deviationRoseDistance")}
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 content-start">
             {data.topLocation && (
               <DeviationStat label={t("deviationTopLocationLabel")}>
                 <div className="flex flex-wrap items-baseline gap-2">
@@ -859,13 +860,13 @@ function DeviationStatsCard({
                     total: numFmt.format(data.topLocation.total),
                   })}
                 </p>
-                <div className="mt-auto flex flex-wrap justify-end gap-2 pt-3">
+                <div className="mt-auto flex flex-wrap justify-center gap-2 pt-3">
                   <Link
                     href={`/mapa?focus=${data.topLocation.id}`}
                     className={`${DEVIATION_BTN} text-gray-600 hover:text-brand-700`}
                     title={t("showOnMapTitle")}
                   >
-                    <MapPin className="h-4 w-4" aria-hidden />
+                    <MapPin className="h-3.5 w-3.5" aria-hidden />
                     {t("showOnMapLabel")}
                   </Link>
                   <Link
@@ -873,7 +874,7 @@ function DeviationStatsCard({
                     className={`${DEVIATION_BTN} text-brand-700`}
                     title={t("deviationShowFindsTitle")}
                   >
-                    <Search className="h-4 w-4" aria-hidden />
+                    <Search className="h-3.5 w-3.5" aria-hidden />
                     {t("deviationShowFinds")}
                   </Link>
                 </div>
@@ -922,7 +923,7 @@ function DeviationStatsCard({
                       </div>
                     )}
                 </dl>
-                <div className="mt-auto flex flex-wrap justify-end gap-2 pt-3">
+                <div className="mt-auto flex flex-wrap justify-center gap-2 pt-3">
                   <Link
                     href={`/sbirka/${data.mostDeviated.id}`}
                     className={`${DEVIATION_BTN} text-brand-700`}
@@ -934,12 +935,13 @@ function DeviationStatsCard({
                     className={`${DEVIATION_BTN} text-gray-600 hover:text-brand-700`}
                     title={t("showOnMapTitle")}
                   >
-                    <MapPin className="h-4 w-4" aria-hidden />
+                    <MapPin className="h-3.5 w-3.5" aria-hidden />
                     {t("showOnMapLabel")}
                   </Link>
                 </div>
               </DeviationStat>
             )}
+            </div>
           </div>
         </>
       )}
@@ -967,10 +969,10 @@ function DeviationStat({
   );
 }
 
-/** Button styling for the deviation tile's action links — mirrors the
- *  outline buttons in the First/Last/Farthest highlight cards. */
+/** Button styling for the deviation tile's action links — small outline
+ *  chips, centred in their card's footer row. */
 const DEVIATION_BTN =
-  "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium transition hover:border-brand-200 hover:shadow-sm";
+  "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium transition hover:border-brand-200 hover:shadow-sm";
 
 function MainNumber({
   value,
@@ -1097,18 +1099,18 @@ function FindHighlightCard({
       <div className="mt-auto flex flex-wrap justify-center gap-2 pt-4">
         <Link
           href={`/sbirka/${find.id}`}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
         >
           {t("openFind", { id: find.id })}
         </Link>
         {!find.isAnonymized && find.hasGps && (
           <Link
             href={`/mapa?find=${find.id}`}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:border-brand-200 hover:text-brand-700 hover:shadow-sm"
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:border-brand-200 hover:text-brand-700 hover:shadow-sm"
             aria-label={t("showFindOnMapAria", { id: find.id })}
             title={t("showOnMapTitle")}
           >
-            <MapPin className="h-4 w-4" aria-hidden />
+            <MapPin className="h-3.5 w-3.5" aria-hidden />
             {t("showOnMapLabel")}
           </Link>
         )}

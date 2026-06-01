@@ -64,7 +64,7 @@ export function CollapsibleSection({
       // inside the body (e.g. jubilee "show more", calendar value
       // tables) keeps its own `group-open:` scope instead of reacting
       // to this card's open state.
-      className="group/section rounded-xl border border-brand-200 bg-brand-50 p-5"
+      className="group/section rounded-xl border border-gray-200 bg-gray-50 p-5"
     >
       <summary className="flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <div className="min-w-0">
