@@ -146,7 +146,15 @@ function SidebarRow({
 }) {
   const isChild = location.parentId !== null;
   const hasParts = location.childCount > 0;
-  const showPolygonToggle = isChild && location.polygonAreaM2 !== null;
+  // A child draws something on the map that the eye can toggle: a
+  // polygon (LocationPolygons) when it has one, otherwise a centre-point
+  // dot (LocationDots). Polygon-less children used to render their dot
+  // unconditionally with no way to hide it — now both kinds get the eye.
+  const hasPolygon = location.polygonAreaM2 !== null;
+  const showPolygonToggle =
+    isChild && (hasPolygon || location.coordinates !== null);
+  const toggleHideLabel = hasPolygon ? t("polygonHide") : t("markerHide");
+  const toggleShowLabel = hasPolygon ? t("polygonShow") : t("markerShow");
 
   const tone = location.isGone ? "bg-rose-50/60" : "";
   const focusedTone = focused ? "ring-2 ring-inset ring-brand-500" : "";
@@ -220,8 +228,8 @@ function SidebarRow({
           type="button"
           onClick={() => onTogglePolygon(location.id)}
           aria-pressed={polygonEnabled}
-          aria-label={polygonEnabled ? t("polygonHide") : t("polygonShow")}
-          title={polygonEnabled ? t("polygonHide") : t("polygonShow")}
+          aria-label={polygonEnabled ? toggleHideLabel : toggleShowLabel}
+          title={polygonEnabled ? toggleHideLabel : toggleShowLabel}
           className={`flex shrink-0 items-center justify-center px-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500 ${
             polygonEnabled
               ? "text-brand-700 hover:bg-brand-100"

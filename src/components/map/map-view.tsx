@@ -185,6 +185,7 @@ export function MapView({
           <LocationDots
             locations={data.locations}
             focusLocationId={focusLocationId}
+            enabledChildPolygonIds={enabledChildPolygonIds}
             showGone={showGone}
             suppressPopupAutoOpen={highlightFind !== null}
             enablePopup={enableLocationPopup}

@@ -632,6 +632,8 @@
     "rowDetailAria": "Detail lokality",
     "polygonHide": "Skrýt polygon této části",
     "polygonShow": "Zobrazit polygon této části",
+    "markerHide": "Skrýt bod této části na mapě",
+    "markerShow": "Zobrazit bod této části na mapě",
     "topSheetAria": "Detail vybrané lokality",
     "close": "Zavřít",
     "subPartLabel": "dílčí část",

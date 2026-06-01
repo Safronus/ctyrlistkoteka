@@ -633,6 +633,8 @@
     "rowDetailAria": "Location detail",
     "polygonHide": "Hide this part's polygon",
     "polygonShow": "Show this part's polygon",
+    "markerHide": "Hide this part's marker on the map",
+    "markerShow": "Show this part's marker on the map",
     "topSheetAria": "Selected location detail",
     "close": "Close",
     "subPartLabel": "sub-part",

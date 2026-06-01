@@ -18,6 +18,7 @@ import {
 export function LocationDots({
   locations,
   focusLocationId,
+  enabledChildPolygonIds,
   showGone,
   suppressPopupAutoOpen = false,
   enablePopup = true,
@@ -26,6 +27,12 @@ export function LocationDots({
 }: {
   locations: readonly MapLocation[];
   focusLocationId: number | null;
+  /** IDs of child locations the visitor opted into via the sidebar eye
+   *  (or that carry `showOnMapByDefault`). Mirrors LocationPolygons:
+   *  top-level dots always render; a CHILD's dot only renders when its
+   *  id is in this set, so polygon-less sub-parts stay hidden by default
+   *  and become toggleable instead of always cluttering the parent. */
+  enabledChildPolygonIds: ReadonlySet<number>;
   /** Mirror the polygon-layer toggle: hide former-location dots when
    *  the visitor has the Zaniklé layer off. */
   showGone: boolean;
@@ -63,6 +70,7 @@ export function LocationDots({
       (l): l is MapLocation & { centerLat: number; centerLng: number } =>
         l.polygon === null && l.centerLat !== null && l.centerLng !== null,
     )
+    .filter((l) => l.parentId === null || enabledChildPolygonIds.has(l.id))
     .filter((l) => showGone || !l.isGone);
 
   return (
