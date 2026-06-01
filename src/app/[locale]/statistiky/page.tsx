@@ -67,6 +67,7 @@ import { prisma } from "@/lib/db";
 import { getTopFindsWithThumbs } from "@/lib/votes";
 import { HelpDialog, type HelpSection } from "@/components/help/help-dialog";
 import { CollapsibleSection } from "@/components/stats/collapsible-section";
+import { DeviationCompass } from "@/components/stats/deviation-compass";
 import { CalendarHeatmapTabs } from "@/components/stats/calendar-heatmap-tabs";
 import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
 import { TopFindsLeaderboard } from "@/components/stats/top-finds-leaderboard";
@@ -706,13 +707,16 @@ function DeviationStatsCard({
     m === null ? "—" : formatDistance(m, locale);
 
   const dom = data.dominantOctant;
-  const roseMax = data.octants.reduce((m, o) => Math.max(m, o.count), 0);
+  const compassPoints = data.octants.map((o) => ({
+    abbr: t(`compassAbbr${o.octant}`),
+    count: o.count,
+    mean: o.meanMeters,
+    isDominant: o.octant === dom,
+    tooltip: `${t(`compassName${o.octant}`)}: ${t("deviationRoseCount")} ${numFmt.format(o.count)} · ${t("deviationRoseDistance")} ${dist(o.meanMeters)}`,
+  }));
 
   return (
-    <details
-      open
-      className="group rounded-xl border border-brand-200 bg-brand-50 p-5"
-    >
+    <details className="group rounded-xl border border-brand-200 bg-brand-50 p-5">
       <summary className="flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <div className="flex items-start gap-3">
           <Crosshair
@@ -824,29 +828,12 @@ function DeviationStatsCard({
                 </p>
               )}
             </div>
-            <div className="mt-3 flex h-20 items-end gap-1">
-              {data.octants.map((o) => (
-                <div key={o.octant} className="flex flex-1 flex-col items-center">
-                  <span className="mb-0.5 font-mono text-[10px] tabular-nums text-gray-600">
-                    {o.count > 0 ? o.count : ""}
-                  </span>
-                  <div className="flex w-full flex-1 items-end">
-                    <div
-                      className={`w-full rounded-t ${
-                        o.octant === dom ? "bg-brand-600" : "bg-brand-300"
-                      }`}
-                      style={{
-                        height:
-                          roseMax > 0 ? `${(o.count / roseMax) * 100}%` : "0%",
-                        minHeight: o.count > 0 ? "2px" : "0",
-                      }}
-                    />
-                  </div>
-                  <span className="mt-1 font-mono text-[10px] text-gray-500">
-                    {t(`compassAbbr${o.octant}`)}
-                  </span>
-                </div>
-              ))}
+            <div className="mt-3">
+              <DeviationCompass
+                points={compassPoints}
+                countLabel={t("deviationRoseCount")}
+                distanceLabel={t("deviationRoseDistance")}
+              />
             </div>
           </div>
 
@@ -856,20 +843,51 @@ function DeviationStatsCard({
                 <Link
                   href={locationDetailHref(data.topLocation.id)}
                   className="inline-flex items-baseline gap-2 hover:underline"
+                  title={t("deviationTopLocationAt")}
                 >
-                  <span className="font-mono text-sm font-semibold text-brand-700">
+                  <span className="inline-flex items-baseline gap-1 font-mono text-sm font-semibold text-brand-700">
+                    <MapPin
+                      className="h-3.5 w-3.5 shrink-0 translate-y-0.5 text-brand-700"
+                      aria-hidden
+                    />
                     {data.topLocation.code}
                   </span>
                   <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
                     {pctFmt.format(data.topLocation.rate)}
                   </span>
                 </Link>
+                {data.topLocation.displayName !== data.topLocation.code && (
+                  <p
+                    className="truncate text-xs text-gray-500"
+                    title={data.topLocation.displayName}
+                  >
+                    {data.topLocation.displayName}
+                  </p>
+                )}
                 <p className="mt-0.5 text-xs text-gray-500">
                   {t("deviationTopLocationStat", {
                     deviated: numFmt.format(data.topLocation.deviated),
                     total: numFmt.format(data.topLocation.total),
                   })}
                 </p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                  <Link
+                    href={`/mapa?focus=${data.topLocation.id}`}
+                    className="inline-flex items-center gap-1 text-gray-500 transition hover:text-brand-700 hover:underline"
+                    title={t("showOnMapTitle")}
+                  >
+                    <MapPin className="h-3.5 w-3.5" aria-hidden />
+                    {t("showOnMapLabel")}
+                  </Link>
+                  <Link
+                    href={`/sbirka?loc=${data.topLocation.id}`}
+                    className="inline-flex items-center gap-1 text-gray-500 transition hover:text-brand-700 hover:underline"
+                    title={t("deviationShowFindsTitle")}
+                  >
+                    <Search className="h-3.5 w-3.5" aria-hidden />
+                    {t("deviationShowFinds")}
+                  </Link>
+                </div>
               </DeviationStat>
             )}
 

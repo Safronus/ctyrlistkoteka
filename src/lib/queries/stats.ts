@@ -1326,6 +1326,10 @@ export interface DeviationOctant {
   /** 0 = N, 1 = NE, 2 = E, 3 = SE, 4 = S, 5 = SW, 6 = W, 7 = NW. */
   octant: number;
   count: number;
+  /** Mean deviation distance (metres) of the finds in this octant, or
+   *  null when the octant is empty. Drives the second ring on the
+   *  compass radar (count = one ring, distance = the other). */
+  meanMeters: number | null;
 }
 
 export interface DeviationTopLocation {
@@ -1503,14 +1507,24 @@ export async function getStatsDeviations(): Promise<StatsDeviationsResult> {
   // Octant histogram (0 = N, clockwise). Round the bearing to the
   // nearest 45° and wrap 360°→0 (N).
   const octantCounts = new Array<number>(8).fill(0);
+  const octantDistSum = new Array<number>(8).fill(0);
+  const octantDistN = new Array<number>(8).fill(0);
   for (const r of deviatedRows) {
     if (r.azimuth_deg === null || !Number.isFinite(r.azimuth_deg)) continue;
-    const idx = (Math.round(r.azimuth_deg / 45) % 8 + 8) % 8;
+    const idx = ((Math.round(r.azimuth_deg / 45) % 8) + 8) % 8;
     octantCounts[idx] = (octantCounts[idx] ?? 0) + 1;
+    if (r.offset_m !== null && Number.isFinite(r.offset_m)) {
+      octantDistSum[idx] = (octantDistSum[idx] ?? 0) + r.offset_m;
+      octantDistN[idx] = (octantDistN[idx] ?? 0) + 1;
+    }
   }
   const octants: DeviationOctant[] = octantCounts.map((count, octant) => ({
     octant,
     count,
+    meanMeters:
+      (octantDistN[octant] ?? 0) > 0
+        ? (octantDistSum[octant] ?? 0) / (octantDistN[octant] as number)
+        : null,
   }));
   let dominantOctant: number | null = null;
   let best = -1;
