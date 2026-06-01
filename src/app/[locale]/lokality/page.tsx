@@ -7,6 +7,7 @@ import { LocationsFilterBar } from "@/components/locations/locations-filter-bar"
 import { LocationsToolbar } from "@/components/locations/locations-toolbar";
 import { LocationListRow } from "@/components/locations/location-list-row";
 import {
+  countAnonymizedAndFormerLocations,
   listCadastralAreas,
   listCountries,
   listLocations,
@@ -69,7 +70,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   const hasRealPhoto = pickString(sp.hasPhoto) === "1";
 
   const locale = await getLocale();
-  const [cities, countriesRaw, locations] = await Promise.all([
+  const [cities, countriesRaw, locations, toggleCounts] = await Promise.all([
     listCadastralAreas(),
     listCountries(),
     listLocations({
@@ -82,6 +83,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
       onlyGone: onlyGone || undefined,
       hasRealPhoto: hasRealPhoto || undefined,
     }),
+    countAnonymizedAndFormerLocations(),
   ]);
 
   // Country names from listCountries are raw English (Natural Earth).
@@ -94,10 +96,19 @@ export default async function LokalityPage({ searchParams }: PageProps) {
       a.name.localeCompare(b.name, locale === "en" ? "en" : "cs"),
     );
 
+  // Anything that flips the listing away from the "default-default"
+  // view counts as an active filter for the "Zrušit filtry" button.
+  // Note this does NOT drive the summary text — the displayed count
+  // is ALWAYS filter-affected (hide-anon and hide-former are
+  // baseline defaults), so calling the default view "celkem" would
+  // mislead the visitor into thinking that's the full catalog size.
+  // `summarySuffix` is hard-wired to the "v aktuálním filtru"
+  // branch; the "total" branch of the i18n string stays for any
+  // future caller that genuinely wants it.
   const filterActive =
     !!q || !!city || !!country || sort !== "finds" || showAnonymized
       || showGone || hasRealPhoto || onlyGone;
-  const summarySuffix = filterActive ? "filtered" : "total";
+  const summarySuffix = "filtered";
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
@@ -166,6 +177,8 @@ export default async function LokalityPage({ searchParams }: PageProps) {
           hasRealPhoto,
           hasFilters: filterActive,
         }}
+        anonymizedCount={toggleCounts.anonymized}
+        formerCount={toggleCounts.former}
       />
 
       {onlyGone && (

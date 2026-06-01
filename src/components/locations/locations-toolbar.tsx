@@ -24,6 +24,8 @@ const SORT_KEYS: ReadonlyArray<{
 
 export function LocationsToolbar({
   current,
+  anonymizedCount,
+  formerCount,
 }: {
   current: {
     sort: LocationSort;
@@ -32,6 +34,14 @@ export function LocationsToolbar({
     hasRealPhoto: boolean;
     hasFilters: boolean;
   };
+  /** Total locations the "Anonymizované" toggle would reveal when
+   *  switched on — surfaced in the button label so the visitor sees
+   *  the size of the pool before flipping it. Counts EVERY
+   *  anonymized location regardless of the other filters. */
+  anonymizedCount: number;
+  /** Same idea for the "Zaniklé" toggle — count of NEEXISTUJE-
+   *  prefixed locations across the whole catalog. */
+  formerCount: number;
 }) {
   const t = useTranslations("LocationsToolbar");
   const router = useRouter();
@@ -73,12 +83,14 @@ export function LocationsToolbar({
           onClick={() => toggleFlag("showAnon", !current.showAnonymized)}
           icon={<EyeOff className="h-4 w-4" />}
           label={t("anonymized")}
+          count={anonymizedCount}
         />
         <ToggleButton
           pressed={current.showGone}
           onClick={() => toggleFlag("showGone", !current.showGone)}
           icon={<Archive className="h-4 w-4" />}
           label={t("gone")}
+          count={formerCount}
         />
         <ToggleButton
           pressed={current.hasRealPhoto}
@@ -136,11 +148,16 @@ function ToggleButton({
   onClick,
   icon,
   label,
+  count,
 }: {
   pressed: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  /** Optional integer rendered as `(N)` after the label. Used on the
+   *  Anonymizované + Zaniklé toggles to show the size of the pool
+   *  the toggle would reveal. Omit (or pass 0) to skip the chip. */
+  count?: number;
 }) {
   return (
     <button
@@ -155,6 +172,15 @@ function ToggleButton({
     >
       {icon}
       <span>{label}</span>
+      {typeof count === "number" && count > 0 && (
+        <span
+          className={`font-mono tabular-nums text-xs ${
+            pressed ? "text-white/80" : "text-gray-500"
+          }`}
+        >
+          ({count})
+        </span>
+      )}
     </button>
   );
 }

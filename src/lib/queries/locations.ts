@@ -201,6 +201,38 @@ export async function listCadastralAreas(): Promise<string[]> {
   return [...cities].sort((a, b) => a.localeCompare(b, "cs"));
 }
 
+/** Totals shown next to the "Anonymizované" + "Zaniklé" toggles on
+ *  the /lokality toolbar. Both counts ignore every other filter so
+ *  the operator sees the size of the pool the toggle would reveal,
+ *  not "X locations of Y in the current filter".
+ *
+ *   - anonymized: locations with at least one location_map flagged
+ *     is_anonymized (matches the listLocations / showAnonymized
+ *     gate).
+ *   - former: locations whose code carries the NEEXISTUJE- prefix
+ *     (matches isFormerLocation). */
+export async function countAnonymizedAndFormerLocations(): Promise<{
+  anonymized: number;
+  former: number;
+}> {
+  const [anonRow, formerRow] = await Promise.all([
+    prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(DISTINCT location_id)::bigint AS count
+      FROM location_maps
+      WHERE is_anonymized = true
+    `,
+    prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS count
+      FROM locations
+      WHERE code LIKE 'NEEXISTUJE-%'
+    `,
+  ]);
+  return {
+    anonymized: anonRow[0] ? Number(anonRow[0].count) : 0,
+    former: formerRow[0] ? Number(formerRow[0].count) : 0,
+  };
+}
+
 /** Distinct countries hosting at least one non-anonymized location with
  *  a recorded center point, derived via `countryFromCoords`. Sorted by
  *  Czech-collated name for the country dropdown. Anonymized locations
