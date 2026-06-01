@@ -36,75 +36,12 @@ import { join } from "node:path";
 import { readdir } from "node:fs/promises";
 import { PrismaClient } from "@prisma/client";
 import { parseMapFilename } from "../src/lib/parseFilename";
+import {
+  planLocationRenumber,
+  type PlannedMove,
+} from "../src/lib/admin/locationIdReconcile";
 
 const prisma = new PrismaClient();
-
-interface PlannedMove {
-  from: number;
-  to: number;
-  note: string;
-}
-
-/**
- * Orders renumber moves so each target id is free at the moment its
- * UPDATE runs. The move set is closed when every occupied target is
- * itself a moving row, which holds for genuine drift (a slot is taken
- * either by a hole, or by another drifted location that also moves).
- * A greedy "do whatever target is free now" pass drains all chains; a
- * pure rotation with no hole is broken by parking one member at a temp
- * id first, then placing it last once its target frees.
- *
- * Throws if a target is blocked by a row that is NOT in the move set
- * (e.g. unresolved multi-map drift) — better to refuse than to loop or
- * emit a plan that would hit a unique-violation.
- */
-function planRenumber(
-  moves: ReadonlyArray<{ from: number; to: number; note: string }>,
-  currentLocationIds: readonly number[],
-  allMapIds: readonly number[],
-): PlannedMove[] {
-  const occupied = new Set<number>(currentLocationIds);
-  const remaining = new Map<number, { to: number; note: string }>();
-  for (const m of moves) remaining.set(m.from, { to: m.to, note: m.note });
-  const plan: PlannedMove[] = [];
-  let tempNext = Math.max(0, ...currentLocationIds, ...allMapIds) + 1;
-  let guard = moves.length * 4 + 16;
-
-  while (remaining.size > 0) {
-    if (guard-- <= 0) {
-      throw new Error("planRenumber: no progress — move set is not closed");
-    }
-    const doable = [...remaining].filter(([, v]) => !occupied.has(v.to));
-    if (doable.length > 0) {
-      for (const [from, v] of doable) {
-        plan.push({ from, to: v.to, note: v.note });
-        occupied.delete(from);
-        occupied.add(v.to);
-        remaining.delete(from);
-      }
-      continue;
-    }
-    // No target free. Either a true cycle (break it) or a blocker that
-    // isn't moving (refuse).
-    const pendingFroms = new Set(remaining.keys());
-    const blockedByNonMover = [...remaining].some(
-      ([, v]) => occupied.has(v.to) && !pendingFroms.has(v.to),
-    );
-    if (blockedByNonMover) {
-      throw new Error(
-        "planRenumber: a target is occupied by a non-moving row — manual fix needed",
-      );
-    }
-    const [from, v] = [...remaining][0]!;
-    const temp = tempNext++;
-    plan.push({ from, to: temp, note: `${v.note} (park → ${temp})` });
-    occupied.delete(from);
-    occupied.add(temp);
-    remaining.delete(from);
-    remaining.set(temp, v);
-  }
-  return plan;
-}
 
 async function listMapFiles(dir: string): Promise<string[]> {
   try {
@@ -254,7 +191,7 @@ async function main() {
   let plan: PlannedMove[] = [];
   let planError: string | null = null;
   try {
-    plan = planRenumber(
+    plan = planLocationRenumber(
       singleMapMoves,
       locations.map((l) => l.id),
       maps.map((m) => m.id),

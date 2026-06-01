@@ -28,6 +28,10 @@ import {
   type ParsedMapFilename,
 } from "../src/lib/parseFilename";
 import { readExifSafe } from "../src/lib/admin/exif";
+import {
+  computeLocationDrift,
+  planLocationRenumber,
+} from "../src/lib/admin/locationIdReconcile";
 import { splitLocationCode, toAsciiCode } from "../src/lib/locationCode";
 import { parseRanges } from "../src/lib/parseRanges";
 import { JSON_STATE_MAP } from "../src/lib/stateMapping";
@@ -1453,6 +1457,97 @@ async function phaseHierarchy(
 }
 
 // --------------------------------------------------------------------------
+//  Reconcile phase — heal location-id drift
+// --------------------------------------------------------------------------
+//
+// The fork path above (maps.location_forked) assigns id = max+1 when a
+// MAP_ID slot is already held by a different code — which happens when
+// location CODES get reshuffled across maps (a common /admin rename).
+// That leaves a Location sitting on an id that none of its maps carry,
+// so it shows up under the wrong "00xxx" and the real number "goes
+// missing". This phase puts every such Location back onto its map's id.
+//
+// Safe by construction: the move set is closed (each occupied target is
+// itself a drifted row that also moves), the plan orders moves so each
+// target is free when its UPDATE runs, and every FK on locations.id is
+// ON UPDATE CASCADE — so finds, maps and child parent_id follow the
+// renumber automatically. Multi-map drift (ambiguous target) is logged
+// and left for manual handling. Runs on full syncs only; dry-run plans
+// without writing.
+
+async function phaseReconcileLocationIds(ctx: Context): Promise<void> {
+  const [locations, maps] = await Promise.all([
+    ctx.prisma.location.findMany({ select: { id: true, code: true } }),
+    ctx.prisma.locationMap.findMany({
+      select: { id: true, locationId: true },
+    }),
+  ]);
+
+  const { singleMapMoves, multiMapDrift } = computeLocationDrift(
+    locations,
+    maps,
+  );
+
+  for (const d of multiMapDrift) {
+    ctx.log.log({
+      event: "reconcile.multimap_skip",
+      level: "warn",
+      location_id: d.id,
+      code: d.code,
+      map_ids: d.mapIds,
+      note: "location with several maps drifted — set the intended id by hand",
+    });
+  }
+
+  if (singleMapMoves.length === 0) {
+    if (multiMapDrift.length === 0) {
+      ctx.log.log({ event: "reconcile.clean", level: "info" });
+    }
+    return;
+  }
+
+  let plan;
+  try {
+    plan = planLocationRenumber(
+      singleMapMoves,
+      locations.map((l) => l.id),
+      maps.map((m) => m.id),
+    );
+  } catch (err) {
+    ctx.log.log({
+      event: "reconcile.plan_failed",
+      level: "error",
+      error: err instanceof Error ? err.message : String(err),
+      note: "left untouched — run `pnpm diagnose:locations` to inspect",
+    });
+    return;
+  }
+
+  if (ctx.opts.dryRun) {
+    ctx.log.log({
+      event: "reconcile.plan",
+      level: "info",
+      would_renumber: plan.length,
+      moves: plan.map((p) => ({ from: p.from, to: p.to, code: p.note })),
+    });
+    return;
+  }
+
+  await ctx.prisma.$transaction(async (tx) => {
+    for (const mv of plan) {
+      await tx.$executeRaw`UPDATE locations SET id = ${mv.to} WHERE id = ${mv.from}`;
+    }
+  });
+
+  ctx.log.log({
+    event: "reconcile.done",
+    level: "info",
+    renumbered: plan.length,
+    moves: plan.map((p) => ({ from: p.from, to: p.to, code: p.note })),
+  });
+}
+
+// --------------------------------------------------------------------------
 //  Prune phase — warn about DB records without a filesystem match
 // --------------------------------------------------------------------------
 
@@ -1848,6 +1943,14 @@ async function main() {
 
     if (runFinds) {
       await phasePrune(ctx, allFinds, mapToLocation);
+    }
+
+    // Self-heal location-id drift left by the fork path when codes were
+    // reshuffled across MAP_IDs. Full syncs only — targeted --only runs
+    // stay surgical. Runs last so it reconciles the final DB state;
+    // cascading FKs fix finds, maps and hierarchy along with it.
+    if (opts.only === null) {
+      await phaseReconcileLocationIds(ctx);
     }
 
     log.log({
