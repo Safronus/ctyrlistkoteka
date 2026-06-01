@@ -10,9 +10,11 @@ concurrency:
   group: deploy-prod
   cancel-in-progress: true
 
-# Opt into Node 24 for JS-based actions (checkout/setup-node/pnpm-setup).
-# GitHub deprecates Node 20 runners on 2026-09-16; this silences the
-# warning early and is forward-compatible.
+# Opt into Node 24 for any JS-based actions still on the v20 runner.
+# actions/checkout@v5 and actions/setup-node@v5 are natively Node 24
+# so the env only matters for pnpm/action-setup, which doesn't have a
+# Node-24 release yet. Once pnpm/action-setup ships @v5 the env can
+# come out entirely.
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
@@ -22,13 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
         with:
           version: 10
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: lts/*
           cache: pnpm
