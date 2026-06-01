@@ -619,6 +619,7 @@
     "layerHideDeviatedFinds": "Skrýt odchýlené",
     "layerHideDeviatedFindsSubtitle": "Nálezy mimo polygon nebo > 5 m od středu lokality",
     "legendActive": "Aktivní",
+    "legendParent": "Rodičovská",
     "legendFormer": "Zaniklá",
     "legendFocused": "Vybraná",
     "sidebarHeading": "Lokality ({count})",

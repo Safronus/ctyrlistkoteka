@@ -62,6 +62,14 @@ export function LocationPolygons({
   // server-side). Used by the depth sort below.
   const parentById = new Map<number, number | null>();
   for (const l of locations) parentById.set(l.id, l.parentId);
+  // Ids that are themselves a parent (some other location points at
+  // them). Drives the distinct violet "Rodičovská" palette below so a
+  // master area reads differently from an ordinary leaf polygon — and
+  // matches the legend swatch.
+  const parentIds = new Set<number>();
+  for (const l of locations) {
+    if (l.parentId !== null) parentIds.add(l.parentId);
+  }
   const depthOf = (id: number): number => {
     let depth = 0;
     let cur = parentById.get(id) ?? null;
@@ -100,6 +108,7 @@ export function LocationPolygons({
         findCount: l.findCount,
         isGone: l.isGone,
         isChild: l.parentId !== null,
+        isParent: parentIds.has(l.id),
       },
       geometry: l.polygon,
     }));
@@ -178,18 +187,24 @@ export function LocationPolygons({
       data={collection}
       style={(feature) => {
         const props = feature?.properties as
-          | { id?: number; isGone?: boolean }
+          | { id?: number; isGone?: boolean; isParent?: boolean }
           | undefined;
         const id = props?.id;
         const focused = id != null && id === focusLocationId;
         const gone = props?.isGone === true;
-        // Three palettes, three distinct hues so the visitor can name
+        const parent = props?.isParent === true;
+        // Four palettes, four distinct hues so the visitor can name
         // each at a glance without consulting the legend:
-        //   active   — blue   (#1e40af / #3b82f6)
-        //   former   — rose   (pink-red border + striped pattern fill)
-        //   focused  — amber  (#b45309 / #fbbf24) — warm but clearly
+        //   active   — blue    (#1e40af / #3b82f6)
+        //   parent   — violet  (#6d28d9 / #8b5cf6) — the enclosing master
+        //              area that holds sub-parts; drawn under its blue
+        //              children (depth sort) so both stay readable.
+        //   former   — rose    (pink-red border + striped pattern fill)
+        //   focused  — amber   (#b45309 / #fbbf24) — warm but clearly
         //              not pink, so a focused former location reads as
         //              "you've selected this", not "this is also gone".
+        // Priority focused > gone > parent > leaf so a selected or
+        // vanished master still reads as selected / gone first.
         if (focused) {
           return {
             color: "#b45309",
@@ -204,6 +219,14 @@ export function LocationPolygons({
             weight: 1,
             fillColor: "url(#ctyr-former-stripes)",
             fillOpacity: 0.95,
+          };
+        }
+        if (parent) {
+          return {
+            color: "#6d28d9",
+            weight: 2,
+            fillColor: "#8b5cf6",
+            fillOpacity: 0.12,
           };
         }
         return {

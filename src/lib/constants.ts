@@ -63,3 +63,14 @@ export const DEFAULT_LOCATION_ID = 1;
  * that location.
  */
 export const DOMINANT_LOCATION_ID = 3;
+
+/**
+ * The author's "home" location (map 00158). Two /mapa behaviours hang
+ * off it: it's the default location the page centres + fits on a bare
+ * visit (no ?focus / ?find deep link), and its centre point is drawn
+ * with the author's Safronus logo instead of the usual blue dot — a
+ * small personal easter egg. Both read this one constant so the home
+ * spot moves in lockstep if the collection's centre of gravity shifts.
+ * The id matches `LocationMap.id` = MAP_ID from the filename.
+ */
+export const AUTHOR_LOCATION_ID = 158;

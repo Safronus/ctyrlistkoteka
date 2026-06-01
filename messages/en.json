@@ -620,6 +620,7 @@
     "layerHideDeviatedFinds": "Hide deviated",
     "layerHideDeviatedFindsSubtitle": "Finds outside the polygon or > 5 m from the location centre",
     "legendActive": "Active",
+    "legendParent": "Parent",
     "legendFormer": "Former",
     "legendFocused": "Selected",
     "sidebarHeading": "Locations ({count})",

@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import "leaflet/dist/leaflet.css";
 import { LocationPolygons } from "./location-polygons";
 import { LocationDots } from "./location-dots";
+import { AuthorMarker } from "./author-marker";
 import { FindDotsLayer } from "./find-dots-layer";
 import { HighlightFindMarker } from "./highlight-find-marker";
 import type { MapData } from "@/lib/queries/map";
@@ -192,6 +193,7 @@ export function MapView({
             popupLabels={popupLabels}
             onSelect={onSelectLocation}
           />
+          <AuthorMarker locations={data.locations} />
         </>
       )}
       {showFinds && data.findCoords.length > 0 && (

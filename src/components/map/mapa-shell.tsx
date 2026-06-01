@@ -7,6 +7,7 @@ import { MapLoader } from "./map-loader";
 import { MapSidebar } from "./map-sidebar";
 import { LocationTopSheet } from "./location-top-sheet";
 import { HelpDialog } from "@/components/help/help-dialog";
+import { AUTHOR_LOCATION_ID } from "@/lib/constants";
 import type { MapData } from "@/lib/queries/map";
 import type { LocationListItem } from "@/lib/queries/locations";
 import type { HighlightFind } from "@/lib/queries/finds";
@@ -24,10 +25,11 @@ function toIntlLocale(locale: string): string {
  * visible. Server data flows in once via props; everything interactive
  * is local.
  */
-// Default location to focus when the URL doesn't specify one. Matches
-// "lokalita 00001" — typically ZLÍN_JSVAHY-UTB-U5-001. Falls back to the
-// first available location if id 1 doesn't exist anymore.
-const DEFAULT_FOCUS_ID = 1;
+// Default location to centre + fit when the URL doesn't specify one —
+// the author's home patch (map 00158, AUTHOR_LOCATION_ID). FitBounds
+// then frames its whole polygon. Falls back to the first available
+// location if that id ever disappears from the dataset.
+const DEFAULT_FOCUS_ID = AUTHOR_LOCATION_ID;
 
 // localStorage keys for visitor-level layer preferences. CLAUDE.md §3
 // allows localStorage for UI preferences — toggling map overlays
@@ -907,6 +909,10 @@ function MapLegendBar() {
       <span aria-hidden className="text-gray-300">
         ·
       </span>
+      <LegendInline swatch={<ParentSwatch />} label={t("legendParent")} />
+      <span aria-hidden className="text-gray-300">
+        ·
+      </span>
       <LegendInline swatch={<FormerSwatch />} label={t("legendFormer")} />
       <span aria-hidden className="text-gray-300">
         ·
@@ -949,6 +955,27 @@ function ActiveSwatch() {
         fill="#3b82f6"
         fillOpacity={0.25}
         stroke="#1e40af"
+        strokeWidth={2}
+      />
+    </svg>
+  );
+}
+
+function ParentSwatch() {
+  return (
+    <svg
+      width={SWATCH_W}
+      height={SWATCH_H}
+      aria-hidden
+      focusable={false}
+      className="overflow-hidden rounded-sm"
+    >
+      <rect
+        width={SWATCH_W}
+        height={SWATCH_H}
+        fill="#8b5cf6"
+        fillOpacity={0.25}
+        stroke="#6d28d9"
         strokeWidth={2}
       />
     </svg>
