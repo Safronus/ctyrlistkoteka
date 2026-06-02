@@ -1879,16 +1879,48 @@ function PeakSlidingCard({
 }
 
 /** Average finding pace during a fastest-N stretch, in the unit that
- *  reads best for that window size: 10 → per minute, 100 → per hour,
- *  1000 → per day. Returns the per-unit value + the matching unit
- *  translation key. */
+ *  reads best for that window size:
+ *    10   → per minute,
+ *    100  → per hour, but drops to per minute once it would exceed
+ *           100/h (the number gets unwieldy),
+ *    1000 → per hour.
+ *  Returns the per-unit value + the matching unit translation key. */
 function fastestRate(
   size: number,
   seconds: number,
-): { value: number; unitKey: "ratePerMinuteUnit" | "ratePerHourUnit" | "ratePerDayUnit" } {
-  if (size <= 10) return { value: (size / seconds) * 60, unitKey: "ratePerMinuteUnit" };
-  if (size <= 100) return { value: (size / seconds) * 3600, unitKey: "ratePerHourUnit" };
-  return { value: (size / seconds) * 86400, unitKey: "ratePerDayUnit" };
+): { value: number; unitKey: "ratePerMinuteUnit" | "ratePerHourUnit" } {
+  if (size <= 10) {
+    return { value: (size / seconds) * 60, unitKey: "ratePerMinuteUnit" };
+  }
+  if (size <= 100) {
+    const perHour = (size / seconds) * 3600;
+    return perHour > 100
+      ? { value: (size / seconds) * 60, unitKey: "ratePerMinuteUnit" }
+      : { value: perHour, unitKey: "ratePerHourUnit" };
+  }
+  return { value: (size / seconds) * 3600, unitKey: "ratePerHourUnit" };
+}
+
+/** Inverse pace ("1 find every …") for a fastest-N stretch — the mean
+ *  gap between consecutive finds, formatted per window:
+ *    10   → seconds only,
+ *    100  → minutes + seconds,
+ *    1000 → hours (only when non-zero) + minutes + seconds.
+ *  Unit letters (s / min / h) are language-neutral so this needs no
+ *  translation; the caller wraps it in the "1 nález každých {interval}"
+ *  string. */
+function fastestEvery(size: number, seconds: number): string {
+  const total = Math.max(0, Math.round(seconds / size));
+  if (size <= 10) return `${total} s`;
+  if (size <= 100) {
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m} min ${s} s`;
+  }
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0 ? `${h} h ${m} min ${s} s` : `${m} min ${s} s`;
 }
 
 /** "Fastest N consecutive finds" record card. Left: the shortest time
@@ -1910,9 +1942,12 @@ function PeakFastestCard({
   locale: string;
 }) {
   const intlLocale = toIntlLocale(locale);
-  const rate =
+  const pace =
     window && window.seconds > 0
-      ? fastestRate(window.size, window.seconds)
+      ? {
+          rate: fastestRate(window.size, window.seconds),
+          every: fastestEvery(window.size, window.seconds),
+        }
       : null;
   return (
     <div
@@ -1955,18 +1990,21 @@ function PeakFastestCard({
           <p className="mt-2 text-sm text-gray-400">—</p>
         )}
       </div>
-      {rate && (
-        <div className="flex w-2/5 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-black/10 px-2 py-4 text-center">
+      {pace && (
+        <div className="flex w-1/2 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-black/10 px-2 py-4 text-center">
           <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
             {t("fastestRateLabel")}
           </p>
           <p className="text-xl font-bold tabular-nums text-brand-700">
             {new Intl.NumberFormat(intlLocale, {
-              maximumFractionDigits: rate.value < 10 ? 1 : 0,
-            }).format(rate.value)}
+              maximumFractionDigits: pace.rate.value < 10 ? 1 : 0,
+            }).format(pace.rate.value)}
           </p>
           <p className="text-[11px] leading-tight text-gray-500">
-            {t(rate.unitKey)}
+            {t(pace.rate.unitKey)}
+          </p>
+          <p className="mt-1 text-[11px] leading-tight text-gray-500">
+            {t("fastestEvery", { interval: pace.every })}
           </p>
         </div>
       )}
