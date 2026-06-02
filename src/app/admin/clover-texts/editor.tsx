@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Save,
   Search,
+  Shuffle,
   Trash2,
   X,
 } from "lucide-react";
@@ -104,6 +105,23 @@ export function CloverTextsEditor({
 
   function closeEditor() {
     setEditingIndex(null);
+  }
+
+  /** Randomly reorder the whole list (Fisher–Yates). Marks the form
+   *  dirty; the new order persists on Save. The EN translations are
+   *  keyed by id, so they need no reordering. */
+  function shuffleOrder() {
+    setEditingIndex(null);
+    setTexts((prev) => {
+      const copy = [...prev];
+      for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = copy[i]!;
+        copy[i] = copy[j]!;
+        copy[j] = tmp;
+      }
+      return copy;
+    });
   }
 
   function commitEdit(
@@ -342,6 +360,16 @@ export function CloverTextsEditor({
         >
           <RotateCcw className="h-4 w-4" aria-hidden />
           Reset
+        </button>
+        <button
+          type="button"
+          onClick={shuffleOrder}
+          disabled={isPending || texts.length < 2}
+          title="Náhodně zamíchá pořadí lístečků; nové pořadí se uloží tlačítkem Uložit."
+          className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Shuffle className="h-4 w-4" aria-hidden />
+          Zamíchat pořadí
         </button>
         {savedAt && !dirty && (
           <span className="inline-flex items-center gap-1 text-sm text-emerald-700">
