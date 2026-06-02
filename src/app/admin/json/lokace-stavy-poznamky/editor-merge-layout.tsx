@@ -42,7 +42,13 @@ export function EditorMergeLayout({
 
   return (
     <div className="grid gap-4 xl:grid-cols-[3fr_2fr] xl:items-start">
+      {/* Key the editor by file mtime so it re-seeds its section
+          textareas from disk after every write (save / merge / CLI
+          edit). The merge form on the right is intentionally NOT keyed
+          — that's what keeps its post-merge result summary on screen
+          across the router.refresh() instead of flashing and vanishing. */}
       <LokaceStavyPoznamkyEditor
+        key={fileMtime ?? "empty"}
         initialSections={initialSections}
         fileMtime={fileMtime}
         activeTab={activeTab}

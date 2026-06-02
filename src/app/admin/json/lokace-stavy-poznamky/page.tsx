@@ -200,19 +200,17 @@ export default async function LokaceStavyPoznamkyPage({
         </p>
       )}
 
-      {/* `key={mtimeIso}` on the layout forces a clean remount of
-          BOTH the editor and the merge form whenever the file is
-          rewritten (save action OR merge form OR out-of-band CLI
-          edit). Without this the editor's internal `sections`
-          useState would freeze on first mount's initialSections and
-          silently drift from disk after a merge — looking like "you
-          have unsaved changes" when in reality the server has fresh
-          state and the editor is the stale side. The shared
-          `activeTab` state lifted into EditorMergeLayout lets the
-          merge form's section toggles drive the editor's tab in
-          one click. */}
+      {/* The file mtime drives a clean remount of the EDITOR ONLY (see
+          the `key` inside EditorMergeLayout) whenever the file is
+          rewritten (save / merge / out-of-band CLI edit) — otherwise the
+          editor's internal `sections` useState would freeze on first
+          mount's initialSections and silently drift from disk, looking
+          like "unsaved changes". The merge form is deliberately NOT
+          keyed, so after a merge + router.refresh() its result summary
+          stays on screen (instead of being wiped by a full remount).
+          The shared `activeTab` state in EditorMergeLayout also survives,
+          so the post-merge navigation to the changed section sticks. */}
       <EditorMergeLayout
-        key={mtimeIso ?? "empty"}
         initialSections={sections}
         fileMtime={mtimeIso}
         initialTab={initialTab}
