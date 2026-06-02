@@ -1849,30 +1849,30 @@ function PeakSlidingCard({
 }) {
   return (
     <div
-      className={`flex flex-col rounded-xl border border-gray-200 p-4 ${
+      className={`flex flex-col rounded-xl border border-gray-200 p-2.5 ${
         tinted ? "bg-gray-50" : "bg-white"
       }`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center gap-2">
         <Icon className="h-4 w-4 text-brand-700" aria-hidden />
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="text-center text-xs font-semibold uppercase tracking-wide text-gray-500">
           {label}
         </h3>
       </div>
       {peak ? (
         <>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
+          <p className="mt-2 text-center text-2xl font-bold tabular-nums text-gray-900">
             {peak.count}
             <span className="ml-1 text-sm font-normal text-gray-500">
               {t("labelFinds", { count: peak.count })}
             </span>
           </p>
-          <p className="mt-1 text-xs leading-snug text-gray-600">
+          <p className="mt-1 text-center text-xs leading-snug text-gray-600">
             {formatSlidingWindow(peak.startsAt, peak.endsAt, locale)}
           </p>
         </>
       ) : (
-        <p className="mt-2 text-sm text-gray-400">—</p>
+        <p className="mt-2 text-center text-sm text-gray-400">—</p>
       )}
     </div>
   );
@@ -1923,11 +1923,13 @@ function fastestEvery(size: number, seconds: number): string {
   return h > 0 ? `${h} h ${m} min ${s} s` : `${m} min ${s} s`;
 }
 
-/** "Fastest N consecutive finds" record card. Left: the shortest time
- *  span + the first→last find (both linked) + the date range. Right
- *  half: the average finding pace during that stretch, vertically
- *  centred independently of the left text. `bgClass` carries the border
- *  + background per tile (white / grey / brand). */
+/** "Fastest N consecutive finds" record card, laid out in three bands:
+ *  a full-width centred heading, a middle row split in two (left: the
+ *  shortest time span + first→last find, centred both axes; right: the
+ *  average pace) with NO divider line, and a full-width centred date
+ *  range at the bottom — the heading + date span the whole width so they
+ *  don't disturb the half-split. `bgClass` carries the border +
+ *  background per tile (white / grey / brand). */
 function PeakFastestCard({
   window,
   label,
@@ -1951,62 +1953,69 @@ function PeakFastestCard({
       : null;
   return (
     <div
-      className={`flex items-stretch overflow-hidden rounded-xl border ${bgClass}`}
+      className={`flex flex-col overflow-hidden rounded-xl border ${bgClass}`}
     >
-      <div className="flex min-w-0 flex-1 flex-col p-4">
-        <div className="flex items-center gap-2">
-          <Zap className="h-4 w-4 shrink-0 text-brand-700" aria-hidden />
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-            {label}
-          </h3>
-        </div>
-        {window ? (
-          <>
-            <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
-              {formatDurationSeconds(window.seconds, locale)}
-            </p>
-            <p className="mt-1 text-xs leading-snug text-gray-600">
-              <Link
-                href={`/sbirka/${window.startId}`}
-                className="font-mono font-medium text-brand-700 hover:underline"
-              >
-                #{window.startId}
-              </Link>
-              <span className="px-1 text-gray-400" aria-hidden>
-                →
-              </span>
-              <Link
-                href={`/sbirka/${window.endId}`}
-                className="font-mono font-medium text-brand-700 hover:underline"
-              >
-                #{window.endId}
-              </Link>
-            </p>
-            <p className="text-xs leading-snug text-gray-500">
-              {formatSlidingWindow(window.startsAt, window.endsAt, locale)}
-            </p>
-          </>
-        ) : (
-          <p className="mt-2 text-sm text-gray-400">—</p>
-        )}
+      {/* Heading — full width, centred, independent of the split below. */}
+      <div className="flex items-center justify-center gap-2 px-2.5 pt-2.5">
+        <Zap className="h-4 w-4 shrink-0 text-brand-700" aria-hidden />
+        <h3 className="text-center text-xs font-semibold uppercase tracking-wide text-gray-500">
+          {label}
+        </h3>
       </div>
-      {pace && (
-        <div className="flex w-1/2 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-black/10 px-2 py-4 text-center">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-            {t("fastestRateLabel")}
+      {window ? (
+        <>
+          {/* Middle band — split in two, NO divider. Left: duration +
+              first→last id, centred both axes. Right: average pace. */}
+          <div className="flex items-stretch">
+            <div className="flex min-w-0 flex-1 flex-col items-center justify-center px-2.5 py-2 text-center">
+              <p className="text-2xl font-bold tabular-nums text-gray-900">
+                {formatDurationSeconds(window.seconds, locale)}
+              </p>
+              <p className="mt-1 text-xs leading-snug text-gray-600">
+                <Link
+                  href={`/sbirka/${window.startId}`}
+                  className="font-mono font-medium text-brand-700 hover:underline"
+                >
+                  #{window.startId}
+                </Link>
+                <span className="px-1 text-gray-400" aria-hidden>
+                  →
+                </span>
+                <Link
+                  href={`/sbirka/${window.endId}`}
+                  className="font-mono font-medium text-brand-700 hover:underline"
+                >
+                  #{window.endId}
+                </Link>
+              </p>
+            </div>
+            {pace && (
+              <div className="flex w-1/2 shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                  {t("fastestRateLabel")}
+                </p>
+                <p className="text-xl font-bold tabular-nums text-brand-700">
+                  {new Intl.NumberFormat(intlLocale, {
+                    maximumFractionDigits: pace.rate.value < 10 ? 1 : 0,
+                  }).format(pace.rate.value)}
+                </p>
+                <p className="text-[11px] leading-tight text-gray-500">
+                  {t(pace.rate.unitKey)}
+                </p>
+                <p className="mt-1 text-[11px] leading-tight text-gray-500">
+                  {t("fastestEvery", { interval: pace.every })}
+                </p>
+              </div>
+            )}
+          </div>
+          {/* Bottom band — date range, full width, centred across both
+              halves so the split above stays put. */}
+          <p className="px-2.5 pb-2.5 text-center text-xs leading-snug text-gray-500">
+            {formatSlidingWindow(window.startsAt, window.endsAt, locale)}
           </p>
-          <p className="text-xl font-bold tabular-nums text-brand-700">
-            {new Intl.NumberFormat(intlLocale, {
-              maximumFractionDigits: pace.rate.value < 10 ? 1 : 0,
-            }).format(pace.rate.value)}
-          </p>
-          <p className="text-[11px] leading-tight text-gray-500">
-            {t(pace.rate.unitKey)}
-          </p>
-          <p className="mt-1 text-[11px] leading-tight text-gray-500">
-            {t("fastestEvery", { interval: pace.every })}
-          </p>
-        </div>
+        </>
+      ) : (
+        <p className="px-2.5 pb-2.5 pt-1 text-center text-sm text-gray-400">—</p>
       )}
     </div>
   );
@@ -2065,30 +2074,30 @@ function PeakBucketCard({
     granularity === "month";
   return (
     <div
-      className={`flex flex-col rounded-xl border border-gray-200 p-4 ${
+      className={`flex flex-col rounded-xl border border-gray-200 p-2.5 ${
         tinted ? "bg-gray-50" : "bg-white"
       }`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center gap-2">
         <Icon className="h-4 w-4 text-brand-700" aria-hidden />
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="text-center text-xs font-semibold uppercase tracking-wide text-gray-500">
           {label}
         </h3>
       </div>
       {peak ? (
         <>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
+          <p className="mt-2 text-center text-2xl font-bold tabular-nums text-gray-900">
             {peak.count}
             <span className="ml-1 text-sm font-normal text-gray-500">
               {t("labelFinds", { count: peak.count })}
             </span>
           </p>
-          <p className="mt-1 text-xs leading-snug text-gray-600">
+          <p className="mt-1 text-center text-xs leading-snug text-gray-600">
             {formatPeakBucket(peak.startsAt, granularity, locale)}
           </p>
         </>
       ) : (
-        <p className="mt-2 text-sm text-gray-400">—</p>
+        <p className="mt-2 text-center text-sm text-gray-400">—</p>
       )}
     </div>
   );
