@@ -218,6 +218,7 @@
     "firstFound": "First clover recorded:",
     "lastUpdated": "Last collection update:",
     "lastBackfill": "Last upload of missing clovers:",
+    "lastBackfillCount": "+{count, plural, one {# clover} other {# clovers}}",
     "donatedPrefix": "Where luck has travelled so far:",
     "donatedSuffix": "{count, plural, one {clover} other {clovers}}.",
     "donatedAria": "{count} donated clovers — show in the collection",

@@ -66,6 +66,13 @@ export interface HomeTotals {
    *  gap-filling find. New finds added above that window don't affect
    *  it. Null when the table has no find in the range. */
   lastBackfillCreatedAt: string | null;
+  /** How many gap-window finds were uploaded in that last backfill —
+   *  counted as the finds in the range whose `created_at` falls on the
+   *  same calendar day (Europe/Prague) as `lastBackfillCreatedAt`. Sync
+   *  inserts gap fills one row at a time (no shared batch timestamp), so
+   *  same-day is the robust proxy for "the last upload". 0 when the
+   *  range is empty. */
+  lastBackfillCount: number;
 }
 
 export interface HomeHighlights {
@@ -303,10 +310,30 @@ export async function getHomePageData(): Promise<HomePageData> {
     // batch uploads whose created_at order didn't match id order.
     // created_at is the first-insert time (upserts don't touch it), so
     // MAX(created_at) over the range = when the last gap-filler landed.
-    prisma.$queryRaw<Array<{ last_backfill_at: Date | null }>>`
-      SELECT MAX(created_at) AS last_backfill_at
-      FROM finds
-      WHERE id >= ${MISSING_CLOVER_ID_MIN} AND id <= ${MISSING_CLOVER_ID_MAX}
+    prisma.$queryRaw<
+      Array<{ last_backfill_at: Date | null; last_backfill_count: number }>
+    >`
+      WITH last AS (
+        SELECT MAX(created_at) AS last_at
+        FROM finds
+        WHERE id >= ${MISSING_CLOVER_ID_MIN} AND id <= ${MISSING_CLOVER_ID_MAX}
+      )
+      SELECT
+        last.last_at AS last_backfill_at,
+        (
+          -- Count gap-window finds inserted on the SAME calendar day
+          -- (Europe/Prague) as the most recent one = the last upload
+          -- batch. Per-row created_at means there's no shared batch
+          -- timestamp, so same-day is the robust grouping.
+          SELECT COUNT(*)::int
+          FROM finds f
+          WHERE f.id >= ${MISSING_CLOVER_ID_MIN}
+            AND f.id <= ${MISSING_CLOVER_ID_MAX}
+            AND last.last_at IS NOT NULL
+            AND (f.created_at AT TIME ZONE 'Europe/Prague')::date
+                = (last.last_at AT TIME ZONE 'Europe/Prague')::date
+        ) AS last_backfill_count
+      FROM last
     `,
   ]);
 
@@ -328,6 +355,7 @@ export async function getHomePageData(): Promise<HomePageData> {
   }
 
   const lastBackfill = backfillRows[0]?.last_backfill_at ?? null;
+  const lastBackfillCount = backfillRows[0]?.last_backfill_count ?? 0;
   const totals: HomeTotals = {
     finds: c ? Number(c.finds) : 0,
     maxFindId: c?.max_find_id ?? null,
@@ -338,6 +366,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     yearsSpan,
     latestFoundAt: c?.latest_found_at ? c.latest_found_at.toISOString() : null,
     lastBackfillCreatedAt: lastBackfill ? lastBackfill.toISOString() : null,
+    lastBackfillCount: Number(lastBackfillCount),
   };
 
   const lf = latestFindRow;

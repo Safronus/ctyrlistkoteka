@@ -187,6 +187,16 @@ export default async function HomePage() {
                     locale,
                   )}
                 </span>
+                {totals.lastBackfillCount > 0 && (
+                  <>
+                    {" "}
+                    <span className="text-gray-500">
+                      ({t("lastBackfillCount", {
+                        count: totals.lastBackfillCount,
+                      })})
+                    </span>
+                  </>
+                )}
               </p>
             )}
           </div>
