@@ -21,6 +21,7 @@ import {
   Search,
   Sparkles,
   Timer,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -28,6 +29,7 @@ import { Link } from "@/i18n/navigation";
 import {
   formatDateTimeCs,
   formatDistance,
+  formatDurationSeconds,
   formatLocationId,
   formatLongDuration,
   formatTimeSinceCs,
@@ -54,6 +56,7 @@ import {
   type MinuteHeatmapCell,
   type MonthDayPoint,
   type PeakBucket,
+  type PeakFastestWindow,
   type PeakSlidingWindow,
   type StatsTimeAndPaceResult,
   type YearlyPoint,
@@ -1678,6 +1681,9 @@ function PeakBucketsSection({
     slidingHour: PeakSlidingWindow | null;
     slidingDay: PeakSlidingWindow | null;
     slidingWeek: PeakSlidingWindow | null;
+    fastest10: PeakFastestWindow | null;
+    fastest100: PeakFastestWindow | null;
+    fastest1000: PeakFastestWindow | null;
   };
   t: StatsT;
   locale: string;
@@ -1692,6 +1698,8 @@ function PeakBucketsSection({
   if (!anyPeak) return null;
   const anySliding =
     peaks.slidingHour || peaks.slidingDay || peaks.slidingWeek;
+  const anyFastest =
+    peaks.fastest10 || peaks.fastest100 || peaks.fastest1000;
 
   const cards: ReadonlyArray<{
     granularity: PeakGranularity;
@@ -1793,6 +1801,28 @@ function PeakBucketsSection({
           ))}
         </section>
       )}
+      {anyFastest && (
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <PeakFastestCard
+            window={peaks.fastest10}
+            label={t("fastest10")}
+            bgClass="border-gray-200 bg-white"
+            locale={locale}
+          />
+          <PeakFastestCard
+            window={peaks.fastest100}
+            label={t("fastest100")}
+            bgClass="border-gray-200 bg-gray-50"
+            locale={locale}
+          />
+          <PeakFastestCard
+            window={peaks.fastest1000}
+            label={t("fastest1000")}
+            bgClass="border-brand-200 bg-brand-50"
+            locale={locale}
+          />
+        </section>
+      )}
     </div>
   );
 }
@@ -1836,6 +1866,62 @@ function PeakSlidingCard({
           </p>
           <p className="mt-1 text-xs leading-snug text-gray-600">
             {formatSlidingWindow(peak.startsAt, peak.endsAt, locale)}
+          </p>
+        </>
+      ) : (
+        <p className="mt-2 text-sm text-gray-400">—</p>
+      )}
+    </div>
+  );
+}
+
+/** "Fastest N consecutive finds" record card. Shows the shortest time
+ *  span big, then the first→last find of that stretch (both linked) and
+ *  its date range. `bgClass` carries the border + background per tile
+ *  (white / grey / brand). */
+function PeakFastestCard({
+  window,
+  label,
+  bgClass,
+  locale,
+}: {
+  window: PeakFastestWindow | null;
+  label: string;
+  bgClass: string;
+  locale: string;
+}) {
+  return (
+    <div className={`flex flex-col rounded-xl border p-4 ${bgClass}`}>
+      <div className="flex items-center gap-2">
+        <Zap className="h-4 w-4 text-brand-700" aria-hidden />
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          {label}
+        </h3>
+      </div>
+      {window ? (
+        <>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
+            {formatDurationSeconds(window.seconds, locale)}
+          </p>
+          <p className="mt-1 text-xs leading-snug text-gray-600">
+            <Link
+              href={`/sbirka/${window.startId}`}
+              className="font-mono font-medium text-brand-700 hover:underline"
+            >
+              #{window.startId}
+            </Link>
+            <span className="px-1 text-gray-400" aria-hidden>
+              →
+            </span>
+            <Link
+              href={`/sbirka/${window.endId}`}
+              className="font-mono font-medium text-brand-700 hover:underline"
+            >
+              #{window.endId}
+            </Link>
+          </p>
+          <p className="text-xs leading-snug text-gray-500">
+            {formatSlidingWindow(window.startsAt, window.endsAt, locale)}
           </p>
         </>
       ) : (

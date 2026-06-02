@@ -302,6 +302,44 @@ export function formatLongDuration(
 }
 
 /**
+ * Compact human duration from SECONDS, down to second precision — used
+ * for the "fastest N consecutive finds" records where the gap can be
+ * anywhere from a few seconds to several days. Shows the two most
+ * significant non-zero units (e.g. "3 min 12 s", "2 h 5 min",
+ * "1 den 4 h", "45 s"). Day word pluralises cs/en.
+ */
+export function formatDurationSeconds(
+  totalSeconds: number,
+  locale?: string,
+): string {
+  if (totalSeconds < 0) return "—";
+  const s = Math.round(totalSeconds);
+  if (s === 0) return "0 s";
+  const days = Math.floor(s / 86400);
+  const hours = Math.floor((s % 86400) / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  const isEn = locale === "en" || locale?.startsWith("en-");
+  const dayWord =
+    days === 1
+      ? isEn
+        ? "day"
+        : "den"
+      : isEn
+        ? "days"
+        : days < 5
+          ? "dny"
+          : "dní";
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days} ${dayWord}`);
+  if (hours > 0) parts.push(`${hours} h`);
+  if (minutes > 0) parts.push(`${minutes} min`);
+  if (secs > 0) parts.push(`${secs} s`);
+  // Two most-significant units keep the figure readable.
+  return parts.slice(0, 2).join(" ");
+}
+
+/**
  * Five-digit location identifier matching the user's MAP_ID convention,
  * e.g. 1 → "#00001". Used in the find detail panel and the list view's
  * title row.

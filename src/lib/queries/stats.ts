@@ -218,6 +218,23 @@ export interface PeakSlidingWindow {
   count: number;
 }
 
+/** Fastest stretch of N consecutive finds — the smallest gap between a
+ *  find and the one N-1 positions later in chronological (found_at)
+ *  order. "Consecutive" = adjacent in time, not at any milestone. The
+ *  duration is `found_at[i+N-1] − found_at[i]`, minimised over i. */
+export interface PeakFastestWindow {
+  /** Window size — 10 / 100 / 1000. */
+  size: number;
+  /** Duration of the fastest such stretch, in seconds. */
+  seconds: number;
+  /** First find of the winning stretch. */
+  startId: number;
+  startsAt: string;
+  /** Last find of the winning stretch. */
+  endId: number;
+  endsAt: string;
+}
+
 /** Find at a "milestone" position in the sequence — every 1000th find,
  *  three repunits (111, 1111, 11111) and the two devil-numbers
  *  (666, 6666). Renders as a clickable list on /statistiky.
@@ -359,6 +376,10 @@ export interface StatsPeaksResult {
   slidingDay: PeakSlidingWindow | null;
   /** Sliding 7-day window with the highest find count. */
   slidingWeek: PeakSlidingWindow | null;
+  /** Shortest time span over 10 / 100 / 1000 consecutive finds. */
+  fastest10: PeakFastestWindow | null;
+  fastest100: PeakFastestWindow | null;
+  fastest1000: PeakFastestWindow | null;
 }
 
 export interface StatsJubileesResult {
@@ -862,6 +883,9 @@ export async function getStatsPeaks(): Promise<StatsPeaksResult> {
     slidingHourRow,
     slidingDayRow,
     slidingWeekRow,
+    fastest10Row,
+    fastest100Row,
+    fastest1000Row,
   ] = await Promise.all([
     prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
       SELECT date_trunc('minute', found_at) AS bucket, COUNT(*) AS count
@@ -974,6 +998,14 @@ export async function getStatsPeaks(): Promise<StatsPeaksResult> {
       ORDER BY count DESC, window_start ASC
       LIMIT 1
     `,
+    // Fastest 10 / 100 / 1000 consecutive finds. Order all dated finds
+    // by time; for each, LEAD by N-1 gives the find that closes an
+    // N-long stretch. The smallest (end − start) gap is the record.
+    // O(N) — one window pass + a sort. The offset is a hardcoded
+    // constant (Prisma.raw, no injection risk).
+    fastestWindowQuery(10),
+    fastestWindowQuery(100),
+    fastestWindowQuery(1000),
   ]);
 
   return {
@@ -986,6 +1018,55 @@ export async function getStatsPeaks(): Promise<StatsPeaksResult> {
     slidingHour: toPeakSliding(slidingHourRow),
     slidingDay: toPeakSliding(slidingDayRow),
     slidingWeek: toPeakSliding(slidingWeekRow),
+    fastest10: toPeakFastest(10, fastest10Row),
+    fastest100: toPeakFastest(100, fastest100Row),
+    fastest1000: toPeakFastest(1000, fastest1000Row),
+  };
+}
+
+type FastestRow = {
+  start_id: number;
+  start_at: Date;
+  end_id: number;
+  end_at: Date;
+  seconds: number;
+};
+
+/** Builds the fastest-N-consecutive-finds query for a given window
+ *  size. `size - 1` is inlined as raw SQL (LEAD's offset must be a
+ *  constant) — safe, it's a hardcoded integer. */
+function fastestWindowQuery(size: number) {
+  const offset = Prisma.raw(String(size - 1));
+  return prisma.$queryRaw<FastestRow[]>`
+    WITH ordered AS (
+      SELECT id, found_at,
+             LEAD(found_at, ${offset}) OVER (ORDER BY found_at, id) AS end_at,
+             LEAD(id, ${offset}) OVER (ORDER BY found_at, id) AS end_id
+      FROM finds
+      WHERE found_at IS NOT NULL
+    )
+    SELECT id AS start_id, found_at AS start_at, end_id, end_at,
+           EXTRACT(EPOCH FROM (end_at - found_at))::float8 AS seconds
+    FROM ordered
+    WHERE end_at IS NOT NULL
+    ORDER BY (end_at - found_at) ASC, found_at ASC
+    LIMIT 1
+  `;
+}
+
+function toPeakFastest(
+  size: number,
+  rows: ReadonlyArray<FastestRow>,
+): PeakFastestWindow | null {
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    size,
+    seconds: Number(row.seconds),
+    startId: row.start_id,
+    startsAt: row.start_at.toISOString(),
+    endId: row.end_id,
+    endsAt: row.end_at.toISOString(),
   };
 }
 
