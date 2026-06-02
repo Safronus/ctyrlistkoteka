@@ -1,4 +1,4 @@
-export const SITE_NAME = "Čtyřlístkotéka" as const;
+export const SITE_NAME = "Safronova čtyřlístkotéka" as const;
 export const SITE_DESCRIPTION =
   "Soukromá sbírka čtyřlístků — nálezy, lokality a statistiky." as const;
 
