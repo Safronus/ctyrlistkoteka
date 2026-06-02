@@ -1807,18 +1807,21 @@ function PeakBucketsSection({
             window={peaks.fastest10}
             label={t("fastest10")}
             bgClass="border-gray-200 bg-white"
+            t={t}
             locale={locale}
           />
           <PeakFastestCard
             window={peaks.fastest100}
             label={t("fastest100")}
             bgClass="border-gray-200 bg-gray-50"
+            t={t}
             locale={locale}
           />
           <PeakFastestCard
             window={peaks.fastest1000}
             label={t("fastest1000")}
             bgClass="border-brand-200 bg-brand-50"
+            t={t}
             locale={locale}
           />
         </section>
@@ -1875,57 +1878,97 @@ function PeakSlidingCard({
   );
 }
 
-/** "Fastest N consecutive finds" record card. Shows the shortest time
- *  span big, then the first→last find of that stretch (both linked) and
- *  its date range. `bgClass` carries the border + background per tile
- *  (white / grey / brand). */
+/** Average finding pace during a fastest-N stretch, in the unit that
+ *  reads best for that window size: 10 → per minute, 100 → per hour,
+ *  1000 → per day. Returns the per-unit value + the matching unit
+ *  translation key. */
+function fastestRate(
+  size: number,
+  seconds: number,
+): { value: number; unitKey: "ratePerMinuteUnit" | "ratePerHourUnit" | "ratePerDayUnit" } {
+  if (size <= 10) return { value: (size / seconds) * 60, unitKey: "ratePerMinuteUnit" };
+  if (size <= 100) return { value: (size / seconds) * 3600, unitKey: "ratePerHourUnit" };
+  return { value: (size / seconds) * 86400, unitKey: "ratePerDayUnit" };
+}
+
+/** "Fastest N consecutive finds" record card. Left: the shortest time
+ *  span + the first→last find (both linked) + the date range. Right
+ *  half: the average finding pace during that stretch, vertically
+ *  centred independently of the left text. `bgClass` carries the border
+ *  + background per tile (white / grey / brand). */
 function PeakFastestCard({
   window,
   label,
   bgClass,
+  t,
   locale,
 }: {
   window: PeakFastestWindow | null;
   label: string;
   bgClass: string;
+  t: StatsT;
   locale: string;
 }) {
+  const intlLocale = toIntlLocale(locale);
+  const rate =
+    window && window.seconds > 0
+      ? fastestRate(window.size, window.seconds)
+      : null;
   return (
-    <div className={`flex flex-col rounded-xl border p-4 ${bgClass}`}>
-      <div className="flex items-center gap-2">
-        <Zap className="h-4 w-4 text-brand-700" aria-hidden />
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          {label}
-        </h3>
+    <div
+      className={`flex items-stretch overflow-hidden rounded-xl border ${bgClass}`}
+    >
+      <div className="flex min-w-0 flex-1 flex-col p-4">
+        <div className="flex items-center gap-2">
+          <Zap className="h-4 w-4 shrink-0 text-brand-700" aria-hidden />
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            {label}
+          </h3>
+        </div>
+        {window ? (
+          <>
+            <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
+              {formatDurationSeconds(window.seconds, locale)}
+            </p>
+            <p className="mt-1 text-xs leading-snug text-gray-600">
+              <Link
+                href={`/sbirka/${window.startId}`}
+                className="font-mono font-medium text-brand-700 hover:underline"
+              >
+                #{window.startId}
+              </Link>
+              <span className="px-1 text-gray-400" aria-hidden>
+                →
+              </span>
+              <Link
+                href={`/sbirka/${window.endId}`}
+                className="font-mono font-medium text-brand-700 hover:underline"
+              >
+                #{window.endId}
+              </Link>
+            </p>
+            <p className="text-xs leading-snug text-gray-500">
+              {formatSlidingWindow(window.startsAt, window.endsAt, locale)}
+            </p>
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-gray-400">—</p>
+        )}
       </div>
-      {window ? (
-        <>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
-            {formatDurationSeconds(window.seconds, locale)}
+      {rate && (
+        <div className="flex w-2/5 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-black/10 px-2 py-4 text-center">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+            {t("fastestRateLabel")}
           </p>
-          <p className="mt-1 text-xs leading-snug text-gray-600">
-            <Link
-              href={`/sbirka/${window.startId}`}
-              className="font-mono font-medium text-brand-700 hover:underline"
-            >
-              #{window.startId}
-            </Link>
-            <span className="px-1 text-gray-400" aria-hidden>
-              →
-            </span>
-            <Link
-              href={`/sbirka/${window.endId}`}
-              className="font-mono font-medium text-brand-700 hover:underline"
-            >
-              #{window.endId}
-            </Link>
+          <p className="text-xl font-bold tabular-nums text-brand-700">
+            {new Intl.NumberFormat(intlLocale, {
+              maximumFractionDigits: rate.value < 10 ? 1 : 0,
+            }).format(rate.value)}
           </p>
-          <p className="text-xs leading-snug text-gray-500">
-            {formatSlidingWindow(window.startsAt, window.endsAt, locale)}
+          <p className="text-[11px] leading-tight text-gray-500">
+            {t(rate.unitKey)}
           </p>
-        </>
-      ) : (
-        <p className="mt-2 text-sm text-gray-400">—</p>
+        </div>
       )}
     </div>
   );
