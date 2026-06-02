@@ -84,7 +84,7 @@ export default async function HomePage() {
   const { totals, highlights } = data;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       {/* Hero, three-tier composition:
           1. Title centered across the full width.
           2. Trio row — clover logo · pinned-paper fact · watermark
