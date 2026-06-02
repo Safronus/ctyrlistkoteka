@@ -74,3 +74,14 @@ export const DOMINANT_LOCATION_ID = 3;
  * The id matches `LocationMap.id` = MAP_ID from the filename.
  */
 export const AUTHOR_LOCATION_ID = 158;
+
+/**
+ * Historical "missing clovers" backfill window — the inclusive find-ID
+ * range the user is gradually filling in (older finds that were never
+ * scanned/uploaded). The home page's "Poslední nahrání chybějících
+ * čtyřlístků" status reflects ONLY inserts whose id falls in this range;
+ * finds below it are considered complete and finds above it are new
+ * additions at the high end, not gap-fillers. Adjust as the gap closes.
+ */
+export const MISSING_CLOVER_ID_MIN = 667;
+export const MISSING_CLOVER_ID_MAX = 13599;

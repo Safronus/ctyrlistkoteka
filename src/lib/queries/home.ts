@@ -7,6 +7,10 @@
  */
 
 import { prisma } from "@/lib/db";
+import {
+  MISSING_CLOVER_ID_MAX,
+  MISSING_CLOVER_ID_MIN,
+} from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import { isFormerLocation } from "@/lib/locationCode";
 import type { PublicImage } from "./finds";
@@ -56,12 +60,11 @@ export interface HomeTotals {
   /** ISO date of the most recently dated find. Drives the "Poslední
    *  nález" date hint on the home stat row. */
   latestFoundAt: string | null;
-  /** ISO timestamp of the most recent INSERT of a "backfill" find —
-   *  one whose ID was lower than the max ID already in the table at
-   *  the time it was inserted. In product terms: when the user last
-   *  uploaded older finds that fill gaps in the historic range. Null
-   *  when no such insert ever happened (the user has only ever added
-   *  finds at the high end of the ID range). */
+  /** ISO timestamp of the most recent INSERT of a find whose ID falls in
+   *  the historical "missing clovers" window (MISSING_CLOVER_ID_MIN..MAX
+   *  in constants.ts) — i.e. when the user last uploaded an older
+   *  gap-filling find. New finds added above that window don't affect
+   *  it. Null when the table has no find in the range. */
   lastBackfillCreatedAt: string | null;
 }
 
@@ -291,25 +294,19 @@ export async function getHomePageData(): Promise<HomePageData> {
       )
     `,
 
-    // "Last backfill" — most recent INSERT of a find whose ID was
-    // already below the running max at the moment of insertion. We
-    // walk the table in created_at order, computing the max-id-so-far
-    // BEFORE the row, then keep only the rows where the find's own id
-    // is below that running max. Latest such created_at is the
-    // answer. Bounded cost: one sequential scan ordered by an indexed
-    // column (createdAt — `@@index([foundAt(sort: Desc)])` doesn't
-    // cover this, but at ~17 k rows even a seq scan is sub-100 ms).
+    // "Last backfill" — most recent INSERT of a find whose ID sits in
+    // the historical "missing clovers" window
+    // (MISSING_CLOVER_ID_MIN..MAX). Only gap-fillers in that fixed range
+    // count: new finds added at the high end (id > MAX) don't move this
+    // status, and neither do the already-complete low ids (< MIN). The
+    // earlier "id below the running max" heuristic falsely tripped on
+    // batch uploads whose created_at order didn't match id order.
+    // created_at is the first-insert time (upserts don't touch it), so
+    // MAX(created_at) over the range = when the last gap-filler landed.
     prisma.$queryRaw<Array<{ last_backfill_at: Date | null }>>`
       SELECT MAX(created_at) AS last_backfill_at
-      FROM (
-        SELECT id, created_at,
-               MAX(id) OVER (
-                 ORDER BY created_at
-                 ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-               ) AS prev_max
-        FROM finds
-      ) t
-      WHERE prev_max IS NOT NULL AND id < prev_max
+      FROM finds
+      WHERE id >= ${MISSING_CLOVER_ID_MIN} AND id <= ${MISSING_CLOVER_ID_MAX}
     `,
   ]);
 
