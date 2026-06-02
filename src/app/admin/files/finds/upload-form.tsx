@@ -26,6 +26,7 @@ import {
   type UploadResponse,
   type UploadResult,
 } from "./upload-types";
+import { materializeUploadBatch } from "../_shared/materialize";
 
 /** Splits queued files into batches that respect both the per-batch
  *  count cap (MAX_FILES_PER_REQUEST) and the total-byte cap
@@ -318,8 +319,33 @@ export function FindsUploadForm() {
           ),
         );
 
-        const fd = new FormData();
-        for (const q of batch) fd.append("files", q.file);
+        // Read each file into memory and send fresh Blobs — Safari
+        // otherwise fails the whole request with "Load failed" when a
+        // selected file changed/moved on disk before send. Unreadable
+        // files are rejected individually instead of sinking the batch.
+        const {
+          fd,
+          sent: readable,
+          unreadable,
+        } = await materializeUploadBatch(batch);
+        if (unreadable.length > 0) {
+          const reasonById = new Map(
+            unreadable.map((u) => [u.item.id, u.reason]),
+          );
+          setQueue((prev) =>
+            prev.map((q) =>
+              reasonById.has(q.id)
+                ? { ...q, status: "rejected", reason: reasonById.get(q.id) }
+                : q,
+            ),
+          );
+        }
+        if (readable.length === 0) {
+          setBannerError(
+            `Batch ${i + 1}: žádný soubor se nepodařilo přečíst z disku`,
+          );
+          continue;
+        }
 
         try {
           const outcome = await postBatch(fd);
@@ -338,7 +364,7 @@ export function FindsUploadForm() {
               scope: "finds",
               batchIndex: i,
               totalBatches: batches.length,
-              files: batch.map((q) => ({
+              files: readable.map((q) => ({
                 name: q.file.name,
                 size: q.file.size,
                 reason: error,
@@ -366,7 +392,7 @@ export function FindsUploadForm() {
 
           setQueue((prev) => {
             const updated = [...prev];
-            batch.forEach((q, batchIdx) => {
+            readable.forEach((q, batchIdx) => {
               const result = byBatchIndex.get(batchIdx);
               const idx = updated.findIndex((x) => x.id === q.id);
               if (idx === -1) return;
@@ -403,7 +429,7 @@ export function FindsUploadForm() {
             scope: "finds",
             batchIndex: i,
             totalBatches: batches.length,
-            files: batch.map((q) => ({
+            files: readable.map((q) => ({
               name: q.file.name,
               size: q.file.size,
             })),
