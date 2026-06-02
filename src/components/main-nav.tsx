@@ -40,7 +40,7 @@ export function MainNav() {
       <nav className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="flex min-w-0 items-center gap-2 text-base font-semibold text-brand-700 sm:text-lg"
+          className="flex min-w-0 items-center justify-center gap-2 text-base font-semibold text-brand-700 sm:justify-start sm:text-lg"
         >
           <Image
             src="/clover.png"
@@ -67,13 +67,11 @@ export function MainNav() {
           <ThemeToggle />
         </div>
 
-        {/* Compact mobile actions — the second row on phones (< sm),
-            centred under the brand: locale toggle + theme toggle +
-            hamburger. The two-row layout freed enough width to surface
-            the ThemeToggle here instead of burying it in the drawer. */}
-        <div className="flex shrink-0 items-center justify-center gap-2 md:hidden">
-          <LocaleSwitcher />
-          <ThemeToggle />
+        {/* Compact mobile actions — the second row on phones (< sm):
+            the hamburger is pinned left, the locale + theme toggles are
+            grouped flush right. The two-row layout freed enough width to
+            surface the ThemeToggle here instead of in the drawer. */}
+        <div className="flex items-center justify-between gap-2 md:hidden">
           <button
             type="button"
             onClick={() => setMobileOpen((o) => !o)}
@@ -88,6 +86,10 @@ export function MainNav() {
               <Menu className="h-5 w-5" aria-hidden />
             )}
           </button>
+          <div className="flex items-center gap-2">
+            <LocaleSwitcher />
+            <ThemeToggle />
+          </div>
         </div>
       </nav>
 

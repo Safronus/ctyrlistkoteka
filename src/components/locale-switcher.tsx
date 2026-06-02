@@ -49,8 +49,11 @@ export function LocaleSwitcher() {
       {routing.locales.map((loc, i) => {
         const active = loc === locale;
         const fullLabel = loc === "cs" ? t("localeCs") : t("localeEn");
+        // h-8 matches the ThemeToggle's overall height (h-7 buttons +
+        // p-0.5 padding) so the two pills read as the same size in both
+        // the desktop nav and the mobile second row.
         const base =
-          "px-2 py-1 font-medium uppercase tracking-wide transition";
+          "inline-flex h-8 items-center px-2 font-medium uppercase tracking-wide transition";
         const variant = active
           ? "bg-brand-600 text-white cursor-default"
           : "text-gray-600 hover:bg-brand-50 hover:text-brand-700";
