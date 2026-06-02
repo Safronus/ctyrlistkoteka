@@ -906,11 +906,6 @@ async function SparklineCard({
 }) {
   const total = data.reduce((sum, p) => sum + p.count, 0);
   const max = Math.max(1, ...data.map((p) => p.count));
-  const bars = data.length;
-  const BAR_VB_W = 120;
-  const BAR_VB_H = 40;
-  const gap = 2;
-  const barW = (BAR_VB_W - gap * (bars - 1)) / bars;
   const tMonths = await getTranslations({ locale, namespace: "MonthsAbbr" });
 
   const formatMonth = (s: string) => {
@@ -933,30 +928,36 @@ async function SparklineCard({
         {nf.format(total)} {t("statFinds", { count: total })}
       </p>
       <div className="mt-1.5 flex flex-1 flex-col gap-1">
-        <svg
-          viewBox={`0 0 ${BAR_VB_W} ${BAR_VB_H}`}
-          preserveAspectRatio="none"
-          className="w-full flex-1"
+        <div
+          className="grid flex-1 grid-cols-12 gap-px"
           role="img"
           aria-label={t("sparklineAria")}
         >
-          {data.map((p, i) => {
-            const h = p.count === 0 ? 0 : (p.count / max) * (BAR_VB_H - 1);
-            const x = i * (barW + gap);
-            const y = BAR_VB_H - h;
+          {data.map((p) => {
+            // Scale to 85% so the tallest bar leaves headroom for the
+            // count label that sits just above it.
+            const hPct = max > 0 ? (p.count / max) * 85 : 0;
             return (
-              <rect
+              <div
                 key={p.month}
-                x={x}
-                y={y}
-                width={barW}
-                height={h || 0.5}
-                fill="#4d9748"
-                opacity={p.count === 0 ? 0.2 : 0.9}
-              />
+                className="flex h-full flex-col items-center justify-end gap-0.5"
+              >
+                <span className="text-[9px] font-medium leading-none tabular-nums text-gray-600">
+                  {p.count > 0 ? nf.format(p.count) : ""}
+                </span>
+                <div
+                  className="w-full rounded-sm"
+                  style={{
+                    height: `${hPct}%`,
+                    minHeight: p.count > 0 ? "2px" : "1px",
+                    backgroundColor: "#4d9748",
+                    opacity: p.count === 0 ? 0.2 : 0.9,
+                  }}
+                />
+              </div>
             );
           })}
-        </svg>
+        </div>
         <ul aria-hidden className="grid grid-cols-12 gap-px text-center">
           {data.map((p) => {
             const m = Number(p.month.split("-")[1] ?? "0");

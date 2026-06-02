@@ -56,7 +56,7 @@ export function CloverFactsStatCard({
           {t("tileBonusHint", { count: bonus })}
         </p>
       )}
-      <div className="flex flex-1 flex-col gap-1 py-1.5">
+      <div className="flex flex-1 flex-col justify-center gap-1 py-1.5">
         {categoryLabels.length > 0 && (
           <>
             <p className="text-[10px] uppercase tracking-wide text-gray-400">
