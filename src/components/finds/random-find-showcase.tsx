@@ -205,7 +205,11 @@ export function RandomFindShowcaseWidget({
         </div>
       </div>
 
-      <div className="relative">
+      {/* Shrink to the photo's width (centred) so the fullscreen button
+          and the bottom countdown strip — both overlays on THIS box —
+          align to the photo edges, not the full page width. ImageGallery
+          itself also shrink-wraps, so this w-fit resolves to the photo. */}
+      <div className="relative mx-auto w-fit max-w-full">
         <ImageGallery
           image={find.primaryImage}
           cropImage={find.cropImage}

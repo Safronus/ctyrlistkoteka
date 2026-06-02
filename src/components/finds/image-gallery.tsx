@@ -81,13 +81,20 @@ export function ImageGallery({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-xl bg-gray-100">
+    // Shrink-wrap the photo (centred) rather than stretching it to full
+    // width with letterbox fill — so the lupa / overlay buttons land on
+    // the photo's real top corners and any bottom strip spans the photo
+    // width. The width/height attrs reserve the aspect ratio up front so
+    // the height-capped box doesn't cause a layout shift on image load.
+    <div className="relative mx-auto w-fit max-w-full overflow-hidden rounded-xl bg-gray-100">
       {/* Served by Nginx; Next Image optimizer not needed. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={image.webPath}
         alt={altBase}
-        className={`max-h-[70vh] w-full object-contain transition-opacity duration-150 ${
+        width={image.width}
+        height={image.height}
+        className={`block max-h-[70vh] w-auto max-w-full transition-opacity duration-150 ${
           showCrop && cropImage ? "opacity-0" : "opacity-100"
         }`}
       />
