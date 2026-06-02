@@ -286,16 +286,20 @@ export default async function FindDetailPage({ params }: PageProps) {
             }
           />
         )}
+        {/* Photo embedded as the last element of the section, mirroring
+            the location map inside the Lokalita panel. pt-2 matches the
+            map gallery's separation from the rows above. */}
+        <div className="pt-2">
+          <ImageGallery
+            image={mainImage}
+            cropImage={cropImage}
+            altBase={t("imageAlt", { id: find.id })}
+            findId={find.id}
+            donationPhotos={find.donationPhotos}
+            freePhotos={find.freePhotos}
+          />
+        </div>
       </Panel>
-
-      <ImageGallery
-        image={mainImage}
-        cropImage={cropImage}
-        altBase={t("imageAlt", { id: find.id })}
-        findId={find.id}
-        donationPhotos={find.donationPhotos}
-        freePhotos={find.freePhotos}
-      />
 
       {find.isAnonymized && (
         <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
