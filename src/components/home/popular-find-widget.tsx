@@ -108,54 +108,13 @@ export async function PopularFindWidget({
             </span>
           )}
         </Link>
-        {/* `relative` hosts the absolutely-positioned vote CTA below
-         *  on sm:+ so it floats top-right WITHOUT contributing to
-         *  the flex column's row heights (avoids the vertical gap
-         *  between subtitle and title that a normal-flow flex row
-         *  would open). On mobile the absolute position is dropped
-         *  and the button drops to the bottom of the column via
-         *  `order-last` — there's no horizontal room to float it
-         *  top-right next to the subtitle without colliding with
-         *  the map-pin rail or wrapping the title prematurely.
-         *  Subtitle + title get sm:pr-24 to clear the desktop float;
-         *  on mobile they take the full column width. */}
+        {/* `relative` anchors the absolutely-positioned vote CTA on
+         *  sm:+ (floats top-right, out of normal flow — no extra row
+         *  height). On mobile the CTA + standings are in normal flow
+         *  right under the title (see below), so they're visible
+         *  without scrolling past the details. Subtitle + title keep
+         *  sm:pr-24 to clear the desktop float. */}
         <div className="relative flex flex-col gap-2">
-          {/* Vote CTA + the 2nd/3rd-place links stacked under it, all
-           *  right-aligned (items-end). On desktop this floats top-right
-           *  (absolute); on mobile it drops to the bottom of the column
-           *  (order-last) so the runners-up still read as "below the
-           *  button". Title/subtitle keep sm:pr-24 so they never reach
-           *  into this right-hand stack. */}
-          <div className="order-last flex flex-col items-end gap-1.5 pt-1 sm:absolute sm:right-0 sm:top-0 sm:order-none sm:pt-0">
-            <VoteButton
-              findId={winner.findId}
-              initialVoted={false}
-              initialCount={winner.voteCount}
-              size="lg"
-              autoHydrate
-            />
-            {runnersUp.length > 0 && (
-              <ul className="flex flex-col items-end gap-0.5 text-xs leading-tight">
-                {runnersUp.map((f, i) => (
-                  <li key={f.findId}>
-                    <Link
-                      href={`/sbirka/${f.findId}`}
-                      className="text-gray-500 transition hover:text-brand-700 hover:underline"
-                      aria-label={t("runnerUpAria", {
-                        rank: i + 2,
-                        id: f.findId,
-                      })}
-                    >
-                      {i + 2}. {t("placeLabel")} —{" "}
-                      <span className="font-mono font-medium text-brand-700">
-                        #{f.findId}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
           <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-brand-700 sm:pr-24">
             <CloverThumbIcon filled className="h-4 w-4" />
             {t("homepageSubtitle")}
@@ -166,6 +125,47 @@ export async function PopularFindWidget({
           >
             {t("homepageTitle")}
           </h2>
+          {/* Vote CTA + 2nd/3rd standings (with vote counts), right-
+           *  aligned. Desktop: floats top-right (absolute). Mobile:
+           *  in-flow here, directly under the title. The per-place vote
+           *  count rides on its own tiny second line so the place line
+           *  stays as narrow as before — the desktop float keeps the
+           *  same width and never reaches into the title's pr-24. */}
+          <div className="flex flex-col items-end gap-1.5 sm:absolute sm:right-0 sm:top-0">
+            <VoteButton
+              findId={winner.findId}
+              initialVoted={false}
+              initialCount={winner.voteCount}
+              size="lg"
+              autoHydrate
+            />
+            {runnersUp.length > 0 && (
+              <ul className="flex flex-col items-end gap-1 text-xs leading-tight">
+                {runnersUp.map((f, i) => (
+                  <li key={f.findId}>
+                    <Link
+                      href={`/sbirka/${f.findId}`}
+                      className="block text-right text-gray-500 transition hover:text-brand-700 hover:underline"
+                      aria-label={t("runnerUpAria", {
+                        rank: i + 2,
+                        id: f.findId,
+                      })}
+                    >
+                      <span>
+                        {i + 2}. {t("placeLabel")} —{" "}
+                        <span className="font-mono font-medium text-brand-700">
+                          #{f.findId}
+                        </span>
+                      </span>
+                      <span className="block text-[10px] font-normal text-gray-400">
+                        {t("voteCount", { count: f.voteCount })}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <dl className="space-y-1 text-sm text-gray-700">
             <div className="flex flex-wrap items-baseline gap-x-2">
               <dt className="text-gray-500">{t("homepageFindLabel")}</dt>
@@ -187,9 +187,14 @@ export async function PopularFindWidget({
               </div>
             )}
             {locationLine && (
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <dt className="text-gray-500">{t("homepageLocationLabel")}</dt>
-                <dd className="truncate text-gray-700" title={locationLine}>
+              <div className="flex items-baseline gap-x-2">
+                <dt className="shrink-0 text-gray-500">
+                  {t("homepageLocationLabel")}
+                </dt>
+                <dd
+                  className="min-w-0 flex-1 truncate text-gray-700"
+                  title={locationLine}
+                >
                   {locationLine}
                 </dd>
               </div>
@@ -204,17 +209,28 @@ export async function PopularFindWidget({
               </dd>
             </div>
           </dl>
+          {/* Mobile-only map link. The desktop has the right-hand pin
+           *  rail (hidden below sm so the text gets the full width). */}
+          {showMapLink && (
+            <Link
+              href={`/mapa?find=${winner.findId}`}
+              className="mt-1 inline-flex items-center gap-1.5 self-start rounded-md border border-brand-200 bg-white/70 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 hover:text-brand-800 sm:hidden"
+            >
+              <MapPin className="h-4 w-4" aria-hidden />
+              {t("showOnMap")}
+            </Link>
+          )}
         </div>
       </div>
       {showMapLink && (
-        // Separate map-pin rail on the right, identical pattern to
-        // LatestFindSection. Keeps the main link to the find detail
-        // intact while offering a one-click jump to the map view.
+        // Separate map-pin rail on the right (desktop only — on mobile
+        // the inline link above replaces it so the text isn't squeezed).
+        // Identical pattern to LatestFindSection.
         <Link
           href={`/mapa?find=${winner.findId}`}
           aria-label={t("showOnMap")}
           title={t("showOnMap")}
-          className="flex shrink-0 items-center justify-center border-l border-brand-200 px-3 text-brand-600 transition hover:bg-brand-100 hover:text-brand-800 focus:bg-brand-100 focus:text-brand-800 focus:outline-none sm:px-4"
+          className="hidden shrink-0 items-center justify-center border-l border-brand-200 px-3 text-brand-600 transition hover:bg-brand-100 hover:text-brand-800 focus:bg-brand-100 focus:text-brand-800 focus:outline-none sm:flex sm:px-4"
         >
           <MapPin className="h-5 w-5" aria-hidden />
         </Link>
