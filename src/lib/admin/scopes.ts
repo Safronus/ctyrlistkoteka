@@ -294,6 +294,45 @@ export async function getScopeDiskFreeBytes(
   return null;
 }
 
+export interface DiskUsage {
+  /** Total filesystem size in bytes. */
+  totalBytes: number;
+  /** Bytes available to unprivileged users (what's actually usable). */
+  freeBytes: number;
+  /** totalBytes − freeBytes (so used + free === total exactly). */
+  usedBytes: number;
+  /** usedBytes / totalBytes, 0..1. Drives the dashboard's graduated
+   *  storage warning. */
+  usedFraction: number;
+}
+
+/** Overall disk usage for the filesystem that holds the given root
+ *  (defaults to the collection data dir). Powers the admin dashboard
+ *  storage tile. Falls back to the parent dir and returns null when
+ *  statfs is unavailable / fails. */
+export async function getDiskUsage(
+  rootKey: AdminRootKey = "findOriginals",
+): Promise<DiskUsage | null> {
+  const root = ADMIN_ROOTS[rootKey];
+  for (const target of [root, path.dirname(root)]) {
+    try {
+      const s = await fs.statfs(target);
+      const totalBytes = s.blocks * s.bsize;
+      const freeBytes = s.bavail * s.bsize;
+      const usedBytes = Math.max(0, totalBytes - freeBytes);
+      return {
+        totalBytes,
+        freeBytes,
+        usedBytes,
+        usedFraction: totalBytes > 0 ? usedBytes / totalBytes : 0,
+      };
+    } catch {
+      /* try the parent dir next, then give up */
+    }
+  }
+  return null;
+}
+
 /** Lightweight helper that returns the NFC-normalised name set of
  *  every entry in a scope (dotfiles excluded, no fs.stat per entry).
  *  Cheap enough to call on every page render. */

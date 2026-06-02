@@ -9,6 +9,7 @@ import {
   Crop,
   Database,
   FileCog,
+  HardDrive,
   Image as ImageIcon,
   Images as ImagesIcon,
   ListChecks,
@@ -25,6 +26,7 @@ import { listCredentials } from "@/lib/admin/credentials";
 import { readRecentAudit } from "@/lib/admin/audit";
 import { runChecksSummary } from "@/lib/admin/checks";
 import { checkSyncNeeded } from "@/lib/admin/syncNeeded";
+import { getDiskUsage, type DiskUsage } from "@/lib/admin/scopes";
 
 /** Time window for collapsing consecutive file.upload entries from the
  *  same operator + scope into one summary row. Match the upload form's
@@ -105,6 +107,7 @@ export default async function AdminHomePage() {
     syncFinds,
     syncMaps,
     syncMeta,
+    diskUsage,
   ] = await Promise.all([
     listCredentials(),
     // Pull a larger tail than we ultimately display — when a single
@@ -119,6 +122,7 @@ export default async function AdminHomePage() {
     checkSyncNeeded(["finds"]),
     checkSyncNeeded(["maps"]),
     checkSyncNeeded(["meta"]),
+    getDiskUsage(),
   ]);
   const recent = aggregateUploadBatches(recentRaw).slice(0, 20);
   const checksOk = checks.totalIssues === 0;
@@ -253,6 +257,7 @@ export default async function AdminHomePage() {
           the most frequent action, then checks (verify), then
           security (housekeeping). */}
       <Group title="Provoz">
+        <DiskUsageCard usage={diskUsage} />
         <FeatureCard
           icon={Database}
           title="Sync"
@@ -487,6 +492,130 @@ function FeatureCard({
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       {body}
+    </div>
+  );
+}
+
+/** Compact byte size for the storage tile — GB once past ~1 GB, MB
+ *  below that. cs-CZ formatting (admin is Czech-only). */
+function formatDiskBytes(bytes: number): string {
+  const gb = bytes / 1_073_741_824;
+  if (gb >= 1) {
+    return `${new Intl.NumberFormat("cs-CZ", {
+      maximumFractionDigits: 1,
+    }).format(gb)} GB`;
+  }
+  const mb = bytes / 1_048_576;
+  return `${new Intl.NumberFormat("cs-CZ", {
+    maximumFractionDigits: 0,
+  }).format(mb)} MB`;
+}
+
+/** Storage tile for the Provoz group — disk usage with a graduated
+ *  warning: green under 75 % used, amber 75–90 %, red at/above 90 %.
+ *  Informational (no link); renders a usage bar + figures. */
+function DiskUsageCard({ usage }: { usage: DiskUsage | null }) {
+  if (!usage) {
+    return (
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center gap-2">
+          <HardDrive className="h-4 w-4 shrink-0 text-brand-600" aria-hidden />
+          <h3 className="truncate text-sm font-semibold text-gray-900">
+            Místo na disku
+          </h3>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">
+          Údaj o disku není k dispozici.
+        </p>
+      </div>
+    );
+  }
+
+  const pct = Math.round(usage.usedFraction * 100);
+  const level: "ok" | "caution" | "critical" =
+    usage.usedFraction >= 0.9
+      ? "critical"
+      : usage.usedFraction >= 0.75
+        ? "caution"
+        : "ok";
+
+  const chrome =
+    level === "critical"
+      ? "border-red-300 bg-red-50"
+      : level === "caution"
+        ? "border-amber-300 bg-amber-50"
+        : "border-gray-200 bg-white";
+  const iconColor =
+    level === "critical"
+      ? "text-red-700"
+      : level === "caution"
+        ? "text-amber-700"
+        : "text-brand-600";
+  const titleColor =
+    level === "critical"
+      ? "text-red-900"
+      : level === "caution"
+        ? "text-amber-900"
+        : "text-gray-900";
+  const textColor =
+    level === "critical"
+      ? "text-red-900"
+      : level === "caution"
+        ? "text-amber-900"
+        : "text-gray-600";
+  const barColor =
+    level === "critical"
+      ? "bg-red-500"
+      : level === "caution"
+        ? "bg-amber-500"
+        : "bg-emerald-500";
+
+  return (
+    <div className={`rounded-xl border p-4 shadow-sm ${chrome}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <HardDrive className={`h-4 w-4 shrink-0 ${iconColor}`} aria-hidden />
+          <h3 className={`truncate text-sm font-semibold ${titleColor}`}>
+            Místo na disku
+          </h3>
+        </div>
+        {level === "ok" ? (
+          <CheckCircle2
+            className="h-4 w-4 text-emerald-500"
+            aria-label="dostatek místa"
+          />
+        ) : (
+          <AlertTriangle
+            className={`h-4 w-4 ${level === "critical" ? "text-red-600" : "text-amber-600"}`}
+            aria-label="málo místa"
+          />
+        )}
+      </div>
+      <div
+        className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-gray-200"
+        role="img"
+        aria-label={`Obsazeno ${pct} %`}
+      >
+        <div
+          className={`h-full rounded-full ${barColor}`}
+          style={{ width: `${Math.min(100, Math.max(2, pct))}%` }}
+        />
+      </div>
+      <ul className={`mt-2 space-y-0.5 text-xs ${textColor}`}>
+        <li>
+          Obsazeno {formatDiskBytes(usage.usedBytes)} z{" "}
+          {formatDiskBytes(usage.totalBytes)} ({pct} %)
+        </li>
+        <li>Zbývá {formatDiskBytes(usage.freeBytes)} volných</li>
+        {level === "critical" && (
+          <li className="font-medium">
+            Kriticky málo místa — ukliď nebo rozšiř disk.
+          </li>
+        )}
+        {level === "caution" && (
+          <li className="font-medium">Místo dochází — sleduj kapacitu.</li>
+        )}
+      </ul>
     </div>
   );
 }
