@@ -74,11 +74,13 @@ export default async function HomePage() {
     getRetrospective(),
     getCloverTexts(),
     getCloverTranslations(),
-    // Top 1 across all-time — homepage "Nejoblíbenější čtyřlístek"
-    // tile picks the winner; renders nothing on empty vote table.
-    getTopFindsWithThumbs({ limit: 1 }),
+    // Top 3 across all-time — homepage "Nejoblíbenější čtyřlístek"
+    // tile shows the winner big plus 2nd/3rd as compact links. Renders
+    // nothing on an empty vote table.
+    getTopFindsWithThumbs({ limit: 3 }),
   ]);
   const popularWinner = popularTop[0] ?? null;
+  const popularRunnersUp = popularTop.slice(1);
   const { totals, highlights } = data;
 
   return (
@@ -273,7 +275,7 @@ export default async function HomePage() {
       {/* Popular pick sits below "Zajímavosti" — community spotlight
        *  follows the editorial highlights. Hides itself when no votes
        *  exist yet, so the cold-start page doesn't show a placeholder. */}
-      <PopularFindWidget winner={popularWinner} />
+      <PopularFindWidget winner={popularWinner} runnersUp={popularRunnersUp} />
 
       {data.latestFind && (
         <LatestFindSection

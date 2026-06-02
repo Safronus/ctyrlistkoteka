@@ -103,7 +103,9 @@
     "rankPrefix": "#",
     "openFind": "Otevřít detail",
     "showOnMap": "Zobrazit na mapě",
-    "donatedBadge": "Darovaný"
+    "donatedBadge": "Darovaný",
+    "placeLabel": "místo",
+    "runnerUpAria": "{rank}. místo — nález #{id}"
   },
   "FilterBar": {
     "search": "Hledat",

@@ -22,10 +22,15 @@ import type { TopFindRich } from "@/lib/votes";
  */
 export async function PopularFindWidget({
   winner,
+  runnersUp = [],
 }: {
   /** Top non-anonymized find OR an anonymized one — both are allowed
    *  per the design discussion. `null` → no votes yet, widget hides. */
   winner: TopFindRich | null;
+  /** 2nd + 3rd place (in order). Rendered as compact right-aligned
+   *  links under the vote button. Empty when the vote table has fewer
+   *  than two entries. */
+  runnersUp?: readonly TopFindRich[];
 }) {
   if (!winner) return null;
   const [t, tRow, locale] = await Promise.all([
@@ -115,7 +120,13 @@ export async function PopularFindWidget({
          *  Subtitle + title get sm:pr-24 to clear the desktop float;
          *  on mobile they take the full column width. */}
         <div className="relative flex flex-col gap-2">
-          <div className="order-last pt-1 sm:absolute sm:right-0 sm:top-0 sm:order-none sm:pt-0">
+          {/* Vote CTA + the 2nd/3rd-place links stacked under it, all
+           *  right-aligned (items-end). On desktop this floats top-right
+           *  (absolute); on mobile it drops to the bottom of the column
+           *  (order-last) so the runners-up still read as "below the
+           *  button". Title/subtitle keep sm:pr-24 so they never reach
+           *  into this right-hand stack. */}
+          <div className="order-last flex flex-col items-end gap-1.5 pt-1 sm:absolute sm:right-0 sm:top-0 sm:order-none sm:pt-0">
             <VoteButton
               findId={winner.findId}
               initialVoted={false}
@@ -123,6 +134,27 @@ export async function PopularFindWidget({
               size="lg"
               autoHydrate
             />
+            {runnersUp.length > 0 && (
+              <ul className="flex flex-col items-end gap-0.5 text-xs leading-tight">
+                {runnersUp.map((f, i) => (
+                  <li key={f.findId}>
+                    <Link
+                      href={`/sbirka/${f.findId}`}
+                      className="text-gray-500 transition hover:text-brand-700 hover:underline"
+                      aria-label={t("runnerUpAria", {
+                        rank: i + 2,
+                        id: f.findId,
+                      })}
+                    >
+                      {i + 2}. {t("placeLabel")} —{" "}
+                      <span className="font-mono font-medium text-brand-700">
+                        #{f.findId}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-brand-700 sm:pr-24">
             <CloverThumbIcon filled className="h-4 w-4" />

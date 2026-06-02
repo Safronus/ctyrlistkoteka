@@ -104,7 +104,9 @@
     "rankPrefix": "#",
     "openFind": "Open detail",
     "showOnMap": "Show on map",
-    "donatedBadge": "Donated"
+    "donatedBadge": "Donated",
+    "placeLabel": "place",
+    "runnerUpAria": "Rank {rank} — find #{id}"
   },
   "FilterBar": {
     "search": "Search",
