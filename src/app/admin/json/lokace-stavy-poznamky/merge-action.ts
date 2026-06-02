@@ -11,12 +11,15 @@ import {
   anonymizaceSchema,
   lokaceSchema,
   LOKACE_STAVY_POZNAMKY_FILENAME,
+  lokaceStavyPoznamkyMergeInputSchema,
   lokaceStavyPoznamkySchema,
   poznamkySchema,
   SECTION_KEYS,
   STAVY_KEYS,
+  type LokaceStavyPoznamky,
   type SectionKey,
 } from "@/lib/admin/jsonSchema";
+import { createBackup } from "@/lib/admin/lspBackups";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
 import {
   getAdminSession,
@@ -214,7 +217,10 @@ export async function mergeSectionInto(
       error: `Existující JSON není validní: ${(err as Error).message}`,
     };
   }
-  const existingResult = lokaceStavyPoznamkySchema.safeParse(existingParsed);
+  // Lenient parse of the live file — tolerates a stray `metadata`
+  // block and any missing section (defaulted below).
+  const existingResult =
+    lokaceStavyPoznamkyMergeInputSchema.safeParse(existingParsed);
   if (!existingResult.success) {
     return {
       ok: false,
@@ -225,11 +231,13 @@ export async function mergeSectionInto(
   }
   const existing = existingResult.data;
 
-  const merged: typeof existing = {
-    anonymizace: { ANONYMIZOVANE: [...existing.anonymizace.ANONYMIZOVANE] },
-    stavy: { ...existing.stavy } as typeof existing.stavy,
-    poznamky: { ...existing.poznamky },
-    lokace: { ...existing.lokace },
+  const merged: LokaceStavyPoznamky = {
+    anonymizace: {
+      ANONYMIZOVANE: [...(existing.anonymizace?.ANONYMIZOVANE ?? [])],
+    },
+    stavy: { ...(existing.stavy ?? {}) } as LokaceStavyPoznamky["stavy"],
+    poznamky: { ...(existing.poznamky ?? {}) },
+    lokace: { ...(existing.lokace ?? {}) },
   };
 
   const addedIds: number[] = [];
@@ -331,6 +339,9 @@ export async function mergeSectionInto(
   const formatted = formatJsonCompactArrays(finalCheck.data) + "\n";
 
   try {
+    // Rotating backup (last 10, restorable from the editor page) +
+    // the CLAUDE.md §9 .trash snapshot.
+    await createBackup();
     const trashDir = path.join(
       ADMIN_ROOTS.trash,
       trashTimestamp(),
@@ -345,7 +356,7 @@ export async function mergeSectionInto(
     return {
       ok: false,
       section,
-      error: `Backup do .trash selhal: ${(err as Error).message}`,
+      error: `Záloha selhala: ${(err as Error).message}`,
     };
   }
 

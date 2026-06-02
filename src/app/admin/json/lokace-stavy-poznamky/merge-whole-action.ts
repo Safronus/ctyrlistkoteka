@@ -8,10 +8,12 @@ import { appendAudit } from "@/lib/admin/audit";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
 import {
   LOKACE_STAVY_POZNAMKY_FILENAME,
+  lokaceStavyPoznamkyMergeInputSchema,
   lokaceStavyPoznamkySchema,
   STAVY_KEYS,
   type LokaceStavyPoznamky,
 } from "@/lib/admin/jsonSchema";
+import { createBackup } from "@/lib/admin/lspBackups";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
 import {
   getAdminSession,
@@ -72,9 +74,11 @@ export interface WholeFileMergeResult {
  *  fields union, poznamky key union with conflict detection — just
  *  applied across all four sections at once.
  *
- *  Input must match the full schema (lokace + stavy + poznamky +
- *  anonymizace, all four required). Use the section-specific merge
- *  action when feeding a fragment. */
+ *  Input is parsed leniently: any subset of the four sections is fine
+ *  (omitted sections are left untouched) and an unknown `metadata`
+ *  block (e.g. from the PDF exporter) is stripped rather than rejected.
+ *  The fully-merged result is still validated against the strict schema
+ *  before writing. A rotating backup is taken first (see lspBackups). */
 export async function mergeWholeFile(
   formData: FormData,
 ): Promise<WholeFileMergeResult> {
@@ -120,7 +124,10 @@ export async function mergeWholeFile(
     return { ok: false, parseError: { message, line, column } };
   }
 
-  const incomingResult = lokaceStavyPoznamkySchema.safeParse(incomingParsed);
+  // Lenient: sections are optional (paste only what you're changing)
+  // and a stray `metadata` block from the exporter is stripped.
+  const incomingResult =
+    lokaceStavyPoznamkyMergeInputSchema.safeParse(incomingParsed);
   if (!incomingResult.success) {
     return {
       ok: false,
@@ -150,7 +157,10 @@ export async function mergeWholeFile(
       error: `Existující JSON není validní: ${(err as Error).message}`,
     };
   }
-  const existingResult = lokaceStavyPoznamkySchema.safeParse(existingParsed);
+  // Same lenient parse for the live file — tolerates a `metadata` block
+  // that may have been rsynced in, and any section being absent.
+  const existingResult =
+    lokaceStavyPoznamkyMergeInputSchema.safeParse(existingParsed);
   if (!existingResult.success) {
     return {
       ok: false,
@@ -161,10 +171,12 @@ export async function mergeWholeFile(
   const existing = existingResult.data;
 
   const merged: LokaceStavyPoznamky = {
-    anonymizace: { ANONYMIZOVANE: [...existing.anonymizace.ANONYMIZOVANE] },
-    stavy: { ...existing.stavy } as LokaceStavyPoznamky["stavy"],
-    poznamky: { ...existing.poznamky },
-    lokace: { ...existing.lokace },
+    anonymizace: {
+      ANONYMIZOVANE: [...(existing.anonymizace?.ANONYMIZOVANE ?? [])],
+    },
+    stavy: { ...(existing.stavy ?? {}) } as LokaceStavyPoznamky["stavy"],
+    poznamky: { ...(existing.poznamky ?? {}) },
+    lokace: { ...(existing.lokace ?? {}) },
   };
 
   const sections: WholeFileMergeResult["sections"] = {
@@ -178,7 +190,7 @@ export async function mergeWholeFile(
   {
     const r = mergeRanges(
       merged.anonymizace.ANONYMIZOVANE,
-      incoming.anonymizace.ANONYMIZOVANE,
+      incoming.anonymizace?.ANONYMIZOVANE ?? [],
     );
     merged.anonymizace = { ANONYMIZOVANE: r.merged };
     sections.anonymizace.addedIds = r.added;
@@ -186,8 +198,11 @@ export async function mergeWholeFile(
   }
 
   // ── stavy.<KEY> per key ─────────────────────────────────────────
+  const incomingStavy = incoming.stavy as
+    | Record<string, string[] | undefined>
+    | undefined;
   for (const key of STAVY_KEYS) {
-    const incomingArr = incoming.stavy[key as keyof typeof incoming.stavy];
+    const incomingArr = incomingStavy?.[key];
     if (!incomingArr || incomingArr.length === 0) continue;
     const existingArr =
       (merged.stavy[key as keyof typeof merged.stavy] as string[] | undefined) ??
@@ -204,7 +219,7 @@ export async function mergeWholeFile(
 
   // ── poznamky ───────────────────────────────────────────────────
   const conflicts: MergeConflict[] = [];
-  for (const [key, value] of Object.entries(incoming.poznamky)) {
+  for (const [key, value] of Object.entries(incoming.poznamky ?? {})) {
     if (key in merged.poznamky) {
       const current = merged.poznamky[key]!;
       if (current === value) {
@@ -223,7 +238,7 @@ export async function mergeWholeFile(
   }
 
   // ── lokace.<CODE> per code ─────────────────────────────────────
-  for (const [code, ranges] of Object.entries(incoming.lokace)) {
+  for (const [code, ranges] of Object.entries(incoming.lokace ?? {})) {
     const isNewCode = !(code in merged.lokace);
     const existingArr = merged.lokace[code] ?? [];
     const r = mergeRanges(existingArr, ranges);
@@ -271,6 +286,9 @@ export async function mergeWholeFile(
   const formatted = formatJsonCompactArrays(finalCheck.data) + "\n";
 
   try {
+    // Rotating backup (last 10, restorable from the editor page) +
+    // the CLAUDE.md §9 .trash snapshot.
+    await createBackup();
     const trashDir = path.join(ADMIN_ROOTS.trash, trashTimestamp(), "meta");
     await ensureDir(trashDir);
     await fs.copyFile(
@@ -281,7 +299,7 @@ export async function mergeWholeFile(
     return {
       ok: false,
       sections,
-      error: `Backup do .trash selhal: ${(err as Error).message}`,
+      error: `Záloha selhala: ${(err as Error).message}`,
     };
   }
 

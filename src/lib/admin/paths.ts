@@ -24,6 +24,7 @@ export const ADMIN_ROOTS = {
   locationMaps: path.join(DATA_DIR, "maps"),
   meta: path.join(DATA_DIR, "meta"),
   trash: path.join(DATA_DIR, ".trash"),
+  backups: path.join(DATA_DIR, ".admin", "backups"),
   donationPhotos: path.join(GENERATED_DIR, "find-photos"),
   freePhotos: path.join(GENERATED_DIR, "find-free-photos"),
   locationPhotos: path.join(GENERATED_DIR, "location-photos"),

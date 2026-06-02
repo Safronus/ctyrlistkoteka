@@ -47,7 +47,7 @@ const WHOLE_PLACEHOLDER = `{
 }`;
 
 const WHOLE_HINT =
-  "Celý soubor LokaceStavyPoznamky.json — vše čtyři sekce najednou. Merge je čistě přidávající: range pole se sjednotí, poznamky/lokace klíče se přidají. Konflikty v poznamky (stejný klíč, jiný text) celý merge zastaví — vyřeš a opakuj.";
+  "Celý soubor LokaceStavyPoznamky.json — můžeš vložit i jen některé sekce (chybějící se nechají beze změny). Klíč „metadata\" se ignoruje. Merge je čistě přidávající: range pole se sjednotí, poznamky/lokace klíče se přidají. Konflikty v poznamky (stejný klíč, jiný text) celý merge zastaví — vyřeš a opakuj. Před každým mergem se uloží záloha (viz panel Zálohy).";
 
 const PLACEHOLDERS: Record<SectionKey, string> = {
   anonymizace: `{

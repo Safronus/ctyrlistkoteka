@@ -82,6 +82,26 @@ export const lokaceStavyPoznamkySchema = z.strictObject({
 
 export type LokaceStavyPoznamky = z.infer<typeof lokaceStavyPoznamkySchema>;
 
+/** Lenient variant used by the "Celý soubor" bulk merge (and when
+ *  re-reading the live file for merging):
+ *   - every section is OPTIONAL — you only paste the sections you're
+ *     actually changing, the rest stay untouched;
+ *   - it's a plain `z.object` (not `strictObject`), so unknown top-level
+ *     keys such as the PDF exporter's `metadata` block are silently
+ *     stripped instead of failing validation.
+ *  The merge always re-validates the final, fully-merged object against
+ *  the strict `lokaceStavyPoznamkySchema` before writing. */
+export const lokaceStavyPoznamkyMergeInputSchema = z.object({
+  anonymizace: anonymizaceSchema.optional(),
+  lokace: lokaceSchema.optional(),
+  poznamky: poznamkySchema.optional(),
+  stavy: stavySchema.optional(),
+});
+
+export type LokaceStavyPoznamkyMergeInput = z.infer<
+  typeof lokaceStavyPoznamkyMergeInputSchema
+>;
+
 export const LOKACE_STAVY_POZNAMKY_FILENAME = "LokaceStavyPoznamky.json";
 
 /** The four top-level sections. The editor renders one tab per

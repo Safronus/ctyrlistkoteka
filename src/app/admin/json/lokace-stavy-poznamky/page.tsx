@@ -10,7 +10,9 @@ import {
   SECTION_KEYS,
   type SectionKey,
 } from "@/lib/admin/jsonSchema";
+import { listBackups } from "@/lib/admin/lspBackups";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
+import { BackupsPanel } from "./backups-panel";
 import { EditorMergeLayout } from "./editor-merge-layout";
 import { findInconsistencies, type JsonInconsistencies } from "./inconsistencies";
 
@@ -161,6 +163,7 @@ export default async function LokaceStavyPoznamkyPage({
   const initialTab = parseInitialTab(rawTab);
   const { sections, mtimeIso, loadError, inconsistencies } =
     await loadSections();
+  const backups = await listBackups();
 
   return (
     <div className="space-y-4">
@@ -215,6 +218,8 @@ export default async function LokaceStavyPoznamkyPage({
         initialTab={initialTab}
         inconsistencies={inconsistencies}
       />
+
+      <BackupsPanel backups={backups} />
     </div>
   );
 }
