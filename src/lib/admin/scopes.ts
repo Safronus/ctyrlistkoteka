@@ -246,6 +246,32 @@ export async function listScope(
   return { total: filtered.length, entries };
 }
 
+/** Total bytes used by the files directly inside a scope's directory
+ *  (sum of file sizes; dotfiles and subdirectories excluded). One
+ *  fs.stat per entry, run in parallel — fine for the admin file pages,
+ *  which call this once per render alongside the listing. Returns 0 when
+ *  the directory doesn't exist yet. Missing/raced entries count as 0. */
+export async function getScopeDiskBytes(scope: ScopeDef): Promise<number> {
+  const root = ADMIN_ROOTS[scope.rootKey];
+  let names: string[];
+  try {
+    names = await fs.readdir(root);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return 0;
+    throw err;
+  }
+  names = names.filter((n) => !n.startsWith("."));
+  const sizes = await Promise.all(
+    names.map((name) =>
+      fs
+        .stat(path.join(root, name))
+        .then((s) => (s.isFile() ? s.size : 0))
+        .catch(() => 0),
+    ),
+  );
+  return sizes.reduce((sum, n) => sum + n, 0);
+}
+
 /** Lightweight helper that returns the NFC-normalised name set of
  *  every entry in a scope (dotfiles excluded, no fs.stat per entry).
  *  Cheap enough to call on every page render. */

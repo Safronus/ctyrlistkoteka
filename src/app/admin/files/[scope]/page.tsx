@@ -24,6 +24,7 @@ import {
   extractFindId,
   extractMapId,
   getScope,
+  getScopeDiskBytes,
   listScope,
   listScopeFindIds,
   type MissingRange,
@@ -298,14 +299,21 @@ export default async function AdminScopeListPage({
         }
       : undefined;
 
-  const { total, entries } = await listScope(scope, {
-    query: query || undefined,
-    offset,
-    limit: pageSize,
-    duplicatesOnly,
-    excludeFindIds: uncoveredOnly ? counterpartIds : undefined,
-    keepName,
-  });
+  // Total disk usage runs in parallel with the (paginated) listing so
+  // the full-directory stat scan doesn't add serial latency. Updates on
+  // the next render — the upload form already calls router.refresh() on
+  // success, so the figure reflects freshly uploaded files automatically.
+  const [{ total, entries }, diskBytes] = await Promise.all([
+    listScope(scope, {
+      query: query || undefined,
+      offset,
+      limit: pageSize,
+      duplicatesOnly,
+      excludeFindIds: uncoveredOnly ? counterpartIds : undefined,
+      keepName,
+    }),
+    getScopeDiskBytes(scope),
+  ]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   // Maps-only: which of the current page's entries already have a
@@ -421,6 +429,14 @@ export default async function AdminScopeListPage({
                 </span>
               </>
             )}
+            {" • "}
+            <span className="font-medium text-gray-700">
+              {new Intl.NumberFormat("cs-CZ", {
+                maximumFractionDigits: 1,
+              }).format(diskBytes / 1_048_576)}{" "}
+              MB
+            </span>{" "}
+            na disku
           </p>
         </div>
         {counterpart && (
