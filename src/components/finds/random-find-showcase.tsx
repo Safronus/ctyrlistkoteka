@@ -108,7 +108,10 @@ export function RandomFindShowcaseWidget({
   const foundAtDate = find.foundAt ? new Date(find.foundAt) : null;
 
   return (
-    <section className="mt-8" aria-live="polite">
+    <section
+      className="mt-8 rounded-xl border border-gray-200 bg-white p-4 sm:p-5"
+      aria-live="polite"
+    >
       <style>{`
         @keyframes ctyr-rf-countdown {
           from { transform: scaleX(1); }
@@ -243,7 +246,9 @@ export function RandomFindShowcaseWidget({
         </div>
       </div>
 
-      <p className="mt-2 text-xs text-gray-400">{t("rotationFooter")}</p>
+      <p className="mt-2 text-center text-xs text-gray-400">
+        {t("rotationFooter")}
+      </p>
 
       {screensaverOpen && (
         <RandomFindScreensaver

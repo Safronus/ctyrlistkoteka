@@ -34,7 +34,10 @@ export function MainNav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6 lg:px-8">
+      {/* Phones (< sm) stack the header on two rows — brand on top, the
+          locale toggle + hamburger below — so the longer site name fits
+          on one line. From sm up it's the usual single row. */}
+      <nav className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
         <Link
           href="/"
           className="flex min-w-0 items-center gap-2 text-base font-semibold text-brand-700 sm:text-lg"
@@ -64,13 +67,12 @@ export function MainNav() {
           <ThemeToggle />
         </div>
 
-        {/* Compact mobile actions. The ThemeToggle moved into the
-            hamburger drawer below — three icons in the top bar didn't
-            leave room for the brand "Čtyřlístkotéka" on <400 px
-            viewports. LocaleSwitcher stays visible because language is
-            a first-class preference visitors expect to flip without
-            opening a menu. */}
-        <div className="flex shrink-0 items-center gap-2 md:hidden">
+        {/* Compact mobile actions — the second row on phones (< sm),
+            right-aligned under the brand. The ThemeToggle stays in the
+            hamburger drawer below; LocaleSwitcher rides here because
+            language is a first-class preference visitors expect to flip
+            without opening a menu. */}
+        <div className="flex shrink-0 items-center justify-end gap-2 md:hidden">
           <LocaleSwitcher />
           <button
             type="button"
