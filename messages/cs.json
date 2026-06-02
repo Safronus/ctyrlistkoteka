@@ -292,8 +292,8 @@
     "yearHint": "Celý rok napříč historií sbírky"
   },
   "RandomFind": {
-    "heading": "Náhodný nález",
-    "showAnotherAria": "Zobrazit jiný náhodný nález",
+    "heading": "Náhodný čtyřlístek",
+    "showAnotherAria": "Zobrazit jiný náhodný čtyřlístek",
     "showAnotherLabel": "Další",
     "anonymizedLocation": "Anonymizovaná lokalita",
     "noLocation": "Bez lokality",
@@ -301,7 +301,11 @@
     "showOnMapLabel": "Na mapě",
     "detailLink": "Detail nálezu",
     "rotationTitle": "Čas do další rotace",
-    "rotationFooter": "Mění se každou minutu"
+    "rotationFooter": "Mění se každou minutu",
+    "screensaverStartAria": "Spustit celoobrazovkový spořič",
+    "screensaverStartTitle": "Celoobrazovkový spořič",
+    "screensaverAria": "Spořič náhodných čtyřlístků",
+    "screensaverCloseAria": "Ukončit spořič"
   },
   "CloverFacts": {
     "tileLabel": "Zajímavosti o čtyřlístcích",

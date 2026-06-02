@@ -293,8 +293,8 @@
     "yearHint": "The whole year across the collection's history"
   },
   "RandomFind": {
-    "heading": "Random find",
-    "showAnotherAria": "Show another random find",
+    "heading": "Random clover",
+    "showAnotherAria": "Show another random clover",
     "showAnotherLabel": "Next",
     "anonymizedLocation": "Anonymized location",
     "noLocation": "No location",
@@ -302,7 +302,11 @@
     "showOnMapLabel": "On the map",
     "detailLink": "Find detail",
     "rotationTitle": "Time until next rotation",
-    "rotationFooter": "Refreshes every minute"
+    "rotationFooter": "Refreshes every minute",
+    "screensaverStartAria": "Start full-screen screensaver",
+    "screensaverStartTitle": "Full-screen screensaver",
+    "screensaverAria": "Random clover screensaver",
+    "screensaverCloseAria": "Exit screensaver"
   },
   "CloverFacts": {
     "tileLabel": "Clover trivia",

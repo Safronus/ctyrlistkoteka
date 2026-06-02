@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "@/i18n/navigation";
-import { ArrowRight, MapPin, RefreshCw } from "lucide-react";
+import { ArrowRight, Maximize, MapPin, RefreshCw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { ImageGallery } from "./image-gallery";
+import { RandomFindScreensaver } from "./random-find-screensaver";
 import { VoteButton } from "./vote-button";
 import { formatDateCs, formatLocationId } from "@/lib/format";
 import type { RandomFindShowcase } from "@/lib/queries/random-find";
@@ -36,6 +37,7 @@ export function RandomFindShowcaseWidget({
   const locale = useLocale();
   const [find, setFind] = useState<RandomFindShowcase | null>(initial);
   const [refreshing, setRefreshing] = useState(false);
+  const [screensaverOpen, setScreensaverOpen] = useState(false);
   // Per-visitor "did I already vote for THIS find?" — populated on
   // mount + every time the find changes. Until the GET resolves we
   // show `voted=false` (server pre-paint has no cookies anyway).
@@ -209,6 +211,18 @@ export function RandomFindShowcaseWidget({
           cropImage={find.cropImage}
           altBase={altBase}
         />
+        {/* Top-left overlay — launches the full-screen rotating
+            screensaver. Mirrors the lupa's pill styling (which lives in
+            the opposite, top-right corner) so the two read as a pair. */}
+        <button
+          type="button"
+          onClick={() => setScreensaverOpen(true)}
+          aria-label={t("screensaverStartAria")}
+          title={t("screensaverStartTitle")}
+          className="absolute left-3 top-3 z-10 rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+        >
+          <Maximize className="h-5 w-5" aria-hidden />
+        </button>
         {/* Countdown overlay strip at the bottom of the photo. The
             `key` is bumped whenever the find changes, so the inner
             fill remounts and the CSS animation restarts at scaleX=1.
@@ -226,6 +240,13 @@ export function RandomFindShowcaseWidget({
       </div>
 
       <p className="mt-2 text-xs text-gray-400">{t("rotationFooter")}</p>
+
+      {screensaverOpen && (
+        <RandomFindScreensaver
+          initial={find}
+          onClose={() => setScreensaverOpen(false)}
+        />
+      )}
     </section>
   );
 }
