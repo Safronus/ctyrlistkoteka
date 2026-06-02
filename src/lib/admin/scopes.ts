@@ -272,6 +272,28 @@ export async function getScopeDiskBytes(scope: ScopeDef): Promise<number> {
   return sizes.reduce((sum, n) => sum + n, 0);
 }
 
+/** Free disk space (bytes available to unprivileged users) on the
+ *  filesystem that holds this scope's directory — shown next to the
+ *  scope's own usage on the admin file pages. Falls back to the parent
+ *  directory when the scope dir doesn't exist yet, and returns null when
+ *  statfs is unavailable / fails so the UI can omit it gracefully. */
+export async function getScopeDiskFreeBytes(
+  scope: ScopeDef,
+): Promise<number | null> {
+  const root = ADMIN_ROOTS[scope.rootKey];
+  for (const target of [root, path.dirname(root)]) {
+    try {
+      const s = await fs.statfs(target);
+      // bavail = blocks available to unprivileged users; bsize = block
+      // size. (bfree would include root-reserved space.)
+      return s.bavail * s.bsize;
+    } catch {
+      /* try the parent dir next, then give up */
+    }
+  }
+  return null;
+}
+
 /** Lightweight helper that returns the NFC-normalised name set of
  *  every entry in a scope (dotfiles excluded, no fs.stat per entry).
  *  Cheap enough to call on every page render. */

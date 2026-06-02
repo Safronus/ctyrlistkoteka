@@ -25,6 +25,7 @@ import {
   extractMapId,
   getScope,
   getScopeDiskBytes,
+  getScopeDiskFreeBytes,
   listScope,
   listScopeFindIds,
   type MissingRange,
@@ -88,6 +89,20 @@ function pickInt(v: string | undefined, fallback: number): number {
 
 function isImageName(name: string): boolean {
   return /\.(jpe?g|png|webp|heic|heif|gif)$/i.test(name);
+}
+
+/** Free-space formatter — GB once we cross ~1 GB (disks are usually
+ *  tens of GB), MB below that. The scope's own usage stays in MB. */
+function formatFreeBytes(bytes: number): string {
+  const mb = bytes / 1_048_576;
+  if (mb >= 1024) {
+    return `${new Intl.NumberFormat("cs-CZ", {
+      maximumFractionDigits: 1,
+    }).format(mb / 1024)} GB`;
+  }
+  return `${new Intl.NumberFormat("cs-CZ", {
+    maximumFractionDigits: 0,
+  }).format(mb)} MB`;
 }
 
 function fmtSize(bytes: number): string {
@@ -303,7 +318,7 @@ export default async function AdminScopeListPage({
   // the full-directory stat scan doesn't add serial latency. Updates on
   // the next render — the upload form already calls router.refresh() on
   // success, so the figure reflects freshly uploaded files automatically.
-  const [{ total, entries }, diskBytes] = await Promise.all([
+  const [{ total, entries }, diskBytes, diskFreeBytes] = await Promise.all([
     listScope(scope, {
       query: query || undefined,
       offset,
@@ -313,6 +328,7 @@ export default async function AdminScopeListPage({
       keepName,
     }),
     getScopeDiskBytes(scope),
+    getScopeDiskFreeBytes(scope),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -437,6 +453,15 @@ export default async function AdminScopeListPage({
               MB
             </span>{" "}
             na disku
+            {diskFreeBytes !== null && (
+              <>
+                {" • zbývá "}
+                <span className="font-medium text-gray-700">
+                  {formatFreeBytes(diskFreeBytes)}
+                </span>{" "}
+                volných
+              </>
+            )}
           </p>
         </div>
         {counterpart && (
