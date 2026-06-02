@@ -145,6 +145,43 @@ export default async function FindDetailPage({ params }: PageProps) {
   } catch {
     voteCount = await getFindVoteCount(find.id);
   }
+
+  // Composite "GPS offset" label for the meta panel: outside every
+  // location-map bbox → distance to the nearest map edge; otherwise the
+  // AOI polygon-edge / inside / centre wording. Mirrors the /sbirka rows
+  // (this used to live inline in the header meta row). Null when the
+  // find is anonymized or has no usable offset.
+  let offsetInfo: { label: string; title: string; toneClass: string } | null =
+    null;
+  if (!find.isAnonymized && find.locationOffset) {
+    const offset = find.locationOffset;
+    const outsideMap =
+      !offset.withinMap && offset.metersOutsideMap !== null
+        ? offset.metersOutsideMap
+        : null;
+    const label =
+      outsideMap !== null
+        ? tOffset("outsideMap", {
+            distance: formatDistance(outsideMap, locale),
+          })
+        : offset.mode === "polygon"
+          ? offset.inside
+            ? tOffset("inside")
+            : tOffset("polygonEdge", {
+                distance: formatDistance(offset.meters, locale),
+              })
+          : tOffset("mapCenter", {
+              distance: formatDistance(offset.meters, locale),
+            });
+    const title =
+      outsideMap !== null
+        ? tOffset("outsideMapTitle")
+        : offset.mode === "polygon"
+          ? t("offsetTitlePolygon")
+          : t("offsetTitleCenter");
+    offsetInfo = { label, title, toneClass: locationOffsetToneClass(offset) };
+  }
+
   const detail = (
     <article className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <nav
@@ -190,92 +227,6 @@ export default async function FindDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Meta row: datetime on the left, GPS + distance on the right.
-            Distance trails the GPS pair so the eye keeps the cardinal
-            "how far from home" number adjacent to the absolute coords. */}
-        <div
-          className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm ${
-            hellish ? "text-red-200/90" : "text-gray-600"
-          }`}
-        >
-          <span>{formatDateTimeCs(find.foundAt, locale)}</span>
-          {!find.isAnonymized && find.coordinates && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <GpsValue
-                lat={find.coordinates.lat}
-                lng={find.coordinates.lng}
-                tone={hellish ? "dark" : "default"}
-              />
-              {find.locationOffset && (() => {
-                const offset = find.locationOffset;
-                // Red-zone: outside every location-map bbox →
-                // surface distance to the nearest map edge instead
-                // of AOI / centre offset. Same logic as /sbirka
-                // list / grid rows.
-                const outsideMap =
-                  !offset.withinMap && offset.metersOutsideMap !== null
-                    ? offset.metersOutsideMap
-                    : null;
-                const label =
-                  outsideMap !== null
-                    ? tOffset("outsideMap", {
-                        distance: formatDistance(outsideMap, locale),
-                      })
-                    : offset.mode === "polygon"
-                      ? offset.inside
-                        ? tOffset("inside")
-                        : tOffset("polygonEdge", {
-                            distance: formatDistance(offset.meters, locale),
-                          })
-                      : tOffset("mapCenter", {
-                          distance: formatDistance(offset.meters, locale),
-                        });
-                const title =
-                  outsideMap !== null
-                    ? tOffset("outsideMapTitle")
-                    : offset.mode === "polygon"
-                      ? t("offsetTitlePolygon")
-                      : t("offsetTitleCenter");
-                return (
-                  <span
-                    className={`text-xs ${
-                      hellish ? "text-red-300/80" : "text-gray-500"
-                    }`}
-                    title={title}
-                  >
-                    <span
-                      className={`font-mono tabular-nums ${
-                        hellish
-                          ? "text-red-100"
-                          : locationOffsetToneClass(offset)
-                      }`}
-                    >
-                      {label}
-                    </span>
-                  </span>
-                );
-              })()}
-              {find.distanceFromDefault !== null && (
-                <span
-                  className={`text-xs ${
-                    hellish ? "text-red-300/80" : "text-gray-500"
-                  }`}
-                  title={t("distanceTitle")}
-                >
-                  <span
-                    className={`font-mono tabular-nums ${
-                      hellish ? "text-red-100" : "text-gray-800"
-                    }`}
-                  >
-                    {formatDistance(find.distanceFromDefault, locale)}
-                  </span>{" "}
-                  {t("distanceFromMap")}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
         {/* Notes are nulled at the query layer for anonymized AND
             donated finds (see hydrate() in src/lib/queries/finds.ts),
             so a single truthy guard here covers every privacy rule —
@@ -286,6 +237,56 @@ export default async function FindDetailPage({ params }: PageProps) {
           </p>
         )}
       </header>
+
+      {/* Time & position summary — framed like the Lokalita panel and
+          sitting directly under the main heading. Holds the find's
+          date/time, GPS, its offset from the location map and the
+          great-circle distance from MAP 00001 (this replaces the plain
+          header meta row). */}
+      <Panel title={t("panelMeta")}>
+        <KeyValue
+          label={t("metaDate")}
+          value={formatDateTimeCs(find.foundAt, locale)}
+        />
+        {!find.isAnonymized && find.coordinates && (
+          <KeyValue
+            label={t("metaGps")}
+            value={
+              <GpsValue
+                lat={find.coordinates.lat}
+                lng={find.coordinates.lng}
+                tone="default"
+              />
+            }
+          />
+        )}
+        {offsetInfo && (
+          <KeyValue
+            label={t("metaOffset")}
+            value={
+              <span
+                className={`font-mono tabular-nums ${offsetInfo.toneClass}`}
+                title={offsetInfo.title}
+              >
+                {offsetInfo.label}
+              </span>
+            }
+          />
+        )}
+        {find.distanceFromDefault !== null && (
+          <KeyValue
+            label={t("metaDistance")}
+            value={
+              <span
+                className="font-mono tabular-nums text-gray-800"
+                title={t("distanceTitle")}
+              >
+                {formatDistance(find.distanceFromDefault, locale)}
+              </span>
+            }
+          />
+        )}
+      </Panel>
 
       <ImageGallery
         image={mainImage}
@@ -908,10 +909,16 @@ function AdjacentLink({
   );
 }
 
-function KeyValue({ label, value }: { label: string; value: string }) {
+function KeyValue({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className="text-xs font-medium text-gray-500">{label}</dt>
+      <dt className="shrink-0 text-xs font-medium text-gray-500">{label}</dt>
       <dd className="text-sm text-gray-800">{value}</dd>
     </div>
   );
