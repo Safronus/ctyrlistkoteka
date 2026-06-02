@@ -303,7 +303,7 @@
     "showOnMapLabel": "On the map",
     "detailLink": "Find detail",
     "rotationTitle": "Time until next rotation",
-    "rotationFooter": "Refreshes every minute (every 10 seconds in full-screen mode)",
+    "rotationFooter": "Refreshes every {seconds} s (every {screensaverSeconds} s in full-screen mode)",
     "screensaverStartAria": "Start full-screen screensaver",
     "screensaverStartTitle": "Full-screen screensaver",
     "screensaverAria": "Random clover screensaver",

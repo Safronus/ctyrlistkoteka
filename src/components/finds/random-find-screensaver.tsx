@@ -24,7 +24,7 @@ import type { RandomFindShowcase } from "@/lib/queries/random-find";
  * fullscreen by any other means (which we listen for and mirror).
  * Screen Wake Lock keeps the display awake where supported.
  */
-const SCREENSAVER_ROTATION_MS = 10_000;
+const DEFAULT_SCREENSAVER_ROTATION_MS = 10_000;
 
 // Minimal structural types for the vendor-prefixed Fullscreen API
 // (older WebKit / Safari) and the Screen Wake Lock API — neither is
@@ -47,9 +47,13 @@ type WakeLockNavigator = Navigator & {
 export function RandomFindScreensaver({
   initial,
   onClose,
+  rotationMs = DEFAULT_SCREENSAVER_ROTATION_MS,
 }: {
   initial: RandomFindShowcase;
   onClose: () => void;
+  /** Rotation interval in ms (admin-tunable). Faster than the inline
+   *  widget by default. */
+  rotationMs?: number;
 }) {
   const t = useTranslations("RandomFind");
   const [find, setFind] = useState<RandomFindShowcase>(initial);
@@ -72,9 +76,9 @@ export function RandomFindScreensaver({
   }, []);
 
   useEffect(() => {
-    const i = setInterval(refresh, SCREENSAVER_ROTATION_MS);
+    const i = setInterval(refresh, rotationMs);
     return () => clearInterval(i);
-  }, [refresh]);
+  }, [refresh, rotationMs]);
 
   // Esc closes (desktop). Mobile relies on the tap / close button.
   useEffect(() => {
@@ -178,7 +182,7 @@ export function RandomFindScreensaver({
         }
         .ctyr-ss-countdown-fill {
           transform-origin: left center;
-          animation: ctyr-ss-countdown ${SCREENSAVER_ROTATION_MS}ms linear forwards;
+          animation: ctyr-ss-countdown ${rotationMs}ms linear forwards;
         }
         @media (prefers-reduced-motion: reduce) {
           .ctyr-ss-countdown-fill { animation: none; transform: scaleX(1); }

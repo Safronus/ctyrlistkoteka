@@ -14,7 +14,7 @@ import {
   cloverKindKey,
 } from "@/lib/cloverFactsLabels";
 
-const ROTATION_MS = 120_000;
+const DEFAULT_ROTATION_MS = 120_000;
 const TICK_MS = 1_000;
 
 /** Window event name dispatched by the `Drobnosti` highlights tile to
@@ -149,19 +149,23 @@ function vibeKeyFor(text: CloverText): VibeKey {
 export function CloverFactCard({
   texts,
   translations,
+  rotationMs = DEFAULT_ROTATION_MS,
 }: {
   texts: ReadonlyArray<CloverText>;
   translations: Readonly<Record<string, CloverEnEntry>>;
+  /** Auto-advance interval in ms — server-driven from the admin home
+   *  rotation settings; falls back to the 2-minute default. */
+  rotationMs?: number;
 }) {
   const t = useTranslations("CloverFacts");
   const locale = useLocale();
   const [index, setIndex] = useState(0);
-  const [remainingMs, setRemainingMs] = useState(ROTATION_MS);
+  const [remainingMs, setRemainingMs] = useState(rotationMs);
   // `nextAt` lives in a ref so both the auto-rotation tick AND the
   // external advance event handler can reset it without one stomping
   // the other's closure. Keeping it as state would force a re-render on
   // every second, defeating the point of the steady visible countdown.
-  const nextAtRef = useRef<number>(Date.now() + ROTATION_MS);
+  const nextAtRef = useRef<number>(Date.now() + rotationMs);
 
   // Single 1 s interval drives both the visible countdown and the
   // rotation flip. Using a wall-clock target (`nextAt`) instead of a
@@ -173,8 +177,8 @@ export function CloverFactCard({
     const n = texts.length;
     if (n === 0) return;
     setIndex(Math.floor(Math.random() * n));
-    nextAtRef.current = Date.now() + ROTATION_MS;
-    setRemainingMs(ROTATION_MS);
+    nextAtRef.current = Date.now() + rotationMs;
+    setRemainingMs(rotationMs);
 
     // Random advance — pick any index OTHER than the current one, so two
     // consecutive rotations never land on the same text. Uniform across
@@ -187,8 +191,8 @@ export function CloverFactCard({
         const offset = 1 + Math.floor(Math.random() * (n - 1));
         return (prev + offset) % n;
       });
-      nextAtRef.current = Date.now() + ROTATION_MS;
-      setRemainingMs(ROTATION_MS);
+      nextAtRef.current = Date.now() + rotationMs;
+      setRemainingMs(rotationMs);
     };
 
     const tick = setInterval(() => {
@@ -211,7 +215,7 @@ export function CloverFactCard({
       clearInterval(tick);
       window.removeEventListener(CLOVER_FACT_ADVANCE_EVENT, onAdvance);
     };
-  }, [texts]);
+  }, [texts, rotationMs]);
 
   const rawText = texts[index];
   if (!rawText) return null;

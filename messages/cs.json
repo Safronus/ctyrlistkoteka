@@ -302,7 +302,7 @@
     "showOnMapLabel": "Na mapě",
     "detailLink": "Detail nálezu",
     "rotationTitle": "Čas do další rotace",
-    "rotationFooter": "Mění se každou minutu (v režimu full-screen každých 10 sekund)",
+    "rotationFooter": "Mění se každých {seconds} s (v režimu full-screen každých {screensaverSeconds} s)",
     "screensaverStartAria": "Spustit celoobrazovkový spořič",
     "screensaverStartTitle": "Celoobrazovkový spořič",
     "screensaverAria": "Spořič náhodných čtyřlístků",

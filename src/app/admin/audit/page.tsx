@@ -22,6 +22,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   "pm2.restart": "PM2 restart",
   "vote.delete": "Smazání hlasu",
   "vote.reset_all": "Reset všech hlasů",
+  "settings.update": "Úprava nastavení",
 };
 
 const ACTION_TONE: Record<AuditAction, string> = {
@@ -42,6 +43,7 @@ const ACTION_TONE: Record<AuditAction, string> = {
   "pm2.restart": "bg-amber-100 text-amber-800",
   "vote.delete": "bg-amber-100 text-amber-800",
   "vote.reset_all": "bg-rose-100 text-rose-800",
+  "settings.update": "bg-violet-100 text-violet-800",
 };
 
 /** Toggle ordering = visual ordering. Grouped (auth → file → json →

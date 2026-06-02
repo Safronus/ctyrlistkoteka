@@ -22,7 +22,8 @@ export type AuditAction =
   | "sync.fail"
   | "pm2.restart"
   | "vote.delete"
-  | "vote.reset_all";
+  | "vote.reset_all"
+  | "settings.update";
 
 export interface AuditEntry {
   action: AuditAction;

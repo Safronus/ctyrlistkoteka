@@ -17,6 +17,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getHomePageData, type HomePageData } from "@/lib/queries/home";
 import { getRandomFindShowcase } from "@/lib/queries/random-find";
+import { getHomeRotationSettings } from "@/lib/homeRotation.server";
 import { getRetrospective } from "@/lib/queries/retrospective";
 import { getWatermarkMeta } from "@/lib/queries/watermark";
 import {
@@ -67,6 +68,7 @@ export default async function HomePage() {
     cloverTexts,
     cloverTranslations,
     popularTop,
+    rotation,
   ] = await Promise.all([
     getHomePageData(),
     getWatermarkMeta(),
@@ -78,6 +80,9 @@ export default async function HomePage() {
     // tile shows the winner big plus 2nd/3rd as compact links. Renders
     // nothing on an empty vote table.
     getTopFindsWithThumbs({ limit: 3 }),
+    // Admin-tunable rotation intervals (seconds) for the three rotating
+    // surfaces — passed down to the client widgets as ms.
+    getHomeRotationSettings(),
   ]);
   const popularWinner = popularTop[0] ?? null;
   const popularRunnersUp = popularTop.slice(1);
@@ -111,6 +116,7 @@ export default async function HomePage() {
             <CloverFactCard
               texts={cloverTexts}
               translations={cloverTranslations}
+              rotationMs={rotation.cloverFactSeconds * 1000}
             />
             <Image
               src="/clover.png"
@@ -305,7 +311,11 @@ export default async function HomePage() {
         />
       )}
 
-      <RandomFindShowcaseWidget initial={randomFind} />
+      <RandomFindShowcaseWidget
+        initial={randomFind}
+        rotationMs={rotation.randomFindSeconds * 1000}
+        screensaverMs={rotation.screensaverSeconds * 1000}
+      />
 
       {/* Retrospective last — it's a heavy "look-back" section that
        *  belongs at the bottom of the page, after the visitor has

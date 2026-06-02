@@ -17,6 +17,7 @@ import {
   Network,
   ShieldCheck,
   Sticker,
+  Timer,
   Trophy,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
@@ -297,6 +298,16 @@ export default async function AdminHomePage() {
           lines={[
             `${credentials.length} ${credentials.length === 1 ? "passkey" : "passkeys"}`,
             "Session 1h sliding TTL",
+          ]}
+        />
+        <FeatureCard
+          icon={Timer}
+          title="Rotace na hlavní stránce"
+          status="ok"
+          href="/admin/settings"
+          lines={[
+            "Délky rotace lístečků, náhodného čtyřlístku",
+            "a full-screen spořiče (v sekundách)",
           ]}
         />
       </Group>

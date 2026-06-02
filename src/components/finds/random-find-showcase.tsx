@@ -10,7 +10,8 @@ import { VoteButton } from "./vote-button";
 import { formatDateCs, formatLocationId } from "@/lib/format";
 import type { RandomFindShowcase } from "@/lib/queries/random-find";
 
-const ROTATION_MS = 60_000;
+const DEFAULT_ROTATION_MS = 60_000;
+const DEFAULT_SCREENSAVER_MS = 10_000;
 
 /**
  * Home-page widget that rotates through random finds. The initial
@@ -23,14 +24,20 @@ const ROTATION_MS = 60_000;
  * interaction (hover/focus on the magnifier swaps ORIGINAL ↔ CROP).
  *
  * A thin countdown bar overlays the bottom edge of the photo and
- * drains left-to-right over `ROTATION_MS`, then resets when the find
+ * drains left-to-right over `rotationMs`, then resets when the find
  * changes (via React `key` on the bar — the new element re-runs the
  * CSS animation from full).
  */
 export function RandomFindShowcaseWidget({
   initial,
+  rotationMs = DEFAULT_ROTATION_MS,
+  screensaverMs = DEFAULT_SCREENSAVER_MS,
 }: {
   initial: RandomFindShowcase | null;
+  /** Auto-rotation interval in ms (admin-tunable home rotation setting). */
+  rotationMs?: number;
+  /** Screensaver rotation interval in ms, forwarded to the overlay. */
+  screensaverMs?: number;
 }) {
   const t = useTranslations("RandomFind");
   const tRow = useTranslations("FindRow");
@@ -66,7 +73,7 @@ export function RandomFindShowcaseWidget({
   }, []);
 
   useEffect(() => {
-    const i = setInterval(() => refresh(false), ROTATION_MS);
+    const i = setInterval(() => refresh(false), rotationMs);
     const onVisibility = () => {
       if (document.visibilityState === "visible") refresh(false);
     };
@@ -75,7 +82,7 @@ export function RandomFindShowcaseWidget({
       clearInterval(i);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [refresh]);
+  }, [refresh, rotationMs]);
 
   // Hydrate the per-visitor vote state whenever the find ID changes.
   // The GET endpoint is cheap (one DB hit + cookie/header read) and
@@ -116,7 +123,7 @@ export function RandomFindShowcaseWidget({
         }
         .ctyr-rf-countdown-fill {
           transform-origin: left center;
-          animation: ctyr-rf-countdown ${ROTATION_MS}ms linear forwards;
+          animation: ctyr-rf-countdown ${rotationMs}ms linear forwards;
         }
         @media (prefers-reduced-motion: reduce) {
           .ctyr-rf-countdown-fill { animation: none; transform: scaleX(1); }
@@ -248,13 +255,17 @@ export function RandomFindShowcaseWidget({
         </div>
 
         <p className="mt-2 text-center text-xs text-gray-400">
-          {t("rotationFooter")}
+          {t("rotationFooter", {
+            seconds: Math.round(rotationMs / 1000),
+            screensaverSeconds: Math.round(screensaverMs / 1000),
+          })}
         </p>
       </div>
 
       {screensaverOpen && (
         <RandomFindScreensaver
           initial={find}
+          rotationMs={screensaverMs}
           onClose={() => setScreensaverOpen(false)}
         />
       )}
