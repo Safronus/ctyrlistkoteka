@@ -44,7 +44,7 @@ export function CloverFactsStatCard({
     .sort((a, b) => a.localeCompare(b));
 
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3">
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3 text-center">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
         {t("tileLabel")}
       </p>
@@ -62,7 +62,7 @@ export function CloverFactsStatCard({
             <p className="text-[10px] uppercase tracking-wide text-gray-400">
               {t("tileCategoryCount", { count: categoryLabels.length })}
             </p>
-            <ul className="flex flex-wrap gap-1">
+            <ul className="flex flex-wrap justify-center gap-1">
               {categoryLabels.map((name) => (
                 <li
                   key={name}

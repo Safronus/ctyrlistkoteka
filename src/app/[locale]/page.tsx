@@ -171,6 +171,16 @@ export default async function HomePage() {
                     locale,
                   )}
                 </span>
+                {totals.latestFoundCount > 0 && (
+                  <>
+                    {" "}
+                    <span className="text-gray-500">
+                      ({t("lastBackfillCount", {
+                        count: totals.latestFoundCount,
+                      })})
+                    </span>
+                  </>
+                )}
               </p>
             )}
             {totals.lastBackfillCreatedAt && (
@@ -501,11 +511,10 @@ function NavCard({
         className="absolute right-4 top-4 h-5 w-5 text-gray-400 transition group-hover:text-brand-600"
         aria-hidden
       />
-      {/* pr-8 reserves space for the absolute-positioned icon so a
-          long title never collides with it; description gets less
-          padding because lowercase body type lands well below the
-          icon's optical center. */}
-      <h2 className="pr-8 text-lg font-semibold text-gray-900 group-hover:text-brand-700">
+      {/* Centred title — the short nav labels (Sbírka, Lokality, Mapa,
+          Statistiky) never reach the small top-right icon, so no
+          right-padding reservation is needed. */}
+      <h2 className="text-center text-lg font-semibold text-gray-900 group-hover:text-brand-700">
         {title}
       </h2>
       <p className="mt-1 pr-2 text-sm text-gray-600">{description}</p>
@@ -693,7 +702,7 @@ function TopLocationCard({
 }) {
   const netLabel = formatDurationMinutes(location.netMinutes);
   return (
-    <div className="relative flex flex-col rounded-xl border border-gray-200 bg-white p-3">
+    <div className="relative flex flex-col rounded-xl border border-gray-200 bg-white p-3 text-center">
       <Link
         href={locationDetailHref(location.id)}
         aria-label={t("topLocationDetail")}
@@ -787,7 +796,7 @@ function PeakDayCard({
   const durationLabel = formatDurationMinutes(durationMin);
   const netLabel = formatDurationMinutes(peakDay.netMinutes);
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3">
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3 text-center">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
         {t("peakDayLabel")}
       </p>
@@ -862,7 +871,7 @@ function HighlightCard({
   hint: string | null;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3">
+    <div className="rounded-xl border border-gray-200 bg-white p-3 text-center">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
         {label}
       </p>
@@ -906,7 +915,7 @@ async function SparklineCard({
       : "";
 
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3">
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3 text-center">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
         {t("sparklineTitle")}
       </p>

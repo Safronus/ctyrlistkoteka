@@ -60,6 +60,10 @@ export interface HomeTotals {
   /** ISO date of the most recently dated find. Drives the "Poslední
    *  nález" date hint on the home stat row. */
   latestFoundAt: string | null;
+  /** How many finds were found on the same calendar day (Europe/Prague)
+   *  as `latestFoundAt` — the newest day's harvest, shown next to the
+   *  "Poslední aktualizace sbírky" line. 0 when no find has a date. */
+  latestFoundCount: number;
   /** ISO timestamp of the most recent INSERT of a find whose ID falls in
    *  the historical "missing clovers" window (MISSING_CLOVER_ID_MIN..MAX
    *  in constants.ts) — i.e. when the user last uploaded an older
@@ -156,6 +160,7 @@ export async function getHomePageData(): Promise<HomePageData> {
         last_year: number | null;
         first_found_at: Date | null;
         latest_found_at: Date | null;
+        latest_found_count: number;
       }>
     >`
       SELECT
@@ -167,7 +172,14 @@ export async function getHomePageData(): Promise<HomePageData> {
         (SELECT EXTRACT(YEAR FROM MIN(found_at))::int FROM finds) AS first_year,
         (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year,
         (SELECT MIN(found_at) FROM finds) AS first_found_at,
-        (SELECT MAX(found_at) FROM finds) AS latest_found_at
+        (SELECT MAX(found_at) FROM finds) AS latest_found_at,
+        -- How many finds were found on the same calendar day
+        -- (Europe/Prague) as the newest one = the latest day's harvest.
+        (SELECT COUNT(*)::int FROM finds f
+          WHERE f.found_at IS NOT NULL
+            AND (f.found_at AT TIME ZONE 'Europe/Prague')::date
+                = ((SELECT MAX(found_at) FROM finds) AT TIME ZONE 'Europe/Prague')::date
+        ) AS latest_found_count
     `,
 
     // Most recent find by ID. The `images` `take: 1` with sort orders
@@ -365,6 +377,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     donated: c ? Number(c.donated) : 0,
     yearsSpan,
     latestFoundAt: c?.latest_found_at ? c.latest_found_at.toISOString() : null,
+    latestFoundCount: c ? Number(c.latest_found_count) : 0,
     lastBackfillCreatedAt: lastBackfill ? lastBackfill.toISOString() : null,
     lastBackfillCount: Number(lastBackfillCount),
   };
