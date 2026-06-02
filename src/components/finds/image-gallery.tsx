@@ -28,16 +28,10 @@ export function ImageGallery({
   findId,
   donationPhotos = [],
   freePhotos = [],
-  framed = false,
 }: {
   image: PublicImage | null;
   cropImage: PublicImage | null;
   altBase: string;
-  /** Draw a thin border around the photo box. The find-detail page
-   *  passes this so the centred, shrink-wrapped photo reads as a framed
-   *  panel; the home-page widget leaves it off because its own section
-   *  card already provides the frame. */
-  framed?: boolean;
   /** Find ID — required when either gallery is non-empty so the modals
    *  can render with the right context. */
   findId?: number;
@@ -60,11 +54,7 @@ export function ImageGallery({
 
   if (!image) {
     return (
-      <div
-        className={`relative flex aspect-video items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 ${
-          framed ? "border border-gray-200" : ""
-        }`}
-      >
+      <div className="relative flex aspect-video items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-brand-100">
         <span aria-hidden className="text-4xl opacity-40">
           🍀
         </span>
@@ -96,11 +86,7 @@ export function ImageGallery({
     // the photo's real top corners and any bottom strip spans the photo
     // width. The width/height attrs reserve the aspect ratio up front so
     // the height-capped box doesn't cause a layout shift on image load.
-    <div
-      className={`relative mx-auto w-fit max-w-full overflow-hidden rounded-xl bg-gray-100 ${
-        framed ? "border border-gray-200" : ""
-      }`}
-    >
+    <div className="relative mx-auto w-fit max-w-full overflow-hidden rounded-xl bg-gray-100">
       {/* Served by Nginx; Next Image optimizer not needed. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

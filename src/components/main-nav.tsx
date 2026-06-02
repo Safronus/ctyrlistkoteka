@@ -68,12 +68,12 @@ export function MainNav() {
         </div>
 
         {/* Compact mobile actions — the second row on phones (< sm),
-            right-aligned under the brand. The ThemeToggle stays in the
-            hamburger drawer below; LocaleSwitcher rides here because
-            language is a first-class preference visitors expect to flip
-            without opening a menu. */}
-        <div className="flex shrink-0 items-center justify-end gap-2 md:hidden">
+            centred under the brand: locale toggle + theme toggle +
+            hamburger. The two-row layout freed enough width to surface
+            the ThemeToggle here instead of burying it in the drawer. */}
+        <div className="flex shrink-0 items-center justify-center gap-2 md:hidden">
           <LocaleSwitcher />
+          <ThemeToggle />
           <button
             type="button"
             onClick={() => setMobileOpen((o) => !o)}
@@ -105,9 +105,6 @@ export function MainNav() {
               </li>
             ))}
           </ul>
-          <div className="mx-auto flex max-w-7xl items-center justify-center border-t border-gray-100 px-4 py-3 sm:px-6">
-            <ThemeToggle />
-          </div>
         </div>
       )}
     </header>

@@ -108,10 +108,7 @@ export function RandomFindShowcaseWidget({
   const foundAtDate = find.foundAt ? new Date(find.foundAt) : null;
 
   return (
-    <section
-      className="mt-8 rounded-xl border border-gray-200 bg-white p-4 sm:p-5"
-      aria-live="polite"
-    >
+    <section className="mt-8" aria-live="polite">
       <style>{`
         @keyframes ctyr-rf-countdown {
           from { transform: scaleX(1); }
@@ -145,110 +142,115 @@ export function RandomFindShowcaseWidget({
         </button>
       </div>
 
-      {/* Metadata header — single horizontal row above the photo so the
-          photo can claim the full container width below. Wraps on
-          narrow viewports; "Detail nálezu" floats to the right via
-          `ml-auto`. */}
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 px-1">
-        <span className="text-2xl font-bold text-gray-900">
-          #{find.id}
-        </span>
-        {foundAtDate && (
-          <span className="text-sm text-gray-500">
-            {formatDateCs(foundAtDate, locale)}
+      {/* Everything below the heading sits in a bordered card — the
+          heading stays outside the frame, matching the "Poslední nález"
+          section on the home page. */}
+      <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+        {/* Metadata header — single horizontal row above the photo so the
+            photo can claim the full container width below. Wraps on
+            narrow viewports; "Detail nálezu" floats to the right via
+            `ml-auto`. */}
+        <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 px-1">
+          <span className="text-2xl font-bold text-gray-900">
+            #{find.id}
           </span>
-        )}
-        {find.isAnonymized ? (
-          <span className="text-sm text-gray-500">
-            {t("anonymizedLocation")}
-          </span>
-        ) : find.location ? (
-          <span
-            className="truncate text-sm text-gray-700"
-            title={find.location.code}
-          >
-            {find.location.code}{" "}
-            <span className="font-mono text-xs text-gray-500">
-              {formatLocationId(find.location.id)}
+          {foundAtDate && (
+            <span className="text-sm text-gray-500">
+              {formatDateCs(foundAtDate, locale)}
             </span>
-          </span>
-        ) : (
-          <span className="text-sm text-gray-500">{t("noLocation")}</span>
-        )}
-        <div className="ml-auto flex items-center gap-3">
-          {/* Vote button keyed by find.id — when the random rotation
-           *  swaps in a new find we want the button to remount with
-           *  the fresh count + the voted state we hydrated above. */}
-          {find.primaryImage && (
-            <VoteButton
-              key={find.id}
-              findId={find.id}
-              initialVoted={voted}
-              initialCount={find.voteCount}
-            />
           )}
-          {find.hasMapPosition && (
-            <Link
-              href={`/mapa?find=${find.id}`}
-              aria-label={t("showOnMapAria")}
-              title={t("showOnMapAria")}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+          {find.isAnonymized ? (
+            <span className="text-sm text-gray-500">
+              {t("anonymizedLocation")}
+            </span>
+          ) : find.location ? (
+            <span
+              className="truncate text-sm text-gray-700"
+              title={find.location.code}
             >
-              <MapPin className="h-3.5 w-3.5" aria-hidden />
-              <span>{t("showOnMapLabel")}</span>
-            </Link>
+              {find.location.code}{" "}
+              <span className="font-mono text-xs text-gray-500">
+                {formatLocationId(find.location.id)}
+              </span>
+            </span>
+          ) : (
+            <span className="text-sm text-gray-500">{t("noLocation")}</span>
           )}
-          <Link
-            href={`/sbirka/${find.id}`}
-            className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
-          >
-            {t("detailLink")}
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
+          <div className="ml-auto flex items-center gap-3">
+            {/* Vote button keyed by find.id — when the random rotation
+             *  swaps in a new find we want the button to remount with
+             *  the fresh count + the voted state we hydrated above. */}
+            {find.primaryImage && (
+              <VoteButton
+                key={find.id}
+                findId={find.id}
+                initialVoted={voted}
+                initialCount={find.voteCount}
+              />
+            )}
+            {find.hasMapPosition && (
+              <Link
+                href={`/mapa?find=${find.id}`}
+                aria-label={t("showOnMapAria")}
+                title={t("showOnMapAria")}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+              >
+                <MapPin className="h-3.5 w-3.5" aria-hidden />
+                <span>{t("showOnMapLabel")}</span>
+              </Link>
+            )}
+            <Link
+              href={`/sbirka/${find.id}`}
+              className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
+            >
+              {t("detailLink")}
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
+          </div>
         </div>
-      </div>
 
-      {/* Shrink to the photo's width (centred) so the fullscreen button
-          and the bottom countdown strip — both overlays on THIS box —
-          align to the photo edges, not the full page width. ImageGallery
-          itself also shrink-wraps, so this w-fit resolves to the photo. */}
-      <div className="relative mx-auto w-fit max-w-full">
-        <ImageGallery
-          image={find.primaryImage}
-          cropImage={find.cropImage}
-          altBase={altBase}
-        />
-        {/* Top-left overlay — launches the full-screen rotating
-            screensaver. Mirrors the lupa's pill styling (which lives in
-            the opposite, top-right corner) so the two read as a pair. */}
-        <button
-          type="button"
-          onClick={() => setScreensaverOpen(true)}
-          aria-label={t("screensaverStartAria")}
-          title={t("screensaverStartTitle")}
-          className="absolute left-3 top-3 z-10 rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
-        >
-          <Maximize className="h-5 w-5" aria-hidden />
-        </button>
-        {/* Countdown overlay strip at the bottom of the photo. The
-            `key` is bumped whenever the find changes, so the inner
-            fill remounts and the CSS animation restarts at scaleX=1.
-            The strip itself is non-interactive (decorative only). */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-1.5 overflow-hidden bg-black/20"
-          title={t("rotationTitle")}
-        >
-          <div
-            key={find.id}
-            className="ctyr-rf-countdown-fill h-full bg-brand-500"
+        {/* Shrink to the photo's width (centred) so the fullscreen button
+            and the bottom countdown strip — both overlays on THIS box —
+            align to the photo edges, not the full page width. ImageGallery
+            itself also shrink-wraps, so this w-fit resolves to the photo. */}
+        <div className="relative mx-auto w-fit max-w-full">
+          <ImageGallery
+            image={find.primaryImage}
+            cropImage={find.cropImage}
+            altBase={altBase}
           />
+          {/* Top-left overlay — launches the full-screen rotating
+              screensaver. Mirrors the lupa's pill styling (which lives in
+              the opposite, top-right corner) so the two read as a pair. */}
+          <button
+            type="button"
+            onClick={() => setScreensaverOpen(true)}
+            aria-label={t("screensaverStartAria")}
+            title={t("screensaverStartTitle")}
+            className="absolute left-3 top-3 z-10 rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            <Maximize className="h-5 w-5" aria-hidden />
+          </button>
+          {/* Countdown overlay strip at the bottom of the photo. The
+              `key` is bumped whenever the find changes, so the inner
+              fill remounts and the CSS animation restarts at scaleX=1.
+              The strip itself is non-interactive (decorative only). */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-1.5 overflow-hidden bg-black/20"
+            title={t("rotationTitle")}
+          >
+            <div
+              key={find.id}
+              className="ctyr-rf-countdown-fill h-full bg-brand-500"
+            />
+          </div>
         </div>
-      </div>
 
-      <p className="mt-2 text-center text-xs text-gray-400">
-        {t("rotationFooter")}
-      </p>
+        <p className="mt-2 text-center text-xs text-gray-400">
+          {t("rotationFooter")}
+        </p>
+      </div>
 
       {screensaverOpen && (
         <RandomFindScreensaver

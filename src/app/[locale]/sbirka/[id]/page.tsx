@@ -294,7 +294,6 @@ export default async function FindDetailPage({ params }: PageProps) {
         findId={find.id}
         donationPhotos={find.donationPhotos}
         freePhotos={find.freePhotos}
-        framed
       />
 
       {find.isAnonymized && (
