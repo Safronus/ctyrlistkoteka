@@ -2,7 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { atomicWrite } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { readExifSafe } from "@/lib/admin/exif";
-import { parseMultipartRequest, type MultipartFile } from "@/lib/admin/multipart";
+import {
+  drainRequestBody,
+  parseMultipartRequest,
+  type MultipartFile,
+} from "@/lib/admin/multipart";
 import { safeBaseName, safeJoin } from "@/lib/admin/paths";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
@@ -59,6 +63,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 async function handleUpload(request: NextRequest): Promise<NextResponse> {
   const session = await getAdminSession();
   if (!isAuthenticated(session)) {
+    // Drain the (possibly large) upload body before answering so a
+    // mid-upload POST gets a clean 404 instead of a reset connection —
+    // an expired admin session was otherwise surfacing as "Load failed".
+    await drainRequestBody(request);
     return new NextResponse("Not found", { status: 404 });
   }
   const credentialLabel = session.credentialLabel!;

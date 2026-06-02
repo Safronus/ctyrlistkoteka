@@ -130,3 +130,16 @@ export async function parseMultipartRequest(
   await done;
   return { files, fields };
 }
+
+/** Reads and discards a request body. Call before returning an early
+ *  error response (e.g. failed auth) to a POST carrying a large body —
+ *  otherwise the handler may respond before the upload finishes, the
+ *  connection gets reset mid-stream, and the browser surfaces it as a
+ *  generic fetch "Load failed" that hides the real status code. */
+export async function drainRequestBody(request: Request): Promise<void> {
+  try {
+    await request.arrayBuffer();
+  } catch {
+    /* already consumed / aborted — nothing to drain */
+  }
+}

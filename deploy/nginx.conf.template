@@ -142,8 +142,11 @@ server {
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Upgrade           $http_upgrade;
-        proxy_set_header Connection        "upgrade";
+        # NOTE: no WebSocket Upgrade headers here. Hard-coding
+        # `Connection: "upgrade"` on every request (including large POST
+        # uploads to /admin/api/upload/*) corrupts the proxied
+        # connection — Safari surfaces it as a generic fetch
+        # "Load failed". Next.js in production uses plain HTTP here.
         proxy_read_timeout 300s;          # větší upload může chvíli trvat
     }
 
@@ -166,8 +169,11 @@ server {
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Upgrade           $http_upgrade;
-        proxy_set_header Connection        "upgrade";
+        # NOTE: no WebSocket Upgrade headers here. Hard-coding
+        # `Connection: "upgrade"` on every request (including large POST
+        # uploads to /admin/api/upload/*) corrupts the proxied
+        # connection — Safari surfaces it as a generic fetch
+        # "Load failed". Next.js in production uses plain HTTP here.
     }
 
     # Vše ostatní → Next.js, s mírnějším rate limitem (20 req/s, burst 40)
@@ -185,8 +191,11 @@ server {
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Upgrade           $http_upgrade;
-        proxy_set_header Connection        "upgrade";
+        # NOTE: no WebSocket Upgrade headers here. Hard-coding
+        # `Connection: "upgrade"` on every request (including large POST
+        # uploads to /admin/api/upload/*) corrupts the proxied
+        # connection — Safari surfaces it as a generic fetch
+        # "Load failed". Next.js in production uses plain HTTP here.
         proxy_read_timeout 60s;
     }
 }
