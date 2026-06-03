@@ -31,6 +31,16 @@ export const MAP_CLUSTER_RADIUS = 80;
  */
 export const FIND_DEVIATION_RADIUS_M = 5;
 
+/**
+ * Stand-in area (m²) for locations that have no drawn polygon: the area of
+ * the circle of {@link FIND_DEVIATION_RADIUS_M} radius around the map
+ * centre (π·r² ≈ 78.5 m²). Lets us still surface an (estimated) area and
+ * find density for polygon-less spots. Mirrors the `pi() * (5*5)` fallback
+ * used in the /statistiky density ranking (src/lib/queries/stats.ts), so
+ * the two surfaces agree. Always label values derived from it as estimates.
+ */
+export const POLYGON_FREE_AREA_M2 = Math.PI * FIND_DEVIATION_RADIUS_M ** 2;
+
 // ISR revalidation (seconds)
 export const HOME_REVALIDATE = 60 * 60; // 1 h
 export const FIND_REVALIDATE = 24 * 60 * 60; // 24 h

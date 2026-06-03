@@ -9,7 +9,7 @@
 
 import { FindState, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { DEFAULT_LOCATION_ID } from "@/lib/constants";
+import { DEFAULT_LOCATION_ID, POLYGON_FREE_AREA_M2 } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import { getLocationMapPhotoUrl } from "@/lib/locationPhotos";
 import {
@@ -69,14 +69,23 @@ export interface LocationListItem {
    *  null. Computed via PostGIS ST_Area on the geography casting so the
    *  number is real m² rather than square degrees. */
   polygonAreaM2: number | null;
+  /** Area used for display + density: the real polygon area when one is
+   *  recorded, otherwise the {@link POLYGON_FREE_AREA_M2} 5 m-circle
+   *  estimate. Null only for anonymized locations (no area is exposed).
+   *  When this is the estimate, `areaIsEstimate` is true. */
+  effectiveAreaM2: number | null;
+  /** True when `effectiveAreaM2` (and therefore any density derived from
+   *  it) is the polygon-free 5 m-radius estimate rather than a real
+   *  polygon area. UI surfaces it with an "≈" marker + a note. */
+  areaIsEstimate: boolean;
   /** Find density expressed as clovers per 100 m², computed from this
-   *  location's *own* finds and *own* polygon area. Null when either
-   *  side is missing (no polygon, anonymized, no finds). The unit is
-   *  per 100 m² rather than per m² so the typical figure lands on a
-   *  readable 1–100 range; see formatDensityPer100m2. */
+   *  location's *own* finds over its `effectiveAreaM2` (polygon area, or
+   *  the 5 m-circle estimate for polygon-free spots). Null when the
+   *  location is anonymized or has no finds. The base unit is per 100 m²;
+   *  formatDensity() then adapts it to 100/10/1 m² for readability. */
   densityPer100m2: number | null;
   /** Density computed from `aggregateStats.total` over this location's
-   *  own polygon area — i.e. the parent's true density once visible
+   *  own `effectiveAreaM2` — i.e. the parent's true density once visible
    *  sub-parts are folded in. Equals `densityPer100m2` for leaf
    *  locations. Null on the same conditions as `densityPer100m2`. */
   aggregateDensityPer100m2: number | null;
@@ -579,6 +588,8 @@ export async function listLocations(
         isAnonymized: true,
         isGone: gone,
         polygonAreaM2: null,
+        effectiveAreaM2: null,
+        areaIsEstimate: false,
         densityPer100m2: null,
         aggregateDensityPer100m2: null,
         coordinates: null,
@@ -603,9 +614,13 @@ export async function listLocations(
       yearly: [...stats.yearly],
     };
     const polygonAreaM2 = areaByLoc.get(l.id) ?? null;
+    // Polygon-free locations fall back to the 5 m-circle estimate so they
+    // still get an (estimated) area + density; `areaIsEstimate` flags it.
+    const effectiveAreaM2 = polygonAreaM2 ?? POLYGON_FREE_AREA_M2;
+    const areaIsEstimate = polygonAreaM2 === null;
     const densityPer100m2 =
-      polygonAreaM2 !== null && polygonAreaM2 > 0 && stats.total > 0
-        ? (stats.total / polygonAreaM2) * 100
+      effectiveAreaM2 > 0 && stats.total > 0
+        ? (stats.total / effectiveAreaM2) * 100
         : null;
     return {
       id: l.id,
@@ -617,6 +632,8 @@ export async function listLocations(
       isAnonymized: false,
       isGone: gone,
       polygonAreaM2,
+      effectiveAreaM2,
+      areaIsEstimate,
       densityPer100m2,
       // Seeded equal to own density; recomputed below for parents once
       // visible children have been folded into `aggregateStats.total`.
@@ -690,10 +707,10 @@ export async function listLocations(
   for (const item of items) {
     if (item.childCount === 0) continue;
     item.aggregateDensityPer100m2 =
-      item.polygonAreaM2 !== null &&
-      item.polygonAreaM2 > 0 &&
+      item.effectiveAreaM2 !== null &&
+      item.effectiveAreaM2 > 0 &&
       item.aggregateStats.total > 0
-        ? (item.aggregateStats.total / item.polygonAreaM2) * 100
+        ? (item.aggregateStats.total / item.effectiveAreaM2) * 100
         : null;
   }
 
@@ -736,6 +753,54 @@ export async function listLocations(
   }
 
   return interleaveChildren(items);
+}
+
+export interface LocationAreaDensity {
+  /** Polygon area (m²) when one is recorded, otherwise the
+   *  {@link POLYGON_FREE_AREA_M2} 5 m-circle estimate. */
+  effectiveAreaM2: number;
+  /** True when `effectiveAreaM2` is the polygon-free estimate. */
+  areaIsEstimate: boolean;
+  /** Clovers per 100 m² over `effectiveAreaM2`, or null when the location
+   *  has no finds. Base unit per 100 m²; format with formatDensity(). */
+  densityPer100m2: number | null;
+}
+
+/**
+ * Lightweight area + density lookup for a single location, used by the
+ * find-detail "Lokalita" panel. Avoids the full listLocations() pipeline
+ * (thumbnails, real-photo scans, hierarchy fold) — one PostGIS query for
+ * the polygon area + own find count. Density uses the location's *own*
+ * finds; finds live on leaf locations in practice, so this matches the
+ * place the find is actually anchored to. Returns null for an unknown id.
+ */
+export async function getLocationAreaDensity(
+  locationId: number,
+): Promise<LocationAreaDensity | null> {
+  const rows = await prisma.$queryRaw<
+    Array<{ area_m2: number | null; total: bigint }>
+  >`
+    SELECT
+      CASE WHEN l.polygon IS NOT NULL
+           THEN ST_Area(l.polygon::geography)::float8
+           ELSE NULL
+      END AS area_m2,
+      COUNT(f.id) AS total
+    FROM "locations" l
+    LEFT JOIN "finds" f ON f.location_id = l.id
+    WHERE l.id = ${locationId}
+    GROUP BY l.id, l.polygon
+  `;
+  const r = rows[0];
+  if (!r) return null;
+  const polygonAreaM2 =
+    r.area_m2 !== null && Number.isFinite(r.area_m2) ? r.area_m2 : null;
+  const effectiveAreaM2 = polygonAreaM2 ?? POLYGON_FREE_AREA_M2;
+  const areaIsEstimate = polygonAreaM2 === null;
+  const total = Number(r.total);
+  const densityPer100m2 =
+    effectiveAreaM2 > 0 && total > 0 ? (total / effectiveAreaM2) * 100 : null;
+  return { effectiveAreaM2, areaIsEstimate, densityPer100m2 };
 }
 
 /** Narrows the Prisma `Json` value for `location_maps.image_bounds`

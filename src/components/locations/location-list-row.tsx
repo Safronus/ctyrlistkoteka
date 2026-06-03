@@ -23,7 +23,7 @@ import {
   formatDistance,
   formatLocationId,
   formatTimeSinceCs,
-  formatDensityPer100m2,
+  formatDensity,
   locationDetailHref,
 } from "@/lib/format";
 import type { FindState } from "@prisma/client";
@@ -235,17 +235,25 @@ function RowMeta({
   location: LocationListItem;
   t: RowT;
 }) {
+  const estimate = location.areaIsEstimate;
   return (
     <p className="truncate text-xs text-gray-500">
       <span className="font-mono">{location.code}</span>
-      {location.polygonAreaM2 !== null && (
-        <> · {`${t("areaPrefix")} ${formatAreaM2(location.polygonAreaM2)}`}</>
+      {location.effectiveAreaM2 !== null && (
+        <>
+          {" · "}
+          <span title={estimate ? t("areaEstimateTitle") : undefined}>
+            {t("areaPrefix")} {estimate ? "≈ " : ""}
+            {formatAreaM2(location.effectiveAreaM2)}
+          </span>
+        </>
       )}
       {location.aggregateDensityPer100m2 !== null && (
         <>
           {" · "}
-          <span title={t("densityTitle")}>
-            {`${t("densityPrefix")} ${formatDensityPer100m2(location.aggregateDensityPer100m2)}`}
+          <span title={estimate ? t("areaEstimateTitle") : t("densityTitle")}>
+            {t("densityPrefix")} {estimate ? "≈ " : ""}
+            {formatDensity(location.aggregateDensityPer100m2)}
           </span>
         </>
       )}

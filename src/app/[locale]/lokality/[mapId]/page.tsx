@@ -15,7 +15,7 @@ import { GpsValue } from "@/components/finds/gps-value";
 import {
   formatAreaM2,
   formatDateCs,
-  formatDensityPer100m2,
+  formatDensity,
   formatDistance,
   formatLocationId,
   formatShortDateCs,
@@ -539,17 +539,26 @@ function SummaryGrid({
           </span>
         </Field>
       )}
-      {base.polygonAreaM2 !== null && (
-        <Field label={t("kvPolygonArea")}>
+      {base.effectiveAreaM2 !== null && (
+        <Field
+          label={base.areaIsEstimate ? t("kvAreaEstimate") : t("kvPolygonArea")}
+        >
           <span className="font-mono tabular-nums">
-            {formatAreaM2(base.polygonAreaM2)}
+            {base.areaIsEstimate ? "≈ " : ""}
+            {formatAreaM2(base.effectiveAreaM2)}
           </span>
+          {base.areaIsEstimate && (
+            <span className="ml-1 text-xs text-gray-500">
+              {t("kvAreaEstimateNote")}
+            </span>
+          )}
         </Field>
       )}
       {base.aggregateDensityPer100m2 !== null && (
         <Field label={t("kvDensity")}>
           <span className="font-mono tabular-nums">
-            {formatDensityPer100m2(base.aggregateDensityPer100m2)}
+            {base.areaIsEstimate ? "≈ " : ""}
+            {formatDensity(base.aggregateDensityPer100m2)}
           </span>
           <span className="ml-1 text-xs text-gray-500">
             {t("kvDensitySuffix")}

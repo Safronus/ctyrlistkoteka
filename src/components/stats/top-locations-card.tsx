@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import {
   formatAreaM2,
-  formatDensityPer100m2,
+  formatDensity,
   formatLocationId,
   locationDetailHref,
 } from "@/lib/format";
@@ -76,7 +76,7 @@ export function TopLocationsCard({
           {activeMode === "count"
             ? t("topAvgCount", { avg: avgFmt.format(avgCount) })
             : t("topAvgDensity", {
-                avg: formatDensityPer100m2(avgDensity),
+                avg: formatDensity(avgDensity),
               })}
         </p>
         {showToggle && (
@@ -202,7 +202,7 @@ function DensityList({
           isAnonymized={r.isAnonymized}
           value={r.densityPer100m2}
           max={max}
-          valueLabel={formatDensityPer100m2(r.densityPer100m2)}
+          valueLabel={formatDensity(r.densityPer100m2)}
           labelWidthClass="w-32"
           suffix={t("rowSuffixCountWithArea", {
             count: numFmt.format(r.count),

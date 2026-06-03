@@ -19,7 +19,9 @@ import { BackToSbirkaLink } from "@/components/finds/sbirka-back-link";
 import { StateBadges } from "@/components/finds/state-badges";
 import { VoteButton } from "@/components/finds/vote-button";
 import {
+  formatAreaM2,
   formatDateTimeCs,
+  formatDensity,
   formatDistance,
   formatLocationId,
   locationDetailHref,
@@ -33,6 +35,7 @@ import {
   getFindById,
   type PublicLocationMap,
 } from "@/lib/queries/finds";
+import { getLocationAreaDensity } from "@/lib/queries/locations";
 import {
   computeFingerprint,
   getFindVoteCount,
@@ -102,6 +105,14 @@ export default async function FindDetailPage({ params }: PageProps) {
     getAdjacentFindIds(numId),
   ]);
   if (!find) notFound();
+
+  // Location area + find density for the "Lokalita" panel. Skipped for
+  // anonymized finds (the real location is hidden) and finds with no
+  // location. Polygon-free spots come back flagged as an estimate.
+  const areaDensity =
+    !find.isAnonymized && find.location
+      ? await getLocationAreaDensity(find.location.id)
+      : null;
 
   // Each find has at most one main photo (ORIGINAL) and at most one crop
   // (CROP). If imports leave duplicates behind, we still pick a single
@@ -346,6 +357,39 @@ export default async function FindDetailPage({ params }: PageProps) {
                   label={t("kvDescription")}
                   value={find.location.displayName}
                 />
+                {areaDensity && (
+                  <>
+                    <KeyValue
+                      label={
+                        areaDensity.areaIsEstimate
+                          ? t("kvAreaEstimate")
+                          : t("kvArea")
+                      }
+                      value={
+                        <span>
+                          {areaDensity.areaIsEstimate ? "≈ " : ""}
+                          {formatAreaM2(areaDensity.effectiveAreaM2)}
+                          {areaDensity.areaIsEstimate && (
+                            <span className="ml-1 text-xs text-gray-500">
+                              {t("kvAreaEstimateNote")}
+                            </span>
+                          )}
+                        </span>
+                      }
+                    />
+                    {areaDensity.densityPer100m2 !== null && (
+                      <KeyValue
+                        label={t("kvDensity")}
+                        value={
+                          <span>
+                            {areaDensity.areaIsEstimate ? "≈ " : ""}
+                            {formatDensity(areaDensity.densityPer100m2)}
+                          </span>
+                        }
+                      />
+                    )}
+                  </>
+                )}
                 {/* "Nth find of M" line — ordering matches the
                     /sbirka "oldest first" sort filtered by the same
                     location, so the visitor can scroll the listing

@@ -471,15 +471,35 @@ export function formatAreaM2(m2: number): string {
   }).format(Math.round(m2))} m²`;
 }
 
-/** Formats a clovers/area density as a per-100 m² figure. We picked the
- *  100 m² unit so the typical landscape (areas in 100s–1000s of m² with
- *  10s–100s of finds) lands on a humanly-readable 1–100ish range —
- *  per-m² values would be 0.0X with little visual contrast, per-ha
- *  values would compress smaller plots into the same digit. Returns
- *  e.g. "12,345 / 100 m²" — five significant digits regardless of
- *  scale, so a readable column width can be reserved up-front. */
-export function formatDensityPer100m2(density: number): string {
-  return `${new Intl.NumberFormat("cs-CZ", {
-    maximumSignificantDigits: 5,
-  }).format(density)} / 100 m²`;
+/** Formats a find density (passed in as clovers per 100 m²) as a whole
+ *  number paired with a clover glyph and an *adaptive* reference area.
+ *  The reference area shrinks 100 → 10 → 1 m² so very dense spots — most
+ *  notably the 5 m fallback circle used for polygon-less locations, where
+ *  a busy patch can read in the thousands per 100 m² — collapse to a
+ *  readable two-digit figure instead. The rule: use the largest area whose
+ *  rounded value is ≤ 99.
+ *
+ *  Examples: "12 🍀/100 m²", "15 🍀/10 m²", "38 🍀/m²", "<1 🍀/100 m²".
+ *
+ *  Callers prefix the result with "≈ " when the underlying area is the
+ *  polygon-free estimate (the density is then an estimate too). */
+export function formatDensity(densityPer100m2: number): string {
+  const areaM2 =
+    Math.round(densityPer100m2) <= 99
+      ? 100
+      : Math.round(densityPer100m2 / 10) <= 99
+        ? 10
+        : 1;
+  const value = densityPer100m2 * (areaM2 / 100);
+  const rounded = Math.round(value);
+  // Guard against a misleading "0 🍀" for a spot that genuinely has finds
+  // but lands below half a clover per 100 m² (large sparse polygons).
+  const label =
+    rounded === 0 && densityPer100m2 > 0
+      ? "<1"
+      : new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 }).format(
+          rounded,
+        );
+  const unit = areaM2 === 1 ? "m²" : `${areaM2} m²`;
+  return `${label} 🍀/${unit}`;
 }
