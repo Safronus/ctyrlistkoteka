@@ -25,6 +25,15 @@
 # buď přidej `ip6 saddr` obdobu, nebo IPv6 SSH vypni — jinak by tě
 # IPv6 spojení spadlo do `drop`.
 
+# Idempotentní reload: tabulku nejdřív zajisti (aby `delete` nespadl na
+# čistém systému), pak smaž, pak ji definuj znovu. `nft -f` aplikuje celý
+# soubor ATOMICKY v jedné transakci, takže není okno, kdy by SSH bylo
+# nechráněné, a běžící spojení (conntrack) přežijí. Bez tohohle se
+# pravidla při každém opakovaném `nft -f` DUPLIKUJÍ — nft je přidává,
+# nenahrazuje (klidně skončíš s pravidly pro port 22 ve třech kopiích).
+table inet ssh_guard
+delete table inet ssh_guard
+
 table inet ssh_guard {
     set ssh_allowed {
         type ipv4_addr
