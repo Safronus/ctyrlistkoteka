@@ -194,7 +194,7 @@ export default async function LocationDetailPage({ params }: PageProps) {
   const { base } = detail;
 
   return (
-    <article className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+    <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <nav
         aria-label={t("backToList")}
         className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500"
