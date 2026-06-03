@@ -49,37 +49,32 @@ jobs:
   deploy:
     name: Deploy to ctyrlistkoteka.cz
     needs: check
-    runs-on: ubuntu-latest
+    # Self-hosted runner ON the VPS: it polls GitHub OUTBOUND over HTTPS,
+    # so deploys no longer need inbound SSH and port 22 can stay
+    # firewalled to the admin's IPs (deploy/nftables-ssh-allowlist.nft).
+    # Runs locally as the `app` user that owns the app + PM2.
+    #
+    # ⚠️ SECURITY (public repo): this job must ONLY run on push to `main`
+    # (forks can't push there). NEVER add a `pull_request` trigger to this
+    # workflow — a fork's code would otherwise execute on the VPS runner.
+    # Also: repo Settings → Actions → require approval for fork PRs.
+    runs-on: self-hosted
     timeout-minutes: 15
-    # Only push events to main trigger an actual deploy — workflow_dispatch
-    # still runs checks but skips the SSH step unless also on main.
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          # -l: login shell loads nvm so pnpm/node are on PATH.
-          # set -e: abort on first failure.
-          # Deploy is non-destructive: fast-forward only (no rebase).
-          script: |
-            set -euo pipefail
-            cd /var/www/ctyrlistkoteka
-            # Pin the GitHub deploy key explicitly. Non-interactive SSH
-            # sessions from drone-ssh don't always pick up ~/.ssh/config.
-            # Hardcoded path — $HOME gets expanded on the runner, not on
-            # the VPS, so we can't use it here.
-            export GIT_SSH_COMMAND="ssh -i /home/app/.ssh/github_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
-            git fetch --prune origin main
-            git reset --hard origin/main
-            source "/home/app/.nvm/nvm.sh"
-            pnpm install --frozen-lockfile
-            pnpm prisma generate
-            pnpm prisma migrate deploy
-            pnpm build
-            pm2 reload ctyrlistkoteka
-            pm2 save
-          script_stop: true
+      - name: Deploy locally on the VPS
+        run: |
+          set -euo pipefail
+          cd /var/www/ctyrlistkoteka
+          # Deploy key for the SSH `origin` remote (public repo, so it's
+          # only there to keep the existing remote URL working).
+          export GIT_SSH_COMMAND="ssh -i /home/app/.ssh/github_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git fetch --prune origin main
+          git reset --hard origin/main
+          source "/home/app/.nvm/nvm.sh"
+          pnpm install --frozen-lockfile
+          pnpm prisma generate
+          pnpm prisma migrate deploy
+          pnpm build
+          pm2 reload ctyrlistkoteka
+          pm2 save
