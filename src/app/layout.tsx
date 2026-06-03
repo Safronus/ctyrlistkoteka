@@ -55,8 +55,18 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const locale = await getLocale();
+  // overflow-x-clip on the root <html> is the viewport-level guard
+  // against horizontal "floating" on mobile: it clips ANY stray
+  // horizontal overflow — including position:fixed overlays and anything
+  // in the header/footer that a clip on <main> can't reach. `clip` (not
+  // `hidden`) doesn't create a scroll container, so the sticky header
+  // still sticks and vertical scrolling is untouched (overflow-y visible).
   return (
-    <html lang={locale} className={inter.variable} data-theme="clover">
+    <html
+      lang={locale}
+      className={`${inter.variable} overflow-x-clip`}
+      data-theme="clover"
+    >
       <body className="flex min-h-screen flex-col">
         <ThemeScript />
         {children}
