@@ -54,8 +54,11 @@ export function MainNav() {
           <span className="truncate">{SITE_NAME}</span>
         </Link>
 
-        {/* Desktop nav — md+ only. */}
-        <div className="hidden items-center gap-3 md:flex">
+        {/* Desktop nav — only from 900px up. Below that the 5 inline
+            links + locale + theme don't fit next to the (longer) brand
+            and the list wrapped to a second row in the ~770–900px band;
+            there we fall back to the hamburger instead. */}
+        <div className="hidden items-center gap-3 min-[900px]:flex">
           <ul className="flex flex-wrap items-center gap-1">
             {items.map((item) => (
               <li key={item.href}>
@@ -67,11 +70,11 @@ export function MainNav() {
           <ThemeToggle />
         </div>
 
-        {/* Compact mobile actions — the second row on phones (< sm):
-            the hamburger is pinned left, the locale + theme toggles are
-            grouped flush right. The two-row layout freed enough width to
-            surface the ThemeToggle here instead of in the drawer. */}
-        <div className="flex items-center justify-between gap-2 md:hidden">
+        {/* Compact actions — shown below 900px (two-row stacked on
+            phones < sm, single row above). Hamburger pinned left, locale
+            + theme toggles grouped flush right; the drawer carries the
+            nav links until the desktop nav appears at 900px. */}
+        <div className="flex items-center justify-between gap-2 min-[900px]:hidden">
           <button
             type="button"
             onClick={() => setMobileOpen((o) => !o)}
@@ -96,7 +99,7 @@ export function MainNav() {
       {mobileOpen && (
         <div
           id="main-nav-mobile-panel"
-          className="border-t border-gray-200 bg-white md:hidden"
+          className="border-t border-gray-200 bg-white min-[900px]:hidden"
         >
           <ul className="mx-auto flex max-w-7xl flex-col items-start gap-1 px-4 py-2 sm:px-6">
             {items.map((item) => (
