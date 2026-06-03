@@ -8,12 +8,15 @@ module.exports = {
     {
       name: 'ctyrlistkoteka',
       script: 'node_modules/next/dist/bin/next',
-      // Bind to loopback only — Nginx proxies to 127.0.0.1:3000, so the
-      // app server never needs to listen on the public interface.
-      // Without -H, Next binds 0.0.0.0 and port 3000 shows up as "open"
-      // on external scans; loopback bind makes it filtered/closed to the
-      // world with zero impact on the (Nginx-fronted) site.
-      args: 'start -p 3000 -H 127.0.0.1',
+      // NOTE: do NOT add `-H 127.0.0.1` here. Binding Next to a fixed
+      // host makes its middleware use that host (localhost:3000) for
+      // rewrites instead of the real Host header; combined with the
+      // proxy's `X-Forwarded-Proto: https` the locale rewrite becomes
+      // `https://localhost:3000/...`, Next then proxies to its own HTTP
+      // server over TLS and every request 500s ("packet length too
+      // long"). Leave the default bind and keep port 3000 off the public
+      // internet at the firewall instead (see deploy/nftables-*).
+      args: 'start -p 3000',
       cwd: '/var/www/ctyrlistkoteka',
       instances: 2,            // cluster mode, 2 workeři
       exec_mode: 'cluster',
