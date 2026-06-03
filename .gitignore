@@ -51,6 +51,11 @@ test-results/
 # absolutní cesty k profilu uživatele, není to citlivé, ale ani sdílené).
 .claude/settings.local.json
 
+# Self-hosted GitHub Actions runner — pokud někdo runner omylem
+# rozbalí uvnitř repa (patří mimo web root, do /home/app/actions-runner),
+# ať se aspoň nedostane do gitu. Obsahuje creds (.credentials/.runner).
+actions-runner/
+
 # Prisma generated
 prisma/generated/
 
