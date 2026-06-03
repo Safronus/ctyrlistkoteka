@@ -31,6 +31,12 @@ export const routing = defineRouting({
   // locale; the visitor's choice survives across navigations because
   // the URL changes, not because of a hidden cookie.
   localeDetection: false,
+  // Don't emit the `NEXT_LOCALE` cookie at all. The locale is decided
+  // purely by the URL (see above), detection is off, and the switcher
+  // navigates by URL — so the cookie is never read and only adds a
+  // `Set-Cookie` without HttpOnly that security scanners (rightly)
+  // flag. Disabling it removes that finding with zero behaviour change.
+  localeCookie: false,
 });
 
 export type Locale = (typeof routing.locales)[number];

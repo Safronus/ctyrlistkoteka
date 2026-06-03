@@ -69,6 +69,13 @@ server {
     # Max upload (pro jistotu – admin není, ale kdyby)
     client_max_body_size 1M;
 
+    # Vynuť HttpOnly na všech cookies z backendu (defense-in-depth pro
+    # nález "Missing HttpOnly Cookie"). Žádná cookie tu nepotřebuje být
+    # čitelná z JS — vote/admin/session už HttpOnly mají, theme je v
+    # localStorage, jazyk se řídí URL. `~` matchne všechny cookies.
+    # Vyžaduje nginx 1.19.3+ (Ubuntu 24.04 má 1.24+).
+    proxy_cookie_flags ~ httponly;
+
     # Access/error logy
     access_log /var/log/nginx/ctyrlistkoteka.access.log;
     error_log  /var/log/nginx/ctyrlistkoteka.error.log warn;
