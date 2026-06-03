@@ -48,5 +48,10 @@ table inet ssh_guard {
         # accept, takže web i RustDesk jedou beze změny.
         tcp dport 22 ip saddr @ssh_allowed accept
         tcp dport 22 counter drop
+
+        # Next.js (port 3000) jen z loopbacku — Nginx ho proxuje přes
+        # 127.0.0.1, takže zvenku nemá co dělat (= "filtered"). Tím
+        # nahrazujeme dřívější `-H 127.0.0.1`, které rozbíjelo rewrity.
+        iifname != "lo" tcp dport 3000 counter drop
     }
 }
