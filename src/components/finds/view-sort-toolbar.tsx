@@ -110,6 +110,7 @@ export function ViewSortToolbar({
     >
       <Segmented
         label={t("view")}
+        iconOnly
         value={view}
         options={[
           { value: "grid", label: t("viewGrid"), icon: <LayoutGrid className="h-4 w-4" /> },
@@ -306,11 +307,15 @@ function Segmented<T extends string>({
   value,
   options,
   onChange,
+  iconOnly = false,
 }: {
   label: string;
   value: T;
   options: ReadonlyArray<{ value: T; label: string; icon: React.ReactNode }>;
   onChange: (v: T) => void;
+  /** Render icons only (label moves to title/aria-label) — keeps the
+   *  control tight when the labels would just eat horizontal space. */
+  iconOnly?: boolean;
 }) {
   return (
     <div
@@ -326,16 +331,18 @@ function Segmented<T extends string>({
             type="button"
             onClick={() => onChange(opt.value)}
             aria-pressed={active}
-            className={`flex h-9 items-center gap-1.5 px-3 text-sm transition ${
-              i > 0 ? "border-l border-gray-300" : ""
-            } ${
+            title={iconOnly ? opt.label : undefined}
+            aria-label={iconOnly ? opt.label : undefined}
+            className={`flex h-9 items-center gap-1.5 text-sm transition ${
+              iconOnly ? "px-2.5" : "px-3"
+            } ${i > 0 ? "border-l border-gray-300" : ""} ${
               active
                 ? "bg-brand-600 text-white"
                 : "text-gray-700 hover:bg-gray-50"
             }`}
           >
             {opt.icon}
-            <span>{opt.label}</span>
+            {!iconOnly && <span>{opt.label}</span>}
           </button>
         );
       })}

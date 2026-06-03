@@ -433,6 +433,26 @@ export function locationOffsetToneClass(offset: {
   return "text-rose-600";
 }
 
+/** Background-colour class for the small location-offset indicator dot
+ *  (used on the /sbirka grid cards instead of the full text label).
+ *  Same graduated logic as `locationOffsetToneClass`: green = inside the
+ *  AOI / within the deviation radius, amber = off but still within a
+ *  location map, rose = outside every map. */
+export function locationOffsetDotClass(offset: {
+  meters: number;
+  mode: "polygon" | "center";
+  inside: boolean;
+  withinMap: boolean;
+}): string {
+  const isGreen =
+    offset.mode === "polygon"
+      ? offset.inside
+      : offset.meters <= FIND_DEVIATION_RADIUS_M;
+  if (isGreen) return "bg-emerald-500";
+  if (offset.withinMap) return "bg-amber-500";
+  return "bg-rose-500";
+}
+
 export function formatAreaM2(m2: number): string {
   if (m2 >= 1_000_000) {
     const km2 = m2 / 1_000_000;

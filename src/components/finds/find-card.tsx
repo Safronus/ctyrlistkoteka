@@ -9,7 +9,7 @@ import {
   formatDistance,
   formatLocationId,
   formatShortDateTimeCs,
-  locationOffsetToneClass,
+  locationOffsetDotClass,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
 
@@ -55,14 +55,6 @@ export async function FindCard({
             distance: formatDistance(find.locationOffset.meters, locale),
           })
     : null;
-  const offsetTitle = find.locationOffset
-    ? offsetOutsideMap !== null
-      ? tOffset("outsideMapTitle")
-      : find.locationOffset.mode === "polygon"
-        ? tOffset("polygonTitle")
-        : tOffset("centerTitle")
-    : "";
-
   return (
     <Link
       href={`/sbirka/${find.id}`}
@@ -120,7 +112,7 @@ export async function FindCard({
               findId={find.id}
               initialVoted={voted}
               initialCount={voteCount}
-              compact
+              size="md"
             />
           </div>
         )}
@@ -131,32 +123,28 @@ export async function FindCard({
           <p className="font-semibold text-gray-900 group-hover:text-brand-700">
             #{find.id}
           </p>
-          <p className="text-xs text-gray-500">
-            {formatShortDateTimeCs(find.foundAt, locale)}
-          </p>
+          {/* Date + location-offset indicator dot, top-right. The dot
+              replaces the old "uvnitř AOI / X od středu" text line — its
+              colour graduates green→amber→rose by how far the find sits
+              from its location, with the detail in the tooltip. */}
+          <span className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">
+              {formatShortDateTimeCs(find.foundAt, locale)}
+            </span>
+            {!find.isAnonymized && find.locationOffset && offsetLabel && (
+              <span
+                role="img"
+                aria-label={offsetLabel}
+                title={offsetLabel}
+                className={`h-2.5 w-2.5 shrink-0 rounded-full ${locationOffsetDotClass(find.locationOffset)}`}
+              />
+            )}
+          </span>
         </div>
 
         {!find.isAnonymized && find.coordinates && (
           <p className="truncate font-mono text-xs text-gray-500">
             {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
-          </p>
-        )}
-        {!find.isAnonymized && find.locationOffset && offsetLabel && (
-          <p
-            className={`truncate text-xs ${locationOffsetToneClass(find.locationOffset)}`}
-            title={offsetTitle}
-          >
-            {offsetLabel}
-          </p>
-        )}
-        {!find.isAnonymized && find.distanceFromDefault !== null && (
-          <p
-            className="truncate text-xs text-gray-500"
-            title={tOffset("fromDefaultMapTitle")}
-          >
-            {tOffset("fromDefaultMap", {
-              distance: formatDistance(find.distanceFromDefault, locale),
-            })}
           </p>
         )}
 
