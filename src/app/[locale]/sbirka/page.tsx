@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Map as MapIcon } from "lucide-react";
 import { FindState } from "@prisma/client";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -97,8 +98,17 @@ function parseSort(value: string | undefined): FindSort {
   return "desc";
 }
 
-function parseView(value: string | undefined): FindView {
-  return value === "grid" ? "grid" : "list";
+/** Phone-class User-Agent → the default view is the tile grid; tablets
+ *  and desktops default to the list. `Mobi` covers iPhone + Android
+ *  phones (Chrome on Android tablets omits it, so they stay on the list,
+ *  matching desktop). Only a *default*: an explicit `?view=` always wins. */
+const MOBILE_UA_RE =
+  /Mobi|iPhone|iPod|Android.*Mobile|Windows Phone|BlackBerry|IEMobile|Opera Mini/i;
+
+/** Explicit `?view=` choice, or null when absent (→ fall back to the
+ *  UA-derived default). */
+function parseExplicitView(value: string | undefined): FindView | null {
+  return value === "grid" ? "grid" : value === "list" ? "list" : null;
 }
 
 interface PageProps {
@@ -147,7 +157,14 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const page = parseInt(pickString(sp.page)) ?? 1;
   const pageSize = parseSbirkaPageSize(pickString(sp.size));
   const sort = parseSort(pickString(sp.sort));
-  const view = parseView(pickString(sp.view));
+  // View defaults responsively: phones get the tile grid, everyone else
+  // the list. The page is force-dynamic, so reading the request UA here
+  // is free and renders a single view (no flash, no double-render). An
+  // explicit `?view=` from the toolbar always overrides the default.
+  const explicitView = parseExplicitView(pickString(sp.view));
+  const ua = (await headers()).get("user-agent") ?? "";
+  const defaultView: FindView = MOBILE_UA_RE.test(ua) ? "grid" : "list";
+  const view: FindView = explicitView ?? defaultView;
 
   const locale = await getLocale();
   // Resolve the dominant location's code for the toggle's hover label
@@ -300,7 +317,9 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     if (filters.hasRealPhoto) params.set("hasPhoto", "1");
     if (filters.excludeLocationId) params.set("hideTop", "1");
     if (sort !== "desc") params.set("sort", sort);
-    if (view !== "list") params.set("view", view);
+    // Only carry `view` when it differs from this device's default —
+    // keeps shared/paginated URLs clean for the common (un-toggled) case.
+    if (view !== defaultView) params.set("view", view);
     if (p > 1) params.set("page", String(p));
     // Only set size when it differs from the default — keeps shared
     // URLs short for the common case.
@@ -426,6 +445,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
 
       <ViewSortToolbar
         view={view}
+        defaultView={defaultView}
         sort={sort}
         dateFrom={dateToString(filters.dateFrom)}
         dateTo={dateToString(filters.dateTo)}

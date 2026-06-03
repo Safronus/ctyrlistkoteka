@@ -20,6 +20,7 @@ const DATE_INPUT_CLS =
 
 export function ViewSortToolbar({
   view,
+  defaultView,
   sort,
   dateFrom,
   dateTo,
@@ -32,6 +33,10 @@ export function ViewSortToolbar({
   dominantLocationCode,
 }: {
   view: FindView;
+  /** Device default (grid on phones, list otherwise), resolved server-side
+   *  from the UA. Used as the "clean URL" value: switching back to it drops
+   *  the `?view=` param instead of pinning it. */
+  defaultView: FindView;
   sort: FindSort;
   /** YYYY-MM-DD or empty. Native `<input type="date">` value shape. */
   dateFrom: string;
@@ -116,7 +121,7 @@ export function ViewSortToolbar({
           { value: "grid", label: t("viewGrid"), icon: <LayoutGrid className="h-4 w-4" /> },
           { value: "list", label: t("viewList"), icon: <List className="h-4 w-4" /> },
         ]}
-        onChange={(v) => setParam("view", v, "list")}
+        onChange={(v) => setParam("view", v, defaultView)}
       />
 
       {/* Sort: native <select> dropdown, mirroring /lokality. The

@@ -64,7 +64,13 @@ export default async function PublicLayout({
     <NextIntlClientProvider>
       <GoatCounterScript />
       <MainNav />
-      <main className="flex-1">{children}</main>
+      {/* overflow-x-clip guards against the odd descendant (decorative
+          off-canvas clovers, a wide embed) spilling past the viewport
+          and letting the page pan sideways on mobile. `clip` (not
+          `hidden`) doesn't create a scroll container, so the sticky
+          header — a sibling, not a child — and inner `overflow-x-auto`
+          tables / fixed modals all keep working. */}
+      <main className="flex-1 overflow-x-clip">{children}</main>
       <AnniversaryOverlay
         anniversaries={anniversaries}
         watermarkSrc={watermark?.src ?? null}
