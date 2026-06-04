@@ -50,7 +50,10 @@ export function RandomFindScreensaver({
   rotationMs = DEFAULT_SCREENSAVER_ROTATION_MS,
 }: {
   initial: RandomFindShowcase;
-  onClose: () => void;
+  /** Called on exit with the find currently on screen, so the inline
+   *  widget can adopt it instead of snapping back to the pre-fullscreen
+   *  one (and re-anchor its countdown to match). */
+  onClose: (finalFind: RandomFindShowcase) => void;
   /** Rotation interval in ms (admin-tunable). Faster than the inline
    *  widget by default. */
   rotationMs?: number;
@@ -61,6 +64,15 @@ export function RandomFindScreensaver({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  // Track the latest find in a ref so every close path — including the
+  // Esc handler and the fullscreenchange listener, both captured inside
+  // effects — reports the image currently on screen, not a stale closure.
+  const findRef = useRef(find);
+  useEffect(() => {
+    findRef.current = find;
+  }, [find]);
+  const handleClose = useCallback(() => onClose(findRef.current), [onClose]);
 
   // Pull a fresh random find every 10 s. `no-store` so we bypass the
   // API's 60 s cache and actually see variety in the slideshow.
@@ -83,11 +95,11 @@ export function RandomFindScreensaver({
   // Esc closes (desktop). Mobile relies on the tap / close button.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") handleClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [handleClose]);
 
   // Real OS fullscreen as progressive enhancement. Missing API (iPhone
   // Safari) → silently stay in pseudo-fullscreen. Leaving real
@@ -108,7 +120,7 @@ export function RandomFindScreensaver({
 
     const onFsChange = () => {
       const active = doc.fullscreenElement ?? doc.webkitFullscreenElement;
-      if (!active) onClose();
+      if (!active) handleClose();
     };
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("webkitfullscreenchange", onFsChange);
@@ -128,7 +140,7 @@ export function RandomFindScreensaver({
         }
       }
     };
-  }, [onClose]);
+  }, [handleClose]);
 
   // Keep the screen awake (best-effort). The lock is auto-released when
   // the tab is hidden, so re-acquire on visibility.
@@ -172,7 +184,7 @@ export function RandomFindScreensaver({
       role="dialog"
       aria-modal="true"
       aria-label={t("screensaverAria")}
-      onClick={onClose}
+      onClick={handleClose}
       className="fixed inset-0 z-[9999] flex cursor-pointer items-center justify-center bg-black"
     >
       <style>{`
@@ -191,7 +203,7 @@ export function RandomFindScreensaver({
 
       <button
         type="button"
-        onClick={onClose}
+        onClick={handleClose}
         aria-label={t("screensaverCloseAria")}
         title={t("screensaverCloseAria")}
         className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white/70 backdrop-blur transition hover:bg-white/20 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/40"

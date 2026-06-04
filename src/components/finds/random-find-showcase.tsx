@@ -45,6 +45,12 @@ export function RandomFindShowcaseWidget({
   const [find, setFind] = useState<RandomFindShowcase | null>(initial);
   const [refreshing, setRefreshing] = useState(false);
   const [screensaverOpen, setScreensaverOpen] = useState(false);
+  // Bumped every time the displayed find's countdown should restart — a
+  // successful rotation/refresh, or returning from the screensaver. Both
+  // the countdown bar (its `key`) and the auto-rotation interval (an
+  // effect dep) read it, so the visible timer and the actual rotation
+  // stay anchored to the same moment.
+  const [cycleKey, setCycleKey] = useState(0);
   // Per-visitor "did I already vote for THIS find?" — populated on
   // mount + every time the find changes. Until the GET resolves we
   // show `voted=false` (server pre-paint has no cookies anyway).
@@ -64,7 +70,10 @@ export function RandomFindShowcaseWidget({
       });
       if (!res.ok) return;
       const data = (await res.json()) as RandomFindShowcase | null;
-      if (data) setFind(data);
+      if (data) {
+        setFind(data);
+        setCycleKey((k) => k + 1);
+      }
     } catch {
       /* swallow — keep the previous find on screen */
     } finally {
@@ -72,7 +81,25 @@ export function RandomFindShowcaseWidget({
     }
   }, []);
 
+  // Adopt the last image the screensaver showed (otherwise the inline
+  // widget snaps back to the pre-fullscreen find) and restart the
+  // countdown so the timer matches what's now on screen. Stable identity
+  // so the overlay's close-path effects don't re-run on every re-render.
+  const handleScreensaverClose = useCallback(
+    (finalFind: RandomFindShowcase) => {
+      setFind(finalFind);
+      setCycleKey((k) => k + 1);
+      setScreensaverOpen(false);
+    },
+    [],
+  );
+
   useEffect(() => {
+    // Pause auto-rotation while the screensaver covers the widget — no
+    // background churn, and the timer re-anchors to the moment it closes.
+    // `cycleKey` re-arms the interval on every find change so it stays in
+    // lockstep with the countdown bar (also keyed on cycleKey).
+    if (screensaverOpen) return;
     const i = setInterval(() => refresh(false), rotationMs);
     const onVisibility = () => {
       if (document.visibilityState === "visible") refresh(false);
@@ -82,7 +109,7 @@ export function RandomFindShowcaseWidget({
       clearInterval(i);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [refresh, rotationMs]);
+  }, [refresh, rotationMs, screensaverOpen, cycleKey]);
 
   // Hydrate the per-visitor vote state whenever the find ID changes.
   // The GET endpoint is cheap (one DB hit + cookie/header read) and
@@ -248,7 +275,7 @@ export function RandomFindShowcaseWidget({
             title={t("rotationTitle")}
           >
             <div
-              key={find.id}
+              key={cycleKey}
               className="ctyr-rf-countdown-fill h-full bg-brand-500"
             />
           </div>
@@ -266,7 +293,7 @@ export function RandomFindShowcaseWidget({
         <RandomFindScreensaver
           initial={find}
           rotationMs={screensaverMs}
-          onClose={() => setScreensaverOpen(false)}
+          onClose={handleScreensaverClose}
         />
       )}
     </section>
