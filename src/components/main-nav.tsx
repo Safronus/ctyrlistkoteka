@@ -4,11 +4,11 @@ import Image from "next/image";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { NavLink } from "@/components/nav-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleSwitcher } from "@/components/locale-switcher";
-import { SITE_NAME } from "@/lib/constants";
+import { siteName } from "@/lib/siteName";
 
 const NAV_HREFS: ReadonlyArray<{ href: string; key: string }> = [
   { href: "/", key: "home" },
@@ -23,6 +23,7 @@ const NAV_HREFS: ReadonlyArray<{ href: string; key: string }> = [
  */
 export function MainNav() {
   const t = useTranslations("Nav");
+  const locale = useLocale();
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
@@ -51,7 +52,7 @@ export function MainNav() {
             priority
             className="h-9 w-9 shrink-0"
           />
-          <span className="truncate">{SITE_NAME}</span>
+          <span className="truncate">{siteName(locale)}</span>
         </Link>
 
         {/* Desktop nav — only from 900px up. Below that the 5 inline

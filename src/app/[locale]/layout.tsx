@@ -20,7 +20,7 @@ import { AnniversaryOverlay } from "@/components/anniversary/anniversary-overlay
 import { MainNav } from "@/components/main-nav";
 import { GoatCounterScript } from "@/components/visits/goatcounter-script";
 import { VisitCounter } from "@/components/visits/visit-counter";
-import { SITE_NAME } from "@/lib/constants";
+import { siteName } from "@/lib/siteName";
 import { getAnniversaryDates } from "@/lib/queries/anniversaries";
 import { getWatermarkMeta } from "@/lib/queries/watermark";
 import { routing } from "@/i18n/routing";
@@ -85,7 +85,7 @@ export default async function PublicLayout({
           <span>
             {t("copyright", {
               year: new Date().getFullYear(),
-              site: SITE_NAME,
+              site: siteName(locale),
             })}
           </span>
           <span aria-hidden>·</span>

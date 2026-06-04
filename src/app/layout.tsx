@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { getLocale } from "next-intl/server";
 import { ThemeScript } from "@/components/theme-script";
-import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/constants";
+import { SITE_DESCRIPTION } from "@/lib/constants";
+import { siteName } from "@/lib/siteName";
 import "./globals.css";
 
 const inter = Inter({
@@ -11,31 +12,39 @@ const inter = Inter({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    template: `%s · ${SITE_NAME}`,
-    default: SITE_NAME,
-  },
-  description: SITE_DESCRIPTION,
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-  ),
-  icons: {
-    icon: [
-      { url: "/clover.png", type: "image/png" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
-    ],
-  },
-  openGraph: {
-    title: SITE_NAME,
+// Locale-aware so the document <title> template and OpenGraph title carry
+// the English wordmark ("Safron's Luckographer") on /en pages and the
+// Czech one elsewhere. getLocale() resolves the request locale (defaults
+// to Czech on non-localized routes like /admin).
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const name = siteName(locale);
+  return {
+    title: {
+      template: `%s · ${name}`,
+      default: name,
+    },
     description: SITE_DESCRIPTION,
-    type: "website",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+    metadataBase: new URL(
+      process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+    ),
+    icons: {
+      icon: [
+        { url: "/clover.png", type: "image/png" },
+        { url: "/favicon.svg", type: "image/svg+xml" },
+      ],
+    },
+    openGraph: {
+      title: name,
+      description: SITE_DESCRIPTION,
+      type: "website",
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+}
 
 /**
  * Minimal root layout — just the `<html>` shell plus universal scripts.

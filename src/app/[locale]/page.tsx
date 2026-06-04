@@ -28,6 +28,7 @@ import {
   locationDetailHref,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
+import { siteNameShort } from "@/lib/siteName";
 import { FindThumbnail } from "@/components/finds/find-thumbnail";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
 import { VoteButton } from "@/components/finds/vote-button";
@@ -99,7 +100,7 @@ export default async function HomePage() {
           3. Intro paragraph + "naposledy doplněno" line, centered. */}
       <section>
         <h1 className="ctyr-hero-title text-center text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-          Čtyřlístkotéka
+          {siteNameShort(locale)}
         </h1>
 
         <div className="mt-6 flex flex-col items-center justify-center gap-4 sm:gap-5 lg:flex-row">
