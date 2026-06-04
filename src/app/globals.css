@@ -138,6 +138,29 @@
   --color-amber-800: oklch(0.86 0.10 80);
   --color-amber-900: oklch(0.92 0.06 80);
 
+  /* Success / OK — emerald. The admin leans on emerald as its
+     "consistent / merged / added" green: the LokaceStavyPoznamky merge
+     summary + result notices, /admin/checks rows, file-action
+     confirmations and status badges all pair `bg-emerald-50` /
+     `text-emerald-900` (+ `bg-white/70` cards) — and it's the public
+     "at-location / has-photo" accent too. Without a remap those render
+     as bright light-green islands with near-black, unreadable text on
+     the near-black page. Same recipe as amber/rose/purple: low shades
+     become dark emerald surfaces, high shades become light emerald text,
+     mid shades stay vivid for status dots / icons. Hue 162° = Tailwind's
+     emerald family. */
+  --color-emerald-50: oklch(0.22 0.05 162);
+  --color-emerald-100: oklch(0.27 0.07 162);
+  --color-emerald-200: oklch(0.34 0.09 162);
+  --color-emerald-300: oklch(0.42 0.11 162);
+  --color-emerald-400: oklch(0.58 0.15 162);
+  --color-emerald-500: oklch(0.66 0.16 162);
+  --color-emerald-600: oklch(0.72 0.15 162);
+  --color-emerald-700: oklch(0.80 0.13 162);
+  --color-emerald-800: oklch(0.86 0.10 162);
+  --color-emerald-900: oklch(0.92 0.06 162);
+  --color-emerald-950: oklch(0.95 0.04 162);
+
   /* Black-line logo / watermark needs to flip to white silhouette on
      near-black surfaces, otherwise it disappears. The image file itself
      is black-on-transparent, so a simple invert is enough — opt-in via
