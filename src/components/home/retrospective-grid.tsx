@@ -14,9 +14,11 @@ function toIntlLocale(locale: string): string {
 }
 
 /**
- * "Retrospektiva" — 2×2 grid of compact vertical bar charts comparing
- * the visitor's current calendar position (today / ISO week / month /
- * year) across all years the collection has been active.
+ * "Retrospektiva" — a row of three compact vertical bar charts comparing
+ * the visitor's current calendar position (today / ISO week / month)
+ * across all years the collection has been active. (A year-to-date tile
+ * also exists in the bundle but is intentionally not rendered — it
+ * duplicated the headline totals shown elsewhere on the page.)
  */
 export async function RetrospectiveGrid({
   data,
@@ -73,7 +75,9 @@ export async function RetrospectiveGrid({
           })}
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* Day / week / month — three compact charts on one row (the
+          year-to-date tile was dropped as redundant with the rest). */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <RetrospectivePanel
           period={data.day}
           label={labelFor(data.day)}
@@ -92,13 +96,6 @@ export async function RetrospectiveGrid({
           period={data.month}
           label={labelFor(data.month)}
           hint={hintFor(data.month)}
-          t={t}
-          numFmt={numFmt}
-        />
-        <RetrospectivePanel
-          period={data.year}
-          label={labelFor(data.year)}
-          hint={hintFor(data.year)}
           t={t}
           numFmt={numFmt}
         />
@@ -137,7 +134,7 @@ function RetrospectivePanel({
 
   return (
     <article className="flex flex-col rounded-xl border border-gray-200 bg-white p-3">
-      <header>
+      <header className="text-center">
         <p className="text-base font-semibold text-gray-900">{label}</p>
         <p className="mt-0.5 text-xs text-gray-500">{hint}</p>
       </header>
@@ -179,7 +176,7 @@ function RetrospectivePanel({
           );
         })}
       </svg>
-      <p className="mt-2 border-t border-gray-100 pt-2 text-right text-[11px] text-gray-500">
+      <p className="mt-2 border-t border-gray-100 pt-2 text-center text-[11px] text-gray-500">
         {t.rich("totalSuffix", {
           count: total,
           total: () => (
