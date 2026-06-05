@@ -266,6 +266,9 @@ model QrCode {
   titleText   String?   @map("title_text") @db.VarChar(200)
   showCaption Boolean   @default(false) @map("show_caption")
   size        String    @default("md") @db.VarChar(8)
+  border       String   @default("none") @db.VarChar(12) // none | frame | panel | cut
+  borderRadius String   @default("soft") @map("border_radius") @db.VarChar(8) // soft | round
+  borderColor  String   @default("theme") @map("border_color") @db.VarChar(8) // theme | gray
   /// Set when the physical QR is retired ("Zničený"). Redirect still works.
   archivedAt  DateTime? @map("archived_at") @db.Timestamptz
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz

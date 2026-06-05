@@ -33,6 +33,20 @@ const SIZE_OPTS = [
   { v: "md", l: "Střední" },
   { v: "lg", l: "Velký" },
 ];
+const BORDER_OPTS = [
+  { v: "none", l: "Žádný" },
+  { v: "frame", l: "Rámeček" },
+  { v: "panel", l: "Pozadí" },
+  { v: "cut", l: "Řezací linka" },
+];
+const RADIUS_OPTS = [
+  { v: "soft", l: "Mírné" },
+  { v: "round", l: "Kulaté" },
+];
+const BORDER_COLOR_OPTS = [
+  { v: "theme", l: "Dle vzhledu" },
+  { v: "gray", l: "Šedá" },
+];
 const PNG_SCALES = [1, 2, 4];
 
 const DEFAULT_CFG: QrInput = {
@@ -47,6 +61,9 @@ const DEFAULT_CFG: QrInput = {
   titleText: "",
   showCaption: false,
   size: "md",
+  border: "none",
+  borderRadius: "soft",
+  borderColor: "theme",
 };
 
 export function QrGeneratorForm() {
@@ -185,6 +202,34 @@ export function QrGeneratorForm() {
             options={SIZE_OPTS}
           />
         </Field>
+
+        <Field label="Okraj">
+          <Seg
+            value={cfg.border}
+            onChange={(v) => set("border", v)}
+            options={BORDER_OPTS}
+          />
+        </Field>
+        {cfg.border !== "none" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Zaoblení rohů">
+              <Seg
+                value={cfg.borderRadius}
+                onChange={(v) => set("borderRadius", v)}
+                options={RADIUS_OPTS}
+              />
+            </Field>
+            {cfg.border !== "panel" && (
+              <Field label="Barva okraje">
+                <Seg
+                  value={cfg.borderColor}
+                  onChange={(v) => set("borderColor", v)}
+                  options={BORDER_COLOR_OPTS}
+                />
+              </Field>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <Check

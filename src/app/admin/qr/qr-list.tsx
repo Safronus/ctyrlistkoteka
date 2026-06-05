@@ -15,6 +15,7 @@ import {
   restoreQrAction,
 } from "./qr-actions";
 import { downloadPng, downloadSvg } from "./qr-download";
+import { QrPdfButton } from "./qr-pdf-button";
 
 export interface QrListItem {
   id: number;
@@ -174,6 +175,7 @@ function Row({ item, muted }: { item: QrListItem; muted: boolean }) {
             <Download className="h-3.5 w-3.5" aria-hidden />
             <span className="ml-1 text-[11px]">PNG</span>
           </IconBtn>
+          <QrPdfButton id={item.id} />
           <button
             type="button"
             onClick={toggleArchive}

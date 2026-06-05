@@ -15,4 +15,7 @@ export interface QrInput {
   titleText: string;
   showCaption: boolean;
   size: string;
+  border: string;
+  borderRadius: string;
+  borderColor: string;
 }

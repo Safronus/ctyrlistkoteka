@@ -10,22 +10,22 @@ import QRCode from "qrcode";
  *   - Three corner finder patterns ALWAYS render as solid squares —
  *     scanners detect those geometrically, so they never degrade to a
  *     decorative shape regardless of the chosen module style.
- *   - Data/timing/alignment modules render in the chosen style: clover
- *     symbol (branded), plain square (classic) or dot. Contrast/spacing
- *     is enough for scanners.
+ *   - Data modules render in the chosen style: clover symbol (branded),
+ *     plain square (classic) or dot.
  *   - An optional center image (brand clover or author smiley) sits in a
- *     carved-out hole; level-H error correction (~30 % recovery) covers
- *     the obscured modules.
+ *     carved-out hole; level-H error correction covers the obscured cells.
+ *   - The title auto-fits the QR width: it shrinks to a floor font, then
+ *     wraps onto multiple word-broken lines, so long names never clip.
  *
- * Reader note: scans cleanly head-on. The `dark` theme is light-on-dark
- * (inverted) — most modern scanners cope, but it's the least robust of
- * the three; print a `classic`/`brand` one when reliability matters.
+ * Reader note: the `dark` theme is light-on-dark (inverted) — most modern
+ * scanners cope, but print a `classic`/`brand` one when it must be robust.
  */
 
 function readPngB64(file: string): string {
   try {
-    const p = path.resolve(process.cwd(), "public", file);
-    return readFileSync(p).toString("base64");
+    return readFileSync(path.resolve(process.cwd(), "public", file)).toString(
+      "base64",
+    );
   } catch {
     return "";
   }
@@ -38,6 +38,9 @@ export type QrModuleStyle = "clover" | "square" | "dot";
 export type QrCenter = "clover" | "smiley" | "none";
 export type QrCenterScale = "sm" | "md";
 export type QrSize = "sm" | "md" | "lg";
+export type QrBorder = "none" | "frame" | "panel" | "cut";
+export type QrBorderRadius = "soft" | "round";
+export type QrBorderColor = "theme" | "gray";
 
 interface ThemeColors {
   bg: string;
@@ -47,11 +50,11 @@ interface ThemeColors {
   caption: string;
   /** Pad behind the center image so modules don't crowd it. */
   hole: string;
+  /** Tint for the "panel" border. */
+  panel: string;
 }
 
 const THEMES: Record<QrTheme, ThemeColors> = {
-  // Branded green — matches the find QR (dark-green finders, lighter
-  // clover modules) on white.
   brand: {
     bg: "#ffffff",
     finder: "#2f6230",
@@ -59,8 +62,8 @@ const THEMES: Record<QrTheme, ThemeColors> = {
     title: "#111827",
     caption: "#6b7280",
     hole: "#ffffff",
+    panel: "#eef6f0",
   },
-  // Plain black-on-white — maximum scan reliability / print safety.
   classic: {
     bg: "#ffffff",
     finder: "#111827",
@@ -68,8 +71,8 @@ const THEMES: Record<QrTheme, ThemeColors> = {
     title: "#111827",
     caption: "#6b7280",
     hole: "#ffffff",
+    panel: "#f3f4f6",
   },
-  // Light-on-dark — looks sharp, slightly riskier to scan (inverted).
   dark: {
     bg: "#0c100e",
     finder: "#dff5e6",
@@ -77,15 +80,13 @@ const THEMES: Record<QrTheme, ThemeColors> = {
     title: "#f3f4f6",
     caption: "#9ca3af",
     hole: "#0c100e",
+    panel: "#161d19",
   },
 };
 
 const SIZE_PX: Record<QrSize, number> = { sm: 360, md: 594, lg: 900 };
 const CENTER_FRAC: Record<QrCenterScale, number> = { sm: 0.24, md: 0.32 };
 
-// Clover symbol uses `currentColor` so a single wrapping <g color=…>
-// themes every clover module at once (and the vector-clover fallback
-// for the center image).
 const CLOVER_SYMBOL = `
   <symbol id="ctyr-qr-clover" viewBox="0 0 100 100">
     <g fill="currentColor">
@@ -98,29 +99,61 @@ const CLOVER_SYMBOL = `
 `;
 
 export interface RenderQrOpts {
-  /** The URL the QR encodes. */
   url: string;
-  /** Header text above the QR; null/empty → no title band. */
   title?: string | null;
-  /** Caption text below the QR (e.g. friendly URL); null/empty → none. */
   caption?: string | null;
   theme?: QrTheme;
   moduleStyle?: QrModuleStyle;
   center?: QrCenter;
   centerScale?: QrCenterScale;
   size?: QrSize;
+  border?: QrBorder;
+  borderRadius?: QrBorderRadius;
+  borderColor?: QrBorderColor;
   /** Explicit target pixel width (wins over `size`). */
   targetQrPx?: number;
 }
 
-/** Fully self-contained SVG string (xml prolog + inline base64 images).
- *  Stream it as a Response, embed it, or rasterise to PNG on the client. */
+/** Word-aware title fit: largest single-line font that fits, else wrap by
+ *  words at the floor font. Width is estimated from the char count (no DOM
+ *  to measure with) — a slight overestimate, so it errs toward wrapping
+ *  rather than clipping. */
+function layoutTitle(
+  text: string,
+  maxWidth: number,
+  maxFont: number,
+  minFont: number,
+): { fontSize: number; lines: string[] } {
+  const widthAt = (s: string, fs: number) => s.length * fs * 0.56;
+  for (let fs = maxFont; fs >= minFont; fs -= 2) {
+    if (widthAt(text, fs) <= maxWidth) return { fontSize: fs, lines: [text] };
+  }
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    const trial = cur ? `${cur} ${w}` : w;
+    if (!cur || widthAt(trial, minFont) <= maxWidth) {
+      cur = trial;
+    } else {
+      lines.push(cur);
+      cur = w;
+    }
+  }
+  if (cur) lines.push(cur);
+  return { fontSize: minFont, lines: lines.length ? lines : [text] };
+}
+
+/** Fully self-contained SVG string (xml prolog + inline base64 images). */
 export function renderQrSvg(opts: RenderQrOpts): string {
   const theme = THEMES[opts.theme ?? "brand"];
   const moduleStyle: QrModuleStyle = opts.moduleStyle ?? "clover";
   const center: QrCenter = opts.center ?? "clover";
   const centerFrac = CENTER_FRAC[opts.centerScale ?? "md"];
   const targetQrPx = opts.targetQrPx ?? SIZE_PX[opts.size ?? "md"];
+  const border: QrBorder = opts.border ?? "none";
+  const borderRadius: QrBorderRadius = opts.borderRadius ?? "soft";
+  const borderColor: QrBorderColor = opts.borderColor ?? "theme";
   const title = opts.title && opts.title.trim() ? opts.title.trim() : null;
   const caption =
     opts.caption && opts.caption.trim() ? opts.caption.trim() : null;
@@ -137,13 +170,20 @@ export function renderQrSvg(opts: RenderQrOpts): string {
   const MODULE = Math.max(1, Math.floor(targetQrPx / SIZE));
   const QR_PX = SIZE * MODULE;
   const PADDING = 16;
-  const HEADER_H = title ? 56 : 0;
-  const HEADER_FONT = 36;
+  const contentW = QR_PX + PADDING * 2;
+
+  const titleLayout = title ? layoutTitle(title, QR_PX, 36, 18) : null;
+  const lineH = titleLayout ? Math.round(titleLayout.fontSize * 1.18) : 0;
+  const HEADER_H = titleLayout ? lineH * titleLayout.lines.length + 22 : 0;
   const FOOTER_H = caption ? 40 : 0;
   const FOOTER_FONT = 22;
-  const CARD_W = QR_PX + PADDING * 2;
-  const CARD_H = HEADER_H + PADDING + QR_PX + PADDING + FOOTER_H;
   const qrTop = HEADER_H + PADDING;
+  const contentH = HEADER_H + PADDING + QR_PX + PADDING + FOOTER_H;
+
+  // Outer margin for a border so the frame/panel/cut line has room.
+  const BM = border === "none" ? 0 : 22;
+  const CARD_W = contentW + BM * 2;
+  const CARD_H = contentH + BM * 2;
 
   const hasCenter = center !== "none";
   const centerD = hasCenter ? Math.round(QR_PX * centerFrac) : 0;
@@ -199,26 +239,59 @@ export function renderQrSvg(opts: RenderQrOpts): string {
     if (b64) {
       centerSvg += `<image href="data:image/png;base64,${b64}" x="${centerX}" y="${centerY}" width="${centerD}" height="${centerD}"/>`;
     } else {
-      // Missing public image → vector clover fallback in the module hue.
       centerSvg += `<g color="${theme.module}"><use href="#ctyr-qr-clover" x="${centerX}" y="${centerY}" width="${centerD}" height="${centerD}"/></g>`;
     }
   }
 
-  const titleSvg = title
-    ? `<text x="${CARD_W / 2}" y="${
-        HEADER_H / 2 + HEADER_FONT / 3
-      }" text-anchor="middle" font-size="${HEADER_FONT}" font-weight="700" fill="${theme.title}" letter-spacing="-1">${escapeXml(title)}</text>`
+  const titleSvg = titleLayout
+    ? (() => {
+        const blockH = lineH * titleLayout.lines.length;
+        const firstBaseline =
+          (HEADER_H - blockH) / 2 + titleLayout.fontSize * 0.8;
+        return titleLayout.lines
+          .map(
+            (line, i) =>
+              `<text x="${contentW / 2}" y="${
+                firstBaseline + i * lineH
+              }" text-anchor="middle" font-size="${titleLayout.fontSize}" font-weight="700" fill="${theme.title}" letter-spacing="-0.5">${escapeXml(
+                line,
+              )}</text>`,
+          )
+          .join("\n  ");
+      })()
     : "";
   const captionSvg = caption
-    ? `<text x="${CARD_W / 2}" y="${
+    ? `<text x="${contentW / 2}" y="${
         HEADER_H + PADDING + QR_PX + PADDING + FOOTER_H * 0.62
       }" text-anchor="middle" font-size="${FOOTER_FONT}" font-weight="500" fill="${theme.caption}">${escapeXml(caption)}</text>`
     : "";
+
+  // Border decorations (drawn in CARD coordinates, around the content).
+  const R = borderRadius === "round" ? 40 : 18;
+  const inset = BM * 0.5;
+  const bx = inset;
+  const by = inset;
+  const bw = CARD_W - inset * 2;
+  const bh = CARD_H - inset * 2;
+  const lineHex = borderColor === "gray" ? "#9ca3af" : theme.finder;
+  let panelSvg = "";
+  let borderSvg = "";
+  if (border === "panel") {
+    panelSvg = `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="${R}" fill="${theme.panel}"/>`;
+  } else if (border === "frame") {
+    borderSvg = `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="${R}" fill="none" stroke="${
+      borderColor === "gray" ? "#cbd5e1" : theme.finder
+    }" stroke-width="3"/>`;
+  } else if (border === "cut") {
+    borderSvg = `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="${R}" fill="none" stroke="${lineHex}" stroke-width="2" stroke-dasharray="9 7"/>`;
+  }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CARD_W} ${CARD_H}" width="${CARD_W}" height="${CARD_H}" font-family="Inter, system-ui, sans-serif">
   <defs>${CLOVER_SYMBOL}</defs>
   <rect x="0" y="0" width="${CARD_W}" height="${CARD_H}" fill="${theme.bg}"/>
+  ${panelSvg}
+  <g transform="translate(${BM} ${BM})">
   ${titleSvg}
   <g fill="${theme.finder}">
   ${finders.join("\n  ")}
@@ -228,23 +301,20 @@ export function renderQrSvg(opts: RenderQrOpts): string {
   </g>
   ${centerSvg}
   ${captionSvg}
+  </g>
+  ${borderSvg}
 </svg>
 `;
 }
 
 export interface RenderFindQrOpts {
-  /** Override the encoded URL. Defaults to
-   *  `${NEXT_PUBLIC_SITE_URL}/sbirka/<findId>`. */
   url?: string;
-  /** Override the header text. Defaults to `#<findId>`. */
   header?: string;
-  /** Target QR pixel width. Default 594 — matches the design mockup. */
   targetQrPx?: number;
 }
 
 /** Per-find QR — the original branded style (green clover modules + the
- *  author smiley centre + `#<id>` header). Thin wrapper over renderQrSvg
- *  so the find-detail QR is unchanged. */
+ *  author smiley centre + `#<id>` header). Thin wrapper over renderQrSvg. */
 export function renderFindQrSvg(
   findId: number,
   opts: RenderFindQrOpts = {},

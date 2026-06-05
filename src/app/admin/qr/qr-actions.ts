@@ -11,6 +11,9 @@ import {
   type QrCenter,
   type QrCenterScale,
   type QrSize,
+  type QrBorder,
+  type QrBorderRadius,
+  type QrBorderColor,
   type RenderQrOpts,
 } from "@/lib/admin/qr";
 import {
@@ -46,6 +49,9 @@ interface NormalizedQr {
   titleText: string;
   showCaption: boolean;
   size: QrSize;
+  border: QrBorder;
+  borderRadius: QrBorderRadius;
+  borderColor: QrBorderColor;
 }
 
 function pick<T extends string>(
@@ -75,6 +81,13 @@ function normalize(input: QrInput): NormalizedQr {
     titleText: String(input.titleText ?? "").trim().slice(0, 200),
     showCaption: input.showCaption === true,
     size: pick(input.size, ["sm", "md", "lg"] as const, "md"),
+    border: pick(
+      input.border,
+      ["none", "frame", "panel", "cut"] as const,
+      "none",
+    ),
+    borderRadius: pick(input.borderRadius, ["soft", "round"] as const, "soft"),
+    borderColor: pick(input.borderColor, ["theme", "gray"] as const, "theme"),
   };
 }
 
@@ -95,6 +108,9 @@ function renderOptsFor(n: NormalizedQr, url: string): RenderQrOpts {
     center: n.center,
     centerScale: n.centerScale,
     size: n.size,
+    border: n.border,
+    borderRadius: n.borderRadius,
+    borderColor: n.borderColor,
   };
 }
 
@@ -171,6 +187,9 @@ export async function createQrAction(
             titleText: n.titleText || null,
             showCaption: n.showCaption,
             size: n.size,
+            border: n.border,
+            borderRadius: n.borderRadius,
+            borderColor: n.borderColor,
           },
           select: { id: true, token: true },
         });
@@ -220,6 +239,17 @@ export async function getQrSvgAction(
       titleText: row.titleText ?? "",
       showCaption: row.showCaption,
       size: pick(row.size, ["sm", "md", "lg"] as const, "md"),
+      border: pick(
+        row.border,
+        ["none", "frame", "panel", "cut"] as const,
+        "none",
+      ),
+      borderRadius: pick(
+        row.borderRadius,
+        ["soft", "round"] as const,
+        "soft",
+      ),
+      borderColor: pick(row.borderColor, ["theme", "gray"] as const, "theme"),
     };
     const url = `${SITE_URL}/go/${row.token}`;
     return {
