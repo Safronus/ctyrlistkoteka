@@ -160,6 +160,6 @@ export const config = {
     // Without that rewrite, Next.js sees no route at the bare path and
     // returns 500 to every Link's prefetch — which broke the entire
     // sbírka grid after F1 moved pages into the [locale] segment.
-    "/((?!api|_next/static|_next/image|favicon.ico|favicon.svg|clover.png|safronus.png|robots.txt|sitemap.xml).*)",
+    "/((?!api|go|_next/static|_next/image|favicon.ico|favicon.svg|clover.png|safronus.png|robots.txt|sitemap.xml).*)",
   ],
 };

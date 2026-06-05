@@ -237,3 +237,53 @@ model FindStateAssignment {
   @@index([state])
   @@map("find_state_assignments")
 }
+
+// ============================================================
+//  QR CODES (admin-generated links to the public site)
+// ============================================================
+//  Each generated QR gets a short `token`; the /go/<token> redirect
+//  resolves it — logs a QrScan and 302s to the chosen public page.
+//  Render options are stored so the same QR re-downloads identically.
+//  Retiring a physical QR sets `archivedAt` ("Zničený"): the redirect
+//  keeps working for stray scans and the scan history is preserved.
+
+model QrCode {
+  id          Int       @id @default(autoincrement())
+  /// Short unique slug encoded in the QR (the /go/<token> path).
+  token       String    @unique @db.VarChar(16)
+  /// Human label for the evidence list (e.g. where it's stuck).
+  label       String    @db.VarChar(200)
+  /// Target public page key: home | sbirka | lokality | mapa | statistiky
+  target      String    @db.VarChar(20)
+  /// Locale the QR links to: cs | en
+  locale      String    @default("cs") @db.VarChar(5)
+  // render options (stored so re-download reproduces the same image)
+  theme       String    @default("brand") @db.VarChar(16)
+  moduleStyle String    @default("clover") @map("module_style") @db.VarChar(16)
+  centerImage String    @default("clover") @map("center_image") @db.VarChar(16)
+  centerScale String    @default("md") @map("center_scale") @db.VarChar(8)
+  showTitle   Boolean   @default(true) @map("show_title")
+  titleText   String?   @map("title_text") @db.VarChar(200)
+  showCaption Boolean   @default(false) @map("show_caption")
+  size        String    @default("md") @db.VarChar(8)
+  /// Set when the physical QR is retired ("Zničený"). Redirect still works.
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  scans QrScan[]
+
+  @@index([archivedAt])
+  @@map("qr_codes")
+}
+
+model QrScan {
+  id        Int      @id @default(autoincrement())
+  qrCodeId  Int      @map("qr_code_id")
+  qrCode    QrCode   @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+  /// Timestamp only — no IP / UA / PII is stored for scans.
+  scannedAt DateTime @default(now()) @map("scanned_at") @db.Timestamptz
+
+  @@index([qrCodeId])
+  @@index([scannedAt])
+  @@map("qr_scans")
+}

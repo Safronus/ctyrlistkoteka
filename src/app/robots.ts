@@ -10,7 +10,9 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/"],
+        // /go/ is the QR scan-redirect util; keep it (and admin) out of
+        // the index. The QR landing pages themselves stay indexable.
+        disallow: ["/api/", "/go/", "/admin/"],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

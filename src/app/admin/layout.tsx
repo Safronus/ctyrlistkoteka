@@ -7,6 +7,7 @@ import {
   FileJson,
   FolderTree,
   Gauge,
+  QrCode,
   ShieldCheck,
 } from "lucide-react";
 import { getAdminSession, isAuthenticated } from "@/lib/admin/session";
@@ -57,6 +58,7 @@ export default async function AdminLayout({
                   label="JSON"
                 />
                 <NavLink href="/admin/sync" icon={Database} label="Sync" />
+                <NavLink href="/admin/qr" icon={QrCode} label="QR" />
                 <NavLink
                   href="/admin/visitors"
                   icon={BarChart3}
