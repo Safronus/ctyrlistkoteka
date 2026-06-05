@@ -50,8 +50,10 @@ interface ThemeColors {
   caption: string;
   /** Pad behind the center image so modules don't crowd it. */
   hole: string;
-  /** Tint for the "panel" border. */
+  /** Fill for the "panel" border. */
   panel: string;
+  /** Stroke around the "panel" so it reads as a distinct chip. */
+  panelBorder: string;
 }
 
 const THEMES: Record<QrTheme, ThemeColors> = {
@@ -62,7 +64,8 @@ const THEMES: Record<QrTheme, ThemeColors> = {
     title: "#111827",
     caption: "#6b7280",
     hole: "#ffffff",
-    panel: "#eef6f0",
+    panel: "#e3f2e8",
+    panelBorder: "#b7dcc4",
   },
   classic: {
     bg: "#ffffff",
@@ -71,7 +74,8 @@ const THEMES: Record<QrTheme, ThemeColors> = {
     title: "#111827",
     caption: "#6b7280",
     hole: "#ffffff",
-    panel: "#f3f4f6",
+    panel: "#eef1f4",
+    panelBorder: "#d1d5db",
   },
   dark: {
     bg: "#0c100e",
@@ -80,7 +84,8 @@ const THEMES: Record<QrTheme, ThemeColors> = {
     title: "#f3f4f6",
     caption: "#9ca3af",
     hole: "#0c100e",
-    panel: "#161d19",
+    panel: "#1a231d",
+    panelBorder: "#324036",
   },
 };
 
@@ -277,7 +282,7 @@ export function renderQrSvg(opts: RenderQrOpts): string {
   let panelSvg = "";
   let borderSvg = "";
   if (border === "panel") {
-    panelSvg = `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="${R}" fill="${theme.panel}"/>`;
+    panelSvg = `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="${R}" fill="${theme.panel}" stroke="${theme.panelBorder}" stroke-width="2"/>`;
   } else if (border === "frame") {
     borderSvg = `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="${R}" fill="none" stroke="${
       borderColor === "gray" ? "#cbd5e1" : theme.finder
@@ -287,7 +292,7 @@ export function renderQrSvg(opts: RenderQrOpts): string {
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CARD_W} ${CARD_H}" width="${CARD_W}" height="${CARD_H}" font-family="Inter, system-ui, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CARD_W} ${CARD_H}" width="${CARD_W}" height="${CARD_H}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">
   <defs>${CLOVER_SYMBOL}</defs>
   <rect x="0" y="0" width="${CARD_W}" height="${CARD_H}" fill="${theme.bg}"/>
   ${panelSvg}

@@ -12,6 +12,9 @@ export interface QrPdfOpts {
   count: number | "fill";
   /** Draw a thin cut box around each piece. */
   cutGuides: boolean;
+  /** Optional caption printed *outside* the QR (below each piece) — the
+   *  token or the name. Empty/omitted → none. */
+  label?: string;
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -39,6 +42,10 @@ export async function generateQrPdf(
 
   const pieceW = opts.pieceMm;
   const pieceH = pieceW * aspect;
+  const label = opts.label?.trim() || "";
+  // Reserve a strip below each piece for the optional caption.
+  const labelH = label ? Math.max(3.5, pieceW * 0.11) : 0;
+  const cellH = pieceH + labelH;
 
   // Rasterise once at ~300 DPI for the chosen physical width.
   const targetPx = Math.round((pieceW / 25.4) * 300);
@@ -53,9 +60,11 @@ export async function generateQrPdf(
   const usableW = pageW - 2 * margin;
   const usableH = pageH - 2 * margin;
   const cols = Math.max(1, Math.floor((usableW + gap) / (pieceW + gap)));
-  const rows = Math.max(1, Math.floor((usableH + gap) / (pieceH + gap)));
+  const rows = Math.max(1, Math.floor((usableH + gap) / (cellH + gap)));
   const perPage = cols * rows;
   const total = opts.count === "fill" ? perPage : Math.max(1, opts.count);
+
+  const fontPt = Math.max(5, Math.min(11, pieceW * 0.22));
 
   for (let placed = 0; placed < total; placed++) {
     if (placed > 0 && placed % perPage === 0) pdf.addPage();
@@ -63,12 +72,20 @@ export async function generateQrPdf(
     const col = onPage % cols;
     const row = Math.floor(onPage / cols);
     const x = margin + col * (pieceW + gap);
-    const y = margin + row * (pieceH + gap);
+    const y = margin + row * (cellH + gap);
     pdf.addImage(pngDataUrl, "PNG", x, y, pieceW, pieceH);
+    if (label) {
+      pdf.setFontSize(fontPt);
+      pdf.setTextColor(70);
+      const line = pdf.splitTextToSize(label, pieceW)[0] ?? label;
+      pdf.text(line, x + pieceW / 2, y + pieceH + labelH * 0.72, {
+        align: "center",
+      });
+    }
     if (opts.cutGuides) {
       pdf.setDrawColor(180);
       pdf.setLineWidth(0.15);
-      pdf.rect(x - gap / 2, y - gap / 2, pieceW + gap, pieceH + gap);
+      pdf.rect(x - gap / 2, y - gap / 2, pieceW + gap, cellH + gap);
     }
   }
 

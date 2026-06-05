@@ -17,6 +17,7 @@ export function QrPdfButton({ id }: { id: number }) {
   const [fill, setFill] = useState(true);
   const [count, setCount] = useState(12);
   const [cutGuides, setCutGuides] = useState(true);
+  const [labelMode, setLabelMode] = useState<"none" | "token" | "name">("none");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,10 +30,17 @@ export function QrPdfButton({ id }: { id: number }) {
         setError(r.error);
         return;
       }
+      const label =
+        labelMode === "token"
+          ? r.token
+          : labelMode === "name"
+            ? r.label
+            : undefined;
       await generateQrPdf(r.svg, `ctyrlistkoteka-qr-${r.token}-tisk.pdf`, {
         pieceMm,
         count: fill ? "fill" : Math.max(1, Math.min(500, count)),
         cutGuides,
+        label,
       });
       setOpen(false);
     } catch (e) {
@@ -140,6 +148,36 @@ export function QrPdfButton({ id }: { id: number }) {
                 <p className="mt-1 text-[11px] text-gray-400">
                   Víc kusů než se vejde na stranu = více stránek.
                 </p>
+              </div>
+
+              <div>
+                <span className="mb-1 block text-xs font-medium text-gray-700">
+                  Popisek pod kódem (mimo QR)
+                </span>
+                <div className="inline-flex overflow-hidden rounded-md border border-gray-300">
+                  {(
+                    [
+                      { v: "none", l: "Žádný" },
+                      { v: "token", l: "Token" },
+                      { v: "name", l: "Název" },
+                    ] as const
+                  ).map((o, i) => (
+                    <button
+                      key={o.v}
+                      type="button"
+                      onClick={() => setLabelMode(o.v)}
+                      className={`px-3 py-1.5 text-xs font-medium transition ${
+                        i > 0 ? "border-l border-gray-300" : ""
+                      } ${
+                        labelMode === o.v
+                          ? "bg-brand-600 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
