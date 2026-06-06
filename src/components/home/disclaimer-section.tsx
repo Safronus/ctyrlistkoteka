@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { Linkedin } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -83,27 +82,6 @@ export async function DisclaimerSection() {
               <Linkedin className="h-4 w-4" aria-hidden />
               {t("disclaimerCta")}
             </a>
-          </div>
-
-          {/* Signature in-flow, pushed to the right and tilted slightly
-              counter-clockwise like a hand-signed card. (In-flow rather
-              than absolute so it's always visible + reserves its space.
-              Inline transform avoids any arbitrary-rotate class quirk.) */}
-          <div className="mt-6 flex justify-end pr-1 sm:pr-3">
-            <span
-              className="inline-flex items-center gap-1.5 text-sm text-gray-500"
-              style={{ transform: "rotate(-15deg)" }}
-            >
-              <Image
-                src="/safronus.png"
-                alt=""
-                aria-hidden
-                width={24}
-                height={24}
-                className="theme-invertible h-6 w-6"
-              />
-              Safronus
-            </span>
           </div>
         </div>
       </div>
