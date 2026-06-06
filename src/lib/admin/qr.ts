@@ -237,9 +237,13 @@ export function renderQrSvg(opts: RenderQrOpts): string {
   let centerSvg = "";
   if (hasCenter) {
     const pad = MODULE;
+    // With the "panel" border, the centre image's backing pad picks up the
+    // panel tint too, so it blends into the panel instead of being a white
+    // patch in the middle of the tinted card.
+    const holeFill = border === "panel" ? theme.panel : theme.hole;
     centerSvg += `<rect x="${centerX - pad}" y="${centerY - pad}" width="${
       centerD + pad * 2
-    }" height="${centerD + pad * 2}" rx="${pad}" fill="${theme.hole}"/>`;
+    }" height="${centerD + pad * 2}" rx="${pad}" fill="${holeFill}"/>`;
     const b64 = center === "smiley" ? QR_SMILEY_B64 : QR_CLOVER_B64;
     if (b64) {
       centerSvg += `<image href="data:image/png;base64,${b64}" x="${centerX}" y="${centerY}" width="${centerD}" height="${centerD}"/>`;

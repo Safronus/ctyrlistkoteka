@@ -290,7 +290,7 @@ export function QrGeneratorForm() {
             />
           ) : activeSvg ? (
             <div
-              className="w-full max-w-[300px] [&_svg]:h-auto [&_svg]:w-full"
+              className="mx-auto w-[300px] max-w-full [&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
               dangerouslySetInnerHTML={{ __html: activeSvg }}
             />
           ) : (
