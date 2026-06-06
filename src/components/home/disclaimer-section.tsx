@@ -26,7 +26,7 @@ export async function DisclaimerSection() {
   const t = await getTranslations("Home");
   return (
     <section className="mt-12">
-      <div className="relative mx-auto max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-brand-50/70 to-white px-8 py-6 text-center shadow-sm sm:px-12 sm:py-8">
+      <div className="relative mx-auto max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-brand-50/70 to-white px-8 pb-10 pt-6 text-center shadow-sm sm:px-12 sm:pb-9 sm:pt-8">
         <style>{`
           @keyframes ctyr-disc-drift {
             0%   { transform: translateY(0) rotate(0deg); }
@@ -70,7 +70,7 @@ export async function DisclaimerSection() {
           <p className="mt-4 text-xl font-bold text-brand-700">
             {t("disclaimerTagline")}
           </p>
-          <div className="mt-5 flex flex-col items-center gap-3">
+          <div className="mt-5 flex justify-center">
             <a
               href={LINKEDIN_URL}
               target="_blank"
@@ -80,19 +80,22 @@ export async function DisclaimerSection() {
               <Linkedin className="h-4 w-4" aria-hidden />
               {t("disclaimerCta")}
             </a>
-            <span className="inline-flex items-center gap-1.5 text-sm text-gray-500">
-              <Image
-                src="/safronus.png"
-                alt=""
-                aria-hidden
-                width={24}
-                height={24}
-                className="theme-invertible h-6 w-6"
-              />
-              Safronus
-            </span>
           </div>
         </div>
+
+        {/* Signature tucked into the bottom-right corner, tilted slightly
+            counter-clockwise like a hand-signed card. */}
+        <span className="absolute bottom-3 right-4 z-10 inline-flex -rotate-[15deg] items-center gap-1.5 text-sm text-gray-500 sm:bottom-4 sm:right-6">
+          <Image
+            src="/safronus.png"
+            alt=""
+            aria-hidden
+            width={24}
+            height={24}
+            className="theme-invertible h-6 w-6"
+          />
+          Safronus
+        </span>
       </div>
     </section>
   );
