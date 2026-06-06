@@ -38,6 +38,7 @@ import { PopularFindWidget } from "@/components/home/popular-find-widget";
 import { getTopFindsWithThumbs } from "@/lib/votes";
 import { DonatedSearchCatcher } from "@/components/home/donated-search-catcher";
 import { RetrospectiveGrid } from "@/components/home/retrospective-grid";
+import { DisclaimerShowcase } from "@/components/home/disclaimer-showcase";
 import {
   getCloverTexts,
   getCloverTranslations,
@@ -322,6 +323,10 @@ export default async function HomePage() {
        *  belongs at the bottom of the page, after the visitor has
        *  seen the current state of the collection. */}
       {retrospective && <RetrospectiveGrid data={retrospective} />}
+
+      {/* DEBUG: four disclaimer concepts behind a switcher — pick one,
+          then we keep the winner and drop the rest + the switcher. */}
+      <DisclaimerShowcase />
     </div>
   );
 }
