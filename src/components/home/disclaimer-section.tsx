@@ -26,7 +26,7 @@ export async function DisclaimerSection() {
   const t = await getTranslations("Home");
   return (
     <section className="mt-12">
-      <div className="relative mx-auto max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-brand-50/70 to-white px-8 pb-10 pt-6 text-center shadow-sm sm:px-12 sm:pb-9 sm:pt-8">
+      <div className="relative mx-auto max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-brand-50/70 to-white px-8 py-8 text-center shadow-sm sm:px-12 sm:py-10">
         <style>{`
           @keyframes ctyr-disc-drift {
             0%   { transform: translateY(0) rotate(0deg); }
@@ -81,21 +81,28 @@ export async function DisclaimerSection() {
               {t("disclaimerCta")}
             </a>
           </div>
-        </div>
 
-        {/* Signature tucked into the bottom-right corner, tilted slightly
-            counter-clockwise like a hand-signed card. */}
-        <span className="absolute bottom-3 right-4 z-10 inline-flex -rotate-[15deg] items-center gap-1.5 text-sm text-gray-500 sm:bottom-4 sm:right-6">
-          <Image
-            src="/safronus.png"
-            alt=""
-            aria-hidden
-            width={24}
-            height={24}
-            className="theme-invertible h-6 w-6"
-          />
-          Safronus
-        </span>
+          {/* Signature in-flow, pushed to the right and tilted slightly
+              counter-clockwise like a hand-signed card. (In-flow rather
+              than absolute so it's always visible + reserves its space.
+              Inline transform avoids any arbitrary-rotate class quirk.) */}
+          <div className="mt-6 flex justify-end pr-1 sm:pr-3">
+            <span
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500"
+              style={{ transform: "rotate(-15deg)" }}
+            >
+              <Image
+                src="/safronus.png"
+                alt=""
+                aria-hidden
+                width={24}
+                height={24}
+                className="theme-invertible h-6 w-6"
+              />
+              Safronus
+            </span>
+          </div>
+        </div>
       </div>
     </section>
   );
