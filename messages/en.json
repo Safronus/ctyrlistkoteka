@@ -215,6 +215,11 @@
   },
   "Home": {
     "intro": "A public showcase of a private four-leaf clover collection — thousands of finds, recorded locations and GPS coordinates.",
+    "disclaimerHeading": "A small apology at the end",
+    "disclaimerApology": "If you searched one of the listed locations and found no four-leaf clover — I'm truly sorry 😇. I was probably faster and it's already in the collection.",
+    "disclaimerOffer": "If you'd like a clover for yourself or to send someone a little luck, reach out on LinkedIn — we'll sort out the details. (And if you know me, any other way is fine too. 🙂)",
+    "disclaimerTagline": "You can never have too much luck — and it should be given away for free :)",
+    "disclaimerCta": "Message on LinkedIn",
     "firstFound": "First clover recorded:",
     "lastUpdated": "Last collection update:",
     "lastBackfill": "Last upload of missing clovers:",
