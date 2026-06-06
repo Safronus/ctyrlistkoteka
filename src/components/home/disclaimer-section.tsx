@@ -72,7 +72,7 @@ export async function DisclaimerSection() {
           <p className="mt-4 text-xl font-bold text-brand-700">
             {t("disclaimerTagline")}
           </p>
-          <div className="mt-5 flex justify-center">
+          <div className="mt-8 flex justify-center">
             <a
               href={LINKEDIN_URL}
               target="_blank"
