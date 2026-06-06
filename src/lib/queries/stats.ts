@@ -20,6 +20,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_LOCATION_ID, FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
+import { czRegionFromCoords } from "@/lib/cz-regions";
 import { cityFromCadastralArea } from "@/lib/locationCode";
 import { listCadastralAreas } from "@/lib/queries/locations";
 
@@ -402,6 +403,10 @@ export interface StatsTopLocationsResult {
 export interface StatsGeoResult {
   byCountry: CountryPoint[];
   byCity: CategoryPoint[];
+  /** Finds per Czech region (kraj), for the "podle krajů ČR" map mode.
+   *  `code` is the ISO 3166-2 region code (e.g. "CZ-ZL"); `name` is the
+   *  Czech region name. Only points resolving inside ČR contribute. */
+  byKraj: CountryPoint[];
 }
 
 export interface StatsCalendarResult {
@@ -1308,8 +1313,8 @@ export async function getStatsTopLocations(): Promise<StatsTopLocationsResult> {
 
 export async function getStatsGeo(): Promise<StatsGeoResult> {
   const rows = await fetchGeoLocRows();
-  const { byCountry, byCity } = buildGeoBreakdowns(rows);
-  return { byCountry, byCity };
+  const { byCountry, byCity, byKraj } = buildGeoBreakdowns(rows);
+  return { byCountry, byCity, byKraj };
 }
 
 export async function getStatsCalendar(): Promise<StatsCalendarResult> {
@@ -1775,6 +1780,8 @@ function buildGeoBreakdowns(
 ): {
   byCountry: CountryPoint[];
   byCity: CategoryPoint[];
+  /** Finds per Czech region (kraj). Points outside ČR don't contribute. */
+  byKraj: CountryPoint[];
   /** Total number of distinct cities that host at least one non-
    *  anonymized location, even if its finds are still zero. Former
    *  locations (`NEEXISTUJE-`) collapse onto the canonical city
@@ -1788,6 +1795,7 @@ function buildGeoBreakdowns(
   countryCount: number;
 } {
   const countryAcc = new Map<string, { name: string; count: number }>();
+  const krajAcc = new Map<string, { name: string; count: number }>();
   const cityAcc = new Map<string, number>();
 
   for (const r of rows) {
@@ -1817,6 +1825,13 @@ function buildGeoBreakdowns(
       } else {
         countryAcc.set(country.code, { name: country.name, count: c });
       }
+      // Czech regions: only points inside ČR resolve to a kraj.
+      const kraj = czRegionFromCoords(r.lat, r.lng);
+      if (kraj) {
+        const pk = krajAcc.get(kraj.code);
+        if (pk) pk.count += c;
+        else krajAcc.set(kraj.code, { name: kraj.name, count: c });
+      }
     }
   }
 
@@ -1836,5 +1851,10 @@ function buildGeoBreakdowns(
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
 
-  return { byCountry, byCity, cityCount, countryCount };
+  const byKraj: CountryPoint[] = [...krajAcc.entries()]
+    .filter(([, v]) => v.count > 0)
+    .map(([code, v]) => ({ code, name: v.name, count: v.count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
+
+  return { byCountry, byCity, byKraj, cityCount, countryCount };
 }

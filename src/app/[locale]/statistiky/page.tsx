@@ -72,6 +72,8 @@ import { CollapsibleSection } from "@/components/stats/collapsible-section";
 import { DeviationCompass } from "@/components/stats/deviation-compass";
 import { CalendarHeatmapTabs } from "@/components/stats/calendar-heatmap-tabs";
 import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
+import { CzRegionsChoroplethMap } from "@/components/stats/cz-regions-choropleth-map";
+import { GeoMapToggle } from "@/components/stats/geo-map-toggle";
 import { TopFindsLeaderboard } from "@/components/stats/top-finds-leaderboard";
 import { TopLocationsCard } from "@/components/stats/top-locations-card";
 import { YearlyPaceBlock } from "@/components/stats/yearly-pace-block";
@@ -413,11 +415,12 @@ async function TopLocationsSection() {
 async function GeoSection() {
   const t = await getTranslations("Statistiky");
   const locale = await getLocale();
-  const { byCountry, byCity } = await getStatsGeo();
+  const { byCountry, byCity, byKraj } = await getStatsGeo();
   return (
     <GeoStatsSection
       byCountry={byCountry}
       byCity={byCity}
+      byKraj={byKraj}
       t={t}
       locale={locale}
     />
@@ -1156,11 +1159,13 @@ function FindHighlightCard({
 function GeoStatsSection({
   byCountry,
   byCity,
+  byKraj,
   t,
   locale,
 }: {
   byCountry: readonly CountryPoint[];
   byCity: readonly CategoryPoint[];
+  byKraj: readonly CountryPoint[];
   t: StatsT;
   locale: string;
 }) {
@@ -1207,7 +1212,12 @@ function GeoStatsSection({
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
               {t("geoMapHeading")}
             </h3>
-            <WorldChoroplethMap byCountry={localizedByCountry} />
+            <GeoMapToggle
+              statesLabel={t("geoMapModeStates")}
+              regionsLabel={t("geoMapModeRegions")}
+              world={<WorldChoroplethMap byCountry={localizedByCountry} />}
+              kraje={<CzRegionsChoroplethMap byKraj={byKraj} />}
+            />
           </div>
         )}
       </div>
