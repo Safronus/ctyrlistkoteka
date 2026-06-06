@@ -26,7 +26,10 @@ export async function DisclaimerSection() {
   const t = await getTranslations("Home");
   return (
     <section className="mt-12">
-      <div className="relative mx-auto max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-brand-50/70 to-white px-8 py-8 text-center shadow-sm sm:px-12 sm:py-10">
+      {/* No card frame — it reads as a plain hand-written note; the faint
+          drifting clovers are the only decoration. overflow-hidden keeps
+          the drifters within this block. */}
+      <div className="relative mx-auto max-w-3xl overflow-hidden px-6 py-6 text-center sm:px-10 sm:py-8">
         <style>{`
           @keyframes ctyr-disc-drift {
             0%   { transform: translateY(0) rotate(0deg); }
