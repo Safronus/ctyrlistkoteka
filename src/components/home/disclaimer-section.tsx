@@ -26,7 +26,7 @@ export async function DisclaimerSection() {
   const t = await getTranslations("Home");
   return (
     <section className="mt-12">
-      <div className="relative mx-auto max-w-2xl overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-brand-50/70 to-white p-8 text-center shadow-sm sm:p-10">
+      <div className="relative mx-auto max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-brand-50/70 to-white px-8 py-6 text-center shadow-sm sm:px-12 sm:py-8">
         <style>{`
           @keyframes ctyr-disc-drift {
             0%   { transform: translateY(0) rotate(0deg); }
@@ -61,16 +61,16 @@ export async function DisclaimerSection() {
           <h2 className="mt-3 text-xl font-bold tracking-tight text-gray-900">
             {t("disclaimerHeading")}
           </h2>
-          <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-gray-600">
+          <p className="mx-auto mt-3 max-w-2xl text-[15px] leading-relaxed text-gray-600">
             {t("disclaimerApology")}
           </p>
-          <p className="mx-auto mt-2 max-w-xl text-[15px] leading-relaxed text-gray-600">
+          <p className="mx-auto mt-2 max-w-2xl text-[15px] leading-relaxed text-gray-600">
             {t("disclaimerOffer")}
           </p>
-          <p className="mt-5 text-xl font-bold text-brand-700">
+          <p className="mt-4 text-xl font-bold text-brand-700">
             {t("disclaimerTagline")}
           </p>
-          <div className="mt-6 flex flex-col items-center gap-3">
+          <div className="mt-5 flex flex-col items-center gap-3">
             <a
               href={LINKEDIN_URL}
               target="_blank"
