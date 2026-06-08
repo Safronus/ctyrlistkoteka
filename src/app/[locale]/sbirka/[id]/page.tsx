@@ -220,7 +220,20 @@ export default async function FindDetailPage({ params }: PageProps) {
           >
             {t("h1", { id: find.id })}
           </h1>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* "Zobrazit na mapě" sits up here next to the title — deep-
+             *  links to /mapa?find=N (highlight + auto-fit on the map).
+             *  Shown only for finds with public GPS; anonymized finds
+             *  have no coordinates so the chip is hidden for them. */}
+            {find.coordinates && (
+              <Link
+                href={`/mapa?find=${find.id}`}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+              >
+                <MapPin className="h-3.5 w-3.5" aria-hidden />
+                <span>{t("showOnMap")}</span>
+              </Link>
+            )}
             {find.states.length > 0 && <StateBadges states={find.states} />}
             {/* Public vote button — same rules as on /sbirka rows:
              *  show only when there's a photo to vote on. NO_PHOTO
@@ -420,59 +433,43 @@ export default async function FindDetailPage({ params }: PageProps) {
                     stays rendered at the chain boundary as a
                     faded non-interactive span so the row doesn't
                     jump between finds. */}
-                {(find.coordinates ||
-                  (find.rankAtLocation &&
-                    find.rankAtLocation.total > 1)) && (
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    {find.coordinates && (
-                      <Link
-                        href={`/mapa?find=${find.id}`}
-                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
-                      >
-                        <MapPin className="h-3.5 w-3.5" aria-hidden />
-                        <span>{t("showOnMap")}</span>
-                      </Link>
-                    )}
-                    {find.rankAtLocation &&
-                      find.rankAtLocation.total > 1 && (
-                        <div className="ml-auto flex flex-wrap items-center gap-2">
-                          {/* "1." → first find at location. Stays
-                              rendered (disabled) when the visitor
-                              IS the first one so the row's button
-                              positions don't shift between finds.
-                              Mirror for the "Total." chip on the
-                              right. */}
-                          <LocationExtremeLink
-                            targetId={find.rankAtLocation.firstId}
-                            label="1."
-                            ariaLabel={t("firstAtLocation")}
-                            isCurrent={find.rankAtLocation.rank === 1}
-                          />
-                          <LocationNavLink
-                            direction="prev"
-                            targetId={find.rankAtLocation.prevId}
-                            label={t("prevAtLocation")}
-                          />
-                          <LocationNavLink
-                            direction="next"
-                            targetId={find.rankAtLocation.nextId}
-                            label={t("nextAtLocation")}
-                          />
-                          <LocationExtremeLink
-                            targetId={find.rankAtLocation.lastId}
-                            label={`${find.rankAtLocation.total.toLocaleString(
-                              locale === "en" ? "en-GB" : "cs-CZ",
-                            )}.`}
-                            ariaLabel={t("lastAtLocation")}
-                            isCurrent={
-                              find.rankAtLocation.rank ===
-                              find.rankAtLocation.total
-                            }
-                          />
-                        </div>
-                      )}
-                  </div>
-                )}
+                {find.rankAtLocation &&
+                  find.rankAtLocation.total > 1 && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {/* prev/next + first/last navigation among the finds
+                          at this location. Each chip stays rendered (faded)
+                          at the chain boundary so the row doesn't shift
+                          between finds. ("Zobrazit na mapě" moved up to the
+                          page header next to the title.) */}
+                      <LocationExtremeLink
+                        targetId={find.rankAtLocation.firstId}
+                        label="1."
+                        ariaLabel={t("firstAtLocation")}
+                        isCurrent={find.rankAtLocation.rank === 1}
+                      />
+                      <LocationNavLink
+                        direction="prev"
+                        targetId={find.rankAtLocation.prevId}
+                        label={t("prevAtLocation")}
+                      />
+                      <LocationNavLink
+                        direction="next"
+                        targetId={find.rankAtLocation.nextId}
+                        label={t("nextAtLocation")}
+                      />
+                      <LocationExtremeLink
+                        targetId={find.rankAtLocation.lastId}
+                        label={`${find.rankAtLocation.total.toLocaleString(
+                          locale === "en" ? "en-GB" : "cs-CZ",
+                        )}.`}
+                        ariaLabel={t("lastAtLocation")}
+                        isCurrent={
+                          find.rankAtLocation.rank ===
+                          find.rankAtLocation.total
+                        }
+                      />
+                    </div>
+                  )}
               </>
             ) : (
               <p className="text-sm text-gray-600">{t("noLocation")}</p>
