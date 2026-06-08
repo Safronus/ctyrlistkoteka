@@ -60,9 +60,13 @@ export interface HomeTotals {
   /** ISO date of the most recently dated find. Drives the "Poslední
    *  nález" date hint on the home stat row. */
   latestFoundAt: string | null;
-  /** How many finds were found on the same calendar day (Europe/Prague)
-   *  as `latestFoundAt` — the newest day's harvest, shown next to the
-   *  "Poslední aktualizace sbírky" line. 0 when no find has a date. */
+  /** How many finds the most recent upload added at the TOP of the
+   *  collection — finds inserted on the latest created_at day
+   *  (Europe/Prague) whose id is higher than the max id that existed
+   *  before that upload. Spans however many found-days the batch covers
+   *  (it's "what the last upload added", not a single found day). Shown
+   *  next to the "Poslední aktualizace sbírky" line. Backfill (ids below
+   *  the prior max) is excluded — that's the lastBackfill fields. */
   latestFoundCount: number;
   /** ISO timestamp of the most recent INSERT of a find whose ID falls in
    *  the historical "missing clovers" window (MISSING_CLOVER_ID_MIN..MAX
@@ -173,12 +177,27 @@ export async function getHomePageData(): Promise<HomePageData> {
         (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year,
         (SELECT MIN(found_at) FROM finds) AS first_found_at,
         (SELECT MAX(found_at) FROM finds) AS latest_found_at,
-        -- How many finds were found on the same calendar day
-        -- (Europe/Prague) as the newest one = the latest day's harvest.
-        (SELECT COUNT(*)::int FROM finds f
-          WHERE f.found_at IS NOT NULL
-            AND (f.found_at AT TIME ZONE 'Europe/Prague')::date
-                = ((SELECT MAX(found_at) FROM finds) AT TIME ZONE 'Europe/Prague')::date
+        -- "Last update" = how many finds the most recent upload added at
+        -- the TOP of the collection: finds inserted on the latest
+        -- created_at calendar day (Europe/Prague) whose id is higher than
+        -- the max id that existed before that upload. Spans however many
+        -- found-days the batch covers — it's about the upload, not a
+        -- single found day. Backfill (ids at/below the prior max) is
+        -- excluded; it's tracked by the lastBackfill fields below.
+        (
+          WITH lu AS (
+            SELECT (MAX(created_at) AT TIME ZONE 'Europe/Prague')::date AS d
+            FROM finds
+          ),
+          pm AS (
+            SELECT COALESCE(MAX(f.id), 0) AS pmax
+            FROM finds f, lu
+            WHERE (f.created_at AT TIME ZONE 'Europe/Prague')::date < lu.d
+          )
+          SELECT COUNT(*)::int
+          FROM finds f, lu, pm
+          WHERE (f.created_at AT TIME ZONE 'Europe/Prague')::date = lu.d
+            AND f.id > pm.pmax
         ) AS latest_found_count
     `,
 
