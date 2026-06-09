@@ -130,11 +130,11 @@ export default async function StatistikyPage() {
       <Suspense fallback={<PeaksSkeleton />}>
         <PeaksSection />
       </Suspense>
-      <Suspense fallback={<DeviationsSkeleton />}>
-        <DeviationsSection />
-      </Suspense>
       <Suspense fallback={<JubileesSkeleton />}>
         <JubileesSection />
+      </Suspense>
+      <Suspense fallback={<DeviationsSkeleton />}>
+        <DeviationsSection />
       </Suspense>
       {/* Top 10 most-voted finds sits between Jubilejní nálezy and
        *  Top 10 lokalit — both are "leaderboard" sections, so they
