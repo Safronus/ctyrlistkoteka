@@ -18,11 +18,8 @@
 import { cache } from "react";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import {
-  DEFAULT_LOCATION_ID,
-  FIND_DEVIATION_RADIUS_M,
-  RECORD_FIND_ID,
-} from "@/lib/constants";
+import { DEFAULT_LOCATION_ID, FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { countryFromCoords } from "@/lib/geo";
 import { czRegionFromCoords } from "@/lib/cz-regions";
 import { cityFromCadastralArea } from "@/lib/locationCode";
@@ -47,9 +44,6 @@ const JUBILEE_CANDIDATE_IDS: ReadonlyArray<number> = (() => {
   if (6666 <= JUBILEE_MAX_ID) set.add(6666);
   // Every 1000th find.
   for (let m = 1000; m <= JUBILEE_MAX_ID; m += 1000) set.add(m);
-  // The Czech-record find — fetched here so the jubilee section can pin
-  // it to its own card (it usually isn't a milestone id on its own).
-  set.add(RECORD_FIND_ID);
   return Array.from(set).sort((a, b) => a - b);
 })();
 
@@ -392,6 +386,9 @@ export interface StatsPeaksResult {
 
 export interface StatsJubileesResult {
   jubilees: JubileeFind[];
+  /** Find ids assigned the "record" effect (from the special-finds
+   *  config) — rendered as pinned trophy cards in the jubilee section. */
+  recordIds: number[];
 }
 
 export interface StatsTopLocationsResult {
@@ -1105,7 +1102,12 @@ export async function getStatsJubilees(): Promise<StatsJubileesResult> {
   // and the two devil-numbers (666, 6666). The `WHERE id IN (...)`
   // filter against a primary key returns only existing rows, so any
   // missing ID is silently skipped (the user fills gaps later as the
-  // collection grows).
+  // collection grows). Find ids assigned the "record" effect in the
+  // admin special-finds config are added so the section can pin them too.
+  const recordIds = (await getSpecialFinds())
+    .filter((s) => s.effect === "record")
+    .map((s) => s.findId);
+  const candidateIds = [...new Set([...JUBILEE_CANDIDATE_IDS, ...recordIds])];
   const rows = await prisma.$queryRaw<
     Array<{
       id: number;
@@ -1136,7 +1138,7 @@ export async function getStatsJubilees(): Promise<StatsJubileesResult> {
            END AS is_donated
     FROM finds f
     LEFT JOIN locations l ON l.id = f.location_id
-    WHERE f.id IN (${Prisma.join(JUBILEE_CANDIDATE_IDS)})
+    WHERE f.id IN (${Prisma.join(candidateIds)})
     ORDER BY f.id ASC
   `;
   return {
@@ -1157,6 +1159,7 @@ export async function getStatsJubilees(): Promise<StatsJubileesResult> {
       hasGps: r.has_gps === true,
       isDonated: r.is_donated === true,
     })),
+    recordIds,
   };
 }
 

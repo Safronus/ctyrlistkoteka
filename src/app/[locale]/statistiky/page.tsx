@@ -62,7 +62,7 @@ import {
   type StatsTimeAndPaceResult,
   type YearlyPoint,
 } from "@/lib/queries/stats";
-import { FIND_DEVIATION_RADIUS_M, RECORD_FIND_ID } from "@/lib/constants";
+import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { getLocationIdsWithRealPhotos } from "@/lib/queries/locations";
 import { localizedCountryName } from "@/lib/world-countries";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
@@ -391,8 +391,15 @@ async function PeaksSection() {
 async function JubileesSection() {
   const t = await getTranslations("Statistiky");
   const locale = await getLocale();
-  const { jubilees } = await getStatsJubilees();
-  return <JubileeFindsSection jubilees={jubilees} t={t} locale={locale} />;
+  const { jubilees, recordIds } = await getStatsJubilees();
+  return (
+    <JubileeFindsSection
+      jubilees={jubilees}
+      recordIds={recordIds}
+      t={t}
+      locale={locale}
+    />
+  );
 }
 
 async function TopLocationsSection() {
@@ -2181,23 +2188,26 @@ function formatPeakBucket(
 
 function JubileeFindsSection({
   jubilees,
+  recordIds,
   t,
   locale,
 }: {
   jubilees: readonly JubileeFind[];
+  recordIds: readonly number[];
   t: StatsT;
   locale: string;
 }) {
   if (jubilees.length === 0) return null;
-  // The Czech-record find gets its own pinned card above the grids and is
-  // kept out of the milestone lists so it doesn't appear twice.
-  const record = jubilees.find((j) => j.id === RECORD_FIND_ID) ?? null;
+  // "Record"-effect finds get their own pinned cards above the grids and
+  // are kept out of the milestone lists so they don't appear twice.
+  const recordSet = new Set(recordIds);
+  const records = jubilees.filter((j) => recordSet.has(j.id));
   const specialSet = new Set<number>();
   for (let r = 111; r <= 1_000_000; r = r * 10 + 1) specialSet.add(r);
   specialSet.add(666);
   specialSet.add(6666);
   const milestones = jubilees.filter(
-    (j) => !specialSet.has(j.id) && j.id !== RECORD_FIND_ID,
+    (j) => !specialSet.has(j.id) && !recordSet.has(j.id),
   );
   const SLOTTED_SPECIALS = [111, 666, 1111, 6666, 11111] as const;
   const SLOTTED_THOUSANDS = Array.from(
@@ -2226,7 +2236,9 @@ function JubileeFindsSection({
       subtitle={t("jubileeSubtitle")}
     >
       <div className="space-y-4">
-        {record && <RecordJubileeCard find={record} t={t} locale={locale} />}
+        {records.map((rec) => (
+          <RecordJubileeCard key={rec.id} find={rec} t={t} locale={locale} />
+        ))}
 
         <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {slottedSpecials.map((slot) =>

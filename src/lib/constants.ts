@@ -98,13 +98,9 @@ export const MISSING_CLOVER_ID_MAX = 13599;
 
 /**
  * The "Czech record" find — the milestone of the largest four-leaf clover
- * collection in ČR. Its detail page gets a celebratory overlay and it
- * gets its own pinned card in the /statistiky jubilee section. Kept as a
- * single constant so the number is trivial to change; Phase 2 will make
- * it admin-configurable (assign the special effect to any find id).
+ * collection in ČR. Used only as the default seed for the admin-assignable
+ * special-find config (src/lib/specialFinds.*): on a fresh deploy with no
+ * config file, this find gets the "record" effect. Once anything is edited
+ * in /admin → Efekty, the config file becomes the source of truth.
  */
 export const RECORD_FIND_ID = 20037;
-
-export function isRecordFind(id: number): boolean {
-  return id === RECORD_FIND_ID;
-}

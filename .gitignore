@@ -50,6 +50,8 @@ test-results/
 # Claude Code — per-machine local permissions / settings (obsahují
 # absolutní cesty k profilu uživatele, není to citlivé, ale ani sdílené).
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/worktrees/
 
 # Self-hosted GitHub Actions runner — pokud někdo runner omylem
 # rozbalí uvnitř repa (patří mimo web root, do /home/app/actions-runner),

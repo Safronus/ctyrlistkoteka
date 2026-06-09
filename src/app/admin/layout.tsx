@@ -9,6 +9,7 @@ import {
   Gauge,
   QrCode,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { getAdminSession, isAuthenticated } from "@/lib/admin/session";
 import { LogoutButton } from "./logout-button";
@@ -59,6 +60,11 @@ export default async function AdminLayout({
                 />
                 <NavLink href="/admin/sync" icon={Database} label="Sync" />
                 <NavLink href="/admin/qr" icon={QrCode} label="QR" />
+                <NavLink
+                  href="/admin/special"
+                  icon={Sparkles}
+                  label="Efekty"
+                />
                 <NavLink
                   href="/admin/visitors"
                   icon={BarChart3}

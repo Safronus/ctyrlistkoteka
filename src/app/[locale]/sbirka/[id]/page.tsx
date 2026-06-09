@@ -10,10 +10,7 @@ import {
 import { FindState, ImageType } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import {
-  DetailVibeOverlay,
-  isHellishFind,
-} from "@/components/finds/detail-vibe-overlay";
+import { DetailVibeOverlay } from "@/components/finds/detail-vibe-overlay";
 import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { BackToSbirkaLink } from "@/components/finds/sbirka-back-link";
@@ -28,7 +25,9 @@ import {
   locationDetailHref,
   locationOffsetToneClass,
 } from "@/lib/format";
-import { FIND_DEVIATION_RADIUS_M, isRecordFind } from "@/lib/constants";
+import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import { effectForFind } from "@/lib/specialFinds";
+import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { isFormerLocation } from "@/lib/locationCode";
 import {
   getAdjacentFindIds,
@@ -131,11 +130,13 @@ export default async function FindDetailPage({ params }: PageProps) {
     ? null
     : (find.images.find((i) => i.imageType === ImageType.CROP) ?? null);
 
-  // #111 and #666 get special atmospheric overlays — see CLAUDE.md /
-  // detail-vibe-overlay.tsx for the contract. Everything else renders
-  // unchanged. The overlay is full-viewport `position: fixed` so it
-  // sits on top of the article without affecting layout.
-  const hellish = isHellishFind(find.id);
+  // Special atmospheric effect for this find (record / heavenly /
+  // hellish), resolved from the admin-assignable config (defaults seed
+  // 111→heavenly, 666→hellish, record→record). The overlay is full-
+  // viewport `position: fixed` so it doesn't affect layout; `hellish`
+  // also darkens the article gradient.
+  const effect = effectForFind(find.id, await getSpecialFinds());
+  const hellish = effect === "hellish";
 
   // Vote state for this find — server reads cookie + fingerprint,
   // checks the vote table. Wrapped in try/catch so the detail page
@@ -253,10 +254,11 @@ export default async function FindDetailPage({ params }: PageProps) {
         </div>
 
         {/* Czech-record banner — the milestone find for the largest CZ
-            collection. Gated on the RECORD_FIND_ID constant (Phase 2:
-            admin-assignable). The celebratory overlay is rendered
+            collection. Shown whenever the admin-assignable special-find
+            config (src/lib/specialFinds.*) resolves this find to the
+            "record" effect. The celebratory overlay is rendered
             separately via DetailVibeOverlay. */}
-        {isRecordFind(find.id) && (
+        {effect === "record" && (
           <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 px-4 py-2.5 text-center text-sm font-semibold text-amber-900 shadow-sm">
             <Trophy className="h-5 w-5 shrink-0 text-amber-500" aria-hidden />
             {t("recordBadge")}
@@ -510,7 +512,7 @@ export default async function FindDetailPage({ params }: PageProps) {
 
   return (
     <>
-      <DetailVibeOverlay id={find.id} />
+      <DetailVibeOverlay effect={effect} />
       {hellish ? (
         <div className="min-h-screen bg-gradient-to-br from-gray-950 via-red-950/85 to-black">
           {detail}

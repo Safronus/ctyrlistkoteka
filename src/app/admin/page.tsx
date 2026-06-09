@@ -17,6 +17,7 @@ import {
   Map as MapIcon,
   Network,
   ShieldCheck,
+  Sparkles,
   Sticker,
   Timer,
   Trophy,
@@ -247,6 +248,16 @@ export default async function AdminHomePage() {
           lines={[
             "Audit + mazání hlasů (single / fp / uuid)",
             "Tlačítko pro kompletní reset",
+          ]}
+        />
+        <FeatureCard
+          icon={Sparkles}
+          title="Speciální efekty"
+          status="ok"
+          href="/admin/special"
+          lines={[
+            "data/.admin/special-finds.json",
+            "Efekt (rekord / nebeský / pekelný) k libovolnému ID",
           ]}
         />
       </Group>
