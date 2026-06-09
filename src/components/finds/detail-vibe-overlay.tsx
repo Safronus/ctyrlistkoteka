@@ -1,5 +1,7 @@
 import { HeavenlyOverlay } from "./heavenly-overlay";
 import { HellishOverlay } from "./hellish-overlay";
+import { RecordOverlay } from "./record-overlay";
+import { isRecordFind } from "@/lib/constants";
 
 /** Special-find IDs paired with their dedicated atmospheric overlays.
  *  Keep this map small — adding entries for every "interesting" id
@@ -16,6 +18,8 @@ const VIBE_BY_ID: ReadonlyMap<number, "heavenly" | "hellish"> = new Map([
  * themselves are pure CSS and don't need client-side state.
  */
 export function DetailVibeOverlay({ id }: { id: number }) {
+  // The Czech-record find takes precedence over the id-pattern vibes.
+  if (isRecordFind(id)) return <RecordOverlay />;
   const vibe = VIBE_BY_ID.get(id);
   if (vibe === "heavenly") return <HeavenlyOverlay />;
   if (vibe === "hellish") return <HellishOverlay />;

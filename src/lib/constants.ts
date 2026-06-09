@@ -95,3 +95,16 @@ export const AUTHOR_LOCATION_ID = 158;
  */
 export const MISSING_CLOVER_ID_MIN = 667;
 export const MISSING_CLOVER_ID_MAX = 13599;
+
+/**
+ * The "Czech record" find — the milestone of the largest four-leaf clover
+ * collection in ČR. Its detail page gets a celebratory overlay and it
+ * gets its own pinned card in the /statistiky jubilee section. Kept as a
+ * single constant so the number is trivial to change; Phase 2 will make
+ * it admin-configurable (assign the special effect to any find id).
+ */
+export const RECORD_FIND_ID = 20037;
+
+export function isRecordFind(id: number): boolean {
+  return id === RECORD_FIND_ID;
+}

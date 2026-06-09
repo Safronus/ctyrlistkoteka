@@ -18,7 +18,11 @@
 import { cache } from "react";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { DEFAULT_LOCATION_ID, FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import {
+  DEFAULT_LOCATION_ID,
+  FIND_DEVIATION_RADIUS_M,
+  RECORD_FIND_ID,
+} from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import { czRegionFromCoords } from "@/lib/cz-regions";
 import { cityFromCadastralArea } from "@/lib/locationCode";
@@ -43,6 +47,9 @@ const JUBILEE_CANDIDATE_IDS: ReadonlyArray<number> = (() => {
   if (6666 <= JUBILEE_MAX_ID) set.add(6666);
   // Every 1000th find.
   for (let m = 1000; m <= JUBILEE_MAX_ID; m += 1000) set.add(m);
+  // The Czech-record find — fetched here so the jubilee section can pin
+  // it to its own card (it usually isn't a milestone id on its own).
+  set.add(RECORD_FIND_ID);
   return Array.from(set).sort((a, b) => a - b);
 })();
 

@@ -21,6 +21,7 @@ import {
   Search,
   Sparkles,
   Timer,
+  Trophy,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -61,7 +62,7 @@ import {
   type StatsTimeAndPaceResult,
   type YearlyPoint,
 } from "@/lib/queries/stats";
-import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import { FIND_DEVIATION_RADIUS_M, RECORD_FIND_ID } from "@/lib/constants";
 import { getLocationIdsWithRealPhotos } from "@/lib/queries/locations";
 import { localizedCountryName } from "@/lib/world-countries";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
@@ -2188,11 +2189,16 @@ function JubileeFindsSection({
   locale: string;
 }) {
   if (jubilees.length === 0) return null;
+  // The Czech-record find gets its own pinned card above the grids and is
+  // kept out of the milestone lists so it doesn't appear twice.
+  const record = jubilees.find((j) => j.id === RECORD_FIND_ID) ?? null;
   const specialSet = new Set<number>();
   for (let r = 111; r <= 1_000_000; r = r * 10 + 1) specialSet.add(r);
   specialSet.add(666);
   specialSet.add(6666);
-  const milestones = jubilees.filter((j) => !specialSet.has(j.id));
+  const milestones = jubilees.filter(
+    (j) => !specialSet.has(j.id) && j.id !== RECORD_FIND_ID,
+  );
   const SLOTTED_SPECIALS = [111, 666, 1111, 6666, 11111] as const;
   const SLOTTED_THOUSANDS = Array.from(
     { length: 10 },
@@ -2220,6 +2226,8 @@ function JubileeFindsSection({
       subtitle={t("jubileeSubtitle")}
     >
       <div className="space-y-4">
+        {record && <RecordJubileeCard find={record} t={t} locale={locale} />}
+
         <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {slottedSpecials.map((slot) =>
             slot.kind === "find" ? (
@@ -2276,6 +2284,50 @@ function JubileeFindsSection({
         )}
       </div>
     </CollapsibleSection>
+  );
+}
+
+function RecordJubileeCard({
+  find,
+  t,
+  locale,
+}: {
+  find: JubileeFind;
+  t: StatsT;
+  locale: string;
+}) {
+  const date = find.foundAt ? new Date(find.foundAt) : null;
+  return (
+    <Link
+      href={`/sbirka/${find.id}`}
+      className="group flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 p-4 shadow-sm transition hover:border-amber-400 hover:shadow sm:flex-row sm:items-center sm:gap-4"
+    >
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 ring-1 ring-amber-300">
+        <Trophy className="h-7 w-7 text-amber-500" aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-amber-900">
+          {t("recordJubileeTitle")}
+        </p>
+        <p className="mt-0.5 truncate text-xs text-amber-800/90">
+          <span className="font-mono text-sm font-semibold text-amber-900">
+            #{find.id}
+          </span>
+          {!find.isAnonymized && date && (
+            <> · {formatDateTimeCs(date, locale)}</>
+          )}
+          {!find.isAnonymized && find.location && (
+            <>
+              {" · "}
+              <span className="font-mono">{find.location.code}</span>
+            </>
+          )}
+        </p>
+      </div>
+      <span className="inline-flex shrink-0 items-center gap-1 self-start rounded-md border border-amber-300 bg-white/70 px-2.5 py-1 text-xs font-medium text-amber-800 transition group-hover:bg-white sm:self-center">
+        {t("recordJubileeLink")}
+      </span>
+    </Link>
   );
 }
 

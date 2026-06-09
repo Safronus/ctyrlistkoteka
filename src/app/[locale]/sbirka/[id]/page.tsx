@@ -5,6 +5,7 @@ import {
   ChevronRight,
   ExternalLink,
   MapPin,
+  Trophy,
 } from "lucide-react";
 import { FindState, ImageType } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
@@ -27,7 +28,7 @@ import {
   locationDetailHref,
   locationOffsetToneClass,
 } from "@/lib/format";
-import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import { FIND_DEVIATION_RADIUS_M, isRecordFind } from "@/lib/constants";
 import { isFormerLocation } from "@/lib/locationCode";
 import {
   getAdjacentFindIds,
@@ -250,6 +251,17 @@ export default async function FindDetailPage({ params }: PageProps) {
             )}
           </div>
         </div>
+
+        {/* Czech-record banner — the milestone find for the largest CZ
+            collection. Gated on the RECORD_FIND_ID constant (Phase 2:
+            admin-assignable). The celebratory overlay is rendered
+            separately via DetailVibeOverlay. */}
+        {isRecordFind(find.id) && (
+          <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 px-4 py-2.5 text-center text-sm font-semibold text-amber-900 shadow-sm">
+            <Trophy className="h-5 w-5 shrink-0 text-amber-500" aria-hidden />
+            {t("recordBadge")}
+          </div>
+        )}
 
         {/* Notes are nulled at the query layer for anonymized AND
             donated finds (see hydrate() in src/lib/queries/finds.ts),
