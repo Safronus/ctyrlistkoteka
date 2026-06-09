@@ -136,10 +136,9 @@ export default async function StatistikyPage() {
       <Suspense fallback={<DeviationsSkeleton />}>
         <DeviationsSection />
       </Suspense>
-      {/* Top 10 most-voted finds sits between Jubilejní nálezy and
-       *  Top 10 lokalit — both are "leaderboard" sections, so they
-       *  read better grouped than scattered with the calendar
-       *  histograms at the bottom. */}
+      {/* Top 10 most-voted finds sits right above Top 10 lokalit —
+       *  both are "leaderboard" sections, so they read better grouped
+       *  than scattered with the calendar histograms at the bottom. */}
       <Suspense fallback={<TopFindsSkeleton />}>
         <TopFindsSection />
       </Suspense>
