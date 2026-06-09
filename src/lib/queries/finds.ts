@@ -84,6 +84,14 @@ export interface PublicFind {
    *  galleries surface separately. Anonymized finds force false (same
    *  rationale as hasRealPhoto). */
   hasFreePhoto: boolean;
+  /** True when this find carries the admin-assigned "record" effect
+   *  (src/lib/specialFinds.*). Drives a small trophy badge on the
+   *  /sbirka list rows + grid cards. Forced false for anonymized finds
+   *  so the milestone marker can't out a hidden find. Resolved from the
+   *  same config that powers the find-detail overlay, the /statistiky
+   *  record card, and the gold map highlight — so re-pointing the record
+   *  to another id in /admin moves every surface at once. */
+  isRecord: boolean;
   /** Offset of the find's GPS from its own location. When the location
    *  has a polygon, `meters` is the great-circle distance to the nearest
    *  polygon edge — 0 when the point is inside the AOI, positive when
@@ -479,6 +487,15 @@ async function hydrate(
     LEFT JOIN locations l ON l.id = f.location_id
     WHERE f.id IN (${Prisma.join(ids)}) AND f.coordinates IS NOT NULL
   `;
+  // Record-effect find ids from the admin-assignable config (tiny JSON,
+  // one read per hydrate batch). Lets the list/grid flag the milestone
+  // find from the same source of truth as the detail overlay + map.
+  const recordIds = new Set(
+    (await getSpecialFinds())
+      .filter((s) => s.effect === "record")
+      .map((s) => s.findId),
+  );
+
   const coordsMap = new Map<number, { lat: number; lng: number }>();
   const distMap = new Map<number, number>();
   const offsetMap = new Map<
@@ -570,6 +587,9 @@ async function hydrate(
       // Same shape for the free-photo indicator, decorated by
       // attachFreePhotoFlags. Anonymized → false.
       hasFreePhoto: false,
+      // Milestone marker. Anonymized finds force false so the badge can't
+      // betray a hidden find even if it were ever flagged in the config.
+      isRecord: !r.isAnonymized && recordIds.has(r.id),
     };
   });
 }

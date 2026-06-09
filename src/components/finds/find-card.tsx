@@ -1,5 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
-import { Camera, Images } from "lucide-react";
+import { Camera, Images, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
@@ -120,9 +120,20 @@ export async function FindCard({
 
       <div className="space-y-1 p-3">
         <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-          <p className="font-semibold text-gray-900 group-hover:text-brand-700">
-            #{find.id}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="font-semibold text-gray-900 group-hover:text-brand-700">
+              #{find.id}
+            </p>
+            {find.isRecord && (
+              <span
+                className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
+                title={tRow("recordBadgeTitle")}
+              >
+                <Trophy className="h-3 w-3" aria-hidden />
+                {tRow("recordBadge")}
+              </span>
+            )}
+          </div>
           {/* Date + location-offset indicator dot, top-right. The dot
               replaces the old "uvnitř AOI / X od středu" text line — its
               colour graduates green→amber→rose by how far the find sits

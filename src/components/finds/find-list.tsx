@@ -1,5 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
-import { Camera, Images, MapPin } from "lucide-react";
+import { Camera, Images, MapPin, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail } from "./find-thumbnail";
@@ -161,6 +161,15 @@ function FindListRow({
               <span className="shrink-0 text-base font-semibold text-brand-700 group-hover:underline">
                 #{find.id}
               </span>
+              {find.isRecord && (
+                <span
+                  className="inline-flex shrink-0 items-center gap-1 self-center rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700"
+                  title={tRow("recordBadgeTitle")}
+                >
+                  <Trophy className="h-3 w-3" aria-hidden />
+                  {tRow("recordBadge")}
+                </span>
+              )}
               {find.notes && (
                 <span className="line-clamp-2 text-sm text-gray-700">
                   {find.notes}

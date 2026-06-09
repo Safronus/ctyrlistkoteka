@@ -124,6 +124,8 @@
     "noLocation": "Bez lokality",
     "donationPhotoTitle": "Nález má reálnou fotku daru",
     "freePhotoTitle": "Nález má další volnou fotku",
+    "recordBadge": "Rekord",
+    "recordBadgeTitle": "Český rekord — největší sbírka čtyřlístků v ČR",
     "showOnMap": "Zobrazit nález na mapě"
   },
   "LocationOffset": {
