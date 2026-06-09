@@ -11,6 +11,7 @@ import {
   Crosshair,
   Crown,
   EyeOff,
+  Flame,
   Gift,
   Globe2,
   Heart,
@@ -2420,6 +2421,12 @@ function JubileeCard({
   const date = find.foundAt ? new Date(find.foundAt) : null;
   const showMapLink = !find.isAnonymized && find.hasGps;
   const isSpecial = variant === "special";
+  // The devil number gets a flame + red id instead of the golden
+  // sparkles — a nod to its hellish detail-page overlay. Deliberately
+  // keyed on the number itself (not the admin effect config): the
+  // meaning lives in the id, same as the slot layout above. Card body
+  // stays in the green "special" tint so the row reads as one family.
+  const isDevil = isSpecial && find.id === 666;
   return (
     <div
       className={`relative flex h-full flex-col rounded-md border transition hover:shadow-sm ${
@@ -2450,10 +2457,16 @@ function JubileeCard({
         href={`/sbirka/${find.id}`}
         className="flex flex-1 flex-col gap-1 p-3 text-sm"
       >
-        <span className="inline-flex items-center gap-1 font-mono text-base font-semibold text-brand-700">
-          {isSpecial && (
+        <span
+          className={`inline-flex items-center gap-1 font-mono text-base font-semibold ${
+            isDevil ? "text-red-700" : "text-brand-700"
+          }`}
+        >
+          {isDevil ? (
+            <Flame className="h-3.5 w-3.5 text-red-600" aria-hidden />
+          ) : isSpecial ? (
             <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-hidden />
-          )}
+          ) : null}
           #{find.id}
         </span>
         {find.isAnonymized ? (

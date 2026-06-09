@@ -130,20 +130,33 @@ function FindListRow({
         href={`/sbirka/${find.id}`}
         className="flex min-w-0 flex-1 items-stretch gap-4 p-3"
       >
-        <FindThumbnail
-          image={find.primaryImage}
-          alt={altText}
-          // `self-end` pins the thumbnail's bottom edge to the row
-          // bottom — same level as the vote button and the right-side
-          // state badges (which sit at column bottom via `mt-auto` +
-          // `items-end`). When the content column grows past 112 px
-          // (long location title + a multi-line note) the empty
-          // space appears ABOVE the thumb instead of straddling top
-          // and bottom; everything in the row reads off a single
-          // bottom baseline. Mirrored on the location-map thumbnail
-          // on the far right.
-          className="h-24 w-24 shrink-0 self-end rounded-md sm:h-28 sm:w-28"
-        />
+        {/* `self-end` pins the thumbnail's bottom edge to the row
+         *  bottom — same level as the vote button and the right-side
+         *  state badges (which sit at column bottom via `mt-auto` +
+         *  `items-end`). When the content column grows past 112 px
+         *  (long location title + a multi-line note) the empty
+         *  space appears ABOVE the thumb instead of straddling top
+         *  and bottom; everything in the row reads off a single
+         *  bottom baseline. Mirrored on the location-map thumbnail
+         *  on the far right. The relative wrapper hosts the record
+         *  badge overlay — in list view the badge would crowd the
+         *  note out of row 1, so it rides the photo instead. */}
+        <div className="relative shrink-0 self-end">
+          <FindThumbnail
+            image={find.primaryImage}
+            alt={altText}
+            className="h-24 w-24 rounded-md sm:h-28 sm:w-28"
+          />
+          {find.isRecord && (
+            <span
+              className="absolute left-1 top-1 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50/95 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 shadow-sm"
+              title={tRow("recordBadgeTitle")}
+            >
+              <Trophy className="h-3 w-3" aria-hidden />
+              {tRow("recordBadge")}
+            </span>
+          )}
+        </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {/* Row 1 — find-centric line: `#id` + optional find note +
@@ -161,15 +174,6 @@ function FindListRow({
               <span className="shrink-0 text-base font-semibold text-brand-700 group-hover:underline">
                 #{find.id}
               </span>
-              {find.isRecord && (
-                <span
-                  className="inline-flex shrink-0 items-center gap-1 self-center rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700"
-                  title={tRow("recordBadgeTitle")}
-                >
-                  <Trophy className="h-3 w-3" aria-hidden />
-                  {tRow("recordBadge")}
-                </span>
-              )}
               {find.notes && (
                 <span className="line-clamp-2 text-sm text-gray-700">
                   {find.notes}
