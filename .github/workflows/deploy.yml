@@ -75,6 +75,15 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm prisma generate
           pnpm prisma migrate deploy
+          # Drop the persistent build cache before every build. A deploy
+          # cancelled mid-build (concurrency: cancel-in-progress) can leave
+          # .next/cache poisoned — observed 2026-06-09 as a CSS bundle
+          # missing freshly-introduced Tailwind utilities (.top-1/.left-1)
+          # while the HTML already used them (docs/gotchas.md #4). Only the
+          # cache dir is removed: the runtime never serves from it, so this
+          # is safe with the live app still running; it just costs a full
+          # recompile per deploy.
+          rm -rf .next/cache
           pnpm build
           pm2 reload ctyrlistkoteka
           pm2 save

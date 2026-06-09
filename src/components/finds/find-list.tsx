@@ -160,22 +160,22 @@ function FindListRow({
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {/* Row 1 — find-centric line: `#id` + optional find note +
-           *  date right. The outer `items-start` anchors the date in
-           *  the top-right corner even when the note wraps to a second
-           *  line below the find ID, so the date never drifts down
-           *  into the coords row (the bug behind the prior layout's
-           *  broken vote-button alignment on long notes). The inner
-           *  left column flex-wraps so the note flows below `#id`
-           *  when it's too long to share one row. Date drops to a
-           *  short "21. 5. 2026 8:50" on phones; full weekday +
-           *  seconds restore from sm:. */}
+           *  date right. The note stays on ONE line next to the id and
+           *  ellipsizes when it doesn't fit (full text in the title
+           *  tooltip) — wrapping to a second line made row heights
+           *  jump around and pushed the rest of the row down. Date
+           *  drops to a short "21. 5. 2026 8:50" on phones; full
+           *  weekday + seconds restore from sm:. */}
           <div className="flex items-start gap-x-3">
-            <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <div className="flex min-w-0 flex-1 items-baseline gap-x-2">
               <span className="shrink-0 text-base font-semibold text-brand-700 group-hover:underline">
                 #{find.id}
               </span>
               {find.notes && (
-                <span className="line-clamp-2 text-sm text-gray-700">
+                <span
+                  className="min-w-0 flex-1 truncate text-sm text-gray-700"
+                  title={find.notes}
+                >
                   {find.notes}
                 </span>
               )}

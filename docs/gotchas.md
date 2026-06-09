@@ -109,3 +109,30 @@ z `/admin` na `/` je bezpečná, dokud cookie zůstává `HttpOnly` + `Secure` +
 stejně nedekódují). Při deploy takové změny musí uživatel smazat starou
 cookie ručně v DevTools — iron-session `destroy()` neumí orphanovat cookies
 s jiným `path`, než má aktuální config.
+
+---
+
+## 4. Zrušený deploy otráví `.next/cache` → stale Tailwind CSS na produkci
+
+**Co:** Po několika rychlých pushích za sebou (deploy workflow má
+`concurrency: cancel-in-progress`) může produkce servírovat HTML s novými
+Tailwind třídami, ale CSS bundle, kterému tyto utility chybí. Symptom
+2026-06-09: badge „Rekord" v /sbirka seznamu měla v markup `absolute left-1
+top-1`, ale `.top-1`/`.left-1` v nasazeném CSS neexistovaly → element zůstal
+ve statické pozici pod fotkou, oříznutý. Vypadá to jako CSS/layout bug v kódu,
+ale lokálně je vše správně.
+
+**Proč:** Self-hosted runner builduje v `/var/www/ctyrlistkoteka` s perzistentním
+`.next/cache` (webpack cache). Deploy zrušený uprostřed buildu může cache
+zanechat v nekonzistentním stavu; následující build pak přečte zastaralý
+zkompilovaný CSS modul (Tailwind scan se nere-runuje, protože cache klíč
+nezohlednil změněný zdrojový soubor se třídami). HTML/RSC část se přitom
+přebuildí správně — rozjede se jen CSS.
+
+**Jak aplikovat:**
+- Deploy workflow od 2026-06-09 maže `.next/cache` před každým `pnpm build`
+  (jen cache, ne celé `.next` — runtime z cache neservíruje, takže je to
+  bezpečné za běhu; stojí to jen plnou rekompilaci).
+- Diagnóza při podezření: `curl` HTML → ověř, že markup třídu má; pak `curl`
+  CSS bundle z `/_next/static/css/…` a `grep` na `.třída{`. Chybí-li jen
+  v CSS, je to tahle gotcha — ne kód.
