@@ -290,6 +290,14 @@
   }
 }
 
+/* Record variant — gold pulse instead of green, matching the gold
+   clover + trophy/flag badge the marker renders for the Czech-record
+   find (see HighlightFindMarker). */
+.ctyr-find-highlight--record .ctyr-find-highlight__pulse {
+  background: rgba(234, 179, 8, 0.35);
+  border-color: rgba(180, 83, 9, 0.9);
+}
+
 /* Popup that opens for the deep-linked find. Tinted green so the visitor
    immediately reads it as "the one you came here for" rather than a
    regular interactive popup. Same brand-green palette the clover sprite
@@ -302,6 +310,17 @@
 .ctyr-find-highlight-popup .leaflet-popup-tip {
   background: linear-gradient(135deg, #f0fdf4, #ffffff);
   border: 1px solid #86efac;
+}
+
+/* Record variant — gold popup tint to match the gold marker. */
+.ctyr-find-highlight-popup--record .leaflet-popup-content-wrapper {
+  background: linear-gradient(135deg, #fffbeb, #ffffff 70%);
+  border: 1px solid #fcd34d;
+  box-shadow: 0 6px 18px rgba(180, 83, 9, 0.25);
+}
+.ctyr-find-highlight-popup--record .leaflet-popup-tip {
+  background: linear-gradient(135deg, #fffbeb, #ffffff);
+  border: 1px solid #fcd34d;
 }
 
 /* `.leaflet-container { z-index: auto }` lifts the popup-pane

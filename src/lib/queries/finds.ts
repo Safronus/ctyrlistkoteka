@@ -26,6 +26,8 @@ import {
 } from "@/lib/locationCode";
 import { listCadastralAreas, listCountries } from "@/lib/queries/locations";
 import { parseIdQuery } from "@/lib/search";
+import { effectForFind } from "@/lib/specialFinds";
+import { getSpecialFinds } from "@/lib/specialFinds.server";
 
 export interface PublicImage {
   id: number;
@@ -1235,6 +1237,11 @@ export interface HighlightFind {
     mode: "polygon" | "center";
     inside: boolean;
   } | null;
+  /** True when this find carries the admin-assigned "record" effect
+   *  (src/lib/specialFinds.*). The map dresses its highlight marker in
+   *  gold with a trophy + Czech-flag badge instead of the usual green
+   *  pulsing clover. */
+  isRecord: boolean;
 }
 
 export async function getHighlightFind(
@@ -1285,6 +1292,8 @@ export async function getHighlightFind(
   const c = coordRows[0];
   if (!c || c.lat === null || c.lng === null) return null;
 
+  const isRecord = effectForFind(id, await getSpecialFinds()) === "record";
+
   return {
     id: row.id,
     lat: c.lat,
@@ -1301,6 +1310,7 @@ export async function getHighlightFind(
             inside: c.loc_offset_inside === true,
           }
         : null,
+    isRecord,
   };
 }
 

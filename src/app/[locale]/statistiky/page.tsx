@@ -2144,7 +2144,9 @@ function formatPeakBucket(
       const day = intl({ day: "numeric", month: "long", year: "numeric" });
       const h = start.getHours();
       const pad = (n: number) => String(n).padStart(2, "0");
-      return `${day}, ${pad(h)}:00–${pad(h)}:59`;
+      // Just the start of the hour ("08:00"), not the full "08:00–08:59"
+      // range — the granularity label already says it's a whole hour.
+      return `${day}, ${pad(h)}:00`;
     }
     case "day":
       return intl({
@@ -2309,37 +2311,50 @@ function RecordJubileeCard({
   locale: string;
 }) {
   const date = find.foundAt ? new Date(find.foundAt) : null;
+  const showMapLink = !find.isAnonymized && find.hasGps;
+  // Whole panel is one clickable link to the find detail; the map link
+  // is a separate vertical bar on the right edge — same two-link pattern
+  // as the /sbirka list rows (body Link + bordered MapPin sidecar).
   return (
-    <Link
-      href={`/sbirka/${find.id}`}
-      className="group flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 p-4 shadow-sm transition hover:border-amber-400 hover:shadow sm:flex-row sm:items-center sm:gap-4"
-    >
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 ring-1 ring-amber-300">
-        <Trophy className="h-7 w-7 text-amber-500" aria-hidden />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-amber-900">
-          {t("recordJubileeTitle")}
-        </p>
-        <p className="mt-0.5 truncate text-xs text-amber-800/90">
-          <span className="font-mono text-sm font-semibold text-amber-900">
-            #{find.id}
-          </span>
-          {!find.isAnonymized && date && (
-            <> · {formatDateTimeCs(date, locale)}</>
-          )}
-          {!find.isAnonymized && find.location && (
-            <>
-              {" · "}
-              <span className="font-mono">{find.location.code}</span>
-            </>
-          )}
-        </p>
-      </div>
-      <span className="inline-flex shrink-0 items-center gap-1 self-start rounded-md border border-amber-300 bg-white/70 px-2.5 py-1 text-xs font-medium text-amber-800 transition group-hover:bg-white sm:self-center">
-        {t("recordJubileeLink")}
-      </span>
-    </Link>
+    <div className="flex overflow-hidden rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 shadow-sm transition hover:border-amber-400 hover:shadow">
+      <Link
+        href={`/sbirka/${find.id}`}
+        className="flex min-w-0 flex-1 flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4"
+      >
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 ring-1 ring-amber-300">
+          <Trophy className="h-7 w-7 text-amber-500" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-amber-900">
+            {t("recordJubileeTitle")}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-amber-800/90">
+            <span className="font-mono text-sm font-semibold text-amber-900">
+              #{find.id}
+            </span>
+            {!find.isAnonymized && date && (
+              <> · {formatDateTimeCs(date, locale)}</>
+            )}
+            {!find.isAnonymized && find.location && (
+              <>
+                {" · "}
+                <span className="font-mono">{find.location.code}</span>
+              </>
+            )}
+          </p>
+        </div>
+      </Link>
+      {showMapLink && (
+        <Link
+          href={`/mapa?find=${find.id}`}
+          className="flex shrink-0 items-center justify-center border-l border-amber-300 px-3 text-amber-500 transition hover:bg-amber-100 hover:text-amber-700 focus:bg-amber-100 focus:text-amber-700 focus:outline-none"
+          aria-label={t("showFindOnMapAria", { id: find.id })}
+          title={t("showOnMapTitle")}
+        >
+          <MapPin className="h-5 w-5" aria-hidden />
+        </Link>
+      )}
+    </div>
   );
 }
 

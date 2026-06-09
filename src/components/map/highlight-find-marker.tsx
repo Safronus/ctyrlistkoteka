@@ -40,19 +40,24 @@ export function HighlightFindMarker({
   const tOffset = useTranslations("LocationOffset");
   const locale = useLocale();
   const markerRef = useRef<LeafletMarker | null>(null);
+  const isRecord = find.isRecord;
 
-  // Icon HTML is captured once per find — a fresh icon would force
-  // Leaflet to re-render the DOM on every re-render of MapView.
+  // Icon HTML is captured per (find, variant) — a fresh icon would force
+  // Leaflet to re-render the DOM on every re-render of MapView. The
+  // record variant swaps the green clover for a gold one and pins a
+  // trophy + Czech-flag badge on it.
   const icon = useMemo(
     () =>
       L.divIcon({
-        className: "ctyr-find-highlight",
-        html: HIGHLIGHT_HTML,
+        className: isRecord
+          ? "ctyr-find-highlight ctyr-find-highlight--record"
+          : "ctyr-find-highlight",
+        html: isRecord ? HIGHLIGHT_HTML_RECORD : HIGHLIGHT_HTML,
         iconSize: [HIGHLIGHT_BOX, HIGHLIGHT_BOX],
         iconAnchor: [HIGHLIGHT_BOX / 2, HIGHLIGHT_BOX / 2],
         popupAnchor: [0, -HIGHLIGHT_BOX / 2 + 4],
       }),
-    [],
+    [isRecord],
   );
 
   useEffect(() => {
@@ -88,9 +93,18 @@ export function HighlightFindMarker({
         popupclose: () => onPopupClose(),
       }}
     >
-      <Popup className="ctyr-find-highlight-popup">
+      <Popup
+        className={
+          isRecord
+            ? "ctyr-find-highlight-popup ctyr-find-highlight-popup--record"
+            : "ctyr-find-highlight-popup"
+        }
+      >
         <div style={{ minWidth: 200, lineHeight: 1.35 }}>
-          <strong style={{ color: "#14532d", fontSize: 14 }}>
+          <strong
+            style={{ color: isRecord ? "#92400e" : "#14532d", fontSize: 14 }}
+          >
+            {isRecord && "🏆 "}
             {t("highlightFindHeading", { id: find.id })}
           </strong>
           {find.locationCode && (
@@ -163,4 +177,52 @@ const HIGHLIGHT_HTML = `
       <circle cx="16" cy="16" r="3" fill="#0f6e34" />
     </g>
   </svg>
+`;
+
+// Record variant — the same clover scaled to HIGHLIGHT_BOX but in gold,
+// over a gold pulse (via the `--record` CSS modifier), with two corner
+// badges: a trophy (bottom-right, white disc) and a tiny Czech flag
+// (top-right). Both decorative, so `aria-hidden` throughout.
+const HIGHLIGHT_HTML_RECORD = `
+  <span class="ctyr-find-highlight__pulse" aria-hidden="true"></span>
+  <svg
+    viewBox="0 0 32 32"
+    width="32"
+    height="32"
+    class="ctyr-find-highlight__clover"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <circle cx="16" cy="16" r="14" fill="#ffffff" />
+    <g fill="#d97706">
+      <circle cx="16" cy="11" r="5" />
+      <circle cx="11" cy="16" r="5" />
+      <circle cx="21" cy="16" r="5" />
+      <circle cx="16" cy="21" r="5" />
+      <circle cx="16" cy="16" r="3" fill="#b45309" />
+    </g>
+  </svg>
+  <span
+    aria-hidden="true"
+    style="position:absolute;right:-3px;bottom:-3px;display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#fff;border:1.5px solid #f59e0b;box-shadow:0 1px 2px rgba(0,0,0,0.4);"
+  >
+    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </svg>
+  </span>
+  <span
+    aria-hidden="true"
+    style="position:absolute;right:-5px;top:-3px;line-height:0;border-radius:2px;overflow:hidden;box-shadow:0 0 0 1.5px #fff,0 1px 2px rgba(0,0,0,0.35);"
+  >
+    <svg viewBox="0 0 30 20" width="15" height="10">
+      <rect width="30" height="10" fill="#ffffff" />
+      <rect y="10" width="30" height="10" fill="#d7141a" />
+      <polygon points="0,0 15,10 0,20" fill="#11457e" />
+    </svg>
+  </span>
 `;
