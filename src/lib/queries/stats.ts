@@ -224,6 +224,12 @@ export interface PeakSlidingWindow {
   endsAt: string;
   /** Number of finds inside the window. */
   count: number;
+  /** Lowest find id in the window — the "first" find, linked from the
+   *  peak card. */
+  minFindId: number;
+  /** Highest find id in the window — the "last" find, linked from the
+   *  peak card. Equals minFindId when the window holds a single find. */
+  maxFindId: number;
 }
 
 /** Fastest stretch of N consecutive finds — the smallest gap between a
@@ -963,70 +969,82 @@ export async function getStatsPeaks(): Promise<StatsPeaksResult> {
     // Ties on count break by earlier window_start, same convention
     // as the calendar peaks above.
     prisma.$queryRaw<
-      Array<{ window_start: Date; window_end: Date; count: bigint }>
+      Array<{
+        window_start: Date;
+        window_end: Date;
+        count: bigint;
+        min_id: number;
+        max_id: number;
+      }>
     >`
       WITH windowed AS (
         SELECT
           found_at AS window_start,
-          MAX(found_at) OVER (
-            ORDER BY found_at
-            RANGE BETWEEN CURRENT ROW
-                      AND INTERVAL '1 hour' FOLLOWING
-          ) AS window_end,
-          COUNT(*) OVER (
-            ORDER BY found_at
-            RANGE BETWEEN CURRENT ROW
-                      AND INTERVAL '1 hour' FOLLOWING
-          ) AS count
+          MAX(found_at) OVER w AS window_end,
+          COUNT(*) OVER w AS count,
+          MIN(id) OVER w AS min_id,
+          MAX(id) OVER w AS max_id
         FROM finds WHERE found_at IS NOT NULL
+        WINDOW w AS (
+          ORDER BY found_at
+          RANGE BETWEEN CURRENT ROW AND INTERVAL '1 hour' FOLLOWING
+        )
       )
-      SELECT window_start, window_end, count
+      SELECT window_start, window_end, count, min_id, max_id
       FROM windowed
       ORDER BY count DESC, window_start ASC
       LIMIT 1
     `,
     prisma.$queryRaw<
-      Array<{ window_start: Date; window_end: Date; count: bigint }>
+      Array<{
+        window_start: Date;
+        window_end: Date;
+        count: bigint;
+        min_id: number;
+        max_id: number;
+      }>
     >`
       WITH windowed AS (
         SELECT
           found_at AS window_start,
-          MAX(found_at) OVER (
-            ORDER BY found_at
-            RANGE BETWEEN CURRENT ROW
-                      AND INTERVAL '24 hours' FOLLOWING
-          ) AS window_end,
-          COUNT(*) OVER (
-            ORDER BY found_at
-            RANGE BETWEEN CURRENT ROW
-                      AND INTERVAL '24 hours' FOLLOWING
-          ) AS count
+          MAX(found_at) OVER w AS window_end,
+          COUNT(*) OVER w AS count,
+          MIN(id) OVER w AS min_id,
+          MAX(id) OVER w AS max_id
         FROM finds WHERE found_at IS NOT NULL
+        WINDOW w AS (
+          ORDER BY found_at
+          RANGE BETWEEN CURRENT ROW AND INTERVAL '24 hours' FOLLOWING
+        )
       )
-      SELECT window_start, window_end, count
+      SELECT window_start, window_end, count, min_id, max_id
       FROM windowed
       ORDER BY count DESC, window_start ASC
       LIMIT 1
     `,
     prisma.$queryRaw<
-      Array<{ window_start: Date; window_end: Date; count: bigint }>
+      Array<{
+        window_start: Date;
+        window_end: Date;
+        count: bigint;
+        min_id: number;
+        max_id: number;
+      }>
     >`
       WITH windowed AS (
         SELECT
           found_at AS window_start,
-          MAX(found_at) OVER (
-            ORDER BY found_at
-            RANGE BETWEEN CURRENT ROW
-                      AND INTERVAL '7 days' FOLLOWING
-          ) AS window_end,
-          COUNT(*) OVER (
-            ORDER BY found_at
-            RANGE BETWEEN CURRENT ROW
-                      AND INTERVAL '7 days' FOLLOWING
-          ) AS count
+          MAX(found_at) OVER w AS window_end,
+          COUNT(*) OVER w AS count,
+          MIN(id) OVER w AS min_id,
+          MAX(id) OVER w AS max_id
         FROM finds WHERE found_at IS NOT NULL
+        WINDOW w AS (
+          ORDER BY found_at
+          RANGE BETWEEN CURRENT ROW AND INTERVAL '7 days' FOLLOWING
+        )
       )
-      SELECT window_start, window_end, count
+      SELECT window_start, window_end, count, min_id, max_id
       FROM windowed
       ORDER BY count DESC, window_start ASC
       LIMIT 1
@@ -1110,6 +1128,8 @@ function toPeakSliding(
     window_start: Date;
     window_end: Date;
     count: bigint;
+    min_id: number;
+    max_id: number;
   }>,
 ): PeakSlidingWindow | null {
   const row = rows[0];
@@ -1118,6 +1138,8 @@ function toPeakSliding(
     startsAt: row.window_start.toISOString(),
     endsAt: row.window_end.toISOString(),
     count: Number(row.count),
+    minFindId: row.min_id,
+    maxFindId: row.max_id,
   };
 }
 
