@@ -201,6 +201,12 @@ export interface PeakBucket {
   startsAt: string;
   /** Number of finds whose `found_at` falls inside the bucket. */
   count: number;
+  /** Lowest find id in the bucket — the "first" find, linked from the
+   *  peak card. */
+  minFindId: number;
+  /** Highest find id in the bucket — the "last" find, linked from the
+   *  peak card. Equals minFindId when the bucket holds a single find. */
+  maxFindId: number;
 }
 
 /** Sliding-window peak — the busiest stretch of N consecutive
@@ -896,33 +902,51 @@ export async function getStatsPeaks(): Promise<StatsPeaksResult> {
     fastest100Row,
     fastest1000Row,
   ] = await Promise.all([
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('minute', found_at) AS bucket, COUNT(*) AS count
+    prisma.$queryRaw<
+      Array<{ bucket: Date; count: bigint; min_id: number; max_id: number }>
+    >`
+      SELECT date_trunc('minute', found_at) AS bucket, COUNT(*) AS count,
+             MIN(id)::int AS min_id, MAX(id)::int AS max_id
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
     `,
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('hour', found_at) AS bucket, COUNT(*) AS count
+    prisma.$queryRaw<
+      Array<{ bucket: Date; count: bigint; min_id: number; max_id: number }>
+    >`
+      SELECT date_trunc('hour', found_at) AS bucket, COUNT(*) AS count,
+             MIN(id)::int AS min_id, MAX(id)::int AS max_id
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
     `,
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('day', found_at) AS bucket, COUNT(*) AS count
+    prisma.$queryRaw<
+      Array<{ bucket: Date; count: bigint; min_id: number; max_id: number }>
+    >`
+      SELECT date_trunc('day', found_at) AS bucket, COUNT(*) AS count,
+             MIN(id)::int AS min_id, MAX(id)::int AS max_id
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
     `,
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('week', found_at) AS bucket, COUNT(*) AS count
+    prisma.$queryRaw<
+      Array<{ bucket: Date; count: bigint; min_id: number; max_id: number }>
+    >`
+      SELECT date_trunc('week', found_at) AS bucket, COUNT(*) AS count,
+             MIN(id)::int AS min_id, MAX(id)::int AS max_id
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
     `,
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('month', found_at) AS bucket, COUNT(*) AS count
+    prisma.$queryRaw<
+      Array<{ bucket: Date; count: bigint; min_id: number; max_id: number }>
+    >`
+      SELECT date_trunc('month', found_at) AS bucket, COUNT(*) AS count,
+             MIN(id)::int AS min_id, MAX(id)::int AS max_id
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
     `,
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>`
-      SELECT date_trunc('year', found_at) AS bucket, COUNT(*) AS count
+    prisma.$queryRaw<
+      Array<{ bucket: Date; count: bigint; min_id: number; max_id: number }>
+    >`
+      SELECT date_trunc('year', found_at) AS bucket, COUNT(*) AS count,
+             MIN(id)::int AS min_id, MAX(id)::int AS max_id
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY count DESC, bucket ASC LIMIT 1
     `,
@@ -1774,11 +1798,21 @@ function toHighlight(row: HighlightRow | undefined): FindHighlight | null {
  *  has NULL `found_at`). Date → ISO so the value travels through
  *  Server → Client serialization unchanged. */
 function toPeakBucket(
-  rows: ReadonlyArray<{ bucket: Date; count: bigint }>,
+  rows: ReadonlyArray<{
+    bucket: Date;
+    count: bigint;
+    min_id: number;
+    max_id: number;
+  }>,
 ): PeakBucket | null {
   const r = rows[0];
   if (!r) return null;
-  return { startsAt: r.bucket.toISOString(), count: Number(r.count) };
+  return {
+    startsAt: r.bucket.toISOString(),
+    count: Number(r.count),
+    minFindId: r.min_id,
+    maxFindId: r.max_id,
+  };
 }
 
 /** Splits the per-location aggregate into the three geo breakdowns the

@@ -2116,6 +2116,30 @@ function PeakBucketCard({
           <p className="mt-1 text-center text-xs leading-snug text-gray-600">
             {formatPeakBucket(peak.startsAt, granularity, locale)}
           </p>
+          {/* First → last find in the bucket, mirroring the "#start → #end"
+              line in the Nejrychlejších cards. Collapses to a single link
+              when the bucket holds just one find (min === max). */}
+          <p className="mt-1 text-center text-xs leading-snug">
+            <Link
+              href={`/sbirka/${peak.minFindId}`}
+              className="font-mono font-medium text-brand-700 hover:underline"
+            >
+              #{peak.minFindId}
+            </Link>
+            {peak.maxFindId !== peak.minFindId && (
+              <>
+                <span className="px-1 text-gray-400" aria-hidden>
+                  →
+                </span>
+                <Link
+                  href={`/sbirka/${peak.maxFindId}`}
+                  className="font-mono font-medium text-brand-700 hover:underline"
+                >
+                  #{peak.maxFindId}
+                </Link>
+              </>
+            )}
+          </p>
         </>
       ) : (
         <p className="mt-2 text-center text-sm text-gray-400">—</p>
