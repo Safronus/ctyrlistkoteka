@@ -26,9 +26,12 @@ export default async function AdminSpecialPage() {
         <p className="mt-1 max-w-2xl text-sm text-gray-600">
           Přiřaď libovolnému číslu nálezu speciální atmosférický efekt na jeho
           stránce detailu. Efekt <strong>Rekord</strong> navíc dostane vlastní
-          zvýrazněnou kartu v sekci „Jubilejní nálezy“ na stránce statistik.
-          Změny se uloží do <code>data/.admin/special-finds.json</code> a
-          projeví se po revalidaci (vynucené ihned po uložení).
+          zvýrazněnou kartu v „Jubilejních nálezech“, zlatý odznak v seznamu
+          sbírky i zlatý bod na mapě — a je <strong>jen jeden</strong>:
+          přiřazení rekordu jinému číslu ho z předchozího nálezu automaticky
+          odebere (stačí změnit číslo). Změny se uloží do{" "}
+          <code>data/.admin/special-finds.json</code> a projeví se po
+          revalidaci (vynucené ihned po uložení).
         </p>
       </header>
       <SpecialFindsForm items={items} />

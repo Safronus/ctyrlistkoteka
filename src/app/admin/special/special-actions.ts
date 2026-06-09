@@ -57,10 +57,16 @@ export async function addSpecialFind(
   if (!exists) return { ok: false, error: `Nález #${findId} neexistuje.` };
 
   const list = await getSpecialFinds();
-  const next: SpecialFind[] = [
-    ...list.filter((s) => s.findId !== findId),
-    { findId, effect },
-  ];
+  // Drop any prior entry for this find id. The "record" effect is the
+  // single Czech-record marker — there can only ever be ONE record find
+  // across the whole app (map highlight, /statistiky card, /sbirka badge,
+  // detail overlay), so assigning it here also strips "record" from any
+  // other find. Changing the record is then just typing a new id in.
+  let base = list.filter((s) => s.findId !== findId);
+  if (effect === "record") {
+    base = base.filter((s) => s.effect !== "record");
+  }
+  const next: SpecialFind[] = [...base, { findId, effect }];
   await persist(next);
 
   await appendAudit({
