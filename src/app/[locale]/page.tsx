@@ -798,10 +798,12 @@ function PeakDayCard({
   const lastAt = new Date(peakDay.lastAt);
   const isoDay = date.toISOString().slice(0, 10);
   const intlLocale = nf.resolvedOptions().locale;
+  // No `timeZone`: found_at is the naive Prague wall-clock from EXIF and is
+  // shown verbatim everywhere else; forcing Europe/Prague double-applied
+  // the +2h offset on the UTC server.
   const timeFmt = new Intl.DateTimeFormat(intlLocale, {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "Europe/Prague",
   });
   const fromTo = `${timeFmt.format(firstAt)}–${timeFmt.format(lastAt)}`;
   const durationMin = Math.max(

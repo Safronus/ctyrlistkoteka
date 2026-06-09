@@ -2049,11 +2049,14 @@ function formatSlidingWindow(
       month: "long",
       year: "numeric",
     }).format(d);
+  // No `timeZone` on purpose: found_at is stored as the naive Prague
+  // wall-clock from EXIF, and every other find-time display (detail page,
+  // list rows via format.ts) renders it verbatim. Forcing Europe/Prague
+  // here re-applied the +2h offset on the UTC server (18:35 → 20:35).
   const time = (d: Date) =>
     new Intl.DateTimeFormat(intlLocale, {
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: "Europe/Prague",
     }).format(d);
   if (sameDay) {
     return `${fullDate(start)} · ${time(start)}–${time(end)}`;
