@@ -140,7 +140,7 @@ export default async function PublicLayout({
               title={t("claudeTitle")}
               className="font-medium text-gray-700 underline-offset-2 hover:text-brand-700 hover:underline"
             >
-              Claude Opus 4.8
+              Claude Fable 5
             </a>
             <span className="text-gray-400">{t("via")}</span>
             <a

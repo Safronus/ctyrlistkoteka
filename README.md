@@ -602,6 +602,16 @@ Tohle je soukromý projekt jednoho autora, ale struktura kódu má být čistá 
 i pro případ, že se časem otevře. Commit zprávy používají
 [Conventional Commits](https://www.conventionalcommits.org/).
 
+## Spolupráce s AI
+
+Web vzniká v páru s [Claude Code](https://claude.com/claude-code) od
+Anthropic. Na vývoji se historicky podílel **Claude Opus 4.8** (do
+9. června 2026 — tedy ještě včera z pohledu tohoto zápisu), od
+10. června 2026 spolupráce pokračuje s **Claude Fable 5**. Model je
+uveden i v `Co-Authored-By` trailerech commitů a v patičce webu.
+Pracovní pravidla spolupráce viz
+[`docs/collaboration.md`](docs/collaboration.md).
+
 ## Licence
 
 Kód: MIT (volitelné — doplnit).
