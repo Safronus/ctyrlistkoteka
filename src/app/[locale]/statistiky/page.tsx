@@ -2053,7 +2053,12 @@ function PeakFastestCard({
           {/* Bottom band — date range, full width, centred across both
               halves so the split above stays put. */}
           <p className="px-2.5 pb-2.5 text-center text-xs leading-snug text-gray-500">
-            {formatSlidingWindow(window.startsAt, window.endsAt, locale)}
+            {formatSlidingWindow(
+              window.startsAt,
+              window.endsAt,
+              locale,
+              window.size <= 100,
+            )}
           </p>
         </>
       ) : (
@@ -2067,6 +2072,10 @@ function formatSlidingWindow(
   startIso: string,
   endIso: string,
   locale: string,
+  // Seconds matter on the fastest-10/100 tiles, where the whole window
+  // can span mere minutes; the sliding-window and fastest-1000 tiles
+  // keep the shorter HH:MM.
+  withSeconds = false,
 ): string {
   const intlLocale = toIntlLocale(locale);
   const start = new Date(startIso);
@@ -2089,6 +2098,7 @@ function formatSlidingWindow(
     new Intl.DateTimeFormat(intlLocale, {
       hour: "2-digit",
       minute: "2-digit",
+      ...(withSeconds ? { second: "2-digit" as const } : null),
     }).format(d);
   if (sameDay) {
     return `${fullDate(start)} · ${time(start)}–${time(end)}`;
