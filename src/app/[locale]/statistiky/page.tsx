@@ -2428,45 +2428,46 @@ function JubileeCard({
   const isDevil = isSpecial && find.id === 666;
   return (
     <div
-      className={`relative flex h-full flex-col rounded-md border transition hover:shadow-sm ${
+      className={`flex h-full flex-col rounded-md border transition hover:shadow-sm ${
         isSpecial
           ? "border-brand-200 bg-brand-50/60 hover:border-brand-300 hover:bg-brand-50"
           : "border-gray-200 bg-gray-50 hover:border-brand-200 hover:bg-brand-50"
       }`}
     >
-      {/* "Darovaný" badge in the top-right corner — surfaced only for
-          jubilee finds that actually carry the DONATED state. Hidden
-          for anonymized finds (the server already forced isDonated
-          to false in that case, but the explicit guard documents the
-          privacy stance). z-10 lifts it above the <Link>'s ::after
-          focus-ring overlay so it stays clickable in theory; we
-          render it as plain non-interactive text so the parent's
-          Link semantics still own the whole card. */}
-      {find.isDonated && !find.isAnonymized && (
-        <span
-          className="absolute right-1.5 top-1.5 z-10 inline-flex items-center gap-0.5 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800"
-          aria-label={t("jubileeDonated")}
-          title={t("jubileeDonated")}
-        >
-          <Heart className="h-2.5 w-2.5" aria-hidden />
-          {t("jubileeDonated")}
-        </span>
-      )}
       <Link
         href={`/sbirka/${find.id}`}
         className="flex flex-1 flex-col gap-1 p-3 text-sm"
       >
-        <span
-          className={`inline-flex items-center gap-1 font-mono text-base font-semibold ${
-            isDevil ? "text-red-700" : "text-brand-700"
-          }`}
-        >
-          {isDevil ? (
-            <Flame className="h-3.5 w-3.5 text-red-600" aria-hidden />
-          ) : isSpecial ? (
-            <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-hidden />
-          ) : null}
-          #{find.id}
+        {/* Row 1 — id left, optional "Darovaný" badge right, sharing
+            one centred row so the two sit on the same horizontal level
+            (an absolutely-positioned corner badge sat a few px higher
+            than the id). The badge stays plain non-interactive text
+            inside the Link so the card keeps single-link semantics.
+            Hidden for anonymized finds (the server already forced
+            isDonated to false there; the guard documents the privacy
+            stance). */}
+        <span className="flex items-center justify-between gap-2">
+          <span
+            className={`inline-flex items-center gap-1 font-mono text-base font-semibold ${
+              isDevil ? "text-red-700" : "text-brand-700"
+            }`}
+          >
+            {isDevil ? (
+              <Flame className="h-3.5 w-3.5 text-red-600" aria-hidden />
+            ) : isSpecial ? (
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-hidden />
+            ) : null}
+            #{find.id}
+          </span>
+          {find.isDonated && !find.isAnonymized && (
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800"
+              title={t("jubileeDonated")}
+            >
+              <Heart className="h-2.5 w-2.5" aria-hidden />
+              {t("jubileeDonated")}
+            </span>
+          )}
         </span>
         {find.isAnonymized ? (
           <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800 self-start">
