@@ -559,7 +559,10 @@ async function LatestFindSection({
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
         {t("latestFindHeading")}
       </h2>
-      <div className="group flex items-stretch overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm">
+      {/* flex-col on phones so the mobile action row below the body can
+          span the full card width; from sm: back to the row layout with
+          the vertical map-link bar on the right edge. */}
+      <div className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm sm:flex-row sm:items-stretch">
         <Link
           href={`/sbirka/${latestFind.id}`}
           className="flex min-w-0 flex-1 flex-col gap-4 p-3 sm:flex-row sm:items-center sm:p-4"
@@ -633,7 +636,10 @@ async function LatestFindSection({
               size="lg"
               autoHydrate
             />
-            <span className="inline-flex items-center gap-1 text-sm font-medium text-brand-700">
+            {/* Inline "Detail nálezu" affordance is desktop-only — on
+                phones it's replaced by the real button row below the
+                card body, so showing both would duplicate the CTA. */}
+            <span className="hidden items-center gap-1 text-sm font-medium text-brand-700 sm:inline-flex">
               {t("latestFindDetail")}
               <ArrowRight
                 className="h-4 w-4 transition group-hover:translate-x-0.5"
@@ -643,16 +649,42 @@ async function LatestFindSection({
           </div>
         </div>
       </Link>
+      {/* Desktop map affordance — the vertical icon bar on the card's
+          right edge (same pattern as /sbirka list rows). Hidden on
+          phones in favour of the explicit button row below. */}
       {showMapLink && (
         <Link
           href={`/mapa?find=${latestFind.id}`}
           aria-label={t("latestFindShowOnMap")}
           title={t("latestFindShowOnMap")}
-          className="flex shrink-0 items-center justify-center border-l border-gray-100 px-3 text-gray-400 transition hover:bg-brand-100 hover:text-brand-700 focus:bg-brand-100 focus:text-brand-700 focus:outline-none"
+          className="hidden shrink-0 items-center justify-center border-l border-gray-100 px-3 text-gray-400 transition hover:bg-brand-100 hover:text-brand-700 focus:bg-brand-100 focus:text-brand-700 focus:outline-none sm:flex"
         >
           <MapPin className="h-5 w-5" aria-hidden />
         </Link>
       )}
+      {/* Mobile action row — two proper buttons under the card body:
+          a primary "Detail nálezu" and a small outlined map button.
+          Lives outside the body <Link> (nested anchors are invalid). */}
+      <div className="flex gap-2 border-t border-gray-100 p-3 sm:hidden">
+        <Link
+          href={`/sbirka/${latestFind.id}`}
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
+        >
+          {t("latestFindDetail")}
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
+        {showMapLink && (
+          <Link
+            href={`/mapa?find=${latestFind.id}`}
+            aria-label={t("latestFindShowOnMap")}
+            title={t("latestFindShowOnMap")}
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+          >
+            <MapPin className="h-4 w-4" aria-hidden />
+            {t("latestFindShowOnMapShort")}
+          </Link>
+        )}
+      </div>
       </div>
     </section>
   );

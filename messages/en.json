@@ -253,6 +253,7 @@
     "latestFindHeading": "Latest find",
     "latestFindDetail": "Find detail",
     "latestFindShowOnMap": "Show find on map",
+    "latestFindShowOnMapShort": "On map",
     "latestFindAnonymizedLocation": "Anonymized location",
     "latestFindNoLocation": "No location",
     "peakDayLabel": "Best day",
