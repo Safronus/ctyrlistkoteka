@@ -935,8 +935,13 @@ async function SparklineCard({
         {nf.format(total)} {t("statFinds", { count: total })}
       </p>
       <div className="mt-1.5 flex flex-1 flex-col gap-1">
+        {/* min-h floors the chart: the bars are %-of-container tall, and
+            on single-column (mobile) layouts no grid sibling stretches
+            the card, so flex-1 would collapse to content height and every
+            bar would bottom out at its 2px minHeight. On lg the stretched
+            height usually exceeds the floor, so desktop is unchanged. */}
         <div
-          className="grid flex-1 grid-cols-12 gap-px"
+          className="grid min-h-16 flex-1 grid-cols-12 gap-px"
           role="img"
           aria-label={t("sparklineAria")}
         >
