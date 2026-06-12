@@ -1,4 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
+import { FindState } from "@prisma/client";
 import { Camera, Images, MapPin, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
@@ -142,10 +143,14 @@ function FindListRow({
          *  badge overlay — in list view the badge would crowd the
          *  note out of row 1, so it rides the photo instead. */}
         <div className="relative shrink-0 self-end">
+          {/* LOST finds render their photo in grayscale — the quiet
+              list-level echo of the detail page's elegy treatment. */}
           <FindThumbnail
             image={find.primaryImage}
             alt={altText}
-            className="h-24 w-24 rounded-md sm:h-28 sm:w-28"
+            className={`h-24 w-24 rounded-md sm:h-28 sm:w-28 ${
+              find.states.includes(FindState.LOST) ? "grayscale" : ""
+            }`}
           />
           {find.isRecord && (
             <span

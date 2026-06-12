@@ -1,4 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
+import { FindState } from "@prisma/client";
 import { Camera, Images, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
@@ -61,10 +62,16 @@ export async function FindCard({
       className="group block overflow-hidden rounded-lg border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm"
     >
       <div className="relative">
+        {/* LOST finds render their photo in grayscale — the quiet
+            list-level echo of the detail page's elegy treatment. The
+            overlaid badges/vote button are siblings, so they keep
+            their colors. */}
         <FindThumbnail
           image={find.primaryImage}
           alt={altText}
-          className="aspect-square"
+          className={`aspect-square ${
+            find.states.includes(FindState.LOST) ? "grayscale" : ""
+          }`}
         />
         {/* State badges overlaid on the photo so the descriptor row below
             stays clean. Each badge keeps its own background color from

@@ -231,10 +231,12 @@ export default async function FindDetailPage({ params }: PageProps) {
             {t("h1", { id: find.id })}
           </h1>
           <div className="flex flex-wrap items-center gap-3">
-            {/* "Zobrazit na mapě" sits up here next to the title — deep-
-             *  links to /mapa?find=N (highlight + auto-fit on the map).
-             *  Shown only for finds with public GPS; anonymized finds
-             *  have no coordinates so the chip is hidden for them. */}
+            {find.states.length > 0 && <StateBadges states={find.states} />}
+            {/* "Zobrazit na mapě" sits up here next to the title, AFTER
+             *  the state badges — deep-links to /mapa?find=N (highlight
+             *  + auto-fit on the map). Shown only for finds with public
+             *  GPS; anonymized finds have no coordinates so the chip is
+             *  hidden for them. */}
             {find.coordinates && (
               <Link
                 href={`/mapa?find=${find.id}`}
@@ -244,7 +246,6 @@ export default async function FindDetailPage({ params }: PageProps) {
                 <span>{t("showOnMap")}</span>
               </Link>
             )}
-            {find.states.length > 0 && <StateBadges states={find.states} />}
             {/* Public vote button — same rules as on /sbirka rows:
              *  show only when there's a photo to vote on. NO_PHOTO
              *  finds skip the affordance. The button is its own
