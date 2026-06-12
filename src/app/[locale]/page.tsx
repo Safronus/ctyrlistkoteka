@@ -31,6 +31,7 @@ import { formatGpsApple } from "@/lib/gpsFormat";
 import { siteNameShort } from "@/lib/siteName";
 import { FindThumbnail } from "@/components/finds/find-thumbnail";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
+import { StateBadges } from "@/components/finds/state-badges";
 import { VoteButton } from "@/components/finds/vote-button";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
 import { CloverFactsStatCard } from "@/components/home/clover-facts-stat-card";
@@ -573,7 +574,7 @@ async function LatestFindSection({
           className="aspect-square w-full shrink-0 rounded-lg sm:w-32"
         />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-2xl font-bold text-gray-900 group-hover:text-brand-700">
               #{latestFind.id}
             </span>
@@ -581,6 +582,9 @@ async function LatestFindSection({
               <span className="text-sm text-gray-500">
                 {formatDateTimeCs(foundAtDate, locale)}
               </span>
+            )}
+            {latestFind.states.length > 0 && (
+              <StateBadges states={latestFind.states} />
             )}
           </div>
           {latestFind.isAnonymized ? (

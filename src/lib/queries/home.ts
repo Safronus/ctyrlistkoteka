@@ -6,6 +6,7 @@
  * CLAUDE.md §6 — no raw notes or precise GPS leave the server.
  */
 
+import type { FindState } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   MISSING_CLOVER_ID_MAX,
@@ -31,6 +32,9 @@ export interface HomeLatestFind {
    *  Shape matches `PublicImage` so the existing `FindThumbnail`
    *  component renders it without adapting. */
   primaryImage: PublicImage | null;
+  /** Find states for the badge row — public even for anonymized finds
+   *  (the ANONYMIZED badge itself is shown), same as the /sbirka grid. */
+  states: FindState[];
 }
 
 export interface HomeTotals {
@@ -211,6 +215,7 @@ export async function getHomePageData(): Promise<HomePageData> {
         foundAt: true,
         isAnonymized: true,
         location: { select: { id: true, code: true, displayName: true } },
+        states: { select: { state: true } },
         images: {
           orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
           take: 1,
@@ -414,6 +419,7 @@ export async function getHomePageData(): Promise<HomePageData> {
             ? { lat: latestCoord.lat, lng: latestCoord.lng }
             : null,
         primaryImage: lf.images[0] ?? null,
+        states: lf.states.map((s) => s.state),
       }
     : null;
 
