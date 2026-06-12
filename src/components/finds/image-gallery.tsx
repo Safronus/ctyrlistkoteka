@@ -28,6 +28,7 @@ export function ImageGallery({
   findId,
   donationPhotos = [],
   freePhotos = [],
+  muted = false,
 }: {
   image: PublicImage | null;
   cropImage: PublicImage | null;
@@ -41,6 +42,11 @@ export function ImageGallery({
   /** Photos for the free-photos modal. Empty array (default) hides the
    *  second (Images) button. */
   freePhotos?: readonly FindFreePhotoEntry[];
+  /** Lost-find treatment: renders the photos desaturated with a faint
+   *  warm tint ("it lives on only in the photo"). The filter goes on
+   *  the <img> elements only — putting it on the wrapper would create
+   *  a containing block and trap the fixed-position photo modals. */
+  muted?: boolean;
 }) {
   const t = useTranslations("ImageGallery");
   const tCommon = useTranslations("Common");
@@ -96,7 +102,7 @@ export function ImageGallery({
         height={image.height}
         className={`block max-h-[70vh] w-auto max-w-full transition-opacity duration-150 ${
           showCrop && cropImage ? "opacity-0" : "opacity-100"
-        }`}
+        } ${muted ? "grayscale sepia-[0.12]" : ""}`}
       />
       {cropImage && (
         <>
@@ -107,7 +113,7 @@ export function ImageGallery({
             aria-hidden={!showCrop}
             className={`pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-150 ${
               showCrop ? "opacity-100" : "opacity-0"
-            }`}
+            } ${muted ? "grayscale sepia-[0.12]" : ""}`}
           />
           <button
             type="button"

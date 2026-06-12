@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Ghost,
   MapPin,
   Trophy,
 } from "lucide-react";
@@ -13,6 +14,7 @@ import { Link } from "@/i18n/navigation";
 import { DetailVibeOverlay } from "@/components/finds/detail-vibe-overlay";
 import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
+import { LostOverlay } from "@/components/finds/lost-overlay";
 import { BackToSbirkaLink } from "@/components/finds/sbirka-back-link";
 import { StateBadges } from "@/components/finds/state-badges";
 import { VoteButton } from "@/components/finds/vote-button";
@@ -137,6 +139,12 @@ export default async function FindDetailPage({ params }: PageProps) {
   // also darkens the article gradient.
   const effect = effectForFind(find.id, await getSpecialFinds());
   const hellish = effect === "hellish";
+
+  // LOST finds get a quiet elegy treatment, driven by the data state
+  // (not the admin effect config): muted gallery photos, a dashed
+  // banner, and — unless a config-assigned effect already owns the
+  // viewport — a sparse rising shower of dissolving clovers.
+  const isLost = find.states.includes(FindState.LOST);
 
   // Vote state for this find — server reads cookie + fingerprint,
   // checks the vote table. Wrapped in try/catch so the detail page
@@ -265,6 +273,16 @@ export default async function FindDetailPage({ params }: PageProps) {
           </div>
         )}
 
+        {/* Lost-find elegy banner — quiet stone tones + dashed border,
+            the textual half of the LOST treatment (muted photos and
+            the rising-clover overlay are rendered elsewhere). */}
+        {isLost && (
+          <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-2.5 text-center text-sm font-medium text-stone-600">
+            <Ghost className="h-5 w-5 shrink-0 text-stone-400" aria-hidden />
+            {t("lostBanner")}
+          </div>
+        )}
+
         {/* Notes are nulled at the query layer for anonymized AND
             donated finds (see hydrate() in src/lib/queries/finds.ts),
             so a single truthy guard here covers every privacy rule —
@@ -335,6 +353,7 @@ export default async function FindDetailPage({ params }: PageProps) {
             findId={find.id}
             donationPhotos={find.donationPhotos}
             freePhotos={find.freePhotos}
+            muted={isLost}
           />
         </div>
       </Panel>
@@ -513,6 +532,10 @@ export default async function FindDetailPage({ params }: PageProps) {
   return (
     <>
       <DetailVibeOverlay effect={effect} />
+      {/* The lost elegy only owns the viewport when no config-assigned
+          effect is active — stacking two particle systems would read
+          as noise rather than mood. */}
+      {isLost && !effect && <LostOverlay />}
       {hellish ? (
         <div className="min-h-screen bg-gradient-to-br from-gray-950 via-red-950/85 to-black">
           {detail}

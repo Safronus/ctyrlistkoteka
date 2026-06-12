@@ -755,6 +755,7 @@
     "nextPlaceholder": "Next →",
     "h1": "Find #{id}",
     "recordBadge": "Czech record — the largest four-leaf clover collection in Czechia",
+    "lostBanner": "Lost find — it lives on only in the photo",
     "imageAlt": "Find #{id}",
     "anonymizedNotice": "This find is anonymized — its coordinates, notes and exact location are hidden on the public site.",
     "panelMeta": "Time & location",

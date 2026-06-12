@@ -754,6 +754,7 @@
     "nextPlaceholder": "Další →",
     "h1": "Nález #{id}",
     "recordBadge": "Český rekord — největší sbírka čtyřlístků v ČR",
+    "lostBanner": "Ztracený nález — žije už jen na fotce",
     "imageAlt": "Nález #{id}",
     "anonymizedNotice": "Tento nález je anonymizovaný — souřadnice, poznámka ani konkrétní lokalita se na veřejném webu nezobrazují.",
     "panelMeta": "Čas a poloha",
