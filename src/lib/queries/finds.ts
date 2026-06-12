@@ -1426,7 +1426,10 @@ export async function getFilterOptions(): Promise<FilterOptions> {
     }),
     cities,
     countries,
-    states: Object.values(FindState),
+    // NORMAL is the filename token's "no special state" placeholder —
+    // it never gets stored on a find_states row, so offering it in the
+    // /sbirka filter would only ever produce an empty result.
+    states: Object.values(FindState).filter((s) => s !== FindState.NORMAL),
     years: yearRows.map((r) => r.year),
     minDate: dateBounds._min.foundAt
       ? dateBounds._min.foundAt.toISOString().slice(0, 10)
