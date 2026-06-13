@@ -338,7 +338,7 @@ function FindListRow({
          *  `items-end`). Together the two thumbs + the bottom-row chips
          *  read off one shared bottom baseline. */}
         {find.locationThumbUrl && (
-          <div className="hidden shrink-0 self-end sm:block">
+          <div className="relative hidden shrink-0 self-end overflow-hidden rounded-md sm:block">
             {/* Served by Nginx; Next Image optimizer not needed. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -349,6 +349,26 @@ function FindListRow({
               decoding="async"
               className="h-24 w-24 rounded-md border border-gray-200 object-cover sm:h-28 sm:w-28"
             />
+            {/* Anonymized finds show the generic placeholder map under a
+                blurred "?" curtain — the same "location hidden" treatment
+                as the detail page, scaled to the thumbnail. */}
+            {find.isAnonymized && (
+              <div
+                role="img"
+                aria-label={tRow("anonymizedLocation")}
+                className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-md bg-purple-950/45 backdrop-blur-md"
+              >
+                <span
+                  aria-hidden
+                  className="select-none text-3xl font-black leading-none text-purple-50 drop-shadow-[0_2px_6px_rgba(0,0,0,0.5)]"
+                >
+                  ?
+                </span>
+                <span className="select-none rounded-full bg-purple-50/90 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-purple-900">
+                  {tRow("anonMapBadge")}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </Link>
