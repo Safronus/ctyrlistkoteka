@@ -277,8 +277,8 @@ async function processOne(
     const sharpModule = await import("sharp");
     const sharpLib = sharpModule.default;
     // `failOn: "none"` keeps sharp from refusing slightly malformed
-    // JPEGs that browsers happily decode. `withMetadata({})` strips
-    // EXIF — these photos are public and we don't want GPS leaking.
+    // JPEGs that browsers happily decode. sharp drops all metadata by
+    // default — these photos are public and we don't want GPS leaking.
     outBuffer = await sharpLib(data, { failOn: "none" })
       .rotate()
       .resize({
@@ -292,8 +292,27 @@ async function processOne(
     outExt = "webp";
     converted = true;
   } else {
-    outBuffer = data;
-    outExt = ext === "jpg" ? "jpeg" : ext;
+    // No downscale needed, but we must STILL strip metadata — serving the
+    // original bytes verbatim would publish their EXIF/GPS (the photos
+    // live at the public /generated/find-free-photos URL). sharp re-encodes
+    // without metadata by default; `.rotate()` bakes orientation first.
+    // Same format in, same format out, high quality so the strip is
+    // visually lossless.
+    const sharpModule = await import("sharp");
+    const sharpLib = sharpModule.default;
+    const stripPipeline = sharpLib(data, { failOn: "none" }).rotate();
+    if (ext === "png") {
+      outBuffer = await stripPipeline.png().toBuffer();
+      outExt = "png";
+    } else if (ext === "webp") {
+      outBuffer = await stripPipeline.webp({ quality: 92 }).toBuffer();
+      outExt = "webp";
+    } else {
+      outBuffer = await stripPipeline
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer();
+      outExt = "jpeg";
+    }
   }
 
   const targetName = `${findId}${slot}_FOTO.${outExt}`;
