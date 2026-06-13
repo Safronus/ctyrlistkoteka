@@ -328,13 +328,15 @@ function FindListRow({
         </div>
 
         {/* Location map thumbnail — kept off small screens to preserve
-         *  room for the title text. Hidden entirely for anonymized
-         *  finds. `self-end` mirrors the find thumbnail on the left,
-         *  pinning the map's bottom edge to the row bottom so it
-         *  lines up with the state-badge / photo-icon cluster
-         *  (which sits at column bottom via `mt-auto` + `items-end`).
-         *  Together the two thumbs + the bottom-row chips read off
-         *  one shared bottom baseline. */}
+         *  room for the title text. Anonymized finds show the generic
+         *  placeholder map (#00001) here, same as the detail page, so
+         *  the row doesn't have a conspicuous empty slot (the query
+         *  fills `locationThumbUrl` accordingly). `self-end` mirrors the
+         *  find thumbnail on the left, pinning the map's bottom edge to
+         *  the row bottom so it lines up with the state-badge / photo-
+         *  icon cluster (which sits at column bottom via `mt-auto` +
+         *  `items-end`). Together the two thumbs + the bottom-row chips
+         *  read off one shared bottom baseline. */}
         {find.locationThumbUrl && (
           <div className="hidden shrink-0 self-end sm:block">
             {/* Served by Nginx; Next Image optimizer not needed. */}

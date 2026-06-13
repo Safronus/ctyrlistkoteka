@@ -832,6 +832,7 @@ async function listFindsByDistance(
  * point of anonymization.
  */
 async function attachLocationThumbs(finds: PublicFind[]): Promise<void> {
+  const hasAnonymized = finds.some((f) => f.isAnonymized);
   const locationIds = [
     ...new Set(
       finds
@@ -839,10 +840,19 @@ async function attachLocationThumbs(finds: PublicFind[]): Promise<void> {
         .map((f) => f.location!.id),
     ),
   ];
-  if (locationIds.length === 0) return;
+  // Anonymized finds reuse the generic placeholder map (DEFAULT_LOCATION_ID
+  // = #00001) — the exact same map the find-detail page substitutes for
+  // their real location — so the list row reads uniformly with the rest
+  // instead of a conspicuous gap, without revealing anything (the
+  // placeholder is identical for every anonymized find). No map deep-link
+  // is added for them; the thumbnail just rides the detail <Link>.
+  const queryIds = hasAnonymized
+    ? [...new Set([...locationIds, DEFAULT_LOCATION_ID])]
+    : locationIds;
+  if (queryIds.length === 0) return;
 
   const maps = await prisma.locationMap.findMany({
-    where: { locationId: { in: locationIds }, isAnonymized: false },
+    where: { locationId: { in: queryIds }, isAnonymized: false },
     select: { locationId: true, imagePath: true },
     orderBy: [{ locationId: "asc" }, { id: "asc" }],
   });
@@ -852,8 +862,13 @@ async function attachLocationThumbs(finds: PublicFind[]): Promise<void> {
       firstByLoc.set(m.locationId, m.imagePath);
     }
   }
+  const placeholderThumb = firstByLoc.get(DEFAULT_LOCATION_ID) ?? null;
   for (const f of finds) {
-    if (f.isAnonymized || !f.location) continue;
+    if (f.isAnonymized) {
+      f.locationThumbUrl = placeholderThumb;
+      continue;
+    }
+    if (!f.location) continue;
     f.locationThumbUrl = firstByLoc.get(f.location.id) ?? null;
   }
 }
