@@ -318,6 +318,18 @@ export interface YearlyPaceEntry {
   /** Average finds per session in this year — folded server-side so
    *  the client doesn't divide-by-zero on empty years. */
   findsPerSession: number;
+  /** Length (whole days) of the elapsed window the pace is computed
+   *  over: the full calendar year for middle years, but only
+   *  firstFound→Dec 31 for the first year and Jan 1→now for the
+   *  current year. Surfaced so the UI can say how many days the rate
+   *  is based on. */
+  elapsedDays: number;
+  /** True when the pace window starts AFTER Jan 1 — i.e. the first
+   *  year of collecting, counted from the first find. */
+  partialStart: boolean;
+  /** True when the pace window ends BEFORE Dec 31 — i.e. the current,
+   *  still-running year, counted only up to now. */
+  partialEnd: boolean;
 }
 
 export interface StatsTimeAndPaceResult {
@@ -761,6 +773,12 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
       const windowStart =
         y === firstYear ? Math.max(yearStartMs, firstFoundMs) : yearStartMs;
       const windowEnd = Math.min(yearEndMs, nowMs);
+      // A year is "partial" when its pace window doesn't span the whole
+      // calendar year: the first year starts at the first find (not Jan
+      // 1), the current year stops at now (not Dec 31). Past complete
+      // years cover the full span and aren't flagged.
+      const partialStart = windowStart > yearStartMs;
+      const partialEnd = windowEnd < yearEndMs;
       const yearElapsedSec = Math.max((windowEnd - windowStart) / 1000, 1);
       const yearElapsedHours = yearElapsedSec / 3600;
       const yearElapsedDays = yearElapsedSec / 86_400;
@@ -784,6 +802,9 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
         locationCount: agg?.locs.size ?? 0,
         findsPerSession:
           yearSessions > 0 ? yearFindsInSessions / yearSessions : 0,
+        elapsedDays: Math.max(1, Math.round(yearElapsedDays)),
+        partialStart,
+        partialEnd,
       });
     }
   }

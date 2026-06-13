@@ -35,29 +35,20 @@ export function YearlyPaceBlock({
     entries.find((e) => e.year === selectedYear) ??
     entries[entries.length - 1]!;
 
-  // Both edge years are partial: the first only started once the very
-  // first find was made (mid-year), and the last runs only up to the
-  // most recent find (and is usually the ongoing current year). Their
-  // per-year extrapolations therefore read low vs. a full year, so we
-  // flag them on the chips + with a contextual note.
-  const firstYear = entries[0]!.year;
-  const lastYear = entries[entries.length - 1]!.year;
-  const isIncomplete = (y: number) => y === firstYear || y === lastYear;
-  const incompleteKind =
-    selected.year === firstYear && selected.year === lastYear
-      ? "only"
-      : selected.year === firstYear
-        ? "first"
-        : selected.year === lastYear
-          ? "last"
-          : null;
-  const incompleteNote =
-    incompleteKind === "only"
-      ? t("paceYearIncompleteOnly")
-      : incompleteKind === "first"
-        ? t("paceYearIncompleteFirst")
-        : incompleteKind === "last"
-          ? t("paceYearIncompleteLast")
+  // The edge years don't span a full calendar year, so their pace is
+  // computed over fewer days — not wrong, just a shorter window: the
+  // first year is counted from the first find, the current year only up
+  // to today. The server flags exactly which boundary is clipped
+  // (partialStart / partialEnd) and how many days the window covers, so
+  // we can emphasise that on the chips + with a contextual note.
+  const isPartial = (e: YearlyPaceEntry) => e.partialStart || e.partialEnd;
+  const partialNote =
+    selected.partialStart && selected.partialEnd
+      ? t("paceYearIncompleteOnly", { days: selected.elapsedDays })
+      : selected.partialStart
+        ? t("paceYearIncompleteFirst", { days: selected.elapsedDays })
+        : selected.partialEnd
+          ? t("paceYearIncompleteLast", { days: selected.elapsedDays })
           : null;
 
   return (
@@ -77,7 +68,7 @@ export function YearlyPaceBlock({
         >
           {entries.map((e) => {
             const active = e.year === selected.year;
-            const incomplete = isIncomplete(e.year);
+            const incomplete = isPartial(e);
             return (
               <button
                 key={e.year}
@@ -116,10 +107,10 @@ export function YearlyPaceBlock({
         <PaceCell label={t("perYearLabel")} value={fmtPace.format(selected.perYear)} />
       </ul>
 
-      {incompleteNote && (
+      {partialNote && (
         <p className="mt-2 flex items-center justify-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-center text-[11px] text-amber-800">
           <Info className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>{incompleteNote}</span>
+          <span>{partialNote}</span>
         </p>
       )}
       <p className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-gray-500">
