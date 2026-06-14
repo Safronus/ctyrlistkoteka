@@ -555,24 +555,14 @@ function FirstVsLatestSection({
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
         {t("firstVsLatestHeading")}
       </h2>
-      <div className="space-y-4">
+      <div className="space-y-2">
         {/* With a single-find collection first === latest — show just one
-            tile so the same clover doesn't appear twice under both
-            labels. The inline null-check also narrows the type. */}
+            tile so the same clover doesn't appear twice. The inline
+            null-check also narrows the type. */}
         {firstFind && firstFind.id !== latestFind.id && (
-          <FindShowcaseTile
-            find={firstFind}
-            label={t("firstFindLabel")}
-            t={t}
-            locale={locale}
-          />
+          <FindShowcaseTile find={firstFind} t={t} locale={locale} />
         )}
-        <FindShowcaseTile
-          find={latestFind}
-          label={t("latestFindLabel")}
-          t={t}
-          locale={locale}
-        />
+        <FindShowcaseTile find={latestFind} t={t} locale={locale} />
       </div>
     </section>
   );
@@ -580,12 +570,10 @@ function FirstVsLatestSection({
 
 async function FindShowcaseTile({
   find,
-  label,
   t,
   locale,
 }: {
   find: NonNullable<HomePageData["latestFind"]>;
-  label: string;
   t: HomeT;
   locale: string;
 }) {
@@ -597,14 +585,10 @@ async function FindShowcaseTile({
   const showMapLink = !find.isAnonymized && find.coordinates !== null;
 
   return (
-    <div>
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-        {label}
-      </p>
-      {/* flex-col on phones so the mobile action row below the body can
-          span the full card width; from sm: back to the row layout with
-          the vertical map-link bar on the right edge. */}
-      <div className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm sm:flex-row sm:items-stretch">
+    // flex-col on phones so the mobile action row below the body can span
+    // the full card width; from sm: back to the row layout with the
+    // vertical map-link bar on the right edge.
+    <div className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm sm:flex-row sm:items-stretch">
         <Link
           href={`/sbirka/${find.id}`}
           className="flex min-w-0 flex-1 flex-col gap-4 p-3 sm:flex-row sm:items-center sm:p-4"
@@ -723,7 +707,6 @@ async function FindShowcaseTile({
             {t("latestFindShowOnMapShort")}
           </Link>
         )}
-      </div>
       </div>
     </div>
   );

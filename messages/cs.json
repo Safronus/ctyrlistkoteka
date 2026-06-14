@@ -251,8 +251,6 @@
     "statYears": "{count, plural, one {rok} few {roky} other {let}}",
     "highlightsHeading": "Zajímavosti",
     "firstVsLatestHeading": "První vs poslední čtyřlístek",
-    "firstFindLabel": "První nález",
-    "latestFindLabel": "Poslední nález",
     "latestFindDetail": "Detail nálezu",
     "latestFindShowOnMap": "Zobrazit nález na mapě",
     "latestFindShowOnMapShort": "Na mapě",

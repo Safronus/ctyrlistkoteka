@@ -252,8 +252,6 @@
     "statYears": "{count, plural, one {year} other {years}}",
     "highlightsHeading": "Highlights",
     "firstVsLatestHeading": "First vs latest four-leaf clover",
-    "firstFindLabel": "First find",
-    "latestFindLabel": "Latest find",
     "latestFindDetail": "Find detail",
     "latestFindShowOnMap": "Show find on map",
     "latestFindShowOnMapShort": "On map",
