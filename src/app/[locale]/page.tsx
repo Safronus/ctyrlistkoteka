@@ -307,7 +307,8 @@ export default async function HomePage() {
       <PopularFindWidget winner={popularWinner} runnersUp={popularRunnersUp} />
 
       {data.latestFind && (
-        <LatestFindSection
+        <FirstVsLatestSection
+          firstFind={data.firstFind}
           latestFind={data.latestFind}
           t={t}
           locale={locale}
@@ -538,79 +539,116 @@ function NavCard({
   );
 }
 
-async function LatestFindSection({
+function FirstVsLatestSection({
+  firstFind,
   latestFind,
   t,
   locale,
 }: {
+  firstFind: HomePageData["firstFind"];
   latestFind: NonNullable<HomePageData["latestFind"]>;
   t: HomeT;
   locale: string;
 }) {
-  const tRow = await getTranslations("FindRow");
-  const altText = latestFind.isAnonymized
-    ? tRow("anonymizedAlt", { id: latestFind.id })
-    : tRow("findAlt", { id: latestFind.id });
-  const foundAtDate = latestFind.foundAt ? new Date(latestFind.foundAt) : null;
-  const showMapLink =
-    !latestFind.isAnonymized && latestFind.coordinates !== null;
-
   return (
     <section className="mt-8">
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-        {t("latestFindHeading")}
+        {t("firstVsLatestHeading")}
       </h2>
+      <div className="space-y-4">
+        {/* With a single-find collection first === latest — show just one
+            tile so the same clover doesn't appear twice under both
+            labels. The inline null-check also narrows the type. */}
+        {firstFind && firstFind.id !== latestFind.id && (
+          <FindShowcaseTile
+            find={firstFind}
+            label={t("firstFindLabel")}
+            t={t}
+            locale={locale}
+          />
+        )}
+        <FindShowcaseTile
+          find={latestFind}
+          label={t("latestFindLabel")}
+          t={t}
+          locale={locale}
+        />
+      </div>
+    </section>
+  );
+}
+
+async function FindShowcaseTile({
+  find,
+  label,
+  t,
+  locale,
+}: {
+  find: NonNullable<HomePageData["latestFind"]>;
+  label: string;
+  t: HomeT;
+  locale: string;
+}) {
+  const tRow = await getTranslations("FindRow");
+  const altText = find.isAnonymized
+    ? tRow("anonymizedAlt", { id: find.id })
+    : tRow("findAlt", { id: find.id });
+  const foundAtDate = find.foundAt ? new Date(find.foundAt) : null;
+  const showMapLink = !find.isAnonymized && find.coordinates !== null;
+
+  return (
+    <div>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+        {label}
+      </p>
       {/* flex-col on phones so the mobile action row below the body can
           span the full card width; from sm: back to the row layout with
           the vertical map-link bar on the right edge. */}
       <div className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm sm:flex-row sm:items-stretch">
         <Link
-          href={`/sbirka/${latestFind.id}`}
+          href={`/sbirka/${find.id}`}
           className="flex min-w-0 flex-1 flex-col gap-4 p-3 sm:flex-row sm:items-center sm:p-4"
         >
         <FindThumbnail
-          image={latestFind.primaryImage}
+          image={find.primaryImage}
           alt={altText}
           className="aspect-square w-full shrink-0 rounded-lg sm:w-32"
         />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-2xl font-bold text-gray-900 group-hover:text-brand-700">
-              #{latestFind.id}
+              #{find.id}
             </span>
             {foundAtDate && (
               <span className="text-sm text-gray-500">
                 {formatDateTimeCs(foundAtDate, locale)}
               </span>
             )}
-            {latestFind.states.length > 0 && (
-              <StateBadges states={latestFind.states} />
-            )}
+            {find.states.length > 0 && <StateBadges states={find.states} />}
           </div>
-          {latestFind.isAnonymized ? (
+          {find.isAnonymized ? (
             <p className="mt-1 text-sm text-gray-500">
               {t("latestFindAnonymizedLocation")}
             </p>
-          ) : latestFind.location ? (
+          ) : find.location ? (
             <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-sm">
               <span className="font-mono text-xs text-gray-500">
-                {formatLocationId(latestFind.location.id)}
+                {formatLocationId(find.location.id)}
               </span>
               <span className="text-gray-400">–</span>
               <span
                 className="truncate text-gray-800"
-                title={latestFind.location.code}
+                title={find.location.code}
               >
-                {latestFind.location.code}
+                {find.location.code}
               </span>
-              {latestFind.location.displayName &&
-                latestFind.location.displayName !==
-                  latestFind.location.code && (
+              {find.location.displayName &&
+                find.location.displayName !== find.location.code && (
                   <span
                     className="truncate text-gray-500"
-                    title={latestFind.location.displayName}
+                    title={find.location.displayName}
                   >
-                    ({latestFind.location.displayName})
+                    ({find.location.displayName})
                   </span>
                 )}
             </p>
@@ -619,22 +657,19 @@ async function LatestFindSection({
               {t("latestFindNoLocation")}
             </p>
           )}
-          {latestFind.coordinates && (
+          {find.coordinates && (
             <p className="mt-1 truncate font-mono text-xs text-gray-500">
-              {formatGpsApple(
-                latestFind.coordinates.lat,
-                latestFind.coordinates.lng,
-              )}
+              {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
             </p>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            {/* Vote button on the latest-find tile — same prominent
-                CTA size as the Popular widget so visitors can like a
-                fresh upload without scrolling to the leaderboard.
-                `autoHydrate` lets it sync `voted`/`count` for this
-                visitor against the cached server render of /. */}
+            {/* Vote button — same prominent CTA size as the Popular
+                widget so visitors can like a find without scrolling to
+                the leaderboard. `autoHydrate` lets it sync `voted`/
+                `count` for this visitor against the cached server
+                render of /. */}
             <VoteButton
-              findId={latestFind.id}
+              findId={find.id}
               initialVoted={false}
               initialCount={0}
               size="lg"
@@ -658,7 +693,7 @@ async function LatestFindSection({
           phones in favour of the explicit button row below. */}
       {showMapLink && (
         <Link
-          href={`/mapa?find=${latestFind.id}`}
+          href={`/mapa?find=${find.id}`}
           aria-label={t("latestFindShowOnMap")}
           title={t("latestFindShowOnMap")}
           className="hidden shrink-0 items-center justify-center border-l border-gray-100 px-3 text-gray-400 transition hover:bg-brand-100 hover:text-brand-700 focus:bg-brand-100 focus:text-brand-700 focus:outline-none sm:flex"
@@ -671,7 +706,7 @@ async function LatestFindSection({
           Lives outside the body <Link> (nested anchors are invalid). */}
       <div className="flex gap-2 border-t border-gray-100 p-3 sm:hidden">
         <Link
-          href={`/sbirka/${latestFind.id}`}
+          href={`/sbirka/${find.id}`}
           className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
         >
           {t("latestFindDetail")}
@@ -679,7 +714,7 @@ async function LatestFindSection({
         </Link>
         {showMapLink && (
           <Link
-            href={`/mapa?find=${latestFind.id}`}
+            href={`/mapa?find=${find.id}`}
             aria-label={t("latestFindShowOnMap")}
             title={t("latestFindShowOnMap")}
             className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
@@ -690,7 +725,7 @@ async function LatestFindSection({
         )}
       </div>
       </div>
-    </section>
+    </div>
   );
 }
 

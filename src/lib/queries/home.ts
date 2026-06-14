@@ -140,6 +140,11 @@ export interface HomeMonthlyPoint {
 export interface HomePageData {
   totals: HomeTotals;
   latestFind: HomeLatestFind | null;
+  /** The very first find (lowest id) — shown next to latestFind in the
+   *  "První vs poslední čtyřlístek" section. Same shape as latestFind.
+   *  Null only when the collection is empty (then latestFind is null
+   *  too). Equals latestFind when there's exactly one find. */
+  firstFind: HomeLatestFind | null;
   highlights: HomeHighlights;
   /** Last 12 calendar months ending with the current month, padded with
    *  zero-count entries for months without finds so the sparkline keeps
@@ -152,6 +157,8 @@ export async function getHomePageData(): Promise<HomePageData> {
     countsRows,
     latestFindRow,
     latestCoordRows,
+    firstFindRow,
+    firstCoordRows,
     peakDayRows,
     topLocRows,
     monthlyRows,
@@ -248,6 +255,44 @@ export async function getHomePageData(): Promise<HomePageData> {
              THEN ST_X(coordinates)::float8 END AS lng
       FROM finds
       WHERE id = (SELECT MAX(id) FROM finds)
+    `,
+
+    // First find by ID (mirror of the latest-find query above), for the
+    // "První vs poslední" section.
+    prisma.find.findFirst({
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        foundAt: true,
+        isAnonymized: true,
+        location: { select: { id: true, code: true, displayName: true } },
+        states: { select: { state: true } },
+        images: {
+          orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+          take: 1,
+          select: {
+            id: true,
+            imageType: true,
+            webPath: true,
+            thumbPath: true,
+            width: true,
+            height: true,
+            isPrimary: true,
+            sortOrder: true,
+          },
+        },
+      },
+    }),
+
+    // Raw GPS for the first find — same anonymized-safe CASE as latest.
+    prisma.$queryRaw<Array<{ lat: number | null; lng: number | null }>>`
+      SELECT
+        CASE WHEN is_anonymized = false AND coordinates IS NOT NULL
+             THEN ST_Y(coordinates)::float8 END AS lat,
+        CASE WHEN is_anonymized = false AND coordinates IS NOT NULL
+             THEN ST_X(coordinates)::float8 END AS lng
+      FROM finds
+      WHERE id = (SELECT MIN(id) FROM finds)
     `,
 
     prisma.$queryRaw<
@@ -406,22 +451,27 @@ export async function getHomePageData(): Promise<HomePageData> {
     lastBackfillCount: Number(lastBackfillCount),
   };
 
-  const lf = latestFindRow;
-  const latestCoord = latestCoordRows[0];
-  const latestFind: HomeLatestFind | null = lf
-    ? {
-        id: lf.id,
-        foundAt: lf.foundAt ? lf.foundAt.toISOString() : null,
-        isAnonymized: lf.isAnonymized,
-        location: lf.isAnonymized ? null : lf.location,
-        coordinates:
-          latestCoord && latestCoord.lat !== null && latestCoord.lng !== null
-            ? { lat: latestCoord.lat, lng: latestCoord.lng }
-            : null,
-        primaryImage: lf.images[0] ?? null,
-        states: lf.states.map((s) => s.state),
-      }
-    : null;
+  const toHomeFind = (
+    row: typeof latestFindRow,
+    coord: { lat: number | null; lng: number | null } | undefined,
+  ): HomeLatestFind | null =>
+    row
+      ? {
+          id: row.id,
+          foundAt: row.foundAt ? row.foundAt.toISOString() : null,
+          isAnonymized: row.isAnonymized,
+          location: row.isAnonymized ? null : row.location,
+          coordinates:
+            coord && coord.lat !== null && coord.lng !== null
+              ? { lat: coord.lat, lng: coord.lng }
+              : null,
+          primaryImage: row.images[0] ?? null,
+          states: row.states.map((s) => s.state),
+        }
+      : null;
+
+  const latestFind = toHomeFind(latestFindRow, latestCoordRows[0]);
+  const firstFind = toHomeFind(firstFindRow, firstCoordRows[0]);
 
   const peakDayRow = peakDayRows[0];
   const topLocRow = topLocRows[0];
@@ -466,6 +516,7 @@ export async function getHomePageData(): Promise<HomePageData> {
   return {
     totals,
     latestFind,
+    firstFind,
     highlights,
     recentMonthly: padMonthlySparkline(monthlyRows),
   };
