@@ -44,10 +44,12 @@ export async function DonatedBoardSection() {
             const h = ((i * 2654435761) ^ 0x9e3779b9) >>> 0;
             // Rotation always has a visible tilt (±4..12°), never near 0,
             // but stays readable. Position + size vary across the cell.
-            const rot = (4 + (h % 9)) * ((h >> 8) & 1 ? 1 : -1); // ±4..12
-            const dx = ((h >> 9) % 31) - 15; // -15..+15 % of cell
-            const dy = ((h >> 15) % 31) - 15;
-            const scale = 0.82 + ((h >> 20) % 33) / 100; // 0.82..1.14
+            // Unsigned shifts (>>>) throughout — a signed >> would turn the
+            // high-bit hash negative and push offsets past their bounds.
+            const rot = (4 + (h % 9)) * ((h >>> 8) & 1 ? 1 : -1); // ±4..12
+            const dx = ((h >>> 9) % 31) - 15; // -15..+15 % of cell
+            const dy = ((h >>> 15) % 31) - 15;
+            const scale = 0.82 + ((h >>> 20) % 33) / 100; // 0.82..1.14
             const px = Math.round(BASE_PX * scale);
             const fontSize = Math.round(8 + scale * 3); // ~10..11 px
             return (
