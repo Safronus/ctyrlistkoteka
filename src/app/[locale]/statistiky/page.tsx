@@ -52,6 +52,7 @@ import {
   type CalendarPoint,
   type CategoryPoint,
   type CountryPoint,
+  type DayStreak,
   type DistanceBucket,
   type FindHighlight,
   type JubileeFind,
@@ -449,6 +450,7 @@ async function GeoSection() {
 
 async function CalendarSection() {
   const t = await getTranslations("Statistiky");
+  const locale = await getLocale();
   const data = await getStatsCalendar();
   return (
     <CalendarStatsSection
@@ -459,7 +461,9 @@ async function CalendarSection() {
       firstYear={data.firstYear}
       byMonthDay={data.byMonthDay}
       byMinute={data.byMinute}
+      longestDayStreak={data.longestDayStreak}
       t={t}
+      locale={locale}
     />
   );
 }
@@ -1453,7 +1457,9 @@ function CalendarStatsSection({
   firstYear,
   byMonthDay,
   byMinute,
+  longestDayStreak,
   t,
+  locale,
 }: {
   byHour: readonly CalendarPoint[];
   byDayOfWeek: readonly CalendarPoint[];
@@ -1462,7 +1468,9 @@ function CalendarStatsSection({
   firstYear: number | null;
   byMonthDay: readonly MonthDayPoint[];
   byMinute: readonly MinuteHeatmapCell[];
+  longestDayStreak: DayStreak | null;
   t: StatsT;
+  locale: string;
 }) {
   const hourly = fillSeries(byHour, HOUR_KEYS);
   const daily = fillSeries(byDayOfWeek, DOW_KEYS);
@@ -1528,10 +1536,91 @@ function CalendarStatsSection({
         <CalendarHeatmapTabs
           daysView={<MonthDayHeatmap data={byMonthDay} t={t} />}
           minuteCells={byMinute}
+          streakSlot={
+            longestDayStreak ? (
+              <DayStreakInfo streak={longestDayStreak} t={t} locale={locale} />
+            ) : null
+          }
         />
       </div>
     </CollapsibleSection>
   );
+}
+
+/** Right-aligned summary in the heatmap toggle row: the longest run of
+ *  consecutive days that each had a find, with a click-through to the
+ *  first + last find of the run (mirrors the #min → #max link style used
+ *  elsewhere). Server-rendered so date formatting + the i18n Link stay
+ *  off the client. */
+function DayStreakInfo({
+  streak,
+  t,
+  locale,
+}: {
+  streak: DayStreak;
+  t: StatsT;
+  locale: string;
+}) {
+  return (
+    <div className="text-left text-xs leading-snug sm:text-right">
+      <p className="font-medium uppercase tracking-wide text-gray-500">
+        {t("streakHeading")}
+      </p>
+      <p className="mt-0.5 text-gray-600">
+        <span className="font-semibold text-gray-900">
+          {t("streakDays", { count: streak.days })}
+        </span>
+        <span className="mx-1.5 text-gray-300" aria-hidden>
+          ·
+        </span>
+        <span className="tabular-nums">
+          {formatDayStreakRange(streak.startDate, streak.endDate, locale)}
+        </span>
+        <span className="mx-1.5 text-gray-300" aria-hidden>
+          ·
+        </span>
+        <Link
+          href={`/sbirka/${streak.firstFindId}`}
+          className="font-mono font-medium text-brand-700 hover:underline"
+        >
+          #{streak.firstFindId}
+        </Link>
+        {streak.lastFindId !== streak.firstFindId && (
+          <>
+            <span className="px-1 text-gray-400" aria-hidden>
+              →
+            </span>
+            <Link
+              href={`/sbirka/${streak.lastFindId}`}
+              className="font-mono font-medium text-brand-700 hover:underline"
+            >
+              #{streak.lastFindId}
+            </Link>
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** "12. června 2024 – 28. června 2024" (collapses to one date when the
+ *  run is a single day). Noon-UTC + timeZone:UTC so a pure calendar date
+ *  never drifts across the viewer's timezone. */
+function formatDayStreakRange(
+  startISO: string,
+  endISO: string,
+  locale: string,
+): string {
+  const fmt = new Intl.DateTimeFormat(toIntlLocale(locale), {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const start = new Date(`${startISO}T12:00:00.000Z`);
+  if (startISO === endISO) return fmt.format(start);
+  const end = new Date(`${endISO}T12:00:00.000Z`);
+  return `${fmt.format(start)} – ${fmt.format(end)}`;
 }
 
 // Reuses the MonthsAbbr namespace shipped for the home-page sparkline so

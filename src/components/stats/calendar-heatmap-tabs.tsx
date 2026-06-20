@@ -20,32 +20,39 @@ type Tab = "days" | "minutes";
 export function CalendarHeatmapTabs({
   daysView,
   minuteCells,
+  streakSlot,
 }: {
   daysView: React.ReactNode;
   minuteCells: readonly MinuteHeatmapCell[];
+  /** Optional right-aligned summary (longest day streak) shown next to
+   *  the day/minute tabs. Server-rendered and passed in pre-built. */
+  streakSlot?: React.ReactNode;
 }) {
   const t = useTranslations("Statistiky");
   const [active, setActive] = useState<Tab>("days");
 
   return (
     <div className="space-y-3">
-      <div
-        role="tablist"
-        aria-label={t("heatmapTabsAriaLabel")}
-        className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
-      >
-        <TabButton
-          active={active === "days"}
-          onClick={() => setActive("days")}
-          icon={<Calendar className="h-3.5 w-3.5" aria-hidden />}
-          label={t("heatmapTabDays")}
-        />
-        <TabButton
-          active={active === "minutes"}
-          onClick={() => setActive("minutes")}
-          icon={<Clock className="h-3.5 w-3.5" aria-hidden />}
-          label={t("heatmapTabMinutes")}
-        />
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div
+          role="tablist"
+          aria-label={t("heatmapTabsAriaLabel")}
+          className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
+        >
+          <TabButton
+            active={active === "days"}
+            onClick={() => setActive("days")}
+            icon={<Calendar className="h-3.5 w-3.5" aria-hidden />}
+            label={t("heatmapTabDays")}
+          />
+          <TabButton
+            active={active === "minutes"}
+            onClick={() => setActive("minutes")}
+            icon={<Clock className="h-3.5 w-3.5" aria-hidden />}
+            label={t("heatmapTabMinutes")}
+          />
+        </div>
+        {streakSlot}
       </div>
 
       {active === "days" ? (

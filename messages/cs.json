@@ -605,6 +605,8 @@
     "heatmapHeading": "Kalendářní heatmapa",
     "heatmapSubtitle": "Počty nálezů podle dne v roce napříč všemi roky. Sytost zelené odpovídá podílu vůči maximálnímu dni ({max}).",
     "heatmapTabsAriaLabel": "Přepínač pohledů heatmapy",
+    "streakHeading": "Nejdelší série dnů s nálezem",
+    "streakDays": "{count, plural, one {# den} few {# dny} other {# dní}} v řadě",
     "heatmapTabDays": "Dny",
     "heatmapTabMinutes": "Minuty",
     "minuteHeatmapHeading": "Minutová heatmapa",
