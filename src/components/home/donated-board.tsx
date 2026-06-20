@@ -25,14 +25,11 @@ export async function DonatedBoardSection() {
   const t = await getTranslations("Home");
 
   return (
-    <section className="mt-10">
+    <section className="mt-5">
       <div className="mx-auto max-w-3xl px-6 text-center sm:px-10">
         <h2 className="text-xl font-bold tracking-tight text-gray-900">
           {t("donatedBoardHeading")}
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-gray-500">
-          {t("donatedBoardSubtitle")}
-        </p>
         <ul
           className="mx-auto mt-6 grid gap-[3px]"
           style={{
@@ -40,12 +37,17 @@ export async function DonatedBoardSection() {
           }}
         >
           {ids.map((id, i) => {
-            // Deterministic pseudo-random per index — same trick the SSR
-            // overlays use, so server and client markup match exactly.
-            const rot = ((i * 37 + 11) % 25) - 12; // -12..+12 deg
-            const dx = ((i * 53 + 7) % 30) - 15; // -15..+14 % of cell
-            const dy = ((i * 29 + 5) % 30) - 15;
-            const scale = 0.85 + ((i * 17 + 3) % 28) / 100; // 0.85..1.12
+            // Deterministic pseudo-random per index — a multiplicative hash
+            // (XOR'd with a constant so index 0 isn't degenerate) spreads
+            // the values well; rendered server-side so the scatter is
+            // baked into the HTML, no client recompute / hydration drift.
+            const h = ((i * 2654435761) ^ 0x9e3779b9) >>> 0;
+            // Rotation always has a visible tilt (±4..12°), never near 0,
+            // but stays readable. Position + size vary across the cell.
+            const rot = (4 + (h % 9)) * ((h >> 8) & 1 ? 1 : -1); // ±4..12
+            const dx = ((h >> 9) % 31) - 15; // -15..+15 % of cell
+            const dy = ((h >> 15) % 31) - 15;
+            const scale = 0.82 + ((h >> 20) % 33) / 100; // 0.82..1.14
             const px = Math.round(BASE_PX * scale);
             const fontSize = Math.round(8 + scale * 3); // ~10..11 px
             return (

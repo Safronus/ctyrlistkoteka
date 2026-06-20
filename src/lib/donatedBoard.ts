@@ -10,3 +10,11 @@ import { z } from "zod";
 
 export const donatedBoardSchema = z.array(z.number().int().positive());
 export type DonatedBoard = z.infer<typeof donatedBoardSchema>;
+
+/**
+ * Lowest find id that can appear on the board. The apology's "send me a
+ * message and I'll mail you a clover" offer only went live around this
+ * find, so anything earlier could not have been donated *through that
+ * offer*. The /admin candidate list is scoped to ids >= this value.
+ */
+export const DONATED_BOARD_MIN_FIND_ID = 22094;

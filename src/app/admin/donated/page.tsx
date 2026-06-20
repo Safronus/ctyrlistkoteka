@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { Gift } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
-import { getDonatedBoardIds } from "@/lib/donatedBoard.server";
+import { DONATED_BOARD_MIN_FIND_ID } from "@/lib/donatedBoard";
+import { getDonatedCandidates } from "@/lib/donatedBoard.server";
 import { DonatedBoardForm } from "./donated-form";
 
 export const metadata: Metadata = {
-  title: "Kdo už využil nabídky",
+  title: "Pole darovaného štěstí",
   robots: { index: false, follow: false },
 };
 
@@ -14,25 +15,30 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDonatedPage() {
   await ensureAdminAuth();
-  const ids = await getDonatedBoardIds();
+  const candidates = await getDonatedCandidates();
+  const items = candidates.map((c) => ({
+    id: c.id,
+    foundAt: c.foundAt ? c.foundAt.toISOString() : null,
+    onBoard: c.onBoard,
+  }));
 
   return (
     <div className="space-y-6">
       <header>
         <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
           <Gift className="h-5 w-5 text-brand-600" aria-hidden />
-          Kdo už využil nabídky
+          Pole darovaného štěstí
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-gray-600">
-          Seznam čísel nálezů, které jsi rozdal na základě nabídky v „Malé
-          omluvě na závěr“. Na hlavní stránce se vykreslí jako pole
-          čtyřlístků pod omluvou. Přidat lze <strong>jen nález se stavem
-          „Darovaný“</strong>. Pořadí na webu je podle čísla. Změny se uloží
-          do <code>data/.admin/donated-board.json</code> a projeví se po
-          revalidaci (vynucené ihned po uložení).
+          Přepínačem zapni/vypni, které darované nálezy se mají objevit jako
+          pole čtyřlístků pod „Malou omluvou na závěr“ na hlavní stránce.
+          Seznam ukazuje jen nálezy se stavem <strong>„Darovaný“</strong> od
+          #{DONATED_BOARD_MIN_FIND_ID} výš (starší nemohly být darované přes
+          nabídku), nejnovější nahoře. Změny se uloží do{" "}
+          <code>data/.admin/donated-board.json</code> a projeví se ihned.
         </p>
       </header>
-      <DonatedBoardForm ids={ids} />
+      <DonatedBoardForm items={items} />
     </div>
   );
 }

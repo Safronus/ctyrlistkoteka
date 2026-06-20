@@ -11,6 +11,7 @@ import {
   touchSession,
 } from "@/lib/admin/session";
 import { prisma } from "@/lib/db";
+import { DONATED_BOARD_MIN_FIND_ID } from "@/lib/donatedBoard";
 import {
   getDonatedBoardIds,
   DONATED_BOARD_DIR,
@@ -27,14 +28,18 @@ async function persist(ids: number[]): Promise<void> {
 
 function refresh() {
   // The home page reads the board; revalidate the whole locale tree so a
-  // newly-added clover shows on the next visit.
+  // toggled clover shows / hides on the next visit.
   revalidatePath("/", "layout");
   revalidatePath("/admin/donated");
 }
 
-/** Add a find id to the donated board. Only finds carrying the DONATED
- *  state are accepted. */
-export async function addDonatedFind(findIdRaw: number): Promise<Result> {
+/** Toggle a find on/off the donated board. Adding is only allowed for
+ *  finds that carry the DONATED state and sit at or above the cutoff id
+ *  (earlier finds predate the apology offer). Removing is unconditional. */
+export async function setDonatedFind(
+  findIdRaw: number,
+  on: boolean,
+): Promise<Result> {
   const session = await getAdminSession();
   if (!isAuthenticated(session)) return { ok: false, error: "Nepřihlášeno." };
   await touchSession();
@@ -44,53 +49,32 @@ export async function addDonatedFind(findIdRaw: number): Promise<Result> {
     return { ok: false, error: "Neplatné číslo nálezu." };
   }
 
-  const donated = await prisma.find.findFirst({
-    where: { id: findId, states: { some: { state: FindState.DONATED } } },
-    select: { id: true },
-  });
-  if (!donated) {
-    const exists = await prisma.find.findUnique({
-      where: { id: findId },
+  const ids = await getDonatedBoardIds();
+
+  if (on) {
+    if (findId < DONATED_BOARD_MIN_FIND_ID) {
+      return {
+        ok: false,
+        error: `Nález #${findId} je starší než #${DONATED_BOARD_MIN_FIND_ID} — nemohl být darovaný přes nabídku.`,
+      };
+    }
+    const donated = await prisma.find.findFirst({
+      where: { id: findId, states: { some: { state: FindState.DONATED } } },
       select: { id: true },
     });
-    return {
-      ok: false,
-      error: exists
-        ? `Nález #${findId} nemá stav „Darovaný“.`
-        : `Nález #${findId} neexistuje.`,
-    };
+    if (!donated) {
+      return { ok: false, error: `Nález #${findId} nemá stav „Darovaný“.` };
+    }
+    if (!ids.includes(findId)) await persist([...ids, findId]);
+  } else {
+    await persist(ids.filter((id) => id !== findId));
   }
-
-  const ids = await getDonatedBoardIds();
-  if (ids.includes(findId)) {
-    return { ok: false, error: `Nález #${findId} už v seznamu je.` };
-  }
-  await persist([...ids, findId]);
 
   await appendAudit({
     action: "settings.update",
     ip: await getRequestIp(),
     credentialLabel: session.credentialLabel,
-    details: { file: "donated-board.json", op: "add", findId },
-  });
-  refresh();
-  return { ok: true };
-}
-
-/** Remove a find id from the donated board. */
-export async function removeDonatedFind(findId: number): Promise<Result> {
-  const session = await getAdminSession();
-  if (!isAuthenticated(session)) return { ok: false, error: "Nepřihlášeno." };
-  await touchSession();
-
-  const ids = await getDonatedBoardIds();
-  await persist(ids.filter((id) => id !== findId));
-
-  await appendAudit({
-    action: "settings.update",
-    ip: await getRequestIp(),
-    credentialLabel: session.credentialLabel,
-    details: { file: "donated-board.json", op: "remove", findId },
+    details: { file: "donated-board.json", op: on ? "add" : "remove", findId },
   });
   refresh();
   return { ok: true };

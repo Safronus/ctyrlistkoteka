@@ -2,133 +2,126 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2 } from "lucide-react";
-import { addDonatedFind, removeDonatedFind } from "./donated-actions";
+import { Loader2 } from "lucide-react";
+import { DONATED_BOARD_MIN_FIND_ID } from "@/lib/donatedBoard";
+import { setDonatedFind } from "./donated-actions";
 
-export function DonatedBoardForm({ ids }: { ids: number[] }) {
+interface Item {
+  id: number;
+  foundAt: string | null;
+  onBoard: boolean;
+}
+
+// Admin is CZ-only; found_at is the naive Prague wall-clock stored as a
+// UTC instant, so render it verbatim (no timeZone) like the rest of the
+// site does.
+const dateFmt = new Intl.DateTimeFormat("cs-CZ", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+export function DonatedBoardForm({ items }: { items: Item[] }) {
   const router = useRouter();
-  const [findId, setFindId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<number | null>(null);
   const [busy, startBusy] = useTransition();
 
-  const onAdd = () => {
+  const onToggle = (id: number, next: boolean) => {
     setError(null);
-    const id = Number(findId.trim());
-    if (!Number.isInteger(id) || id <= 0) {
-      setError("Zadej platné kladné číslo nálezu.");
-      return;
-    }
+    setPendingId(id);
     startBusy(async () => {
-      const res = await addDonatedFind(id);
+      const res = await setDonatedFind(id, next);
       if (!res.ok) {
         setError(res.error);
+        setPendingId(null);
         return;
       }
-      setFindId("");
       router.refresh();
+      setPendingId(null);
     });
   };
 
-  const onRemove = (id: number) => {
-    setError(null);
-    startBusy(async () => {
-      const res = await removeDonatedFind(id);
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      router.refresh();
-    });
-  };
+  if (items.length === 0) {
+    return (
+      <p className="text-sm text-gray-500">
+        Zatím nejsou žádné nálezy se stavem „Darovaný“ od #
+        {DONATED_BOARD_MIN_FIND_ID} výš.
+      </p>
+    );
+  }
+
+  const onCount = items.filter((i) => i.onBoard).length;
 
   return (
-    <div className="space-y-5">
-      {/* Add */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-gray-900">
-          Přidat rozdaný čtyřlístek
-        </h2>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-700">
-              Číslo nálezu (musí být „Darovaný“)
-            </span>
-            <input
-              type="number"
-              min={1}
-              inputMode="numeric"
-              value={findId}
-              onChange={(e) => setFindId(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  onAdd();
-                }
-              }}
-              placeholder="16230"
-              className="w-40 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-gray-900 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={onAdd}
-            disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
-          >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              <Plus className="h-4 w-4" aria-hidden />
-            )}
-            Přidat
-          </button>
-        </div>
-        {error && (
-          <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
-            {error}
-          </p>
-        )}
-      </div>
-
-      {/* Current list */}
-      <div>
-        <h2 className="mb-2 text-sm font-semibold text-gray-900">
-          Aktuální seznam ({ids.length})
-        </h2>
-        {ids.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Zatím tu není žádný rozdaný čtyřlístek.
-          </p>
-        ) : (
-          <ul className="flex flex-wrap gap-2">
-            {ids.map((id) => (
-              <li
-                key={id}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5"
-              >
+    <div className="space-y-3">
+      <p className="text-sm text-gray-600">
+        Na poli: <strong className="font-semibold">{onCount}</strong> z{" "}
+        {items.length} darovaných
+      </p>
+      {error && (
+        <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </p>
+      )}
+      <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+        {items.map((it) => {
+          const pending = busy && pendingId === it.id;
+          return (
+            <li
+              key={it.id}
+              className="flex items-center justify-between gap-3 px-3 py-2"
+            >
+              <div className="min-w-0">
                 <a
-                  href={`/sbirka/${id}`}
+                  href={`/sbirka/${it.id}`}
                   target="_blank"
                   rel="noreferrer"
                   className="font-mono text-sm font-semibold text-brand-700 hover:underline"
                 >
-                  #{id}
+                  #{it.id}
                 </a>
+                {it.foundAt && (
+                  <span className="ml-2 text-xs text-gray-500">
+                    {dateFmt.format(new Date(it.foundAt))}
+                  </span>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {pending && (
+                  <Loader2
+                    className="h-4 w-4 animate-spin text-gray-400"
+                    aria-hidden
+                  />
+                )}
                 <button
                   type="button"
-                  onClick={() => onRemove(id)}
+                  role="switch"
+                  aria-checked={it.onBoard}
+                  aria-label={
+                    it.onBoard
+                      ? `Odebrat nález #${it.id} z pole`
+                      : `Přidat nález #${it.id} na pole`
+                  }
                   disabled={busy}
-                  title="Odebrat ze seznamu"
-                  aria-label={`Odebrat nález #${id} ze seznamu`}
-                  className="inline-flex items-center rounded-md border border-gray-300 p-1 text-gray-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                  onClick={() => onToggle(it.id, !it.onBoard)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition disabled:opacity-60 ${
+                    it.onBoard ? "bg-brand-600" : "bg-gray-300"
+                  }`}
                 >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                      it.onBoard ? "translate-x-5" : "translate-x-1"
+                    }`}
+                  />
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

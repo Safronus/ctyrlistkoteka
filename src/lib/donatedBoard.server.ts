@@ -3,7 +3,7 @@ import path from "node:path";
 import { FindState } from "@prisma/client";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
 import { prisma } from "@/lib/db";
-import { donatedBoardSchema } from "./donatedBoard";
+import { donatedBoardSchema, DONATED_BOARD_MIN_FIND_ID } from "./donatedBoard";
 
 /**
  * Server-only filesystem side of the donated-board list. Stored as a tiny
@@ -47,4 +47,34 @@ export async function getDonatedBoardForDisplay(): Promise<number[]> {
   });
   const stillDonated = new Set(rows.map((r) => r.id));
   return ids.filter((id) => stillDonated.has(id));
+}
+
+export interface DonatedCandidate {
+  id: number;
+  foundAt: Date | null;
+  onBoard: boolean;
+}
+
+/** Donated finds eligible for the board — id >= DONATED_BOARD_MIN_FIND_ID
+ *  (earlier ones predate the apology offer), newest first, each flagged
+ *  with whether it's currently on the board. Drives the /admin toggle
+ *  list. */
+export async function getDonatedCandidates(): Promise<DonatedCandidate[]> {
+  const [rows, ids] = await Promise.all([
+    prisma.find.findMany({
+      where: {
+        id: { gte: DONATED_BOARD_MIN_FIND_ID },
+        states: { some: { state: FindState.DONATED } },
+      },
+      select: { id: true, foundAt: true },
+      orderBy: { id: "desc" },
+    }),
+    getDonatedBoardIds(),
+  ]);
+  const onBoard = new Set(ids);
+  return rows.map((r) => ({
+    id: r.id,
+    foundAt: r.foundAt,
+    onBoard: onBoard.has(r.id),
+  }));
 }

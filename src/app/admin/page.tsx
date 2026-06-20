@@ -263,12 +263,12 @@ export default async function AdminHomePage() {
         />
         <FeatureCard
           icon={Gift}
-          title="Kdo už využil nabídky"
+          title="Pole darovaného štěstí"
           status="ok"
           href="/admin/donated"
           lines={[
             "data/.admin/donated-board.json",
-            "Pole rozdaných čtyřlístků pod „Malou omluvou“",
+            "Přepínače darovaných čtyřlístků pod „Malou omluvou“",
           ]}
         />
       </Group>
