@@ -697,11 +697,13 @@ function BestSessionsCard({
     month: "long",
     year: "numeric",
   });
-  // /sbirka's from/to are day-resolution (YYYY-MM-DD), inclusive. The ISO
-  // date slice matches what the site displays for found_at (rendered
-  // verbatim, no timezone), so the day lines up with the bout's dates.
+  // Link to /sbirka with the precise instant window (fromTs/toTs) so the
+  // listing shows EXACTLY this bout's finds — a day-level from/to would
+  // also pull in any other finds from the same day.
   const listHref = (s: BestSessionEntry) =>
-    `/sbirka?from=${s.firstAt.slice(0, 10)}&to=${s.lastAt.slice(0, 10)}`;
+    `/sbirka?fromTs=${encodeURIComponent(s.firstAt)}&toTs=${encodeURIComponent(
+      s.lastAt,
+    )}`;
   const durationMinutes = (s: BestSessionEntry) =>
     Math.round(
       (new Date(s.lastAt).getTime() - new Date(s.firstAt).getTime()) / 60_000,

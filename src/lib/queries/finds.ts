@@ -150,6 +150,14 @@ export interface FindFilters {
    *  builder converts this to "< next-day-UTC-midnight" so the whole
    *  selected day counts. */
   dateTo?: Date;
+  /** Precise (instant-resolution) `foundAt` window — both bounds
+   *  INCLUSIVE. Distinct from dateFrom/dateTo, which are day-level: this
+   *  pair pins an exact start/end timestamp so a deep-link can isolate a
+   *  single collecting bout (the /statistiky "zátah" panel) rather than a
+   *  whole calendar day. When both are set they bracket exactly the
+   *  finds of that bout. */
+  foundAtFrom?: Date;
+  foundAtTo?: Date;
   /** When true, keep only finds that have at least one donation photo
    *  on disk. Wired to the "S reálnou fotkou" toggle in the FilterBar.
    *  Applied as a post-filter against the on-disk index because
@@ -282,6 +290,14 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
       next.setUTCDate(next.getUTCDate() + 1);
       range.lt = next;
     }
+    and.push({ foundAt: range });
+  }
+  if (f.foundAtFrom || f.foundAtTo) {
+    // Instant-resolution window, both ends inclusive — the bout's first
+    // and last find sit exactly on the bounds, so lte/gte include them.
+    const range: Prisma.DateTimeFilter = {};
+    if (f.foundAtFrom) range.gte = f.foundAtFrom;
+    if (f.foundAtTo) range.lte = f.foundAtTo;
     and.push({ foundAt: range });
   }
 

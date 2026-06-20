@@ -83,6 +83,15 @@ function dateToString(d: Date | undefined): string {
   return d ? d.toISOString().slice(0, 10) : "";
 }
 
+/** Parses a full ISO instant (e.g. "2026-06-19T07:12:34.000Z") for the
+ *  precise found_at window the /statistiky "zátah" deep-link uses.
+ *  Returns undefined for anything that isn't a valid date-time. */
+function parseDateTime(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 function parseState(value: string | undefined): FindState | undefined {
   if (!value) return undefined;
   return (Object.values(FindState) as string[]).includes(value)
@@ -151,6 +160,11 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     year: parseInt(pickString(sp.year)),
     dateFrom: parseDateOnly(pickString(sp.from)),
     dateTo: parseDateOnly(pickString(sp.to)),
+    // Precise instant window from the /statistiky "zátah" deep-link —
+    // isolates exactly that one collecting bout (vs. the day-level
+    // from/to above which would also pull in the rest of the day).
+    foundAtFrom: parseDateTime(pickString(sp.fromTs)),
+    foundAtTo: parseDateTime(pickString(sp.toTs)),
     hasRealPhoto: pickString(sp.hasPhoto) === "1" ? true : undefined,
     excludeLocationId: hideDominant ? DOMINANT_LOCATION_ID : undefined,
   };
@@ -246,6 +260,8 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     filters.year ||
     filters.dateFrom ||
     filters.dateTo ||
+    filters.foundAtFrom ||
+    filters.foundAtTo ||
     filters.hasRealPhoto ||
     filters.excludeLocationId
   );
@@ -314,6 +330,11 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     if (filters.year) params.set("year", String(filters.year));
     if (filters.dateFrom) params.set("from", dateToString(filters.dateFrom));
     if (filters.dateTo) params.set("to", dateToString(filters.dateTo));
+    // Carry the precise "zátah" window through pagination / sort / size
+    // so paging within a single bout doesn't fall back to the whole day.
+    if (filters.foundAtFrom)
+      params.set("fromTs", filters.foundAtFrom.toISOString());
+    if (filters.foundAtTo) params.set("toTs", filters.foundAtTo.toISOString());
     if (filters.hasRealPhoto) params.set("hasPhoto", "1");
     if (filters.excludeLocationId) params.set("hideTop", "1");
     if (sort !== "desc") params.set("sort", sort);
