@@ -40,6 +40,7 @@ import { getTopFindsWithThumbs } from "@/lib/votes";
 import { DonatedSearchCatcher } from "@/components/home/donated-search-catcher";
 import { RetrospectiveGrid } from "@/components/home/retrospective-grid";
 import { DisclaimerSection } from "@/components/home/disclaimer-section";
+import { DonatedBoardSection } from "@/components/home/donated-board";
 import {
   getCloverTexts,
   getCloverTranslations,
@@ -328,6 +329,11 @@ export default async function HomePage() {
 
       {/* Closing apology + "luck is free" offer. */}
       <DisclaimerSection />
+
+      {/* Field of clovers that have already been given away on the back
+          of the apology's offer. Renders nothing when the admin list is
+          empty. */}
+      <DonatedBoardSection />
     </div>
   );
 }

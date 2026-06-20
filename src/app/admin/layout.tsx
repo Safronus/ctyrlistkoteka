@@ -7,6 +7,7 @@ import {
   FileJson,
   FolderTree,
   Gauge,
+  Gift,
   QrCode,
   ShieldCheck,
   Sparkles,
@@ -65,6 +66,7 @@ export default async function AdminLayout({
                   icon={Sparkles}
                   label="Efekty"
                 />
+                <NavLink href="/admin/donated" icon={Gift} label="Rozdané" />
                 <NavLink
                   href="/admin/visitors"
                   icon={BarChart3}

@@ -16,6 +16,7 @@ import {
   MapPinned,
   Map as MapIcon,
   Network,
+  Gift,
   ShieldCheck,
   Sparkles,
   Sticker,
@@ -258,6 +259,16 @@ export default async function AdminHomePage() {
           lines={[
             "data/.admin/special-finds.json",
             "Efekt (rekord / nebeský / pekelný) k libovolnému ID",
+          ]}
+        />
+        <FeatureCard
+          icon={Gift}
+          title="Kdo už využil nabídky"
+          status="ok"
+          href="/admin/donated"
+          lines={[
+            "data/.admin/donated-board.json",
+            "Pole rozdaných čtyřlístků pod „Malou omluvou“",
           ]}
         />
       </Group>
