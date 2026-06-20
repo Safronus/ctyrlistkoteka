@@ -376,6 +376,23 @@ export interface StatsTimeAndPaceResult {
    *  inclusive. Years with no finds appear with zeros so the year
    *  selector can render every position even mid-collection-gaps. */
   perYearStats: YearlyPaceEntry[];
+  /** Top 5 "zátahy" (single collecting bouts) by find count. A bout is a
+   *  run of finds, ordered globally by time (NOT per location), where no
+   *  two consecutive finds are more than 15 minutes apart. Drives the
+   *  "Nejvíce čtyřlístků na jeden zátah" panel. Empty when no dated
+   *  finds. */
+  bestSessions: BestSessionEntry[];
+}
+
+export interface BestSessionEntry {
+  /** Number of finds in the bout. */
+  count: number;
+  /** First find of the bout (earliest found_at) — id + ISO timestamp. */
+  firstId: number;
+  firstAt: string;
+  /** Last find of the bout (latest found_at) — id + ISO timestamp. */
+  lastId: number;
+  lastAt: string;
 }
 
 export interface StatsHighlightsResult {
@@ -704,7 +721,7 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
   // The yearly count piggy-backs on the same pass — Postgres groups
   // GROUP-BY-EXTRACT under a single sequential scan, so it costs only
   // marginally more than the bare COUNT(*).
-  const [anchor, yearlyRows] = await Promise.all([
+  const [anchor, yearlyRows, bestSessionRows] = await Promise.all([
     prisma.$queryRaw<
       Array<{ first_found_at: Date | null; total: bigint }>
     >`
@@ -717,10 +734,58 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
       FROM finds WHERE found_at IS NOT NULL
       GROUP BY 1 ORDER BY 1
     `,
+    // Top 5 "zátahy" — gaps-and-islands: order ALL dated finds by time
+    // (globally, regardless of location), open a new bout whenever the
+    // gap to the previous find exceeds 15 minutes, then rank the bouts
+    // by find count. Tie-break by denser (shorter span) then earlier so
+    // the pick is deterministic. first/last id are taken by time order.
+    prisma.$queryRaw<
+      Array<{
+        cnt: bigint;
+        first_at: Date;
+        last_at: Date;
+        first_id: number;
+        last_id: number;
+      }>
+    >`
+      WITH marked AS (
+        SELECT id, found_at,
+               CASE
+                 WHEN LAG(found_at) OVER (ORDER BY found_at, id) IS NULL
+                   OR found_at - LAG(found_at) OVER (ORDER BY found_at, id)
+                      > INTERVAL '15 minutes'
+                 THEN 1 ELSE 0
+               END AS is_new
+        FROM finds
+        WHERE found_at IS NOT NULL
+      ),
+      grouped AS (
+        SELECT id, found_at,
+               SUM(is_new) OVER (ORDER BY found_at, id) AS session_no
+        FROM marked
+      )
+      SELECT
+        COUNT(*)::bigint AS cnt,
+        MIN(found_at) AS first_at,
+        MAX(found_at) AS last_at,
+        (ARRAY_AGG(id ORDER BY found_at ASC, id ASC))[1] AS first_id,
+        (ARRAY_AGG(id ORDER BY found_at DESC, id DESC))[1] AS last_id
+      FROM grouped
+      GROUP BY session_no
+      ORDER BY cnt DESC, (MAX(found_at) - MIN(found_at)) ASC, MIN(found_at) ASC
+      LIMIT 5
+    `,
   ]);
   const a = anchor[0];
   const firstFoundAt = a?.first_found_at ?? null;
   const totalFindsWithDate = a ? Number(a.total) : 0;
+  const bestSessions: BestSessionEntry[] = bestSessionRows.map((r) => ({
+    count: Number(r.cnt),
+    firstId: r.first_id,
+    firstAt: r.first_at.toISOString(),
+    lastId: r.last_id,
+    lastAt: r.last_at.toISOString(),
+  }));
 
   if (!firstFoundAt || totalFindsWithDate === 0) {
     return {
@@ -738,6 +803,7 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
       firstYear: null,
       lastYear: null,
       perYearStats: [],
+      bestSessions: [],
     };
   }
 
@@ -824,6 +890,7 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
     firstYear,
     lastYear,
     perYearStats,
+    bestSessions,
   };
 }
 

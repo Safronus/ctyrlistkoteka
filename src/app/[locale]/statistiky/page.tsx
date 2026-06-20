@@ -48,6 +48,7 @@ import {
   getStatsTimeAndPace,
   getStatsTopLocations,
   getStatsTotals,
+  type BestSessionEntry,
   type CalendarPoint,
   type CategoryPoint,
   type CountryPoint,
@@ -378,7 +379,18 @@ async function TimeAndPaceSection() {
   if (data.totalFindsWithDate === 0) return null;
   const t = await getTranslations("Statistiky");
   const locale = await getLocale();
-  return <TimeAndPaceCard data={data} t={t} locale={locale} />;
+  return (
+    <div className="space-y-6">
+      <TimeAndPaceCard data={data} t={t} locale={locale} />
+      {data.bestSessions.length > 0 && (
+        <BestSessionsCard
+          sessions={data.bestSessions}
+          t={t}
+          locale={locale}
+        />
+      )}
+    </div>
+  );
 }
 
 async function PeaksSection() {
@@ -659,6 +671,130 @@ function PaceCell({ label, value }: { label: string; value: string }) {
       </p>
       <p className="mt-0.5 text-[11px] text-gray-500">{label}</p>
     </li>
+  );
+}
+
+/** "Nejvíce čtyřlístků na jeden zátah" — top single collecting bouts
+ *  (global 15-min-gap sessions). Mirrors the TimeAndPace top split:
+ *  the biggest bout dominates the left half (count + when + first→last
+ *  detail links), the 2nd–5th sit as smaller cells on the right, each
+ *  linking to the /sbirka listing filtered to that bout's day(s). */
+function BestSessionsCard({
+  sessions,
+  t,
+  locale,
+}: {
+  sessions: readonly BestSessionEntry[];
+  t: StatsT;
+  locale: string;
+}) {
+  const top = sessions[0];
+  if (!top) return null;
+  const others = sessions.slice(1, 5);
+  const intlLocale = toIntlLocale(locale);
+  const dayFmt = new Intl.DateTimeFormat(intlLocale, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  // /sbirka's from/to are day-resolution (YYYY-MM-DD), inclusive. The ISO
+  // date slice matches what the site displays for found_at (rendered
+  // verbatim, no timezone), so the day lines up with the bout's dates.
+  const listHref = (s: BestSessionEntry) =>
+    `/sbirka?from=${s.firstAt.slice(0, 10)}&to=${s.lastAt.slice(0, 10)}`;
+  const durationMinutes = (s: BestSessionEntry) =>
+    Math.round(
+      (new Date(s.lastAt).getTime() - new Date(s.firstAt).getTime()) / 60_000,
+    );
+  const topDuration = durationMinutes(top);
+
+  return (
+    <section
+      aria-labelledby="best-session-section"
+      className="rounded-xl border border-gray-200 bg-white p-6"
+    >
+      <h2 id="best-session-section" className="sr-only">
+        {t("bestSessionHeading")}
+      </h2>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Left — the single biggest bout, dominant. */}
+        <div className="flex flex-col items-center justify-center text-center">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            {t("bestSessionHeading")}
+          </p>
+          <p className="mt-1 text-3xl font-bold text-brand-700">
+            {top.count}
+            <span className="ml-1.5 text-base font-normal text-gray-500">
+              {t("labelFinds", { count: top.count })}
+            </span>
+          </p>
+          <p className="mt-1 max-w-sm text-xs text-gray-500">
+            {formatSlidingWindow(top.firstAt, top.lastAt, locale, true)}
+            {topDuration > 0 && (
+              <>
+                {" · "}
+                {t("bestSessionDuration", {
+                  duration: formatLongDuration(topDuration, locale),
+                })}
+              </>
+            )}
+          </p>
+          <p className="mt-2 text-sm leading-snug">
+            <Link
+              href={`/sbirka/${top.firstId}`}
+              className="font-mono font-medium text-brand-700 hover:underline"
+            >
+              #{top.firstId}
+            </Link>
+            {top.lastId !== top.firstId && (
+              <>
+                <span className="px-1 text-gray-400" aria-hidden>
+                  →
+                </span>
+                <Link
+                  href={`/sbirka/${top.lastId}`}
+                  className="font-mono font-medium text-brand-700 hover:underline"
+                >
+                  #{top.lastId}
+                </Link>
+              </>
+            )}
+          </p>
+        </div>
+
+        {/* Right — 2nd–5th biggest bouts, less prominent. Each cell links
+            to /sbirka filtered to that bout's day(s). */}
+        {others.length > 0 && (
+          <div className="flex flex-col">
+            <p className="text-center text-xs font-medium uppercase tracking-wide text-gray-500">
+              {t("bestSessionOthers")}
+            </p>
+            <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {others.map((s) => (
+                <li key={s.firstId}>
+                  <Link
+                    href={listHref(s)}
+                    title={t("bestSessionShowOnList")}
+                    aria-label={t("bestSessionShowOnList")}
+                    className="flex h-full flex-col items-center justify-center rounded-md border border-gray-200 bg-gray-50 p-2 text-center transition hover:border-brand-200 hover:bg-brand-50"
+                  >
+                    <span className="font-mono text-lg font-semibold tabular-nums text-gray-900">
+                      {s.count}
+                    </span>
+                    <span className="text-[11px] text-gray-500">
+                      {t("labelFinds", { count: s.count })}
+                    </span>
+                    <span className="mt-1 text-[10px] leading-tight text-gray-400">
+                      {dayFmt.format(new Date(s.firstAt))}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
