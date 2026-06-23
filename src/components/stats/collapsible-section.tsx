@@ -27,17 +27,36 @@ export function CollapsibleSection({
   subtitle,
   defaultOpen = false,
   storageKey,
+  id,
   children,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
   defaultOpen?: boolean;
   storageKey: string;
+  /** Anchor id for deep-linking. When the page is opened with
+   *  `#<id>` in the URL (e.g. the home popular widget linking to
+   *  `/statistiky#top-finds`), the section force-opens and scrolls
+   *  itself into view, overriding the remembered collapsed state. */
+  id?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
   useEffect(() => {
+    if (id && window.location.hash.slice(1) === id) {
+      setOpen(true);
+      const el = document.getElementById(id);
+      if (el) {
+        // Let the <details> paint open before scrolling to it.
+        const tmo = setTimeout(
+          () => el.scrollIntoView({ behavior: "smooth", block: "start" }),
+          60,
+        );
+        return () => clearTimeout(tmo);
+      }
+      return;
+    }
     try {
       const v = sessionStorage.getItem(STORAGE_PREFIX + storageKey);
       if (v === "1") setOpen(true);
@@ -45,10 +64,11 @@ export function CollapsibleSection({
     } catch {
       /* sessionStorage unavailable — keep defaultOpen */
     }
-  }, [storageKey]);
+  }, [storageKey, id]);
 
   return (
     <details
+      id={id}
       open={open}
       onToggle={(e) => {
         const next = e.currentTarget.open;
@@ -64,7 +84,7 @@ export function CollapsibleSection({
       // inside the body (e.g. jubilee "show more", calendar value
       // tables) keeps its own `group-open:` scope instead of reacting
       // to this card's open state.
-      className="group/section rounded-xl border border-gray-200 bg-gray-50 p-5"
+      className="group/section scroll-mt-24 rounded-xl border border-gray-200 bg-gray-50 p-5"
     >
       <summary className="flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <div className="min-w-0">

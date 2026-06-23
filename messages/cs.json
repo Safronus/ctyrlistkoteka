@@ -105,7 +105,8 @@
     "showOnMap": "Zobrazit na mapě",
     "donatedBadge": "Darovaný",
     "placeLabel": "místo",
-    "runnerUpAria": "{rank}. místo — nález #{id}"
+    "runnerUpAria": "{rank}. místo — nález #{id}",
+    "topFindsLink": "Celý žebříček"
   },
   "FilterBar": {
     "search": "Hledat",

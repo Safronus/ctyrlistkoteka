@@ -1,4 +1,4 @@
-import { Heart, MapPin } from "lucide-react";
+import { Heart, MapPin, Trophy } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { CloverThumbIcon } from "@/components/icons/clover-thumb-icon";
@@ -125,30 +125,47 @@ export async function PopularFindWidget({
                 autoHydrate
               />
               {runnersUp.length > 0 && (
-                <ul className="flex flex-col items-end gap-1 text-xs leading-tight">
-                  {runnersUp.map((f, i) => (
-                    <li key={f.findId}>
-                      <Link
-                        href={`/sbirka/${f.findId}`}
-                        className="block text-right text-gray-500 transition hover:text-brand-700 hover:underline"
-                        aria-label={t("runnerUpAria", {
-                          rank: i + 2,
-                          id: f.findId,
-                        })}
-                      >
-                        <span>
-                          {i + 2}. {t("placeLabel")} —{" "}
-                          <span className="font-mono font-medium text-brand-700">
-                            #{f.findId}
+                // Wrap the standings + the "full leaderboard" button so the
+                // button can stretch to exactly the standings' width (and
+                // no wider) — `items-stretch` makes the column take the
+                // widest child (a runner-up line), and the w-full button
+                // follows it.
+                <div className="flex flex-col items-stretch gap-1.5">
+                  <ul className="flex flex-col items-end gap-1 text-xs leading-tight">
+                    {runnersUp.map((f, i) => (
+                      <li key={f.findId}>
+                        <Link
+                          href={`/sbirka/${f.findId}`}
+                          className="block text-right text-gray-500 transition hover:text-brand-700 hover:underline"
+                          aria-label={t("runnerUpAria", {
+                            rank: i + 2,
+                            id: f.findId,
+                          })}
+                        >
+                          <span>
+                            {i + 2}. {t("placeLabel")} —{" "}
+                            <span className="font-mono font-medium text-brand-700">
+                              #{f.findId}
+                            </span>
                           </span>
-                        </span>
-                        <span className="block text-[10px] font-normal text-gray-400">
-                          {t("voteCount", { count: f.voteCount })}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                          <span className="block text-[10px] font-normal text-gray-400">
+                            {t("voteCount", { count: f.voteCount })}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  {/* Jump to /statistiky and open the full Top-10 finds
+                      leaderboard (deep-link anchor handled by
+                      CollapsibleSection). */}
+                  <Link
+                    href="/statistiky#top-finds"
+                    className="inline-flex w-full items-center justify-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+                  >
+                    <Trophy className="h-3 w-3 text-amber-500" aria-hidden />
+                    {t("topFindsLink")}
+                  </Link>
+                </div>
               )}
             </div>
 

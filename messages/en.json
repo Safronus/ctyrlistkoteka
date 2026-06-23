@@ -106,7 +106,8 @@
     "showOnMap": "Show on map",
     "donatedBadge": "Donated",
     "placeLabel": "place",
-    "runnerUpAria": "Rank {rank} — find #{id}"
+    "runnerUpAria": "Rank {rank} — find #{id}",
+    "topFindsLink": "Full leaderboard"
   },
   "FilterBar": {
     "search": "Search",
