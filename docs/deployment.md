@@ -1,8 +1,31 @@
 # Deployment — OVH VPS
 
-**Kontext:** OVH VPS-2 (Ubuntu 24.04 LTS), doména `ctyrlistkoteka.cz` u hukot.net,
+**Kontext:** OVH VPS-2, doména `ctyrlistkoteka.cz` u hukot.net,
 bez Cloudflare. Claude Code **nepouští** příkazy na serveru přímo — generuje je
 a uživatel je spouští v Termiusu.
+
+> ### ⚠️ Skutečný stav produkce (ověřeno 2026-06-30)
+>
+> Tenhle návod byl psaný pro Ubuntu 24.04 LTS + PostgreSQL 16. Reálný VPS
+> se mezitím posunul — drž se těchto faktů, krokový návod níž ber jako
+> referenci:
+>
+> - **OS:** Ubuntu **25.10 „questing"** — interim release, **ne LTS**
+>   (kratší podpora ~9 měsíců, častější OS upgrade). Sekce níž, které
+>   argumentují „držíme se LTS" (nginx verze, unattended-upgrades), jsou
+>   tím pádem aspirační — počítej s dřívějším `do-release-upgrade`.
+> - **Databáze:** **nativní PostgreSQL 17 + PostGIS** (systemd
+>   `postgresql@17-main`), ne 16. Schéma je zpětně kompatibilní.
+> - **PM2:** appka jede pod PM2 jako user `app`. **Ověř
+>   `systemctl is-enabled pm2-app` → musí být `enabled`** — jednou unit
+>   chyběl a po rebootu by se web sám nenahodil (viz §7).
+> - **Docker na hostu:** vedle appky běží pomocné self-hosted služby
+>   nezávislé na ctyrlistkotéce — GoatCounter (`ctyr-goatcounter`,
+>   analytika) a RustDesk relay (`hbbs`/`hbbr`). Images
+>   `postgis/postgis:16-3.4` a `redis:7-alpine` jsou jen pro dev /
+>   nepoužité. **Pozor:** kontejnery bundlují vlastní systémové knihovny,
+>   takže host `apt upgrade` je nepatchuje — řeší se `docker pull` +
+>   recreate (viz §11 / bezpečnost).
 
 ---
 
@@ -95,8 +118,8 @@ corepack prepare pnpm@latest --activate
 # PM2
 npm install -g pm2
 
-# PostgreSQL 16 + PostGIS
-sudo apt install -y postgresql-16 postgresql-16-postgis-3 postgresql-contrib
+# PostgreSQL + PostGIS (na Ubuntu 25.10 je default 17; na 24.04 LTS to bylo 16)
+sudo apt install -y postgresql-17 postgresql-17-postgis-3 postgresql-contrib
 
 # Nginx + Certbot
 sudo apt install -y nginx certbot python3-certbot-nginx
@@ -187,6 +210,10 @@ pm2 start deploy/ecosystem.config.cjs
 pm2 save
 pm2 startup systemd -u app --hp /home/app
 # (spustí vytištěný příkaz jako sudo)
+
+# DŮLEŽITÉ: ověř, že systemd unit opravdu vznikl — bez něj se PM2 (a tím
+# i web) po rebootu NEnahodí. Stalo se reálně 2026-06.
+systemctl is-enabled pm2-app   # musí vrátit: enabled
 ```
 
 Otestuj: `curl -I http://127.0.0.1:3000` → měl by vrátit 200.
@@ -276,7 +303,7 @@ sudo cp deploy/nftables-permaban.nft /etc/nftables.d/permaban.nft
 sudo chmod 644 /etc/nftables.d/permaban.nft
 
 # /etc/nftables.conf musí includovat /etc/nftables.d/*.nft.
-# Na čerstvém Ubuntu 24.04 to tam není — přidej řádek:
+# Na čerstvé Ubuntu instalaci to tam často není — přidej řádek:
 grep -q '/etc/nftables.d' /etc/nftables.conf || \
   echo 'include "/etc/nftables.d/*.nft"' | sudo tee -a /etc/nftables.conf
 
@@ -408,7 +435,7 @@ Co se auto-updatuje:
 
 Co se **NE**auto-updatuje (blacklist v configu):
 
-- `postgresql-16`, `postgis` — major upgrade by mohl porušit DB
+- `postgresql-17`, `postgis` — major upgrade by mohl porušit DB
 - `nodejs` — máme přes nvm, ne přes apt
 
 Reboots se auto-neprovádí (`Unattended-Upgrade::Automatic-Reboot "false";`)
@@ -551,7 +578,7 @@ pm2 reload ctyrlistkoteka
 pm2 logs ctyrlistkoteka --lines 100
 sudo journalctl -u nginx -n 50
 sudo tail -f /var/log/nginx/ctyrlistkoteka.error.log
-sudo tail -f /var/log/postgresql/postgresql-16-main.log
+sudo tail -f /var/log/postgresql/postgresql-17-main.log
 df -h                              # místo na disku
 du -sh /var/ctyrlistkoteka/*       # velikost dat
 ```
