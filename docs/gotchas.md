@@ -136,3 +136,31 @@ přebuildí správně — rozjede se jen CSS.
 - Diagnóza při podezření: `curl` HTML → ověř, že markup třídu má; pak `curl`
   CSS bundle z `/_next/static/css/…` a `grep` na `.třída{`. Chybí-li jen
   v CSS, je to tahle gotcha — ne kód.
+
+---
+
+## 5. Zrušený deploy → rozbitý `.next` → crash-loop po rebootu
+
+**Co:** Tatáž `cancel-in-progress` past jako #4, ale horší následek. Po
+mnoha rychlých pushích se `pnpm build` zruší uprostřed → na disku zůstane
+**neúplný `.next` bez `BUILD_ID`**. Web ale **dál jede**, protože živý PM2
+proces servíruje svůj build z paměti a `pm2 reload` se po zrušeném buildu
+nespustil. Past sklapne až při **rebootu**: `next start` načte rozbitý
+`.next` a každý worker padá dokola s `Error: Could not find a production
+build in the '.next' directory`. Symptom: po rebootu nginx vrací **502**,
+`pm2 ls` ukazuje workery s uptime pořád `0s`. Stalo se 2026-06-30 (první
+reboot po měsících → vyplavalo to).
+
+**Proč:** `next build` na začátku `.next` pročistí a postupně zapisuje;
+hotový je až s `BUILD_ID`. Zrušení uprostřed zanechá ten mezistav natrvalo.
+Běžící proces tím netrpí (build má načtený), takže se na to nepřijde — až
+restart procesu (reboot, crash, `pm2 restart`) čte disk znova.
+
+**Jak aplikovat:**
+- Deploy workflow od 2026-06-30 má `concurrency.cancel-in-progress: false`
+  — buildy se **frontí**, neruší; `.next` tím vždy skončí kompletní.
+- Akutní oprava na serveru: `cd /var/www/ctyrlistkoteka && source
+  ~/.nvm/nvm.sh && pnpm install --frozen-lockfile && pnpm prisma generate
+  && pnpm build && pm2 reload ctyrlistkoteka && pm2 save`.
+- Diagnóza: `pm2 logs ctyrlistkoteka --nostream` (hláška o chybějícím
+  buildu) + `ls /var/www/ctyrlistkoteka/.next/BUILD_ID`.

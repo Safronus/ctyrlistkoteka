@@ -6,9 +6,14 @@ on:
   workflow_dispatch:
 
 concurrency:
-  # Only one deploy in flight; newer pushes cancel an in-progress one.
+  # One deploy at a time, but DON'T cancel an in-flight one — let it finish
+  # and queue the next. Cancelling mid-`pnpm build` leaves a half-written
+  # `.next` on disk (no BUILD_ID): the live PM2 process keeps serving its
+  # in-memory build so nothing looks wrong, but the next reboot makes
+  # `next start` read the broken `.next` and crash-loop with "Could not
+  # find a production build" (happened 2026-06-30, see docs/gotchas.md).
   group: deploy-prod
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 # Opt into Node 24 for any JS-based actions still on the v20 runner.
 # actions/checkout@v5 and actions/setup-node@v5 are natively Node 24

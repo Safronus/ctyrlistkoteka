@@ -40,6 +40,9 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   CVE-2026-55200 (+ CVE-2026-55199, CVE-2025-15661).
 - Deploy maže `.next/cache` před buildem (zrušený build otrávil cache → chybějící
   Tailwind utility v CSS).
+- Deploy `concurrency.cancel-in-progress: false` — zrušený build uprostřed
+  zanechával rozbitý `.next` (bez `BUILD_ID`), což se projevilo až crash-loopem
+  po rebootu (502). Viz `docs/gotchas.md` #5.
 - Mobil: „plavání" šířky (overflow-x na `<html>`), výška sparkline grafu.
 
 ### Dokumentace
