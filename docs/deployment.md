@@ -218,6 +218,15 @@ systemctl is-enabled pm2-app   # musí vrátit: enabled
 
 Otestuj: `curl -I http://127.0.0.1:3000` → měl by vrátit 200.
 
+> **⚠️ nvm gotcha:** vytištěný `pm2 startup` příkaz **zapéká do systemd
+> unitu absolutní cestu ke konkrétní Node verzi z nvm**, např.
+> `…/.nvm/versions/node/v24.15.0/bin`. Když Node přes nvm povýšíš
+> (`nvm install --lts`, jiná aktivní verze), unit ukazuje na starou
+> cestu a PM2 se po rebootu **nenastartuje**. Po každém upgrade Node
+> proto unit **přegeneruj**: znovu spusť `pm2 startup` a ten nový
+> vytištěný `sudo` příkaz, pak `pm2 save`. (Stav k 2026-06: Node
+> `v24.15.0`.)
+
 ---
 
 ## 8. Nginx

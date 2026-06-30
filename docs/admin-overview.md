@@ -24,6 +24,24 @@ v jiném prostředí. Aktualizuje se při větších změnách.
 | **6** Reálné fotky | Donation photos (`<id><slot>_DAR[_ANON].<ext>`) + location photos (`<mapa>_reálné foto…`) — drag-drop upload, single + bulk delete, cache invalidation hook | `src/app/admin/files/{donation,location}-photos/*` |
 | **7** Sync trigger | `tsx scripts/sync.ts` jako podproces, file-based stav, live log polling, dry-run + ostrý sync s confirm, `--only` filter | `src/app/admin/sync/*` + `src/lib/admin/syncRunner.ts` |
 
+### Další admin sekce (mimo původní fáze)
+
+Přibyly v provozu, ve stejném auth + atomic-write + audit patternu:
+
+| Sekce (nav) | Co dělá | Klíčové soubory / config |
+| --- | --- | --- |
+| **QR** (`/admin/qr`) | Generování QR kódů na nálezy, export do PDF/PNG/ZIP. SVG fonty jen systémové (web font v `<img>`→canvas rasteru zmizí — viz `docs/gotchas.md`). | `src/app/admin/qr/*`, `src/app/admin/api/qr-zip/route.ts` |
+| **Efekty** (`/admin/special`) | Speciální atmosférický efekt na detailu nálezu (`record` / `heavenly` / `hellish`) přiřaditelný k libovolnému ID. „Rekord" je **jeden** (přiřazení jinému ho z předchozího sundá) a táhne i zlatý marker na `/mapa`, kartu na `/statistiky` a odznak v `/sbirka`. | `src/app/admin/special/*`, `src/lib/specialFinds.ts` + `…server.ts`, config `data/.admin/special-finds.json` |
+| **Rozdané** (`/admin/donated`) | „Pole darovaného štěstí" pod „Malou omluvou" na homepage. Toggle-seznam **darovaných** nálezů od #22094 výš (starší předcházejí nabídce), nejnovější nahoře; zapnuté se vykreslí jako rozházené pin-čtyřlístky. | `src/app/admin/donated/*`, `src/lib/donatedBoard.ts` + `…server.ts`, config `data/.admin/donated-board.json` |
+| **Hlasování** (`/admin/votes`) | Audit + mazání hlasů (single / fingerprint / uuid), tlačítko na kompletní reset. | `src/app/admin/votes/*` |
+| **Návštěvnost** (`/admin/visitors`) | Souhrn návštěvnosti webu. | `src/app/admin/visitors/*` |
+| **Kontroly** (`/admin/checks`) | Kontroly konzistence dat (anonymizace, EXIF datum, originál ↔ výřez, EXIF GPS bez `NO_GPS`…). | `src/app/admin/checks/*`, `src/lib/admin/checks.ts` |
+| **Audit** (`/admin/audit`) | Prohlížeč append-only audit logu (každá mutace + auth event). | `src/app/admin/audit/*`, `src/lib/admin/audit.ts` |
+
+Konfigy „Efekty" a „Rozdané" žijí v `data/.admin/` vedle sync-statusu a
+záloh — drobné admin-interní JSONy, ne sbírková data; čte je homepage /
+detail / statistiky a po uložení se revaliduje celý strom.
+
 Sync card na home je aktivní; karta JSON vede na náhled (ne rovnou
 do editoru). Náhled JSONu má statistiky + find lookup (lokace/stavy/
 poznámka per find ID) a anomálie (DAROVANÝ bez poznámky, ve stavu

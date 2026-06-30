@@ -585,6 +585,7 @@ v kalendáři byl nesmyslně malý, takže se nezobrazuje.
 
 ## Dokumentace
 
+- [`CHANGELOG.md`](CHANGELOG.md) — pozoruhodné změny (drž aktuální)
 - [`CLAUDE.md`](CLAUDE.md) — závazné pokyny pro práci na projektu
 - [`docs/architecture.md`](docs/architecture.md) — architektura
 - [`docs/data-schema.md`](docs/data-schema.md) — datový model
