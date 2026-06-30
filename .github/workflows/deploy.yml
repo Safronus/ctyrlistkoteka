@@ -7,11 +7,14 @@ on:
 
 concurrency:
   # One deploy at a time, but DON'T cancel an in-flight one — let it finish
-  # and queue the next. Cancelling mid-`pnpm build` leaves a half-written
-  # `.next` on disk (no BUILD_ID): the live PM2 process keeps serving its
-  # in-memory build so nothing looks wrong, but the next reboot makes
-  # `next start` read the broken `.next` and crash-loop with "Could not
-  # find a production build" (happened 2026-06-30, see docs/gotchas.md).
+  # and queue the next. Any interruption mid-`pnpm build` leaves a
+  # half-written `.next` (no BUILD_ID): the live PM2 process keeps serving
+  # its in-memory build so nothing looks wrong, but the next process
+  # restart (reboot/crash) makes `next start` read the broken `.next` and
+  # crash-loop with "Could not find a production build" → nginx 502.
+  # `cancel-in-progress: false` removes the push-cancels-push trigger; the
+  # other trigger is rebooting the VPS while a deploy is building (the
+  # runner lives on the same box) — don't. See docs/gotchas.md #5.
   group: deploy-prod
   cancel-in-progress: false
 
