@@ -7,6 +7,17 @@ seskupené po datech. Vyčerpávající historie je v `git log` — sem patří
 jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 (pravidlo: docs / changelog / readme se drží aktuální).
 
+## 2026-07
+
+### SEO / dosah (průběžně)
+- **Detail nálezu + detail lokality**: self-referencing `canonical` + hreflang
+  (cs/en/x-default) v `<head>`, `og:locale`/`og:url`, a **OG/Twitter obrázek**
+  (fotka nálezu / náhled mapy, `summary_large_image`) → sdílení na sítích má
+  konečně náhledový obrázek. Anonymizované nálezy/lokality zůstávají `noindex`
+  bez obrázku. Logika je v `generateMetadata` (helper `src/lib/seo.ts`), takže
+  platí i pro každý budoucí nález automaticky. *(Batch 1; dál: sekční stránky,
+  JSON-LD, IndexNow + hook v syncu, GSC/Seznam verifikace.)*
+
 ## 2026-06
 
 ### Přidáno

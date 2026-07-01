@@ -30,6 +30,7 @@ import {
 } from "@/lib/queries/locations";
 import { countryFromCoords } from "@/lib/geo";
 import { localizedCountryName } from "@/lib/world-countries";
+import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { RealPhotoButton } from "@/components/locations/real-photo-button";
 
 type DetailT = Awaited<ReturnType<typeof getTranslations<"LocationDetail">>>;
@@ -135,7 +136,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { mapId } = await params;
+  const { mapId, locale } = await params;
   const t = await getTranslations("LocationDetail");
   const id = parseMapId(mapId);
   if (id === null) return { title: t("metaNotFound") };
@@ -166,17 +167,29 @@ export async function generateMetadata({
     .filter(Boolean)
     .join(" · ");
 
+  const path = `/lokality/${mapId}`;
+  const ogTitle = t("ogTitle", {
+    code: base.code,
+    id: formatLocationId(base.id),
+  });
+  // The location's map screenshot becomes the social-share image.
+  const mapImg = detail.maps[0]?.imageUrl;
+  const ogImages = mapImg ? [{ url: mapImg, alt: ogTitle }] : undefined;
   return {
     title: t("metaTitle", { code: base.code, id: formatLocationId(base.id) }),
     description,
+    alternates: seoAlternates(path, locale),
     openGraph: {
-      title: t("ogTitle", {
-        code: base.code,
-        id: formatLocationId(base.id),
-      }),
+      title: ogTitle,
       description,
       type: "article",
+      locale: ogLocale(locale),
+      url: localePath(path, locale),
+      ...(ogImages ? { images: ogImages } : {}),
     },
+    ...(ogImages
+      ? { twitter: { card: "summary_large_image", images: [mapImg!] } }
+      : {}),
   };
 }
 

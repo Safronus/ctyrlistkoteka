@@ -30,6 +30,7 @@ import {
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { effectForFind } from "@/lib/specialFinds";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
+import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { isFormerLocation } from "@/lib/locationCode";
 import {
   getAdjacentFindIds,
@@ -63,7 +64,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { id } = await params;
+  const { id, locale } = await params;
   const t = await getTranslations("FindDetail");
   const numId = Number(id);
   if (!Number.isInteger(numId) || numId <= 0) {
@@ -73,7 +74,8 @@ export async function generateMetadata({
   if (!find) {
     return { title: t("metaNotFound") };
   }
-  // Anonymized finds must not be indexed and must not leak data in meta tags.
+  // Anonymized finds must not be indexed and must not leak data in meta tags
+  // (no canonical / OG image either — nothing that ties them to a URL).
   if (find.isAnonymized) {
     return {
       title: t("metaAnonymizedTitle", { id: find.id }),
@@ -85,14 +87,28 @@ export async function generateMetadata({
     find.location?.displayName ?? find.location?.code ?? t("fallbackLocation");
   const title = t("metaTitle", { id: find.id, locationName });
   const description = t("metaDescription", { locationName });
+  const path = `/sbirka/${find.id}`;
+  // The find's photo becomes the social-share image. `primaryImage` is
+  // null for NO_PHOTO finds → we simply omit it and the card stays text.
+  const img = find.primaryImage;
+  const ogImages = img
+    ? [{ url: img.webPath, width: img.width, height: img.height, alt: title }]
+    : undefined;
   return {
     title,
     description,
+    alternates: seoAlternates(path, locale),
     openGraph: {
       title,
       description,
       type: "article",
+      locale: ogLocale(locale),
+      url: localePath(path, locale),
+      ...(ogImages ? { images: ogImages } : {}),
     },
+    ...(ogImages
+      ? { twitter: { card: "summary_large_image", images: [img!.webPath] } }
+      : {}),
   };
 }
 
