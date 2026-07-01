@@ -128,6 +128,17 @@ Obsah failures logu:
 Uživatel si failures projde ručně a buď opraví názvy souborů, nebo přidá
 výjimky do parseru.
 
+## IndexNow ping (SEO)
+
+Na konci **ostrého** (ne `--dry-run`) syncu s fázemi finds skript sám
+pingne IndexNow (`src/lib/indexnow.ts`) s URL nálezů, které tento běh
+**nově vložil** (`createdAt >= start`) a nejsou anonymizované → Bing /
+Seznam.cz / Yandex je začnou crawlovat v hodinách místo čekání na
+sitemap. Je to **best-effort**: selhání jen zaloguje `indexnow.failed`,
+nikdy nerozbije sync; na localhostu / v dry-runu je to no-op. Klíč je
+veřejný v kódu, ověřuje se přes route `/indexnow-key`. Google IndexNow
+nepoužívá (řeší sitemap + Search Console).
+
 ## Automatický sync (volitelné)
 
 `deploy/systemd-sync.service` + `systemd-sync.timer` spouští sync každou noc

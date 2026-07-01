@@ -44,6 +44,26 @@ export async function generateMetadata(): Promise<Metadata> {
       index: true,
       follow: true,
     },
+    // Search-console ownership tags — emitted only when the matching env
+    // var is set (server-side, read at runtime). Set them in the prod
+    // `.env` once each console hands you its token, then the <meta> shows
+    // up and you click "verify". See .env.example.
+    verification: buildVerification(),
+  };
+}
+
+/** Site-verification `<meta>` tags for Google / Bing / Seznam.cz, each
+ *  gated on its env token so nothing is emitted until it's configured. */
+function buildVerification(): Metadata["verification"] {
+  const google = process.env.GOOGLE_SITE_VERIFICATION;
+  const other: Record<string, string> = {};
+  if (process.env.SEZNAM_WMT) other["seznam-wmt"] = process.env.SEZNAM_WMT;
+  if (process.env.BING_SITE_VERIFICATION) {
+    other["msvalidate.01"] = process.env.BING_SITE_VERIFICATION;
+  }
+  return {
+    ...(google ? { google } : {}),
+    ...(Object.keys(other).length > 0 ? { other } : {}),
   };
 }
 

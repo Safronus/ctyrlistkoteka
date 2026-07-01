@@ -35,6 +35,7 @@ import {
 import { splitLocationCode, toAsciiCode } from "../src/lib/locationCode";
 import { parseRanges } from "../src/lib/parseRanges";
 import { JSON_STATE_MAP } from "../src/lib/stateMapping";
+import { findUrl, pingIndexNow } from "../src/lib/indexnow";
 import type { WatermarkSpec } from "../src/lib/images";
 import {
   DEFAULT_WATERMARK_OPTIONS,
@@ -1798,6 +1799,9 @@ function countBy<T extends string>(values: readonly T[]): Record<T, number> {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
+  // Captured before any DB writes so we can tell which finds this run
+  // actually inserted (createdAt >= syncStart) for the IndexNow ping.
+  const syncStart = new Date();
 
   const dataDir = process.env.DATA_DIR ?? "./data";
   const generatedDir = process.env.GENERATED_DIR ?? "./public/generated";
@@ -1951,6 +1955,38 @@ async function main() {
     // cascading FKs fix finds, maps and hierarchy along with it.
     if (opts.only === null) {
       await phaseReconcileLocationIds(ctx);
+    }
+
+    // IndexNow: nudge Bing / Seznam.cz / Yandex to crawl the newly-added
+    // finds immediately (best-effort — localhost + dry-run are no-ops).
+    // Only finds inserted THIS run (createdAt >= syncStart) and only
+    // non-anonymized ones (anonymized finds are noindex, never submit
+    // them). Failure here must never fail the sync.
+    if (!opts.dryRun && runFinds) {
+      try {
+        const fresh = await prisma.find.findMany({
+          where: { createdAt: { gte: syncStart }, isAnonymized: false },
+          select: { id: true },
+        });
+        if (fresh.length > 0) {
+          const res = await pingIndexNow(fresh.map((f) => findUrl(f.id)));
+          log.log({
+            event: "indexnow.ping",
+            level: "info",
+            new_finds: fresh.length,
+            submitted: res.submitted,
+            ok: res.ok,
+            status: res.status ?? null,
+            skipped: res.skipped ?? null,
+          });
+        }
+      } catch (err: unknown) {
+        log.log({
+          event: "indexnow.failed",
+          level: "warn",
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     log.log({

@@ -21,8 +21,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **Sekční stránky** (home, sbírka, lokality, mapa, statistiky): canonical +
   hreflang + `og:locale`/`og:url` + **brandová OG karta** (`/og`,
   `ImageResponse`, bezfontová vektorová zelená karta se čtyřlístkem,
-  `summary_large_image`). *(Batch 2; dál: JSON-LD, IndexNow + hook v syncu,
-  GSC/Seznam verifikace.)*
+  `summary_large_image`). *(Batch 2.)*
+- **IndexNow** (`src/lib/indexnow.ts` + `/indexnow-key`): `pnpm sync` po
+  přidání nálezů sám pingne Bing / Seznam.cz / Yandex s URL **nově
+  vložených** (a neanonymizovaných) nálezů → indexace v hodinách, ne dnech.
+  Best-effort (selhání nerozbije sync), localhost/dry-run = no-op.
+- **Ověření webmaster nástrojů**: `<meta>` tagy pro Google / Bing / Seznam
+  přes env (`GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION`,
+  `SEZNAM_WMT`) — vykreslí se, jen když je token nastavený. *(Batch 4;
+  zbývá volitelně JSON-LD.)*
 
 ## 2026-06
 
