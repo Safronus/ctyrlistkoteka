@@ -4,6 +4,7 @@ import { Map as MapIcon } from "lucide-react";
 import { FindState } from "@prisma/client";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizedCountryName } from "@/lib/world-countries";
+import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { Link } from "@/i18n/navigation";
 import { CollectionProgressBanner } from "@/components/finds/collection-progress-banner";
 import { FilterBar } from "@/components/finds/filter-bar";
@@ -55,10 +56,22 @@ function parseSbirkaPageSize(value: string | undefined): SbirkaPageSize {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
   const t = await getTranslations("Sbirka");
+  const title = t("metaTitle");
+  const description = t("metaDescription");
   return {
-    title: t("metaTitle"),
-    description: t("metaDescription"),
+    title,
+    description,
+    alternates: seoAlternates("/sbirka", locale),
+    openGraph: {
+      title,
+      description,
+      locale: ogLocale(locale),
+      url: localePath("/sbirka", locale),
+      images: [{ url: "/og", width: 1200, height: 630 }],
+    },
+    twitter: { card: "summary_large_image", images: ["/og"] },
   };
 }
 

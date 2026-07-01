@@ -66,6 +66,7 @@ import {
   type YearlyPoint,
 } from "@/lib/queries/stats";
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { getLocationIdsWithRealPhotos } from "@/lib/queries/locations";
 import { localizedCountryName } from "@/lib/world-countries";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
@@ -101,10 +102,22 @@ function toIntlLocale(locale: string): string {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
   const t = await getTranslations("Statistiky");
+  const title = t("metaTitle");
+  const description = t("metaDescription");
   return {
-    title: t("metaTitle"),
-    description: t("metaDescription"),
+    title,
+    description,
+    alternates: seoAlternates("/statistiky", locale),
+    openGraph: {
+      title,
+      description,
+      locale: ogLocale(locale),
+      url: localePath("/statistiky", locale),
+      images: [{ url: "/og", width: 1200, height: 630 }],
+    },
+    twitter: { card: "summary_large_image", images: ["/og"] },
   };
 }
 

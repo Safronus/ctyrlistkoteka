@@ -15,8 +15,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   (fotka nálezu / náhled mapy, `summary_large_image`) → sdílení na sítích má
   konečně náhledový obrázek. Anonymizované nálezy/lokality zůstávají `noindex`
   bez obrázku. Logika je v `generateMetadata` (helper `src/lib/seo.ts`), takže
-  platí i pro každý budoucí nález automaticky. *(Batch 1; dál: sekční stránky,
-  JSON-LD, IndexNow + hook v syncu, GSC/Seznam verifikace.)*
+  platí i pro každý budoucí nález automaticky. *(Batch 1.)*
+- **Vynucení https** pro canonical/OG/sitemap/robots (`siteBaseUrl()`), i když
+  má prod `.env` `http://`.
+- **Sekční stránky** (home, sbírka, lokality, mapa, statistiky): canonical +
+  hreflang + `og:locale`/`og:url` + **brandová OG karta** (`/og`,
+  `ImageResponse`, bezfontová vektorová zelená karta se čtyřlístkem,
+  `summary_large_image`). *(Batch 2; dál: JSON-LD, IndexNow + hook v syncu,
+  GSC/Seznam verifikace.)*
 
 ## 2026-06
 

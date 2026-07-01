@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { FindState } from "@prisma/client";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { getMapData } from "@/lib/queries/map";
 import { listLocations } from "@/lib/queries/locations";
 import {
@@ -12,10 +13,22 @@ import { DOMINANT_LOCATION_ID } from "@/lib/constants";
 import { MapaShell } from "@/components/map/mapa-shell";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
   const t = await getTranslations("Mapa");
+  const title = t("metaTitle");
+  const description = t("metaDescription");
   return {
-    title: t("metaTitle"),
-    description: t("metaDescription"),
+    title,
+    description,
+    alternates: seoAlternates("/mapa", locale),
+    openGraph: {
+      title,
+      description,
+      locale: ogLocale(locale),
+      url: localePath("/mapa", locale),
+      images: [{ url: "/og", width: 1200, height: 630 }],
+    },
+    twitter: { card: "summary_large_image", images: ["/og"] },
   };
 }
 

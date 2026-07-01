@@ -16,12 +16,25 @@ import {
 } from "@/lib/queries/locations";
 import { cityFromCadastralArea } from "@/lib/locationCode";
 import { localizedCountryName } from "@/lib/world-countries";
+import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
   const t = await getTranslations("Lokality");
+  const title = t("metaTitle");
+  const description = t("metaDescription");
   return {
-    title: t("metaTitle"),
-    description: t("metaDescription"),
+    title,
+    description,
+    alternates: seoAlternates("/lokality", locale),
+    openGraph: {
+      title,
+      description,
+      locale: ogLocale(locale),
+      url: localePath("/lokality", locale),
+      images: [{ url: "/og", width: 1200, height: 630 }],
+    },
+    twitter: { card: "summary_large_image", images: ["/og"] },
   };
 }
 

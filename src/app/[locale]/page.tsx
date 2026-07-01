@@ -13,7 +13,9 @@ import {
   MapPin,
   type LucideIcon,
 } from "lucide-react";
+import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
+import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { Link } from "@/i18n/navigation";
 import { getHomePageData, type HomePageData } from "@/lib/queries/home";
 import { getRandomFindShowcase } from "@/lib/queries/random-find";
@@ -57,6 +59,22 @@ function toIntlLocale(locale: string): string {
   if (locale === "cs") return "cs-CZ";
   if (locale === "en") return "en-GB";
   return locale;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  // Title + description are inherited from the root layout (site name +
+  // SITE_DESCRIPTION); here we only add canonical/hreflang + the brand OG
+  // card. Next fills og:title/description from the inherited title/desc.
+  const locale = await getLocale();
+  return {
+    alternates: seoAlternates("/", locale),
+    openGraph: {
+      locale: ogLocale(locale),
+      url: localePath("/", locale),
+      images: [{ url: "/og", width: 1200, height: 630 }],
+    },
+    twitter: { card: "summary_large_image", images: ["/og"] },
+  };
 }
 
 export default async function HomePage() {
