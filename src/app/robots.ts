@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
+import { siteBaseUrl } from "@/lib/seo";
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-  "https://ctyrlistkoteka.cz";
+const SITE_URL = siteBaseUrl();
 
 export default function robots(): MetadataRoute.Robots {
   return {

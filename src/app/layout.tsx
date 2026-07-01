@@ -4,6 +4,7 @@ import { getLocale } from "next-intl/server";
 import { ThemeScript } from "@/components/theme-script";
 import { SITE_DESCRIPTION } from "@/lib/constants";
 import { siteName } from "@/lib/siteName";
+import { siteBaseUrl } from "@/lib/seo";
 import "./globals.css";
 
 const inter = Inter({
@@ -25,9 +26,9 @@ export async function generateMetadata(): Promise<Metadata> {
       default: name,
     },
     description: SITE_DESCRIPTION,
-    metadataBase: new URL(
-      process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-    ),
+    // siteBaseUrl() forces https for the real domain so canonical / OG
+    // URLs (resolved against metadataBase) are never http://.
+    metadataBase: new URL(siteBaseUrl()),
     icons: {
       icon: [
         { url: "/clover.png", type: "image/png" },

@@ -3,10 +3,9 @@ import { getIndexableFinds } from "@/lib/queries/finds";
 import { listLocations } from "@/lib/queries/locations";
 import { locationDetailHref } from "@/lib/format";
 import { routing } from "@/i18n/routing";
+import { siteBaseUrl } from "@/lib/seo";
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-  "https://ctyrlistkoteka.cz";
+const SITE_URL = siteBaseUrl();
 
 // Must be a literal for Next.js static analysis. Matches FIND_REVALIDATE
 // in src/lib/constants.ts (24 hours) — the sitemap regenerates daily.
