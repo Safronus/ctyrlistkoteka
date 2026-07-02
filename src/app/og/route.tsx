@@ -122,8 +122,8 @@ export async function GET() {
           alt=""
           style={{
             position: "absolute",
-            left: "55%",
-            top: "43%",
+            left: "60%",
+            top: "33%",
             transform: "rotate(45deg)",
           }}
         />
