@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Změněno
+- **Brandová OG karta** `/og` teď používá **autorovu ručně kreslenou
+  čtyřlístek-ilustraci** („SAFRONUS" na stonku) + tvářičku jako podpis v
+  rohu (místo generovaného geometrického čtyřlístku), na stejném zeleném
+  gradientu. Assety `public/og-{clover.png,face.webp}`, normalizované přes
+  sharp na PNG a vložené jako data URL.
+
 ### SEO / dosah (průběžně)
 - **Detail nálezu + detail lokality**: self-referencing `canonical` + hreflang
   (cs/en/x-default) v `<head>`, `og:locale`/`og:url`, a **OG/Twitter obrázek**
