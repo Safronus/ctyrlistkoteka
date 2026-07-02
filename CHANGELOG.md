@@ -10,6 +10,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 ## 2026-07
 
 ### Bezpečnost
+- **Reálné allowlist IP pryč z veřejného repa**: domácí/záložní IP se scrubly
+  z trackovaných souborů (`deploy/permaban-whitelist.conf` je teď jen šablona
+  s placeholdery, `deploy/README.md` příklady, `docs/gotchas.md`). Skutečné
+  adresy žijí výhradně v `/etc/permaban-whitelist.conf` a nginx configu na
+  VPS — odkud je skripty reálně čtou, takže se nic nerozbilo. *(Pozn.: v git
+  historii zůstávají; jejich odstranění z minulých commitů je samostatný
+  destruktivní krok — rewrite historie.)*
 - **robots.txt už neprozrazuje `/admin`**: `Disallow: /admin/` odstraněn.
   robots.txt je veřejně čitelný, takže ta řádka fungovala jako ukazatel na
   admin cestu pro kohokoli, kdo dělá průzkum — opak skrývání. Admin drží mimo
