@@ -43,9 +43,13 @@ async function loadImage(
 }
 
 export async function GET() {
+  // NOTE: the asset filenames are swapped relative to their content —
+  // og-face.webp is actually the colourful clover, og-clover.png is the
+  // face doodle. We map them by what they DEPICT: clover = hero,
+  // face = corner signature.
   const [clover, face] = await Promise.all([
-    loadImage("og-clover.png", { height: 520 }),
-    loadImage("og-face.webp", { width: 150 }),
+    loadImage("og-face.webp", { height: 520 }),
+    loadImage("og-clover.png", { width: 150 }),
   ]);
 
   return new ImageResponse(
