@@ -19,6 +19,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   cookies (jen funkční `vote_voter_uuid` a `theme` v localStorage), souhlas se
   dle § 89 z. č. 127/2005 Sb. nevyžaduje.
 
+### Přístupnost
+- **Kontrast textů**: smysluplné sekundární texty (časové značky na home,
+  popisky měsíců ve sparkline, počet hlasů, datum v retrospektivě, patička —
+  build #, „přes", jazyková poznámka) povýšeny z `text-gray-400`/`-300` na
+  `text-gray-600` → splní WCAG AA 4.5:1 na světlém pozadí. Dekorativní
+  `aria-hidden` separátory (`·`, `→`) nechány — z kontrastu jsou vyňaté.
+
+### Automatizace / údržba
+- **Dependabot** (`.github/dependabot.yml`): týdenní hlídání npm (Next.js,
+  React, Prisma, …) i GitHub Actions + okamžité PR pro bezpečnostní
+  aktualizace (po zapnutí „Dependabot security updates" v Settings). PR se
+  po CI mergují ručně (kvůli auto-deployi na `main`).
+
 ### Bezpečnost
 - **Next.js 15.5.15 → 15.5.20**: záplata **7 high** CVE (3× DoS — Server Actions /
   connection / image; 3× middleware/proxy bypass; 1× SSRF) + moderaty (XSS v App

@@ -1,0 +1,38 @@
+# Automatické hlídání aktualizací závislostí.
+#
+# - `npm` ekosystém pokrývá i pnpm (Dependabot čte pnpm-lock.yaml) —
+#   sem spadá Next.js, React, Prisma a všechny app závislosti. Přesně
+#   ten druh věcí, co `pnpm audit` odhalil u Next.js (7 high CVE).
+# - `github-actions` hlídá verze akcí v deploy workflow.
+#
+# Version-update PR (níže) chodí týdně. NAVÍC zapni v repu
+# Settings → Code security → "Dependabot security updates", ať se pro
+# zranitelné balíky otevře PR OKAMŽITĚ (mimo tenhle týdenní rozvrh).
+#
+# PR se po projití CI (lint/typecheck/test/build) mergne ručně — kvůli
+# auto-deployu na `main` úmyslně NEauto-mergujeme, ať nová verze nejde
+# na prod bez pohledu.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      # Seskup minor/patch do jednoho PR, ať to není záplava.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"

@@ -181,7 +181,7 @@ export default async function HomePage() {
           {t("intro")}
         </p>
         {(totals.latestFoundAt || highlights.firstFoundAt) && (
-          <div className="mt-2 text-center text-xs text-gray-400">
+          <div className="mt-2 text-center text-xs text-gray-600">
             {highlights.firstFoundAt && (
               <p>
                 {t("firstFound")}{" "}
@@ -1057,7 +1057,7 @@ async function SparklineCard({
             return (
               <li
                 key={p.month}
-                className="text-[9px] font-medium leading-none text-gray-400"
+                className="text-[9px] font-medium leading-none text-gray-600"
               >
                 {m >= 1 && m <= 12 ? tMonths(String(m)) : ""}
               </li>

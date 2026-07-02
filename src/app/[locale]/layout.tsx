@@ -78,7 +78,7 @@ export default async function PublicLayout({
       />
       <footer className="border-t border-gray-200 bg-gray-50 py-6">
         {locale === "en" && (
-          <p className="mx-auto mb-2 max-w-7xl px-4 text-center text-xs italic text-gray-400 sm:px-6 lg:px-8">
+          <p className="mx-auto mb-2 max-w-7xl px-4 text-center text-xs italic text-gray-600 sm:px-6 lg:px-8">
             {t("mixedLanguageNote")}
           </p>
         )}
@@ -123,7 +123,7 @@ export default async function PublicLayout({
             </a>
             {process.env.NEXT_PUBLIC_COMMIT_COUNT && (
               <span
-                className="font-mono text-xs text-gray-400"
+                className="font-mono text-xs text-gray-600"
                 title={t("commitCountTitle")}
               >
                 #{process.env.NEXT_PUBLIC_COMMIT_COUNT}
@@ -143,7 +143,7 @@ export default async function PublicLayout({
             >
               Claude Fable 5
             </a>
-            <span className="text-gray-400">{t("via")}</span>
+            <span className="text-gray-600">{t("via")}</span>
             <a
               href="https://claude.com/claude-code"
               target="_blank"

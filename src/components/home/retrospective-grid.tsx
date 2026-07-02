@@ -66,7 +66,7 @@ export async function RetrospectiveGrid({
         >
           {t("heading")}
         </h2>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-600">
           {t("anchorDate", {
             day: data.today.day,
             month: data.today.month,

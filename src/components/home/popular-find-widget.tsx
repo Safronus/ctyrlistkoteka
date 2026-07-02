@@ -148,7 +148,7 @@ export async function PopularFindWidget({
                               #{f.findId}
                             </span>
                           </span>
-                          <span className="block text-[10px] font-normal text-gray-400">
+                          <span className="block text-[10px] font-normal text-gray-600">
                             {t("voteCount", { count: f.voteCount })}
                           </span>
                         </Link>
