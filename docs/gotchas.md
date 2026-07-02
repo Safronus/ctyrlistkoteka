@@ -173,3 +173,30 @@ běžící build (proto `cancel-in-progress: false`, viz #4).
 - **Trvalé otužení (volitelné, neimplementováno):** buildit do dočasného
   adresáře a atomicky přehodit (`distDir` přes env → `mv`), takže přerušený
   build nechá živý `.next` netknutý a reboot/crash appku nepoloží.
+
+## 6. `/admin` cloak: `curl` z Claude Code / Macu chodí přes domácí IP (= allowlist)
+
+**Co:** `/admin` je na produkci schovaný **Nginx IP-allowlistem** — cizí IP
+(mobil přes GSM, útočník, Googlebot) dostane **maskovanou 404**
+nerozeznatelnou od neexistující cesty; jen IP z allowlistu vidí reálný
+`/admin` (307 → login, login 200). To je **záměr a funguje to** (viz
+[admin-overview.md](admin-overview.md), `deploy/nginx.conf.template`
+`location /admin` → `@admin_notfound`).
+
+**Past:** Claude Code (a jakýkoli `curl` z Bash toolu) běží **na uživatelově
+Macu ve Zlíně**, takže odchozí požadavky jdou přes **domácí přípoj —
+statická IP `213.194.255.5` (`*.valachnet.cz`)**, která **je na allowlistu**.
+Proto `curl https://ctyrlistkoteka.cz/admin` z tohoto prostředí vrátí
+**200/307, ne 404**. To **neznamená, že cloak nefunguje** — jen testuješ
+zevnitř povolené sítě. Uživatel na mobilu (jiná IP) správně vidí 404.
+
+**Jak aplikovat:**
+- **Netvrď „cloak je rozbitý", když z Bash dostaneš 200 na `/admin`.** Je to
+  artefakt domácí IP. Pro test „jak to vidí cizí" použij mobil/jinou síť,
+  ne zdejší `curl`.
+- `213.194.255.5` je **známá statická domácí IP** uživatele, vedená i v
+  `deploy/permaban-whitelist.conf` a fail2ban `ignoreip`
+  (`deploy/README.md`). Na allowlistu `/admin` je záměrně.
+- Ochrana `/admin` je vrstvená a **hotová**: Nginx cloak (404 mimo
+  allowlist) + WebAuthn passkey + iron-session + `X-Robots-Tag: noindex`.
+  Nepředělávej to.
