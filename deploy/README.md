@@ -325,7 +325,7 @@ V GoatCounter má separátní seznam (Settings → Ignore IPs). Pro **fail2ban**
 přidej do `/etc/fail2ban/jail.local` (nebo do nginx-noscript jail bloku):
 ```ini
 [DEFAULT]
-ignoreip = 127.0.0.1/8 ::1 213.194.255.5 195.178.94.0/24
+ignoreip = 127.0.0.1/8 ::1 <TVOJE_STATICKA_IP> <TVUJ_ROZSAH>/24
 ```
 A reload: `sudo fail2ban-client reload`. Tvoje home/mobile IP pak fail2ban
 nikdy nezbanuje, ani kdybys náhodou trefil 6× exploit URL.

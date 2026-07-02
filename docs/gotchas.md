@@ -184,19 +184,20 @@ nerozeznatelnou od neexistující cesty; jen IP z allowlistu vidí reálný
 `location /admin` → `@admin_notfound`).
 
 **Past:** Claude Code (a jakýkoli `curl` z Bash toolu) běží **na uživatelově
-Macu ve Zlíně**, takže odchozí požadavky jdou přes **domácí přípoj —
-statická IP `213.194.255.5` (`*.valachnet.cz`)**, která **je na allowlistu**.
-Proto `curl https://ctyrlistkoteka.cz/admin` z tohoto prostředí vrátí
-**200/307, ne 404**. To **neznamená, že cloak nefunguje** — jen testuješ
-zevnitř povolené sítě. Uživatel na mobilu (jiná IP) správně vidí 404.
+Macu**, takže odchozí požadavky jdou přes **jeho domácí přípoj (statická
+IP)**, která **je na allowlistu**. Proto `curl https://ctyrlistkoteka.cz/admin`
+z tohoto prostředí vrátí **200/307, ne 404**. To **neznamená, že cloak
+nefunguje** — jen testuješ zevnitř povolené sítě. Uživatel na mobilu (jiná
+IP) správně vidí 404.
 
 **Jak aplikovat:**
 - **Netvrď „cloak je rozbitý", když z Bash dostaneš 200 na `/admin`.** Je to
   artefakt domácí IP. Pro test „jak to vidí cizí" použij mobil/jinou síť,
   ne zdejší `curl`.
-- `213.194.255.5` je **známá statická domácí IP** uživatele, vedená i v
-  `deploy/permaban-whitelist.conf` a fail2ban `ignoreip`
-  (`deploy/README.md`). Na allowlistu `/admin` je záměrně.
+- Domácí IP uživatele je na allowlistu `/admin` záměrně (a v permaban
+  whitelistu / fail2ban `ignoreip`). **Konkrétní IP nepatří do gitu** — repo
+  je veřejné; reálné adresy žijí jen v `/etc/permaban-whitelist.conf` a nginx
+  configu na VPS. Když je potřebuješ, jsou v mé trvalé paměti, ne tady.
 - Ochrana `/admin` je vrstvená a **hotová**: Nginx cloak (404 mimo
   allowlist) + WebAuthn passkey + iron-session + `X-Robots-Tag: noindex`.
   Nepředělávej to.
