@@ -20,6 +20,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   dle § 89 z. č. 127/2005 Sb. nevyžaduje.
 
 ### Bezpečnost
+- **Next.js 15.5.15 → 15.5.20**: záplata **7 high** CVE (3× DoS — Server Actions /
+  connection / image; 3× middleware/proxy bypass; 1× SSRF) + moderaty (XSS v App
+  Routeru, cache poisoning RSC). `pnpm audit --prod` klesl ze 17 (7 high) na 4
+  (2 low + 2 moderate, jen build-time / admin PDF transitivní). Admin auth u nás
+  nejede přes middleware (server-guard + nginx cloak), takže bypass CVE nás bolí
+  míň; reálně relevantní byly DoS/SSRF/XSS.
 - **Reálné allowlist IP pryč z veřejného repa**: domácí/záložní IP se scrubly
   z trackovaných souborů (`deploy/permaban-whitelist.conf` je teď jen šablona
   s placeholdery, `deploy/README.md` příklady, `docs/gotchas.md`). Skutečné
