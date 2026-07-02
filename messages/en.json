@@ -901,8 +901,6 @@
     "cookiesIntro": "The site stores nothing on your device for advertising or cross-site tracking. It uses only:",
     "cookieVoteName": "vote_voter_uuid",
     "cookieVoteDesc": "a functional cookie (1-year lifetime), set only when you vote, preventing double voting.",
-    "cookieAdminName": "ctyr_admin",
-    "cookieAdminDesc": "the site administrator's login cookie — does not apply to ordinary visitors.",
     "storageThemeName": "theme",
     "storageThemeDesc": "your appearance choice (light/dark/clover) stored in the browser's localStorage; it is never sent to the server.",
     "cookiesNoBanner": "Because we use no tracking or advertising cookies, the site does not require a consent (“cookie”) banner under § 89 of Czech Act No. 127/2005 Coll.",
