@@ -31,6 +31,8 @@ import {
 import { countryFromCoords } from "@/lib/geo";
 import { localizedCountryName } from "@/lib/world-countries";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
+import { breadcrumbSchema, placeSchema } from "@/lib/schema";
+import { JsonLd } from "@/components/seo/json-ld";
 import { RealPhotoButton } from "@/components/locations/real-photo-button";
 
 type DetailT = Awaited<ReturnType<typeof getTranslations<"LocationDetail">>>;
@@ -203,11 +205,39 @@ export default async function LocationDetailPage({ params }: PageProps) {
 
   const t = await getTranslations("LocationDetail");
   const tRow = await getTranslations("LocationRow");
+  const tNav = await getTranslations("Nav");
 
   const { base } = detail;
 
+  // Structured data — breadcrumb + the location as a Place with geo.
+  // Only for public locations; anonymized ones are noindex and must not
+  // expose code/coordinates in JSON-LD (CLAUDE.md §6).
+  const center = detail.maps[0];
+  const jsonLd = base.isAnonymized
+    ? null
+    : [
+        breadcrumbSchema([
+          { name: tNav("home"), path: "/" },
+          { name: tNav("lokality"), path: "/lokality" },
+          { name: base.code, path: `/lokality/${mapId}` },
+        ]),
+        placeSchema({
+          name:
+            base.displayName && base.displayName !== base.code
+              ? base.displayName
+              : base.code,
+          description: [base.code, base.cadastralArea]
+            .filter(Boolean)
+            .join(" · "),
+          coordinates: center
+            ? { lat: center.centerLat, lng: center.centerLng }
+            : null,
+        }),
+      ];
+
   return (
     <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+      {jsonLd && <JsonLd data={jsonLd} />}
       <nav
         aria-label={t("backToList")}
         className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500"

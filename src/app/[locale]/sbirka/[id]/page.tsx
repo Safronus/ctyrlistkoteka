@@ -31,6 +31,8 @@ import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { effectForFind } from "@/lib/specialFinds";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
+import { breadcrumbSchema, findImageSchema } from "@/lib/schema";
+import { JsonLd } from "@/components/seo/json-ld";
 import { isFormerLocation } from "@/lib/locationCode";
 import {
   getAdjacentFindIds,
@@ -116,6 +118,7 @@ export default async function FindDetailPage({ params }: PageProps) {
   const { id, locale } = await params;
   const t = await getTranslations("FindDetail");
   const tOffset = await getTranslations("LocationOffset");
+  const tNav = await getTranslations("Nav");
   const numId = Number(id);
   if (!Number.isInteger(numId) || numId <= 0) notFound();
   const [find, adjacent] = await Promise.all([
@@ -546,8 +549,38 @@ export default async function FindDetailPage({ params }: PageProps) {
     </article>
   );
 
+  // Structured data — breadcrumb + the find as an ImageObject. Built only
+  // for public finds; anonymized finds are noindex and must not surface
+  // location/GPS in JSON-LD (CLAUDE.md §6).
+  const findLocationName =
+    find.location?.displayName ?? find.location?.code ?? null;
+  const jsonLd = find.isAnonymized
+    ? null
+    : [
+        breadcrumbSchema([
+          { name: tNav("home"), path: "/" },
+          { name: tNav("sbirka"), path: "/sbirka" },
+          { name: `#${find.id}`, path: `/sbirka/${find.id}` },
+        ]),
+        findImageSchema({
+          name: t("metaTitle", {
+            id: find.id,
+            locationName: findLocationName ?? t("fallbackLocation"),
+          }),
+          description: t("metaDescription", {
+            locationName: findLocationName ?? t("fallbackLocation"),
+          }),
+          contentUrl: find.primaryImage?.webPath ?? null,
+          thumbnailUrl: find.primaryImage?.thumbPath ?? null,
+          foundAt: find.foundAt ? find.foundAt.toISOString() : null,
+          locationName: findLocationName,
+          coordinates: find.coordinates,
+        }),
+      ];
+
   return (
     <>
+      {jsonLd && <JsonLd data={jsonLd} />}
       <DetailVibeOverlay effect={effect} />
       {/* The lost elegy only owns the viewport when no config-assigned
           effect is active — stacking two particle systems would read

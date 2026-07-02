@@ -16,6 +16,8 @@ import {
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/json-ld";
+import { websiteSchema } from "@/lib/schema";
 import { Link } from "@/i18n/navigation";
 import { getHomePageData, type HomePageData } from "@/lib/queries/home";
 import { getRandomFindShowcase } from "@/lib/queries/random-find";
@@ -30,7 +32,7 @@ import {
   locationDetailHref,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
-import { siteNameShort } from "@/lib/siteName";
+import { siteName, siteNameShort } from "@/lib/siteName";
 import { FindThumbnail } from "@/components/finds/find-thumbnail";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
 import { StateBadges } from "@/components/finds/state-badges";
@@ -112,6 +114,7 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <JsonLd data={websiteSchema(siteName(locale), locale)} />
       {/* Hero, three-tier composition:
           1. Title centered across the full width.
           2. Trio row — clover logo · pinned-paper fact · watermark

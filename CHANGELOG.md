@@ -28,8 +28,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   Best-effort (selhání nerozbije sync), localhost/dry-run = no-op.
 - **Ověření webmaster nástrojů**: `<meta>` tagy pro Google / Bing / Seznam
   přes env (`GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION`,
-  `SEZNAM_WMT`) — vykreslí se, jen když je token nastavený. *(Batch 4;
-  zbývá volitelně JSON-LD.)*
+  `SEZNAM_WMT`) — vykreslí se, jen když je token nastavený. *(Batch 4.)*
+- **Strukturovaná data (JSON-LD)** *(Batch 3)*: `WebSite`+`SearchAction` na
+  homepage (vyhledávací box v Google, napojený na `/sbirka?q=`),
+  `BreadcrumbList` + `ImageObject` (foto, datum, místo, GPS) na detailu
+  nálezu, `BreadcrumbList` + `Place`+`GeoCoordinates` na detailu lokality.
+  Neviditelný `<script type="application/ld+json">` (nulový vliv na UI);
+  bezpečné vložení (escape `<`), anonymizované nálezy/lokality JSON-LD
+  nedostanou.
 
 ## 2026-06
 
