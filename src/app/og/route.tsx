@@ -52,6 +52,29 @@ export async function GET() {
     loadImage("og-clover.png", { width: 150 }),
   ]);
 
+  const aspect = clover.height / clover.width;
+  // Scattered faint clovers for background texture — fixed specs (the card
+  // is a static image, so no randomness needed): varied size, rotation,
+  // position, all low-opacity and kept off dead-centre where the hero sits.
+  const scatter: Array<{
+    left: number;
+    top: number;
+    w: number;
+    rot: number;
+    op: number;
+  }> = [
+    { left: 3, top: 6, w: 135, rot: -18, op: 0.16 },
+    { left: 83, top: 4, w: 105, rot: 24, op: 0.14 },
+    { left: 70, top: 58, w: 150, rot: -30, op: 0.12 },
+    { left: 8, top: 60, w: 115, rot: 34, op: 0.15 },
+    { left: 42, top: -6, w: 80, rot: 12, op: 0.12 },
+    { left: 91, top: 42, w: 95, rot: -12, op: 0.12 },
+    { left: 1, top: 33, w: 90, rot: 28, op: 0.13 },
+    { left: 52, top: 80, w: 100, rot: -22, op: 0.14 },
+    { left: 26, top: 26, w: 70, rot: 42, op: 0.1 },
+    { left: 79, top: 84, w: 125, rot: 8, op: 0.15 },
+  ];
+
   return new ImageResponse(
     (
       <div
@@ -65,6 +88,23 @@ export async function GET() {
           position: "relative",
         }}
       >
+        {scatter.map((c, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={i}
+            src={clover.url}
+            width={c.w}
+            height={Math.round(c.w * aspect)}
+            alt=""
+            style={{
+              position: "absolute",
+              left: `${c.left}%`,
+              top: `${c.top}%`,
+              opacity: c.op,
+              transform: `rotate(${c.rot}deg)`,
+            }}
+          />
+        ))}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={clover.url}
