@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Bezpečnost
+- **robots.txt už neprozrazuje `/admin`**: `Disallow: /admin/` odstraněn.
+  robots.txt je veřejně čitelný, takže ta řádka fungovala jako ukazatel na
+  admin cestu pro kohokoli, kdo dělá průzkum — opak skrývání. Admin drží mimo
+  indexy hlavička `X-Robots-Tag: noindex, nofollow, noarchive` (middleware na
+  každé `/admin` odpovědi), autentizace (WebAuthn + iron-session) a volitelný
+  Nginx IP-allowlist cloak. `/api/` a `/go/` (JSON / QR-redirect, nic citlivého)
+  v robots zůstávají kvůli crawl-budget hygieně.
+
 ### Změněno
 - **Brandová OG karta** `/og` teď používá **autorovu ručně kreslenou
   čtyřlístek-ilustraci** („SAFRONUS" na stonku) + tvářičku jako podpis v
