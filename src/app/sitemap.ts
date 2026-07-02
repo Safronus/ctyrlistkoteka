@@ -61,6 +61,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry("/lokality", now, "weekly", 0.8),
     entry("/mapa", now, "daily", 0.8),
     entry("/statistiky", now, "daily", 0.7),
+    entry("/soukromi", now, "yearly", 0.2),
   ];
 
   const locationEntries: MetadataRoute.Sitemap = locations.map((l) =>

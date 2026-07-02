@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Přidáno
+- **Stránka „Ochrana soukromí"** (`/soukromi`, `/en/soukromi`) + odkaz v
+  patičce. Informační povinnost dle čl. 13 GDPR: správce + kontakt, co a proč
+  se zpracovává (cookieless GoatCounter, IP v bezpečnostních logách, hashovaný
+  otisk u hlasování, OSM dlaždice jako třetí strana), právní základy (oprávněný
+  zájem), doby uchování, práva subjektu + ÚOOÚ. Cs/en přes `Privacy` namespace,
+  v sitemapě. **Cookie lišta záměrně není** — web nemá sledovací ani reklamní
+  cookies (jen funkční `vote_voter_uuid` a `theme` v localStorage), souhlas se
+  dle § 89 z. č. 127/2005 Sb. nevyžaduje.
+
 ### Bezpečnost
 - **Reálné allowlist IP pryč z veřejného repa**: domácí/záložní IP se scrubly
   z trackovaných souborů (`deploy/permaban-whitelist.conf` je teď jen šablona

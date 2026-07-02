@@ -24,6 +24,7 @@ import { siteName } from "@/lib/siteName";
 import { getAnniversaryDates } from "@/lib/queries/anniversaries";
 import { getWatermarkMeta } from "@/lib/queries/watermark";
 import { routing } from "@/i18n/routing";
+import { Link } from "@/i18n/navigation";
 
 /**
  * Public-pages layout — wraps `[locale]/page.tsx` and the public
@@ -155,6 +156,13 @@ export default async function PublicLayout({
           </span>
           <span aria-hidden>·</span>
           <VisitCounter />
+          <span aria-hidden>·</span>
+          <Link
+            href="/soukromi"
+            className="text-gray-500 underline-offset-2 transition hover:text-brand-700 hover:underline"
+          >
+            {t("privacy")}
+          </Link>
         </div>
       </footer>
     </NextIntlClientProvider>
