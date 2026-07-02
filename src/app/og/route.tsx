@@ -112,14 +112,20 @@ export async function GET() {
           height={clover.height}
           alt=""
         />
-        {/* Author's face doodle as a small signature, bottom-right. */}
+        {/* Author's face doodle as a signature — tilted 45° clockwise and
+            tucked to the right of the clover head, by the stem. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={face.url}
           width={face.width}
           height={face.height}
           alt=""
-          style={{ position: "absolute", right: 48, bottom: 40 }}
+          style={{
+            position: "absolute",
+            left: "60%",
+            top: "26%",
+            transform: "rotate(45deg)",
+          }}
         />
       </div>
     ),
