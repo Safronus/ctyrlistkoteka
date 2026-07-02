@@ -281,7 +281,7 @@ export function RandomFindShowcaseWidget({
           </div>
         </div>
 
-        <p className="mt-2 text-center text-xs text-gray-400">
+        <p className="mt-2 text-center text-xs text-gray-600">
           {t("rotationFooter", {
             seconds: Math.round(rotationMs / 1000),
             screensaverSeconds: Math.round(screensaverMs / 1000),

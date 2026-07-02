@@ -99,7 +99,7 @@ const REGULAR: VibeStyles = {
   paperRing: "ring-1 ring-amber-200/60",
   titleColor: "text-gray-900",
   textColor: "text-gray-700",
-  categoryColor: "text-gray-500",
+  categoryColor: "text-gray-600",
   // Regular entries don't use the badge fields below — kept for type
   // shape parity. The component branches on isAuthor before reading.
   badgeBg: "",
@@ -108,7 +108,7 @@ const REGULAR: VibeStyles = {
   // directly rather than via these clover-pin tokens.
   pinBody: "",
   pinAccent: "",
-  idColor: "text-gray-400",
+  idColor: "text-gray-600",
 };
 
 function vibeFor(text: CloverText): VibeStyles {
@@ -279,12 +279,17 @@ export function CloverFactCard({
         )}
       </div>
 
-      <h3
+      {/* Rendered as a <p>, not a heading: this is a decorative rotating
+          "did you know" card inside an aria-labelled <aside> landmark, so
+          a heading here would break the page's heading order (h1 -> h3
+          skip) without adding navigational value. Styling is driven by
+          the [data-fact-title] attribute, unaffected by the tag. */}
+      <p
         data-fact-title
         className={`mt-1.5 font-serif text-base font-semibold ${styles.titleColor}`}
       >
         {text.title}
-      </h3>
+      </p>
       <p
         data-fact-body
         className={`mt-2 whitespace-pre-line font-serif text-sm italic leading-relaxed ${styles.textColor}`}
@@ -305,7 +310,7 @@ export function CloverFactCard({
       <p
         aria-hidden
         data-fact-id
-        className={`mt-1.5 select-none text-center text-[10px] opacity-70 ${styles.idColor}`}
+        className={`mt-1.5 select-none text-center text-[10px] ${styles.idColor}`}
         title={t("cardNextInTitle", { time: mmss })}
       >
         <span className="font-serif italic">{t("cardNextInPrefix")}</span>

@@ -59,7 +59,7 @@ export function CloverFactsStatCard({
       <div className="flex flex-1 flex-col justify-center gap-1 py-1.5">
         {categoryLabels.length > 0 && (
           <>
-            <p className="text-[10px] uppercase tracking-wide text-gray-400">
+            <p className="text-[10px] uppercase tracking-wide text-gray-600">
               {t("tileCategoryCount", { count: categoryLabels.length })}
             </p>
             <ul className="flex flex-wrap justify-center gap-1">

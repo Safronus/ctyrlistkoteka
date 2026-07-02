@@ -20,11 +20,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   dle § 89 z. č. 127/2005 Sb. nevyžaduje.
 
 ### Přístupnost
-- **Kontrast textů**: smysluplné sekundární texty (časové značky na home,
-  popisky měsíců ve sparkline, počet hlasů, datum v retrospektivě, patička —
-  build #, „přes", jazyková poznámka) povýšeny z `text-gray-400`/`-300` na
-  `text-gray-600` → splní WCAG AA 4.5:1 na světlém pozadí. Dekorativní
-  `aria-hidden` separátory (`·`, `→`) nechány — z kontrastu jsou vyňaté.
+- **Kontrast textů** (dle Lighthouse): smysluplné sekundární texty povýšeny na
+  `text-gray-600`/`-700`, aby splnily WCAG AA 4.5:1 — časové značky na home,
+  popisky měsíců ve sparkline, počet hlasů, datum v retrospektivě, patička
+  (build #, „přes", jazyk. poznámka), **hint stat-dlaždice na `bg-brand-50`**
+  („X nahraných"), **dlaždice Zajímavosti** („N kategorií"), **poznámka pod
+  mapou** („Mění se každých…") a **kartička Drobností** (kategorie + countdown;
+  odstraněno kontrast-ubíjející `opacity-70`). Dekorativní `aria-hidden`
+  separátory (`·`, `→`) nechány — z kontrastu jsou vyňaté.
+- **Pořadí nadpisů**: titulek rotující kartičky Drobností byl `<h3>` hned pod
+  `<h1>` (přeskok úrovně) → změněn na `<p>`; je to dekorativní rotující obsah
+  v `<aside aria-label>`, takže nadpis do osnovy stránky nepatří. Styl řídí
+  atribut `[data-fact-title]`, beze změny vzhledu.
 
 ### Automatizace / údržba
 - **Dependabot** (`.github/dependabot.yml`): týdenní hlídání npm (Next.js,
