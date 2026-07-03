@@ -64,7 +64,7 @@ export function analyzeLokaceStavyPoznamky(
       // First-write-wins: a find shouldn't be in two locations, but
       // if the JSON has a typo we keep the earliest binding so the
       // lookup is deterministic.
-      if (findToLokace[id] === undefined) findToLokace[id] = key;
+      findToLokace[id] ??= key;
     }
   }
 

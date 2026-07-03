@@ -45,7 +45,7 @@ export function DeviationCompass({
   const maxCount = Math.max(1, ...points.map((p) => p.count));
   const maxMean = Math.max(
     1,
-    ...points.map((p) => (p.mean !== null ? p.mean : 0)),
+    ...points.map((p) => p.mean ?? 0),
   );
 
   const countPoly = points

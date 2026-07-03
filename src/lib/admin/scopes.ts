@@ -550,7 +550,7 @@ export async function analyzeIdRange(
   for (let i = min; i <= max; i += 1) {
     if (!occurrences.has(i)) {
       missingCount += 1;
-      if (runStart === null) runStart = i;
+      runStart ??= i;
     } else if (runStart !== null) {
       missingRanges.push({ start: runStart, end: i - 1 });
       runStart = null;
