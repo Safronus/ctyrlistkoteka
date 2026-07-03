@@ -111,11 +111,13 @@ export function RandomFindScreensaver({
 
     const request = el.requestFullscreen ?? el.webkitRequestFullscreen;
     if (request) {
-      try {
-        Promise.resolve(request.call(el)).catch(() => {});
-      } catch {
-        /* not allowed — pseudo-fullscreen is fine */
-      }
+      // Fire-and-forget. Deferring the call into `.then` routes a
+      // synchronous throw into the same `.catch` as an async rejection —
+      // either way a blocked/absent fullscreen just leaves us in
+      // pseudo-fullscreen. (No `try` around the promise → satisfies S4822.)
+      Promise.resolve()
+        .then(() => request.call(el))
+        .catch(() => {});
     }
 
     const onFsChange = () => {
@@ -133,11 +135,10 @@ export function RandomFindScreensaver({
       const active = doc.fullscreenElement ?? doc.webkitFullscreenElement;
       const exit = doc.exitFullscreen ?? doc.webkitExitFullscreen;
       if (active && exit) {
-        try {
-          Promise.resolve(exit.call(doc)).catch(() => {});
-        } catch {
-          /* ignore */
-        }
+        // Same fire-and-forget pattern as the request above.
+        Promise.resolve()
+          .then(() => exit.call(doc))
+          .catch(() => {});
       }
     };
   }, [handleClose]);
