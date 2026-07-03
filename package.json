@@ -16,6 +16,7 @@
     "sync": "tsx scripts/sync.ts",
     "diagnose:locations": "tsx scripts/diagnose-location-ids.ts",
     "generate-images": "tsx scripts/generate-images.ts",
+    "backfill-map-thumbs": "tsx scripts/backfill-map-thumbs.ts",
     "watermark": "tsx scripts/apply-watermark.ts"
   },
   "dependencies": {
