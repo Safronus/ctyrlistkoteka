@@ -440,7 +440,7 @@ export function locationOffsetToneClass(offset: {
       ? offset.inside
       : offset.meters <= FIND_DEVIATION_RADIUS_M;
   if (isGreen) return "text-emerald-700 font-medium";
-  if (offset.withinMap) return "text-amber-600";
+  if (offset.withinMap) return "text-amber-700";
   return "text-rose-600";
 }
 

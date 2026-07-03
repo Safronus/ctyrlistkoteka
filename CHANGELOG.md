@@ -18,6 +18,9 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   disabled tlačítka paginace „← Předchozí / Další →" (`text-gray-700` +
   `opacity-40`) dostala `aria-disabled="true"` — signalizuje disabled stav
   asistenčním technologiím a uplatní WCAG výjimku pro neaktivní ovládací prvky.
+  Na **/sbirka** navíc štítek vzdálenosti od hrany AOI (`locationOffsetToneClass`)
+  používal `text-amber-600` (3,2:1) — ztmaveno na `amber-700` (5:1); jednou
+  změnou se opraví všechny opakující se výskyty napříč nálezy.
 - **Klávesové zavírání modálů** (S1082): tři admin modály na custom
   `<div role="dialog">` (QR, QR-PDF, editor Zajímavostí) neměly Esc — přidán
   window-level keydown listener (vzor z veřejného screensaveru). Veřejná část
