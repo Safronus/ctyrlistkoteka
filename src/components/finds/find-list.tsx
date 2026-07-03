@@ -48,7 +48,7 @@ export async function FindList({
 
   return (
     <ul className="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white">
-      {finds.map((find) => (
+      {finds.map((find, i) => (
         <li key={find.id}>
           <FindListRow
             find={find}
@@ -57,6 +57,9 @@ export async function FindList({
             tOffset={tOffset}
             voted={votedSet?.has(find.id) ?? false}
             voteCount={voteCounts?.get(find.id) ?? 0}
+            // First rows are above the fold — eager-load their thumbnails
+            // so the LCP image isn't lazy.
+            priority={i < 3}
           />
         </li>
       ))}
@@ -71,6 +74,7 @@ function FindListRow({
   tOffset,
   voted,
   voteCount,
+  priority = false,
 }: {
   find: PublicFind;
   locale: string;
@@ -78,6 +82,7 @@ function FindListRow({
   tOffset: OffsetT;
   voted: boolean;
   voteCount: number;
+  priority?: boolean;
 }) {
   // Anonymized finds must not leak their actual location id, code, or
   // description here — mirrors the detail page's substitution. Coords
@@ -148,6 +153,7 @@ function FindListRow({
           <FindThumbnail
             image={find.primaryImage}
             alt={altText}
+            priority={priority}
             className={`h-24 w-24 rounded-md sm:h-28 sm:w-28 ${
               find.states.includes(FindState.LOST) ? "grayscale" : ""
             }`}

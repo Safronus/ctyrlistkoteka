@@ -24,12 +24,15 @@ export async function FindGrid({
 
   return (
     <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-      {finds.map((find) => (
+      {finds.map((find, i) => (
         <li key={find.id}>
           <FindCard
             find={find}
             voted={votedSet?.has(find.id) ?? false}
             voteCount={voteCounts?.get(find.id) ?? 0}
+            // First row (up to 4 cols on lg) is above the fold — eager-load
+            // it so the LCP thumbnail isn't lazy. Rest stay lazy.
+            priority={i < 4}
           />
         </li>
       ))}

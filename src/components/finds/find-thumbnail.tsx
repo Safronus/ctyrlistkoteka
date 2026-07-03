@@ -12,11 +12,17 @@ export async function FindThumbnail({
   alt,
   className = "",
   sizeHint = "thumb",
+  priority = false,
 }: {
   image: PublicImage | null;
   alt: string;
   className?: string;
   sizeHint?: "thumb" | "web";
+  /** Above-the-fold thumbnails (first grid row / list rows) set this so
+   *  the image loads eagerly with high fetch priority — a lazily loaded
+   *  LCP element is what PageSpeed flagged on /sbirka (LCP 3.7 s even on
+   *  desktop). Off-screen thumbnails stay lazy. */
+  priority?: boolean;
 }) {
   const baseClasses =
     "relative overflow-hidden bg-gradient-to-br from-brand-50 to-brand-100 " +
@@ -46,7 +52,8 @@ export async function FindThumbnail({
       <img
         src={src}
         alt={alt}
-        loading="lazy"
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : undefined}
         decoding="async"
         className="h-full w-full object-cover"
       />

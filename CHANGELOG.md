@@ -40,6 +40,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   z `imageWidth`/`imageHeight` → prohlížeč rezervuje výšku předem. *(Bajtová
   optimalizace obrázků — menší varianty map/náhledů — vyžaduje re-sync ~17k
   obrázků, řeší se zvlášť.)*
+- **/sbirka LCP (mobil i desktop)**: náhledy nálezů se všechny lazy-loadovaly
+  včetně prvního nad ohybem → PSI hlásil **LCP 3,7 s i na desktopu**
+  („nepoužívej lazy pro LCP obrázek"). První řádek (grid ≤4, list ≤3) teď
+  `loading="eager"` + `fetchPriority="high"`, zbytek zůstává lazy.
+  `FindThumbnail`/`FindCard`/`FindGrid`/`FindList` dostaly `priority` prop.
 
 ### Přidáno
 - **Stránka „Ochrana soukromí"** (`/soukromi`, `/en/soukromi`) + odkaz v

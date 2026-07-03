@@ -18,10 +18,13 @@ export async function FindCard({
   find,
   voted,
   voteCount,
+  priority = false,
 }: {
   find: PublicFind;
   voted: boolean;
   voteCount: number;
+  /** Eager-load this card's thumbnail (first grid row) to fix the LCP. */
+  priority?: boolean;
 }) {
   const locale = await getLocale();
   const tRow = await getTranslations("FindRow");
@@ -69,6 +72,7 @@ export async function FindCard({
         <FindThumbnail
           image={find.primaryImage}
           alt={altText}
+          priority={priority}
           className={`aspect-square ${
             find.states.includes(FindState.LOST) ? "grayscale" : ""
           }`}
