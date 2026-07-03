@@ -19,6 +19,7 @@ import {
 } from "@/lib/admin/checks";
 import { AckCheckButton } from "./ack-button";
 import { SyncCropNameButton } from "./sync-crop-name-button";
+import { AnonymizeAnonLocFindsButton } from "./anonymize-anon-loc-button";
 
 export const dynamic = "force-dynamic";
 
@@ -377,6 +378,10 @@ function CheckCard({ result }: { result: CheckResult }) {
                 Ořezy s problémem
               </Link>
             </div>
+          )}
+
+          {result.id === "finds-in-anon-loc-not-anon" && (
+            <AnonymizeAnonLocFindsButton count={result.offenders.length} />
           )}
 
           <div className="mt-4 max-h-96 overflow-auto rounded-md border border-amber-200 bg-white">

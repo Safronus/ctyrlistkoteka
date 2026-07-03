@@ -7,10 +7,7 @@ import { appendAudit } from "@/lib/admin/audit";
 import { safeBaseName } from "@/lib/admin/paths";
 import { setPngTextTag } from "@/lib/admin/pngTextEdit";
 import { resolveDiskPath } from "@/lib/admin/scopes";
-import {
-  cascadeMapAnonToJson,
-  type AnonCascadeResult,
-} from "@/lib/admin/anonCascade";
+import { cascadeMapAnon, type AnonCascadeResult } from "@/lib/admin/anonCascade";
 import {
   getAdminSession,
   getRequestIp,
@@ -140,18 +137,20 @@ export async function setMapAnonymized(
     };
   }
 
-  // Mirror the toggle into LokaceStavyPoznamky.json so the location's
-  // finds carry the anonymisation too. Non-fatal — the PNG tag is the
+  // Cascade to the location's finds: rename their photo files (pole 5) and
+  // mirror into LokaceStavyPoznamky.json. Non-fatal — the PNG tag is the
   // source of truth and sync enforces the same rule regardless (see
-  // cascadeMapAnonToJson / phaseMeta).
+  // cascadeMapAnon / phaseMeta).
   let cascade: AnonCascadeResult;
   try {
-    cascade = await cascadeMapAnonToJson(resolved.name, anonymize);
+    cascade = await cascadeMapAnon(resolved.name, anonymize);
   } catch (err) {
     cascade = {
       changed: false,
-      added: [],
-      removed: [],
+      photosRenamed: 0,
+      jsonAdded: [],
+      jsonRemoved: [],
+      errors: [],
       skipped: `error: ${(err as Error).message}`,
     };
   }
@@ -167,9 +166,11 @@ export async function setMapAnonymized(
       keyword: ANON_KEYWORD,
       removed_chunks: edit.removed,
       added_chunks: edit.added,
-      json_finds_added: cascade.added.length,
-      json_finds_removed: cascade.removed.length,
-      json_cascade_skipped: cascade.skipped ?? null,
+      cascade_photos_renamed: cascade.photosRenamed,
+      cascade_json_added: cascade.jsonAdded.length,
+      cascade_json_removed: cascade.jsonRemoved.length,
+      cascade_errors: cascade.errors.length,
+      cascade_skipped: cascade.skipped ?? null,
     },
   });
 
@@ -185,7 +186,7 @@ export async function setMapAnonymized(
     anonymized: anonymize,
     removed: edit.removed,
     added: edit.added,
-    jsonFindsAdded: cascade.added.length,
-    jsonFindsRemoved: cascade.removed.length,
+    jsonFindsAdded: cascade.jsonAdded.length,
+    jsonFindsRemoved: cascade.jsonRemoved.length,
   };
 }
