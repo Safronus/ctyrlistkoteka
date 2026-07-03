@@ -262,8 +262,8 @@ export async function listCountries(): Promise<
     Array<{ id: number; lat: number; lng: number }>
   >`
     SELECT id,
-           ST_Y(center_point)::float8 AS lat,
-           ST_X(center_point)::float8 AS lng
+           ROUND(ST_Y(center_point)::numeric, 6)::float8 AS lat,
+           ROUND(ST_X(center_point)::numeric, 6)::float8 AS lng
     FROM "locations"
     WHERE center_point IS NOT NULL
   `;
@@ -432,8 +432,8 @@ export async function listLocations(
                 THEN ST_Area(polygon::geography)
                 ELSE NULL
            END AS area_m2,
-           ST_Y(center_point)::float8 AS center_lat,
-           ST_X(center_point)::float8 AS center_lng,
+           ROUND(ST_Y(center_point)::numeric, 6)::float8 AS center_lat,
+           ROUND(ST_X(center_point)::numeric, 6)::float8 AS center_lng,
            CASE WHEN center_point IS NOT NULL
                   AND (SELECT pt FROM ref) IS NOT NULL
                 THEN ST_DistanceSphere(center_point, (SELECT pt FROM ref))::float8
