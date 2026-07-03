@@ -556,7 +556,7 @@ function TotalCard({
                 <span className="font-mono font-semibold tabular-nums text-gray-900">
                   {s.value}
                 </span>
-                <span className="text-gray-500">{s.label}</span>
+                <span className="text-gray-600">{s.label}</span>
               </>
             );
             return (
@@ -1175,10 +1175,10 @@ function MainNumber({
       {/* The optional hint (e.g. "16 500 nahraných") rides inline in
        *  parentheses after the label rather than on its own line, so the
        *  tile keeps the same height as the location tile next to it. */}
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-1 text-sm text-gray-600">
         {label}
         {hint && (
-          <span className="text-gray-400"> ({hint})</span>
+          <span className="text-gray-600"> ({hint})</span>
         )}
       </p>
     </div>
@@ -1200,7 +1200,7 @@ function CornerStat({
       <p className="text-2xl font-bold tabular-nums text-brand-700">
         {stat.value}
       </p>
-      <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-gray-500">
+      <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-gray-600">
         <Icon className="h-3.5 w-3.5 text-brand-700" aria-hidden />
         {stat.label}
       </p>

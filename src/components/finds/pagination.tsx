@@ -147,7 +147,10 @@ function LinkOrDisabled({
 }) {
   if (disabled) {
     return (
-      <span className={`${className} cursor-not-allowed opacity-40`}>
+      <span
+        aria-disabled="true"
+        className={`${className} cursor-not-allowed opacity-40`}
+      >
         {children}
       </span>
     );
