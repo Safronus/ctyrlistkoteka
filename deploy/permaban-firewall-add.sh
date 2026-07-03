@@ -42,7 +42,7 @@ fi
 
 # Whitelist (exact match per řádek). grep -F = fixed string, -x = whole
 # line. Komentáře a prázdné řádky předem odfiltrované.
-if [ -f "$WHITELIST_FILE" ]; then
+if [[ -f "$WHITELIST_FILE" ]]; then
   if grep -v '^[[:space:]]*#' "$WHITELIST_FILE" \
      | grep -v '^[[:space:]]*$' \
      | grep -Fxq -- "$IP"; then
@@ -83,7 +83,7 @@ flock 9
 # Inicializace souboru. Bez hlavičky (jen `add element` řádky), aby
 # šel rovnou `nft -f` načíst bez parsování komentářů. Komentář na
 # první řádek jen jako anchor pro grep test "is file ours".
-if [ ! -f "$ELEMENTS_FILE" ]; then
+if [[ ! -f "$ELEMENTS_FILE" ]]; then
   cat > "$ELEMENTS_FILE" <<EOF
 # Auto-managed permaban elements pro nftables.
 # Real-time append: /usr/local/sbin/permaban-firewall-add.sh (z fail2ban action)

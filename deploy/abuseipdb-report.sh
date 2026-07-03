@@ -37,8 +37,8 @@ command -v jq >/dev/null 2>&1 || {
   echo "jq není nainstalované (sudo apt install jq)" >&2
   exit 1
 }
-[ -r "$KEY_FILE" ] || { echo "API key unreadable: $KEY_FILE" >&2; exit 1; }
-[ -f "$LOG" ] || { echo "$(date -Iseconds) No blocklist log yet: $LOG"; exit 0; }
+[[ -r "$KEY_FILE" ]] || { echo "API key unreadable: $KEY_FILE" >&2; exit 1; }
+[[ -f "$LOG" ]] || { echo "$(date -Iseconds) No blocklist log yet: $LOG"; exit 0; }
 
 # Ověř, že API klíč není world-readable — selhává brzy, ne až po POSTu.
 KEY_PERMS=$(stat -c "%a" "$KEY_FILE")
@@ -96,7 +96,7 @@ trap 'rm -f "$CSV" "$RESP"' EXIT
 } > "$CSV"
 
 ROWS=$(($(wc -l < "$CSV") - 1))
-if [ "$ROWS" -le 0 ]; then
+if [[ "$ROWS" -le 0 ]]; then
   echo "$(date -Iseconds) No new bans (since: ${LAST_TS:-never})"
   exit 0
 fi
@@ -108,7 +108,7 @@ HTTP_CODE=$(curl -sS -o "$RESP" -w "%{http_code}" -X POST "$API_URL" \
   -H "Accept: application/json" \
   -F "csv=@$CSV;type=text/csv")
 
-if [ "$HTTP_CODE" != "200" ]; then
+if [[ "$HTTP_CODE" != "200" ]]; then
   echo "$(date -Iseconds) AbuseIPDB API error: HTTP $HTTP_CODE" >&2
   cat "$RESP" >&2 || true
   exit 1

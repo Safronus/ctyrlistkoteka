@@ -48,7 +48,7 @@ BACKUP_RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
 
 cmd="${1:-stats}"
 
-if [ ! -f "$LOG" ]; then
+if [[ ! -f "$LOG" ]]; then
   echo "Blocklist log neexistuje: $LOG"
   echo "(fail2ban ještě nikoho nebanoval, nebo blocklist action není aktivní)"
   exit 0
@@ -86,7 +86,7 @@ case "$cmd" in
     # whitelisted (kromě reserved/private rozsahů níž). Komentáře a
     # prázdné řádky ignorujeme, '.' v IP escapujeme pro awk regex.
     WL_REGEX=""
-    if [ -f "$WHITELIST_FILE" ]; then
+    if [[ -f "$WHITELIST_FILE" ]]; then
       WL_REGEX=$(awk '
         /^[[:space:]]*#/ { next }
         /^[[:space:]]*$/ { next }
@@ -106,7 +106,7 @@ case "$cmd" in
       echo "# Window: last ${WINDOW_DAYS} days"
       echo "# Threshold: IPs banned >= ${PERMABAN_THRESHOLD}×"
       echo "# Jails: ${INCLUDE_JAILS}"
-      echo "# Whitelist: ${WHITELIST_FILE} ($([ -f "$WHITELIST_FILE" ] && grep -cv '^[[:space:]]*\(#\|$\)' "$WHITELIST_FILE" || echo 0) entries)"
+      echo "# Whitelist: ${WHITELIST_FILE} ($([[ -f "$WHITELIST_FILE" ]] && grep -cv '^[[:space:]]*\(#\|$\)' "$WHITELIST_FILE" || echo 0) entries)"
       echo "#"
       awk -F'\t' \
         -v cutoff="$cutoff" \
@@ -149,14 +149,14 @@ case "$cmd" in
     # `cmp -s` vrací nenulu při rozdílu, takže testem srovnáme s
     # předchozím .conf. Hlavičku ignorujeme přes `tail -n +N` (počet
     # statických komentářových řádků = 8 výše).
-    if [ -f "$NGINX_DENY" ] && \
+    if [[ -f "$NGINX_DENY" ]] && \
        diff -q <(tail -n +9 "$NGINX_DENY") <(tail -n +9 "$TMP") > /dev/null 2>&1; then
       echo "Permaban list beze změny ($n IP). Reload nginx se neprovádí."
       exit 0
     fi
 
     # Snapshot předchozího stavu (atomicky před přepsáním).
-    if [ -f "$NGINX_DENY" ]; then
+    if [[ -f "$NGINX_DENY" ]]; then
       mkdir -p "$BACKUP_DIR"
       chmod 750 "$BACKUP_DIR"
       ts=$(date -Iseconds | tr ':' '-')
@@ -171,7 +171,7 @@ case "$cmd" in
 
     # Apply mode — pokud nás volá cron / fail2ban-action, chceme rovnou
     # nginx -t && reload. Argument --apply (volitelný) tohle zapne.
-    if [ "${2:-}" = "--apply" ]; then
+    if [[ "${2:-}" = "--apply" ]]; then
       if nginx -t 2>/dev/null; then
         systemctl reload nginx
         echo "nginx reload OK."
@@ -203,7 +203,7 @@ case "$cmd" in
     trap 'rm -f "$TMP"' EXIT
 
     WL_REGEX=""
-    if [ -f "$WHITELIST_FILE" ]; then
+    if [[ -f "$WHITELIST_FILE" ]]; then
       WL_REGEX=$(awk '
         /^[[:space:]]*#/ { next }
         /^[[:space:]]*$/ { next }
@@ -222,7 +222,7 @@ case "$cmd" in
       echo "# Window: last ${WINDOW_DAYS} days"
       echo "# Threshold: IPs banned >= ${PERMABAN_THRESHOLD}×"
       echo "# Jails: ${INCLUDE_JAILS}"
-      echo "# Whitelist: ${WHITELIST_FILE} ($([ -f "$WHITELIST_FILE" ] && grep -cv '^[[:space:]]*\(#\|$\)' "$WHITELIST_FILE" || echo 0) entries)"
+      echo "# Whitelist: ${WHITELIST_FILE} ($([[ -f "$WHITELIST_FILE" ]] && grep -cv '^[[:space:]]*\(#\|$\)' "$WHITELIST_FILE" || echo 0) entries)"
       echo "#"
       echo "flush set inet permaban permaban_v4"
       echo "flush set inet permaban permaban_v6"
@@ -269,14 +269,14 @@ case "$cmd" in
 
     # Idempotence — porovnání bez hlavičky. Statických komentářových
     # řádků nahoře je 9 (řádky 1–9), data začíná řádkem 10 (flush statementy).
-    if [ -f "$ELEMENTS_FILE" ] && \
+    if [[ -f "$ELEMENTS_FILE" ]] && \
        diff -q <(tail -n +10 "$ELEMENTS_FILE") <(tail -n +10 "$TMP") > /dev/null 2>&1; then
       echo "Permaban elements beze změny ($n IP). nft -f se neprovádí."
       exit 0
     fi
 
     # Snapshot předchozího stavu.
-    if [ -f "$ELEMENTS_FILE" ]; then
+    if [[ -f "$ELEMENTS_FILE" ]]; then
       mkdir -p "$BACKUP_DIR"
       chmod 750 "$BACKUP_DIR"
       ts=$(date -Iseconds | tr ':' '-')
@@ -289,7 +289,7 @@ case "$cmd" in
     install -m 0644 "$TMP" "$ELEMENTS_FILE"
     echo "Vygenerováno $n IP do $ELEMENTS_FILE"
 
-    if [ "${2:-}" = "--apply" ]; then
+    if [[ "${2:-}" = "--apply" ]]; then
       if nft -f "$ELEMENTS_FILE" 2>&1; then
         echo "nft reload OK ($n IP v setech)."
       else

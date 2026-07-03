@@ -30,14 +30,14 @@ NGINX_DENY="${NGINX_DENY:-/etc/nginx/snippets/permaban-list.conf}"
 ELEMENTS_FILE="${ELEMENTS_FILE:-/var/lib/permaban/elements.nft}"
 MODE="${1:-}"
 
-if [ "$MODE" != "--dry-run" ] && [ "$MODE" != "--apply" ]; then
+if [[ "$MODE" != "--dry-run" ]] && [[ "$MODE" != "--apply" ]]; then
   echo "Použití: $0 {--dry-run|--apply}"
   echo "  --dry-run: ukáže co by se přidalo, žádný zápis"
   echo "  --apply:   skutečně přidá do nftables + persist do souboru"
   exit 1
 fi
 
-if [ ! -f "$NGINX_DENY" ]; then
+if [[ ! -f "$NGINX_DENY" ]]; then
   echo "$NGINX_DENY neexistuje — nic k migraci."
   exit 0
 fi
@@ -95,14 +95,14 @@ echo "Nové IPv6 k přidání: ${#new_v6[@]}"
 echo "Už v setu (skip):    $skipped"
 echo "Neparsovatelné:      $malformed"
 
-if [ "$MODE" = "--dry-run" ]; then
+if [[ "$MODE" = "--dry-run" ]]; then
   echo
   echo "(dry-run — žádný zápis)"
-  if [ ${#new_v4[@]} -gt 0 ]; then
+  if [[ ${#new_v4[@]} -gt 0 ]]; then
     echo "Sample IPv4 (prvních 10):"
     printf '  %s\n' "${new_v4[@]:0:10}"
   fi
-  if [ ${#new_v6[@]} -gt 0 ]; then
+  if [[ ${#new_v6[@]} -gt 0 ]]; then
     echo "Sample IPv6 (prvních 10):"
     printf '  %s\n' "${new_v6[@]:0:10}"
   fi

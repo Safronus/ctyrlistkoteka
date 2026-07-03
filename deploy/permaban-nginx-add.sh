@@ -38,7 +38,7 @@ fi
 
 # Whitelist (exact match per řádek). grep -F = fixed string, -x =
 # whole line, -E vyloučíme komentáře předem.
-if [ -f "$WHITELIST_FILE" ]; then
+if [[ -f "$WHITELIST_FILE" ]]; then
   if grep -v '^[[:space:]]*#' "$WHITELIST_FILE" \
      | grep -v '^[[:space:]]*$' \
      | grep -Fxq -- "$IP"; then
@@ -67,7 +67,7 @@ flock 9
 # Hlavička při prvním vytvoření, ať operator vidí, že soubor řídí
 # automation a manuální editace přežije max do dalšího cron rebuildu
 # (viz blocklist-tools.sh, který soubor přepisuje s diff testem).
-if [ ! -f "$NGINX_DENY" ]; then
+if [[ ! -f "$NGINX_DENY" ]]; then
   cat > "$NGINX_DENY" <<EOF
 # Auto-managed permaban list.
 # Real-time append: /usr/local/sbin/permaban-nginx-add.sh (z fail2ban action)
