@@ -16,6 +16,7 @@
  */
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_LOCATION_ID, FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
@@ -595,7 +596,7 @@ const fetchGeoLocRows = cache(async (): Promise<GeoLocRow[]> => {
 // its own `Promise.all`. Run them from the page in parallel inside
 // separate `<Suspense>` boundaries to stream sections as they finish.
 
-export async function getStatsTotals(): Promise<StatsTotalsResult> {
+async function getStatsTotalsImpl(): Promise<StatsTotalsResult> {
   const [totalsRow, geoRows, cityList] = await Promise.all([
     fetchTotalsRow(),
     fetchGeoLocRows(),
@@ -642,7 +643,7 @@ const STATS_SESSION_GAP_MS = 15 * 60 * 1000;
  *  documents both. */
 const STATS_SESSION_BASELINE_MS = 2 * 60 * 1000;
 
-export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
+async function getStatsTimeAndPaceImpl(): Promise<StatsTimeAndPaceResult> {
   // Pull every find with a known location + timestamp. ~17k rows ×
   // (4 + 8) bytes is ~200 KB on the wire; the JS sort + walk runs in
   // a few ms. Cheaper than asking the DB to compute sessions via
@@ -910,7 +911,7 @@ export async function getStatsTimeAndPace(): Promise<StatsTimeAndPaceResult> {
   };
 }
 
-export async function getStatsHighlights(): Promise<StatsHighlightsResult> {
+async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
   const [firstFindRow, lastFindRow, farthestFindRow] = await Promise.all([
     // Earliest find by ID. The CASE-anonymise pattern keeps location
     // info out of the payload for is_anonymized=true rows.
@@ -985,7 +986,7 @@ export async function getStatsHighlights(): Promise<StatsHighlightsResult> {
   };
 }
 
-export async function getStatsPeaks(): Promise<StatsPeaksResult> {
+async function getStatsPeaksImpl(): Promise<StatsPeaksResult> {
   // Peak buckets — busiest minute / hour / day / week / month / year.
   // Each query truncates `found_at` to its granularity, groups, and
   // picks the row with the highest count (ties broken by earliest
@@ -1247,7 +1248,7 @@ function toPeakSliding(
   };
 }
 
-export async function getStatsJubilees(): Promise<StatsJubileesResult> {
+async function getStatsJubileesImpl(): Promise<StatsJubileesResult> {
   // Jubilee finds — every 1000th, three repunits (111, 1111, 11111),
   // and the two devil-numbers (666, 6666). The `WHERE id IN (...)`
   // filter against a primary key returns only existing rows, so any
@@ -1313,7 +1314,7 @@ export async function getStatsJubilees(): Promise<StatsJubileesResult> {
   };
 }
 
-export async function getStatsTopLocations(): Promise<StatsTopLocationsResult> {
+async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
   const [topLocRows, topDensityRows, avgRows] = await Promise.all([
     // Top 10 locations by find count.
     // - Anonymized locations are dropped (their code/name/findCount can't
@@ -1471,13 +1472,13 @@ export async function getStatsTopLocations(): Promise<StatsTopLocationsResult> {
   };
 }
 
-export async function getStatsGeo(): Promise<StatsGeoResult> {
+async function getStatsGeoImpl(): Promise<StatsGeoResult> {
   const rows = await fetchGeoLocRows();
   const { byCountry, byCity, byKraj } = buildGeoBreakdowns(rows);
   return { byCountry, byCity, byKraj };
 }
 
-export async function getStatsCalendar(): Promise<StatsCalendarResult> {
+async function getStatsCalendarImpl(): Promise<StatsCalendarResult> {
   // Calendar axes — ignore time zone offsets (use the find's local
   // wall-clock the user recorded). Anonymization-stripped foundAt is
   // fine because `is_anonymized` doesn't affect the timestamp.
@@ -1616,7 +1617,7 @@ export async function getStatsCalendar(): Promise<StatsCalendarResult> {
   };
 }
 
-export async function getStatsDistance(): Promise<StatsDistanceResult> {
+async function getStatsDistanceImpl(): Promise<StatsDistanceResult> {
   // Decade-bucketed distance histogram from the default LocationMap.
   // Anonymized finds and finds without GPS are excluded — same rule as
   // the farthest-find query. Returns sparse (zero buckets are omitted);
@@ -1749,7 +1750,7 @@ type DeviatedRow = {
   c_lng: number | null;
 };
 
-export async function getStatsDeviations(): Promise<StatsDeviationsResult> {
+async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
   // Shared SQL predicate for "this find is deviated". Inlined into each
   // query below (Prisma raw templates can't share a fragment cleanly).
   // Kept identical to /mapa's map.ts deviated CASE.
@@ -2082,3 +2083,51 @@ function buildGeoBreakdowns(
 
   return { byCountry, byCity, byKraj, cityCount, countryCount };
 }
+
+// ---------------------------------------------------------------------------
+// Cross-request caching (ISR data cache)
+// ---------------------------------------------------------------------------
+// The /statistiky page is rendered dynamically (the public layout is
+// `force-dynamic`), so the page's own `revalidate` is inert and every request
+// re-runs these heavy aggregations — PageSpeed measured ~1.4 s of document
+// latency. Wrapping each aggregation in `unstable_cache` caches the RESULT
+// across requests regardless of the page being dynamic, so a request is a
+// cache hit instead of a full recompute. All of these are global (no
+// per-request input), so one shared entry per function is correct. Results
+// refresh every 6 h; a sync's newly added finds surface on the next
+// revalidation (or immediately via `revalidateTag("stats")`).
+const STATS_REVALIDATE = 21600;
+const statsCache = <T>(fn: () => Promise<T>, key: string) =>
+  unstable_cache(fn, [key], { revalidate: STATS_REVALIDATE, tags: ["stats"] });
+
+export const getStatsTotals = statsCache(getStatsTotalsImpl, "stats-totals");
+export const getStatsTimeAndPace = statsCache(
+  getStatsTimeAndPaceImpl,
+  "stats-time-and-pace",
+);
+export const getStatsHighlights = statsCache(
+  getStatsHighlightsImpl,
+  "stats-highlights",
+);
+export const getStatsPeaks = statsCache(getStatsPeaksImpl, "stats-peaks");
+export const getStatsJubilees = statsCache(
+  getStatsJubileesImpl,
+  "stats-jubilees",
+);
+export const getStatsTopLocations = statsCache(
+  getStatsTopLocationsImpl,
+  "stats-top-locations",
+);
+export const getStatsGeo = statsCache(getStatsGeoImpl, "stats-geo");
+export const getStatsCalendar = statsCache(
+  getStatsCalendarImpl,
+  "stats-calendar",
+);
+export const getStatsDistance = statsCache(
+  getStatsDistanceImpl,
+  "stats-distance",
+);
+export const getStatsDeviations = statsCache(
+  getStatsDeviationsImpl,
+  "stats-deviations",
+);

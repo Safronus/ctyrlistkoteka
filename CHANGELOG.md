@@ -45,6 +45,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   („nepoužívej lazy pro LCP obrázek"). První řádek (grid ≤4, list ≤3) teď
   `loading="eager"` + `fetchPriority="high"`, zbytek zůstává lazy.
   `FindThumbnail`/`FindCard`/`FindGrid`/`FindList` dostaly `priority` prop.
+- **/statistiky doc-latency (SSR cache agregací)**: 10 těžkých agregací
+  (časové řady, heatmapa, top lokality, rekordy, série…) se počítalo při
+  **každém** requestu → PSI hlásil latenci dokumentu **~1410 ms** (nejhorší
+  stránka, Výkon 69). Stránka měla `revalidate = 21600`, ale `force-dynamic`
+  layout to přebíjel. Agregace obaleny do `unstable_cache` (revalidate 6 h,
+  tag `stats`) → data se cachnou napříč requesty i pod force-dynamic; request
+  je cache-hit místo přepočtu. Výsledky jsou serializable (datumy jako ISO
+  stringy, jdou i jako RSC props do grafů).
 
 ### Přidáno
 - **Stránka „Ochrana soukromí"** (`/soukromi`, `/en/soukromi`) + odkaz v
