@@ -52,6 +52,10 @@ esac
 
 mkdir -p "$STATE_DIR"
 chmod 700 "$STATE_DIR"
+# The Next.js admin (PM2 user `app`) reads $STATE for the blocklist page.
+# The chmod above resets the ACL mask, so re-grant traversal to `app` on
+# every run — a one-off `setfacl` would be masked out again at the next cron.
+setfacl -m u:app:rx "$STATE_DIR" 2>/dev/null || true
 
 API_KEY=$(cat "$KEY_FILE")
 LAST_TS=$(cat "$STATE" 2>/dev/null || echo "")
@@ -122,5 +126,6 @@ INVALID=$(jq -r '.data.invalidReports // [] | length' "$RESP")
 # řádky sedící na disku mezi awk-em a state-update vezmeme za příště).
 NEW_LAST=$(awk -F'\t' '{ print $1 }' "$LOG" | sort | tail -1)
 echo "$NEW_LAST" > "$STATE"
+setfacl -m u:app:r "$STATE" 2>/dev/null || true
 
 echo "$(date -Iseconds) Saved=$SAVED Invalid=$INVALID NewState=$NEW_LAST"
