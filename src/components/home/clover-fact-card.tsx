@@ -159,6 +159,38 @@ export function CloverFactCard({
 }) {
   const t = useTranslations("CloverFacts");
   const locale = useLocale();
+  // The page ships only a small random seed of facts in the initial HTML;
+  // pull the full collection once after mount so the rotator has everything
+  // without inlining ~210 entries into every homepage load. On fetch
+  // failure the seed set keeps the card fully working.
+  const [allTexts, setAllTexts] =
+    useState<ReadonlyArray<CloverText>>(texts);
+  const [allTranslations, setAllTranslations] =
+    useState<Readonly<Record<string, CloverEnEntry>>>(translations);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/clover-facts")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (
+          alive &&
+          data &&
+          Array.isArray(data.texts) &&
+          data.texts.length > 0
+        ) {
+          setAllTexts(data.texts as CloverText[]);
+          setAllTranslations(
+            (data.translations ?? {}) as Record<string, CloverEnEntry>,
+          );
+        }
+      })
+      .catch(() => {
+        /* keep the seed set on error */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [index, setIndex] = useState(0);
   const [remainingMs, setRemainingMs] = useState(rotationMs);
   // `nextAt` lives in a ref so both the auto-rotation tick AND the
@@ -174,7 +206,7 @@ export function CloverFactCard({
   // resume we just observe a smaller `remaining` and either advance
   // straight to the next text or keep counting down from there.
   useEffect(() => {
-    const n = texts.length;
+    const n = allTexts.length;
     if (n === 0) return;
     setIndex(Math.floor(Math.random() * n));
     nextAtRef.current = Date.now() + rotationMs;
@@ -215,11 +247,11 @@ export function CloverFactCard({
       clearInterval(tick);
       window.removeEventListener(CLOVER_FACT_ADVANCE_EVENT, onAdvance);
     };
-  }, [texts, rotationMs]);
+  }, [allTexts, rotationMs]);
 
-  const rawText = texts[index];
+  const rawText = allTexts[index];
   if (!rawText) return null;
-  const text = localizedClover(rawText, locale, translations);
+  const text = localizedClover(rawText, locale, allTranslations);
 
   const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
   const mmss = `${Math.floor(totalSec / 60)}:${(totalSec % 60).toString().padStart(2, "0")}`;

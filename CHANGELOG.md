@@ -20,6 +20,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   CS, čeká re-translation). *(66 „pověr" má zvlášť naznačené přerámování — zatím
   neaplikováno.)*
 
+### Výkon
+- **Odlehčení homepage payloadu (facts on-demand)**: rotující kartička
+  „Drobnosti" už do iniciálního HTML neserializuje celou sadu ~210 faktů —
+  pošle se jen náhodný **seed 8 položek**, zbytek si klient dotáhne po
+  hydrataci z nového **`/api/clover-facts`** (Cache-Control 5 min). Dataset
+  faktů dřív dominoval váze homepage (~396 KB raw / 91 KB gzip HTML). Bez JS
+  karta funguje dál (zobrazí seed). Stat dlaždice „Zajímavosti" počítá
+  `total/bonus/kategorie` dál server-side, takže beze změny.
+
 ### Přidáno
 - **Stránka „Ochrana soukromí"** (`/soukromi`, `/en/soukromi`) + odkaz v
   patičce. Informační povinnost dle čl. 13 GDPR: správce + kontakt, co a proč

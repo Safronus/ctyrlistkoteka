@@ -49,7 +49,7 @@ import {
   getCloverTexts,
   getCloverTranslations,
 } from "@/lib/cloverTextsServer";
-import type { CloverText } from "@/lib/cloverTexts";
+import type { CloverEnEntry, CloverText } from "@/lib/cloverTexts";
 
 type HomeT = Awaited<ReturnType<typeof getTranslations<"Home">>>;
 
@@ -112,6 +112,27 @@ export default async function HomePage() {
   const popularRunnersUp = popularTop.slice(1);
   const { totals, highlights } = data;
 
+  // Ship only a small random seed of clover facts in the initial HTML; the
+  // CloverFactCard pulls the full ~210-entry set from /api/clover-facts once
+  // it hydrates. This keeps the whole collection out of every homepage
+  // SSR/RSC payload — the single biggest chunk of the page's HTML weight.
+  const CLOVER_SEED_COUNT = 8;
+  const cloverSeed: CloverText[] = (() => {
+    if (cloverTexts.length <= CLOVER_SEED_COUNT) return [...cloverTexts];
+    const pool = [...cloverTexts];
+    const out: CloverText[] = [];
+    for (let i = 0; i < CLOVER_SEED_COUNT && pool.length > 0; i++) {
+      out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]!);
+    }
+    return out;
+  })();
+  const cloverSeedTranslations: Record<string, CloverEnEntry> = {};
+  for (const seed of cloverSeed) {
+    const key = String(seed.id);
+    const tr = cloverTranslations[key];
+    if (tr) cloverSeedTranslations[key] = tr;
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <JsonLd data={websiteSchema(siteName(locale), locale)} />
@@ -139,8 +160,8 @@ export default async function HomePage() {
           />
           <div className="relative">
             <CloverFactCard
-              texts={cloverTexts}
-              translations={cloverTranslations}
+              texts={cloverSeed}
+              translations={cloverSeedTranslations}
               rotationMs={rotation.cloverFactSeconds * 1000}
             />
             <Image
