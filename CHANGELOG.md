@@ -46,6 +46,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
     prep-skriptu (S8707).
 
 ### Obsah
+- **Oprava rozbité diakritiky** u faktu #21 „Genom jetele": malá písmena
+  s diakritikou byla zapsaná jako velká základní (`plazivého`→`plazivEho`,
+  `týmu`→`tYmu`, `časopis`→`Casopis` …) — nejspíš artefakt z auditu při přidání
+  faktu. Přepsáno na správnou češtinu; sken všech 210 textů potvrdil, že šlo
+  o jediný poškozený (91 „miR172" a 186 „iNaturalist" jsou legit CamelCase).
 - **Audit pravdivosti „Zajímavostí"**: homepage fakta (`data/meta/clover-texts.json`)
   prošla hloubkovým auditem — web-research + adversariální ověření **všech 102
   faktů**. **51 bylo nepravdivých nebo nedoložitelných** (vymyšlené osoby, muzea,
