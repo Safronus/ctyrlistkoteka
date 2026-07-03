@@ -156,55 +156,63 @@ async function loadLocationCodes(
   return new Map(rows.map((r) => [r.id, r.code]));
 }
 
-/** Check 1 — every find sitting on an anonymised location must
- *  itself carry the anonymisation flag. This is now enforced
- *  automatically: the admin map-anonymise toggle cascades the
- *  location's finds into LokaceStavyPoznamky.json
- *  (`cascadeMapAnonToJson`), and `sync`'s phaseMeta anonymises every
- *  find on a location with any anonymised map regardless — so this
- *  check goes green after the next sync. Any offenders listed here are
- *  finds whose location was anonymised since the last sync. */
+/** Anonymisation consistency for anonymised locations — the three-way
+ *  check. For every find on a location that has an anonymised map, all
+ *  sources must agree:
+ *    (a) the find's original filename carries +ANO+ (segment 5), AND
+ *    (b) the find is listed in LokaceStavyPoznamky.json
+ *        anonymizace.ANONYMIZOVANE.
+ *  (Find.isAnonymized in the DB is derived from those two at sync, so it
+ *  follows automatically.) The "Anonymizovat všechny" fix button makes
+ *  every offender consistent in one pass — rename → ANO + add to JSON —
+ *  after which a `pnpm sync` lands it. */
 async function checkFindsInAnonLocsNotAnon(): Promise<CheckResult> {
+  const base = {
+    kind: "find" as const,
+    group: "data-integrity" as const,
+    id: "finds-in-anon-loc-not-anon",
+    title: "Anonymizace lokality — soulad názvů a JSONu",
+    description:
+      "U každého nálezu na lokalitě s anonymizovanou mapou musí souhlasit název souboru (+ANO+) i záznam v LokaceStavyPoznamky.json anonymizace.ANONYMIZOVANE.",
+  };
   const anonLocIds = await getAnonymizedLocationIds();
-  if (anonLocIds.size === 0) {
-    return {
-      kind: "find",
-      group: "data-integrity",
-      id: "finds-in-anon-loc-not-anon",
-      title: "Nálezy v anonymizované lokalitě bez anonymizace",
-      description:
-        "Každý nález v lokalitě s anonymizovanou mapou musí mít sám nastavenou anonymizaci (pole 5 = ANO).",
-      offenders: [],
-    };
-  }
-  const finds = await prisma.find.findMany({
-    where: {
-      locationId: { in: [...anonLocIds] },
-      isAnonymized: false,
-    },
-    select: { id: true, locationId: true },
-    orderBy: { id: "asc" },
-  });
+  if (anonLocIds.size === 0) return { ...base, offenders: [] };
+
+  const [finds, origByFind, json] = await Promise.all([
+    prisma.find.findMany({
+      where: { locationId: { in: [...anonLocIds] } },
+      select: { id: true, locationId: true },
+      orderBy: { id: "asc" },
+    }),
+    loadOriginalParsedByFindId(),
+    loadLokaceStavyPoznamky(),
+  ]);
+  const jsonAnon = json
+    ? new Set(parseRanges(json.anonymizace.ANONYMIZOVANE))
+    : null;
   const codes = await loadLocationCodes(
     finds.map((f) => f.locationId).filter((x): x is number => x !== null),
   );
-  return {
-    kind: "find",
-    group: "data-integrity",
-    id: "finds-in-anon-loc-not-anon",
-    title: "Nálezy v anonymizované lokalitě bez anonymizace",
-    description:
-      "Každý nález v lokalitě s anonymizovanou mapou musí mít sám nastavenou anonymizaci (pole 5 = ANO).",
-    offenders: finds.map((f) => ({
+
+  const offenders: FindOffender[] = [];
+  for (const f of finds) {
+    const parsed = origByFind.get(f.id);
+    const issues: string[] = [];
+    if (!parsed) issues.push("chybí originál na disku");
+    else if (!parsed.isAnonymized) issues.push("název má +NE+");
+    if (jsonAnon === null) issues.push("JSON se nepodařilo načíst");
+    else if (!jsonAnon.has(f.id)) issues.push("není v JSON ANONYMIZOVANE");
+    if (issues.length === 0) continue;
+    offenders.push({
       findId: f.id,
       locationCode:
         f.locationId !== null
           ? (codes.get(f.locationId) ?? `#${f.locationId}`)
           : "—",
-      detail:
-        "Lokalita má anonymizovanou mapu, ale nález není anonymizovaný.",
-    })),
-  };
+      detail: `Lokalita má anonymizovanou mapu, ale ${issues.join(" + ")}.`,
+    });
+  }
+  return { ...base, offenders };
 }
 
 /** Check 2 — inverse: every anonymised find should be in a location

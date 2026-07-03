@@ -21,12 +21,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **Pojistka v syncu**: `phaseMeta` anonymizuje každý nález na lokalitě s
   libovolnou anonymizovanou mapou nezávisle na JSONu — rozbitý/ručně upravený
   JSON nemůže nechat nález veřejně viditelný.
-- **Fix přímo v `/admin/checks`** (2 tlačítka):
-  - „Nálezy v anonymizované lokalitě bez anonymizace" → **„Anonymizovat všechny"**
-    (nálezy pod anon lokalitou, co ještě nejsou anon).
+- **Komplexní kontrola v `/admin/checks`**: „Anonymizace lokality — soulad
+  názvů a JSONu" ověřuje **tří-cestně** — pro každý nález na lokalitě s
+  anonymizovanou mapou musí souhlasit (a) název souboru `+ANO+` **a** (b)
+  záznam v `LokaceStavyPoznamky.json` `anonymizace.ANONYMIZOVANE` (DB flag je
+  z toho odvozený). Detail u offendera říká, co konkrétně nesedí.
+- **Fix tlačítka**:
+  - u té kontroly **„Anonymizovat všechny"** — srovná **všechny** nálezy anon
+    lokalit do plné konzistence (idempotentně: přejmenuje + doplní JSON, hotové
+    přeskočí).
   - „JSON položky bez odpovídajícího názvu souboru" → **„Srovnat +ANO+ v názvech"**
-    — nálezy anonymizované v DB/JSONu, ale s `+NE+` v názvu, přejmenuje na `+ANO+`
-    (řeší nekonzistenci filename↔JSON). Obě pak stačí dorovnat syncem.
+    (nálezy anon v DB/JSONu, ale `+NE+` v názvu). Obě pak stačí dorovnat syncem.
 
 ### Homepage — kartička „Zajímavosti"
 - **„Další zajímavost" skočí na kartu**: tlačítko v dlaždici Zajímavostí je pod

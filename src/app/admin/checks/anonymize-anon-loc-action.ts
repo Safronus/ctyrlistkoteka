@@ -25,11 +25,11 @@ export interface AnonymizeAnonLocResult {
 }
 
 /**
- * One-click fix for the `finds-in-anon-loc-not-anon` check: anonymise every
- * find sitting on a location with an anonymised map that isn't itself
- * anonymised yet. Renames their photo files (pole 5 → ANO) and mirrors the
- * IDs into LokaceStavyPoznamky.json. The change lands in the DB on the next
- * `pnpm sync` (which also enforces the rule regardless).
+ * One-click fix for the anonymised-location consistency check: make EVERY
+ * find on a location with an anonymised map fully consistent — filename
+ * `+ANO+` in the original + crop AND listed in LokaceStavyPoznamky.json.
+ * `setFindsAnonymized` is idempotent, so already-consistent finds are
+ * skipped (no rename, no-op JSON). Lands in the DB on the next `pnpm sync`.
  */
 export async function anonymizeAnonLocationFinds(): Promise<AnonymizeAnonLocResult> {
   const session = await getAdminSession();
@@ -46,7 +46,7 @@ export async function anonymizeAnonLocationFinds(): Promise<AnonymizeAnonLocResu
   if (anonLocIds.length === 0) return { ok: true, findsAffected: 0 };
 
   const finds = await prisma.find.findMany({
-    where: { locationId: { in: anonLocIds }, isAnonymized: false },
+    where: { locationId: { in: anonLocIds } },
     select: { id: true },
   });
   const ids = finds.map((f) => f.id);
