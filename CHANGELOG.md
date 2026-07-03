@@ -11,8 +11,10 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ### Přístupnost (WCAG AA)
 - **Kontrast** na dvou dříve padajících místech (Lighthouse a11y 96 → cíl 100):
-  na **/statistiky** labely totals karty na světle zeleném `bg-brand-50`
-  (`text-gray-500/400`, ~4,2:1) zvednuty na `gray-600` (~6,6:1); na **/sbirka**
+  na **/statistiky** labely na světle zeleném `bg-brand-50` / `bg-gray-50`
+  (`text-gray-500/400`, ~4,2:1) zvednuty na `gray-600` (~6,6:1) — totals karta,
+  „nejrychlejší okno", dlaždice top-nálezů (data), deviation GPS labely
+  i placeholdery chybějících jubileí; na **/sbirka**
   disabled tlačítka paginace „← Předchozí / Další →" (`text-gray-700` +
   `opacity-40`) dostala `aria-disabled="true"` — signalizuje disabled stav
   asistenčním technologiím a uplatní WCAG výjimku pro neaktivní ovládací prvky.
