@@ -34,6 +34,17 @@ export function FindQrButton({ findId }: Props) {
     });
   }, [open, svg, findId, startTransition]);
 
+  // Esc closes the modal. The backdrop <div> isn't focusable, so the key
+  // is bound at the window level (same pattern as the screensaver).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   const downloadSvg = () => {
     if (!svg) return;
     const blob = new Blob([svg], { type: "image/svg+xml" });

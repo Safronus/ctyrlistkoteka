@@ -13,7 +13,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   CLOVER_CATEGORIES,
   CLOVER_KINDS_KNOWN,
@@ -521,6 +521,16 @@ function EntryModal({
   const [enText, setEnText] = useState<string>(enEntry?.text ?? "");
   const [enKind, setEnKind] = useState<string>(enEntry?.kind ?? "");
   const [error, setError] = useState<string | null>(null);
+
+  // Esc closes the modal — the backdrop <div> isn't focusable, so bind
+  // the key at the window level (same pattern as the screensaver).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   function submit() {
     setError(null);

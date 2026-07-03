@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileDown, Loader2, X } from "lucide-react";
 import { getQrSvgAction } from "./qr-actions";
 import { generateQrPdf } from "./qr-pdf";
@@ -20,6 +20,18 @@ export function QrPdfButton({ id }: { id: number }) {
   const [labelMode, setLabelMode] = useState<"none" | "token" | "name">("none");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Esc closes the modal unless a PDF is mid-generation. The backdrop
+  // <div> isn't focusable, so bind the key at the window level (same
+  // pattern as the screensaver).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy) setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, busy]);
 
   const onGenerate = async () => {
     setBusy(true);
