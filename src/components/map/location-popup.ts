@@ -37,7 +37,7 @@ export function buildLocationPopupHtml(
   const idLabel = formatLocationId(id);
   const detailHref = locationDetailHref(id);
   const sbirkaHref = `/sbirka?loc=${id}`;
-  const titleText = displayName && displayName !== code ? code : code;
+  const titleText = code;
   const sub =
     displayName && displayName !== code ? escapeHtml(displayName) : "";
   const badges: string[] = [];

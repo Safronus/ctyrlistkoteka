@@ -45,7 +45,7 @@ function pickString(v: string | string[] | undefined): string | undefined {
   return v;
 }
 
-function parseInt(value: string | undefined): number | undefined {
+function parsePositiveInt(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : undefined;
@@ -91,11 +91,11 @@ export default async function MapaPage({ searchParams }: PageProps) {
   const hideDominantOnMap = pickString(sp.hideTop) === "1";
   const findFilters: FindFilters = {
     q: pickString(sp.q) ?? undefined,
-    locationId: parseInt(pickString(sp.loc)),
+    locationId: parsePositiveInt(pickString(sp.loc)),
     cadastralArea: pickString(sp.city) || undefined,
     country: pickString(sp.country) || undefined,
     state: parseState(pickString(sp.state)),
-    year: parseInt(pickString(sp.year)),
+    year: parsePositiveInt(pickString(sp.year)),
     dateFrom: parseDateOnly(pickString(sp.from)),
     dateTo: parseDateOnly(pickString(sp.to)),
     excludeLocationId: hideDominantOnMap ? DOMINANT_LOCATION_ID : undefined,

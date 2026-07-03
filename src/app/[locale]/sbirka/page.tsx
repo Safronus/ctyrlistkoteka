@@ -79,7 +79,7 @@ export async function generateMetadata(): Promise<Metadata> {
 // runs the Prisma query. Fine for desktop-sized concurrency on this site.
 export const dynamic = "force-dynamic";
 
-function parseInt(value: string | undefined): number | undefined {
+function parsePositiveInt(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : undefined;
@@ -161,7 +161,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const hideDominant = pickString(sp.hideTop) === "1";
   const filters: FindFilters = {
     q: pickString(sp.q) ?? undefined,
-    locationId: parseInt(pickString(sp.loc)),
+    locationId: parsePositiveInt(pickString(sp.loc)),
     // Normalize the URL value to the canonical city (strip
     // NEEXISTUJE-). The query layer expands it back to match both
     // spellings, but keeping the filter object in canonical form
@@ -170,7 +170,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     cadastralArea: cityFromCadastralArea(pickString(sp.city)) || undefined,
     country: pickString(sp.country) || undefined,
     state: parseState(pickString(sp.state)),
-    year: parseInt(pickString(sp.year)),
+    year: parsePositiveInt(pickString(sp.year)),
     dateFrom: parseDateOnly(pickString(sp.from)),
     dateTo: parseDateOnly(pickString(sp.to)),
     // Precise instant window from the /statistiky "zátah" deep-link —
@@ -181,7 +181,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     hasRealPhoto: pickString(sp.hasPhoto) === "1" ? true : undefined,
     excludeLocationId: hideDominant ? DOMINANT_LOCATION_ID : undefined,
   };
-  const page = parseInt(pickString(sp.page)) ?? 1;
+  const page = parsePositiveInt(pickString(sp.page)) ?? 1;
   const pageSize = parseSbirkaPageSize(pickString(sp.size));
   const sort = parseSort(pickString(sp.sort));
   // View defaults responsively: phones get the tile grid, everyone else

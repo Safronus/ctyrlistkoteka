@@ -9,6 +9,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Kvalita a bezpečnost (SonarCloud)
+- **Napojen SonarCloud** (Automatic Analysis, veřejný projekt) a provedena
+  kompletní triage 926 nálezů. Většina „vulnerabilities" jsou kontextové
+  false-positive (rating E táhla jediná falešná BLOCKER — `TOKEN_ALPHABET`).
+  - **Reálné opravy**: GitHub Actions třetích stran SHA-pinnuty
+    (`pnpm/action-setup`, `gitleaks/gitleaks-action`) proti supply-chain
+    záměně tagu (S7637); lokální `parseInt` stínící globál přejmenován na
+    `parsePositiveInt` v `/mapa` + `/sbirka` (S2137); dvě „obě větve vrací
+    totéž" zjednodušeny (`location-popup.ts`, `unlock-code-panel.tsx`, S3923).
+  - **False-positive utlumeny** v novém `sonar-project.properties` s doloženým
+    odůvodněním (audit trail přímo v repu): Prisma migrace vyloučeny z analýzy
+    (31× PL/SQL nález — Postgres DDL čtený jako Oracle), a per-rule ignory pro
+    non-krypto SHA-1 (S4790), UI `Math.random` (S2245), iron-session
+    `password:` klíč (S2068), `TOKEN_ALPHABET` (S6418), build-time `git` /
+    admin `pm2` PATH lookup (S4036) a agentic-path-injection na lokálním
+    prep-skriptu (S8707).
+
 ### Obsah
 - **Audit pravdivosti „Zajímavostí"**: homepage fakta (`data/meta/clover-texts.json`)
   prošla hloubkovým auditem — web-research + adversariální ověření **všech 102

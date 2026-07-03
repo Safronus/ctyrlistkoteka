@@ -108,7 +108,7 @@ export function UnlockCodePanel({ findId, initialCode }: Props) {
     try {
       await navigator.clipboard.writeText(target);
       setCopiedAt(Date.now());
-      setTimeout(() => setCopiedAt((c) => (c === null ? null : null)), 1500);
+      setTimeout(() => setCopiedAt(null), 1500);
     } catch {
       // Clipboard API can fail (Safari permission, insecure context).
       // Surface a plain error so the admin sees something happened.
