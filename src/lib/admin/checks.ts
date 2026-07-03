@@ -157,9 +157,13 @@ async function loadLocationCodes(
 }
 
 /** Check 1 — every find sitting on an anonymised location must
- *  itself carry the anonymisation flag. The fix path is the new
- *  `setFindAnonymized` action: flip pole 5 from NE to ANO and add
- *  the id to JSON anonymizace. */
+ *  itself carry the anonymisation flag. This is now enforced
+ *  automatically: the admin map-anonymise toggle cascades the
+ *  location's finds into LokaceStavyPoznamky.json
+ *  (`cascadeMapAnonToJson`), and `sync`'s phaseMeta anonymises every
+ *  find on a location with any anonymised map regardless — so this
+ *  check goes green after the next sync. Any offenders listed here are
+ *  finds whose location was anonymised since the last sync. */
 async function checkFindsInAnonLocsNotAnon(): Promise<CheckResult> {
   const anonLocIds = await getAnonymizedLocationIds();
   if (anonLocIds.size === 0) {

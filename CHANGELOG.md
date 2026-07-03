@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin / anonymizace
+- **Anonymizace lokality se propíše do nálezů**: dřív šlo přes admin označit
+  mapu lokality jako anonymizovanou, ale přidružené nálezy zůstaly veřejné
+  (jen `/admin/checks` to hlásil, nešlo to tam vyřešit). Teď toggle
+  anonymizace mapy **kaskádně zapíše** find ID dané lokality do
+  `LokaceStavyPoznamky.json` `anonymizace.ANONYMIZOVANE` (`cascadeMapAnonToJson`,
+  s `.trash` zálohou), a de-anonymizace je zase odebere — ale jen když žádná
+  jiná mapa lokality není anonymizovaná. **Sync navíc jako pojistka** anonymizuje
+  každý nález na lokalitě s libovolnou anonymizovanou mapou nezávisle na JSONu,
+  takže rozbitý/ručně upravený JSON nemůže nechat nález veřejně viditelný.
+
 ### Homepage — kartička „Zajímavosti"
 - **„Další zajímavost" skočí na kartu**: tlačítko v dlaždici Zajímavostí je pod
   ohybem, hero kartička nahoře — po kliknutí teď stránka plynule scrolluje ke

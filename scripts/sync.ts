@@ -1171,8 +1171,22 @@ async function phaseMeta(ctx: Context, meta: Meta) {
     }
   }
 
-  // Anonymization
-  const anonIds = parseRanges(meta.anonymizace.ANONYMIZOVANE);
+  // Anonymization — the JSON list UNION every find sitting on a location
+  // that has any anonymised map. The admin map toggle mirrors this into
+  // the JSON (cascadeMapAnonToJson), but the sync enforces it here too so
+  // a missed or hand-edited JSON can never leave a find on an anonymised
+  // location publicly visible. phaseMaps has already written
+  // LocationMap.isAnonymized by this point.
+  const anonLocFinds = await ctx.prisma.find.findMany({
+    where: { location: { maps: { some: { isAnonymized: true } } } },
+    select: { id: true },
+  });
+  const anonIds = [
+    ...new Set([
+      ...parseRanges(meta.anonymizace.ANONYMIZOVANE),
+      ...anonLocFinds.map((f) => f.id),
+    ]),
+  ];
   const anonIdsExisting = anonIds.filter((id) => existingFindIds.has(id));
   skippedAnon = anonIds.length - anonIdsExisting.length;
   if (anonIdsExisting.length > 0) {

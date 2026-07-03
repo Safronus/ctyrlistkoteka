@@ -8,6 +8,10 @@ import { safeBaseName } from "@/lib/admin/paths";
 import { setPngTextTag } from "@/lib/admin/pngTextEdit";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
+  cascadeMapAnonToJson,
+  type AnonCascadeResult,
+} from "@/lib/admin/anonCascade";
+import {
   getAdminSession,
   getRequestIp,
   isAuthenticated,
@@ -40,6 +44,10 @@ export async function setMapAnonymized(
   anonymized?: boolean;
   removed?: number;
   added?: number;
+  /** How many find IDs the cascade added/removed in
+   *  LokaceStavyPoznamky.json anonymizace.ANONYMIZOVANE. */
+  jsonFindsAdded?: number;
+  jsonFindsRemoved?: number;
   error?: string;
 }> {
   const session = await getAdminSession();
@@ -132,6 +140,22 @@ export async function setMapAnonymized(
     };
   }
 
+  // Mirror the toggle into LokaceStavyPoznamky.json so the location's
+  // finds carry the anonymisation too. Non-fatal — the PNG tag is the
+  // source of truth and sync enforces the same rule regardless (see
+  // cascadeMapAnonToJson / phaseMeta).
+  let cascade: AnonCascadeResult;
+  try {
+    cascade = await cascadeMapAnonToJson(resolved.name, anonymize);
+  } catch (err) {
+    cascade = {
+      changed: false,
+      added: [],
+      removed: [],
+      skipped: `error: ${(err as Error).message}`,
+    };
+  }
+
   await appendAudit({
     action: "file.replace",
     ip,
@@ -143,12 +167,17 @@ export async function setMapAnonymized(
       keyword: ANON_KEYWORD,
       removed_chunks: edit.removed,
       added_chunks: edit.added,
+      json_finds_added: cascade.added.length,
+      json_finds_removed: cascade.removed.length,
+      json_cascade_skipped: cascade.skipped ?? null,
     },
   });
 
-  // Refresh both listing + detail so the badge + filter chip update.
+  // Refresh listing + detail (badge/filter) and the JSON editor (the
+  // cascade may have rewritten anonymizace.ANONYMIZOVANE).
   revalidatePath("/admin/files/maps");
   revalidatePath(`/admin/files/maps/${encodeURIComponent(resolved.name)}`);
+  revalidatePath("/admin/json/lokace-stavy-poznamky");
 
   return {
     ok: true,
@@ -156,5 +185,7 @@ export async function setMapAnonymized(
     anonymized: anonymize,
     removed: edit.removed,
     added: edit.added,
+    jsonFindsAdded: cascade.added.length,
+    jsonFindsRemoved: cascade.removed.length,
   };
 }
