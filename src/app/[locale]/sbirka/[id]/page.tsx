@@ -730,7 +730,7 @@ function LocationMapsGallery({
         return (
           <figure
             key={m.id}
-            className="overflow-hidden rounded-md border border-gray-200 bg-gray-50"
+            className="mx-auto w-full max-w-2xl overflow-hidden rounded-md border border-gray-200 bg-gray-50"
           >
             {/* Status banner — colored strip above the image so the
                 visitor sees the verdict before scanning the map for
