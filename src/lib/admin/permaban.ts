@@ -66,7 +66,7 @@ export interface PermabanRealtimeEvent {
 }
 
 function parseRealtimeLine(raw: string): PermabanRealtimeEvent | null {
-  const m = /^([0-9]{4}-[0-9]{2}-[0-9]{2}T[^ ]+)\s+(.*)$/.exec(raw);
+  const m = /^([0-9]{4}-[0-9]{2}-[0-9]{2}T\S+)\s+(.*)$/.exec(raw);
   if (!m) return null;
   const ts = m[1]!;
   const rest = m[2]!;
@@ -237,7 +237,7 @@ export async function loadPermabanSnapshot(): Promise<PermabanSnapshot> {
   if (refreshLog.content !== null) {
     const lines = refreshLog.content
       .split("\n")
-      .map((l) => l.replace(/\s+$/, ""))
+      .map((l) => l.trimEnd())
       .filter((l) => l.length > 0);
     refreshLines.push(...lines.slice(-20));
   }

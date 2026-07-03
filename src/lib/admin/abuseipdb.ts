@@ -91,7 +91,7 @@ export interface AbuseIpdbLogLine {
   newState?: string;
 }
 
-const ISO_TS_PREFIX = /^([0-9]{4}-[0-9]{2}-[0-9]{2}T[^ ]+)\s+(.*)$/;
+const ISO_TS_PREFIX = /^([0-9]{4}-[0-9]{2}-[0-9]{2}T\S+)\s+(.*)$/;
 
 function parseLogLine(raw: string): AbuseIpdbLogLine | null {
   const m = ISO_TS_PREFIX.exec(raw);

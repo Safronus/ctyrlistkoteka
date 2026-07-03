@@ -44,7 +44,7 @@ export function splitLocationCode(code: string): LocationCodeParts {
   // Shape 1: CADASTRAL_TYPE###[a-z]?
   // Non-greedy cadastral so the first underscore is treated as separator.
   // `.+?` also matches spaces and diacritics.
-  const classic = /^(.+?)_(.+?)(\d{3})([a-z]?)$/.exec(trimmed);
+  const classic = /^([^_]+)_(.+?)(\d{3})([a-z]?)$/.exec(trimmed);
   if (classic) {
     const [, cadastral, rawType, nnn, sub] = classic;
     return {
@@ -145,7 +145,7 @@ export function cityFromCadastralArea(
 
 function trimTypeTail(t: string): string | null {
   // Strip trailing separator before the 3-digit block ("FOO-" → "FOO").
-  const cleaned = t.replace(/[-_]+$/, "");
+  const cleaned = stripCadastralTail(t);
   return cleaned ? cleaned : null;
 }
 
@@ -155,5 +155,9 @@ function trimTypeTail(t: string): string | null {
  *  otherwise keep the underscore. Empty result is impossible here
  *  because Shapes 2/4 always pass a non-empty captured string in. */
 function stripCadastralTail(c: string): string {
-  return c.replace(/[-_]+$/, "");
+  // Manual trim rather than `/[-_]+$/` — the anchored `+` is O(n²) on
+  // pathological input (S8786); a reverse scan stays linear.
+  let end = c.length;
+  while (end > 0 && (c[end - 1] === "-" || c[end - 1] === "_")) end--;
+  return c.slice(0, end);
 }
