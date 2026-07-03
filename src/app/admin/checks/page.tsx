@@ -19,7 +19,9 @@ import {
 } from "@/lib/admin/checks";
 import { AckCheckButton } from "./ack-button";
 import { SyncCropNameButton } from "./sync-crop-name-button";
-import { AnonymizeAnonLocFindsButton } from "./anonymize-anon-loc-button";
+import { AnonFixButton } from "./anon-fix-button";
+import { anonymizeAnonLocationFinds } from "./anonymize-anon-loc-action";
+import { anonymizeMismatchedFilenames } from "./anonymize-ne-filename-action";
 
 export const dynamic = "force-dynamic";
 
@@ -381,8 +383,25 @@ function CheckCard({ result }: { result: CheckResult }) {
           )}
 
           {result.id === "finds-in-anon-loc-not-anon" && (
-            <AnonymizeAnonLocFindsButton count={result.offenders.length} />
+            <AnonFixButton
+              count={result.offenders.length}
+              label="Anonymizovat všechny"
+              action={anonymizeAnonLocationFinds}
+            />
           )}
+          {result.id === "json-not-in-filename" &&
+            result.kind === "find" &&
+            result.offenders.some((o) => o.subCategory === "Anonymizace") && (
+              <AnonFixButton
+                count={
+                  result.offenders.filter(
+                    (o) => o.subCategory === "Anonymizace",
+                  ).length
+                }
+                label="Srovnat +ANO+ v názvech"
+                action={anonymizeMismatchedFilenames}
+              />
+            )}
 
           <div className="mt-4 max-h-96 overflow-auto rounded-md border border-amber-200 bg-white">
             <table className="w-full text-xs">

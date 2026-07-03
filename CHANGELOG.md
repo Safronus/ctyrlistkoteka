@@ -21,9 +21,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **Pojistka v syncu**: `phaseMeta` anonymizuje každý nález na lokalitě s
   libovolnou anonymizovanou mapou nezávisle na JSONu — rozbitý/ručně upravený
   JSON nemůže nechat nález veřejně viditelný.
-- **Fix přímo v `/admin/checks`**: u kontroly „Nálezy v anonymizované lokalitě
-  bez anonymizace" je tlačítko **„Anonymizovat všechny"** — jedním klikem
-  přejmenuje + zapíše do JSONu všechny offendery (pak stačí sync).
+- **Fix přímo v `/admin/checks`** (2 tlačítka):
+  - „Nálezy v anonymizované lokalitě bez anonymizace" → **„Anonymizovat všechny"**
+    (nálezy pod anon lokalitou, co ještě nejsou anon).
+  - „JSON položky bez odpovídajícího názvu souboru" → **„Srovnat +ANO+ v názvech"**
+    — nálezy anonymizované v DB/JSONu, ale s `+NE+` v názvu, přejmenuje na `+ANO+`
+    (řeší nekonzistenci filename↔JSON). Obě pak stačí dorovnat syncem.
 
 ### Homepage — kartička „Zajímavosti"
 - **„Další zajímavost" skočí na kartu**: tlačítko v dlaždici Zajímavostí je pod
