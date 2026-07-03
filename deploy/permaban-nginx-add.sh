@@ -55,10 +55,12 @@ case "$IP" in
   192.168.*) log_line "Reserved skip: $IP"; exit 0 ;;
   172.1[6-9].*|172.2[0-9].*|172.3[01].*) log_line "Reserved skip: $IP"; exit 0 ;;
   ::1) log_line "Reserved skip: $IP"; exit 0 ;;
+  *) ;;  # public IP → fall through to the ban below
 esac
 case "${IP,,}" in
   fe80:*) log_line "Reserved skip: $IP"; exit 0 ;;
   2001:0db8:*|2001:db8:*) log_line "Reserved skip: $IP"; exit 0 ;;
+  *) ;;  # public IP → fall through to the ban below
 esac
 
 exec 9>"$LOCK"
