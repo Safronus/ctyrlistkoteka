@@ -132,8 +132,14 @@ export function FindFreePhotosCard({ findId, existing }: Props) {
   // truthful source and shouldn't be overwritten.
   const [photos, setPhotos] = useState<readonly ExistingEntry[]>(existing);
   useEffect(() => {
-    const propSlots = [...existing].map((p) => p.slot).sort().join(",");
-    const stateSlots = [...photos].map((p) => p.slot).sort().join(",");
+    const propSlots = [...existing]
+      .map((p) => p.slot)
+      .sort((a, b) => a.localeCompare(b))
+      .join(",");
+    const stateSlots = [...photos]
+      .map((p) => p.slot)
+      .sort((a, b) => a.localeCompare(b))
+      .join(",");
     if (propSlots !== stateSlots) {
       setPhotos(existing);
     }

@@ -30,7 +30,9 @@ export function LokaceStavyPoznamkyPreview({
 }
 
 function StatsBanner({ analysis }: { analysis: LSPAnalysis }) {
-  const stavyKeys = Object.keys(analysis.findsInStavy).sort();
+  const stavyKeys = Object.keys(analysis.findsInStavy).sort((a, b) =>
+    a.localeCompare(b),
+  );
   const hasAnomaly =
     analysis.donanyMissingNoteTotal > 0 ||
     analysis.stavyMissingLokaceTotal > 0;

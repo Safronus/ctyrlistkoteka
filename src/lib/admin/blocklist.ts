@@ -238,7 +238,7 @@ export function aggregateByIp(
       count: b.count,
       firstSeen: b.firstSeen,
       lastSeen: b.lastSeen,
-      jails: [...b.jails].sort(),
+      jails: [...b.jails].sort((a, b) => a.localeCompare(b)),
     }))
     .sort(
       (a, b) =>

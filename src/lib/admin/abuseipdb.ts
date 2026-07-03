@@ -321,7 +321,7 @@ function aggregateReportable(
   }
   const out: AbuseIpdbReportedIp[] = [];
   for (const [ip, agg] of byIp) {
-    const jails = [...agg.jails].sort();
+    const jails = [...agg.jails].sort((a, b) => a.localeCompare(b));
     // The shell script picks the FIRST jail when forming the AbuseIPDB
     // category set (per CSV row). Aggregating across multiple bans we
     // don't know which jail "won" for each row, so we union the

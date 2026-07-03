@@ -147,7 +147,9 @@ async function readSentinel(path: string): Promise<Set<string>> {
 }
 
 async function writeSentinel(path: string, set: Set<string>): Promise<void> {
-  const j: Sentinel = { watermarkedSha1s: [...set].sort() };
+  const j: Sentinel = {
+    watermarkedSha1s: [...set].sort((a, b) => a.localeCompare(b)),
+  };
   const tmp = `${path}.tmp`;
   await writeFile(tmp, JSON.stringify(j, null, 2));
   await rename(tmp, path);
