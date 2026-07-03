@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Přístupnost (WCAG AA)
+- **Kontrast** na dvou dříve padajících místech (Lighthouse a11y 96 → cíl 100):
+  na **/statistiky** labely totals karty na světle zeleném `bg-brand-50`
+  (`text-gray-500/400`, ~4,2:1) zvednuty na `gray-600` (~6,6:1); na **/sbirka**
+  disabled tlačítka paginace „← Předchozí / Další →" (`text-gray-700` +
+  `opacity-40`) dostala `aria-disabled="true"` — signalizuje disabled stav
+  asistenčním technologiím a uplatní WCAG výjimku pro neaktivní ovládací prvky.
+- **Klávesové zavírání modálů** (S1082): tři admin modály na custom
+  `<div role="dialog">` (QR, QR-PDF, editor Zajímavostí) neměly Esc — přidán
+  window-level keydown listener (vzor z veřejného screensaveru). Veřejná část
+  už klávesnicově funguje (nativní `<dialog>` + Esc, screensaver). Zbývající
+  S1082 nálezy jsou false-positive (statická analýza nevidí nativní/​window Esc)
+  → k označení „Safe" v Sonaru.
+
 ### Kvalita a bezpečnost (SonarCloud)
 - **Napojen SonarCloud** (Automatic Analysis, veřejný projekt) a provedena
   kompletní triage 926 nálezů. Většina „vulnerabilities" jsou kontextové
