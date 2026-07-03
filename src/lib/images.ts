@@ -3,7 +3,14 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdir, readFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { THUMB_QUALITY, THUMB_SIZE, WEB_QUALITY, WEB_SIZE } from "./constants";
+import {
+  MAP_THUMB_QUALITY,
+  MAP_THUMB_SIZE,
+  THUMB_QUALITY,
+  THUMB_SIZE,
+  WEB_QUALITY,
+  WEB_SIZE,
+} from "./constants";
 import { compositeWatermarkOnto, type WatermarkOptions } from "./watermark";
 
 export interface GeneratedImage {
@@ -263,11 +270,33 @@ export async function generateMapWebP(params: {
   const sha1 = params.sha1 ?? (await sha1File(sourcePath));
 
   const mapFs = join(generatedDir, "maps", `${sha1}.webp`);
+  const mapThumbFs = join(generatedDir, "maps", `${sha1}-thumb.webp`);
   const imageUrl = `/generated/maps/${sha1}.webp`;
+
+  // Small variant for list / sidebar thumbnails (the full map is ~4× too
+  // big there). Kept next to the full map as `{sha}-thumb.webp`; the URL is
+  // derived by convention on the read side, so no DB column is needed.
+  const writeMapThumb = async (source: Buffer | string): Promise<void> => {
+    const sharp = require("sharp") as typeof import("sharp");
+    const thumb = await sharp(source, { failOn: "none" })
+      .resize({
+        width: MAP_THUMB_SIZE,
+        height: MAP_THUMB_SIZE,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: MAP_THUMB_QUALITY })
+      .toBuffer();
+    const fs = await import("node:fs/promises");
+    await fs.writeFile(mapThumbFs, thumb);
+  };
 
   if (!forceRegen && (await exists(mapFs))) {
     const sharp = require("sharp") as typeof import("sharp");
     const meta = await sharp(mapFs).metadata();
+    // Backfill the thumbnail for maps generated before thumbs existed, so a
+    // plain (non-forced) sync fills them in incrementally.
+    if (!(await exists(mapThumbFs))) await writeMapThumb(mapFs);
     return {
       sha1,
       imageUrl,
@@ -290,6 +319,7 @@ export async function generateMapWebP(params: {
 
   const fs = await import("node:fs/promises");
   await fs.writeFile(mapFs, out.data);
+  await writeMapThumb(out.data);
 
   return {
     sha1,

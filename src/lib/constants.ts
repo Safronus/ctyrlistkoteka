@@ -7,6 +7,12 @@ export const THUMB_SIZE = 400;
 export const WEB_SIZE = 1600;
 export const THUMB_QUALITY = 80;
 export const WEB_QUALITY = 85;
+// Location-map thumbnail: the full map (~800 px) is served for ~80–200 px
+// list/sidebar thumbnails — a ~4× overdraw PageSpeed flagged (~0.5 MB on
+// /lokality). This small variant (`{sha}-thumb.webp`) covers those; the
+// detail view keeps the full map.
+export const MAP_THUMB_SIZE = 256;
+export const MAP_THUMB_QUALITY = 80;
 
 // Paging / UI
 export const FINDS_PER_PAGE = 48;
