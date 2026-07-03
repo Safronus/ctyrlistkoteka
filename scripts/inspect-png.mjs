@@ -41,7 +41,7 @@ if (args[0] === "--scan") {
   const hits = [];
   for (const p of files) {
     const b = readFileSync(p);
-    if (b.indexOf(needle) >= 0) hits.push(p);
+    if (b.includes(needle)) hits.push(p);
   }
   console.log(`hits with raw "AnonymizovanLokace": ${hits.length}`);
   for (const h of hits.slice(0, 10)) console.log(`  ${h}`);

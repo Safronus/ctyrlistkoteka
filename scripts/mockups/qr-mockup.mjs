@@ -20,7 +20,7 @@ const safronusB64 = readFileSync(safronusPath).toString("base64");
 // ---------- QR matrix mockup ----------
 // Version 4 QR is 33x33 modules. Realistic enough to test layout.
 const SIZE = 33;
-const matrix = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+const matrix = Array.from({ length: SIZE }, () => new Array(SIZE).fill(0));
 
 // Place a 7x7 finder pattern at (r,c). Outer ring + 3x3 center block.
 function placeFinder(r, c) {

@@ -13,7 +13,6 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import type { UploadResponse } from "./upload-types";
 import {
   formatErrorReport,
   readBodyTruncated,
@@ -64,6 +63,7 @@ import {
   MAX_FILE_BYTES,
   MAX_FILES_PER_REQUEST,
   MAX_QUEUE_FILES,
+  type UploadResponse,
   type UploadResult,
 } from "./upload-types";
 import { materializeUploadBatch } from "../_shared/materialize";

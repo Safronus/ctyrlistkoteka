@@ -12,9 +12,9 @@ import {
   Loader2,
   Upload,
   X,
+  Trash2,
   XCircle,
 } from "lucide-react";
-import { Trash2 } from "lucide-react";
 import { uploadFindFreePhotos } from "./free-photos-action";
 import { moveFreePhoto } from "./free-photos-move-action";
 import { deleteFreePhotoInline } from "../free-photos/delete-action";
