@@ -12,6 +12,7 @@ import {
   formatLocationId,
   formatTinyDateTimeCs,
   locationOffsetToneClass,
+  mapThumbUrl,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
 
@@ -348,7 +349,7 @@ function FindListRow({
             {/* Served by Nginx; Next Image optimizer not needed. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={find.locationThumbUrl}
+              src={mapThumbUrl(find.locationThumbUrl)}
               alt=""
               aria-hidden
               loading="lazy"

@@ -25,6 +25,7 @@ import {
   formatTimeSinceCs,
   formatDensity,
   locationDetailHref,
+  mapThumbUrl,
 } from "@/lib/format";
 import type { FindState } from "@prisma/client";
 
@@ -143,7 +144,7 @@ function RowThumb({
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={location.thumbnailUrl}
+        src={mapThumbUrl(location.thumbnailUrl)}
         alt=""
         aria-hidden
         loading="lazy"

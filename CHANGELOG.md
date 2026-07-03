@@ -61,6 +61,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bolest /mapa — LCP 6,5 s — jsou ale externí OSM dlaždice, mimo naši
   kontrolu. Leaflet se mimo /mapa nenačítá — code-split je OK.)*
 
+### Výkon (pokr.)
+- **A2 — mapové náhledy na `-thumb`**: lokační mapy se generovaly jen v plné
+  velikosti (~800 px) a servírovaly se tak i do 80–200 px náhledů v seznamech
+  (~4× overdraw, PSI ~0,5 MB na /lokality). `generateMapWebP` teď vytváří i
+  `{sha}-thumb.webp` (256 px; **5 KB vs 33 KB = −85 %/mapa**, backfill i pro
+  existující mapy přes maps-only sync), a seznam lokalit (`location-list-row`)
+  + náhled v seznamu nálezů (`find-list`) ho používají přes helper
+  `mapThumbUrl`. Detail mapy zůstává na plné variantě.
+
 ### Přidáno
 - **Stránka „Ochrana soukromí"** (`/soukromi`, `/en/soukromi`) + odkaz v
   patičce. Informační povinnost dle čl. 13 GDPR: správce + kontakt, co a proč

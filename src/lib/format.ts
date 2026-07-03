@@ -1,6 +1,17 @@
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 
 /**
+ * `/generated/maps/{sha}.webp` → `{sha}-thumb.webp` — the small (~256 px)
+ * map variant generated alongside the full overlay (see images.ts). Use it
+ * for list / row thumbnails where the full ~800 px map is a ~4× overdraw
+ * (PageSpeed: ~0.5 MB on /lokality). Anything that isn't a generated map
+ * URL passes through unchanged.
+ */
+export function mapThumbUrl(url: string): string {
+  return url.replace(/^(\/generated\/maps\/[a-f0-9]+)\.webp$/, "$1-thumb.webp");
+}
+
+/**
  * Locale-aware formatting helpers.
  *
  * Most helpers take an optional `locale` parameter that defaults to
