@@ -30,6 +30,15 @@ export function CloverFactsStatCard({
   const advance = () => {
     if (typeof window === "undefined") return;
     window.dispatchEvent(new CustomEvent(CLOVER_FACT_ADVANCE_EVENT));
+    // The tile lives in the highlights row below the fold — after firing
+    // the rotation, bring the (now-changed) hero card back into view and
+    // move focus to it so the visitor actually sees the new lísteček
+    // (and screen-reader users land on the fresh content).
+    const card = document.getElementById("clover-fact-card");
+    if (card) {
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+      card.focus({ preventScroll: true });
+    }
   };
 
   // Map raw category strings to localized labels, sort alphabetically

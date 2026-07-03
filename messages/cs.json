@@ -354,7 +354,9 @@
     "kindAuthorFact": "Fakt autora",
     "kindAuthorQuip": "Hláška autora",
     "kindMysteriousFind": "Záhadný nález",
-    "kindAuthorPoem": "Báseň autora"
+    "kindAuthorPoem": "Báseň autora",
+    "cardNextButtonAria": "Zobrazit další zajímavost",
+    "cardNextButtonTitle": "Další zajímavost"
   },
   "Lokality": {
     "metaTitle": "Lokality",

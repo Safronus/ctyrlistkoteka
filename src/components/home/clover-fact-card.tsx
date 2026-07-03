@@ -1,7 +1,8 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Shuffle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   localizedClover,
@@ -199,6 +200,22 @@ export function CloverFactCard({
   // every second, defeating the point of the steady visible countdown.
   const nextAtRef = useRef<number>(Date.now() + rotationMs);
 
+  // Random advance — pick any index OTHER than the current one, so two
+  // consecutive rotations never land on the same text. Uniform across
+  // the remaining N-1 entries by sampling an offset in [1, N-1] and
+  // adding it modulo N. Shared by the timer expiry, the "Drobnosti" tile
+  // event, and the in-card shuffle button — all three behave identically.
+  const advance = useCallback(() => {
+    const n = allTexts.length;
+    nextAtRef.current = Date.now() + rotationMs;
+    setRemainingMs(rotationMs);
+    if (n <= 1) return;
+    setIndex((prev) => {
+      const offset = 1 + Math.floor(Math.random() * (n - 1));
+      return (prev + offset) % n;
+    });
+  }, [allTexts, rotationMs]);
+
   // Single 1 s interval drives both the visible countdown and the
   // rotation flip. Using a wall-clock target (`nextAt`) instead of a
   // tick counter means the timer stays correct after the tab was
@@ -212,34 +229,14 @@ export function CloverFactCard({
     nextAtRef.current = Date.now() + rotationMs;
     setRemainingMs(rotationMs);
 
-    // Random advance — pick any index OTHER than the current one, so two
-    // consecutive rotations never land on the same text. Uniform across
-    // the remaining N-1 entries by sampling an offset in [1, N-1] and
-    // adding it modulo N. Reused by both the timer expiry and the
-    // external "Další drobnost" button event.
-    const advance = () => {
-      setIndex((prev) => {
-        if (n <= 1) return prev;
-        const offset = 1 + Math.floor(Math.random() * (n - 1));
-        return (prev + offset) % n;
-      });
-      nextAtRef.current = Date.now() + rotationMs;
-      setRemainingMs(rotationMs);
-    };
-
     const tick = setInterval(() => {
       const remaining = nextAtRef.current - Date.now();
-      if (remaining <= 0) {
-        advance();
-      } else {
-        setRemainingMs(remaining);
-      }
+      if (remaining <= 0) advance();
+      else setRemainingMs(remaining);
     }, TICK_MS);
 
-    // External trigger from the "Drobnosti" highlights tile. The tile
-    // dispatches a window CustomEvent and we just reuse `advance` so the
-    // visitor-facing behaviour matches an auto-rotation exactly (random
-    // pick + reset countdown).
+    // External trigger from the "Drobnosti" highlights tile — reuse
+    // `advance` so the visitor-facing behaviour matches an auto-rotation.
     const onAdvance: EventListener = () => advance();
     window.addEventListener(CLOVER_FACT_ADVANCE_EVENT, onAdvance);
 
@@ -247,7 +244,7 @@ export function CloverFactCard({
       clearInterval(tick);
       window.removeEventListener(CLOVER_FACT_ADVANCE_EVENT, onAdvance);
     };
-  }, [allTexts, rotationMs]);
+  }, [allTexts, rotationMs, advance]);
 
   const rawText = allTexts[index];
   if (!rawText) return null;
@@ -270,10 +267,12 @@ export function CloverFactCard({
 
   const card = (
     <aside
+      id="clover-fact-card"
+      tabIndex={-1}
       aria-live="polite"
       aria-label={isAuthor ? t("cardAriaAuthor") : t("cardAriaRegular")}
       data-fact-vibe={vibeKey}
-      className={`relative w-72 max-w-full -rotate-[2deg] rounded-sm p-5 pb-3 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] sm:w-80 ${styles.paperBg} ${styles.paperRing} ${
+      className={`relative w-80 max-w-full scroll-mt-24 -rotate-[2deg] rounded-sm p-5 pb-3 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] outline-none focus:ring-2 focus:ring-brand-500/60 focus:ring-offset-2 sm:w-96 lg:w-[30rem] ${styles.paperBg} ${styles.paperRing} ${
         text.link
           ? "transition-transform duration-300 hover:scale-[1.02] hover:shadow-[0_12px_32px_-12px_rgba(220,38,38,0.55)]"
           : ""
@@ -364,6 +363,23 @@ export function CloverFactCard({
         >
           {t("cardLinkHint")}
         </span>
+      )}
+
+      {/* Manual "next" — the auto-rotation runs on a timer, but a visitor
+          who wants a fresh lísteček now shouldn't have to wait or scroll
+          down to the Drobnosti tile. Quiet paper-margin affordance in the
+          bottom-left corner, tonal to the variant; hidden on link cards
+          (the whole card is a <Link> there — no nested interactive). */}
+      {!text.link && (
+        <button
+          type="button"
+          onClick={advance}
+          aria-label={t("cardNextButtonAria")}
+          title={t("cardNextButtonTitle")}
+          className={`absolute bottom-1.5 left-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full opacity-45 transition hover:bg-black/[0.06] hover:opacity-90 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-brand-500 ${styles.idColor}`}
+        >
+          <Shuffle className="h-3 w-3" aria-hidden />
+        </button>
       )}
     </aside>
   );

@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Homepage — kartička „Zajímavosti"
+- **„Další zajímavost" skočí na kartu**: tlačítko v dlaždici Zajímavostí je pod
+  ohybem, hero kartička nahoře — po kliknutí teď stránka plynule scrolluje ke
+  kartě a dá jí focus, aby bylo vidět nově načtený lísteček (i pro čtečky).
+- **Kartička roste do šířky, ne do výšky**: fixní `w-72/w-80` → `w-80 sm:w-96
+  lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé texty
+  rozlévají na šířku místo natahování na výšku.
+- **Vlastní tlačítko rotace v kartě**: v levém dolním rohu tichá „shuffle"
+  ikona (tonální dle varianty, odhalí se na hover) — provede rotaci na místě bez
+  čekání na časovač. Skryté na „link" kartách (celá karta je odkaz).
+
 ### Přístupnost (WCAG AA)
 - **Kontrast** na dvou dříve padajících místech (Lighthouse a11y 96 → cíl 100):
   na **/statistiky** labely na světle zeleném `bg-brand-50` / `bg-gray-50`

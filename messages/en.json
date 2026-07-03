@@ -355,7 +355,9 @@
     "kindAuthorFact": "Author's fact",
     "kindAuthorQuip": "Author's quip",
     "kindMysteriousFind": "Mysterious find",
-    "kindAuthorPoem": "Author's poem"
+    "kindAuthorPoem": "Author's poem",
+    "cardNextButtonAria": "Show another trivia",
+    "cardNextButtonTitle": "Another trivia"
   },
   "Lokality": {
     "metaTitle": "Locations",
