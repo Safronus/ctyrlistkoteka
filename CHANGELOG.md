@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Obsah
+- **Audit pravdivosti „Zajímavostí"**: homepage fakta (`data/meta/clover-texts.json`)
+  prošla hloubkovým auditem — web-research + adversariální ověření **všech 102
+  faktů**. **51 bylo nepravdivých nebo nedoložitelných** (vymyšlené osoby, muzea,
+  rekordy, literární scény, botanické termíny). Aplikováno: **1 fabrikace
+  odstraněna** (#100), **46 přepsáno** na ověřené znění se zdroji, **23 přehnaných
+  zjemněno**; **27 ověřených** ponecháno. Autorovy BONUS entry (#111, #666 aj.)
+  netknuté. Zastaralé EN překlady u změněných id odstraněny (dočasný fallback na
+  CS, čeká re-translation). *(66 „pověr" má zvlášť naznačené přerámování — zatím
+  neaplikováno.)*
+
 ### Přidáno
 - **Stránka „Ochrana soukromí"** (`/soukromi`, `/en/soukromi`) + odkaz v
   patičce. Informační povinnost dle čl. 13 GDPR: správce + kontakt, co a proč
