@@ -28,6 +28,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   faktů dřív dominoval váze homepage (~396 KB raw / 91 KB gzip HTML). Bez JS
   karta funguje dál (zobrazí seed). Stat dlaždice „Zajímavosti" počítá
   `total/bonus/kategorie` dál server-side, takže beze změny.
+- **Obrázky loga (LCP)**: hero i mobilní `clover.png` (`next/image`) měly
+  `width={1024}` (zdroj je 1024×1024/692 KB) bez `sizes` → Next servíroval
+  velkou variantu pro **98px displej**. PSI (mobil) to hlásil jako **~731 KiB
+  k úspoře** a hlavní příčinu **LCP 6,6 s**. Sníženo na reálné fixní rozměry
+  (256/128 px, retina 2×) → Next posílá malou WebP variantu. *(Skóre výkonu
+  homepage 74; Přístupnost/Doporučené postupy/SEO 100.)*
 
 ### Přidáno
 - **Stránka „Ochrana soukromí"** (`/soukromi`, `/en/soukromi`) + odkaz v

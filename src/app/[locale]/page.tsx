@@ -153,8 +153,8 @@ export default async function HomePage() {
             src="/clover.png"
             alt=""
             aria-hidden
-            width={1024}
-            height={1024}
+            width={256}
+            height={256}
             priority
             className="hidden shrink-0 lg:-mr-2 lg:block lg:h-32 lg:w-32"
           />
@@ -168,8 +168,8 @@ export default async function HomePage() {
               src="/clover.png"
               alt=""
               aria-hidden
-              width={1024}
-              height={1024}
+              width={128}
+              height={128}
               priority
               className="absolute -left-4 -top-4 z-10 h-14 w-14 -rotate-12 lg:hidden"
             />
