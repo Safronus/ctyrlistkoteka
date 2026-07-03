@@ -51,6 +51,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   `týmu`→`tYmu`, `časopis`→`Casopis` …) — nejspíš artefakt z auditu při přidání
   faktu. Přepsáno na správnou češtinu; sken všech 210 textů potvrdil, že šlo
   o jediný poškozený (91 „miR172" a 186 „iNaturalist" jsou legit CamelCase).
+- **Vyčištění editačních poznámek z auditu**: do textu 14 faktů se místo
+  aplikované úpravy vlila celá doporučující poznámka („Odstranit…",
+  „Doporučuji…", „Nahradit…", „raději necitujme" apod.) — byla živě na webu.
+  Nahrazeno zamýšleným čistým zněním (text z uvozovek / tělo bez závorky /
+  přerámování na debunk). Fakty **80 (Holan)** a **150 (Saint-Exupéry)**, po
+  očištění bez vazby na čtyřlístek, odstraněny (sbírka 210 → 208).
+- **Dopřeklad EN**: doplněno **67 chybějících anglických překladů** (fakty
+  změněné auditem měly zastaralé EN smazané, běžely na CZ fallback). Nyní má
+  EN sidecar plných 208 překladů = 1:1 s CZ. Soubory `clover-texts*.json` jsou
+  verzované v gitu (výjimka z `/data/` ignoru).
 - **Audit pravdivosti „Zajímavostí"**: homepage fakta (`data/meta/clover-texts.json`)
   prošla hloubkovým auditem — web-research + adversariální ověření **všech 102
   faktů**. **51 bylo nepravdivých nebo nedoložitelných** (vymyšlené osoby, muzea,

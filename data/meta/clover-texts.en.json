@@ -1,6 +1,10 @@
 {
   "$generated": "Hand-translated English bundle for the home-page lísteček (clover-fact card). Keys are the numeric `id` values from clover-texts.shuffled.json. The shuffled CS file remains the canonical source — this file only carries title/text (and kind for author entries) per id, looked up at render time when locale === 'en'. Author entries' personal voice was translated as faithfully as the medium allows; some Czech-specific cultural references are kept in the EN body so the original meaning isn't lost.",
   "translations": {
+    "1": {
+      "title": "White clover",
+      "text": "The classic four-leaf clover most often comes from white clover (Trifolium repens), not red clover (Trifolium pratense) as many believe. White clover is a low, creeping plant with white flowers that grows almost everywhere — on lawns, field margins and in parks."
+    },
     "2": {
       "title": "Genetic anomaly",
       "text": "The four-leaf clover arises from a rare genetic mutation. Researchers have identified a recessive gene responsible for the deviation, but its expression also depends on environmental conditions — temperature, humidity and soil nutrients."
@@ -21,6 +25,10 @@
       "title": "Symbol of four gifts",
       "text": "Traditionally the four leaves stand for four gifts: faith, hope, love and luck. Another common variant lists glory, wealth, love and health. The fifth leaf adds money, the sixth fame, the seventh longevity."
     },
+    "7": {
+      "title": "The genus Trifolium",
+      "text": "The Latin genus name Trifolium comes from tri (three) and folium (leaf) — literally “trefoil”. The four-leaf clover is a rare developmental anomaly of common clover (most often white clover, Trifolium repens): a palmately compound leaf with one leaflet more than the usual three. It is not a separate species but a mutation occurring at a ratio of roughly 1 : 10,000. (Note: the Czech “jetel zvrhlý” is, by contrast, a separate species — Alsike clover, Trifolium hybridum — unrelated to the four-leaf clover.)"
+    },
     "8": {
       "title": "World record",
       "text": "The largest known number of leaflets on a single stem is 63. The record is held by Yoshiharu Watanabe of Nasushiobara, Japan, who discovered it on 2 August 2023. The previous record of 56 leaflets was held by Shigeo Obara of Hanamaki since 2009."
@@ -37,6 +45,10 @@
       "title": "Tetraploid mutation",
       "text": "Some clover lines are tetraploid — they carry double the chromosomes. Four-leaf forms appear more often in these plants than in the regular diploid type. Breeders use this trait to cultivate ornamental varieties."
     },
+    "12": {
+      "title": "Growing anticlockwise",
+      "text": "A four-leaf clover is a rare developmental deviation of the trefoil (genus Trifolium). Its leaflets grow palmately from a single common point and the position of the “fourth” leaflet is not fixed — botany knows no rule that it grows anticlockwise. If a direction is to be described in compound leaves, it is the order in which leaflet primordia are laid down along the leaf axis (acropetal or basipetal), not any rotation around a centre."
+    },
     "13": {
       "title": "Medieval knights",
       "text": "Medieval knights would sew a four-leaf clover into the lining of their armour before battle. They believed it would protect them from injury and ensure their safe return home. Some family coats of arms from that era still bear the four-leaf today."
@@ -49,9 +61,17 @@
       "title": "Karel Čapek",
       "text": "In The Gardener's Year, Karel Čapek calls the four-leaf clover “a plant we look for without believing we will find it — and that is precisely why we sometimes do”. For many collectors this line is a guiding leitmotif."
     },
+    "16": {
+      "title": "The Čtyřlístek comic",
+      "text": "In Bohemia the best-known comic is probably Čtyřlístek (“Four-Leaf Clover”) by Jaroslav Němeček, published since 15 May 1969. The four friends are the dog Fifinka, the rabbit Pinďa, the piglet Bobík and the cat Myšpulín — each with a distinct character: Myšpulín the brilliant inventor, Bobík the strongman and big eater, Fifinka the tidy homemaker and cook, and Pinďa the timid sportsman."
+    },
     "17": {
       "title": "Trifolium pratense",
       "text": "Red clover (Trifolium pratense) has pinkish-violet flowers and grows upright. Its leaves are larger and usually carry a white V-shaped mark. Four-leaf forms occur on it too, but less often than on white clover."
+    },
+    "18": {
+      "title": "The record collection",
+      "text": "The record for the largest clover collection was long held by American Edward Martin of Cooper Landing, Alaska — in 2007 he had 111,060 four-leaf clovers according to Guinness World Records (newspaper sources from 2008 cite up to around 160,000). He pressed his finds into books. Since 2023 the record has been held by Gabriella Gerhardt of Wisconsin with 118,791 four-leaf clovers."
     },
     "19": {
       "title": "Adam and Eve in the garden",
@@ -60,6 +80,10 @@
     "20": {
       "title": "Under the pillow",
       "text": "Czech folk tradition advises placing a found four-leaf clover under the pillow at night — your future love is then said to appear in your dream. If a girl keeps a four-leaf under her pillow, she will dream of the person she will marry."
+    },
+    "21": {
+      "title": "The clover genome",
+      "text": "The genome of white clover (Trifolium repens) was sequenced to chromosome level with haplotype resolution in 2023 (the team of James Santangelo at the University of Toronto Mississauga, in the journal Genome Biology and Evolution); a separate chromosome-scale assembly by another team appeared the same year. White clover is an allotetraploid — it arose by hybridisation of two diploid ancestors, T. occidentale and T. pallescens — and this assembly annotated 78,174 protein-coding genes."
     },
     "22": {
       "title": "Five-leaf clover",
@@ -73,6 +97,14 @@
       "title": "Fragment from a Carafe",
       "text": "“In my palm a tiny four-leaf, a raindrop sparkling on glass — what is greater in it, luck or a dream? — who knows, who knows, who knows.” — fragment of a folk song from the Slovácko region"
     },
+    "25": {
+      "title": "Hare's-foot clover",
+      "text": "Trifolium arvense, hare's-foot clover (colloquially “cat clover” or “hare's tails”), is a strikingly hairy species. Four-leaf clovers occur on it more rarely than on T. repens, but its soft, furry, cylindrical flower heads are unmistakable."
+    },
+    "26": {
+      "title": "NBC Peacock",
+      "text": "The 1956 logo of the American TV network NBC depicted a stylised peacock with eleven brightly coloured feathers, meant to promote colour broadcasting and the sale of colour television sets. It was created by John J. Graham (with designer Herb Lubalin). It has no connection to the four-leaf clover."
+    },
     "27": {
       "title": "Roman Saturn",
       "text": "In Roman mythology the clover was dedicated to Saturn, patron of agriculture and wealth. The four-leaf form was considered his particular gift — whoever found one was thought to be chosen."
@@ -84,6 +116,14 @@
     "29": {
       "title": "Above the door",
       "text": "Scots believed that a four-leaf clover hung above the doorway would draw luck into the house, but if it fell, it meant luck was leaving. The leaf was therefore often slipped into a picture frame above the door."
+    },
+    "30": {
+      "title": "Jaroslav Vrchlický",
+      "text": "Jaroslav Vrchlický is among the most prolific Czech poets; in 1889 he published the melancholy collection Hořká jádra (“Bitter Kernels”), which reflected his creative crisis and disillusion. The specific poem “Čtyřlístek štěstí” and a dating to 1882, however, do not appear anywhere in his documented work."
+    },
+    "31": {
+      "title": "The role of environment",
+      "text": "The formation of a four-leaf clover is influenced by both genetics and environment. A 2010 genetic study (Crop Science, University of Georgia) identified a gene responsible for the fourth leaflet and found that its expression depends strongly on environmental conditions — especially light and temperature. That mild stress (drought, trampling, pollution) would directly raise the frequency of four-leaf clovers was not, however, shown by this or any other study; it is rather a widespread assumption science has yet to confirm."
     },
     "32": {
       "title": "Earliest mention",
@@ -97,6 +137,10 @@
       "title": "Leaf and night",
       "text": "“Luck is like a four-leaf clover — you don’t look for it, it finds you. And when it finds you, don’t ask why you — bend down, take it, and walk on.” — Vladimír Holan, fragment from his diaries"
     },
+    "35": {
+      "title": "Symbiotic bacteria",
+      "text": "Clover belongs to the legume family and has root nodules with bacteria of the genus Rhizobium. These bacteria fix atmospheric nitrogen and enrich the soil with it. That is why clover is grown as green manure and a soil regenerator."
+    },
     "36": {
       "title": "Music album",
       "text": "In 2008 the band Coldplay released a special edition of their album Viva la Vida that contained a real pressed four-leaf clover as a fan bonus. It was a limited run of 5,000 copies and is now a collector's rarity."
@@ -105,9 +149,21 @@
       "title": "Norse tradition",
       "text": "The Vikings believed the four-leaf clover was given to Loki by the goddess Freyja as a token of reconciliation after one of his pranks. The bearer of a four-leaf was said to enjoy Loki's protection — and his caprice."
     },
+    "38": {
+      "title": "Collector Kosina",
+      "text": "The Czech record-holder for collecting four-leaf clovers is Jaroslav Kosina of Mikulčice, who has collected since 1996 and has gathered over 20,000 four-leaf clovers. He presses undamaged specimens into a herbarium; his collection was exhibited at the Museum of Records and Curiosities in Pelhřimov and is entered in the Czech Book of Records."
+    },
     "39": {
       "title": "Spinning leaves",
       "text": "In Slovácko it was said that twirling a four-leaf clover between the fingers clockwise would summon love. Counter-clockwise, it would drive away an evil curse. Three twirls and a kiss completed the ritual."
+    },
+    "40": {
+      "title": "Hans Christian Andersen",
+      "text": "There is no four-leaf clover in Andersen's fairy tale The Snow Queen — Gerda finds Kai and returns home thanks to a chain of helpers (the river, a crow, a prince and princess, a robber girl, a reindeer, a Lapp woman and a Finn woman) and the power of her love, not thanks to a clover."
+    },
+    "41": {
+      "title": "Apomixis",
+      "text": "Clover does not reproduce apomictically — apomixis (seed formation without fertilisation) has not been documented in legumes (Fabaceae), including Trifolium, and white clover (Trifolium repens) is, thanks to gametophytic self-incompatibility, almost exclusively cross-pollinated, so it needs insect pollination to set seed. A higher local frequency of four-leaf clovers is therefore usually not caused by asexual reproduction but by vegetative clonal spread of a single mutant plant via runners (stolons), together with the shared genetics and environment of that colony."
     },
     "42": {
       "title": "Search instinct",
@@ -133,9 +189,21 @@
       "title": "The Egyptian goddess",
       "text": "Some readings of Egyptian hieroglyphs link the goddess Isis with a four-leaf plant that grew along the Nile. It symbolised the four basic elements and Isis's ability to control nature."
     },
+    "48": {
+      "title": "Youngest finder",
+      "text": "Even a small child can stumble upon a four-leaf clover by chance, and many collectors remember their very first find from childhood. But there is no official “youngest finder” category — the real records (Guinness) track only the number of clovers collected or the number of leaflets on a single stem, never the finder's age."
+    },
     "49": {
       "title": "Lunchtime clover",
       "text": "In eastern Bohemia there was a custom that whoever finds a four-leaf clover before lunch will have a happy day. Found in the afternoon, the luck goes to someone in the family. Found at night, it foretells a change of fate."
+    },
+    "50": {
+      "title": "James Joyce",
+      "text": "In Joyce's Ulysses a four-leaf clover appears only once — in a parodic passage of the Cyclops episode as a “four-leaved shamrock” (emeralds on an engagement ring). The word “clover” otherwise falls just twice, only in the idiom “in clover” (living in comfort). It is neither a leitmotif nor a symbol of Bloom's search for himself, and Bloom finds no four-leaf clover."
+    },
+    "51": {
+      "title": "Frequency in the population",
+      "text": "The frequency of four-leaf clovers is not set by a simple genetic ratio. The tendency to form a fourth leaflet is a recessive trait in white clover (usually requiring matching alleles from both parents, in its tetraploid genome) and is strongly influenced by the environment. In the wild a four-leaf clover therefore occurs in roughly 1 in 5,000 to 1 in 10,000 plants — a large 2017 European survey (~5.7 million clovers) gives about 1 : 5,076."
     },
     "52": {
       "title": "Symmetry",
@@ -161,9 +229,25 @@
       "title": "The Slavic goddess Vesna",
       "text": "According to Slavic legend, the goddess of spring, Vesna, distributed magical four-leaf clovers across fields and meadows each year as gifts for hard-working people. Whoever found one was rewarded for their diligence and care of the land."
     },
+    "58": {
+      "title": "Most leaflets in Czechia",
+      "text": "The Czech record for the number of separate leaflets of red clover on a single stem is held by an eleven-leaf clover found in 2020 by Lenka Zvědělíková in Libčice nad Vltavou-Letky (that same year collector Jaroslav Kosina also found an eleven-leaf clover in Vyškov)."
+    },
     "59": {
       "title": "Three insights",
       "text": "Folk wisdom says: who finds a first four-leaf will have luck. Who finds a second will find love. Who finds a third already knows what truly matters in life — and need no longer chase luck or love; they will create them themselves."
+    },
+    "60": {
+      "title": "John Steinbeck",
+      "text": "There is no four-leaf clover in John Steinbeck's The Grapes of Wrath — its key symbols are the turtle, Route 66, the grapes and Rose of Sharon's closing gesture. Grandma Joad dies quietly during the night crossing of the desert into California, and Ma hides her death so the family can pass the border inspection."
+    },
+    "61": {
+      "title": "Auxin and growth",
+      "text": "Leaf development and leaflet number are governed chiefly by the plant hormone auxin (together with cytokinin), which determine how many leaflets a compound leaf forms. If their balance or transport is disrupted — for instance by mechanical injury or stress — a leaf with an unusual number of leaflets can arise. Such a change is generally not heritable."
+    },
+    "62": {
+      "title": "The best time of year",
+      "text": "Most four-leaf clovers are usually found in the warm summer months (June–July), when white clover grows vigorously and long, warm days favour the fourth leaflet. Cooler spring and autumn plants tend to form fewer — lower temperatures and shorter days rather suppress them. The fourth leaflet arises from a combination of genetics and environment (temperature, day length, injury stress, soil conditions), so no season guarantees it."
     },
     "63": {
       "title": "World War I",
@@ -185,9 +269,21 @@
       "title": "Slavic Veles",
       "text": "Clover was offered to Veles, the Slavic patron of animals, during spring rituals. According to this tradition the four-leaf clover could call lost livestock back to the herd — and, more generally, bring back anything that had gone astray."
     },
+    "68": {
+      "title": "Vatican collection",
+      "text": "It is sometimes said that four-leaf clovers might be among the small keepsakes held in the Vatican. But no documented records of a separate papal clover collection — nor of a specific 1893 find from the Garden of Gethsemane — have survived; the Garden of Gethsemane is in fact linked more to a folk tale about spotted burclover (Medicago arabica) than to the four-leaf clover."
+    },
     "69": {
       "title": "Pressed into a Bible",
       "text": "Christian tradition recommended pressing four-leaf clovers into a Bible — best of all, into Psalm 23 (“The Lord is my shepherd”). The leaf was meant to bind natural luck with spiritual protection. Many family Bibles still hold them."
+    },
+    "70": {
+      "title": "Marcel Proust",
+      "text": "Marcel Proust's In Search of Lost Time is famous for its scene of involuntary memory: the taste of a madeleine dipped in tea suddenly summons the narrator's childhood in Combray (bound up with his aunt Léonie). A motif of a pressed four-leaf clover from his grandmother, or “the scent of dried grass” as consolation, does not appear in the work — it is a fabrication."
+    },
+    "71": {
+      "title": "Under UV light",
+      "text": "A four-leaf clover is the same plant and the same species as an ordinary trefoil — the fourth leaflet is merely a developmental (genetic) deviation, and both leaf types grow on the same plant. Its chlorophyll is therefore identical, and no special “four-leaf spectrum” exists under UV light. Plants do show chlorophyll fluorescence under ultraviolet light, but that depends on chlorophyll content and leaf condition, not on the number of leaflets, and it is not used to find clovers faster — in practice plain visual searching in good daylight works best."
     },
     "72": {
       "title": "A lucky cemetery",
@@ -205,13 +301,25 @@
       "title": "Nectar for bees",
       "text": "The flower of white clover is a major nectar source for bees and bumblebees. Honey from white clover is light and gently sweet. Without clover, Czech beekeeping would lose one of its most important nectar sources."
     },
+    "76": {
+      "title": "Lucky in Japan",
+      "text": "In Japanese culture the four-leaf clover is now a common modern symbol of luck — it appears on stickers, omamori charms and in anime and manga (for example the series “Yotsuba&!” or “Kimi wa Yotsuba no Clover”). The luck symbolism attached to the clover reached Japan with Western culture from about the Meiji period (the latter half of the 19th century), and American influence reinforced it further in the post-war era."
+    },
     "77": {
       "title": "A druidic ritual",
       "text": "During the druidic Beltane ritual (1 May) it was the children's task to find a four-leaf clover for the village. The leaf was then hung in the communal hall and protected the inhabitants from disease for the entire year."
     },
+    "78": {
+      "title": "The Kosina herbarium",
+      "text": "The largest documented collection of four- and multi-leaf clovers in Czechia belongs to Jaroslav Kosina of Mikulčice; by the end of 2020 it numbered 16,772 four-leaf clovers (and thousands of other multi-leaf clovers), later over 20,000. Pressed into a herbarium, it was exhibited at the Museum of Records and Curiosities in Pelhřimov. Brno's Mendel Museum does not deal with clovers — its permanent exhibitions are about Gregor Mendel and genetics."
+    },
     "79": {
       "title": "Throw it over the shoulder",
       "text": "An old superstition says: if you find a four-leaf clover and want to be rid of bad luck, throw it over your left shoulder without looking back. The bad luck departs with the leaf. If you want to attract luck instead, kiss it and tuck it close to your heart."
+    },
+    "81": {
+      "title": "Mutagenic factors",
+      "text": "Four-leaf clovers are not reliably linked to metal contamination of soil. They arise chiefly from the recessive genetic disposition of white clover (Trifolium repens), whose expression is shaped by developmental and environmental factors (temperature, phosphorus fertilisation, the hormone auxin). Claims of a “Leipzig study (2018)” and of iron or zinc as mutagens have no documented scientific source — and iron and zinc are, moreover, essential micronutrients, not recognised mutagens."
     },
     "82": {
       "title": "Sixty percent",
@@ -225,6 +333,10 @@
       "title": "Sibling leaves",
       "text": "“We were three, we were three — then we became four. We gave three to the earth, the fourth sent up its thanks to heaven.” — anonymous poem from the folk-poetry collection of Wallachia"
     },
+    "85": {
+      "title": "Leaflet differentiation",
+      "text": "The leaflets of a clover's compound leaf are initiated at the edge of the shoot apical meristem (SAM) in the early stages of primordium development. Leaflet number is controlled by a gene network described in the model plant Medicago truncatula — for example PALM1, SINGLE LEAFLET1 (SGL1), PINNA1 or the WUS-homolog HEADLESS, whose mutation only occasionally yields an extra leaflet. In white clover (Trifolium repens) four-leaf clovers are attributed to a combination of recessive alleles (mapped to chromosome 4) and environmental influence; a simple “WUSCHEL/CLAVATA pathway defect” as the explanation for the extra leaflet is not documented."
+    },
     "86": {
       "title": "Renault",
       "text": "In the 1970s, Renault produced a model 4 whose advertising used the four-leaf clover as its emblem — four wheels, four doors, four leaves of luck. The campaign won an award at the 1972 Cannes advertising festival."
@@ -233,9 +345,21 @@
       "title": "Aztec fertility",
       "text": "In Aztec mythology a clover-like leaf was a symbol of the goddess Xochiquetzal, patroness of flowers and fertility. Indigenous people in Mexico still grow a related plant (Trifolium amabile) and believe in its fertility-bringing power."
     },
+    "88": {
+      "title": "Generations of collectors",
+      "text": "Clover collecting is passed down through the generations in some families, and the largest collections take decades to build. The best-known Czech collector is Jaroslav Kosina of Mikulčice, who has gathered over 20,000 four-leaf clovers since 1996 and holds the national record."
+    },
     "89": {
       "title": "Green for green",
       "text": "An old folk saying: green dress + four-leaf clover = dazzling love. In the 19th century, brides would pin a four-leaf clover to a green braided sash before the wedding. Today the tradition is occasionally revived at alternative weddings."
+    },
+    "90": {
+      "title": "Karel Hynek Mácha",
+      "text": "Karel Hynek Mácha (1810–1836), author of Máj, kept diaries of his travels — in 1834 he journeyed to northern Italy (“Diary of the Journey to Italy”) and had walked to the Giant Mountains as early as 1833; his fiancée was Eleonora “Lori” Šomková. No surviving diary entry of his about finding a four-leaf clover, nor any mention of a “Lorenz”, is documented — so the story of a clover in his breast pocket is given here as an unverified legend, not as a Mácha quotation."
+    },
+    "91": {
+      "title": "Foliar anomaly",
+      "text": "A four-leaf clover arises from a rare deviation in leaf development — most often a somatic mutation or a recessive gene variant, when four leaflets are initiated in early leaf development instead of the usual three; environmental factors also play a role. It is no official “type II anomaly”, and there is no single universal principle: “double” flowers (double roses, anemones) arise by a wholly different mechanism — a change in the identity of floral organs (the miR172–APETALA2 pathway, stamens turned into petals) — not by multiplying a leaf structure."
     },
     "92": {
       "title": "Collector friends",
@@ -285,13 +409,29 @@
       "title": "Park lawn",
       "text": "“The park lawn, the sun blazing, / a child bends down to look for luck. / In the palm a small four-leaf — / the world pauses for a moment, / it watches and smiles.” — Jiří Suchý, from the collection Quiet Mail"
     },
+    "105": {
+      "title": "Selective breeding",
+      "text": "There are ornamental lines of white clover (Trifolium repens) deliberately bred for a higher frequency of four-leaf clovers. The highest proportion arose through gamma-ray irradiation (⁶⁰Co), not classical crossing — the Korean cultivar “Jeju Lucky-1” (around 2010) carries a four-leaf clover in up to ~60% of cases. The ornamental cultivar “Legendary Good Luck” has roughly 50%."
+    },
+    "106": {
+      "title": "Walt Disney",
+      "text": "Walt Disney Studios animators have long hidden little jokes and references (so-called “easter eggs”) in their films. The best-known recurring hidden motif, however, is not a four-leaf clover but the “Hidden Mickey” — the silhouette of Mickey's head made from three circles, which fans spot in the background of many films and throughout the Disneyland parks."
+    },
     "107": {
       "title": "The Chinese view",
       "text": "In traditional Chinese culture the four-leaf clover has no strong symbolism — the number 4 is unlucky in China because it sounds similar to the word for “death”. Instead, the Chinese prefer the five-leaf symbol, which brings five blessings."
     },
+    "108": {
+      "title": "Speed record",
+      "text": "The most four-leaf clovers found by one person in a single hour is 451 — a 2019 record held by Gabriella Gerhardt of the USA (Guinness World Records)."
+    },
     "109": {
       "title": "Moravian-Slovak borderland",
       "text": "On the Moravian-Slovak frontier they used to say: “Give the first four-leaf to the one you love. Keep the second. Give the third to whoever needs it most.” This rule influenced many collectors who give four-leaf clovers away to this day."
+    },
+    "110": {
+      "title": "Bohumil Hrabal",
+      "text": "In Too Loud a Solitude, Bohumil Hrabal portrays the narrator Haňťa, who for thirty-five years compacts waste paper and rescues rare books he finds in it. There is, however, no mention of four-leaf clovers anywhere in the novel — the recurring green motif is the “green button” of the press, not a clover."
     },
     "111": {
       "title": "Four-leaf of luck",
@@ -310,6 +450,10 @@
       "title": "Morning mist",
       "text": "“Mist drifts quietly / across an untouched meadow. / Beneath each of its breaths / millions of threes are sleeping. / And one — a single one — four-leaf / waits for me to come.” — Jan Skácel, from the collection Smuténka"
     },
+    "115": {
+      "title": "Stress resistance",
+      "text": "A four-leaf clover in white clover results from the interplay of an inherited (recessive) predisposition and external stress: damage to the shoot tip, soil composition or chemicals, temperature swings or drought all raise the chance of a fourth leaflet. A “lucky” four-leaf clover thus often grows on a plant that has faced more stress than its surroundings — though the fourth leaflet is no advantage to the plant, just a developmental deviation."
+    },
     "116": {
       "title": "Tattoo",
       "text": "The four-leaf clover is among the most common motifs in modern tattoo art. In the United States it ranks among the top 20 most-tattooed symbols. It is often combined with a horseshoe, a star or the initials of a loved one."
@@ -326,6 +470,14 @@
       "title": "Many-leaf clover",
       "text": "Folk wisdom on many-leaf clovers: a five-leaf for money, a six-leaf for fame, a seven-leaf for long life, an eight-leaf for release from debts, a nine-leaf for the luck of the whole family, a ten-leaf for the granting of three wishes."
     },
+    "120": {
+      "title": "F. Scott Fitzgerald",
+      "text": "The name of the heroine Daisy Buchanan in Fitzgerald's The Great Gatsby refers to the daisy flower (its white petals and golden centre symbolising her apparent innocence and hidden corruption), not to a four-leaf clover."
+    },
+    "121": {
+      "title": "Population recovery",
+      "text": "After destructive events (fires, mowing) white clover usually re-establishes itself — mainly from the soil seed bank and from surviving roots or rhizomes; the speed of recovery depends on local conditions, and the literature gives no reliable figures. There is no evidence that the frequency of four-leaf clovers is consistently higher in a recovered population; the fourth leaflet is determined chiefly by genetics and temperature, while stress and injury may sometimes raise it slightly."
+    },
     "122": {
       "title": "Leaf game",
       "text": "Children in the 19th century used to play a game called “He loves me, he loves me not” with four-leaf clovers — they pulled the leaflets one by one and read the answer from the last. The four-leaf gave the game a dramatic dimension, since the ending was always uncertain."
@@ -338,6 +490,10 @@
       "title": "When you keep silent",
       "text": "“When you keep silent and walk through the meadow, / when you don't search and yet you see, / then a four-leaf will give you its hand — / and you would not have seen it for a thousand years.” — Rainer Maria Rilke, free translation from Sonnets to Orpheus"
     },
+    "125": {
+      "title": "Seed viability",
+      "text": "White clover seeds are long-lived, but it depends on storage: in dry storage they keep good germination for a matter of years (around 55% after five years), while hard seeds buried in soil can remain viable for even twenty years, albeit with germination of only a few percent (about 1–2%). Collectors who want their own clover patch can buy commercial cultivars with a higher frequency of multi-leaf clovers (e.g. 'Quadrifolium' or 'Good Luck') — the stand fills in roughly in its second year."
+    },
     "126": {
       "title": "Boeing 747",
       "text": "Some Boeing 747 crews in the 1980s had a tradition of slipping a four-leaf clover into the logbook before a new aircraft's first flight. The custom was unofficial but widespread — some aircraft were even nicknamed “Lucky”."
@@ -346,9 +502,17 @@
       "title": "African traditions",
       "text": "Among some West African peoples (Yoruba, Igbo) a four-leaf is a symbol of ancestral spirits. Shamans use it when communicating with the spirit world. In traditional healing practice the four-leaf is placed inside amulets."
     },
+    "128": {
+      "title": "Twins",
+      "text": "Finding two four-leaf clovers on one plant is not independently rare: the four-leaf mutation clusters on a given plant, so a plant that has already produced one four-leaf clover is more likely to produce another."
+    },
     "129": {
       "title": "Green kiss",
       "text": "A Polish folk tradition recommends kissing a four-leaf clover the moment it is found. This is said to “seal a contract” between the plant and the finder — the luck holds as long as the leaf remains in the owner's care. If it is lost or wilts, the contract is broken."
+    },
+    "130": {
+      "title": "Jaroslav Seifert",
+      "text": "In 1954 Jaroslav Seifert published the collection “Maminka” (“Mother”) — intimate lyric poetry full of memories of childhood and his mother. The collection contains no poem “Lístky” nor the cited verse about four-leaf clovers; the only “leaves” in the whole book are myrtle leaves in a line from the poem Vějíř. The passage attributed to Seifert about four-leaf clovers is a fabrication."
     },
     "131": {
       "title": "Phenotypic plasticity",
@@ -366,6 +530,10 @@
       "title": "A bouquet of luck",
       "text": "“I tied a small bouquet from four little clovers, / there were no fives, no sixes — / and yet it was among the loveliest / I have ever tied in my life.” — Jan Werich, fragment from a letter to his granddaughter"
     },
+    "135": {
+      "title": "Host fungi",
+      "text": "The roots of white clover live in symbiosis with arbuscular mycorrhizal fungi (e.g. the genus Glomus), which help it take up phosphorus and other elements. Four-leaf clovers are attributed to a combination of recessive genes and external influences (temperature, day length, soil quality, injury or stress); a direct link between abundant mycorrhiza and the frequency of four-leaf clovers is, however, not documented."
+    },
     "136": {
       "title": "Pelé and football",
       "text": "Brazilian footballer Pelé kept in his boots before each match a pressed four-leaf clover his mother had given him. The tradition began in 1958 before the World Cup — Pelé scored 6 goals and won the title."
@@ -374,9 +542,25 @@
       "title": "North American coltsfoot",
       "text": "Some Indigenous peoples linked the four-leaf clover with a similar plant — coltsfoot. They believed that its four-part leaf was a gift of the Great Spirit to chosen shamans. This tradition blended with European superstition after the cultures met."
     },
+    "138": {
+      "title": "A young record-holder",
+      "text": "The youngest record-holder in finding four-leaf clovers is ten-year-old Katie Borka of Virginia (USA), who in 2018 entered the Guinness Book of Records with a find of 166 four-leaf clovers in a single hour. Guinness does not keep a “per 24 hours” or “per day” category — the timed records are “most in one hour” (451) and “most in eight hours” (887), both held by Gabriella Gerhardt."
+    },
     "139": {
       "title": "A Slovácko wedding",
       "text": "There was a tradition in Slovácko that the bride carried a four-leaf clover in her bouquet for luck in the marriage. If she lost it during the ceremony, that was a bad omen. If it stayed in the bouquet, the marriage was to be long and happy."
+    },
+    "140": {
+      "title": "Karel Poláček",
+      "text": "In the humorous novel Bylo nás pět (published posthumously in 1946) Karel Poláček tells, in the voice of the schoolboy Petr Bajza, of five boys from a small town and their pranks and superstitions. A specific scene of searching for a lucky four-leaf clover before a geography exam, or a character “Bajaja”, cannot be found in the text, however."
+    },
+    "141": {
+      "title": "Stress and regrowth",
+      "text": "Some observers report that four-leaf clovers are a little more common in frequently mown or grazed lawns. But neither a direct effect of mowing nor a “relaxed control of leaflet number” mechanism is scientifically proven — the documented factors behind the anomaly are rather genetics, temperature, day length and hormones. The term “compensatory growth”, moreover, refers in botany to making up lost leaf area after damage, not to a higher incidence of multi-leaf clovers."
+    },
+    "142": {
+      "title": "Soft-focus searching",
+      "text": "Experienced searchers advise walking slowly and not focusing the eyes on individual leaflets, but letting the gaze drift freely over the sward — peripheral vision catches a deviation from the regular trefoil pattern better than direct focus. The four-leaf clover then often “pops out” as a square outline among the round trefoils."
     },
     "143": {
       "title": "Tonkin and Indochina",
@@ -389,6 +573,10 @@
     "145": {
       "title": "Millennial plant",
       "text": "The root systems of clonal white-clover colonies can persist for thousands of years. Genetic tests show that some colonies in the Scottish highlands are over 5,000 years old — among the oldest organisms in Europe."
+    },
+    "146": {
+      "title": "Rolex Datejust",
+      "text": "No documented Rolex model (Datejust included) with a real four-leaf clover set under the crystal, dated 1969, exists — the claim is a fabrication and technically impossible too, because the Datejust only got a sapphire crystal in 1978 (before that it was acrylic/plexi). Watches with a real four-leaf clover embedded in the dial do exist, but they are modern boutique novelties, not a vintage Rolex."
     },
     "147": {
       "title": "Tibetan mandalas",
@@ -422,9 +610,17 @@
       "title": "Striated leaves",
       "text": "The Italian racing team Alfa Romeo has carried the quadrifoglio — a green four-leaf clover — in its emblem since 1923. The symbol was first used by racer Ugo Sivocci, who won the Targa Florio in Sicily on 15 April 1923. Sivocci died five months later at Monza in a car WITHOUT the clover — which is why a white square replaced the original triangle."
     },
+    "156": {
+      "title": "The Alfa Romeo badge",
+      "text": "The Italian motor-racing team Alfa Romeo carries the quadrifoglio — a green four-leaf clover — on its badge. The driver Ugo Sivocci had it painted on his car, originally as a clover in a white square, and won the 1923 Targa Florio with it. When Sivocci was killed that same year in a crash at Monza — in a car that lacked the clover — the symbol became the team's permanent emblem from the 1924 season. In his memory the white square was replaced by a triangle; the missing corner recalls the lost driver."
+    },
     "157": {
       "title": "Gabriella Gerhardt",
       "text": "American Gabriella Gerhardt holds five Guinness World Records: most four-leaf clovers in an hour (451 in 2019), in 8 hours (887 in 2018), the largest collection of six-leaf (1,437) and seven-leaf (209) clovers, and the largest overall four-leaf collection — 118,791 pieces, surpassing Edward Martin's long-standing record in 2023."
+    },
+    "158": {
+      "title": "Edward Martin",
+      "text": "Before Gabriella Gerhardt, the record for the largest collection of four-leaf clovers was held by American Edward Martin — 111,060 pieces. For years his collection was considered the largest in the world (the record was verified around 2007), until Gerhardt surpassed it in 2023 with 118,791 four-leaf clovers."
     },
     "159": {
       "title": "Frankie Osborn",
@@ -446,17 +642,49 @@
       "title": "Stolons and colonies",
       "text": "White clover spreads through stolons — creeping above-ground runners. New roots and leaves grow from the nodes of the stolons. The whole colony is a clone — a genetically identical copy of the mother plant. If it has a genetic predisposition for anomalies, every plant in the colony shares it."
     },
+    "164": {
+      "title": "Lifespan",
+      "text": "The original (mother) white-clover plant and its root usually die within one to two years. But the clump constantly renews itself by vegetative growth from stolons and from the soil seed bank, and as a clone (genet) it can live for decades, exceptionally even over a hundred years. A four-leaf clover found this year may thus be genetically identical or related to last year's."
+    },
     "165": {
       "title": "Nitrogen fixation",
       "text": "The nodules on clover roots contain bacteria of the species Rhizobium leguminosarum, which convert atmospheric nitrogen into ammonium ions. This process is called biological nitrogen fixation and is the reason clover improves the soil for the plants around it."
+    },
+    "166": {
+      "title": "Allopolyploidy",
+      "text": "White clover arose by allopolyploidy — the crossing of two different species (the alpine T. pallescens and the Atlantic-coastal T. occidentale) in western Europe during the last ice age, roughly 15,000 to 28,000 years ago, when the ranges of the two species overlapped in glacial refugia. The resulting organism has two complete chromosome sets from different parents, 2n = 4x = 32 in total."
+    },
+    "167": {
+      "title": "Compensatory growth",
+      "text": "After mowing, clover makes up its lost biomass by accelerated regrowth of new leaves (compensatory growth) — a documented phenomenon. That this accelerated growth would “relax” the control of leaflet number and raise the incidence of four-leaf clovers is not reliably documented; the known factors affecting leaflet number are genetics (recessive alleles, transposons and epigenetics) and modulators such as auxin, phosphates, warmth and light. Experienced collectors add that four-leaf clovers are easiest to find in spring before the first mowing, when the stand is uncluttered."
+    },
+    "168": {
+      "title": "Plasticity of expression",
+      "text": "White clover is a favourite model plant for studying phenotypic plasticity — the ability to change appearance according to the environment (light, nutrients, temperature). Whether a given individual forms a four-leaf clover is not purely a matter of environment, though: there must be a genetic basis (a recessive allele, a somatic mutation, epigenetics), and only then do external conditions decide whether the fourth leaflet actually appears. The individual's genome stays the same; the expression of the trait depends on the combination of genes and environment."
     },
     "169": {
       "title": "Medicago truncatula",
       "text": "For research into leaf development and anomalies, the related Medicago truncatula is often used — a close relative of white clover. Its genome was sequenced earlier and serves as a reference model for studying the genetics of legumes, including the mechanisms behind four-leaf formation."
     },
+    "170": {
+      "title": "Mendel's legacy",
+      "text": "Gregor Mendel ran his famous experiments with the garden pea (Pisum sativum) — a legume related to clover. The pea is diploid and self-pollinating, which let Mendel grow pure lines and cross them easily. With white clover (Trifolium repens) he would have hit two obstacles: it is an allotetraploid (2n=4x=32) and is cross-pollinating (self-sterile), so it could be neither reliably self-pollinated nor kept in pure lines — it was precisely the pea's simplicity that let Mendel uncover the basic laws of heredity."
+    },
+    "171": {
+      "title": "Meadow biodiversity",
+      "text": "White clover is an important meadow plant — it attracts pollinators and, as a legume, enriches the soil with nitrogen. Its effect on species diversity varies, though: in managed swards it can support diversity, whereas in natural and semi-natural meadows its overabundance (and the nitrogen it supplies) can instead reduce it. In this light a four-leaf clover is a small expression of nature's variety."
+    },
+    "172": {
+      "title": "Naval tradition",
+      "text": "The four-leaf clover has been a widely known symbol of luck since the 17th century and is not missing from sailors' varied talismans and superstitions. A specific tradition of the four-leaf clover in the 18th- and 19th-century British navy, pressed clovers in captains' and officers' diaries, or their keeping in the collections of naval museums in Greenwich and Portsmouth, could not, however, be documented in any credible source."
+    },
     "173": {
       "title": "Victorian herbaria",
       "text": "In Victorian England, pressing plants — including four-leaf clovers — was a popular pastime among ladies of the upper classes. Special albums of dated finds became fashionable. Many 19th-century family archives still contain carefully kept specimens with notes."
+    },
+    "174": {
+      "title": "Soldiers at the front",
+      "text": "In both world wars soldiers carried four-leaf clovers as lucky charms and enclosed pressed plants and flowers in their letters home — a message of hope and proof that they were alive and thinking of home. Much such correspondence has survived in museum and family archives."
     },
     "175": {
       "title": "Quatrefoil in the Gothic",
@@ -465,6 +693,14 @@
     "176": {
       "title": "Van Cleef Alhambra",
       "text": "Van Cleef & Arpels' Alhambra collection of jewellery is inspired by the four-leaf clover and the Moorish quatrefoil. The first necklace with 20 four-leaf motifs was launched in 1968. The line is still one of the best-selling luxury jewellery collections in the world."
+    },
+    "177": {
+      "title": "Čtyřlístek on stamps",
+      "text": "Between 2010 and 2011 the Czech Post issued a series of four postage stamps with characters from the Čtyřlístek comic; Fifinka was the first onto a stamp in late April 2010, Bobík the last in May 2011. The artwork was created by the comic's author, Jaroslav Němeček. The issue marked over 40 years of Čtyřlístek (the comic first appeared on 15 May 1969); a separate anniversary series followed only for the 50th anniversary in 2019."
+    },
+    "178": {
+      "title": "Quadrifoglio in F1",
+      "text": "From 2018 to 2023 the four-leaf clover (quadrifoglio) appeared on the cars of the team racing under the Alfa Romeo name (in 2018 as “Alfa Romeo Sauber”, from 2019 as “Alfa Romeo Racing” and “Alfa Romeo F1 Team”), run by the Sauber stable. Already in 2017 it was carried by the Ferrari SF70H and on the overalls of Ferrari drivers Vettel and Räikkönen — as a tribute to the historic bond between Alfa Romeo and Ferrari."
     },
     "179": {
       "title": "Field dew",
@@ -486,6 +722,22 @@
       "title": "Pressing the find",
       "text": "Classic pressing of a four-leaf clover takes place between sheets of absorbent paper under a weight for 7 to 14 days. Humidity control is important — too damp a leaf moulds, too dry a leaf shatters. Replacing the paper every 2 to 3 days ensures even drying."
     },
+    "184": {
+      "title": "Pressed colour",
+      "text": "A properly pressed four-leaf clover keeps its green colour much longer if protected from direct light — usually for years, exceptionally for decades in acid-free, UV-protected storage. Over time it shifts to yellow-green and brown-green as the chlorophyll breaks down. Collectors therefore keep their finds in dark albums or special boxes."
+    },
+    "185": {
+      "title": "Photographic record",
+      "text": "Modern collectors often photograph a find right on the spot — ideally in the meadow itself (in situ). The photograph captures the surrounding plants and the site's conditions. Adding a pressed (herbarium) specimen to the photograph is one of the tried-and-tested ways of documentation, as used in botanical practice too."
+    },
+    "186": {
+      "title": "Citizen science",
+      "text": "Some clover projects have involved the public in so-called citizen science — people photograph and report their finds through apps such as iNaturalist. A systematic scientific analysis of the frequency of this anomaly across regions, altitudes and climates from such data barely exists yet, though; the current frequency estimates (around 1:5,000) come rather from targeted surveys than from citizen science."
+    },
+    "187": {
+      "title": "Botanical classification",
+      "text": "In botany the four-leaf anomaly is classed among so-called teratological changes — deviations from the typical phenotype. The multiplication of leaflets in a clover's compound leaf is termed pleiophylly. Such anomalies have been recorded systematically in the specialist literature since the 19th century (e.g. Masters, Vegetable Teratology, 1869)."
+    },
     "188": {
       "title": "The tree and four roots",
       "text": "In a European folk tale of the world's creation, four great roots beneath the earth hold all continents in place. Each leaflet of a four-leaf clover symbolises one of these roots — to find a four-leaf clover therefore means to connect with the primordial forces that hold the world together."
@@ -498,9 +750,21 @@
       "title": "Shamanic amulets",
       "text": "In the traditional shamanic healing of various cultures, four-part leaves serve as a component of protective amulets. The principle is universal — four-fold symmetry evokes the balance of the four elements and offers magical protection to the bearer."
     },
+    "191": {
+      "title": "Folklore collections",
+      "text": "In the 19th century ethnographers began systematically collecting folk oral tradition — a landmark is Sušil's collection Moravské národní písně (Moravian Folk Songs, published between 1835 and 1860). The collecting and documenting of folk culture continued into the 20th century, for example in the work of the folklorist and photographer Karel Plicka (Český rok). Folk songs and rhymes feature the motif of clover and searching in a meadow, with which the four-leaf clover as a symbol of luck is traditionally associated."
+    },
+    "192": {
+      "title": "Fairy-tale motifs",
+      "text": "In European folk narrative the four-leaf clover appears as a magic talisman — said to reveal deception and let one see the hidden (in the Brothers Grimm tale “The Cock's Beam” a girl sees through a magician's illusion thanks to a clover) and to protect against evil forces. The motif is most strongly documented in the English and German tradition; in classic Czech fairy tales it appears as a fixed motif only marginally."
+    },
     "193": {
       "title": "Romantic poetry",
       "text": "The Romantic poetry of the 19th century took to the four-leaf clover as a symbol of nature, mystery and personal destiny. Poets used it as a metaphor for rare moments of luck — an image that has survived in modern poetry and pop culture alike."
+    },
+    "194": {
+      "title": "Contemporary literature",
+      "text": "In Czech culture the four-leaf clover tends to be associated with luck and with nostalgia for childhood, when people searched for clovers in meadows and believed in nature's simple magic. Nostalgia for childhood is itself a common motif in Czech lyric poetry (e.g. in Jaroslav Seifert), though the specific role of the four-leaf clover as a symbol in contemporary literature is not established in literary scholarship."
     },
     "195": {
       "title": "The path",
@@ -525,6 +789,10 @@
     "200": {
       "title": "Luck for three",
       "text": "Three leaves for me, three for you, the fourth belongs to whoever meets us. Luck divided is luck doubled. Folk proverb from Moravia."
+    },
+    "201": {
+      "title": "Fractal likeness",
+      "text": "The venation of many plants' leaves branches dendritically — the main vein divides into ever finer veins, and this pattern shows a certain self-similarity, which mathematicians describe in natural structures using the so-called fractal dimension. It is not a perfect fractal, though, and a four-leaf clover has no special “fractal symmetry” beyond an ordinary trefoil; a clover leaf has ordinary pinnate (reticulate) venation. The term “fractal isomorphism” is not an established botanical concept."
     },
     "202": {
       "title": "Sun vs. shade",
@@ -570,10 +838,6 @@
       "title": "Benefice 2025",
       "text": "A given four-leaf clover brings luck to the recipient, not to the picker. That is why in 2025 the author, as part of a charity drive, sold four-leaf clovers for over 10,000 CZK. Thanks to all the contributors!!!",
       "kind": "Author's fact"
-    },
-    "211": {
-      "title": "Pět lístků",
-      "text": "(reserved id, no source entry)"
     },
     "666": {
       "title": "A mysterious find",
