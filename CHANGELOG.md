@@ -49,6 +49,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   React, Prisma, …) i GitHub Actions + okamžité PR pro bezpečnostní
   aktualizace (po zapnutí „Dependabot security updates" v Settings). PR se
   po CI mergují ručně (kvůli auto-deployi na `main`).
+- **Audit kódu — ESLint pluginy**: `eslint-plugin-security`,
+  `eslint-plugin-sonarjs` (lokální „SONAR" pravidla), `eslint-plugin-jsx-a11y`
+  (plná a11y sada) a `eslint-plugin-no-unsanitized` (DOM-XSS). Naladěno na
+  vysoký signál: šumivá maintainability pravidla vypnuta, bezpečnost/a11y/bugy
+  jako `warn` (nerozbijí deploy-gate), `no-unsanitized/property` +
+  `detect-eval` + `detect-child-process` jako `error`. Aktuálně **0 errorů,
+  78 warningů** (backlog k postupnému úklidu).
+- **gitleaks** (`.github/workflows/gitleaks.yml`): CI sken celé git historie
+  na commitnutá tajemství (klíče, hesla, private keys) — u veřejného repa
+  důležité. Zdarma pro osobní/public repo.
 
 ### Bezpečnost
 - **Next.js 15.5.15 → 15.5.20**: záplata **7 high** CVE (3× DoS — Server Actions /
