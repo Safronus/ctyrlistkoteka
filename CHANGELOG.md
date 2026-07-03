@@ -34,6 +34,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   k úspoře** a hlavní příčinu **LCP 6,6 s**. Sníženo na reálné fixní rozměry
   (256/128 px, retina 2×) → Next posílá malou WebP variantu. *(Skóre výkonu
   homepage 74; Přístupnost/Doporučené postupy/SEO 100.)*
+- **CLS na detailech (mobil i desktop)**: detailní lokační mapy (`<img>`
+  s `h-auto w-full`) neměly rozměry → posun layoutu při doloadování (PSI:
+  nález CLS 0,16 mobil; lokalita 0,29 desktop). Doplněny `width`/`height`
+  z `imageWidth`/`imageHeight` → prohlížeč rezervuje výšku předem. *(Bajtová
+  optimalizace obrázků — menší varianty map/náhledů — vyžaduje re-sync ~17k
+  obrázků, řeší se zvlášť.)*
 
 ### Přidáno
 - **Stránka „Ochrana soukromí"** (`/soukromi`, `/en/soukromi`) + odkaz v

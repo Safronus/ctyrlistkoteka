@@ -758,6 +758,8 @@ function LocationMapsGallery({
               <img
                 src={m.imageUrl}
                 alt={m.description ?? t("mapImageFallback")}
+                width={m.imageWidth ?? undefined}
+                height={m.imageHeight ?? undefined}
                 loading="lazy"
                 decoding="async"
                 className="block h-auto w-full"
