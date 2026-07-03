@@ -53,6 +53,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   tag `stats`) → data se cachnou napříč requesty i pod force-dynamic; request
   je cache-hit místo přepočtu. Výsledky jsou serializable (datumy jako ISO
   stringy, jdou i jako RSC props do grafů).
+- **/mapa payload — přesnost souřadnic**: polygony (`ST_AsGeoJSON` bez limitu)
+  i marker/center souřadnice se serializovaly na **9 desetin** (~0,1 mm).
+  Zkráceno na **6** (`ST_AsGeoJSON(l.polygon, 6)` + `ROUND(…, 6)`; ~0,11 m,
+  vizuálně identické) → menší HTML (polygony dominují 179 KB gzip). Deviation
+  výpočet používá raw geometrii, ne zaokrouhlený výstup → nedotčen. *(Hlavní
+  bolest /mapa — LCP 6,5 s — jsou ale externí OSM dlaždice, mimo naši
+  kontrolu. Leaflet se mimo /mapa nenačítá — code-split je OK.)*
 
 ### Přidáno
 - **Stránka „Ochrana soukromí"** (`/soukromi`, `/en/soukromi`) + odkaz v

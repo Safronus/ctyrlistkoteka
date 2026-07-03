@@ -107,9 +107,12 @@ export async function getMapData(): Promise<MapData> {
              l.display_name,
              l.parent_id,
              l.show_on_map_by_default,
-             ST_Y(l.center_point)::float8 AS center_lat,
-             ST_X(l.center_point)::float8 AS center_lng,
-             ST_AsGeoJSON(l.polygon) AS polygon_geojson,
+             ROUND(ST_Y(l.center_point)::numeric, 6)::float8 AS center_lat,
+             ROUND(ST_X(l.center_point)::numeric, 6)::float8 AS center_lng,
+             -- 6 decimals ≈ 0.11 m — far finer than any map zoom shows, so
+             -- trimming from the default 9 shrinks the serialized polygon
+             -- payload (the bulk of /mapa's HTML) with no visible change.
+             ST_AsGeoJSON(l.polygon, 6) AS polygon_geojson,
              COUNT(f.id) AS find_count
       FROM locations l
       LEFT JOIN finds f ON f.location_id = l.id
@@ -137,8 +140,8 @@ export async function getMapData(): Promise<MapData> {
         deviated: boolean;
       }>
     >`
-      SELECT ST_Y(f.coordinates)::float8 AS lat,
-             ST_X(f.coordinates)::float8 AS lng,
+      SELECT ROUND(ST_Y(f.coordinates)::numeric, 6)::float8 AS lat,
+             ROUND(ST_X(f.coordinates)::numeric, 6)::float8 AS lng,
              f.location_id AS lid,
              f.id AS fid,
              CASE
