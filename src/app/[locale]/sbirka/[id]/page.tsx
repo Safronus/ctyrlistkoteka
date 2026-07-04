@@ -25,6 +25,7 @@ import {
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { photoDisplay } from "@/lib/photoBox";
 import { getFindNoteOverride } from "@/lib/findNoteOverrides";
+import { readBannerTextOverrides } from "@/lib/bannerTextOverrides";
 import { effectForFind } from "@/lib/specialFinds";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
@@ -225,6 +226,16 @@ export default async function FindDetailPage({ params }: PageProps) {
   const statesSlot =
     find.states.length > 0 ? <StateBadges states={find.states} /> : null;
 
+  // Admin-managed banner-text overrides (data/.admin/banner-texts.json) take
+  // precedence over the baked-in FindDetail defaults, per locale; bt()
+  // resolves one banner's effective text.
+  const bannerOverrides = await readBannerTextOverrides();
+  const bt = (key: string): string => {
+    const ov = bannerOverrides.get(key);
+    const o = locale === "en" ? ov?.en : ov?.cs;
+    return o || t(key);
+  };
+
   // Full-width explanatory banners stacked ABOVE the photo, one per
   // relevant state (a find can carry several — e.g. Gigant + Darovaný).
   // Each uses its state's tone. The find note is the mirror banner BELOW.
@@ -236,33 +247,33 @@ export default async function FindDetailPage({ params }: PageProps) {
   }> = [
     {
       state: FindState.LOST,
-      text: t("lostBanner"),
+      text: bt("lostBanner"),
       cls: "border-stone-200 bg-stone-50 text-stone-600",
       icon: <Ghost className="h-4 w-4 shrink-0 text-stone-400" aria-hidden />,
     },
     {
       state: FindState.ANONYMIZED,
-      text: t("anonymizedNotice"),
+      text: bt("anonymizedNotice"),
       cls: "border-purple-200 bg-purple-50 text-purple-900",
     },
     {
       state: FindState.DONATED,
-      text: t("stateBannerDonated"),
+      text: bt("stateBannerDonated"),
       cls: "border-amber-200 bg-amber-50 text-amber-900",
     },
     {
       state: FindState.GIGANT,
-      text: t("stateBannerGigant"),
+      text: bt("stateBannerGigant"),
       cls: "border-emerald-200 bg-emerald-50 text-emerald-800",
     },
     {
       state: FindState.NO_GPS,
-      text: t("stateBannerNoGps"),
+      text: bt("stateBannerNoGps"),
       cls: "border-yellow-200 bg-yellow-50 text-yellow-800",
     },
     {
       state: FindState.NO_PHOTO,
-      text: t("stateBannerNoPhoto"),
+      text: bt("stateBannerNoPhoto"),
       cls: "border-slate-200 bg-slate-50 text-slate-700",
     },
   ];
@@ -278,7 +289,7 @@ export default async function FindDetailPage({ params }: PageProps) {
         className="flex items-center justify-center gap-2 border-b border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-900"
       >
         <Trophy className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
-        <span>{t("recordBadge")}</span>
+        <span>{bt("recordBadge")}</span>
       </div>,
     );
   }

@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — správa textů bannerů nad fotkou nálezu
+- Nová sekce **`/admin/banner-texts`**: editace vysvětlujících pruhů nad fotkou
+  nálezu (stavy `LOST` / `ANONYMIZED` / `DONATED` / `GIGANT` / `NO_GPS` /
+  `NO_PHOTO` + zlatý odznak rekordu) v **češtině i angličtině**.
+- **Override vrstva**, ne přepis překladů: výchozí texty zůstávají v
+  `messages/<locale>.json`; vlastní verze se ukládají do
+  `data/.admin/banner-texts.json` (přežije rsync i re-sync) a čtou se přímo na
+  webu. Uloží se jen text, který se **liší od výchozího** — úprava výchozího
+  překladu se tak dál propisuje do bannerů, které sis nepřepsal.
+- „Vrátit na výchozí" / prázdné pole override odstraní. Změny se projeví hned
+  (detaily nálezů se přegenerují přes `revalidatePath`).
+
 ### Admin — odhad kapacity disku, předvyplněné poznámky, méně warningů
 - **„Místo na disku"** na `/admin` teď ukazuje **odhad, kolik nálezů se ještě
   vejde** — průměrná stopa nálezu na disku (originál + výřez) promítnutá do

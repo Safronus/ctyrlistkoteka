@@ -16,6 +16,7 @@ import {
   ListChecks,
   MapPinned,
   Map as MapIcon,
+  Megaphone,
   Network,
   Gift,
   ShieldCheck,
@@ -279,6 +280,16 @@ export default async function AdminHomePage() {
           lines={[
             "data/meta/clover-texts.json + .en.json",
             "CRUD rotujících faktů na homepage",
+          ]}
+        />
+        <FeatureCard
+          icon={Megaphone}
+          title="Texty bannerů"
+          status="ok"
+          href="/admin/banner-texts"
+          lines={[
+            "data/.admin/banner-texts.json",
+            "Pruhy nad fotkou nálezu (stavy, rekord) — CZ/EN",
           ]}
         />
         <FeatureCard
