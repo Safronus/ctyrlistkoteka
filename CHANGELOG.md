@@ -49,9 +49,10 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **Navigace rozdělená na dvě strany**: `1.` + „Předchozí na lokalitě" pinnuté
   **vlevo**, „Další na lokalitě" + `poslední` **vpravo** (`ml-auto` drží pravou
   dvojici u kraje i po zalomení v úzkém sloupci).
-- **Nadpis „Lokalita" + `#id` centrovaný**: samostatný řádek nad sloupci,
-  nadpis a číslo seskupené na střed (`Panel` dostal prop `centerHeader`; ostatní
-  panely zůstaly roztažené jako dřív).
+- **Nadpis „Lokalita" + `#id` je prvním řádkem popisné sekce**: ne hlavička nad
+  celým panelem, ale první řádek levého sloupce — díky `lg:items-start` sedí na
+  úrovni horní hrany mapky a nad mapkou tak není žádný prázdný řádek (mapa je
+  flush nahoře). Nadpis a číslo jsou vertikálně vycentrované (`items-center`).
 - **Nový řádek „Pořadí lokality"**: za hustotou nálezů — kolikátá je lokalita
   v žebříčku podle počtu nálezů (`getLocationFindCountRank`, stejný bucketing
   jako veřejný „Top lokalit", takže číslo sedí s /statistiky) + tlačítko, které

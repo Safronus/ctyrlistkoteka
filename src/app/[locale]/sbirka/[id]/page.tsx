@@ -240,8 +240,18 @@ export default async function FindDetailPage({ params }: PageProps) {
       >
         <BackToSbirkaLink />
         <div className="flex items-center gap-3">
-          <AdjacentLink direction="prev" id={adjacent.prevId} hellish={hellish} t={t} />
-          <AdjacentLink direction="next" id={adjacent.nextId} hellish={hellish} t={t} />
+          <AdjacentLink
+            direction="prev"
+            id={adjacent.prevId}
+            hellish={hellish}
+            t={t}
+          />
+          <AdjacentLink
+            direction="next"
+            id={adjacent.nextId}
+            hellish={hellish}
+            t={t}
+          />
         </div>
       </nav>
 
@@ -392,29 +402,31 @@ export default async function FindDetailPage({ params }: PageProps) {
         </p>
       )}
 
-      <Panel
-        title={t("panelLocation")}
-        centerHeader
-        rightSlot={
-          /* Hide the location-id chip for anonymized finds — the
-             id would be the privacy placeholder (#00001) and
-             showing it next to the "skutečná lokalita se
-             nezobrazuje" notice is contradictory. */
-          !find.isAnonymized && find.location && (
-            <span className="font-mono text-xs text-gray-500">
-              {formatLocationId(find.location.id)}
-            </span>
-          )
-        }
-      >
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
         {/* Facts + prev/next nav fill the LEFT (flex-1), the location map is
             pinned to the RIGHT at its natural width (no centering gap, no
-            empty strip). The left column is exactly "panel minus map", so
-            values sit close to their labels and the nav row fits on one line.
-            Collapses to a single stacked column on mobile (facts → nav →
-            map). */}
+            empty strip). `lg:items-start` lines the top of the facts column
+            up with the top edge of the map, and the section title lives as
+            the first row of that column — so the map sits flush at the panel
+            top with no header row above it. Collapses to a single stacked
+            column on mobile (title → facts → nav → map). */}
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <div className="min-w-0 flex-1 space-y-2">
+            {/* Section title + location-id chip as the first row, vertically
+                centered and level with the map's top edge. The id is hidden
+                for anonymized finds — it would be the privacy placeholder
+                (#00001) and sit contradictorily next to the "skutečná
+                lokalita se nezobrazuje" notice. */}
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-gray-900">
+                {t("panelLocation")}
+              </h2>
+              {!find.isAnonymized && find.location && (
+                <span className="font-mono text-xs text-gray-500">
+                  {formatLocationId(find.location.id)}
+                </span>
+              )}
+            </div>
             {find.isAnonymized ? (
               /* Anonymized finds get only the short notice — no location
                  code, displayName, rank or nav (privacy placeholder or an
@@ -436,76 +448,81 @@ export default async function FindDetailPage({ params }: PageProps) {
                         repeated here — the code is baked into the map's
                         bottom-right watermark and the description sits as the
                         caption under the map. */}
-                    {areaDensity && (
-                      <>
-                        <KeyValue
-                          label={
-                            areaDensity.areaIsEstimate
-                              ? t("kvAreaEstimate")
-                              : t("kvArea")
-                          }
-                          value={
-                            <span>
-                              {areaDensity.areaIsEstimate ? "≈ " : ""}
-                              {formatAreaM2(areaDensity.effectiveAreaM2)}
-                              {areaDensity.areaIsEstimate && (
-                                <span className="ml-1 text-xs text-gray-500">
-                                  {t("kvAreaEstimateNote")}
-                                </span>
-                              )}
-                            </span>
-                          }
-                        />
-                        {areaDensity.densityPer100m2 !== null && (
+                    <dl className="space-y-2">
+                      {areaDensity && (
+                        <>
                           <KeyValue
-                            label={t("kvDensity")}
+                            label={
+                              areaDensity.areaIsEstimate
+                                ? t("kvAreaEstimate")
+                                : t("kvArea")
+                            }
                             value={
                               <span>
                                 {areaDensity.areaIsEstimate ? "≈ " : ""}
-                                {formatDensity(areaDensity.densityPer100m2)}
+                                {formatAreaM2(areaDensity.effectiveAreaM2)}
+                                {areaDensity.areaIsEstimate && (
+                                  <span className="ml-1 text-xs text-gray-500">
+                                    {t("kvAreaEstimateNote")}
+                                  </span>
+                                )}
                               </span>
                             }
                           />
-                        )}
-                      </>
-                    )}
-                    {locationRank && (
-                      <KeyValue
-                        label={t("kvLocationRank")}
-                        value={
-                          <span className="inline-flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
-                            <span>
-                              {t("locationRankValue", {
-                                rank: locationRank.rank,
-                                total: locationRank.total,
-                              })}
-                              <span className="ml-1 text-xs text-gray-500">
-                                {t("locationRankNote")}
+                          {areaDensity.densityPer100m2 !== null && (
+                            <KeyValue
+                              label={t("kvDensity")}
+                              value={
+                                <span>
+                                  {areaDensity.areaIsEstimate ? "≈ " : ""}
+                                  {formatDensity(areaDensity.densityPer100m2)}
+                                </span>
+                              }
+                            />
+                          )}
+                        </>
+                      )}
+                      {locationRank && (
+                        <KeyValue
+                          label={t("kvLocationRank")}
+                          value={
+                            <span className="inline-flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
+                              <span>
+                                {t("locationRankValue", {
+                                  rank: locationRank.rank,
+                                  total: locationRank.total,
+                                })}
+                                <span className="ml-1 text-xs text-gray-500">
+                                  {t("locationRankNote")}
+                                </span>
                               </span>
-                            </span>
-                            {/* Deep-links to /statistiky and force-opens +
+                              {/* Deep-links to /statistiky and force-opens +
                                 scrolls the "Top lokalit" section (anchor
                                 handled by CollapsibleSection#top-locations). */}
-                            <Link
-                              href="/statistiky#top-locations"
-                              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:text-brand-800 hover:shadow-sm"
-                            >
-                              <BarChart3 className="h-3.5 w-3.5" aria-hidden />
-                              {t("locationRankLink")}
-                            </Link>
-                          </span>
-                        }
-                      />
-                    )}
-                    {find.rankAtLocation && (
-                      <KeyValue
-                        label={t("kvOrderAtLocation")}
-                        value={t("orderAtLocationValue", {
-                          rank: find.rankAtLocation.rank,
-                          total: find.rankAtLocation.total,
-                        })}
-                      />
-                    )}
+                              <Link
+                                href="/statistiky#top-locations"
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:text-brand-800 hover:shadow-sm"
+                              >
+                                <BarChart3
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden
+                                />
+                                {t("locationRankLink")}
+                              </Link>
+                            </span>
+                          }
+                        />
+                      )}
+                      {find.rankAtLocation && (
+                        <KeyValue
+                          label={t("kvOrderAtLocation")}
+                          value={t("orderAtLocationValue", {
+                            rank: find.rankAtLocation.rank,
+                            total: find.rankAtLocation.total,
+                          })}
+                        />
+                      )}
+                    </dl>
                     {find.rankAtLocation && find.rankAtLocation.total > 1 && (
                       <div className="flex flex-wrap items-center gap-2 pt-1">
                         {/* first/prev pinned to the LEFT, next/last pushed to
@@ -573,7 +590,7 @@ export default async function FindDetailPage({ params }: PageProps) {
             </div>
           )}
         </div>
-      </Panel>
+      </section>
     </article>
   );
 
@@ -693,7 +710,11 @@ const MAP_STATUS_STYLES: Record<MapStatus, MapStatusStyle> = {
  *  has no polygon to compare against and we fall back to green. */
 function classifyMapStatus(
   marker: PublicLocationMap["marker"],
-  offset: { meters: number; mode: "polygon" | "center"; inside: boolean } | null,
+  offset: {
+    meters: number;
+    mode: "polygon" | "center";
+    inside: boolean;
+  } | null,
 ): MapStatus {
   if (!marker || marker.kind === "no-gps") return "no_gps";
   if (marker.kind === "outside") return "outside_map";
@@ -773,9 +794,7 @@ function LocationMapsGallery({
                   aria-hidden
                   className={`inline-block h-2 w-2 shrink-0 rounded-full ${style.dot}`}
                 />
-                <span>
-                  {statusLabel(status, locationOffset, locale, t)}
-                </span>
+                <span>{statusLabel(status, locationOffset, locale, t)}</span>
               </div>
             )}
             {/* Wrapper is `relative` so the find's GPS marker can be
@@ -800,9 +819,7 @@ function LocationMapsGallery({
                   t={t}
                 />
               )}
-              {!isAnonymized && status === "no_gps" && (
-                <NoGpsMarker t={t} />
-              )}
+              {!isAnonymized && status === "no_gps" && <NoGpsMarker t={t} />}
               {isAnonymized && <AnonymizedMapOverlay t={t} />}
               {/* Top-right deep-link chips mirror the per-row buttons
                   in /statistiky's "Top {N} lokalit" table — a quick
@@ -829,9 +846,7 @@ function LocationMapsGallery({
                     className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white/95 px-2 py-1 text-xs font-medium text-brand-700 shadow-md backdrop-blur transition hover:border-brand-200 hover:shadow-lg"
                   >
                     <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                    <span className="hidden sm:inline">
-                      {t("locDetail")}
-                    </span>
+                    <span className="hidden sm:inline">{t("locDetail")}</span>
                   </Link>
                 </div>
               )}
@@ -909,7 +924,13 @@ function NoGpsMarker({ t }: { t: FindDetailT }) {
           "drop-shadow(0 0 8px rgba(156,163,175,0.55)) drop-shadow(0 1px 2px rgba(0,0,0,0.3))",
       }}
     >
-      <svg viewBox="0 0 32 40" width={36} height={44} aria-hidden focusable={false}>
+      <svg
+        viewBox="0 0 32 40"
+        width={36}
+        height={44}
+        aria-hidden
+        focusable={false}
+      >
         <path
           d="M16 40 L8 26 A12 12 0 1 1 24 26 Z"
           fill="#fff"
@@ -1015,26 +1036,15 @@ function FindLocationMarker({
 function Panel({
   title,
   rightSlot,
-  centerHeader = false,
   children,
 }: {
   title: string;
   rightSlot?: React.ReactNode;
-  /** When true the title + rightSlot are grouped and centered as a
-   *  standalone header row above the body, instead of the default
-   *  spread-apart (title left, slot right) layout. */
-  centerHeader?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5">
-      <div
-        className={`mb-3 flex gap-3 ${
-          centerHeader
-            ? "items-center justify-center"
-            : "items-baseline justify-between"
-        }`}
-      >
+      <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
         {rightSlot}
       </div>
@@ -1082,13 +1092,7 @@ function AdjacentLink({
   );
 }
 
-function KeyValue({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
+function KeyValue({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
       <dt className="shrink-0 text-xs font-medium text-gray-500">{label}</dt>
