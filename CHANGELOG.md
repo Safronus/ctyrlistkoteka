@@ -9,6 +9,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Detail nálezu — doladění
+- **Placeholder rámeček fotky**: box fotky si rezervuje místo z poměru stran
+  (`aspect-ratio` + `bg-gray-100`) ještě před načtením obrázku, takže při
+  překlikávání předchozí/další nález stránka neposkakuje (dřív nejdřív naskočila
+  lokalita s mapou a pak ji fotka odsunula dolů).
+- **Šířka fotky = šířka mapky**: fotka i lokační mapa mají teď stejnou pevnou
+  šířku (`max-w-2xl`), takže na sebe navazují.
+- **PIN „Zobrazit na mapě"** má stejné pozadí jako lupa (bílá/blur místo zelené).
+- **Indikátory stavů**: overlay je na desktopu na **středu horní hrany** fotky,
+  na mobilu na **středu spodní hrany** (dřív levý dolní roh).
+- **Osobní konce sbírky**: u nálezu #1 (bez předchozího) je místo prázdného
+  lístku „🍀 #0 jen fyzicky" + smajlík autora; u nejnovějšího „🍀 snad brzy"
+  (beze změny). Smajlík už není oříznutý do kolečka.
+- **Navigace v lokalitě**: `1.` + „Předchozí" u levé hrany sekce, „Další" +
+  poslední u pravé; poslední chip ukazuje **číslo posledního nálezu** (pořadí),
+  ne text „Max.".
+
 ### Patička
 - **Přeorganizováno do čtyř skupin**: (1) `© 2026 Safronova čtyřlístkotéka` +
   podpis autora (smajlík · Safronus · LinkedIn), (2) odkaz **Ochrana soukromí**

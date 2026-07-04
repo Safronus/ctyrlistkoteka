@@ -195,7 +195,7 @@ export default async function FindDetailPage({ params }: PageProps) {
       href={`/mapa?find=${find.id}`}
       aria-label={t("showOnMap")}
       title={t("showOnMap")}
-      className="inline-flex items-center justify-center rounded-full bg-brand-600 p-2 text-white shadow-lg ring-2 ring-white/70 transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-white"
+      className="inline-flex items-center justify-center rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
     >
       <MapPin className="h-5 w-5" aria-hidden />
     </Link>
@@ -466,41 +466,48 @@ export default async function FindDetailPage({ params }: PageProps) {
                   </dl>
                   {find.rankAtLocation && find.rankAtLocation.total > 1 && (
                     /* Per-location find navigation in the same quiet
-                         clover-link style as the top bar: first · prev ·
-                         next · last, divided by pipes and centered under
-                         the facts. Faded (non-interactive) at the chain
-                         ends and for the current find's own position. */
+                       clover-link style as the top bar. First + prev are
+                       pinned to the LEFT edge of the section, next + last
+                       to the RIGHT. The "last" chip shows the last find's
+                       number (= total rank). Faded (non-interactive) at
+                       the chain ends and for the current find's position. */
                     <nav
                       aria-label={t("navAriaLabel")}
-                      className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-1 text-sm"
+                      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pt-1 text-sm"
                     >
-                      <LocCloverLink
-                        label="1."
-                        targetId={find.rankAtLocation.firstId}
-                        disabled={find.rankAtLocation.rank === 1}
-                        ariaLabel={t("firstAtLocation")}
-                      />
-                      <LocNavDivider />
-                      <LocCloverLink
-                        label={t("locNavPrev")}
-                        targetId={find.rankAtLocation.prevId}
-                        ariaLabel={t("prevAtLocation")}
-                      />
-                      <LocNavDivider />
-                      <LocCloverLink
-                        label={t("locNavNext")}
-                        targetId={find.rankAtLocation.nextId}
-                        ariaLabel={t("nextAtLocation")}
-                      />
-                      <LocNavDivider />
-                      <LocCloverLink
-                        label={t("locNavLast")}
-                        targetId={find.rankAtLocation.lastId}
-                        disabled={
-                          find.rankAtLocation.rank === find.rankAtLocation.total
-                        }
-                        ariaLabel={t("lastAtLocation")}
-                      />
+                      <span className="inline-flex items-center gap-2">
+                        <LocCloverLink
+                          label="1."
+                          targetId={find.rankAtLocation.firstId}
+                          disabled={find.rankAtLocation.rank === 1}
+                          ariaLabel={t("firstAtLocation")}
+                        />
+                        <LocNavDivider />
+                        <LocCloverLink
+                          label={t("locNavPrev")}
+                          targetId={find.rankAtLocation.prevId}
+                          ariaLabel={t("prevAtLocation")}
+                        />
+                      </span>
+                      <span className="inline-flex items-center gap-2">
+                        <LocCloverLink
+                          label={t("locNavNext")}
+                          targetId={find.rankAtLocation.nextId}
+                          ariaLabel={t("nextAtLocation")}
+                        />
+                        <LocNavDivider />
+                        <LocCloverLink
+                          label={`${find.rankAtLocation.total.toLocaleString(
+                            locale === "en" ? "en-GB" : "cs-CZ",
+                          )}.`}
+                          targetId={find.rankAtLocation.lastId}
+                          disabled={
+                            find.rankAtLocation.rank ===
+                            find.rankAtLocation.total
+                          }
+                          ariaLabel={t("lastAtLocation")}
+                        />
+                      </span>
                     </nav>
                   )}
                 </>
@@ -987,43 +994,35 @@ function CloverNavLink({
   t: FindDetailT;
 }) {
   if (id === null) {
-    // End of the collection. Going back (prev) just fades to a quiet
-    // clover; going forward (next) past the newest find gets a personal
-    // "snad brzy" with the author's little smiley — a wink that more
-    // clovers are on the way.
-    if (direction === "next") {
-      return (
-        <span
-          className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm ${
-            hellish ? "text-red-300/70" : "text-gray-400"
-          }`}
-        >
-          <span aria-hidden className="text-lg leading-none opacity-60">
-            🍀
-          </span>
-          <span>{t("nextComingSoon")}</span>
-          {/* Author's smiley — a static public asset served by Nginx, so
-              the plain <img> (no next/image optimizer) matches the rest
-              of the app. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/safronus.png"
-            alt="Safronus"
-            width={20}
-            height={20}
-            className="h-5 w-5 rounded-full ring-1 ring-black/10"
-          />
-        </span>
-      );
-    }
+    // Ends of the collection get a personal wink with the author's little
+    // smiley instead of a dead arrow: forward past the newest find says
+    // "snad brzy" (more clovers coming); back before the first says
+    // "#0 jen fyzicky" (clover #0 exists only in real life).
     return (
       <span
-        aria-hidden
-        className={`select-none text-lg ${
-          hellish ? "text-red-300/25" : "text-gray-300"
+        className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm ${
+          hellish ? "text-red-300/70" : "text-gray-400"
         }`}
       >
-        🍀
+        <span aria-hidden className="text-lg leading-none opacity-60">
+          🍀
+        </span>
+        <span>
+          {direction === "next"
+            ? t("nextComingSoon")
+            : `#0 ${t("prevPhysicalOnly")}`}
+        </span>
+        {/* Author's smiley — a static public asset served by Nginx, so
+            the plain <img> (no next/image optimizer) matches the rest of
+            the app. Shown as-is, not clipped to a circle. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/safronus.png"
+          alt="Safronus"
+          width={20}
+          height={20}
+          className="h-5 w-5"
+        />
       </span>
     );
   }

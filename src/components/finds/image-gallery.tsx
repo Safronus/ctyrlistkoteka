@@ -100,13 +100,21 @@ export function ImageGallery({
     );
   }
 
+  // Reserve the photo's box from its intrinsic ratio BEFORE the image
+  // loads, so navigating prev/next doesn't shove the page around while
+  // the new photo streams in (the location section used to jump up, then
+  // get pushed back down). The box is a fixed max-w-2xl — the same width
+  // as the location map below — so the two line up regardless of the
+  // photo's aspect. `bg-gray-100` is the visible placeholder frame.
+  const aspectRatio =
+    image.width && image.height
+      ? `${image.width} / ${image.height}`
+      : undefined;
   return (
-    // Shrink-wrap the photo (centred) rather than stretching it to full
-    // width with letterbox fill — so the lupa / overlay buttons land on
-    // the photo's real top corners and any bottom strip spans the photo
-    // width. The width/height attrs reserve the aspect ratio up front so
-    // the height-capped box doesn't cause a layout shift on image load.
-    <div className="relative mx-auto w-fit max-w-full overflow-hidden rounded-xl bg-gray-100">
+    <div
+      className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-xl bg-gray-100"
+      style={aspectRatio ? { aspectRatio } : undefined}
+    >
       {/* Served by Nginx; Next Image optimizer not needed. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -114,16 +122,17 @@ export function ImageGallery({
         alt={altBase}
         width={image.width}
         height={image.height}
-        className={`block max-h-[70vh] w-auto max-w-full transition-opacity duration-150 ${
+        className={`block h-auto w-full transition-opacity duration-150 ${
           showCrop && cropImage ? "opacity-0" : "opacity-100"
         } ${muted ? "grayscale sepia-[0.12]" : ""}`}
       />
       {/* Show-on-map pin — top-LEFT overlay. */}
       {mapSlot && <div className="absolute left-3 top-3 z-10">{mapSlot}</div>}
-      {/* State badges — bottom-LEFT overlay. Drop-shadow keeps the small
-          coloured pills legible over a busy photo. */}
+      {/* State badges — centered on the photo's BOTTOM edge on mobile,
+          TOP edge on desktop. Drop-shadow keeps the small coloured pills
+          legible over a busy photo. */}
       {statesSlot && (
-        <div className="absolute bottom-3 left-3 z-10 drop-shadow-sm">
+        <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 drop-shadow-sm sm:bottom-auto sm:top-3">
           {statesSlot}
         </div>
       )}
