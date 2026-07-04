@@ -79,6 +79,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   jako veřejný „Top lokalit", takže číslo sedí s /statistiky) + tlačítko, které
   skočí na `/statistiky#top-locations` a rozbalí/zaměří sekci „Top 10 lokalit"
   (sekce dostala kotvu `id="top-locations"`).
+- **Přepracováno na frameless, mapa první (nahrazuje 2-sloupec výše)**: sekce už
+  nemá rám. Větší centrovaný nadpis „Lokalita" je nad mapou, mapa je
+  vycentrovaná a **číslo lokality** je bold overlay v jejím levém horním rohu
+  (`locationBadge`). Popisná část je teď **pod mapou**, zúžená na šířku mapy
+  (`max-w-2xl`), takže labely lícují s levou hranou mapky a hodnoty s pravou.
+  Navigace mezi nálezy lokality přešla na tichý clover-styl jako horní lišta:
+  `1. 🍀 | Předchozí 🍀 | Další 🍀 | Max. 🍀` (vybledlá na krajích řetězu).
 
 ### Homepage — kartička „Zajímavosti"
 - **„Další zajímavost" skočí na kartu**: tlačítko v dlaždici Zajímavostí je pod

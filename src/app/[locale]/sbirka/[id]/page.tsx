@@ -1,14 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import {
-  BarChart3,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  Ghost,
-  MapPin,
-  Trophy,
-} from "lucide-react";
+import { BarChart3, ExternalLink, Ghost, MapPin, Trophy } from "lucide-react";
 import { FindState, ImageType } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
@@ -342,192 +334,182 @@ export default async function FindDetailPage({ params }: PageProps) {
         </p>
       )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
-        {/* Facts + prev/next nav fill the LEFT (flex-1), the location map is
-            pinned to the RIGHT at its natural width (no centering gap, no
-            empty strip). `lg:items-start` lines the top of the facts column
-            up with the top edge of the map, and the section title lives as
-            the first row of that column — so the map sits flush at the panel
-            top with no header row above it. Collapses to a single stacked
-            column on mobile (title → facts → nav → map). */}
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-          <div className="min-w-0 flex-1 space-y-2">
-            {/* Section title + location-id chip as the first row, vertically
-                centered and level with the map's top edge. The id is hidden
-                for anonymized finds — it would be the privacy placeholder
-                (#00001) and sit contradictorily next to the "skutečná
-                lokalita se nezobrazuje" notice. */}
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-gray-900">
-                {t("panelLocation")}
-              </h2>
-              {!find.isAnonymized && find.location && (
-                <span className="font-mono text-xs text-gray-500">
-                  {formatLocationId(find.location.id)}
-                </span>
+      {/* Lokalita — frameless, stacked and centered like the meta block.
+          A bigger centered "Lokalita" heading sits above the (centered)
+          location map; the map carries the location number as a bold
+          top-left overlay. The facts and the per-location find navigation
+          sit BELOW the map, constrained to the map's width so labels line
+          up with its left edge and values with its right. */}
+      <section className="space-y-4">
+        <h2
+          className={`text-center text-lg font-semibold ${
+            hellish ? "text-red-100" : "text-gray-900"
+          }`}
+        >
+          {t("panelLocation")}
+        </h2>
+
+        {find.locationMaps.length > 0 && (
+          <LocationMapsGallery
+            maps={find.locationMaps}
+            locationOffset={find.locationOffset}
+            isAnonymized={find.isAnonymized}
+            /* locationId is non-null only when the gallery actually
+               represents the find's real location — anonymized finds
+               render the placeholder and we don't deep-link to it. */
+            locationId={find.isAnonymized ? null : (find.location?.id ?? null)}
+            /* Location number overlaid bold on the map's top-left corner;
+               hidden for anonymized finds (would be the #00001 placeholder). */
+            locationBadge={
+              !find.isAnonymized && find.location
+                ? formatLocationId(find.location.id)
+                : null
+            }
+            locale={locale}
+            t={t}
+          />
+        )}
+
+        {/* Below the map, constrained to the map width (max-w-2xl) so the
+            facts' labels/values align with the map's left/right edges. */}
+        <div className="mx-auto w-full max-w-2xl space-y-3">
+          {find.isAnonymized ? (
+            /* Anonymized finds get only the short notice — no location
+               code, displayName, rank or nav (privacy placeholder or an
+               outright leak). The placeholder map still renders above. */
+            <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
+              {t("anonymizedLocationNotice")}
+            </p>
+          ) : (
+            <>
+              {isFormerLocation(find.location?.code) && (
+                <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+                  {t("formerLocationNotice")}
+                </p>
               )}
-            </div>
-            {find.isAnonymized ? (
-              /* Anonymized finds get only the short notice — no location
-                 code, displayName, rank or nav (privacy placeholder or an
-                 outright leak). The placeholder map still renders on the
-                 right. */
-              <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
-                {t("anonymizedLocationNotice")}
-              </p>
-            ) : (
-              <>
-                {isFormerLocation(find.location?.code) && (
-                  <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
-                    {t("formerLocationNotice")}
-                  </p>
-                )}
-                {find.location ? (
-                  <>
-                    {/* Neither the location code nor the description is
-                        repeated here — the code is baked into the map's
-                        bottom-right watermark and the description sits as the
-                        caption under the map. */}
-                    <dl className="space-y-2">
-                      {areaDensity && (
-                        <>
-                          <KeyValue
-                            label={
-                              areaDensity.areaIsEstimate
-                                ? t("kvAreaEstimate")
-                                : t("kvArea")
-                            }
-                            value={
-                              <span>
-                                {areaDensity.areaIsEstimate ? "≈ " : ""}
-                                {formatAreaM2(areaDensity.effectiveAreaM2)}
-                                {areaDensity.areaIsEstimate && (
-                                  <span className="ml-1 text-xs text-gray-500">
-                                    {t("kvAreaEstimateNote")}
-                                  </span>
-                                )}
-                              </span>
-                            }
-                          />
-                          {areaDensity.densityPer100m2 !== null && (
-                            <KeyValue
-                              label={t("kvDensity")}
-                              value={
-                                <span>
-                                  {areaDensity.areaIsEstimate ? "≈ " : ""}
-                                  {formatDensity(areaDensity.densityPer100m2)}
-                                </span>
-                              }
-                            />
-                          )}
-                        </>
-                      )}
-                      {locationRank && (
+              {find.location ? (
+                <>
+                  {/* Neither the location code nor the description is
+                      repeated here — the code is the top-left map overlay
+                      and the description sits as the caption under the map. */}
+                  <dl className="space-y-2">
+                    {areaDensity && (
+                      <>
                         <KeyValue
-                          label={t("kvLocationRank")}
+                          label={
+                            areaDensity.areaIsEstimate
+                              ? t("kvAreaEstimate")
+                              : t("kvArea")
+                          }
                           value={
-                            <span className="inline-flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
-                              <span>
-                                {t("locationRankValue", {
-                                  rank: locationRank.rank,
-                                  total: locationRank.total,
-                                })}
+                            <span>
+                              {areaDensity.areaIsEstimate ? "≈ " : ""}
+                              {formatAreaM2(areaDensity.effectiveAreaM2)}
+                              {areaDensity.areaIsEstimate && (
                                 <span className="ml-1 text-xs text-gray-500">
-                                  {t("locationRankNote")}
+                                  {t("kvAreaEstimateNote")}
                                 </span>
-                              </span>
-                              {/* Deep-links to /statistiky and force-opens +
-                                scrolls the "Top lokalit" section (anchor
-                                handled by CollapsibleSection#top-locations). */}
-                              <Link
-                                href="/statistiky#top-locations"
-                                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:text-brand-800 hover:shadow-sm"
-                              >
-                                <BarChart3
-                                  className="h-3.5 w-3.5"
-                                  aria-hidden
-                                />
-                                {t("locationRankLink")}
-                              </Link>
+                              )}
                             </span>
                           }
                         />
-                      )}
-                      {find.rankAtLocation && (
-                        <KeyValue
-                          label={t("kvOrderAtLocation")}
-                          value={t("orderAtLocationValue", {
-                            rank: find.rankAtLocation.rank,
-                            total: find.rankAtLocation.total,
-                          })}
-                        />
-                      )}
-                    </dl>
-                    {find.rankAtLocation && find.rankAtLocation.total > 1 && (
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
-                        {/* first/prev pinned to the LEFT, next/last pushed to
-                            the RIGHT (ml-auto keeps the second group
-                            right-aligned even when the narrow column forces it
-                            onto its own line). Each chip stays rendered (faded)
-                            at the chain boundary so positions don't shift
-                            between finds. */}
-                        <div className="flex items-center gap-2">
-                          <LocationExtremeLink
-                            targetId={find.rankAtLocation.firstId}
-                            label="1."
-                            ariaLabel={t("firstAtLocation")}
-                            isCurrent={find.rankAtLocation.rank === 1}
-                          />
-                          <LocationNavLink
-                            direction="prev"
-                            targetId={find.rankAtLocation.prevId}
-                            label={t("prevAtLocation")}
-                          />
-                        </div>
-                        <div className="ml-auto flex items-center gap-2">
-                          <LocationNavLink
-                            direction="next"
-                            targetId={find.rankAtLocation.nextId}
-                            label={t("nextAtLocation")}
-                          />
-                          <LocationExtremeLink
-                            targetId={find.rankAtLocation.lastId}
-                            label={`${find.rankAtLocation.total.toLocaleString(
-                              locale === "en" ? "en-GB" : "cs-CZ",
-                            )}.`}
-                            ariaLabel={t("lastAtLocation")}
-                            isCurrent={
-                              find.rankAtLocation.rank ===
-                              find.rankAtLocation.total
+                        {areaDensity.densityPer100m2 !== null && (
+                          <KeyValue
+                            label={t("kvDensity")}
+                            value={
+                              <span>
+                                {areaDensity.areaIsEstimate ? "≈ " : ""}
+                                {formatDensity(areaDensity.densityPer100m2)}
+                              </span>
                             }
                           />
-                        </div>
-                      </div>
+                        )}
+                      </>
                     )}
-                  </>
-                ) : (
-                  <p className="text-sm text-gray-600">{t("noLocation")}</p>
-                )}
-              </>
-            )}
-          </div>
-
-          {find.locationMaps.length > 0 && (
-            <div className="w-full lg:w-[40rem] lg:shrink-0">
-              <LocationMapsGallery
-                maps={find.locationMaps}
-                locationOffset={find.locationOffset}
-                isAnonymized={find.isAnonymized}
-                /* locationId is non-null only when the gallery actually
-                   represents the find's real location — anonymized finds
-                   render the placeholder and we don't deep-link to it. */
-                locationId={
-                  find.isAnonymized ? null : (find.location?.id ?? null)
-                }
-                locale={locale}
-                t={t}
-              />
-            </div>
+                    {locationRank && (
+                      <KeyValue
+                        label={t("kvLocationRank")}
+                        value={
+                          <span className="inline-flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
+                            <span>
+                              {t("locationRankValue", {
+                                rank: locationRank.rank,
+                                total: locationRank.total,
+                              })}
+                              <span className="ml-1 text-xs text-gray-500">
+                                {t("locationRankNote")}
+                              </span>
+                            </span>
+                            {/* Deep-links to /statistiky and force-opens +
+                                scrolls the "Top lokalit" section (anchor
+                                handled by CollapsibleSection#top-locations). */}
+                            <Link
+                              href="/statistiky#top-locations"
+                              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:text-brand-800 hover:shadow-sm"
+                            >
+                              <BarChart3 className="h-3.5 w-3.5" aria-hidden />
+                              {t("locationRankLink")}
+                            </Link>
+                          </span>
+                        }
+                      />
+                    )}
+                    {find.rankAtLocation && (
+                      <KeyValue
+                        label={t("kvOrderAtLocation")}
+                        value={t("orderAtLocationValue", {
+                          rank: find.rankAtLocation.rank,
+                          total: find.rankAtLocation.total,
+                        })}
+                      />
+                    )}
+                  </dl>
+                  {find.rankAtLocation && find.rankAtLocation.total > 1 && (
+                    /* Per-location find navigation in the same quiet
+                         clover-link style as the top bar: first · prev ·
+                         next · last, divided by pipes and centered under
+                         the facts. Faded (non-interactive) at the chain
+                         ends and for the current find's own position. */
+                    <nav
+                      aria-label={t("navAriaLabel")}
+                      className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-1 text-sm"
+                    >
+                      <LocCloverLink
+                        label="1."
+                        targetId={find.rankAtLocation.firstId}
+                        disabled={find.rankAtLocation.rank === 1}
+                        ariaLabel={t("firstAtLocation")}
+                      />
+                      <LocNavDivider />
+                      <LocCloverLink
+                        label={t("locNavPrev")}
+                        targetId={find.rankAtLocation.prevId}
+                        ariaLabel={t("prevAtLocation")}
+                      />
+                      <LocNavDivider />
+                      <LocCloverLink
+                        label={t("locNavNext")}
+                        targetId={find.rankAtLocation.nextId}
+                        ariaLabel={t("nextAtLocation")}
+                      />
+                      <LocNavDivider />
+                      <LocCloverLink
+                        label={t("locNavLast")}
+                        targetId={find.rankAtLocation.lastId}
+                        disabled={
+                          find.rankAtLocation.rank === find.rankAtLocation.total
+                        }
+                        ariaLabel={t("lastAtLocation")}
+                      />
+                    </nav>
+                  )}
+                </>
+              ) : (
+                <p className="text-center text-sm text-gray-600">
+                  {t("noLocation")}
+                </p>
+              )}
+            </>
           )}
         </div>
       </section>
@@ -678,6 +660,7 @@ function LocationMapsGallery({
   locationOffset,
   isAnonymized = false,
   locationId,
+  locationBadge = null,
   locale,
   t,
 }: {
@@ -702,6 +685,10 @@ function LocationMapsGallery({
    *  map and the deep-link would point to the wrong place) OR when
    *  the find has no location at all. */
   locationId: number | null;
+  /** Location number (e.g. "#00126") drawn as a bold overlay in the
+   *  map image's top-left corner. Null for anonymized finds (the
+   *  placeholder must not carry a real-looking id). */
+  locationBadge?: string | null;
   /** Used to format the distance suffix in the status banner. */
   locale: string;
   /** Server-side translator pre-bound to the `FindDetail` namespace.
@@ -761,6 +748,14 @@ function LocationMapsGallery({
               )}
               {!isAnonymized && status === "no_gps" && <NoGpsMarker t={t} />}
               {isAnonymized && <AnonymizedMapOverlay t={t} />}
+              {/* Location number — bold top-LEFT overlay on the map image. */}
+              {locationBadge && (
+                <div className="absolute left-2 top-2 z-10">
+                  <span className="rounded-md bg-white/95 px-2 py-1 text-sm font-bold text-gray-800 shadow-md ring-1 ring-black/5 backdrop-blur">
+                    {locationBadge}
+                  </span>
+                </div>
+              )}
               {/* Top-right deep-link chips mirror the per-row buttons
                   in /statistiky's "Top {N} lokalit" table — a quick
                   jump to the location detail page and to the focused
@@ -1058,74 +1053,43 @@ function KeyValue({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-/** Prev / next chip rendered under the rank line in the Lokalita
- *  panel. When `targetId` is null the chip stays in place but
- *  renders as a faded, non-interactive span — keeping both slots
- *  visible at the chain edges so the next/prev pair doesn't shift
- *  around between finds. */
-function LocationNavLink({
-  direction,
-  targetId,
-  label,
-}: {
-  direction: "prev" | "next";
-  targetId: number | null;
-  label: string;
-}) {
-  const Icon = direction === "prev" ? ChevronLeft : ChevronRight;
-  const baseCls =
-    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium transition";
-  if (targetId === null) {
-    return (
-      <span
-        aria-disabled
-        className={`${baseCls} cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400`}
-      >
-        {direction === "prev" && <Icon className="h-3.5 w-3.5" aria-hidden />}
-        {label}
-        {direction === "next" && <Icon className="h-3.5 w-3.5" aria-hidden />}
-      </span>
-    );
-  }
+/** Faded pipe divider between the per-location clover nav links. */
+function LocNavDivider() {
   return (
-    <Link
-      href={`/sbirka/${targetId}`}
-      className={`${baseCls} border-gray-200 bg-white text-brand-700 hover:border-brand-200 hover:shadow-sm`}
-    >
-      {direction === "prev" && <Icon className="h-3.5 w-3.5" aria-hidden />}
-      {label}
-      {direction === "next" && <Icon className="h-3.5 w-3.5" aria-hidden />}
-    </Link>
+    <span aria-hidden className="select-none text-gray-300">
+      |
+    </span>
   );
 }
 
-/** Chip rendering a "jump to first / last find at this location" link
- *  — just the rank number with a period (`1.`, `23.`). When the
- *  current find IS the first / last, the chip renders as a faded
- *  non-interactive span so the navigation row's button positions
- *  stay stable across finds. Sibling of `LocationNavLink`. */
-function LocationExtremeLink({
-  targetId,
+/** One quiet "{label} 🍀" link in the per-location find navigation —
+ *  same understated style as the top-bar clover links. Renders as a
+ *  faded, non-interactive span at the chain ends (`targetId === null`)
+ *  or when it points at the current find's own position (`disabled`),
+ *  so the row stays put across finds. */
+function LocCloverLink({
   label,
+  targetId,
+  disabled = false,
   ariaLabel,
-  isCurrent,
 }: {
-  targetId: number;
   label: string;
+  targetId: number | null;
+  disabled?: boolean;
   ariaLabel: string;
-  isCurrent: boolean;
 }) {
-  const baseCls =
-    "inline-flex items-center justify-center rounded-md border px-2 py-1.5 text-xs font-mono font-semibold tabular-nums transition";
-  if (isCurrent) {
+  const content = (
+    <>
+      {label} <span aria-hidden>🍀</span>
+    </>
+  );
+  if (disabled || targetId === null) {
     return (
       <span
         aria-disabled
-        aria-label={ariaLabel}
-        title={ariaLabel}
-        className={`${baseCls} cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400`}
+        className="inline-flex select-none items-center gap-1 whitespace-nowrap text-gray-300"
       >
-        {label}
+        {content}
       </span>
     );
   }
@@ -1134,9 +1098,9 @@ function LocationExtremeLink({
       href={`/sbirka/${targetId}`}
       aria-label={ariaLabel}
       title={ariaLabel}
-      className={`${baseCls} border-gray-200 bg-white text-brand-700 hover:border-brand-200 hover:shadow-sm`}
+      className="inline-flex items-center gap-1 whitespace-nowrap text-gray-500 transition hover:text-brand-700"
     >
-      {label}
+      {content}
     </Link>
   );
 }
