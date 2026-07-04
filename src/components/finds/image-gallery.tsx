@@ -129,7 +129,7 @@ export function ImageGallery({
       >
         {topBanner}
         <div
-          className={`relative flex items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100 ${
+          className={`relative flex items-center justify-center bg-gray-50 ${
             placeholderAspectRatio ? "" : "aspect-video"
           }`}
           style={

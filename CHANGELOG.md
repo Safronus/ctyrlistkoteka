@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Opravy — „Bez fotky", middleware, #666
+- **Nové public obrázky se 404-ovaly** (`clover-illustration.png` → 404): matcher
+  next-intl middleware měl **explicitní seznam** vyloučených souborů a nový
+  obrázek v něm nebyl → přesměroval se na `/cs/…` a spadl. Nahrazeno **obecným
+  vyloučením obrázkových přípon** (png/jpg/webp/gif/ico/svg/avif) — nové obrázky
+  už matcher nepotřebují.
+- **„Bez fotky"**: upřesněný text banneru a **pozadí placeholderu `bg-gray-50`**
+  místo zeleného gradientu.
+- **/sbirka seznam**: proklik na mapu (pin) má teď pozadí `bg-gray-50`.
+- **Speciální #666**: fakta lokality pod mapou byla šedá na skoro-černém pozadí
+  (nečitelná) — dostala světlou kartu jako mapa nad nimi.
+
 ### Admin — override poznámek nálezů pro web (CZ/EN)
 - Na `/admin/files/finds` má každý originál tlačítko **„pozn."**, které otevře
   dialog s **CZ + volitelnou EN** variantou poznámky. Uloží se do

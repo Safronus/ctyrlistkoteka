@@ -160,6 +160,12 @@ export const config = {
     // Without that rewrite, Next.js sees no route at the bare path and
     // returns 500 to every Link's prefetch — which broke the entire
     // sbírka grid after F1 moved pages into the [locale] segment.
-    "/((?!api|go|og|indexnow-key|_next/static|_next/image|favicon.ico|favicon.svg|clover.png|safronus.png|robots.txt|sitemap.xml).*)",
+    // Any path ending in a static-image extension is excluded generically
+    // (via the `\\.(png|jpe?g|…)$` group) so NEW public images don't need a
+    // matcher edit — the old per-file entries (clover.png, …) proved
+    // fragile: an unlisted `clover-illustration.png` got locale-rewritten to
+    // `/cs/clover-illustration.png` and 404'd. robots.txt / sitemap.xml stay
+    // explicit (not image extensions).
+    "/((?!api|go|og|indexnow-key|_next/static|_next/image|robots.txt|sitemap.xml|.*\\.(?:png|jpe?g|webp|gif|ico|svg|avif)$).*)",
   ],
 };

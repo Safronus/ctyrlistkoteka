@@ -498,9 +498,14 @@ export default async function FindDetailPage({ params }: PageProps) {
 
           {/* Below the map, constrained to the SAME width as the photo/map
             above so the facts' labels/values align with the map's left/
-            right edges (falls back to max-w-2xl when there's no photo). */}
+            right edges (falls back to max-w-2xl when there's no photo).
+            On the hellish #666 the whole detail sits on a near-black
+            gradient — the grey facts/nav would vanish, so they get a light
+            card to read against (the map above already is one). */}
           <div
-            className={`mx-auto w-full space-y-3 ${photoBox ? "" : "max-w-2xl"}`}
+            className={`mx-auto w-full space-y-3 ${photoBox ? "" : "max-w-2xl"} ${
+              hellish ? "rounded-xl bg-white/90 p-4" : ""
+            }`}
             style={
               photoBox
                 ? { width: photoBox.widthCss, maxWidth: "100%" }

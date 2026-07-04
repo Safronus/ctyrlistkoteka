@@ -386,7 +386,7 @@ function FindListRow({
       {showMapLink && (
         <Link
           href={`/mapa?find=${find.id}`}
-          className="flex shrink-0 items-center justify-center border-l border-gray-100 px-3 text-gray-400 transition hover:bg-brand-100 hover:text-brand-700 focus:bg-brand-100 focus:text-brand-700 focus:outline-none"
+          className="flex shrink-0 items-center justify-center border-l border-gray-100 bg-gray-50 px-3 text-gray-400 transition hover:bg-brand-100 hover:text-brand-700 focus:bg-brand-100 focus:text-brand-700 focus:outline-none"
           aria-label={tRow("showOnMap")}
           title={tRow("showOnMap")}
         >
