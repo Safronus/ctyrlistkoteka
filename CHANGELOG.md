@@ -9,7 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
-### Detail nálezu — navigace a šířka popisu
+### Detail nálezu — rámeček fotky, stavové bannery, anonymizace
+- **Fotka má rámeček jako lokační mapka** (`bordered` u `ImageGallery`).
+- **Stavové notice jako banner nad fotkou**: „Ztracený" (šedý, s duchem) a
+  „Anonymizovaný" (fialový, barvou jako mělo hlášení o anonymizaci) přesunuty
+  z hlavičky do banneru na horní hraně fotky — souměrně k poznámce dole
+  (`topBanner` u `ImageGallery`). Sjednocený vzhled.
+- **Anonymizované nálezy**: celá sekce „Lokalita" (nadpis + placeholder mapka
+  s otazníkem) se u nich už nezobrazuje; info o anonymizaci nese banner nad
+  fotkou. Navíc mají vlastní vizualizaci jako „Ztracený" — ale místo lístečků
+  stoupají malé fialové otazníčky (`AnonymizedOverlay`).
 - **„Zpět na sbírku" méně na očích**: na mobilu je teď jako kompaktní čip
   v horní liště (mezi hamburgerem a přepínači CS/EN, jen na detailu nálezu —
   `MainNav` to pozná z cesty), na desktopu zůstává vlevo v liště detailu, ale

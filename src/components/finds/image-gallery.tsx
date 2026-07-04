@@ -40,6 +40,8 @@ export function ImageGallery({
   voteSlot = null,
   statesSlot = null,
   note = null,
+  topBanner = null,
+  bordered = false,
   rotateLandscape = false,
 }: {
   image: PublicImage | null;
@@ -72,6 +74,12 @@ export function ImageGallery({
   /** Centered caption banner on the photo's bottom edge (the find note).
    *  Rendered on both the real photo and the placeholder. */
   note?: ReactNode;
+  /** Fully-styled banner strip drawn ABOVE the image (state / anonymized
+   *  / lost notices). The caller owns its colour + padding; the gallery
+   *  just places it at the top of the figure. */
+  topBanner?: ReactNode;
+  /** Draw a border around the whole figure (like the location map). */
+  bordered?: boolean;
   /** Rotate landscape originals 90° CW so they read as portrait and don't
    *  make the photo (and the location map matched to it) too wide. */
   rotateLandscape?: boolean;
@@ -86,6 +94,8 @@ export function ImageGallery({
   const freeButtonStack: "top" | "below-camera" =
     donationPhotos.length > 0 ? "below-camera" : "top";
 
+  const borderCls = bordered ? "border border-gray-200" : "";
+
   const noteBanner = note ? (
     <figcaption className="whitespace-pre-wrap border-t border-gray-200 bg-white/70 px-3 py-2 text-center text-sm text-gray-700">
       {note}
@@ -94,7 +104,8 @@ export function ImageGallery({
 
   if (!image) {
     return (
-      <figure className="mx-auto overflow-hidden rounded-xl">
+      <figure className={`mx-auto overflow-hidden rounded-xl ${borderCls}`}>
+        {topBanner}
         <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100">
           <span aria-hidden className="text-4xl opacity-40">
             🍀
@@ -153,9 +164,10 @@ export function ImageGallery({
 
   return (
     <figure
-      className="mx-auto overflow-hidden rounded-xl bg-gray-100"
+      className={`mx-auto overflow-hidden rounded-xl bg-gray-100 ${borderCls}`}
       style={disp ? { width: disp.widthCss, maxWidth: "100%" } : undefined}
     >
+      {topBanner}
       <div
         className="relative"
         style={

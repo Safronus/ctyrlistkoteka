@@ -9,6 +9,7 @@ import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { FindKeyNav } from "@/components/finds/find-key-nav";
 import { LostOverlay } from "@/components/finds/lost-overlay";
+import { AnonymizedOverlay } from "@/components/finds/anonymized-overlay";
 import { BackToSbirkaLink } from "@/components/finds/sbirka-back-link";
 import { StateBadges } from "@/components/finds/state-badges";
 import { VoteButton } from "@/components/finds/vote-button";
@@ -220,6 +221,20 @@ export default async function FindDetailPage({ params }: PageProps) {
   const statesSlot =
     find.states.length > 0 ? <StateBadges states={find.states} /> : null;
 
+  // Full-width banner strip ABOVE the photo carrying the state notice:
+  // anonymized (purple, matching the anonymization theme) or lost (grey,
+  // with the ghost). The find note sits as the mirror banner BELOW.
+  const photoTopBanner = find.isAnonymized ? (
+    <div className="border-b border-purple-200 bg-purple-50 px-3 py-2 text-center text-sm text-purple-900">
+      {t("anonymizedNotice")}
+    </div>
+  ) : isLost ? (
+    <div className="flex items-center justify-center gap-2 border-b border-stone-200 bg-stone-50 px-3 py-2 text-center text-sm font-medium text-stone-600">
+      <Ghost className="h-4 w-4 shrink-0 text-stone-400" aria-hidden />
+      {t("lostBanner")}
+    </div>
+  ) : null;
+
   const detail = (
     <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       {/* ← / → keyboard navigation to the neighbouring finds. */}
@@ -266,8 +281,9 @@ export default async function FindDetailPage({ params }: PageProps) {
       </nav>
 
       <header className="space-y-3">
-        {/* State badges moved onto the photo (bottom-left overlay); the
-            header now carries only the record/lost banners and the notes. */}
+        {/* State badges are a photo overlay; the anonymized/lost notices
+            are banners ABOVE the photo; the note is a banner BELOW it. The
+            header now carries only the celebratory record banner. */}
 
         {/* Czech-record banner — the milestone find for the largest CZ
             collection. Shown whenever the admin-assignable special-find
@@ -280,21 +296,6 @@ export default async function FindDetailPage({ params }: PageProps) {
             {t("recordBadge")}
           </div>
         )}
-
-        {/* Lost-find elegy banner — quiet stone tones + dashed border,
-            the textual half of the LOST treatment (muted photos and
-            the rising-clover overlay are rendered elsewhere). */}
-        {isLost && (
-          <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-2.5 text-center text-sm font-medium text-stone-600">
-            <Ghost className="h-5 w-5 shrink-0 text-stone-400" aria-hidden />
-            {t("lostBanner")}
-          </div>
-        )}
-
-        {/* The note moved onto the photo as a centered bottom-edge caption
-            banner (passed to ImageGallery below). Notes are nulled at the
-            query layer for anonymized AND donated finds (see hydrate() in
-            src/lib/queries/finds.ts), so that guard covers privacy. */}
       </header>
 
       {/* Time & position — frameless, centered. No heading (it's
@@ -333,215 +334,221 @@ export default async function FindDetailPage({ params }: PageProps) {
             voteSlot={voteSlot}
             statesSlot={statesSlot}
             note={find.notes}
+            topBanner={photoTopBanner}
+            bordered
             rotateLandscape
           />
         </div>
       </section>
-
-      {find.isAnonymized && (
-        <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
-          {t("anonymizedNotice")}
-        </p>
-      )}
 
       {/* Lokalita — frameless, stacked and centered like the meta block.
           A bigger centered "Lokalita" heading sits above the (centered)
           location map; the map carries the location number as a bold
           top-left overlay. The facts and the per-location find navigation
           sit BELOW the map, constrained to the map's width so labels line
-          up with its left edge and values with its right. */}
-      <section className="space-y-4">
-        <h2
-          className={`text-center text-lg font-semibold ${
-            hellish ? "text-red-100" : "text-gray-900"
-          }`}
-        >
-          {t("panelLocation")}
-        </h2>
+          up with its left edge and values with its right. HIDDEN entirely
+          for anonymized finds — the real location must not surface, so
+          there's no heading and no placeholder map (the anonymized notice
+          rides as the banner above the photo instead). */}
+      {!find.isAnonymized && (
+        <section className="space-y-4">
+          <h2
+            className={`text-center text-lg font-semibold ${
+              hellish ? "text-red-100" : "text-gray-900"
+            }`}
+          >
+            {t("panelLocation")}
+          </h2>
 
-        {find.locationMaps.length > 0 && (
-          <LocationMapsGallery
-            maps={find.locationMaps}
-            locationOffset={find.locationOffset}
-            isAnonymized={find.isAnonymized}
-            /* locationId is non-null only when the gallery actually
+          {find.locationMaps.length > 0 && (
+            <LocationMapsGallery
+              maps={find.locationMaps}
+              locationOffset={find.locationOffset}
+              isAnonymized={find.isAnonymized}
+              /* locationId is non-null only when the gallery actually
                represents the find's real location — anonymized finds
                render the placeholder and we don't deep-link to it. */
-            locationId={find.isAnonymized ? null : (find.location?.id ?? null)}
-            /* Location number overlaid bold on the map's top-left corner;
+              locationId={
+                find.isAnonymized ? null : (find.location?.id ?? null)
+              }
+              /* Location number overlaid bold on the map's top-left corner;
                hidden for anonymized finds (would be the #00001 placeholder). */
-            locationBadge={
-              !find.isAnonymized && find.location
-                ? formatLocationId(find.location.id)
-                : null
-            }
-            /* Match the map exactly to the find photo's displayed width so
+              locationBadge={
+                !find.isAnonymized && find.location
+                  ? formatLocationId(find.location.id)
+                  : null
+              }
+              /* Match the map exactly to the find photo's displayed width so
                the two line up (falls back to max-w-2xl when there's no
                photo to measure against). */
-            figureWidth={photoBox?.widthCss}
-            locale={locale}
-            t={t}
-          />
-        )}
+              figureWidth={photoBox?.widthCss}
+              locale={locale}
+              t={t}
+            />
+          )}
 
-        {/* Below the map, constrained to the SAME width as the photo/map
+          {/* Below the map, constrained to the SAME width as the photo/map
             above so the facts' labels/values align with the map's left/
             right edges (falls back to max-w-2xl when there's no photo). */}
-        <div
-          className={`mx-auto w-full space-y-3 ${photoBox ? "" : "max-w-2xl"}`}
-          style={
-            photoBox
-              ? { width: photoBox.widthCss, maxWidth: "100%" }
-              : undefined
-          }
-        >
-          {find.isAnonymized ? (
-            /* Anonymized finds get only the short notice — no location
+          <div
+            className={`mx-auto w-full space-y-3 ${photoBox ? "" : "max-w-2xl"}`}
+            style={
+              photoBox
+                ? { width: photoBox.widthCss, maxWidth: "100%" }
+                : undefined
+            }
+          >
+            {find.isAnonymized ? (
+              /* Anonymized finds get only the short notice — no location
                code, displayName, rank or nav (privacy placeholder or an
                outright leak). The placeholder map still renders above. */
-            <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
-              {t("anonymizedLocationNotice")}
-            </p>
-          ) : (
-            <>
-              {isFormerLocation(find.location?.code) && (
-                <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
-                  {t("formerLocationNotice")}
-                </p>
-              )}
-              {find.location ? (
-                <>
-                  {/* Neither the location code nor the description is
+              <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
+                {t("anonymizedLocationNotice")}
+              </p>
+            ) : (
+              <>
+                {isFormerLocation(find.location?.code) && (
+                  <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+                    {t("formerLocationNotice")}
+                  </p>
+                )}
+                {find.location ? (
+                  <>
+                    {/* Neither the location code nor the description is
                       repeated here — the code is the top-left map overlay
                       and the description sits as the caption under the map. */}
-                  <dl className="space-y-2">
-                    {areaDensity && (
-                      <>
-                        <KeyValue
-                          label={
-                            areaDensity.areaIsEstimate
-                              ? t("kvAreaEstimate")
-                              : t("kvArea")
-                          }
-                          value={
-                            <span>
-                              {areaDensity.areaIsEstimate ? "≈ " : ""}
-                              {formatAreaM2(areaDensity.effectiveAreaM2)}
-                              {areaDensity.areaIsEstimate && (
-                                <span className="ml-1 text-xs text-gray-500">
-                                  {t("kvAreaEstimateNote")}
-                                </span>
-                              )}
-                            </span>
-                          }
-                        />
-                        {areaDensity.densityPer100m2 !== null && (
+                    <dl className="space-y-2">
+                      {areaDensity && (
+                        <>
                           <KeyValue
-                            label={t("kvDensity")}
+                            label={
+                              areaDensity.areaIsEstimate
+                                ? t("kvAreaEstimate")
+                                : t("kvArea")
+                            }
                             value={
                               <span>
                                 {areaDensity.areaIsEstimate ? "≈ " : ""}
-                                {formatDensity(areaDensity.densityPer100m2)}
+                                {formatAreaM2(areaDensity.effectiveAreaM2)}
+                                {areaDensity.areaIsEstimate && (
+                                  <span className="ml-1 text-xs text-gray-500">
+                                    {t("kvAreaEstimateNote")}
+                                  </span>
+                                )}
                               </span>
                             }
                           />
-                        )}
-                      </>
-                    )}
-                    {locationRank && (
-                      <KeyValue
-                        label={t("kvLocationRank")}
-                        value={
-                          <span className="inline-flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
-                            <span>
-                              {t("locationRankValue", {
-                                rank: locationRank.rank,
-                                total: locationRank.total,
-                              })}
-                              <span className="ml-1 text-xs text-gray-500">
-                                {t("locationRankNote")}
+                          {areaDensity.densityPer100m2 !== null && (
+                            <KeyValue
+                              label={t("kvDensity")}
+                              value={
+                                <span>
+                                  {areaDensity.areaIsEstimate ? "≈ " : ""}
+                                  {formatDensity(areaDensity.densityPer100m2)}
+                                </span>
+                              }
+                            />
+                          )}
+                        </>
+                      )}
+                      {locationRank && (
+                        <KeyValue
+                          label={t("kvLocationRank")}
+                          value={
+                            <span className="inline-flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
+                              <span>
+                                {t("locationRankValue", {
+                                  rank: locationRank.rank,
+                                  total: locationRank.total,
+                                })}
+                                <span className="ml-1 text-xs text-gray-500">
+                                  {t("locationRankNote")}
+                                </span>
                               </span>
-                            </span>
-                            {/* Deep-links to /statistiky and force-opens +
+                              {/* Deep-links to /statistiky and force-opens +
                                 scrolls the "Top lokalit" section (anchor
                                 handled by CollapsibleSection#top-locations). */}
-                            <Link
-                              href="/statistiky#top-locations"
-                              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:text-brand-800 hover:shadow-sm"
-                            >
-                              <BarChart3 className="h-3.5 w-3.5" aria-hidden />
-                              {t("locationRankLink")}
-                            </Link>
-                          </span>
-                        }
-                      />
-                    )}
-                    {find.rankAtLocation && (
-                      <KeyValue
-                        label={t("kvOrderAtLocation")}
-                        value={t("orderAtLocationValue", {
-                          rank: find.rankAtLocation.rank,
-                          total: find.rankAtLocation.total,
-                        })}
-                      />
-                    )}
-                  </dl>
-                  {find.rankAtLocation && find.rankAtLocation.total > 1 && (
-                    /* Per-location find navigation in the same quiet
+                              <Link
+                                href="/statistiky#top-locations"
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:text-brand-800 hover:shadow-sm"
+                              >
+                                <BarChart3
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden
+                                />
+                                {t("locationRankLink")}
+                              </Link>
+                            </span>
+                          }
+                        />
+                      )}
+                      {find.rankAtLocation && (
+                        <KeyValue
+                          label={t("kvOrderAtLocation")}
+                          value={t("orderAtLocationValue", {
+                            rank: find.rankAtLocation.rank,
+                            total: find.rankAtLocation.total,
+                          })}
+                        />
+                      )}
+                    </dl>
+                    {find.rankAtLocation && find.rankAtLocation.total > 1 && (
+                      /* Per-location find navigation in the same quiet
                        clover-link style as the top bar. First + prev are
                        pinned to the LEFT edge of the section, next + last
                        to the RIGHT. The "last" chip shows the last find's
                        number (= total rank). Faded (non-interactive) at
                        the chain ends and for the current find's position. */
-                    <nav
-                      aria-label={t("navAriaLabel")}
-                      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pt-1 text-sm"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <LocCloverLink
-                          label="1."
-                          targetId={find.rankAtLocation.firstId}
-                          disabled={find.rankAtLocation.rank === 1}
-                          ariaLabel={t("firstAtLocation")}
-                        />
-                        <LocNavDivider />
-                        <LocCloverLink
-                          label={t("locNavPrev")}
-                          targetId={find.rankAtLocation.prevId}
-                          ariaLabel={t("prevAtLocation")}
-                        />
-                      </span>
-                      <span className="inline-flex items-center gap-2">
-                        <LocCloverLink
-                          label={t("locNavNext")}
-                          targetId={find.rankAtLocation.nextId}
-                          ariaLabel={t("nextAtLocation")}
-                        />
-                        <LocNavDivider />
-                        <LocCloverLink
-                          label={`${find.rankAtLocation.total.toLocaleString(
-                            locale === "en" ? "en-GB" : "cs-CZ",
-                          )}.`}
-                          targetId={find.rankAtLocation.lastId}
-                          disabled={
-                            find.rankAtLocation.rank ===
-                            find.rankAtLocation.total
-                          }
-                          ariaLabel={t("lastAtLocation")}
-                        />
-                      </span>
-                    </nav>
-                  )}
-                </>
-              ) : (
-                <p className="text-center text-sm text-gray-600">
-                  {t("noLocation")}
-                </p>
-              )}
-            </>
-          )}
-        </div>
-      </section>
+                      <nav
+                        aria-label={t("navAriaLabel")}
+                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pt-1 text-sm"
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <LocCloverLink
+                            label="1."
+                            targetId={find.rankAtLocation.firstId}
+                            disabled={find.rankAtLocation.rank === 1}
+                            ariaLabel={t("firstAtLocation")}
+                          />
+                          <LocNavDivider />
+                          <LocCloverLink
+                            label={t("locNavPrev")}
+                            targetId={find.rankAtLocation.prevId}
+                            ariaLabel={t("prevAtLocation")}
+                          />
+                        </span>
+                        <span className="inline-flex items-center gap-2">
+                          <LocCloverLink
+                            label={t("locNavNext")}
+                            targetId={find.rankAtLocation.nextId}
+                            ariaLabel={t("nextAtLocation")}
+                          />
+                          <LocNavDivider />
+                          <LocCloverLink
+                            label={`${find.rankAtLocation.total.toLocaleString(
+                              locale === "en" ? "en-GB" : "cs-CZ",
+                            )}.`}
+                            targetId={find.rankAtLocation.lastId}
+                            disabled={
+                              find.rankAtLocation.rank ===
+                              find.rankAtLocation.total
+                            }
+                            ariaLabel={t("lastAtLocation")}
+                          />
+                        </span>
+                      </nav>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-center text-sm text-gray-600">
+                    {t("noLocation")}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </section>
+      )}
     </article>
   );
 
@@ -578,10 +585,12 @@ export default async function FindDetailPage({ params }: PageProps) {
     <>
       {jsonLd && <JsonLd data={jsonLd} />}
       <DetailVibeOverlay effect={effect} />
-      {/* The lost elegy only owns the viewport when no config-assigned
-          effect is active — stacking two particle systems would read
-          as noise rather than mood. */}
+      {/* The lost elegy / anonymized question-marks only own the viewport
+          when no config-assigned effect is active — stacking two particle
+          systems would read as noise rather than mood. Lost takes
+          precedence if a find were somehow both. */}
       {isLost && !effect && <LostOverlay />}
+      {find.isAnonymized && !isLost && !effect && <AnonymizedOverlay />}
       {hellish ? (
         <div className="min-h-screen bg-gradient-to-br from-gray-950 via-red-950/85 to-black">
           {detail}
