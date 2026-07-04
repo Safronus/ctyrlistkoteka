@@ -803,6 +803,70 @@ export async function getLocationAreaDensity(
   return { effectiveAreaM2, areaIsEstimate, densityPer100m2 };
 }
 
+/**
+ * Rank of a single location in the public "Top lokalit" ordering (by
+ * find count), plus the total number of ranked locations. Mirrors the
+ * bucketing of `getStatsTopLocations` so the `rank` shown on a find's
+ * Lokalita panel matches the row the visitor sees at
+ * `/statistiky#top-locations`:
+ *   - anonymized locations (any anonymized map) are excluded;
+ *   - non-anonymized sub-parts fold into their parent bucket;
+ *   - order is `count DESC, id ASC` (competition position via
+ *     ROW_NUMBER, so it's the exact list index).
+ * `count` is the bucket's combined find total. Returns null when the
+ * location is anonymized / folded away / has no ranked bucket.
+ */
+export async function getLocationFindCountRank(
+  locationId: number,
+): Promise<{ rank: number; total: number; count: number } | null> {
+  const rows = await prisma.$queryRaw<
+    Array<{ rank: number; total: number; count: number }>
+  >`
+    WITH anon AS (
+      SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
+    ),
+    bucket AS (
+      SELECT f.id AS find_id,
+             CASE
+               WHEN l.parent_id IS NOT NULL
+                    AND l.parent_id NOT IN (SELECT location_id FROM anon)
+               THEN l.parent_id
+               ELSE f.location_id
+             END AS bucket_id
+      FROM finds f
+      LEFT JOIN locations l ON l.id = f.location_id
+    ),
+    ranked AS (
+      SELECT l.id,
+             COUNT(b.find_id) AS count,
+             ROW_NUMBER() OVER (ORDER BY COUNT(b.find_id) DESC, l.id) AS rn,
+             COUNT(*) OVER () AS total
+      FROM locations l
+      LEFT JOIN bucket b ON b.bucket_id = l.id
+      WHERE l.id NOT IN (SELECT location_id FROM anon)
+        AND NOT (
+          l.parent_id IS NOT NULL
+          AND l.parent_id NOT IN (SELECT location_id FROM anon)
+        )
+      GROUP BY l.id
+    )
+    SELECT rn::int AS rank, total::int AS total, count::int AS count
+    FROM ranked
+    WHERE id = (
+      SELECT CASE
+               WHEN l.parent_id IS NOT NULL
+                    AND l.parent_id NOT IN (SELECT location_id FROM anon)
+               THEN l.parent_id
+               ELSE l.id
+             END
+      FROM locations l WHERE l.id = ${locationId}
+    )
+  `;
+  const r = rows[0];
+  if (!r) return null;
+  return { rank: Number(r.rank), total: Number(r.total), count: Number(r.count) };
+}
+
 /** Narrows the Prisma `Json` value for `location_maps.image_bounds`
  *  to the `[[swLat, swLng], [neLat, neLng]]` shape sync.ts writes.
  *  Returns null on anything unexpected — the overlay then gracefully

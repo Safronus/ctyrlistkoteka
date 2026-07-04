@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
+  BarChart3,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -40,7 +41,10 @@ import {
   getFindById,
   type PublicLocationMap,
 } from "@/lib/queries/finds";
-import { getLocationAreaDensity } from "@/lib/queries/locations";
+import {
+  getLocationAreaDensity,
+  getLocationFindCountRank,
+} from "@/lib/queries/locations";
 import {
   computeFingerprint,
   getFindVoteCount,
@@ -127,13 +131,17 @@ export default async function FindDetailPage({ params }: PageProps) {
   ]);
   if (!find) notFound();
 
-  // Location area + find density for the "Lokalita" panel. Skipped for
+  // Location area + find density and the location's rank in the public
+  // "Top lokalit" ordering, both for the "Lokalita" panel. Skipped for
   // anonymized finds (the real location is hidden) and finds with no
   // location. Polygon-free spots come back flagged as an estimate.
-  const areaDensity =
+  const [areaDensity, locationRank] =
     !find.isAnonymized && find.location
-      ? await getLocationAreaDensity(find.location.id)
-      : null;
+      ? await Promise.all([
+          getLocationAreaDensity(find.location.id),
+          getLocationFindCountRank(find.location.id),
+        ])
+      : [null, null];
 
   // Each find has at most one main photo (ORIGINAL) and at most one crop
   // (CROP). If imports leave duplicates behind, we still pick a single
@@ -386,6 +394,7 @@ export default async function FindDetailPage({ params }: PageProps) {
 
       <Panel
         title={t("panelLocation")}
+        centerHeader
         rightSlot={
           /* Hide the location-id chip for anonymized finds — the
              id would be the privacy placeholder (#00001) and
@@ -398,12 +407,14 @@ export default async function FindDetailPage({ params }: PageProps) {
           )
         }
       >
-        {/* Facts + prev/next nav in a narrow LEFT third (values sit close to
-            their labels), the location map filling the RIGHT two-thirds.
+        {/* Facts + prev/next nav fill the LEFT (flex-1), the location map is
+            pinned to the RIGHT at its natural width (no centering gap, no
+            empty strip). The left column is exactly "panel minus map", so
+            values sit close to their labels and the nav row fits on one line.
             Collapses to a single stacked column on mobile (facts → nav →
             map). */}
-        <div className="grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-3">
-          <div className="space-y-2 self-start">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="min-w-0 flex-1 space-y-2">
             {find.isAnonymized ? (
               /* Anonymized finds get only the short notice — no location
                  code, displayName, rank or nav (privacy placeholder or an
@@ -457,6 +468,34 @@ export default async function FindDetailPage({ params }: PageProps) {
                           />
                         )}
                       </>
+                    )}
+                    {locationRank && (
+                      <KeyValue
+                        label={t("kvLocationRank")}
+                        value={
+                          <span className="inline-flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
+                            <span>
+                              {t("locationRankValue", {
+                                rank: locationRank.rank,
+                                total: locationRank.total,
+                              })}
+                              <span className="ml-1 text-xs text-gray-500">
+                                {t("locationRankNote")}
+                              </span>
+                            </span>
+                            {/* Deep-links to /statistiky and force-opens +
+                                scrolls the "Top lokalit" section (anchor
+                                handled by CollapsibleSection#top-locations). */}
+                            <Link
+                              href="/statistiky#top-locations"
+                              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:text-brand-800 hover:shadow-sm"
+                            >
+                              <BarChart3 className="h-3.5 w-3.5" aria-hidden />
+                              {t("locationRankLink")}
+                            </Link>
+                          </span>
+                        }
+                      />
                     )}
                     {find.rankAtLocation && (
                       <KeyValue
@@ -517,7 +556,7 @@ export default async function FindDetailPage({ params }: PageProps) {
           </div>
 
           {find.locationMaps.length > 0 && (
-            <div className="self-start lg:col-span-2">
+            <div className="w-full lg:w-[40rem] lg:shrink-0">
               <LocationMapsGallery
                 maps={find.locationMaps}
                 locationOffset={find.locationOffset}
@@ -976,15 +1015,26 @@ function FindLocationMarker({
 function Panel({
   title,
   rightSlot,
+  centerHeader = false,
   children,
 }: {
   title: string;
   rightSlot?: React.ReactNode;
+  /** When true the title + rightSlot are grouped and centered as a
+   *  standalone header row above the body, instead of the default
+   *  spread-apart (title left, slot right) layout. */
+  centerHeader?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5">
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div
+        className={`mb-3 flex gap-3 ${
+          centerHeader
+            ? "items-center justify-center"
+            : "items-baseline justify-between"
+        }`}
+      >
         <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
         {rightSlot}
       </div>

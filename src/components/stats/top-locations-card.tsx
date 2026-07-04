@@ -53,6 +53,7 @@ export function TopLocationsCard({
   return (
     <CollapsibleSection
       storageKey="topLocations"
+      id="top-locations"
       title={
         activeMode === "count"
           ? t("topLocationsHeading", { count: byCount.length })

@@ -40,16 +40,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   navigace → mapa), jako dřív.
 - **Popis lokality už není 2×**: vyhozen z horní tabulky (dlouhý text), zůstává
   jen jako popisek pod mapou.
-- **Poměr 1/3 · 2/3**: popisná část zúžena na levou třetinu (`lg:grid-cols-3`,
-  mapa `col-span-2`) — hodnoty tím sedí blíž svým labelům, mapa dostala víc
-  místa.
+- **Mapa pinnutá doprava, popis vyplní zbytek**: místo gridu s vycentrovanou
+  mapou (mezera vlevo i vpravo) teď flex — mapa má pevnou šířku u pravého kraje
+  (`lg:w-[40rem]`), popisný sloupec je přesně „panel minus mapa" (`flex-1`).
+  Žádná zbytečná mezera a navigační tlačítka se vejdou na jeden řádek.
 - **Kód lokality z tabulky pryč**: je už „zapečený" do watermarku vpravo dole
   v mapce, tak se nad ní neopakuje.
 - **Navigace rozdělená na dvě strany**: `1.` + „Předchozí na lokalitě" pinnuté
   **vlevo**, „Další na lokalitě" + `poslední` **vpravo** (`ml-auto` drží pravou
   dvojici u kraje i po zalomení v úzkém sloupci).
-- **Nadpisy panelů centrované s číslem vedle**: hlavička `Panel`u zarovnaná
-  vertikálně na střed (`items-center`) — malé `#00126` teď sedí proti nadpisu.
+- **Nadpis „Lokalita" + `#id` centrovaný**: samostatný řádek nad sloupci,
+  nadpis a číslo seskupené na střed (`Panel` dostal prop `centerHeader`; ostatní
+  panely zůstaly roztažené jako dřív).
+- **Nový řádek „Pořadí lokality"**: za hustotou nálezů — kolikátá je lokalita
+  v žebříčku podle počtu nálezů (`getLocationFindCountRank`, stejný bucketing
+  jako veřejný „Top lokalit", takže číslo sedí s /statistiky) + tlačítko, které
+  skočí na `/statistiky#top-locations` a rozbalí/zaměří sekci „Top 10 lokalit"
+  (sekce dostala kotvu `id="top-locations"`).
 
 ### Homepage — kartička „Zajímavosti"
 - **„Další zajímavost" skočí na kartu**: tlačítko v dlaždici Zajímavostí je pod
