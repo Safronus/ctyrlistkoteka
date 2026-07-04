@@ -153,11 +153,13 @@ export default async function FindDetailPage({ params }: PageProps) {
     : (find.images.find((i) => i.imageType === ImageType.CROP) ?? null);
 
   // Displayed photo geometry (height-capped, landscape rotated to portrait).
-  // The location map below is widened to `photoBox.widthCss` so the two are
-  // exactly the same width — the map follows the photo, not vice versa.
-  const photoBox = photoDisplay(mainImage?.width, mainImage?.height, {
-    rotate: true,
-  });
+  // The location map + facts below are widened to `photoBox.widthCss` so
+  // they line up. For NO_PHOTO finds there's no real image, so we fall back
+  // to a default 3:4 portrait box — the placeholder then occupies the same
+  // area a real photo would, and the map still matches it.
+  const photoBox =
+    photoDisplay(mainImage?.width, mainImage?.height, { rotate: true }) ??
+    photoDisplay(900, 1200, { rotate: false })!;
 
   // Special atmospheric effect for this find (record / heavenly /
   // hellish), resolved from the admin-assignable config (defaults seed
@@ -221,39 +223,93 @@ export default async function FindDetailPage({ params }: PageProps) {
   const statesSlot =
     find.states.length > 0 ? <StateBadges states={find.states} /> : null;
 
-  // Full-width banner strip ABOVE the photo carrying the state notice:
-  // anonymized (purple, matching the anonymization theme) or lost (grey,
-  // with the ghost). The find note sits as the mirror banner BELOW.
-  const photoTopBanner = find.isAnonymized ? (
-    <div className="border-b border-purple-200 bg-purple-50 px-3 py-2 text-center text-sm text-purple-900">
-      {t("anonymizedNotice")}
-    </div>
-  ) : isLost ? (
-    <div className="flex items-center justify-center gap-2 border-b border-stone-200 bg-stone-50 px-3 py-2 text-center text-sm font-medium text-stone-600">
-      <Ghost className="h-4 w-4 shrink-0 text-stone-400" aria-hidden />
-      {t("lostBanner")}
-    </div>
-  ) : null;
+  // Full-width explanatory banners stacked ABOVE the photo, one per
+  // relevant state (a find can carry several — e.g. Gigant + Darovaný).
+  // Each uses its state's tone. The find note is the mirror banner BELOW.
+  const STATE_BANNERS: ReadonlyArray<{
+    state: FindState;
+    text: string;
+    cls: string;
+    icon?: React.ReactNode;
+  }> = [
+    {
+      state: FindState.LOST,
+      text: t("lostBanner"),
+      cls: "border-stone-200 bg-stone-50 text-stone-600",
+      icon: <Ghost className="h-4 w-4 shrink-0 text-stone-400" aria-hidden />,
+    },
+    {
+      state: FindState.ANONYMIZED,
+      text: t("anonymizedNotice"),
+      cls: "border-purple-200 bg-purple-50 text-purple-900",
+    },
+    {
+      state: FindState.DONATED,
+      text: t("stateBannerDonated"),
+      cls: "border-amber-200 bg-amber-50 text-amber-900",
+    },
+    {
+      state: FindState.GIGANT,
+      text: t("stateBannerGigant"),
+      cls: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    },
+    {
+      state: FindState.NO_GPS,
+      text: t("stateBannerNoGps"),
+      cls: "border-yellow-200 bg-yellow-50 text-yellow-800",
+    },
+    {
+      state: FindState.NO_PHOTO,
+      text: t("stateBannerNoPhoto"),
+      cls: "border-slate-200 bg-slate-50 text-slate-700",
+    },
+  ];
+  const activeBanners = STATE_BANNERS.filter((b) =>
+    find.states.includes(b.state),
+  );
+  const photoTopBanner =
+    activeBanners.length > 0 ? (
+      <>
+        {activeBanners.map((b) => (
+          <div
+            key={b.state}
+            className={`flex items-center justify-center gap-2 border-b px-3 py-2 text-center text-sm ${b.cls}`}
+          >
+            {b.icon}
+            <span>{b.text}</span>
+          </div>
+        ))}
+      </>
+    ) : null;
 
   const detail = (
     <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       {/* ← / → keyboard navigation to the neighbouring finds. */}
       <FindKeyNav prevId={adjacent.prevId} nextId={adjacent.nextId} />
-      {/* Bar: "Zpět na sbírku" on the left, and the find title —
-          "🍀 #id" — centered with the prev/next find links flanking it
-          (prev left, next right). On desktop the title group is centered
-          across the whole bar via a 1fr/auto/1fr grid; on mobile it drops
-          to its own second row (it won't fit beside the back link). */}
+      {/* Bar: the find title — "🍀 #id" — centered with the prev/next
+          find links flanking it (prev left, next right). On desktop a
+          subtle ← back icon is pinned to the LEFT EDGE OF THE PHOTO (the
+          centered photo-width column) rather than floating at the far page
+          edge. On phones the back lives in the app bar instead. */}
       <nav
         aria-label={t("navAriaLabel")}
-        className={`flex flex-col gap-3 text-sm sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center ${
+        className={`relative flex flex-col gap-3 text-sm ${
           hellish ? "text-red-300/80" : "text-gray-500"
         }`}
       >
-        {/* Desktop: a subtle ← icon at the far left. On phones the back
-            action lives in the app bar instead, so this is hidden. */}
-        <div className="hidden sm:block sm:justify-self-start">
-          <BackToSbirkaLink variant="icon" />
+        {/* Desktop back — an overlay layer the width of the whole bar, with
+            the ← anchored to the left edge of a centered photo-width box.
+            pointer-events pass through everywhere except the link, so the
+            centered title/prev/next behind stay clickable. */}
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 hidden -translate-y-1/2 sm:block">
+          <div
+            className="mx-auto"
+            style={{ width: photoBox.widthCss, maxWidth: "100%" }}
+          >
+            <span className="pointer-events-auto inline-flex">
+              <BackToSbirkaLink variant="icon" />
+            </span>
+          </div>
         </div>
         <div className="flex items-center justify-center gap-3">
           <CloverNavLink
@@ -277,7 +333,6 @@ export default async function FindDetailPage({ params }: PageProps) {
             t={t}
           />
         </div>
-        <div className="hidden sm:block" aria-hidden />
       </nav>
 
       <header className="space-y-3">
@@ -321,6 +376,29 @@ export default async function FindDetailPage({ params }: PageProps) {
             />
           </div>
         )}
+        {/* NO_GPS: the photo exists but carries no EXIF position — show the
+            GPS row with all-question-mark placeholders so it's clear the
+            coordinates could be here, they're just missing. */}
+        {!find.isAnonymized &&
+          !find.coordinates &&
+          find.states.includes(FindState.NO_GPS) && (
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <span
+                className={`text-xs font-medium uppercase tracking-wide ${
+                  hellish ? "text-red-300/80" : "text-gray-500"
+                }`}
+              >
+                GPS
+              </span>
+              <span
+                className={`font-mono ${
+                  hellish ? "text-red-200/70" : "text-gray-400"
+                }`}
+              >
+                {t("gpsUnknownValue")}
+              </span>
+            </div>
+          )}
         <div className="pt-2">
           <ImageGallery
             image={mainImage}
@@ -337,6 +415,8 @@ export default async function FindDetailPage({ params }: PageProps) {
             topBanner={photoTopBanner}
             bordered
             rotateLandscape
+            placeholderWidthCss={photoBox.widthCss}
+            placeholderAspectRatio={photoBox.aspectRatio}
           />
         </div>
       </section>

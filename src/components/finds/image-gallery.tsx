@@ -43,6 +43,8 @@ export function ImageGallery({
   topBanner = null,
   bordered = false,
   rotateLandscape = false,
+  placeholderWidthCss,
+  placeholderAspectRatio,
 }: {
   image: PublicImage | null;
   cropImage: PublicImage | null;
@@ -83,6 +85,11 @@ export function ImageGallery({
   /** Rotate landscape originals 90° CW so they read as portrait and don't
    *  make the photo (and the location map matched to it) too wide. */
   rotateLandscape?: boolean;
+  /** For the NO_PHOTO placeholder: the width + aspect a real photo would
+   *  have occupied, so the placeholder fills the same area (and the map
+   *  below still lines up). Defaults to a 16:9 box when omitted. */
+  placeholderWidthCss?: string;
+  placeholderAspectRatio?: string;
 }) {
   const t = useTranslations("ImageGallery");
   const tCommon = useTranslations("Common");
@@ -104,12 +111,34 @@ export function ImageGallery({
 
   if (!image) {
     return (
-      <figure className={`mx-auto overflow-hidden rounded-xl ${borderCls}`}>
+      <figure
+        className={`mx-auto overflow-hidden rounded-xl ${borderCls}`}
+        style={
+          placeholderWidthCss
+            ? { width: placeholderWidthCss, maxWidth: "100%" }
+            : undefined
+        }
+      >
         {topBanner}
-        <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100">
-          <span aria-hidden className="text-4xl opacity-40">
-            🍀
-          </span>
+        <div
+          className={`relative flex items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100 ${
+            placeholderAspectRatio ? "" : "aspect-video"
+          }`}
+          style={
+            placeholderAspectRatio
+              ? { aspectRatio: placeholderAspectRatio }
+              : undefined
+          }
+        >
+          {/* High-res brand clover, greyscaled — "physically here, just no
+              photo". Nginx serves the static asset (no Next optimizer). */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/clover.png"
+            alt=""
+            aria-hidden
+            className="h-2/5 max-h-40 w-auto opacity-50 grayscale"
+          />
           <span className="sr-only">{tCommon("noPhoto")}</span>
           {mapSlot && (
             <div className="absolute left-3 top-3 z-10">{mapSlot}</div>

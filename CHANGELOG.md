@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Detail nálezu — stavové bannery, „Bez fotky" a „Bez GPS", back k okraji
+- **Back ikona zarovnaná k levému okraji fotky** (desktop): už neplave u kraje
+  stránky, ale sedí na levé hraně vycentrovaného sloupce fotky (přes overlay
+  vrstvu, klikací zůstává jen odkaz).
+- **Vysvětlující bannery nad fotkou pro další stavy** (stackují se, každý svou
+  barvou): **Darovaný** (amber), **Gigant** (emerald), **Bez GPS** (yellow),
+  **Bez fotky** (slate) — vedle už existujících Ztracený (šedý) a Anonymizovaný
+  (fialový).
+- **„Bez fotky"**: placeholder má teď stejnou plochu jako reálná fotka (default
+  3:4 portrait, mapa i popis se tomu přizpůsobí) a místo emoji je v něm
+  **černobílý vysoký clover** (`/clover.png` grayscale) na gradientu.
+- **„Bez GPS"**: pod datem se zobrazí GPS řádek, ale se samými otazníky
+  (`??°??′??″N …`) — je vidět, že souřadnice by tu mohly být, jen chybí.
+
 ### Detail nálezu — rámeček fotky, stavové bannery, anonymizace
 - **Fotka má rámeček jako lokační mapka** (`bordered` u `ImageGallery`).
 - **Stavové notice jako banner nad fotkou**: „Ztracený" (šedý, s duchem) a
