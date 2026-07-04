@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import type { PublicImage } from "@/lib/queries/finds";
@@ -29,6 +29,8 @@ export function ImageGallery({
   donationPhotos = [],
   freePhotos = [],
   muted = false,
+  mapSlot = null,
+  voteSlot = null,
 }: {
   image: PublicImage | null;
   cropImage: PublicImage | null;
@@ -47,6 +49,13 @@ export function ImageGallery({
    *  the <img> elements only — putting it on the wrapper would create
    *  a containing block and trap the fixed-position photo modals. */
   muted?: boolean;
+  /** Overlay drawn in the photo's top-LEFT corner (the "show on map"
+   *  pin). Rendered on both the real photo and the no-photo placeholder
+   *  when provided. */
+  mapSlot?: ReactNode;
+  /** Overlay drawn in the photo's top-RIGHT corner, to the left of the
+   *  crop magnifier (the vote button). Only shown on the real photo. */
+  voteSlot?: ReactNode;
 }) {
   const t = useTranslations("ImageGallery");
   const tCommon = useTranslations("Common");
@@ -65,15 +74,13 @@ export function ImageGallery({
           🍀
         </span>
         <span className="sr-only">{tCommon("noPhoto")}</span>
+        {mapSlot && <div className="absolute left-3 top-3 z-10">{mapSlot}</div>}
         {/* No main photo doesn't preclude attached galleries (e.g.
             NO_PHOTO state but the recipient still got a card, or the
             author shot the spot itself). Both buttons still mount so
             the visitor can browse what's there. */}
         {donationPhotos.length > 0 && findId !== undefined && (
-          <DonationPhotosButton
-            findId={findId}
-            photos={donationPhotos}
-          />
+          <DonationPhotosButton findId={findId} photos={donationPhotos} />
         )}
         {freePhotos.length > 0 && findId !== undefined && (
           <FreePhotosButton
@@ -104,31 +111,41 @@ export function ImageGallery({
           showCrop && cropImage ? "opacity-0" : "opacity-100"
         } ${muted ? "grayscale sepia-[0.12]" : ""}`}
       />
+      {/* Show-on-map pin — top-LEFT overlay. */}
+      {mapSlot && <div className="absolute left-3 top-3 z-10">{mapSlot}</div>}
       {cropImage && (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={cropImage.webPath}
-            alt={t("cropAlt", { base: altBase })}
-            aria-hidden={!showCrop}
-            className={`pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-150 ${
-              showCrop ? "opacity-100" : "opacity-0"
-            } ${muted ? "grayscale sepia-[0.12]" : ""}`}
-          />
-          <button
-            type="button"
-            onMouseEnter={() => setShowCrop(true)}
-            onMouseLeave={() => setShowCrop(false)}
-            onFocus={() => setShowCrop(true)}
-            onBlur={() => setShowCrop(false)}
-            aria-label={t("showCrop")}
-            aria-pressed={showCrop}
-            title={t("showCrop")}
-            className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
-          >
-            <Search className="h-5 w-5" />
-          </button>
-        </>
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={cropImage.webPath}
+          alt={t("cropAlt", { base: altBase })}
+          aria-hidden={!showCrop}
+          className={`pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-150 ${
+            showCrop ? "opacity-100" : "opacity-0"
+          } ${muted ? "grayscale sepia-[0.12]" : ""}`}
+        />
+      )}
+      {/* Top-RIGHT control cluster: the vote button sits to the LEFT of
+          the crop magnifier, both the same height. Either can be absent
+          (no photo-vote surface / no crop) and the row still lines up. */}
+      {(voteSlot || cropImage) && (
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+          {voteSlot}
+          {cropImage && (
+            <button
+              type="button"
+              onMouseEnter={() => setShowCrop(true)}
+              onMouseLeave={() => setShowCrop(false)}
+              onFocus={() => setShowCrop(true)}
+              onBlur={() => setShowCrop(false)}
+              aria-label={t("showCrop")}
+              aria-pressed={showCrop}
+              title={t("showCrop")}
+              className="rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       )}
       {/* Camera button — donation-photo modal. Stacked under the lupa
           (top-16) so the two affordances read as a vertical control

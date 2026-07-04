@@ -9,6 +9,24 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Detail nálezu — hlavička, „Čas a poloha" a fotka
+- **Titulek přesunut do lišty „Zpět na sbírku"**: z „Nález #123" je teď
+  „🍀 #123", vycentrovaný v horní liště. Po stranách titulku jsou tiché
+  navigační odkazy na sousední nálezy — vlevo předchozí („🍀 #122"), vpravo
+  další („🍀 #124"); na krajích sbírky degradují na vybledlý lísteček. Už to
+  nejsou orámovaná tlačítka, ale prosté odkazy. Na mobilu titulek s navigací
+  spadne na druhý řádek pod „Zpět na sbírku". Přístupný název `<h1>` zůstává
+  „Nález #123" (přes `aria-label`).
+- **Sekce „Čas a poloha" bez rámu, vycentrovaná**: nadpis na střed, datum a čas
+  bez labelu („pátek 3. července 2026 v 09:00:50") a GPS na střed s přepínačem
+  formátu za nimi. Řádky „Odchylka od lokační mapy" (je jako banner nad lokační
+  mapkou) a „Vzdálenost od mapy #00001" (zbytečná) odstraněny — a s nimi i rám
+  sekce.
+- **Ovládání překryté přes fotku**: „Zobrazit na mapě" je teď kulatá PIN ikonka
+  v levém horním rohu fotky; hlasovací tlačítko (palec/lísteček) je v pravém
+  horním rohu vedle lupy pro ořez, stejně vysoké jako lupa (nový `variant`
+  `overlay` u `VoteButton`).
+
 ### Admin / anonymizace
 - **Anonymizace lokality se plně propíše do nálezů**: dřív šlo přes admin označit
   mapu lokality jako anonymizovanou, ale přidružené nálezy zůstaly veřejné (jen

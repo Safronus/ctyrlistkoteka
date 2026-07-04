@@ -26,7 +26,6 @@ import {
   formatDistance,
   formatLocationId,
   locationDetailHref,
-  locationOffsetToneClass,
 } from "@/lib/format";
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { effectForFind } from "@/lib/specialFinds";
@@ -121,7 +120,6 @@ export async function generateMetadata({
 export default async function FindDetailPage({ params }: PageProps) {
   const { id, locale } = await params;
   const t = await getTranslations("FindDetail");
-  const tOffset = await getTranslations("LocationOffset");
   const tNav = await getTranslations("Nav");
   const numId = Number(id);
   if (!Number.isInteger(numId) || numId <= 0) notFound();
@@ -194,110 +192,82 @@ export default async function FindDetailPage({ params }: PageProps) {
     voteCount = await getFindVoteCount(find.id);
   }
 
-  // Composite "GPS offset" label for the meta panel: outside every
-  // location-map bbox → distance to the nearest map edge; otherwise the
-  // AOI polygon-edge / inside / centre wording. Mirrors the /sbirka rows
-  // (this used to live inline in the header meta row). Null when the
-  // find is anonymized or has no usable offset.
-  let offsetInfo: { label: string; title: string; toneClass: string } | null =
-    null;
-  if (!find.isAnonymized && find.locationOffset) {
-    const offset = find.locationOffset;
-    const outsideMap =
-      !offset.withinMap && offset.metersOutsideMap !== null
-        ? offset.metersOutsideMap
-        : null;
-    const label =
-      outsideMap !== null
-        ? tOffset("outsideMap", {
-            distance: formatDistance(outsideMap, locale),
-          })
-        : offset.mode === "polygon"
-          ? offset.inside
-            ? tOffset("inside")
-            : tOffset("polygonEdge", {
-                distance: formatDistance(offset.meters, locale),
-              })
-          : tOffset("mapCenter", {
-              distance: formatDistance(offset.meters, locale),
-            });
-    const title =
-      outsideMap !== null
-        ? tOffset("outsideMapTitle")
-        : offset.mode === "polygon"
-          ? t("offsetTitlePolygon")
-          : t("offsetTitleCenter");
-    offsetInfo = { label, title, toneClass: locationOffsetToneClass(offset) };
-  }
+  // Overlay affordances drawn on top of the find photo (inside
+  // ImageGallery): a round "show on map" pin in the top-LEFT corner and
+  // the vote button top-RIGHT, next to the crop magnifier. Built here so
+  // the gallery stays free of find-detail specifics; passed down as
+  // ready-made nodes. Both follow the same visibility rules they had in
+  // the header (map needs public GPS, vote needs a photo).
+  const mapSlot = find.coordinates ? (
+    <Link
+      href={`/mapa?find=${find.id}`}
+      aria-label={t("showOnMap")}
+      title={t("showOnMap")}
+      className="rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+    >
+      <MapPin className="h-5 w-5" aria-hidden />
+    </Link>
+  ) : null;
+  const voteSlot = !isNoPhoto ? (
+    <VoteButton
+      findId={find.id}
+      initialVoted={voted}
+      initialCount={voteCount}
+      variant="overlay"
+    />
+  ) : null;
 
   const detail = (
     <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+      {/* Bar: "Zpět na sbírku" on the left, and the find title —
+          "🍀 #id" — centered with the prev/next find links flanking it
+          (prev left, next right). On desktop the title group is centered
+          across the whole bar via a 1fr/auto/1fr grid; on mobile it drops
+          to its own second row (it won't fit beside the back link). */}
       <nav
         aria-label={t("navAriaLabel")}
-        className={`flex flex-wrap items-center justify-between gap-3 text-sm ${
+        className={`flex flex-col gap-3 text-sm sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center ${
           hellish ? "text-red-300/80" : "text-gray-500"
         }`}
       >
-        <BackToSbirkaLink />
-        <div className="flex items-center gap-3">
-          <AdjacentLink
+        <div className="sm:justify-self-start">
+          <BackToSbirkaLink />
+        </div>
+        <div className="flex items-center justify-center gap-3">
+          <CloverNavLink
             direction="prev"
             id={adjacent.prevId}
             hellish={hellish}
             t={t}
           />
-          <AdjacentLink
+          <h1
+            aria-label={t("h1", { id: find.id })}
+            className={`whitespace-nowrap text-2xl font-bold ${
+              hellish ? "text-red-100" : "text-gray-900"
+            }`}
+          >
+            <span aria-hidden>🍀 #{find.id}</span>
+          </h1>
+          <CloverNavLink
             direction="next"
             id={adjacent.nextId}
             hellish={hellish}
             t={t}
           />
         </div>
+        <div className="hidden sm:block" aria-hidden />
       </nav>
 
       <header className="space-y-3">
-        {/* Title row: ID on the left, state badges (Darovaný, Anonymizovaný,
-            …) flush right. Multiple states stack here when a find carries
-            more than one — e.g. anonymized + donated. */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <h1
-            className={`text-3xl font-bold ${
-              hellish ? "text-red-100" : "text-gray-900"
-            }`}
-          >
-            {t("h1", { id: find.id })}
-          </h1>
-          <div className="flex flex-wrap items-center gap-3">
-            {find.states.length > 0 && <StateBadges states={find.states} />}
-            {/* "Zobrazit na mapě" sits up here next to the title, AFTER
-             *  the state badges — deep-links to /mapa?find=N (highlight
-             *  + auto-fit on the map). Shown only for finds with public
-             *  GPS; anonymized finds have no coordinates so the chip is
-             *  hidden for them. */}
-            {find.coordinates && (
-              <Link
-                href={`/mapa?find=${find.id}`}
-                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
-              >
-                <MapPin className="h-3.5 w-3.5" aria-hidden />
-                <span>{t("showOnMap")}</span>
-              </Link>
-            )}
-            {/* Public vote button — same rules as on /sbirka rows:
-             *  show only when there's a photo to vote on. NO_PHOTO
-             *  finds skip the affordance. The button is its own
-             *  client island, so cookies + fingerprint resolution
-             *  happen inline. */}
-            {!isNoPhoto && (
-              <VoteButton
-                findId={find.id}
-                initialVoted={voted}
-                initialCount={voteCount}
-                size="lg"
-              />
-            )}
+        {/* State badges (Darovaný, Anonymizovaný, …) — the title moved up
+            into the nav bar and the map/vote affordances moved onto the
+            photo, so the badges stand alone here, centered. Multiple
+            states stack when a find carries more than one. */}
+        {find.states.length > 0 && (
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <StateBadges states={find.states} />
           </div>
-        </div>
+        )}
 
         {/* Czech-record banner — the milestone find for the largest CZ
             collection. Shown whenever the admin-assignable special-find
@@ -332,57 +302,36 @@ export default async function FindDetailPage({ params }: PageProps) {
         )}
       </header>
 
-      {/* Time & position summary — framed like the Lokalita panel and
-          sitting directly under the main heading. Holds the find's
-          date/time, GPS, its offset from the location map and the
-          great-circle distance from MAP 00001 (this replaces the plain
-          header meta row). */}
-      <Panel title={t("panelMeta")}>
-        <KeyValue
-          label={t("metaDate")}
-          value={formatDateTimeCs(find.foundAt, locale)}
-        />
+      {/* Time & position — frameless (no card) block, centered under the
+          nav. Just the heading, the date/time (no label) and the GPS
+          (with its format-toggle button, as before). The offset now lives
+          as the banner above the location map and the distance-from-MAP
+          00001 row was noise, so both are gone. The photo follows, with
+          the show-on-map pin + vote button drawn over it. */}
+      <section className="space-y-3">
+        <h2
+          className={`text-center text-sm font-semibold ${
+            hellish ? "text-red-100" : "text-gray-900"
+          }`}
+        >
+          {t("panelMeta")}
+        </h2>
+        <p
+          className={`text-center text-sm ${
+            hellish ? "text-red-100/90" : "text-gray-800"
+          }`}
+        >
+          {formatDateTimeCs(find.foundAt, locale)}
+        </p>
         {!find.isAnonymized && find.coordinates && (
-          <KeyValue
-            label={t("metaGps")}
-            value={
-              <GpsValue
-                lat={find.coordinates.lat}
-                lng={find.coordinates.lng}
-                tone="default"
-              />
-            }
-          />
+          <div className="flex justify-center">
+            <GpsValue
+              lat={find.coordinates.lat}
+              lng={find.coordinates.lng}
+              tone={hellish ? "dark" : "default"}
+            />
+          </div>
         )}
-        {offsetInfo && (
-          <KeyValue
-            label={t("metaOffset")}
-            value={
-              <span
-                className={`font-mono tabular-nums ${offsetInfo.toneClass}`}
-                title={offsetInfo.title}
-              >
-                {offsetInfo.label}
-              </span>
-            }
-          />
-        )}
-        {find.distanceFromDefault !== null && (
-          <KeyValue
-            label={t("metaDistance")}
-            value={
-              <span
-                className="font-mono tabular-nums text-gray-800"
-                title={t("distanceTitle")}
-              >
-                {formatDistance(find.distanceFromDefault, locale)}
-              </span>
-            }
-          />
-        )}
-        {/* Photo embedded as the last element of the section, mirroring
-            the location map inside the Lokalita panel. pt-2 matches the
-            map gallery's separation from the rows above. */}
         <div className="pt-2">
           <ImageGallery
             image={mainImage}
@@ -392,9 +341,11 @@ export default async function FindDetailPage({ params }: PageProps) {
             donationPhotos={find.donationPhotos}
             freePhotos={find.freePhotos}
             muted={isLost}
+            mapSlot={mapSlot}
+            voteSlot={voteSlot}
           />
         </div>
-      </Panel>
+      </section>
 
       {find.isAnonymized && (
         <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
@@ -1033,27 +984,12 @@ function FindLocationMarker({
   );
 }
 
-function Panel({
-  title,
-  rightSlot,
-  children,
-}: {
-  title: string;
-  rightSlot?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-xl border border-gray-200 bg-white p-5">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
-        {rightSlot}
-      </div>
-      <dl className="space-y-2">{children}</dl>
-    </section>
-  );
-}
-
-function AdjacentLink({
+/** Subtle prev / next find link flanking the title in the top bar —
+ *  rendered as a quiet "🍀 #id" text link (not a boxed button). At the
+ *  ends of the collection (`id === null`) it degrades to a faded,
+ *  non-interactive clover so the title stays roughly centered and the
+ *  boundary reads as "nothing beyond here". */
+function CloverNavLink({
   direction,
   id,
   hellish = false,
@@ -1061,33 +997,36 @@ function AdjacentLink({
 }: {
   direction: "prev" | "next";
   id: number | null;
-  /** When the surrounding page is the hellish #666 variant, the chip
+  /** When the surrounding page is the hellish #666 variant, the link
    *  needs red/light colours to stay readable on the dark gradient. */
   hellish?: boolean;
   t: FindDetailT;
 }) {
-  const label =
-    direction === "prev"
-      ? t("prevWithId", { id: id ?? 0 })
-      : t("nextWithId", { id: id ?? 0 });
-  const placeholder =
-    direction === "prev" ? t("prevPlaceholder") : t("nextPlaceholder");
-  const disabledCls = hellish
-    ? "rounded-md border border-red-900/50 px-2 py-1 text-red-300/40"
-    : "rounded-md border border-gray-200 px-2 py-1 text-gray-300";
-  const activeCls = hellish
-    ? "rounded-md border border-red-900/60 px-2 py-1 text-red-200 transition hover:border-red-500/70 hover:text-red-100 hover:bg-red-950/40"
-    : "rounded-md border border-gray-200 px-2 py-1 text-gray-700 transition hover:border-brand-200 hover:text-brand-700";
   if (id === null) {
     return (
-      <span aria-disabled="true" className={disabledCls}>
-        {placeholder}
+      <span
+        aria-hidden
+        className={`select-none text-lg ${
+          hellish ? "text-red-300/25" : "text-gray-300"
+        }`}
+      >
+        🍀
       </span>
     );
   }
+  const label =
+    direction === "prev" ? t("prevWithId", { id }) : t("nextWithId", { id });
+  const cls = hellish
+    ? "text-red-300/80 transition hover:text-red-100"
+    : "text-gray-500 transition hover:text-brand-700";
   return (
-    <Link href={`/sbirka/${id}`} className={activeCls}>
-      {label}
+    <Link
+      href={`/sbirka/${id}`}
+      aria-label={label}
+      title={label}
+      className={`whitespace-nowrap font-mono text-sm ${cls}`}
+    >
+      🍀 #{id}
     </Link>
   );
 }

@@ -45,6 +45,10 @@ export function VoteButton({
    *  are dynamic and already pass the correct initial state, so
    *  they leave this off to skip the extra round-trip. */
   autoHydrate = false,
+  /** "default" — the bordered pill used in lists/headers. "overlay" —
+   *  a round white/blur chip sized to match the crop magnifier, for
+   *  drawing on top of the find photo (top-right, beside the lupa). */
+  variant = "default",
 }: {
   findId: number;
   initialVoted: boolean;
@@ -52,6 +56,7 @@ export function VoteButton({
   compact?: boolean;
   size?: "md" | "lg";
   autoHydrate?: boolean;
+  variant?: "default" | "overlay";
 }) {
   const t = useTranslations("Vote");
   const [voted, setVoted] = useState(initialVoted);
@@ -133,6 +138,48 @@ export function VoteButton({
   };
 
   const label = voted ? t("buttonVoted") : t("buttonVote");
+
+  // Overlay variant — a round white/blur chip matching the crop
+  // magnifier (p-2 + h-5 icon = same height), for drawing over the find
+  // photo next to the lupa. Icon + count sit inside a single pill.
+  if (variant === "overlay") {
+    return (
+      <span className="inline-flex items-center">
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={isPending}
+          aria-pressed={voted}
+          aria-label={`${label} (${count})`}
+          title={voted ? t("tooltipUnvote") : t("tooltipVote")}
+          className={`inline-flex items-center gap-1.5 rounded-full p-2 shadow-md ring-1 ring-black/5 backdrop-blur transition focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+            voted
+              ? "bg-brand-100/95 text-brand-700 hover:bg-brand-200"
+              : "bg-white/90 text-gray-700 hover:bg-white hover:text-brand-700"
+          } ${isPending ? "opacity-70" : ""}`}
+        >
+          <CloverThumbIcon
+            filled={voted}
+            className={`h-5 w-5 transition-transform ${
+              isPending ? "scale-95" : voted ? "scale-105" : ""
+            } ${voted ? "text-brand-600" : ""}`}
+          />
+          <span className="font-mono text-sm tabular-nums leading-none">
+            {count}
+          </span>
+        </button>
+        {error && (
+          <span
+            role="status"
+            className="ml-1 text-xs text-amber-700"
+            aria-live="polite"
+          >
+            {error}
+          </span>
+        )}
+      </span>
+    );
+  }
 
   // Size-table — controls padding, icon size, count font.
   // `lg` is the prominent detail-page CTA + the /sbirka list-row
