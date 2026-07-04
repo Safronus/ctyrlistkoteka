@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — override poznámek nálezů pro web (CZ/EN)
+- Na `/admin/files/finds` má každý originál tlačítko **„pozn."**, které otevře
+  dialog s **CZ + volitelnou EN** variantou poznámky. Uloží se do
+  `data/.admin/find-note-overrides.json` — **mezivrstva jen pro zobrazení**,
+  název souboru ani LSP JSON se nemění (řeší znaky, které v názvu nejdou —
+  dvojtečky, tečky…). Přežije rsync i re-sync.
+- **Web**: banner pod fotkou nálezu bere přednostně override; když není EN
+  varianta, v EN se ukáže česky s upozorněním „🇨🇿 In Czech only" (jako dosud).
+- Nový **filtr „S poznámkou"** v seznamu originálů (nálezy s poznámkou v LSP
+  JSONu nebo s overridem).
+- Fáze pro lokační mapy (`/admin/files/maps`) zatím ne — dle domluvy později.
+
 ### /sbirka — provázané filtry Stát → Město → Lokalita
 - Filtry se teď kaskádují (celé na klientu — každá lokalita v options nese
   své město i stát):

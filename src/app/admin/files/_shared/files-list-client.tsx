@@ -17,6 +17,7 @@ import {
 import { FindState } from "@prisma/client";
 import { parseFindFilename } from "@/lib/parseFilename";
 import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
+import { NoteOverrideButton } from "../finds/note-override-button";
 import {
   MAX_BULK_DELETE_PER_REQUEST,
   type BulkDeleteResult,
@@ -90,15 +91,17 @@ interface Props {
     /** Confirmation strip body. `{n}` is replaced with the count of
      *  selected rows, e.g. "Přejmenovat {n} map s prefixem NEEXISTUJE-?". */
     confirmTemplate: string;
-    action: (
-      formData: FormData,
-    ) => Promise<{ results: BulkRenameResult[] }>;
+    action: (formData: FormData) => Promise<{ results: BulkRenameResult[] }>;
   };
   /** When true, the toolbar renders a "QR ZIP" button alongside
    *  bulk-delete that POSTs the selection to /admin/api/qr-zip and
    *  triggers a single .zip download with one PNG per find. Set only
    *  for the finds scope — other scopes have no QR concept. */
   showQrZip?: boolean;
+  /** Web-display note overrides keyed by find id. When provided (finds
+   *  scope), each row grows a "pozn." button opening the CS/EN editor
+   *  (writes data/.admin/find-note-overrides.json). */
+  noteOverrides?: Record<number, { cs?: string; en?: string }>;
 }
 
 function fmtSize(bytes: number): string {
@@ -187,6 +190,7 @@ export function FilesListClient({
   findsWithDonationPhoto,
   showNonexistentBadge,
   showQrZip,
+  noteOverrides,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bannerError, setBannerError] = useState<string | null>(null);
@@ -631,10 +635,7 @@ export function FilesListClient({
                 aria-label={isSelected ? "Odznačit" : "Označit"}
               >
                 {isSelected ? (
-                  <CheckSquare
-                    className="h-4 w-4 text-brand-600"
-                    aria-hidden
-                  />
+                  <CheckSquare className="h-4 w-4 text-brand-600" aria-hidden />
                 ) : (
                   <Square className="h-4 w-4" aria-hidden />
                 )}
@@ -751,6 +752,13 @@ export function FilesListClient({
                     </>
                   );
                 })()}
+              {noteOverrides !== undefined && findId !== null && (
+                <NoteOverrideButton
+                  filename={e.name}
+                  initialCs={noteOverrides[findId]?.cs ?? ""}
+                  initialEn={noteOverrides[findId]?.en ?? ""}
+                />
+              )}
               <span className="shrink-0 font-mono text-xs tabular-nums text-gray-500">
                 {fmtSize(e.size)}
               </span>

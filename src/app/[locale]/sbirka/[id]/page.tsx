@@ -24,6 +24,7 @@ import {
 } from "@/lib/format";
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { photoDisplay } from "@/lib/photoBox";
+import { getFindNoteOverride } from "@/lib/findNoteOverrides";
 import { effectForFind } from "@/lib/specialFinds";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
@@ -294,19 +295,33 @@ export default async function FindDetailPage({ params }: PageProps) {
   }
   const photoTopBanner = bannerEls.length > 0 ? <>{bannerEls}</> : null;
 
-  // The author's note is Czech-only; machine-translating user notes would
-  // mean shipping (potentially sensitive) text to a third party, so for the
-  // EN locale we just flag it rather than translate.
-  const noteNode = find.notes ? (
-    <>
-      <span>{find.notes}</span>
-      {locale === "en" && (
-        <span className="mt-1 block text-[11px] italic opacity-70">
-          {t("czechOnly")}
-        </span>
-      )}
-    </>
-  ) : null;
+  // Note shown in the banner under the photo. An admin-managed override
+  // (data/.admin/find-note-overrides.json) takes precedence over the raw
+  // LSP-JSON note — it can carry characters the filename can't and an
+  // optional EN variant. Same privacy gate as the query's `find.notes`:
+  // never for anonymized / donated finds.
+  const noteOverride =
+    !find.isAnonymized && !find.states.includes(FindState.DONATED)
+      ? await getFindNoteOverride(find.id)
+      : null;
+  const noteCs = noteOverride?.cs || find.notes || null;
+  const noteEn = noteOverride?.en || null;
+  // EN with its own override → show it untranslated-flag-free. Otherwise
+  // fall back to the CS text + the Czech-only flag (machine-translating
+  // user notes would ship possibly-sensitive text to a third party).
+  const noteNode =
+    locale === "en" && noteEn ? (
+      <span>{noteEn}</span>
+    ) : noteCs ? (
+      <>
+        <span>{noteCs}</span>
+        {locale === "en" && (
+          <span className="mt-1 block text-[11px] italic opacity-70">
+            {t("czechOnly")}
+          </span>
+        )}
+      </>
+    ) : null;
 
   const detail = (
     <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">

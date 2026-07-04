@@ -17,6 +17,8 @@ import {
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { readMapAnonFlags } from "@/lib/admin/mapAnon";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
+import { prisma } from "@/lib/db";
+import { readFindNoteOverrides } from "@/lib/findNoteOverrides";
 import { getRealPhotoMapKeys } from "@/lib/locationPhotos";
 import { checkSyncNeeded, type SyncScope } from "@/lib/admin/syncNeeded";
 import {
@@ -62,8 +64,7 @@ const SCOPE_DEFAULT_PAGE_SIZE: Record<string, number> = {
 };
 
 function pickPageSize(v: string | undefined, scopeSlug: string): number {
-  const scopeDefault =
-    SCOPE_DEFAULT_PAGE_SIZE[scopeSlug] ?? DEFAULT_PAGE_SIZE;
+  const scopeDefault = SCOPE_DEFAULT_PAGE_SIZE[scopeSlug] ?? DEFAULT_PAGE_SIZE;
   if (!v) return scopeDefault;
   const n = Number.parseInt(v, 10);
   return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n)
@@ -116,7 +117,10 @@ function fmtSize(bytes: number): string {
  *  to the width of `max` so columns line up. Joined by ", ". The whole
  *  list goes through — caller can decide to wrap it in <details> if
  *  there are many ranges. */
-function formatMissingRanges(ranges: readonly MissingRange[], max: number): string {
+function formatMissingRanges(
+  ranges: readonly MissingRange[],
+  max: number,
+): string {
   if (ranges.length === 0) return "";
   const width = String(max).length;
   return ranges
@@ -160,6 +164,9 @@ export default async function AdminScopeListPage({
   const gpsBrokenOnly =
     (scope.slug === "finds" || scope.slug === "crops") &&
     pickString(sp.gps_broken) === "1";
+  // "S poznámkou" filter (finds scope): keep only finds that carry a note
+  // — either an LSP-JSON note (Find.notes) or a web-display override.
+  const noteOnly = scope.slug === "finds" && pickString(sp.note) === "1";
   // Maps-only filters: surface zaniklé / anonymizované entries on
   // demand. Both default off so the listing matches the rest of the
   // admin (no cluttered initial view).
@@ -181,8 +188,7 @@ export default async function AdminScopeListPage({
   let counterpartIds: Set<number> | undefined;
   let counterpartLabel: string | undefined;
   let counterpart:
-    | { slug: ScopeSlug; label: string; missingLabel: string }
-    | undefined;
+    { slug: ScopeSlug; label: string; missingLabel: string } | undefined;
   if (scope.slug === "finds") {
     const cropsScope = getScope("crops");
     if (cropsScope) {
@@ -257,6 +263,27 @@ export default async function AdminScopeListPage({
     ]);
   }
 
+  // Web-display note overrides + the set of find ids that have any note
+  // (LSP note or override) — drives the per-row "pozn." editor and the
+  // "S poznámkou" filter. Finds scope only.
+  let noteOverrides: Record<number, { cs?: string; en?: string }> | undefined;
+  let findIdsWithNotes: Set<number> | undefined;
+  if (scope.slug === "finds") {
+    const [ovMap, notedRows] = await Promise.all([
+      readFindNoteOverrides(),
+      prisma.find.findMany({
+        where: { notes: { not: null } },
+        select: { id: true },
+      }),
+    ]);
+    noteOverrides = {};
+    for (const [k, v] of ovMap) noteOverrides[k] = v;
+    findIdsWithNotes = new Set<number>([
+      ...notedRows.map((r) => r.id),
+      ...ovMap.keys(),
+    ]);
+  }
+
   // Sync-needed banner. Computed for finds/crops/maps because
   // sync.ts reads those dirs; meta is checked on the file detail
   // page (JSON náhled) instead of here. donation/location photos
@@ -283,13 +310,11 @@ export default async function AdminScopeListPage({
     onlyAnonymized ||
     duplicateIdSet ||
     exifBrokenOnly ||
-    gpsBrokenOnly
+    gpsBrokenOnly ||
+    noteOnly
       ? (name) => {
           if (onlyNonexistent && !name.startsWith("NEEXISTUJE-")) return false;
-          if (
-            onlyAnonymized &&
-            !(anonymizedNamesNFC?.has(name) ?? false)
-          ) {
+          if (onlyAnonymized && !(anonymizedNamesNFC?.has(name) ?? false)) {
             return false;
           }
           if (duplicateIdSet) {
@@ -307,6 +332,12 @@ export default async function AdminScopeListPage({
           if (gpsBrokenOnly && gpsProblemIds) {
             const id = idExtractor?.(name);
             if (id === null || id === undefined || !gpsProblemIds.has(id)) {
+              return false;
+            }
+          }
+          if (noteOnly && findIdsWithNotes) {
+            const id = idExtractor?.(name);
+            if (id === null || id === undefined || !findIdsWithNotes.has(id)) {
               return false;
             }
           }
@@ -383,6 +414,7 @@ export default async function AdminScopeListPage({
       anonymized: boolean;
       exif_broken: boolean;
       gps_broken: boolean;
+      note: boolean;
     }>,
   ) => {
     const merged = {
@@ -396,13 +428,13 @@ export default async function AdminScopeListPage({
       anonymized: onlyAnonymized,
       exif_broken: exifBrokenOnly,
       gps_broken: gpsBrokenOnly,
+      note: noteOnly,
       ...overrides,
     };
     const usp = new URLSearchParams();
     if (merged.q) usp.set("q", merged.q);
     if (merged.page > 1) usp.set("page", String(merged.page));
-    if (merged.size !== defaultPageSize)
-      usp.set("size", String(merged.size));
+    if (merged.size !== defaultPageSize) usp.set("size", String(merged.size));
     if (merged.dups) usp.set("dups", "1");
     if (merged.id_dups) usp.set("id_dups", "1");
     if (merged.uncovered) usp.set("uncovered", "1");
@@ -410,8 +442,11 @@ export default async function AdminScopeListPage({
     if (merged.anonymized) usp.set("anonymized", "1");
     if (merged.exif_broken) usp.set("exif_broken", "1");
     if (merged.gps_broken) usp.set("gps_broken", "1");
+    if (merged.note) usp.set("note", "1");
     const qs = usp.toString();
-    return qs ? `/admin/files/${scope.slug}?${qs}` : `/admin/files/${scope.slug}`;
+    return qs
+      ? `/admin/files/${scope.slug}?${qs}`
+      : `/admin/files/${scope.slug}`;
   };
 
   return (
@@ -432,16 +467,14 @@ export default async function AdminScopeListPage({
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-gray-900">{scope.label}</h1>
           <p className="text-sm text-gray-500">
-            {scope.description} •{" "}
-            {total.toLocaleString("cs-CZ")}{" "}
+            {scope.description} • {total.toLocaleString("cs-CZ")}{" "}
             {total === 1 ? "položka" : total < 5 ? "položky" : "položek"}
             {query ? " v aktuálním filtru" : ""}
             {uncoveredCount !== undefined && uncoveredCount > 0 && (
               <>
                 {" • "}
                 <span className="text-amber-700">
-                  {uncoveredCount.toLocaleString("cs-CZ")}{" "}
-                  {counterpartLabel}
+                  {uncoveredCount.toLocaleString("cs-CZ")} {counterpartLabel}
                 </span>
               </>
             )}
@@ -583,22 +616,14 @@ export default async function AdminScopeListPage({
           <input type="hidden" name="size" value={String(pageSize)} />
         )}
         {duplicatesOnly && <input type="hidden" name="dups" value="1" />}
-        {idDuplicatesOnly && (
-          <input type="hidden" name="id_dups" value="1" />
-        )}
+        {idDuplicatesOnly && <input type="hidden" name="id_dups" value="1" />}
         {uncoveredOnly && <input type="hidden" name="uncovered" value="1" />}
         {onlyNonexistent && (
           <input type="hidden" name="nonexistent" value="1" />
         )}
-        {onlyAnonymized && (
-          <input type="hidden" name="anonymized" value="1" />
-        )}
-        {exifBrokenOnly && (
-          <input type="hidden" name="exif_broken" value="1" />
-        )}
-        {gpsBrokenOnly && (
-          <input type="hidden" name="gps_broken" value="1" />
-        )}
+        {onlyAnonymized && <input type="hidden" name="anonymized" value="1" />}
+        {exifBrokenOnly && <input type="hidden" name="exif_broken" value="1" />}
+        {gpsBrokenOnly && <input type="hidden" name="gps_broken" value="1" />}
         <button
           type="submit"
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
@@ -628,8 +653,9 @@ export default async function AdminScopeListPage({
           {/* Filtr "duplicitní ID" — různé názvy se stejným find ID
               (např. dlouhá vs zkrácená crop forma). Filter chip se
               zobrazí jen když takové duplicity v dir reálně jsou. */}
-          {range && range.duplicateIds.length > 0 && (
-            idDuplicatesOnly ? (
+          {range &&
+            range.duplicateIds.length > 0 &&
+            (idDuplicatesOnly ? (
               <Link
                 href={buildHref({ id_dups: false, page: 1 })}
                 className="inline-flex items-center gap-1 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 font-medium text-rose-900 hover:bg-rose-100"
@@ -645,8 +671,7 @@ export default async function AdminScopeListPage({
               >
                 Filtr: jen duplicitní ID ({range.duplicateIds.length})
               </Link>
-            )
-          )}
+            ))}
           {counterpartLabel &&
             (uncoveredOnly ? (
               <Link
@@ -702,6 +727,26 @@ export default async function AdminScopeListPage({
                 title="Zobrazit jen soubory, jejichž find ID je v DB bez EXIF GPS (a nemá explicitní NO_GPS)"
               >
                 Filtr: jen bez EXIF GPS ({gpsProblemIds.size})
+              </Link>
+            ))}
+          {scope.slug === "finds" &&
+            findIdsWithNotes !== undefined &&
+            findIdsWithNotes.size > 0 &&
+            (noteOnly ? (
+              <Link
+                href={buildHref({ note: false, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2 py-0.5 font-medium text-sky-900 hover:bg-sky-100"
+              >
+                <span aria-hidden>×</span>
+                Zrušit „s poznámkou&ldquo;
+              </Link>
+            ) : (
+              <Link
+                href={buildHref({ note: true, page: 1 })}
+                className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-white px-2 py-0.5 text-sky-800 hover:border-sky-300 hover:bg-sky-50"
+                title="Zobrazit jen nálezy, které mají poznámku (LSP JSON nebo web override)"
+              >
+                Filtr: s poznámkou ({findIdsWithNotes.size})
               </Link>
             ))}
           {scope.slug === "maps" &&
@@ -776,6 +821,7 @@ export default async function AdminScopeListPage({
           gpsProblemIds={gpsProblemIds}
           findsWithDonationPhoto={findsWithDonationPhoto}
           showQrZip
+          noteOverrides={noteOverrides}
         />
       ) : scope.slug === "crops" ? (
         <FilesListClient
@@ -794,8 +840,7 @@ export default async function AdminScopeListPage({
           bulkDelete={deleteMapsBulk}
           bulkRename={{
             label: "Označit jako zaniklé",
-            confirmTemplate:
-              "Přejmenovat {n} položek s prefixem NEEXISTUJE-?",
+            confirmTemplate: "Přejmenovat {n} položek s prefixem NEEXISTUJE-?",
             action: markMapsNonexistentBulk,
           }}
           anonymizedNames={anonymizedNamesNFC}
