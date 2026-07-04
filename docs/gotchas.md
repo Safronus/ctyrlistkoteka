@@ -201,3 +201,38 @@ IP) správně vidí 404.
 - Ochrana `/admin` je vrstvená a **hotová**: Nginx cloak (404 mimo
   allowlist) + WebAuthn passkey + iron-session + `X-Robots-Tag: noindex`.
   Nepředělávej to.
+
+## 7. Nová route může pár minut po deployi vracet 404 (než se PM2/Nginx usadí)
+
+**Co:** Po nasazení nové route (`/admin/banner-texts`, commit `55f30de`,
+2026-07-05) route několik minut vracela **Next 404** (`__next_error__`, tělo
+Next chybové stránky — **ne** maskovaná nginx 404), přestože:
+- deploy doběhl zeleně,
+- build na VPS route table **obsahovala** (`ƒ /admin/banner-texts …`),
+- `pm2 reload` reportoval **oba cluster workery** (ids 0, 1) jako `✓`.
+
+Pak začala **sama od sebe** vracet správně `307 → /admin/login` bez jakéhokoli
+dalšího zásahu (žádný nový deploy). Lokální `pnpm dev` tu samou route celou dobu
+servíroval `307` s čistou kompilací → **nikdy to nebyla chyba v kódu**.
+
+**Past:** „deploy dokončen" (`gh run watch` zelený + `pm2 reload ✓`)
+**nezaručuje**, že úplně nová cesta je _okamžitě_ živá na každém workeru.
+Přechodná 404 na nové cestě může vydržet i pár minut. Diagnostikovat to jako
+chybu kódu/buildu je ztráta času — build tu route má.
+
+**Pravděpodobná příčina (nepotvrzeno):** rolling `pm2 reload` u cluster módu
+(2 instance) + nginx upstream keep-alive drží spojení na ještě starý worker,
+případně nginx krátce cachne tu přechodnou 404. Existující cesty jsou
+netknuté (jsou ve starém i novém buildu) — 404 potká **jen nově přidanou**.
+
+**Jak aplikovat:**
+- Po deployi nové route ji **neprohlašuj hned za rozbitou**. Počkej pár minut,
+  zkus **víc requestů** za sebou. Existující `/admin/*` cesty přitom jedou
+  celou dobu (307) — kontrast potvrzuje, že jde o propagaci, ne o kód.
+- Kód ověř lokálně (`pnpm dev` → 307/200), build ověř v deploy logu (route
+  table musí novou cestu vypsat). Když obojí sedí, 404 je skoro jistě jen
+  usazování.
+- **Teprve** když 404 přetrvá i po ~10 min a víc requestech, je to reálný
+  problém. První kroky pak: `pm2 restart ctyrlistkoteka` (tvrdší než `reload`)
+  a případně full `rm -rf .next` + rebuild (deploy maže jen `.next/cache`, viz
+  #4) — spouští uživatel v Termiusu, ne Claude.
