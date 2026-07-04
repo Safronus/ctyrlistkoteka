@@ -162,8 +162,7 @@ class Logger {
   log(ctx: LogContext) {
     const line = JSON.stringify({ ts: new Date().toISOString(), ...ctx });
     this.mainStream.write(line + "\n");
-    const icon =
-      ctx.level === "error" ? "✗" : ctx.level === "warn" ? "⚠" : "·";
+    const icon = ctx.level === "error" ? "✗" : ctx.level === "warn" ? "⚠" : "·";
     process.stdout.write(`${icon} ${ctx.event}`);
     const extras = { ...ctx } as Record<string, unknown>;
     delete extras.event;
@@ -172,19 +171,13 @@ class Logger {
     if (extraKeys.length > 0) {
       process.stdout.write(
         " " +
-          extraKeys
-            .map((k) => `${k}=${JSON.stringify(extras[k])}`)
-            .join(" "),
+          extraKeys.map((k) => `${k}=${JSON.stringify(extras[k])}`).join(" "),
       );
     }
     process.stdout.write("\n");
   }
 
-  failure(details: {
-    file: string;
-    reason: string;
-    details?: unknown;
-  }) {
+  failure(details: { file: string; reason: string; details?: unknown }) {
     this.failureCount += 1;
     const line = JSON.stringify(details);
     this.failuresStream.write(line + "\n");
@@ -414,8 +407,7 @@ async function phaseMaps(
     // Best-effort decomposition — never fails. If the code doesn't match a
     // known shape, splitLocationCode returns the whole thing as cadastral.
     const parts = splitLocationCode(m.parsed.locationCode);
-    const displayName =
-      m.parsed.description || m.parsed.locationCode;
+    const displayName = m.parsed.description || m.parsed.locationCode;
 
     // Generate the WebP overlay variant for the browser. Returns the
     // /generated/maps/<sha>.webp URL we'll store in DB.
@@ -542,8 +534,9 @@ async function phaseMaps(
         }
       }
     } catch (err) {
-      const codeBytes = Buffer.from(m.parsed.locationCode, "utf8")
-        .toString("hex");
+      const codeBytes = Buffer.from(m.parsed.locationCode, "utf8").toString(
+        "hex",
+      );
       ctx.log.log({
         event: "maps.upsert_failed",
         level: "error",
@@ -1072,10 +1065,7 @@ async function phaseFinds(
   // throughput gain — the per-file work is dominated by sha1
   // streaming + WebP encode, both of which hit disk/CPU limits
   // before adding more concurrency helps.
-  await Promise.all([
-    pMap(finds, 2, processOne),
-    pMap(crops, 2, processOne),
-  ]);
+  await Promise.all([pMap(finds, 2, processOne), pMap(crops, 2, processOne)]);
 
   ctx.log.log({
     event: "finds.done",
@@ -1106,13 +1096,10 @@ async function phaseFinds(
 async function phaseMeta(ctx: Context, meta: Meta) {
   const plan = {
     notes: Object.keys(meta.poznamky).length,
-    stateAssignments: Object.entries(meta.stavy).reduce(
-      (acc, [key, specs]) => {
-        if (!JSON_STATE_MAP[key]) return acc;
-        return acc + parseRanges(specs).length;
-      },
-      0,
-    ),
+    stateAssignments: Object.entries(meta.stavy).reduce((acc, [key, specs]) => {
+      if (!JSON_STATE_MAP[key]) return acc;
+      return acc + parseRanges(specs).length;
+    }, 0),
     anonymized: parseRanges(meta.anonymizace.ANONYMIZOVANE).length,
   };
 
@@ -1220,6 +1207,16 @@ async function phaseMeta(ctx: Context, meta: Meta) {
     FindState.ANONYMIZED,
   ]);
 
+  // Retired states — no longer assigned (dropped from JSON_STATE_MAP), so
+  // any existing assignment is a leftover to be swept away. They're never
+  // "desired", so listing them here makes the convergence pass below delete
+  // every occurrence on the next sync.
+  const DEPRECATED_STATES: ReadonlySet<FindState> = new Set([
+    FindState.LOCATION_MISSING,
+    FindState.LOCATION_GONE,
+    FindState.NOT_PICKED,
+  ]);
+
   const desiredStates = new Map<number, Set<FindState>>();
   const addDesired = (id: number, state: FindState) => {
     let s = desiredStates.get(id);
@@ -1245,7 +1242,7 @@ async function phaseMeta(ctx: Context, meta: Meta) {
   });
   const stateRowsToDelete = allAssignments.filter(
     (r) =>
-      MANAGED_STATES.has(r.state) &&
+      (MANAGED_STATES.has(r.state) || DEPRECATED_STATES.has(r.state)) &&
       !desiredStates.get(r.findId)?.has(r.state),
   );
   let deletedStates = 0;
@@ -1572,9 +1569,9 @@ async function phasePrune(
   mapToLocation: ReadonlyMap<number, number>,
 ) {
   const diskFindIds = new Set(allFinds.map((f) => f.parsed.findId));
-  const dbFindIds = (await ctx.prisma.find.findMany({ select: { id: true } })).map(
-    (r) => r.id,
-  );
+  const dbFindIds = (
+    await ctx.prisma.find.findMany({ select: { id: true } })
+  ).map((r) => r.id);
   const orphanFinds = dbFindIds.filter((id) => !diskFindIds.has(id));
 
   // Locations on disk = the unique set of values in mapToLocation.
@@ -1765,9 +1762,7 @@ async function pruneGeneratedFiles(ctx: Context): Promise<void> {
   }
 
   ctx.log.log({
-    event: ctx.opts.dryRun
-      ? "prune.generated.dryrun"
-      : "prune.generated.done",
+    event: ctx.opts.dryRun ? "prune.generated.dryrun" : "prune.generated.done",
     level: "info",
     deleted_files: totalDeleted,
     kept_files: totalKept,
@@ -1781,7 +1776,9 @@ async function pruneGeneratedFiles(ctx: Context): Promise<void> {
  * URL. We accept both the full public URL form (what's stored in DB)
  * and a bare filename. Returns lowercase hex or null.
  */
-function extractSha1FromGeneratedPath(value: string | null | undefined): string | null {
+function extractSha1FromGeneratedPath(
+  value: string | null | undefined,
+): string | null {
   if (!value) return null;
   const m = /([a-f0-9]{40})\.webp/i.exec(value);
   return m ? m[1]!.toLowerCase() : null;
@@ -2012,7 +2009,7 @@ async function main() {
     log.log({
       event: "sync.fatal",
       level: "error",
-      error: err instanceof Error ? err.stack ?? err.message : String(err),
+      error: err instanceof Error ? (err.stack ?? err.message) : String(err),
     });
     process.exitCode = 1;
   } finally {

@@ -46,18 +46,21 @@ export const FILENAME_STATE_MAP: ReadonlyMap<string, FindState> = new Map([
 
 /**
  * Mapping from JSON "stavy" keys to DB enum (docs/filename-convention.md, D).
- * JSON keys stay ASCII. BEZLOKACE keeps its meaning (no location at all);
- * LOKACE-NEEXISTUJE flips to the dedicated LOCATION_GONE enum so the UI
- * can distinguish "we never knew the location" from "the location is
- * physically gone".
+ * JSON keys stay ASCII.
+ *
+ * BEZLOKACE (LOCATION_MISSING), LOKACE-NEEXISTUJE (LOCATION_GONE) and
+ * NEUTRZEN (NOT_PICKED) are intentionally NOT mapped — those states are
+ * retired: "Bez lokality" was a poor duplicate of "Bez GPS", and a gone
+ * location is already conveyed by the `NEEXISTUJE-` location-code prefix
+ * plus its own notice (it had no real backing in the LSP JSON). Existing
+ * assignments for the three are cleared by the sync convergence pass (see
+ * DEPRECATED_STATES in scripts/sync.ts). The enum values + the filename
+ * tokens above are kept so historical data still parses.
  */
 export const JSON_STATE_MAP: Readonly<Record<string, FindState>> = {
   BEZFOTKY: FindState.NO_PHOTO,
   BEZGPS: FindState.NO_GPS,
-  BEZLOKACE: FindState.LOCATION_MISSING,
   DAROVANY: FindState.DONATED,
   GIGANT: FindState.GIGANT,
-  "LOKACE-NEEXISTUJE": FindState.LOCATION_GONE,
-  NEUTRZEN: FindState.NOT_PICKED,
   ZTRACENY: FindState.LOST,
 };

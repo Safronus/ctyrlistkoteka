@@ -2,7 +2,7 @@
 
 import type { FindState } from "@prisma/client";
 import { useTranslations } from "next-intl";
-import { STATE_BADGE } from "@/lib/stateLabels";
+import { RETIRED_STATES, STATE_BADGE } from "@/lib/stateLabels";
 
 /**
  * Locale-aware state badge list. Reads labels from next-intl's
@@ -23,10 +23,12 @@ export function StateBadges({
   className?: string;
 }) {
   const t = useTranslations("States");
-  if (states.length === 0) return null;
+  // Retired states are kept in the enum for parsing but never shown.
+  const visible = states.filter((s) => !RETIRED_STATES.has(s));
+  if (visible.length === 0) return null;
   return (
     <ul className={`flex flex-wrap gap-1 ${className ?? ""}`}>
-      {states.map((s) => (
+      {visible.map((s) => (
         <li
           key={s}
           className={`rounded-md px-2 py-0.5 text-xs font-medium ${STATE_BADGE[s]}`}

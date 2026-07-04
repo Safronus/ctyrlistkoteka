@@ -1,5 +1,16 @@
 import { FindState } from "@prisma/client";
 
+/**
+ * Retired states — no longer assigned by sync and hidden from the public
+ * UI. Kept in the enum only so historical data / filename tokens parse;
+ * `pnpm sync` sweeps any leftover assignments. See JSON_STATE_MAP.
+ */
+export const RETIRED_STATES: ReadonlySet<FindState> = new Set([
+  FindState.LOCATION_MISSING,
+  FindState.LOCATION_GONE,
+  FindState.NOT_PICKED,
+]);
+
 /** Czech display labels for find states. */
 export const STATE_LABELS: Readonly<Record<FindState, string>> = {
   [FindState.NORMAL]: "Běžný",

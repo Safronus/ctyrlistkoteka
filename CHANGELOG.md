@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Zrušené stavy nálezů — „Neutržený", „Zaniklá lokalita", „Bez lokality"
+- Stavy `NOT_PICKED`, `LOCATION_GONE` a `LOCATION_MISSING` byly zrušeny:
+  odebrány z `JSON_STATE_MAP` (sync je přestal přiřazovat) a schované z UI
+  (`RETIRED_STATES` filtruje `StateBadges`). „Bez lokality" byla špatná kopie
+  „Bez GPS"; zaniklou lokalitu už značí prefix kódu `NEEXISTUJE-` + poznámka.
+- **Enum hodnoty i filename tokeny zůstávají** (parsování historických názvů se
+  nesmí rozbít), ale **`pnpm sync`** (přes `DEPRECATED_STATES` v konvergenci)
+  **smaže existující přiřazení** těchto tří stavů ze všech nálezů. → po nasazení
+  je potřeba na VPS spustit `pnpm sync`.
+
 ### Detail nálezu — stavové bannery, „Bez fotky" a „Bez GPS", back k okraji
 - **Back ikona zarovnaná k levému okraji fotky** (desktop): už neplave u kraje
   stránky, ale sedí na levé hraně vycentrovaného sloupce fotky (přes overlay

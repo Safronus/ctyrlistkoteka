@@ -300,12 +300,17 @@ Autoritativní zdroj pro přiřazení, stavy, poznámky, anonymizaci.
 | --- | --- | --- |
 | `BEZFOTKY` | `NO_PHOTO` | Bez fotografie |
 | `BEZGPS` | `NO_GPS` | Bez GPS |
-| `BEZLOKACE` | `LOCATION_MISSING` | Nepřiřazeno k lokalitě |
 | `DAROVANY` | `DONATED` | Darováno |
-| `LOKACE-NEEXISTUJE` | `LOCATION_MISSING` | Sjednoceno s BEZLOKACE |
-| `NEUTRZEN` | `NOT_PICKED` | Nechán na místě |
+| `GIGANT` | `GIGANT` | Extrémně velký čtyřlístek |
 | `ZTRACENY` | `LOST` | Ztracen |
 | `ANONYMIZOVANE` | `ANONYMIZED` | Ze sekce `anonymizace` |
+
+> **Zastaralé stavy (od 2026-07):** klíče `BEZLOKACE` (`LOCATION_MISSING`),
+> `LOKACE-NEEXISTUJE` (`LOCATION_GONE`) a `NEUTRZEN` (`NOT_PICKED`) se už
+> **nemapují** — stavy byly zrušeny. „Bez lokality" byla špatná kopie „Bez
+> GPS"; zaniklou lokalitu značí prefix kódu `NEEXISTUJE-` + vlastní poznámka.
+> Filename tokeny i enum hodnoty zůstávají kvůli parsování historických dat,
+> ale sync (`DEPRECATED_STATES`) existující přiřazení při dalším běhu smaže.
 
 ### Rozsahy ID
 

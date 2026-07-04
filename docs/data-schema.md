@@ -129,8 +129,11 @@ DONATED           -- darováno
 LOST              -- ztracený
 NO_GPS            -- chybí GPS
 NO_PHOTO          -- bez fotografie
-LOCATION_MISSING  -- nepřiřazeno k lokalitě
-NOT_PICKED        -- nechán na místě
+GIGANT            -- extrémně velký čtyřlístek
+-- zastaralé (od 2026-07), enum ponechán kvůli parsování, sync je maže:
+LOCATION_MISSING  -- (zrušeno) „Bez lokality" — špatná kopie NO_GPS
+LOCATION_GONE     -- (zrušeno) zaniklou lokalitu značí prefix NEEXISTUJE-
+NOT_PICKED        -- (zrušeno) „Neutržený"
 ```
 
 ---
@@ -142,7 +145,8 @@ NOT_PICKED        -- nechán na místě
   zaokrouhlené na 3 desetinná místa (~111 m) nebo NULL.
 - Pokud stav `NO_GPS`, `coordinates` je NULL.
 - Pokud stav `NO_PHOTO`, nemá řádky v `find_images`.
-- Pokud stav `LOCATION_MISSING`, `location_id` a `map_id` jsou NULL.
+- Nález bez lokality má `location_id` i `map_id` NULL (dřív značeno stavem
+  `LOCATION_MISSING`, ten byl zrušen).
 - `location.code` je unikátní a nemění se.
 - `finds.id` je stabilní — nikdy ho přečíslovat.
 - `location_maps.id` odpovídá MAP_ID z názvu mapy a MAP_NUMBER z fotek nálezů.
