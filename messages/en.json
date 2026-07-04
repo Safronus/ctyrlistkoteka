@@ -28,7 +28,7 @@
   },
   "Footer": {
     "privacy": "Privacy",
-    "copyright": "© {year} {site} · Private four-leaf clover collection",
+    "copyright": "© {year} {site}",
     "createdBy": "made by",
     "linkedinAria": "Author's LinkedIn profile",
     "linkedinTitle": "LinkedIn",

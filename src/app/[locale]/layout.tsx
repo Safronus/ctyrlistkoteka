@@ -83,15 +83,14 @@ export default async function PublicLayout({
           </p>
         )}
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 text-center text-sm text-gray-500 sm:px-6 lg:px-8">
-          <span>
-            {t("copyright", {
-              year: new Date().getFullYear(),
-              site: siteName(locale),
-            })}
-          </span>
-          <span aria-hidden>·</span>
+          {/* 1 — copyright + author signature (smiley · Safronus · LinkedIn) */}
           <span className="inline-flex items-center gap-1.5">
-            {t("createdBy")}
+            <span>
+              {t("copyright", {
+                year: new Date().getFullYear(),
+                site: siteName(locale),
+              })}
+            </span>
             <Image
               src="/safronus.png"
               alt=""
@@ -107,9 +106,32 @@ export default async function PublicLayout({
               rel="noopener noreferrer"
               aria-label={t("linkedinAria")}
               title={t("linkedinTitle")}
-              className="ml-1 rounded p-1 text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
+              className="rounded p-1 text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
             >
               <Linkedin className="h-4 w-4" aria-hidden />
+            </a>
+          </span>
+          <span aria-hidden>·</span>
+          {/* 2 — privacy policy (replaces the old "private collection" tagline) */}
+          <Link
+            href="/soukromi"
+            className="text-gray-500 underline-offset-2 transition hover:text-brand-700 hover:underline"
+          >
+            {t("privacy")}
+          </Link>
+          <span aria-hidden>·</span>
+          {/* 3 — built with Claude Code (no model names) · source · build number */}
+          <span className="inline-flex items-center gap-1.5">
+            <Sparkles className="h-4 w-4 text-amber-500" aria-hidden />
+            <span>{t("withAssistance")}</span>
+            <a
+              href="https://claude.com/claude-code"
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t("claudeCodeTitle")}
+              className="font-medium text-gray-700 underline-offset-2 hover:text-brand-700 hover:underline"
+            >
+              Claude Code
             </a>
             <a
               href="https://github.com/Safronus/ctyrlistkoteka"
@@ -131,38 +153,8 @@ export default async function PublicLayout({
             )}
           </span>
           <span aria-hidden>·</span>
-          <span className="inline-flex items-center gap-1.5">
-            <Sparkles className="h-4 w-4 text-amber-500" aria-hidden />
-            <span>{t("withAssistance")}</span>
-            <a
-              href="https://www.anthropic.com/claude"
-              target="_blank"
-              rel="noopener noreferrer"
-              title={t("claudeTitle")}
-              className="font-medium text-gray-700 underline-offset-2 hover:text-brand-700 hover:underline"
-            >
-              Claude Fable 5
-            </a>
-            <span className="text-gray-600">{t("via")}</span>
-            <a
-              href="https://claude.com/claude-code"
-              target="_blank"
-              rel="noopener noreferrer"
-              title={t("claudeCodeTitle")}
-              className="font-medium text-gray-700 underline-offset-2 hover:text-brand-700 hover:underline"
-            >
-              Claude Code
-            </a>
-          </span>
-          <span aria-hidden>·</span>
+          {/* 4 — visit counter */}
           <VisitCounter />
-          <span aria-hidden>·</span>
-          <Link
-            href="/soukromi"
-            className="text-gray-500 underline-offset-2 transition hover:text-brand-700 hover:underline"
-          >
-            {t("privacy")}
-          </Link>
         </div>
       </footer>
     </NextIntlClientProvider>

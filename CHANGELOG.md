@@ -9,6 +9,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Patička
+- **Přeorganizováno do čtyř skupin**: (1) `© 2026 Safronova čtyřlístkotéka` +
+  podpis autora (smajlík · Safronus · LinkedIn), (2) odkaz **Ochrana soukromí**
+  (nahradil tagline „Soukromá sbírka čtyřlístků" v copyrightu), (3) `s asistencí
+  Claude Code` **bez uvádění modelu** + odkaz na GitHub repo + číslo buildu
+  (počet commitů), (4) počet návštěv. GitHub + build number se přesunuly
+  z podpisu autora do části o Claude Code.
+
 ### Detail nálezu — hlavička, „Čas a poloha" a fotka
 - **Titulek přesunut do lišty „Zpět na sbírku"**: z „Nález #123" je teď
   „🍀 #123", vycentrovaný v horní liště. Po stranách titulku jsou tiché
