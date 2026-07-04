@@ -210,7 +210,11 @@ function FindListRow({
           {!find.isAnonymized && find.coordinates && (
             <p className="font-mono text-xs text-gray-500">
               <span className="whitespace-nowrap">
-                {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
+                {formatGpsApple(
+                  find.coordinates.lat,
+                  find.coordinates.lng,
+                  locale,
+                )}
               </span>
               {find.locationOffset && offsetLabel && (
                 <>
@@ -249,7 +253,9 @@ function FindListRow({
            *  visual grouping was redundant once the description sits
            *  on its own row. */}
           {find.isAnonymized ? (
-            <p className="text-sm text-gray-500">{tRow("anonymizedLocation")}</p>
+            <p className="text-sm text-gray-500">
+              {tRow("anonymizedLocation")}
+            </p>
           ) : find.location ? (
             <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
               <span className="shrink-0 font-mono text-xs text-gray-500">
@@ -266,10 +272,7 @@ function FindListRow({
                 const cleaned = stripOuterParens(find.location.displayName);
                 if (!cleaned || cleaned === find.location.code) return null;
                 return (
-                  <span
-                    className="truncate text-gray-500"
-                    title={cleaned}
-                  >
+                  <span className="truncate text-gray-500" title={cleaned}>
                     {cleaned}
                   </span>
                 );
@@ -403,11 +406,7 @@ function FindListRow({
 function stripOuterParens(value: string | null | undefined): string | null {
   if (!value) return null;
   const trimmed = value.trim();
-  if (
-    trimmed.length >= 2 &&
-    trimmed.startsWith("(") &&
-    trimmed.endsWith(")")
-  ) {
+  if (trimmed.length >= 2 && trimmed.startsWith("(") && trimmed.endsWith(")")) {
     return trimmed.slice(1, -1).trim();
   }
   return trimmed;

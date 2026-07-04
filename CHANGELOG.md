@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### GPS všude + EN varování u českých poznámek
+- **Lokalizace GPS dotažena i do řádkového seznamu /sbirka** (`find-list`) —
+  teď jsou S/J/V/Z konzistentně na všech veřejných místech (seznam i detail
+  nálezů, seznam i detail lokalit, karty, mapa, homepage).
+- **Poznámky jsou jen česky**: strojový překlad by znamenal posílat (i citlivé)
+  texty třetí straně — proti pravidlům projektu, a je jich 17k+. Takže v EN
+  přibylo nenápadné varování **„🇨🇿 In Czech only — not translated"** pod
+  poznámkou nálezu (banner pod fotkou) i pod popiskem lokační mapy.
+
 ### GPS souřadnice — lokalizace, oprava mezer, nové formáty
 - **Směry se lokalizují**: v CS teď S/J/V/Z (Sever/Jih/Východ/Západ) místo
   N/S/E/W — všude, kde se GPS zobrazuje (detail, karty, mapa, /lokality).

@@ -294,6 +294,20 @@ export default async function FindDetailPage({ params }: PageProps) {
   }
   const photoTopBanner = bannerEls.length > 0 ? <>{bannerEls}</> : null;
 
+  // The author's note is Czech-only; machine-translating user notes would
+  // mean shipping (potentially sensitive) text to a third party, so for the
+  // EN locale we just flag it rather than translate.
+  const noteNode = find.notes ? (
+    <>
+      <span>{find.notes}</span>
+      {locale === "en" && (
+        <span className="mt-1 block text-[11px] italic opacity-70">
+          {t("czechOnly")}
+        </span>
+      )}
+    </>
+  ) : null;
+
   const detail = (
     <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       {/* ← / → keyboard navigation to the neighbouring finds. */}
@@ -410,7 +424,7 @@ export default async function FindDetailPage({ params }: PageProps) {
             mapSlot={mapSlot}
             voteSlot={voteSlot}
             statesSlot={statesSlot}
-            note={find.notes}
+            note={noteNode}
             topBanner={photoTopBanner}
             bordered
             goldFrame={effect === "record"}
@@ -917,6 +931,11 @@ function LocationMapsGallery({
             {m.description && !isAnonymized && (
               <figcaption className="border-t border-gray-200 bg-white/70 px-3 py-2 text-center text-xs text-gray-600">
                 {m.description}
+                {locale === "en" && (
+                  <span className="mt-1 block text-[11px] italic opacity-70">
+                    {t("czechOnly")}
+                  </span>
+                )}
               </figcaption>
             )}
           </figure>
