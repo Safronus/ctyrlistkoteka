@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — provázané filtry Stát → Město → Lokalita
+- Filtry se teď kaskádují (celé na klientu — každá lokalita v options nese
+  své město i stát):
+  - **Stát** → v comboboxu **Město** jsou jen města zvoleného státu.
+  - **Město** → automaticky se doplní **Stát** podle města a zamkne se (nejde
+    zvolit jiný stát; odemkne se zrušením města). Konec nesmyslů typu
+    „Česko + Dublin".
+  - **Lokalita** → nabídka je filtrovaná dle státu i města; výběr lokality
+    zpětně doplní její město + stát.
+- **Kapitalizace měst**: v comboboxu se zobrazují „Dublin" místo „DUBLIN"
+  (hodnota pro filtr zůstává původní, kapitalizuje se jen popisek).
+
 ### GPS všude + EN varování u českých poznámek
 - **Lokalizace GPS dotažena i do řádkového seznamu /sbirka** (`find-list`) —
   teď jsou S/J/V/Z konzistentně na všech veřejných místech (seznam i detail

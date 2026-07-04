@@ -20,11 +20,8 @@ import {
   type FindFreePhotoEntry,
 } from "@/lib/findFreePhotos";
 import { countryFromCoords } from "@/lib/geo";
-import {
-  cityFromCadastralArea,
-  NEEXISTUJE_PREFIX,
-} from "@/lib/locationCode";
-import { listCadastralAreas, listCountries } from "@/lib/queries/locations";
+import { cityFromCadastralArea, NEEXISTUJE_PREFIX } from "@/lib/locationCode";
+import { listCountries } from "@/lib/queries/locations";
 import { parseIdQuery } from "@/lib/search";
 import { effectForFind } from "@/lib/specialFinds";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
@@ -187,12 +184,7 @@ export interface FindListResult {
  *  (most-loved first). Anonymized finds and finds without GPS get NULL
  *  distance and fall to the end of distance sorts regardless of
  *  direction. */
-export type FindSort =
-  | "desc"
-  | "asc"
-  | "dist-asc"
-  | "dist-desc"
-  | "votes-desc";
+export type FindSort = "desc" | "asc" | "dist-asc" | "dist-desc" | "votes-desc";
 
 /** Build the WHERE clause for a filter set. Async because numeric search
  *  queries trigger a small auxiliary lookup so that "0001" matches #00001
@@ -235,15 +227,9 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
       where: { parentId: f.excludeLocationId },
       select: { id: true },
     });
-    const exIds = [
-      f.excludeLocationId,
-      ...exChildRows.map((r) => r.id),
-    ];
+    const exIds = [f.excludeLocationId, ...exChildRows.map((r) => r.id)];
     and.push({
-      OR: [
-        { locationId: null },
-        { locationId: { notIn: exIds } },
-      ],
+      OR: [{ locationId: null }, { locationId: { notIn: exIds } }],
     });
   }
   if (f.cadastralArea) {
@@ -404,14 +390,19 @@ async function hydrate(
   // come from the same map description / filename parts that the
   // anonymization rule is meant to suppress.
   const locIdsOnPage = Array.from(
-    new Set(rows.map((r) => r.location?.id).filter((id): id is number => id !== undefined)),
+    new Set(
+      rows
+        .map((r) => r.location?.id)
+        .filter((id): id is number => id !== undefined),
+    ),
   );
-  const anonLocRows = locIdsOnPage.length > 0
-    ? await prisma.locationMap.findMany({
-        where: { locationId: { in: locIdsOnPage }, isAnonymized: true },
-        select: { locationId: true },
-      })
-    : [];
+  const anonLocRows =
+    locIdsOnPage.length > 0
+      ? await prisma.locationMap.findMany({
+          where: { locationId: { in: locIdsOnPage }, isAnonymized: true },
+          select: { locationId: true },
+        })
+      : [];
   const anonymizedLocationIds = new Set(anonLocRows.map((r) => r.locationId));
 
   const ids = rows.map((r) => r.id);
@@ -1387,8 +1378,16 @@ async function locationIdsInCountry(country: string): Promise<number[]> {
 
 /** Options for the /sbirka filter bar. Cached aggregations. */
 export interface FilterOptions {
-  locations: Array<{ id: number; label: string }>;
-  cities: string[];
+  /** Each location carries its city + country so the filter dropdowns can
+   *  cascade (country → city → location) purely on the client. */
+  locations: Array<{
+    id: number;
+    label: string;
+    city: string;
+    country: string;
+  }>;
+  /** City name + the country it sits in (a city is in exactly one). */
+  cities: Array<{ name: string; country: string }>;
   countries: Array<{ code: string; name: string }>;
   states: FindState[];
   years: number[];
@@ -1401,19 +1400,35 @@ export interface FilterOptions {
 }
 
 export async function getFilterOptions(): Promise<FilterOptions> {
-  const [locations, yearRows, cities, countries, dateBounds, anonMaps] =
+  const [locationRows, yearRows, countries, dateBounds, anonMaps] =
     await Promise.all([
-      prisma.location.findMany({
-        select: { id: true, code: true, displayName: true },
-        orderBy: { code: "asc" },
-      }),
+      // id/code/displayName plus the cadastral area (→ city) and centre
+      // coords (→ country) so the filter dropdowns can cascade. Coords need
+      // PostGIS, hence raw SQL rather than a Prisma select.
+      prisma.$queryRaw<
+        Array<{
+          id: number;
+          code: string;
+          displayName: string | null;
+          cadastralArea: string | null;
+          lat: number | null;
+          lng: number | null;
+        }>
+      >`
+        SELECT id, code,
+               display_name AS "displayName",
+               cadastral_area AS "cadastralArea",
+               ST_Y(center_point)::float8 AS lat,
+               ST_X(center_point)::float8 AS lng
+        FROM "locations"
+        ORDER BY code ASC
+      `,
       prisma.$queryRaw<Array<{ year: number }>>`
         SELECT DISTINCT EXTRACT(YEAR FROM found_at)::int AS year
         FROM finds
         WHERE found_at IS NOT NULL
         ORDER BY year ASC
       `,
-      listCadastralAreas(),
       listCountries(),
       prisma.find.aggregate({
         _min: { foundAt: true },
@@ -1436,25 +1451,42 @@ export async function getFilterOptions(): Promise<FilterOptions> {
     anonMaps.map((m) => m.locationId),
   );
 
+  const locations = locationRows.map((l) => {
+    const isAnonymized = anonymizedLocationIds.has(l.id);
+    // Code is the formal identifier; displayName is the human note
+    // ("note" in user-speak). For anonymized locations we drop the
+    // displayName — leaving it visible here would leak through the
+    // filter UI even though /lokality already strips it. For public
+    // ones, show "<code> — <displayName>" so visitors can recognize a
+    // location either way.
+    const showDisplay =
+      !isAnonymized &&
+      l.displayName &&
+      l.displayName.trim() &&
+      l.displayName !== l.code;
+    return {
+      id: l.id,
+      label: showDisplay ? `${l.code} — ${l.displayName}` : l.code,
+      city: cityFromCadastralArea(l.cadastralArea),
+      country:
+        l.lat != null && l.lng != null
+          ? countryFromCoords(l.lat, l.lng).code
+          : "",
+    };
+  });
+
+  // Derive the city dropdown from the locations, tagging each city with
+  // the country it sits in (a cadastral area is in exactly one country).
+  const cityCountry = new Map<string, string>();
+  for (const l of locations) {
+    if (l.city && !cityCountry.has(l.city)) cityCountry.set(l.city, l.country);
+  }
+  const cities = [...cityCountry.entries()]
+    .map(([name, country]) => ({ name, country }))
+    .sort((a, b) => a.name.localeCompare(b.name, "cs"));
+
   return {
-    locations: locations.map((l) => {
-      const isAnonymized = anonymizedLocationIds.has(l.id);
-      // Code is the formal identifier; displayName is the human note
-      // ("note" in user-speak). For anonymized locations we drop the
-      // displayName — leaving it visible here would leak through the
-      // filter UI even though /lokality already strips it. For public
-      // ones, show "<code> — <displayName>" so visitors can recognize
-      // a location either way.
-      const showDisplay =
-        !isAnonymized &&
-        l.displayName &&
-        l.displayName.trim() &&
-        l.displayName !== l.code;
-      return {
-        id: l.id,
-        label: showDisplay ? `${l.code} — ${l.displayName}` : l.code,
-      };
-    }),
+    locations,
     cities,
     countries,
     // NORMAL is the filename token's "no special state" placeholder —

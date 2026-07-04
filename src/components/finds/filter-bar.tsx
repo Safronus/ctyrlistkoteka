@@ -12,6 +12,18 @@ const INPUT_CLS =
   "h-10 rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
 const SELECT_CLS = `${INPUT_CLS} cursor-pointer appearance-none pr-10`;
 
+/** "DUBLIN" → "Dublin", "ÚSTÍ NAD LABEM" → "Ústí Nad Labem". Only the
+ *  displayed label is title-cased; the stored value stays the raw
+ *  (upper-case) cadastral-area string the filter query matches on. */
+function titleCase(s: string): string {
+  return s
+    .toLocaleLowerCase("cs")
+    .replace(
+      /(^|[\s\-–/(])(\p{L})/gu,
+      (_, sep, ch) => sep + ch.toLocaleUpperCase("cs"),
+    );
+}
+
 export function FilterBar({
   options,
   current,
@@ -70,9 +82,18 @@ export function FilterBar({
 
   const update = (key: string, value: string) => {
     if (key === "q") lastPushedRef.current = value;
+    updateMany({ [key]: value });
+  };
+
+  // Set/clear several filter params in one navigation — used by the
+  // cascading country/city/location selects, which must change more than
+  // one param atomically (e.g. picking a city also pins its country).
+  const updateMany = (entries: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value) params.set(key, value);
-    else params.delete(key);
+    for (const [key, value] of Object.entries(entries)) {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
     params.delete("page"); // reset pagination on filter change
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
@@ -105,6 +126,34 @@ export function FilterBar({
         tStates(a as FindState).localeCompare(tStates(b as FindState), "cs"),
       );
   }, [options.states, tStates]);
+
+  // Cascading geo filters. A selected city pins its country (even on a
+  // deep-linked URL that only carries `city`), so `effectiveCountry`
+  // resolves the country from the city when the country param is absent.
+  const effectiveCountry =
+    current.country ||
+    options.cities.find((c) => c.name === current.city)?.country ||
+    "";
+
+  // City dropdown narrows to the (effective) country; location dropdown
+  // narrows to both country and city. Everything cascades client-side —
+  // the options already carry each location's city + country.
+  const visibleCities = useMemo(
+    () =>
+      effectiveCountry
+        ? options.cities.filter((c) => c.country === effectiveCountry)
+        : options.cities,
+    [options.cities, effectiveCountry],
+  );
+  const visibleLocations = useMemo(
+    () =>
+      options.locations.filter(
+        (l) =>
+          (!effectiveCountry || l.country === effectiveCountry) &&
+          (!current.city || l.city === current.city),
+      ),
+    [options.locations, effectiveCountry, current.city],
+  );
 
   const hasAny =
     current.q ||
@@ -144,10 +193,21 @@ export function FilterBar({
             {t("country")}
           </span>
           <div className="relative">
+            {/* Locked while a city is selected — the city pins its
+                country, so another country can't be chosen. Clear the
+                city (below) to unlock it. */}
             <select
-              value={current.country}
-              onChange={(e) => update("country", e.currentTarget.value)}
-              className={`${SELECT_CLS} w-full`}
+              value={effectiveCountry}
+              disabled={!!current.city}
+              onChange={(e) =>
+                // Changing country invalidates city + location.
+                updateMany({
+                  country: e.currentTarget.value,
+                  city: "",
+                  loc: "",
+                })
+              }
+              className={`${SELECT_CLS} w-full disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400`}
             >
               <option value="">{tCommon("all")}</option>
               {options.countries.map((c) => (
@@ -170,13 +230,24 @@ export function FilterBar({
           <div className="relative">
             <select
               value={current.city}
-              onChange={(e) => update("city", e.currentTarget.value)}
+              onChange={(e) => {
+                const city = e.currentTarget.value;
+                if (!city) {
+                  updateMany({ city: "", loc: "" });
+                } else {
+                  // Selecting a city pins its country and clears location.
+                  const country =
+                    options.cities.find((c) => c.name === city)?.country ??
+                    current.country;
+                  updateMany({ city, country, loc: "" });
+                }
+              }}
               className={`${SELECT_CLS} w-full`}
             >
               <option value="">{tCommon("allAlt")}</option>
-              {options.cities.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              {visibleCities.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {titleCase(c.name)}
                 </option>
               ))}
             </select>
@@ -194,11 +265,27 @@ export function FilterBar({
           <div className="relative">
             <select
               value={current.locationId}
-              onChange={(e) => update("loc", e.currentTarget.value)}
+              onChange={(e) => {
+                const loc = e.currentTarget.value;
+                const location = options.locations.find(
+                  (l) => String(l.id) === loc,
+                );
+                // Picking a location pins its city + country too, so the
+                // three selects stay mutually consistent.
+                if (location) {
+                  updateMany({
+                    loc,
+                    city: location.city,
+                    country: location.country,
+                  });
+                } else {
+                  updateMany({ loc });
+                }
+              }}
               className={`${SELECT_CLS} w-full`}
             >
               <option value="">{tCommon("all")}</option>
-              {options.locations.map((l) => (
+              {visibleLocations.map((l) => (
                 <option key={l.id} value={String(l.id)}>
                   {l.label}
                 </option>
