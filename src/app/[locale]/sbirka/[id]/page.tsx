@@ -20,6 +20,7 @@ import {
   locationDetailHref,
 } from "@/lib/format";
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import { photoDisplay } from "@/lib/photoBox";
 import { effectForFind } from "@/lib/specialFinds";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
@@ -148,6 +149,13 @@ export default async function FindDetailPage({ params }: PageProps) {
   const cropImage = isNoPhoto
     ? null
     : (find.images.find((i) => i.imageType === ImageType.CROP) ?? null);
+
+  // Displayed photo geometry (height-capped, landscape rotated to portrait).
+  // The location map below is widened to `photoBox.widthCss` so the two are
+  // exactly the same width — the map follows the photo, not vice versa.
+  const photoBox = photoDisplay(mainImage?.width, mainImage?.height, {
+    rotate: true,
+  });
 
   // Special atmospheric effect for this find (record / heavenly /
   // hellish), resolved from the admin-assignable config (defaults seed
@@ -278,15 +286,10 @@ export default async function FindDetailPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Notes are nulled at the query layer for anonymized AND
-            donated finds (see hydrate() in src/lib/queries/finds.ts),
-            so a single truthy guard here covers every privacy rule —
-            no need to re-check states. */}
-        {find.notes && (
-          <p className="whitespace-pre-wrap rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
-            {find.notes}
-          </p>
-        )}
+        {/* The note moved onto the photo as a centered bottom-edge caption
+            banner (passed to ImageGallery below). Notes are nulled at the
+            query layer for anonymized AND donated finds (see hydrate() in
+            src/lib/queries/finds.ts), so that guard covers privacy. */}
       </header>
 
       {/* Time & position — frameless, centered. No heading (it's
@@ -324,6 +327,8 @@ export default async function FindDetailPage({ params }: PageProps) {
             mapSlot={mapSlot}
             voteSlot={voteSlot}
             statesSlot={statesSlot}
+            note={find.notes}
+            rotateLandscape
           />
         </div>
       </section>
@@ -365,6 +370,10 @@ export default async function FindDetailPage({ params }: PageProps) {
                 ? formatLocationId(find.location.id)
                 : null
             }
+            /* Match the map exactly to the find photo's displayed width so
+               the two line up (falls back to max-w-2xl when there's no
+               photo to measure against). */
+            figureWidth={photoBox?.widthCss}
             locale={locale}
             t={t}
           />
@@ -668,6 +677,7 @@ function LocationMapsGallery({
   isAnonymized = false,
   locationId,
   locationBadge = null,
+  figureWidth,
   locale,
   t,
 }: {
@@ -696,6 +706,9 @@ function LocationMapsGallery({
    *  map image's top-left corner. Null for anonymized finds (the
    *  placeholder must not carry a real-looking id). */
   locationBadge?: string | null;
+  /** CSS width to match the map figure to the find photo above it (the
+   *  photo's displayed width). Undefined → the default max-w-2xl cap. */
+  figureWidth?: string;
   /** Used to format the distance suffix in the status banner. */
   locale: string;
   /** Server-side translator pre-bound to the `FindDetail` namespace.
@@ -713,7 +726,12 @@ function LocationMapsGallery({
         return (
           <figure
             key={m.id}
-            className="mx-auto w-full max-w-2xl overflow-hidden rounded-md border border-gray-200 bg-gray-50"
+            className={`mx-auto w-full overflow-hidden rounded-md border border-gray-200 bg-gray-50 ${
+              figureWidth ? "" : "max-w-2xl"
+            }`}
+            style={
+              figureWidth ? { width: figureWidth, maxWidth: "100%" } : undefined
+            }
           >
             {/* Status banner — colored strip above the image so the
                 visitor sees the verdict before scanning the map for
@@ -794,7 +812,7 @@ function LocationMapsGallery({
               )}
             </div>
             {m.description && !isAnonymized && (
-              <figcaption className="px-3 pt-2 text-xs text-gray-600">
+              <figcaption className="border-t border-gray-200 bg-white/70 px-3 py-2 text-center text-xs text-gray-600">
                 {m.description}
               </figcaption>
             )}

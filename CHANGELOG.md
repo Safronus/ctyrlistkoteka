@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Detail nálezu — šířka fotky/mapy, rotace, poznámka jako banner
+- **Mapa se roztáhne na šířku fotky (ne naopak)**: šířka se počítá z rozměrů
+  fotky (`photoDisplay` v [src/lib/photoBox.ts](src/lib/photoBox.ts)) jako čistý
+  CSS výraz `min(100%, Wpx, 70vh·W/H)` a **stejná hodnota** se použije pro box
+  fotky i pro figure lokační mapy — sedí na pixel bez měření v prohlížeči.
+  (Oprava předchozí verze, kde jsem chybně zmenšoval fotku místo zvětšení mapy.)
+- **Fotky na šířku otočené o 90° doprava**: landscape originály se zobrazí jako
+  portrait (přes container-query jednotky + `rotate(90deg)`), takže mapka pod
+  nimi není přehnaně široká. Ověřeno, že rotace nedeformuje.
+- **Poznámka nálezu jako spodní banner na fotce**: přesunuta z hlavičky do
+  `figcaption` na spodní hraně fotky (jako mají lokační mapky). Text poznámky
+  nálezu i popisku lokační mapy je v bannerech **vycentrovaný**.
+
 ### Detail nálezu — doladění
 - **Placeholder rámeček fotky**: box fotky si rezervuje místo z poměru stran
   (`aspect-ratio` + `bg-gray-100`) ještě před načtením obrázku, takže při

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import type { PublicImage } from "@/lib/queries/finds";
 import type { FindPhotoEntry } from "@/lib/findPhotos";
 import type { FindFreePhotoEntry } from "@/lib/findFreePhotos";
+import { photoDisplay } from "@/lib/photoBox";
 import { DonationPhotosButton } from "./donation-photos-button";
 import { FreePhotosButton } from "./free-photos-button";
 
@@ -15,11 +16,17 @@ import { FreePhotosButton } from "./free-photos-button";
  * top-right swaps the displayed image to the crop. Both images are mounted
  * at once and cross-faded via opacity so the swap is instant.
  *
+ * The photo box is sized from the image's own pixel dimensions (see
+ * `photoDisplay`): height-capped at 70vh, and landscape originals rotated
+ * 90° CW to portrait. The box reserves its space up front so navigating
+ * prev/next doesn't jump the page while the new photo streams in. An
+ * optional `note` renders as a centered caption banner on the bottom edge,
+ * mirroring the location-map caption.
+ *
  * The optional Camera button sits directly under the magnifier (top-right
  * stack) and opens the donation-photos modal when the find has any
  * matching files in `${GENERATED_DIR}/find-photos/`. A second "Images"
- * button stacks below it for the "free" photo gallery — extra
- * find-of-the-clover snapshots that don't carry a donation context.
+ * button stacks below it for the "free" photo gallery.
  */
 export function ImageGallery({
   image,
@@ -32,6 +39,8 @@ export function ImageGallery({
   mapSlot = null,
   voteSlot = null,
   statesSlot = null,
+  note = null,
+  rotateLandscape = false,
 }: {
   image: PublicImage | null;
   cropImage: PublicImage | null;
@@ -57,9 +66,15 @@ export function ImageGallery({
   /** Overlay drawn in the photo's top-RIGHT corner, to the left of the
    *  crop magnifier (the vote button). Only shown on the real photo. */
   voteSlot?: ReactNode;
-  /** Overlay drawn in the photo's bottom-LEFT corner (the find's state
-   *  badges). Rendered on both the real photo and the placeholder. */
+  /** Overlay drawn centered on the photo's top edge (desktop) / bottom
+   *  edge (mobile) — the find's state badges. */
   statesSlot?: ReactNode;
+  /** Centered caption banner on the photo's bottom edge (the find note).
+   *  Rendered on both the real photo and the placeholder. */
+  note?: ReactNode;
+  /** Rotate landscape originals 90° CW so they read as portrait and don't
+   *  make the photo (and the location map matched to it) too wide. */
+  rotateLandscape?: boolean;
 }) {
   const t = useTranslations("ImageGallery");
   const tCommon = useTranslations("Common");
@@ -71,24 +86,154 @@ export function ImageGallery({
   const freeButtonStack: "top" | "below-camera" =
     donationPhotos.length > 0 ? "below-camera" : "top";
 
+  const noteBanner = note ? (
+    <figcaption className="whitespace-pre-wrap border-t border-gray-200 bg-white/70 px-3 py-2 text-center text-sm text-gray-700">
+      {note}
+    </figcaption>
+  ) : null;
+
   if (!image) {
     return (
-      <div className="relative flex aspect-video items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-brand-100">
-        <span aria-hidden className="text-4xl opacity-40">
-          🍀
-        </span>
-        <span className="sr-only">{tCommon("noPhoto")}</span>
-        {mapSlot && <div className="absolute left-3 top-3 z-10">{mapSlot}</div>}
-        {statesSlot && (
-          <div className="absolute bottom-3 left-3 z-10">{statesSlot}</div>
+      <figure className="mx-auto overflow-hidden rounded-xl">
+        <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100">
+          <span aria-hidden className="text-4xl opacity-40">
+            🍀
+          </span>
+          <span className="sr-only">{tCommon("noPhoto")}</span>
+          {mapSlot && (
+            <div className="absolute left-3 top-3 z-10">{mapSlot}</div>
+          )}
+          {statesSlot && (
+            <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 sm:bottom-auto sm:top-3">
+              {statesSlot}
+            </div>
+          )}
+          {/* No main photo doesn't preclude attached galleries (e.g.
+              NO_PHOTO state but the recipient still got a card, or the
+              author shot the spot itself). Both buttons still mount so
+              the visitor can browse what's there. */}
+          {donationPhotos.length > 0 && findId !== undefined && (
+            <DonationPhotosButton findId={findId} photos={donationPhotos} />
+          )}
+          {freePhotos.length > 0 && findId !== undefined && (
+            <FreePhotosButton
+              findId={findId}
+              photos={freePhotos}
+              stack={freeButtonStack}
+            />
+          )}
+        </div>
+        {noteBanner}
+      </figure>
+    );
+  }
+
+  // Box geometry from the image's own pixels: height-capped, landscape
+  // rotated to portrait, width shared with the location map below.
+  const disp = photoDisplay(image.width, image.height, {
+    rotate: rotateLandscape,
+  });
+  const filterCls = muted ? "grayscale sepia-[0.12]" : "";
+
+  // Rotated images fill the box via container-query units (100cqh wide,
+  // 100cqw tall, then rotated 90° — see photoBox.ts for the geometry);
+  // upright images just cover the box (box aspect == image aspect).
+  const rotatedImgStyle: CSSProperties = {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    width: "100cqh",
+    height: "100cqw",
+    maxWidth: "none",
+    transform: "translate(-50%, -50%) rotate(90deg)",
+  };
+  const mainImgCls = `transition-opacity duration-150 ${
+    showCrop && cropImage ? "opacity-0" : "opacity-100"
+  } ${filterCls}`;
+
+  return (
+    <figure
+      className="mx-auto overflow-hidden rounded-xl bg-gray-100"
+      style={disp ? { width: disp.widthCss, maxWidth: "100%" } : undefined}
+    >
+      <div
+        className="relative"
+        style={
+          disp
+            ? {
+                aspectRatio: disp.aspectRatio,
+                ...(disp.rotated ? { containerType: "size" } : {}),
+              }
+            : undefined
+        }
+      >
+        {/* Served by Nginx; Next Image optimizer not needed. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={image.webPath}
+          alt={altBase}
+          width={image.width}
+          height={image.height}
+          className={
+            disp?.rotated
+              ? `object-cover ${mainImgCls}`
+              : disp
+                ? `absolute inset-0 h-full w-full object-cover ${mainImgCls}`
+                : `block h-auto w-full ${mainImgCls}`
+          }
+          style={disp?.rotated ? rotatedImgStyle : undefined}
+        />
+        {cropImage && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={cropImage.webPath}
+            alt={t("cropAlt", { base: altBase })}
+            aria-hidden={!showCrop}
+            className={`pointer-events-none object-contain transition-opacity duration-150 ${
+              disp?.rotated ? "" : "absolute inset-0 h-full w-full"
+            } ${showCrop ? "opacity-100" : "opacity-0"} ${filterCls}`}
+            style={disp?.rotated ? rotatedImgStyle : undefined}
+          />
         )}
-        {/* No main photo doesn't preclude attached galleries (e.g.
-            NO_PHOTO state but the recipient still got a card, or the
-            author shot the spot itself). Both buttons still mount so
-            the visitor can browse what's there. */}
+        {/* Show-on-map pin — top-LEFT overlay. */}
+        {mapSlot && <div className="absolute left-3 top-3 z-10">{mapSlot}</div>}
+        {/* State badges — centered on the BOTTOM edge (mobile) / TOP edge
+            (desktop). Drop-shadow keeps the pills legible over the photo. */}
+        {statesSlot && (
+          <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 drop-shadow-sm sm:bottom-auto sm:top-3">
+            {statesSlot}
+          </div>
+        )}
+        {/* Top-RIGHT control cluster: the vote button sits to the LEFT of
+            the crop magnifier, both the same height. Either can be absent
+            (no photo-vote surface / no crop) and the row still lines up. */}
+        {(voteSlot || cropImage) && (
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+            {voteSlot}
+            {cropImage && (
+              <button
+                type="button"
+                onMouseEnter={() => setShowCrop(true)}
+                onMouseLeave={() => setShowCrop(false)}
+                onFocus={() => setShowCrop(true)}
+                onBlur={() => setShowCrop(false)}
+                aria-label={t("showCrop")}
+                aria-pressed={showCrop}
+                title={t("showCrop")}
+                className="rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+        )}
+        {/* Camera button — donation-photo modal. Stacked under the lupa
+            (top-16). */}
         {donationPhotos.length > 0 && findId !== undefined && (
           <DonationPhotosButton findId={findId} photos={donationPhotos} />
         )}
+        {/* Images button — free-photo modal. Sits below the camera when
+            both galleries exist, otherwise takes the camera's slot. */}
         {freePhotos.length > 0 && findId !== undefined && (
           <FreePhotosButton
             findId={findId}
@@ -97,95 +242,7 @@ export function ImageGallery({
           />
         )}
       </div>
-    );
-  }
-
-  // Reserve the photo's box from its intrinsic ratio BEFORE the image
-  // loads, so navigating prev/next doesn't shove the page around while
-  // the new photo streams in (the location section used to jump up, then
-  // get pushed back down). The box is a fixed max-w-2xl — the same width
-  // as the location map below — so the two line up regardless of the
-  // photo's aspect. `bg-gray-100` is the visible placeholder frame.
-  const aspectRatio =
-    image.width && image.height
-      ? `${image.width} / ${image.height}`
-      : undefined;
-  return (
-    <div
-      className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-xl bg-gray-100"
-      style={aspectRatio ? { aspectRatio } : undefined}
-    >
-      {/* Served by Nginx; Next Image optimizer not needed. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={image.webPath}
-        alt={altBase}
-        width={image.width}
-        height={image.height}
-        className={`block h-auto w-full transition-opacity duration-150 ${
-          showCrop && cropImage ? "opacity-0" : "opacity-100"
-        } ${muted ? "grayscale sepia-[0.12]" : ""}`}
-      />
-      {/* Show-on-map pin — top-LEFT overlay. */}
-      {mapSlot && <div className="absolute left-3 top-3 z-10">{mapSlot}</div>}
-      {/* State badges — centered on the photo's BOTTOM edge on mobile,
-          TOP edge on desktop. Drop-shadow keeps the small coloured pills
-          legible over a busy photo. */}
-      {statesSlot && (
-        <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 drop-shadow-sm sm:bottom-auto sm:top-3">
-          {statesSlot}
-        </div>
-      )}
-      {cropImage && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={cropImage.webPath}
-          alt={t("cropAlt", { base: altBase })}
-          aria-hidden={!showCrop}
-          className={`pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-150 ${
-            showCrop ? "opacity-100" : "opacity-0"
-          } ${muted ? "grayscale sepia-[0.12]" : ""}`}
-        />
-      )}
-      {/* Top-RIGHT control cluster: the vote button sits to the LEFT of
-          the crop magnifier, both the same height. Either can be absent
-          (no photo-vote surface / no crop) and the row still lines up. */}
-      {(voteSlot || cropImage) && (
-        <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-          {voteSlot}
-          {cropImage && (
-            <button
-              type="button"
-              onMouseEnter={() => setShowCrop(true)}
-              onMouseLeave={() => setShowCrop(false)}
-              onFocus={() => setShowCrop(true)}
-              onBlur={() => setShowCrop(false)}
-              aria-label={t("showCrop")}
-              aria-pressed={showCrop}
-              title={t("showCrop")}
-              className="rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            >
-              <Search className="h-5 w-5" />
-            </button>
-          )}
-        </div>
-      )}
-      {/* Camera button — donation-photo modal. Stacked under the lupa
-          (top-16) so the two affordances read as a vertical control
-          column. Renders only when the find has matching files in
-          `${GENERATED_DIR}/find-photos/` AND a findId was passed. */}
-      {donationPhotos.length > 0 && findId !== undefined && (
-        <DonationPhotosButton findId={findId} photos={donationPhotos} />
-      )}
-      {/* Images button — free-photo modal. Sits below the camera when
-          both galleries exist, otherwise takes the camera's slot. */}
-      {freePhotos.length > 0 && findId !== undefined && (
-        <FreePhotosButton
-          findId={findId}
-          photos={freePhotos}
-          stack={freeButtonStack}
-        />
-      )}
-    </div>
+      {noteBanner}
+    </figure>
   );
 }
