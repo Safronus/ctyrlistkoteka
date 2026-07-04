@@ -82,27 +82,30 @@ export function MainNav() {
             + theme toggles grouped flush right; the drawer carries the
             nav links until the desktop nav appears at 900px. */}
         <div className="flex items-center justify-between gap-2 min-[900px]:hidden">
-          <button
-            type="button"
-            onClick={() => setMobileOpen((o) => !o)}
-            aria-label={mobileOpen ? t("closeMenu") : t("openMenu")}
-            aria-expanded={mobileOpen}
-            aria-controls="main-nav-mobile-panel"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 transition hover:border-brand-200 hover:text-brand-700"
-          >
-            {mobileOpen ? (
-              <X className="h-5 w-5" aria-hidden />
-            ) : (
-              <Menu className="h-5 w-5" aria-hidden />
+          {/* Hamburger + (on a find-detail page, phones only) the compact
+              back chip, grouped together on the left with no gap between
+              them. Locale + theme stay flush right. */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobileOpen((o) => !o)}
+              aria-label={mobileOpen ? t("closeMenu") : t("openMenu")}
+              aria-expanded={mobileOpen}
+              aria-controls="main-nav-mobile-panel"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 transition hover:border-brand-200 hover:text-brand-700"
+            >
+              {mobileOpen ? (
+                <X className="h-5 w-5" aria-hidden />
+              ) : (
+                <Menu className="h-5 w-5" aria-hidden />
+              )}
+            </button>
+            {isFindDetail && (
+              <div className="sm:hidden">
+                <BackToSbirkaLink variant="button" />
+              </div>
             )}
-          </button>
-          {/* Back-to-collection chip — phones only (< sm); from sm up the
-              detail page shows its own subtle ← icon in the title bar. */}
-          {isFindDetail && (
-            <div className="sm:hidden">
-              <BackToSbirkaLink variant="button" />
-            </div>
-          )}
+          </div>
           <div className="flex items-center gap-2">
             <LocaleSwitcher />
             <ThemeToggle />

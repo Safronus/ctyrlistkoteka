@@ -1,11 +1,11 @@
 /**
- * Quiet full-viewport overlay for LOST finds — the "blown away by the
- * wind" half of the lost-find treatment (the other half being the muted
- * gallery photos + the dashed banner on the detail page). A sparse
- * shower of green clovers RISES from the bottom edge, sways, shrinks
- * and dissolves to nothing about two thirds of the way up — the
- * inverse of the heavenly #111 shower, with far fewer particles so it
- * reads as an elegy, not a celebration.
+ * Quiet full-viewport overlay for LOST finds — the "it drifts away" half
+ * of the lost-find treatment (the other half being the muted gallery
+ * photos + the banner above the photo). A sparse shower of little grey
+ * ghosts RISES from the bottom edge, sways, shrinks and dissolves to
+ * nothing about two thirds of the way up — reads as a quiet elegy, not a
+ * celebration. (Anonymized finds get the same motion with question
+ * marks; the two can stack.)
  *
  * Pure CSS keyframes (no canvas/RAF), pointer-events:none, and every
  * particle freezes under `prefers-reduced-motion: reduce`. Deterministic
@@ -82,13 +82,12 @@ export function LostOverlay() {
           }
         >
           <svg width={c.size} height={c.size} viewBox="0 0 24 24" aria-hidden>
-            <g fill="#4d9748">
-              <circle cx={12} cy={6} r={4.5} />
-              <circle cx={6} cy={12} r={4.5} />
-              <circle cx={18} cy={12} r={4.5} />
-              <circle cx={12} cy={18} r={4.5} />
-            </g>
-            <circle cx={12} cy={12} r={2.5} fill="#3a7236" />
+            <path
+              d="M12 2C7.6 2 4 5.6 4 10v12l3-3 3 3 2-2 2 2 3-3 3 3V10c0-4.4-3.6-8-8-8z"
+              fill="#cbd5e1"
+            />
+            <circle cx={9.2} cy={10} r={1.3} fill="#64748b" />
+            <circle cx={14.8} cy={10} r={1.3} fill="#64748b" />
           </svg>
         </span>
       ))}

@@ -104,7 +104,7 @@ export function ImageGallery({
   const borderCls = bordered ? "border border-gray-200" : "";
 
   const noteBanner = note ? (
-    <figcaption className="whitespace-pre-wrap border-t border-gray-200 bg-white/70 px-3 py-2 text-center text-sm text-gray-700">
+    <figcaption className="whitespace-pre-wrap border-t border-gray-200 bg-white/70 px-3 py-2 text-center text-xs text-gray-700">
       {note}
     </figcaption>
   ) : null;

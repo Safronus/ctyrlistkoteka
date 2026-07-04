@@ -273,7 +273,7 @@ export default async function FindDetailPage({ params }: PageProps) {
         {activeBanners.map((b) => (
           <div
             key={b.state}
-            className={`flex items-center justify-center gap-2 border-b px-3 py-2 text-center text-sm ${b.cls}`}
+            className={`flex items-center justify-center gap-2 border-b px-3 py-2 text-center text-xs ${b.cls}`}
           >
             {b.icon}
             <span>{b.text}</span>
@@ -665,12 +665,12 @@ export default async function FindDetailPage({ params }: PageProps) {
     <>
       {jsonLd && <JsonLd data={jsonLd} />}
       <DetailVibeOverlay effect={effect} />
-      {/* The lost elegy / anonymized question-marks only own the viewport
-          when no config-assigned effect is active — stacking two particle
-          systems would read as noise rather than mood. Lost takes
-          precedence if a find were somehow both. */}
+      {/* Ambient particle overlays. Suppressed only when a config-assigned
+          effect (record/heavenly/hellish) owns the viewport. Lost and
+          anonymized are independent, so an anonymized + lost find rises
+          BOTH ghosts and question marks. */}
       {isLost && !effect && <LostOverlay />}
-      {find.isAnonymized && !isLost && !effect && <AnonymizedOverlay />}
+      {find.isAnonymized && !effect && <AnonymizedOverlay />}
       {hellish ? (
         <div className="min-h-screen bg-gradient-to-br from-gray-950 via-red-950/85 to-black">
           {detail}
@@ -951,6 +951,15 @@ function statusLabel(
       : t("mapStatusOutsideMapFromPolygon", { distance });
   }
   if (status === "outside_polygon" && offset) {
+    // Center mode has no polygon — the threshold is the FIND_DEVIATION_
+    // RADIUS_M circle around the map centre, so word it as a radius, not
+    // a polygon edge (which doesn't exist for these locations).
+    if (offset.mode === "center") {
+      return t("mapStatusOutsideRadius", {
+        radius: FIND_DEVIATION_RADIUS_M,
+        distance: formatDistance(offset.meters, locale),
+      });
+    }
     return t("mapStatusOutsidePolygon", {
       distance: formatDistance(offset.meters, locale),
     });

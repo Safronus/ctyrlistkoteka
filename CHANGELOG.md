@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Detail nálezu — duchové, kombinace stavů, drobné opravy
+- **Ztracený nález má teď stoupající duchy** místo lístečků; anonymizovaný má
+  otazníčky. Overlaye jsou **nezávislé** — anonymizovaný + ztracený nechá
+  stoupat **duchy i otazníčky** zároveň (a bannerů je tam pak víc, každý stav
+  svůj).
+- **Oprava banneru nad lokační mapkou pro lokality bez polygonu**: dřív hlásil
+  „mimo polygon (X m od hrany)", ale žádný polygon tam není — teď „mimo okruh
+  5 m od středu lokality (X m od středu)".
+- **Text „Bez GPS" banneru** zkrácen na „Čtyřlístek byl utržen i vyfocen, ale
+  fotka ztratila/neměla EXIF GPS souřadnice."
+- **Sjednocená velikost textu** bannerů: stavové bannery nad fotkou, poznámka
+  pod fotkou i popisek pod lokační mapkou jsou teď všechny `text-xs`.
+- **Mobilní „Zpět na sbírku"** je hned vedle hamburgeru (bez mezery).
+- **Zrušené stavy** (Neutržený / Zaniklá lokalita / Bez lokality) už nejsou
+  v comboboxu „Stav" na /sbirka.
+
 ### Zrušené stavy nálezů — „Neutržený", „Zaniklá lokalita", „Bez lokality"
 - Stavy `NOT_PICKED`, `LOCATION_GONE` a `LOCATION_MISSING` byly zrušeny:
   odebrány z `JSON_STATE_MAP` (sync je přestal přiřazovat) a schované z UI

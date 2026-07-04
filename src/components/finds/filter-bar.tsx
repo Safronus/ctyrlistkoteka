@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 import type { FilterOptions } from "@/lib/queries/finds";
 import type { FindState } from "@prisma/client";
+import { RETIRED_STATES } from "@/lib/stateLabels";
 
 const INPUT_CLS =
   "h-10 rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
@@ -98,9 +99,11 @@ export function FilterBar({
   // list is a static `Object.values(FindState)` from the enum (no
   // locale context on the server when it's built).
   const sortedStates = useMemo(() => {
-    return [...options.states].sort((a, b) =>
-      tStates(a as FindState).localeCompare(tStates(b as FindState), "cs"),
-    );
+    return [...options.states]
+      .filter((s) => !RETIRED_STATES.has(s as FindState))
+      .sort((a, b) =>
+        tStates(a as FindState).localeCompare(tStates(b as FindState), "cs"),
+      );
   }, [options.states, tStates]);
 
   const hasAny =
@@ -255,7 +258,6 @@ export function FilterBar({
             />
           </div>
         </label>
-
       </div>
 
       {hasAny && (
