@@ -267,17 +267,22 @@ export default async function AdminScopeListPage({
   // (LSP note or override) — drives the per-row "pozn." editor and the
   // "S poznámkou" filter. Finds scope only.
   let noteOverrides: Record<number, { cs?: string; en?: string }> | undefined;
+  let noteLsp: Record<number, string> | undefined;
   let findIdsWithNotes: Set<number> | undefined;
   if (scope.slug === "finds") {
     const [ovMap, notedRows] = await Promise.all([
       readFindNoteOverrides(),
       prisma.find.findMany({
         where: { notes: { not: null } },
-        select: { id: true },
+        select: { id: true, notes: true },
       }),
     ]);
     noteOverrides = {};
     for (const [k, v] of ovMap) noteOverrides[k] = v;
+    // Raw LSP note per find — pre-fills the editor so the admin only edits
+    // (the CS text also seeds the EN field as a translation starting point).
+    noteLsp = {};
+    for (const r of notedRows) if (r.notes) noteLsp[r.id] = r.notes;
     findIdsWithNotes = new Set<number>([
       ...notedRows.map((r) => r.id),
       ...ovMap.keys(),
@@ -822,6 +827,7 @@ export default async function AdminScopeListPage({
           findsWithDonationPhoto={findsWithDonationPhoto}
           showQrZip
           noteOverrides={noteOverrides}
+          noteLsp={noteLsp}
         />
       ) : scope.slug === "crops" ? (
         <FilesListClient

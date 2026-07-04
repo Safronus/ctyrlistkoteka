@@ -60,6 +60,29 @@ const eslintConfig = [
       "sonarjs/no-nested-functions": "off",
       "sonarjs/no-nested-template-literals": "off",
       "sonarjs/use-type-alias": "off",
+      // -- Off: consistently false-positive / pure style in THIS codebase.
+      //    Every hit was reviewed (also on SonarCloud) — none is a real bug
+      //    or security issue, so they were just noise in the deploy log. --
+      // Math.random() is only ever used for UI jitter / particle timing /
+      // fact shuffling — never tokens or crypto (those use node:crypto).
+      "sonarjs/pseudo-random": "off",
+      // SHA-1 is used for content-addressed image filenames + vote/rate
+      // fingerprints — dedup / bucketing, not a security primitive.
+      "sonarjs/hashing": "off",
+      // Regex micro-style: `[0-9]`→`\d`, `(a|b)`→`[ab]`. Cosmetic.
+      "sonarjs/concise-regex": "off",
+      "sonarjs/single-character-alternation": "off",
+      // Autofocus is deliberate in the admin dialogs / inline editors
+      // (single-user tool — the field the user just opened should be hot).
+      "jsx-a11y/no-autofocus": "off",
+      // Click/interaction handlers on non-interactive elements. Every hit
+      // is a modal backdrop or a decorative overlay that closes on outside
+      // click — always paired with Escape + a real close <button>. Genuine
+      // controls use <button>/<a>. Off to keep the log meaningful; the
+      // substantive a11y rules (alt text, labels, roles, aria) stay on.
+      "jsx-a11y/click-events-have-key-events": "off",
+      "jsx-a11y/no-static-element-interactions": "off",
+      "jsx-a11y/no-noninteractive-element-interactions": "off",
       // -- Re-raise to error: high-signal, currently zero occurrences,
       //    so they guard the future without breaking today's build --
       // `method` over-matches dynamic import() (a false positive on

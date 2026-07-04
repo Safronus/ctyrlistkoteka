@@ -102,6 +102,10 @@ interface Props {
    *  scope), each row grows a "pozn." button opening the CS/EN editor
    *  (writes data/.admin/find-note-overrides.json). */
   noteOverrides?: Record<number, { cs?: string; en?: string }>;
+  /** Raw LSP note per find — pre-fills the editor when there's no override
+   *  yet, so the admin edits rather than retypes (and the CS text seeds
+   *  the EN field as a translation starting point). */
+  noteLsp?: Record<number, string>;
 }
 
 function fmtSize(bytes: number): string {
@@ -191,6 +195,7 @@ export function FilesListClient({
   showNonexistentBadge,
   showQrZip,
   noteOverrides,
+  noteLsp,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bannerError, setBannerError] = useState<string | null>(null);
@@ -752,13 +757,25 @@ export function FilesListClient({
                     </>
                   );
                 })()}
-              {noteOverrides !== undefined && findId !== null && (
-                <NoteOverrideButton
-                  filename={e.name}
-                  initialCs={noteOverrides[findId]?.cs ?? ""}
-                  initialEn={noteOverrides[findId]?.en ?? ""}
-                />
-              )}
+              {noteOverrides !== undefined &&
+                findId !== null &&
+                (() => {
+                  const ov = noteOverrides[findId];
+                  const lsp = noteLsp?.[findId] ?? "";
+                  // CS: existing override, else the raw LSP note. EN:
+                  // existing override, else seed from the CS text so the
+                  // admin just translates in place.
+                  const cs = ov?.cs ?? lsp;
+                  const en = ov?.en ?? cs;
+                  return (
+                    <NoteOverrideButton
+                      filename={e.name}
+                      initialCs={cs}
+                      initialEn={en}
+                      hasOverride={!!(ov?.cs || ov?.en)}
+                    />
+                  );
+                })()}
               <span className="shrink-0 font-mono text-xs tabular-nums text-gray-500">
                 {fmtSize(e.size)}
               </span>

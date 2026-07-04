@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — odhad kapacity disku, předvyplněné poznámky, méně warningů
+- **„Místo na disku"** na `/admin` teď ukazuje **odhad, kolik nálezů se ještě
+  vejde** — průměrná stopa nálezu na disku (originál + výřez) promítnutá do
+  volného místa. Sken zdrojových adresářů je cachovaný na 30 min (přehled
+  zůstává svižný).
+- **Dialog „pozn."** (`/admin/files/finds`) se **předvyplní aktuální poznámkou**
+  z LSP JSONu; **EN pole dostane český text jako podklad** k přeložení — stačí
+  upravovat, ne psát od nuly. (Žádný strojový překlad — jen seed textu k ruční
+  úpravě.)
+- **Lint**: konzistentně false-positive / čistě stylová pravidla vypnuta
+  (`jsx-a11y` interakce na overlay/backdrop, `sonarjs` pseudo-random/hashing/
+  regex-styl) — warningů při deploji z ~90 na ~16. Zbytek jsou nízkoobjemové
+  advisory (ReDoS triáž, hardcoded-secret false-positives u názvů env
+  proměnných), nic z toho neblokuje deploy.
+
 ### Opravy — „Bez fotky", middleware, #666
 - **Nové public obrázky se 404-ovaly** (`clover-illustration.png` → 404): matcher
   next-intl middleware měl **explicitní seznam** vyloučených souborů a nový

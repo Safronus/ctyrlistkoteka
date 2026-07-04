@@ -20,10 +20,15 @@ export function NoteOverrideButton({
   filename,
   initialCs = "",
   initialEn = "",
+  hasOverride = false,
 }: {
   filename: string;
   initialCs?: string;
   initialEn?: string;
+  /** Whether a web override actually exists (drives the chip colour) —
+   *  distinct from the pre-filled values, which may just be the raw LSP
+   *  note seeded into the fields for convenience. */
+  hasOverride?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -31,9 +36,6 @@ export function NoteOverrideButton({
   const [en, setEn] = useState(initialEn);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  const hasOverride =
-    initialCs.trim().length > 0 || initialEn.trim().length > 0;
 
   // Close on Escape while the dialog is open.
   useEffect(() => {
@@ -89,12 +91,10 @@ export function NoteOverrideButton({
 
       {open && (
         // Backdrop: click outside to close (Escape also closes, above).
-        // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => setOpen(false)}
         >
-          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
           <div
             className="w-full max-w-lg rounded-lg bg-white p-4 shadow-xl"
             onClick={(e) => e.stopPropagation()}
@@ -117,8 +117,9 @@ export function NoteOverrideButton({
             </p>
             <p className="mb-3 text-xs text-gray-500">
               Zobrazí se v banneru pod fotkou nálezu. Nezávislé na názvu souboru
-              i LSP JSONu (ty se nemění). Prázdná obě pole = smazat override.
-              Bez EN varianty se v EN ukáže česky s upozorněním.
+              i LSP JSONu (ty se nemění). Předvyplněno aktuální poznámkou; EN je
+              podklad z češtiny — přelož ho. Prázdná obě pole = smazat override;
+              prázdné EN = v EN se ukáže česky s upozorněním.
             </p>
 
             <label className="mb-3 block">

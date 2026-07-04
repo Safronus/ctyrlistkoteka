@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import {
   Activity,
   AlertTriangle,
@@ -28,7 +29,30 @@ import { listCredentials } from "@/lib/admin/credentials";
 import { readRecentAudit } from "@/lib/admin/audit";
 import { runChecksSummary } from "@/lib/admin/checks";
 import { checkSyncNeeded } from "@/lib/admin/syncNeeded";
-import { getDiskUsage, type DiskUsage } from "@/lib/admin/scopes";
+import {
+  getDiskUsage,
+  getScope,
+  getScopeDiskBytes,
+  type DiskUsage,
+} from "@/lib/admin/scopes";
+import { prisma } from "@/lib/db";
+
+/** Total on-disk bytes of the source photos (originals + crops). Scanned
+ *  sequentially so peak concurrent fs.stat stays at one scope's worth, and
+ *  cached for 30 min: the figure only feeds a rough capacity estimate and
+ *  drifts slowly, so we don't re-scan tens of thousands of files on every
+ *  admin overview load. */
+const getFindPhotoBytes = unstable_cache(
+  async (): Promise<number> => {
+    const finds = getScope("finds");
+    const crops = getScope("crops");
+    const f = finds ? await getScopeDiskBytes(finds) : 0;
+    const c = crops ? await getScopeDiskBytes(crops) : 0;
+    return f + c;
+  },
+  ["admin-find-photo-bytes"],
+  { revalidate: 1800 },
+);
 
 /** Time window for collapsing consecutive file.upload entries from the
  *  same operator + scope into one summary row. Match the upload form's
@@ -110,6 +134,8 @@ export default async function AdminHomePage() {
     syncMaps,
     syncMeta,
     diskUsage,
+    findCount,
+    findPhotoBytes,
   ] = await Promise.all([
     listCredentials(),
     // Pull a larger tail than we ultimately display — when a single
@@ -125,7 +151,21 @@ export default async function AdminHomePage() {
     checkSyncNeeded(["maps"]),
     checkSyncNeeded(["meta"]),
     getDiskUsage(),
+    prisma.find.count(),
+    getFindPhotoBytes(),
   ]);
+  // Rough "how many more finds fit": average on-disk footprint per find
+  // (originals + crops) projected onto the free space. null when we can't
+  // divide (no finds yet, or the figure isn't available).
+  const photoFit =
+    diskUsage && findCount > 0 && findPhotoBytes > 0
+      ? {
+          avgBytes: findPhotoBytes / findCount,
+          remaining: Math.floor(
+            diskUsage.freeBytes / (findPhotoBytes / findCount),
+          ),
+        }
+      : null;
   const recent = aggregateUploadBatches(recentRaw).slice(0, 20);
   const checksOk = checks.totalIssues === 0;
   const findsNeedSync = syncFinds.needed;
@@ -279,7 +319,7 @@ export default async function AdminHomePage() {
           the most frequent action, then checks (verify), then
           security (housekeeping). */}
       <Group title="Provoz">
-        <DiskUsageCard usage={diskUsage} />
+        <DiskUsageCard usage={diskUsage} photoFit={photoFit} />
         <FeatureCard
           icon={Database}
           title="Sync"
@@ -536,7 +576,15 @@ function formatDiskBytes(bytes: number): string {
 /** Storage tile for the Provoz group — disk usage with a graduated
  *  warning: green under 75 % used, amber 75–90 %, red at/above 90 %.
  *  Informational (no link); renders a usage bar + figures. */
-function DiskUsageCard({ usage }: { usage: DiskUsage | null }) {
+function DiskUsageCard({
+  usage,
+  photoFit,
+}: {
+  usage: DiskUsage | null;
+  /** Rough capacity projection: average find footprint + how many more
+   *  finds the free space would hold at that average. */
+  photoFit: { avgBytes: number; remaining: number } | null;
+}) {
   if (!usage) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -629,6 +677,18 @@ function DiskUsageCard({ usage }: { usage: DiskUsage | null }) {
           {formatDiskBytes(usage.totalBytes)} ({pct} %)
         </li>
         <li>Zbývá {formatDiskBytes(usage.freeBytes)} volných</li>
+        {photoFit && (
+          <li className="mt-1 border-t border-current/15 pt-1">
+            ≈ vejde se ještě{" "}
+            <span className="font-semibold">
+              {new Intl.NumberFormat("cs-CZ").format(photoFit.remaining)}
+            </span>{" "}
+            nálezů{" "}
+            <span className="opacity-70">
+              (Ø {formatDiskBytes(photoFit.avgBytes)}/nález, orig. + výřez)
+            </span>
+          </li>
+        )}
         {level === "critical" && (
           <li className="font-medium">
             Kriticky málo místa — ukliď nebo rozšiř disk.
