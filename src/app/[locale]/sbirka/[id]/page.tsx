@@ -398,153 +398,135 @@ export default async function FindDetailPage({ params }: PageProps) {
           )
         }
       >
-        {find.isAnonymized ? (
-          /* Anonymized finds get only the short notice + the
-             placeholder map (question-mark watermark) — no
-             location code, no displayName, no rank, no prev/next
-             nav, no "show on map" link. Everything the panel
-             would normally surface is either the privacy
-             placeholder (misleading to show) or a real location
-             field (an outright leak). */
-          <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
-            {t("anonymizedLocationNotice")}
-          </p>
-        ) : (
-          <>
-            {isFormerLocation(find.location?.code) && (
-              <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
-                {t("formerLocationNotice")}
+        {/* Facts + prev/next nav on the LEFT, the (capped) location map on
+            the RIGHT — the map was leaving a wide empty strip beside it in
+            the full-width panel. Collapses to a single stacked column on
+            mobile (facts → nav → map). */}
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-2">
+          <div className="space-y-2 self-start">
+            {find.isAnonymized ? (
+              /* Anonymized finds get only the short notice — no location
+                 code, displayName, rank or nav (privacy placeholder or an
+                 outright leak). The placeholder map still renders on the
+                 right. */
+              <p className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
+                {t("anonymizedLocationNotice")}
               </p>
-            )}
-            {find.location ? (
+            ) : (
               <>
-                <KeyValue label={t("kvCode")} value={find.location.code} />
-                <KeyValue
-                  label={t("kvDescription")}
-                  value={find.location.displayName}
-                />
-                {areaDensity && (
+                {isFormerLocation(find.location?.code) && (
+                  <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+                    {t("formerLocationNotice")}
+                  </p>
+                )}
+                {find.location ? (
                   <>
-                    <KeyValue
-                      label={
-                        areaDensity.areaIsEstimate
-                          ? t("kvAreaEstimate")
-                          : t("kvArea")
-                      }
-                      value={
-                        <span>
-                          {areaDensity.areaIsEstimate ? "≈ " : ""}
-                          {formatAreaM2(areaDensity.effectiveAreaM2)}
-                          {areaDensity.areaIsEstimate && (
-                            <span className="ml-1 text-xs text-gray-500">
-                              {t("kvAreaEstimateNote")}
+                    {/* Popis lokality intentionally not repeated here — it
+                        already sits as the caption under the map. */}
+                    <KeyValue label={t("kvCode")} value={find.location.code} />
+                    {areaDensity && (
+                      <>
+                        <KeyValue
+                          label={
+                            areaDensity.areaIsEstimate
+                              ? t("kvAreaEstimate")
+                              : t("kvArea")
+                          }
+                          value={
+                            <span>
+                              {areaDensity.areaIsEstimate ? "≈ " : ""}
+                              {formatAreaM2(areaDensity.effectiveAreaM2)}
+                              {areaDensity.areaIsEstimate && (
+                                <span className="ml-1 text-xs text-gray-500">
+                                  {t("kvAreaEstimateNote")}
+                                </span>
+                              )}
                             </span>
-                          )}
-                        </span>
-                      }
-                    />
-                    {areaDensity.densityPer100m2 !== null && (
+                          }
+                        />
+                        {areaDensity.densityPer100m2 !== null && (
+                          <KeyValue
+                            label={t("kvDensity")}
+                            value={
+                              <span>
+                                {areaDensity.areaIsEstimate ? "≈ " : ""}
+                                {formatDensity(areaDensity.densityPer100m2)}
+                              </span>
+                            }
+                          />
+                        )}
+                      </>
+                    )}
+                    {find.rankAtLocation && (
                       <KeyValue
-                        label={t("kvDensity")}
-                        value={
-                          <span>
-                            {areaDensity.areaIsEstimate ? "≈ " : ""}
-                            {formatDensity(areaDensity.densityPer100m2)}
-                          </span>
-                        }
+                        label={t("kvOrderAtLocation")}
+                        value={t("orderAtLocationValue", {
+                          rank: find.rankAtLocation.rank,
+                          total: find.rankAtLocation.total,
+                        })}
                       />
                     )}
+                    {find.rankAtLocation && find.rankAtLocation.total > 1 && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {/* prev/next + first/last navigation among the finds
+                            at this location. Each chip stays rendered (faded)
+                            at the chain boundary so the row doesn't shift
+                            between finds. */}
+                        <LocationExtremeLink
+                          targetId={find.rankAtLocation.firstId}
+                          label="1."
+                          ariaLabel={t("firstAtLocation")}
+                          isCurrent={find.rankAtLocation.rank === 1}
+                        />
+                        <LocationNavLink
+                          direction="prev"
+                          targetId={find.rankAtLocation.prevId}
+                          label={t("prevAtLocation")}
+                        />
+                        <LocationNavLink
+                          direction="next"
+                          targetId={find.rankAtLocation.nextId}
+                          label={t("nextAtLocation")}
+                        />
+                        <LocationExtremeLink
+                          targetId={find.rankAtLocation.lastId}
+                          label={`${find.rankAtLocation.total.toLocaleString(
+                            locale === "en" ? "en-GB" : "cs-CZ",
+                          )}.`}
+                          ariaLabel={t("lastAtLocation")}
+                          isCurrent={
+                            find.rankAtLocation.rank ===
+                            find.rankAtLocation.total
+                          }
+                        />
+                      </div>
+                    )}
                   </>
+                ) : (
+                  <p className="text-sm text-gray-600">{t("noLocation")}</p>
                 )}
-                {/* "Nth find of M" line — ordering matches the
-                    /sbirka "oldest first" sort filtered by the same
-                    location, so the visitor can scroll the listing
-                    to find the same neighbour. Query layer returns
-                    null when the rank can't be computed (no
-                    location, or anonymized — but anonymized takes
-                    the other branch above anyway). */}
-                {find.rankAtLocation && (
-                  <KeyValue
-                    label={t("kvOrderAtLocation")}
-                    value={t("orderAtLocationValue", {
-                      rank: find.rankAtLocation.rank,
-                      total: find.rankAtLocation.total,
-                    })}
-                  />
-                )}
-                {/* Map deep-link + prev/next chips share one row:
-                    "Zobrazit na mapě" anchors LEFT, prev/next
-                    cluster sits flush RIGHT via `ml-auto`. With
-                    flex-wrap the cluster falls below the map link
-                    on narrow widths instead of overlapping.
-                    Map link only renders for finds with GPS
-                    (`?find=N` deep-link drives the highlight +
-                    auto-fit on /mapa — anonymized finds never
-                    reach this branch).
-                    Prev/next cluster only renders when the
-                    location has more than one find; each chip
-                    stays rendered at the chain boundary as a
-                    faded non-interactive span so the row doesn't
-                    jump between finds. */}
-                {find.rankAtLocation &&
-                  find.rankAtLocation.total > 1 && (
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {/* prev/next + first/last navigation among the finds
-                          at this location. Each chip stays rendered (faded)
-                          at the chain boundary so the row doesn't shift
-                          between finds. ("Zobrazit na mapě" moved up to the
-                          page header next to the title.) */}
-                      <LocationExtremeLink
-                        targetId={find.rankAtLocation.firstId}
-                        label="1."
-                        ariaLabel={t("firstAtLocation")}
-                        isCurrent={find.rankAtLocation.rank === 1}
-                      />
-                      <LocationNavLink
-                        direction="prev"
-                        targetId={find.rankAtLocation.prevId}
-                        label={t("prevAtLocation")}
-                      />
-                      <LocationNavLink
-                        direction="next"
-                        targetId={find.rankAtLocation.nextId}
-                        label={t("nextAtLocation")}
-                      />
-                      <LocationExtremeLink
-                        targetId={find.rankAtLocation.lastId}
-                        label={`${find.rankAtLocation.total.toLocaleString(
-                          locale === "en" ? "en-GB" : "cs-CZ",
-                        )}.`}
-                        ariaLabel={t("lastAtLocation")}
-                        isCurrent={
-                          find.rankAtLocation.rank ===
-                          find.rankAtLocation.total
-                        }
-                      />
-                    </div>
-                  )}
               </>
-            ) : (
-              <p className="text-sm text-gray-600">{t("noLocation")}</p>
             )}
-          </>
-        )}
-        {find.locationMaps.length > 0 && (
-          <LocationMapsGallery
-            maps={find.locationMaps}
-            locationOffset={find.locationOffset}
-            isAnonymized={find.isAnonymized}
-            /* locationId is non-null only when the gallery actually
-               represents the find's real location — anonymized finds
-               render the placeholder location and we don't want the
-               overlay to deep-link to that. */
-            locationId={
-              find.isAnonymized ? null : (find.location?.id ?? null)
-            }
-            locale={locale}
-            t={t}
-          />
-        )}
+          </div>
+
+          {find.locationMaps.length > 0 && (
+            <div className="self-start">
+              <LocationMapsGallery
+                maps={find.locationMaps}
+                locationOffset={find.locationOffset}
+                isAnonymized={find.isAnonymized}
+                /* locationId is non-null only when the gallery actually
+                   represents the find's real location — anonymized finds
+                   render the placeholder and we don't deep-link to it. */
+                locationId={
+                  find.isAnonymized ? null : (find.location?.id ?? null)
+                }
+                locale={locale}
+                t={t}
+              />
+            </div>
+          )}
+        </div>
       </Panel>
     </article>
   );

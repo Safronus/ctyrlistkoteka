@@ -33,6 +33,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   - „JSON položky bez odpovídajícího názvu souboru" → **„Srovnat +ANO+ v názvech"**
     (nálezy anon v DB/JSONu, ale `+NE+` v názvu). Obě pak stačí dorovnat syncem.
 
+### Detail nálezu — sekce „Lokalita"
+- **2-sloupcový layout na desktopu**: fakta lokality (kód, plocha, hustota,
+  pořadí) + navigace mezi nálezy **vlevo**, mapa **vpravo** — po capnutí mapy
+  zbývalo vedle ní hodně prázdna. Na mobilu se to složí pod sebe (fakta →
+  navigace → mapa), jako dřív.
+- **Popis lokality už není 2×**: vyhozen z horní tabulky (dlouhý text), zůstává
+  jen jako popisek pod mapou.
+
 ### Homepage — kartička „Zajímavosti"
 - **„Další zajímavost" skočí na kartu**: tlačítko v dlaždici Zajímavostí je pod
   ohybem, hero kartička nahoře — po kliknutí teď stránka plynule scrolluje ke
