@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Detail nálezu — Český rekord, darovaní, oddělené ikonky
+- **Český rekord**: notice přesunuto do banneru nad fotkou (zlatý, s pohárem)
+  a fotka má **zlatý rámeček** (`goldFrame` u `ImageGallery`) místo šedého.
+  Hlavička nad fotkou tím úplně zmizela (vše je na fotce / v bannerech).
+- **Darovaný nález** má vlastní vizualizaci — stoupající **dárečky + lístečky**
+  (`DonatedOverlay`).
+- **Oddělené stoupající ikonky**: každý overlay (duchové / otazníčky / dárečky)
+  má teď **jiný seed** pozic i časování, takže se u nálezu s víc stavy
+  (např. ztracený + anonymizovaný) nekryjí do jednoho sloupce a čtou se jako
+  dva samostatné druhy.
+
 ### Detail nálezu — duchové, kombinace stavů, drobné opravy
 - **Ztracený nález má teď stoupající duchy** místo lístečků; anonymizovaný má
   otazníčky. Overlaye jsou **nezávislé** — anonymizovaný + ztracený nechá

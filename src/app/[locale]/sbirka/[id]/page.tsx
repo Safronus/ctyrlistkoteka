@@ -10,6 +10,7 @@ import { ImageGallery } from "@/components/finds/image-gallery";
 import { FindKeyNav } from "@/components/finds/find-key-nav";
 import { LostOverlay } from "@/components/finds/lost-overlay";
 import { AnonymizedOverlay } from "@/components/finds/anonymized-overlay";
+import { DonatedOverlay } from "@/components/finds/donated-overlay";
 import { BackToSbirkaLink } from "@/components/finds/sbirka-back-link";
 import { StateBadges } from "@/components/finds/state-badges";
 import { VoteButton } from "@/components/finds/vote-button";
@@ -267,20 +268,31 @@ export default async function FindDetailPage({ params }: PageProps) {
   const activeBanners = STATE_BANNERS.filter((b) =>
     find.states.includes(b.state),
   );
-  const photoTopBanner =
-    activeBanners.length > 0 ? (
-      <>
-        {activeBanners.map((b) => (
-          <div
-            key={b.state}
-            className={`flex items-center justify-center gap-2 border-b px-3 py-2 text-center text-xs ${b.cls}`}
-          >
-            {b.icon}
-            <span>{b.text}</span>
-          </div>
-        ))}
-      </>
-    ) : null;
+  const bannerEls: React.ReactNode[] = [];
+  // The Czech-record banner (a config effect, not a state) leads, in gold.
+  if (effect === "record") {
+    bannerEls.push(
+      <div
+        key="record"
+        className="flex items-center justify-center gap-2 border-b border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-900"
+      >
+        <Trophy className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+        <span>{t("recordBadge")}</span>
+      </div>,
+    );
+  }
+  for (const b of activeBanners) {
+    bannerEls.push(
+      <div
+        key={b.state}
+        className={`flex items-center justify-center gap-2 border-b px-3 py-2 text-center text-xs ${b.cls}`}
+      >
+        {b.icon}
+        <span>{b.text}</span>
+      </div>,
+    );
+  }
+  const photoTopBanner = bannerEls.length > 0 ? <>{bannerEls}</> : null;
 
   const detail = (
     <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
@@ -335,23 +347,10 @@ export default async function FindDetailPage({ params }: PageProps) {
         </div>
       </nav>
 
-      <header className="space-y-3">
-        {/* State badges are a photo overlay; the anonymized/lost notices
-            are banners ABOVE the photo; the note is a banner BELOW it. The
-            header now carries only the celebratory record banner. */}
-
-        {/* Czech-record banner — the milestone find for the largest CZ
-            collection. Shown whenever the admin-assignable special-find
-            config (src/lib/specialFinds.*) resolves this find to the
-            "record" effect. The celebratory overlay is rendered
-            separately via DetailVibeOverlay. */}
-        {effect === "record" && (
-          <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 px-4 py-2.5 text-center text-sm font-semibold text-amber-900 shadow-sm">
-            <Trophy className="h-5 w-5 shrink-0 text-amber-500" aria-hidden />
-            {t("recordBadge")}
-          </div>
-        )}
-      </header>
+      {/* All the find's badges/notices now live on the photo itself: state
+          badges as an overlay, the record/anonymized/lost/… notices as
+          banners ABOVE it, the note as a banner BELOW. So there's no
+          separate header block — the photo section follows the nav. */}
 
       {/* Time & position — frameless, centered. No heading (it's
           self-evident): just the date/time (no label) and the GPS with
@@ -414,6 +413,7 @@ export default async function FindDetailPage({ params }: PageProps) {
             note={find.notes}
             topBanner={photoTopBanner}
             bordered
+            goldFrame={effect === "record"}
             rotateLandscape
             placeholderWidthCss={photoBox.widthCss}
             placeholderAspectRatio={photoBox.aspectRatio}
@@ -671,6 +671,7 @@ export default async function FindDetailPage({ params }: PageProps) {
           BOTH ghosts and question marks. */}
       {isLost && !effect && <LostOverlay />}
       {find.isAnonymized && !effect && <AnonymizedOverlay />}
+      {find.states.includes(FindState.DONATED) && !effect && <DonatedOverlay />}
       {hellish ? (
         <div className="min-h-screen bg-gradient-to-br from-gray-950 via-red-950/85 to-black">
           {detail}

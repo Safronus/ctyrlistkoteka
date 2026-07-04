@@ -23,17 +23,20 @@ interface RiseSpec {
   opacity: number;
 }
 
+// Distinct seed from the LOST overlay (different multiplier/offset and
+// timing) so ghosts and question marks never share a column — on an
+// anonymized + lost find the two showers read as separate, not fused.
 const SPECS: RiseSpec[] = Array.from({ length: MARKS }, (_, i) => ({
   id: i,
-  left: (i * 7919 + 41) % 100,
+  left: (i * 5237 + 79) % 100,
   size: 14 + (i % 4) * 4,
-  duration: 11 + (i % 6),
-  delay: -((i * 2.3) % 14),
-  sway: ((i % 5) - 2) * 30,
-  rotation: 30 + ((i % 3) - 1) * 40,
+  duration: 13 + (i % 5),
+  delay: -((i * 3.3 + 7) % 15),
+  sway: ((i % 5) - 2) * 26,
+  rotation: 30 + ((i % 3) - 1) * 45,
   // How far up the particle gets before it has fully dissolved — varied
   // so the "vanishing line" isn't a visible horizontal band.
-  rise: 58 + (i % 4) * 7,
+  rise: 60 + (i % 4) * 6,
   opacity: 0.3 + (i % 4) * 0.1,
 }));
 

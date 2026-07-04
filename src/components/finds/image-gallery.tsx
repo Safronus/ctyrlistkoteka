@@ -42,6 +42,7 @@ export function ImageGallery({
   note = null,
   topBanner = null,
   bordered = false,
+  goldFrame = false,
   rotateLandscape = false,
   placeholderWidthCss,
   placeholderAspectRatio,
@@ -82,6 +83,9 @@ export function ImageGallery({
   topBanner?: ReactNode;
   /** Draw a border around the whole figure (like the location map). */
   bordered?: boolean;
+  /** Czech-record find: a thicker gold frame instead of the grey border,
+   *  matching the gold record banner above the photo. */
+  goldFrame?: boolean;
   /** Rotate landscape originals 90° CW so they read as portrait and don't
    *  make the photo (and the location map matched to it) too wide. */
   rotateLandscape?: boolean;
@@ -101,7 +105,11 @@ export function ImageGallery({
   const freeButtonStack: "top" | "below-camera" =
     donationPhotos.length > 0 ? "below-camera" : "top";
 
-  const borderCls = bordered ? "border border-gray-200" : "";
+  const borderCls = goldFrame
+    ? "border-2 border-amber-300"
+    : bordered
+      ? "border border-gray-200"
+      : "";
 
   const noteBanner = note ? (
     <figcaption className="whitespace-pre-wrap border-t border-gray-200 bg-white/70 px-3 py-2 text-center text-xs text-gray-700">
