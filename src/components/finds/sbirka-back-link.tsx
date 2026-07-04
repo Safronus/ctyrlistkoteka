@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 
 /**
@@ -42,7 +43,14 @@ export function RememberSbirkaSearch() {
   return null;
 }
 
-export function BackToSbirkaLink() {
+export function BackToSbirkaLink({
+  variant = "text",
+}: {
+  /** "text" — full "← Zpět na sbírku" link (default). "icon" — a bare
+   *  ← arrow (subtle, for the desktop detail bar). "button" — a bordered
+   *  ← arrow chip matching the mobile app-bar hamburger. */
+  variant?: "text" | "icon" | "button";
+}) {
   const t = useTranslations("BackLink");
   // Initial render targets bare /sbirka so SSR markup is stable; the
   // client effect upgrades the href once it can read sessionStorage.
@@ -62,6 +70,31 @@ export function BackToSbirkaLink() {
   // next-intl's `Link` auto-prepends `/en/` when rendered under the
   // English locale, so the same `href` resolves to the correct path
   // for both locales without per-call juggling.
+  if (variant === "icon") {
+    return (
+      <Link
+        href={href}
+        aria-label={t("backAria")}
+        title={t("backAria")}
+        className="inline-flex items-center text-gray-500 transition hover:text-brand-700"
+      >
+        <ArrowLeft className="h-5 w-5" aria-hidden />
+      </Link>
+    );
+  }
+  if (variant === "button") {
+    return (
+      <Link
+        href={href}
+        aria-label={t("backAria")}
+        title={t("backAria")}
+        className="inline-flex h-9 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 text-sm font-medium text-gray-700 transition hover:border-brand-200 hover:text-brand-700"
+      >
+        <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
+        <span>{t("backShort")}</span>
+      </Link>
+    );
+  }
   return (
     <Link href={href} className="hover:text-brand-700">
       {t("toCollection")}

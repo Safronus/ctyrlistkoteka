@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { DetailVibeOverlay } from "@/components/finds/detail-vibe-overlay";
 import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
+import { FindKeyNav } from "@/components/finds/find-key-nav";
 import { LostOverlay } from "@/components/finds/lost-overlay";
 import { BackToSbirkaLink } from "@/components/finds/sbirka-back-link";
 import { StateBadges } from "@/components/finds/state-badges";
@@ -221,6 +222,8 @@ export default async function FindDetailPage({ params }: PageProps) {
 
   const detail = (
     <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+      {/* ← / → keyboard navigation to the neighbouring finds. */}
+      <FindKeyNav prevId={adjacent.prevId} nextId={adjacent.nextId} />
       {/* Bar: "Zpět na sbírku" on the left, and the find title —
           "🍀 #id" — centered with the prev/next find links flanking it
           (prev left, next right). On desktop the title group is centered
@@ -232,8 +235,10 @@ export default async function FindDetailPage({ params }: PageProps) {
           hellish ? "text-red-300/80" : "text-gray-500"
         }`}
       >
-        <div className="sm:justify-self-start">
-          <BackToSbirkaLink />
+        {/* Desktop: a subtle ← icon at the far left. On phones the back
+            action lives in the app bar instead, so this is hidden. */}
+        <div className="hidden sm:block sm:justify-self-start">
+          <BackToSbirkaLink variant="icon" />
         </div>
         <div className="flex items-center justify-center gap-3">
           <CloverNavLink
@@ -379,9 +384,17 @@ export default async function FindDetailPage({ params }: PageProps) {
           />
         )}
 
-        {/* Below the map, constrained to the map width (max-w-2xl) so the
-            facts' labels/values align with the map's left/right edges. */}
-        <div className="mx-auto w-full max-w-2xl space-y-3">
+        {/* Below the map, constrained to the SAME width as the photo/map
+            above so the facts' labels/values align with the map's left/
+            right edges (falls back to max-w-2xl when there's no photo). */}
+        <div
+          className={`mx-auto w-full space-y-3 ${photoBox ? "" : "max-w-2xl"}`}
+          style={
+            photoBox
+              ? { width: photoBox.widthCss, maxWidth: "100%" }
+              : undefined
+          }
+        >
           {find.isAnonymized ? (
             /* Anonymized finds get only the short notice — no location
                code, displayName, rank or nav (privacy placeholder or an

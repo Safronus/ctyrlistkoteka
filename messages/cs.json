@@ -215,7 +215,9 @@
     "pageSizeAria": "Počet záznamů na stránku"
   },
   "BackLink": {
-    "toCollection": "← Zpět na sbírku"
+    "toCollection": "← Zpět na sbírku",
+    "backAria": "Zpět na sbírku",
+    "backShort": "Sbírka"
   },
   "Home": {
     "intro": "Veřejná prezentace soukromé sbírky čtyřlístků — tisíce nálezů, zaznamenaných lokalit a GPS souřadnic.",

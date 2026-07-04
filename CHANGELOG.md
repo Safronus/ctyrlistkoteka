@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Detail nálezu — navigace a šířka popisu
+- **„Zpět na sbírku" méně na očích**: na mobilu je teď jako kompaktní čip
+  v horní liště (mezi hamburgerem a přepínači CS/EN, jen na detailu nálezu —
+  `MainNav` to pozná z cesty), na desktopu zůstává vlevo v liště detailu, ale
+  jen jako nenápadná šipka `←` (nový `variant` u `BackToSbirkaLink`).
+- **Klávesy šipek**: `←` / `→` na detailu nálezu skočí na předchozí / další
+  nález (`FindKeyNav`; ignoruje psaní do polí a klávesy s modifikátory).
+- **Popisná sekce pod mapou má šířku mapy**: dřív `max-w-2xl`, teď stejná šířka
+  jako fotka/mapa (`photoBox.widthCss`), takže labely a hodnoty lícují s hranami
+  mapky.
+
 ### Detail nálezu — šířka fotky/mapy, rotace, poznámka jako banner
 - **Mapa se roztáhne na šířku fotky (ne naopak)**: šířka se počítá z rozměrů
   fotky (`photoDisplay` v [src/lib/photoBox.ts](src/lib/photoBox.ts)) jako čistý

@@ -216,7 +216,9 @@
     "pageSizeAria": "Number of items per page"
   },
   "BackLink": {
-    "toCollection": "← Back to collection"
+    "toCollection": "← Back to collection",
+    "backAria": "Back to collection",
+    "backShort": "Collection"
   },
   "Home": {
     "intro": "A public showcase of a private four-leaf clover collection — thousands of finds, recorded locations and GPS coordinates.",

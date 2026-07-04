@@ -8,6 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { NavLink } from "@/components/nav-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { BackToSbirkaLink } from "@/components/finds/sbirka-back-link";
 import { siteName } from "@/lib/siteName";
 
 const NAV_HREFS: ReadonlyArray<{ href: string; key: string }> = [
@@ -32,6 +33,11 @@ export function MainNav() {
   }, [pathname]);
 
   const items = NAV_HREFS.map((it) => ({ ...it, label: t(it.key) }));
+
+  // On a find-detail page (`/sbirka/<id>`) phones get a compact "back to
+  // collection" chip in the app bar (between the hamburger and the
+  // locale/theme toggles) instead of the eye-catching link on the page.
+  const isFindDetail = /^\/sbirka\/\d+$/.test(pathname);
 
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
@@ -90,6 +96,13 @@ export function MainNav() {
               <Menu className="h-5 w-5" aria-hidden />
             )}
           </button>
+          {/* Back-to-collection chip — phones only (< sm); from sm up the
+              detail page shows its own subtle ← icon in the title bar. */}
+          {isFindDetail && (
+            <div className="sm:hidden">
+              <BackToSbirkaLink variant="button" />
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <LocaleSwitcher />
             <ThemeToggle />
