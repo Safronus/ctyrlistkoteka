@@ -9,7 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
-### Detail nálezu — Český rekord, darovaní, oddělené ikonky
+### GPS souřadnice — lokalizace, oprava mezer, nové formáty
+- **Směry se lokalizují**: v CS teď S/J/V/Z (Sever/Jih/Východ/Západ) místo
+  N/S/E/W — všude, kde se GPS zobrazuje (detail, karty, mapa, /lokality).
+- **Oprava „verbose" formátu**: odstraněny mezery navíc za `°` a `'`
+  (`S 49°14'09.870" V 17°40'18.970"`).
+- **Nové přepínatelné formáty** (tlačítko u GPS cykluje: Apple → Verbose →
+  DDM → DD → UTM):
+  - **DDM** (stupně + desetinné minuty): `S 49° 14.164 V 017° 40.316`
+  - **DD se znaménkem** (kopírovatelné do Google Maps): `49.236075, 17.671936`
+  - **UTM** (WGS84): `33U 694497 5455…` — čistě vypočtené, bez závislostí.
+  - Pokryto novými unit testy (`gpsFormat.test.ts`).
 - **Český rekord**: notice přesunuto do banneru nad fotkou (zlatý, s pohárem)
   a fotka má **zlatý rámeček** (`goldFrame` u `ImageGallery`) místo šedého.
   Hlavička nad fotkou tím úplně zmizela (vše je na fotce / v bannerech).

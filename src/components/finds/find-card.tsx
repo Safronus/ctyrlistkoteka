@@ -166,7 +166,7 @@ export async function FindCard({
 
         {!find.isAnonymized && find.coordinates && (
           <p className="truncate font-mono text-xs text-gray-500">
-            {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
+            {formatGpsApple(find.coordinates.lat, find.coordinates.lng, locale)}
           </p>
         )}
 

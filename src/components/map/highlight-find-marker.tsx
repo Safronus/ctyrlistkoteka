@@ -133,7 +133,7 @@ export function HighlightFindMarker({
               fontFamily: "var(--font-mono, monospace)",
             }}
           >
-            {formatGpsApple(find.lat, find.lng)}
+            {formatGpsApple(find.lat, find.lng, locale)}
           </div>
           {find.offset && (
             <div style={{ marginTop: 4, color: "#15803d", fontSize: 12 }}>

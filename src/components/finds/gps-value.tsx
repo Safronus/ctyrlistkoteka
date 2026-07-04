@@ -1,17 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { RefreshCw } from "lucide-react";
-import { formatGpsApple, formatGpsVerbose } from "@/lib/gpsFormat";
-
-type Format = "apple" | "verbose";
+import { formatGps, GPS_FORMATS, type GpsFormat } from "@/lib/gpsFormat";
 
 /**
- * Renders a (lat, lng) pair as DMS, with a button to cycle between two
- * common presentations:
- *   apple:   49°21'46.8"N 17°53'42.0"E   (Apple Maps style, suffix dir)
- *   verbose: N 49° 21' 56.530" E 17° 53' 21.120"  (prefix dir, more decimals)
+ * Renders a (lat, lng) pair, with a button that cycles through several
+ * presentations (see `GPS_FORMATS` / `formatGps`): Apple DMS, verbose DMS,
+ * degrees-decimal-minutes, signed decimal degrees and UTM. Direction
+ * letters follow the locale (Czech S/J/V/Z instead of N/S/E/W).
  */
 export function GpsValue({
   lat,
@@ -26,19 +24,19 @@ export function GpsValue({
   tone?: "default" | "dark";
 }) {
   const t = useTranslations("GpsValue");
-  const [format, setFormat] = useState<Format>("apple");
+  const locale = useLocale();
+  const [format, setFormat] = useState<GpsFormat>("apple");
 
   // Defensive stopPropagation — when the GPS row sits inside another
   // clickable element (e.g. the location list row's expand-to-toggle
   // wrapper), cycling the format must not also trigger that handler.
   const cycle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setFormat((f) => (f === "apple" ? "verbose" : "apple"));
+    setFormat(
+      (f) => GPS_FORMATS[(GPS_FORMATS.indexOf(f) + 1) % GPS_FORMATS.length]!,
+    );
   };
-  const text =
-    format === "apple"
-      ? formatGpsApple(lat, lng)
-      : formatGpsVerbose(lat, lng);
+  const text = formatGps(format, lat, lng, locale);
 
   const labelCls =
     tone === "dark"

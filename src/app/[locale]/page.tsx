@@ -691,7 +691,11 @@ async function FindShowcaseTile({
           )}
           {find.coordinates && (
             <p className="mt-1 truncate font-mono text-xs text-gray-500">
-              {formatGpsApple(find.coordinates.lat, find.coordinates.lng)}
+              {formatGpsApple(
+                find.coordinates.lat,
+                find.coordinates.lng,
+                locale,
+              )}
             </p>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-3">
