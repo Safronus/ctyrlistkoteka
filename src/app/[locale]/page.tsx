@@ -201,25 +201,25 @@ export default async function HomePage() {
         <p className="mx-auto mt-6 max-w-2xl text-center text-base text-gray-600 sm:text-lg">
           {t("intro")}
         </p>
-        {(totals.latestFoundAt || highlights.firstFoundAt) && (
+        {(totals.latestCreatedAt || highlights.firstCreatedAt) && (
           <div className="mt-2 text-center text-xs text-gray-600">
-            {highlights.firstFoundAt && (
+            {highlights.firstCreatedAt && (
               <p>
                 {t("firstFound")}{" "}
                 <span className="text-gray-500">
                   {formatShortDateTimeCs(
-                    new Date(highlights.firstFoundAt),
+                    new Date(highlights.firstCreatedAt),
                     locale,
                   )}
                 </span>
               </p>
             )}
-            {totals.latestFoundAt && (
+            {totals.latestCreatedAt && (
               <p>
                 {t("lastUpdated")}{" "}
                 <span className="text-gray-500">
                   {formatShortDateTimeCs(
-                    new Date(totals.latestFoundAt),
+                    new Date(totals.latestCreatedAt),
                     locale,
                   )}
                 </span>

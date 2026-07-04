@@ -64,6 +64,10 @@ export interface HomeTotals {
   /** ISO date of the most recently dated find. Drives the "Poslední
    *  nález" date hint on the home stat row. */
   latestFoundAt: string | null;
+  /** ISO timestamp of the most recent upload (MAX created_at). Drives the
+   *  "Poslední aktualizace sbírky" line — when the collection last grew on
+   *  the web, not the newest EXIF found date. */
+  latestCreatedAt: string | null;
   /** How many finds the most recent upload added at the TOP of the
    *  collection — finds inserted on the latest created_at day
    *  (Europe/Prague) whose id is higher than the max id that existed
@@ -93,6 +97,10 @@ export interface HomeHighlights {
   /** ISO timestamp of the user's earliest find. Drives the precise
    *  "before X years, Y days, Z hours" hint below the headline year. */
   firstFoundAt: string | null;
+  /** ISO timestamp of the first upload (MIN created_at). Drives the
+   *  "První čtyřlístek zaevidován" line — when the earliest clover was
+   *  first written to the web, not its EXIF found date. */
+  firstCreatedAt: string | null;
   /** Single calendar day with the most finds. Mirrors the `peaks.day`
    *  bucket used on /statistiky. */
   peakDay: {
@@ -175,6 +183,8 @@ export async function getHomePageData(): Promise<HomePageData> {
         last_year: number | null;
         first_found_at: Date | null;
         latest_found_at: Date | null;
+        first_created_at: Date | null;
+        latest_created_at: Date | null;
         latest_found_count: number;
       }>
     >`
@@ -188,6 +198,12 @@ export async function getHomePageData(): Promise<HomePageData> {
         (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year,
         (SELECT MIN(found_at) FROM finds) AS first_found_at,
         (SELECT MAX(found_at) FROM finds) AS latest_found_at,
+        -- Upload timestamps: created_at is when sync wrote the row to the DB
+        -- (when the clover reached the web), NOT the EXIF found date.
+        -- first_created_at anchors "První čtyřlístek zaevidován";
+        -- latest_created_at anchors "Poslední aktualizace sbírky".
+        (SELECT MIN(created_at) FROM finds) AS first_created_at,
+        (SELECT MAX(created_at) FROM finds) AS latest_created_at,
         -- "Last update" = how many finds the most recent upload added at
         -- the TOP of the collection: finds inserted on the latest
         -- created_at calendar day (Europe/Prague) whose id is higher than
@@ -446,6 +462,9 @@ export async function getHomePageData(): Promise<HomePageData> {
     donated: c ? Number(c.donated) : 0,
     yearsSpan,
     latestFoundAt: c?.latest_found_at ? c.latest_found_at.toISOString() : null,
+    latestCreatedAt: c?.latest_created_at
+      ? c.latest_created_at.toISOString()
+      : null,
     latestFoundCount: c ? Number(c.latest_found_count) : 0,
     lastBackfillCreatedAt: lastBackfill ? lastBackfill.toISOString() : null,
     lastBackfillCount: Number(lastBackfillCount),
@@ -493,6 +512,9 @@ export async function getHomePageData(): Promise<HomePageData> {
   const highlights: HomeHighlights = {
     firstYear: c?.first_year ?? null,
     firstFoundAt: c?.first_found_at ? c.first_found_at.toISOString() : null,
+    firstCreatedAt: c?.first_created_at
+      ? c.first_created_at.toISOString()
+      : null,
     peakDay: peakDayRow
       ? {
           startsAt: peakDayRow.bucket.toISOString(),

@@ -52,6 +52,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   ikona (tonální dle varianty, odhalí se na hover) — provede rotaci na místě bez
   čekání na časovač. Skryté na „link" kartách (celá karta je odkaz).
 
+### Homepage — časové značky pod úvodem
+- **„Poslední aktualizace sbírky" = čas posledního nahrání, ne posledního
+  nálezu**: dřív se zobrazoval `MAX(found_at)` (nejnovější EXIF datum nálezu),
+  což neodpovídalo popisku „aktualizace". Teď `MAX(created_at)` — kdy sync
+  naposledy zapsal řádek do DB (kdy sbírka na webu naposledy narostla). „(+N
+  čtyřlístků)" zůstává.
+- **„První čtyřlístek zaevidován" = čas prvního nahrání na web**: analogicky
+  `MIN(found_at)` → `MIN(created_at)`. Popisek „zaevidován" teď sedí na to, kdy
+  se první lísteček dostal na web, ne na jeho EXIF datum nálezu.
+
 ### Přístupnost (WCAG AA)
 - **Kontrast** na dvou dříve padajících místech (Lighthouse a11y 96 → cíl 100):
   na **/statistiky** labely na světle zeleném `bg-brand-50` / `bg-gray-50`
