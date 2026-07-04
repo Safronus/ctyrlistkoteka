@@ -138,14 +138,15 @@ export function ImageGallery({
               : undefined
           }
         >
-          {/* High-res brand clover, greyscaled — "physically here, just no
-              photo". Nginx serves the static asset (no Next optimizer). */}
+          {/* Hand-drawn brand clover ("physically here, just no photo") —
+              filling ~80% of the placeholder width. Nginx serves the
+              static asset (no Next optimizer). */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/clover.png"
+            src="/clover-illustration.png"
             alt=""
             aria-hidden
-            className="h-2/5 max-h-40 w-auto opacity-50 grayscale"
+            className="h-auto w-4/5 max-w-md opacity-90"
           />
           <span className="sr-only">{tCommon("noPhoto")}</span>
           {mapSlot && (
