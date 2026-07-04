@@ -40,6 +40,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   navigace → mapa), jako dřív.
 - **Popis lokality už není 2×**: vyhozen z horní tabulky (dlouhý text), zůstává
   jen jako popisek pod mapou.
+- **Poměr 1/3 · 2/3**: popisná část zúžena na levou třetinu (`lg:grid-cols-3`,
+  mapa `col-span-2`) — hodnoty tím sedí blíž svým labelům, mapa dostala víc
+  místa.
+- **Kód lokality z tabulky pryč**: je už „zapečený" do watermarku vpravo dole
+  v mapce, tak se nad ní neopakuje.
+- **Navigace rozdělená na dvě strany**: `1.` + „Předchozí na lokalitě" pinnuté
+  **vlevo**, „Další na lokalitě" + `poslední` **vpravo** (`ml-auto` drží pravou
+  dvojici u kraje i po zalomení v úzkém sloupci).
+- **Nadpisy panelů centrované s číslem vedle**: hlavička `Panel`u zarovnaná
+  vertikálně na střed (`items-center`) — malé `#00126` teď sedí proti nadpisu.
 
 ### Homepage — kartička „Zajímavosti"
 - **„Další zajímavost" skočí na kartu**: tlačítko v dlaždici Zajímavostí je pod

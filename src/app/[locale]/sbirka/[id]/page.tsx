@@ -398,11 +398,11 @@ export default async function FindDetailPage({ params }: PageProps) {
           )
         }
       >
-        {/* Facts + prev/next nav on the LEFT, the (capped) location map on
-            the RIGHT — the map was leaving a wide empty strip beside it in
-            the full-width panel. Collapses to a single stacked column on
-            mobile (facts → nav → map). */}
-        <div className="grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-2">
+        {/* Facts + prev/next nav in a narrow LEFT third (values sit close to
+            their labels), the location map filling the RIGHT two-thirds.
+            Collapses to a single stacked column on mobile (facts → nav →
+            map). */}
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-3">
           <div className="space-y-2 self-start">
             {find.isAnonymized ? (
               /* Anonymized finds get only the short notice — no location
@@ -421,9 +421,10 @@ export default async function FindDetailPage({ params }: PageProps) {
                 )}
                 {find.location ? (
                   <>
-                    {/* Popis lokality intentionally not repeated here — it
-                        already sits as the caption under the map. */}
-                    <KeyValue label={t("kvCode")} value={find.location.code} />
+                    {/* Neither the location code nor the description is
+                        repeated here — the code is baked into the map's
+                        bottom-right watermark and the description sits as the
+                        caption under the map. */}
                     {areaDensity && (
                       <>
                         <KeyValue
@@ -468,37 +469,43 @@ export default async function FindDetailPage({ params }: PageProps) {
                     )}
                     {find.rankAtLocation && find.rankAtLocation.total > 1 && (
                       <div className="flex flex-wrap items-center gap-2 pt-1">
-                        {/* prev/next + first/last navigation among the finds
-                            at this location. Each chip stays rendered (faded)
-                            at the chain boundary so the row doesn't shift
+                        {/* first/prev pinned to the LEFT, next/last pushed to
+                            the RIGHT (ml-auto keeps the second group
+                            right-aligned even when the narrow column forces it
+                            onto its own line). Each chip stays rendered (faded)
+                            at the chain boundary so positions don't shift
                             between finds. */}
-                        <LocationExtremeLink
-                          targetId={find.rankAtLocation.firstId}
-                          label="1."
-                          ariaLabel={t("firstAtLocation")}
-                          isCurrent={find.rankAtLocation.rank === 1}
-                        />
-                        <LocationNavLink
-                          direction="prev"
-                          targetId={find.rankAtLocation.prevId}
-                          label={t("prevAtLocation")}
-                        />
-                        <LocationNavLink
-                          direction="next"
-                          targetId={find.rankAtLocation.nextId}
-                          label={t("nextAtLocation")}
-                        />
-                        <LocationExtremeLink
-                          targetId={find.rankAtLocation.lastId}
-                          label={`${find.rankAtLocation.total.toLocaleString(
-                            locale === "en" ? "en-GB" : "cs-CZ",
-                          )}.`}
-                          ariaLabel={t("lastAtLocation")}
-                          isCurrent={
-                            find.rankAtLocation.rank ===
-                            find.rankAtLocation.total
-                          }
-                        />
+                        <div className="flex items-center gap-2">
+                          <LocationExtremeLink
+                            targetId={find.rankAtLocation.firstId}
+                            label="1."
+                            ariaLabel={t("firstAtLocation")}
+                            isCurrent={find.rankAtLocation.rank === 1}
+                          />
+                          <LocationNavLink
+                            direction="prev"
+                            targetId={find.rankAtLocation.prevId}
+                            label={t("prevAtLocation")}
+                          />
+                        </div>
+                        <div className="ml-auto flex items-center gap-2">
+                          <LocationNavLink
+                            direction="next"
+                            targetId={find.rankAtLocation.nextId}
+                            label={t("nextAtLocation")}
+                          />
+                          <LocationExtremeLink
+                            targetId={find.rankAtLocation.lastId}
+                            label={`${find.rankAtLocation.total.toLocaleString(
+                              locale === "en" ? "en-GB" : "cs-CZ",
+                            )}.`}
+                            ariaLabel={t("lastAtLocation")}
+                            isCurrent={
+                              find.rankAtLocation.rank ===
+                              find.rankAtLocation.total
+                            }
+                          />
+                        </div>
                       </div>
                     )}
                   </>
@@ -510,7 +517,7 @@ export default async function FindDetailPage({ params }: PageProps) {
           </div>
 
           {find.locationMaps.length > 0 && (
-            <div className="self-start">
+            <div className="self-start lg:col-span-2">
               <LocationMapsGallery
                 maps={find.locationMaps}
                 locationOffset={find.locationOffset}
@@ -977,7 +984,7 @@ function Panel({
 }) {
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
         {rightSlot}
       </div>
