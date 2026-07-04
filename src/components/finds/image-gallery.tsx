@@ -31,6 +31,7 @@ export function ImageGallery({
   muted = false,
   mapSlot = null,
   voteSlot = null,
+  statesSlot = null,
 }: {
   image: PublicImage | null;
   cropImage: PublicImage | null;
@@ -56,6 +57,9 @@ export function ImageGallery({
   /** Overlay drawn in the photo's top-RIGHT corner, to the left of the
    *  crop magnifier (the vote button). Only shown on the real photo. */
   voteSlot?: ReactNode;
+  /** Overlay drawn in the photo's bottom-LEFT corner (the find's state
+   *  badges). Rendered on both the real photo and the placeholder. */
+  statesSlot?: ReactNode;
 }) {
   const t = useTranslations("ImageGallery");
   const tCommon = useTranslations("Common");
@@ -75,6 +79,9 @@ export function ImageGallery({
         </span>
         <span className="sr-only">{tCommon("noPhoto")}</span>
         {mapSlot && <div className="absolute left-3 top-3 z-10">{mapSlot}</div>}
+        {statesSlot && (
+          <div className="absolute bottom-3 left-3 z-10">{statesSlot}</div>
+        )}
         {/* No main photo doesn't preclude attached galleries (e.g.
             NO_PHOTO state but the recipient still got a card, or the
             author shot the spot itself). Both buttons still mount so
@@ -113,6 +120,13 @@ export function ImageGallery({
       />
       {/* Show-on-map pin — top-LEFT overlay. */}
       {mapSlot && <div className="absolute left-3 top-3 z-10">{mapSlot}</div>}
+      {/* State badges — bottom-LEFT overlay. Drop-shadow keeps the small
+          coloured pills legible over a busy photo. */}
+      {statesSlot && (
+        <div className="absolute bottom-3 left-3 z-10 drop-shadow-sm">
+          {statesSlot}
+        </div>
+      )}
       {cropImage && (
         // eslint-disable-next-line @next/next/no-img-element
         <img

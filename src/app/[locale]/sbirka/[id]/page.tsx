@@ -193,17 +193,17 @@ export default async function FindDetailPage({ params }: PageProps) {
   }
 
   // Overlay affordances drawn on top of the find photo (inside
-  // ImageGallery): a round "show on map" pin in the top-LEFT corner and
-  // the vote button top-RIGHT, next to the crop magnifier. Built here so
-  // the gallery stays free of find-detail specifics; passed down as
-  // ready-made nodes. Both follow the same visibility rules they had in
-  // the header (map needs public GPS, vote needs a photo).
+  // ImageGallery), built here so the gallery stays free of find-detail
+  // specifics: a green "show on map" pin (top-LEFT), the vote button
+  // (top-RIGHT, next to the crop magnifier) and the state badges
+  // (bottom-LEFT). Visibility mirrors the old header rules — map needs
+  // public GPS, vote needs a photo.
   const mapSlot = find.coordinates ? (
     <Link
       href={`/mapa?find=${find.id}`}
       aria-label={t("showOnMap")}
       title={t("showOnMap")}
-      className="rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+      className="inline-flex items-center justify-center rounded-full bg-brand-600 p-2 text-white shadow-lg ring-2 ring-white/70 transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-white"
     >
       <MapPin className="h-5 w-5" aria-hidden />
     </Link>
@@ -216,6 +216,8 @@ export default async function FindDetailPage({ params }: PageProps) {
       variant="overlay"
     />
   ) : null;
+  const statesSlot =
+    find.states.length > 0 ? <StateBadges states={find.states} /> : null;
 
   const detail = (
     <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
@@ -259,15 +261,8 @@ export default async function FindDetailPage({ params }: PageProps) {
       </nav>
 
       <header className="space-y-3">
-        {/* State badges (Darovaný, Anonymizovaný, …) — the title moved up
-            into the nav bar and the map/vote affordances moved onto the
-            photo, so the badges stand alone here, centered. Multiple
-            states stack when a find carries more than one. */}
-        {find.states.length > 0 && (
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <StateBadges states={find.states} />
-          </div>
-        )}
+        {/* State badges moved onto the photo (bottom-left overlay); the
+            header now carries only the record/lost banners and the notes. */}
 
         {/* Czech-record banner — the milestone find for the largest CZ
             collection. Shown whenever the admin-assignable special-find
@@ -302,20 +297,13 @@ export default async function FindDetailPage({ params }: PageProps) {
         )}
       </header>
 
-      {/* Time & position — frameless (no card) block, centered under the
-          nav. Just the heading, the date/time (no label) and the GPS
-          (with its format-toggle button, as before). The offset now lives
-          as the banner above the location map and the distance-from-MAP
-          00001 row was noise, so both are gone. The photo follows, with
-          the show-on-map pin + vote button drawn over it. */}
+      {/* Time & position — frameless, centered. No heading (it's
+          self-evident): just the date/time (no label) and the GPS with
+          its format toggle, then the photo. The map offset lives as a
+          banner over the location map and the distance-from-MAP-00001 row
+          was noise, so both are gone. The photo carries the show-on-map
+          pin, the vote button and the state badges as overlays. */}
       <section className="space-y-3">
-        <h2
-          className={`text-center text-sm font-semibold ${
-            hellish ? "text-red-100" : "text-gray-900"
-          }`}
-        >
-          {t("panelMeta")}
-        </h2>
         <p
           className={`text-center text-sm ${
             hellish ? "text-red-100/90" : "text-gray-800"
@@ -343,6 +331,7 @@ export default async function FindDetailPage({ params }: PageProps) {
             muted={isLost}
             mapSlot={mapSlot}
             voteSlot={voteSlot}
+            statesSlot={statesSlot}
           />
         </div>
       </section>
@@ -1003,6 +992,35 @@ function CloverNavLink({
   t: FindDetailT;
 }) {
   if (id === null) {
+    // End of the collection. Going back (prev) just fades to a quiet
+    // clover; going forward (next) past the newest find gets a personal
+    // "snad brzy" with the author's little smiley — a wink that more
+    // clovers are on the way.
+    if (direction === "next") {
+      return (
+        <span
+          className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm ${
+            hellish ? "text-red-300/70" : "text-gray-400"
+          }`}
+        >
+          <span aria-hidden className="text-lg leading-none opacity-60">
+            🍀
+          </span>
+          <span>{t("nextComingSoon")}</span>
+          {/* Author's smiley — a static public asset served by Nginx, so
+              the plain <img> (no next/image optimizer) matches the rest
+              of the app. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/safronus.png"
+            alt="Safronus"
+            width={20}
+            height={20}
+            className="h-5 w-5 rounded-full ring-1 ring-black/10"
+          />
+        </span>
+      );
+    }
     return (
       <span
         aria-hidden

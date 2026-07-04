@@ -13,19 +13,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **Titulek přesunut do lišty „Zpět na sbírku"**: z „Nález #123" je teď
   „🍀 #123", vycentrovaný v horní liště. Po stranách titulku jsou tiché
   navigační odkazy na sousední nálezy — vlevo předchozí („🍀 #122"), vpravo
-  další („🍀 #124"); na krajích sbírky degradují na vybledlý lísteček. Už to
-  nejsou orámovaná tlačítka, ale prosté odkazy. Na mobilu titulek s navigací
-  spadne na druhý řádek pod „Zpět na sbírku". Přístupný název `<h1>` zůstává
-  „Nález #123" (přes `aria-label`).
-- **Sekce „Čas a poloha" bez rámu, vycentrovaná**: nadpis na střed, datum a čas
-  bez labelu („pátek 3. července 2026 v 09:00:50") a GPS na střed s přepínačem
-  formátu za nimi. Řádky „Odchylka od lokační mapy" (je jako banner nad lokační
-  mapkou) a „Vzdálenost od mapy #00001" (zbytečná) odstraněny — a s nimi i rám
-  sekce.
-- **Ovládání překryté přes fotku**: „Zobrazit na mapě" je teď kulatá PIN ikonka
-  v levém horním rohu fotky; hlasovací tlačítko (palec/lísteček) je v pravém
-  horním rohu vedle lupy pro ořez, stejně vysoké jako lupa (nový `variant`
-  `overlay` u `VoteButton`).
+  další („🍀 #124"). Na začátku sbírky předchozí degraduje na vybledlý lísteček;
+  na konci sbírky „další" ukazuje osobní **„🍀 snad brzy"** s malým smajlíkem
+  autora — mrknutí, že další čtyřlístky se chystají. Už to nejsou orámovaná
+  tlačítka, ale prosté odkazy. Na mobilu titulek s navigací spadne na druhý
+  řádek pod „Zpět na sbírku". Přístupný název `<h1>` zůstává „Nález #123" (přes
+  `aria-label`).
+- **Sekce „Čas a poloha" bez rámu a bez nadpisu**: nadpis je samopopisný, tak
+  zmizel; zůstává jen datum a čas bez labelu na střed („pátek 3. července 2026
+  v 09:00:50") a GPS na střed s přepínačem formátu. Řádky „Odchylka od lokační
+  mapy" (je jako banner nad lokační mapkou) a „Vzdálenost od mapy #00001"
+  (zbytečná) odstraněny — a s nimi i rám sekce.
+- **Ovládání překryté přes fotku**: „Zobrazit na mapě" je zelená kulatá PIN
+  ikonka v levém horním rohu; hlasovací tlačítko je v pravém horním rohu vedle
+  lupy pro ořez, stejně vysoké jako lupa (`variant="overlay"` u `VoteButton`);
+  **indikátory stavů** (Anonymizovaný / Bez fotky / Gigant …) jsou teď overlay
+  v levém dolním rohu fotky (dřív vycentrované v hlavičce).
 
 ### Admin / anonymizace
 - **Anonymizace lokality se plně propíše do nálezů**: dřív šlo přes admin označit
