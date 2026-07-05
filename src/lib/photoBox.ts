@@ -24,13 +24,22 @@ export interface PhotoDisplay {
   widthCss: string;
 }
 
-/** Fraction of the viewport height the photo may occupy. */
+/** Default fraction of the viewport height the photo may occupy. */
 const MAX_VH = 70;
 
 export function photoDisplay(
   width: number | null | undefined,
   height: number | null | undefined,
-  { rotate }: { rotate: boolean },
+  {
+    rotate,
+    maxVh = MAX_VH,
+  }: {
+    rotate: boolean;
+    /** Cap the photo's height at this % of the viewport, so a tall portrait
+     *  still fits on screen. The random-clover showcase raises it (bigger
+     *  than the detail page) while still fitting a 1080p viewport. */
+    maxVh?: number;
+  },
 ): PhotoDisplay | null {
   if (!width || !height) return null;
   const landscape = rotate && width > height;
@@ -41,7 +50,7 @@ export function photoDisplay(
     displayWidth,
     displayHeight,
     aspectRatio: `${displayWidth} / ${displayHeight}`,
-    // min(fits the column, never upscale past native, height-cap at 70vh)
-    widthCss: `min(100%, ${displayWidth}px, calc(${MAX_VH}vh * ${displayWidth} / ${displayHeight}))`,
+    // min(fits the column, never upscale past native, height-cap at maxVh)
+    widthCss: `min(100%, ${displayWidth}px, calc(${maxVh}vh * ${displayWidth} / ${displayHeight}))`,
   };
 }

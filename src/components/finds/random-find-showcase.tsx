@@ -10,7 +10,13 @@ import { RandomFindScreensaver } from "./random-find-screensaver";
 import { StateBadges } from "./state-badges";
 import { VoteButton } from "./vote-button";
 import { formatDateTimeCs } from "@/lib/format";
+import { photoDisplay } from "@/lib/photoBox";
 import type { RandomFindShowcase } from "@/lib/queries/random-find";
+
+/** The showcase photo may be taller than the find-detail page's (no
+ *  competing content around it) but must still fit a 1080p viewport, so it's
+ *  height-capped rather than full-width — a full-width portrait overflows. */
+const SHOWCASE_MAX_VH = 80;
 
 const DEFAULT_ROTATION_MS = 60_000;
 const DEFAULT_SCREENSAVER_MS = 10_000;
@@ -146,6 +152,13 @@ export function RandomFindShowcaseWidget({
   // map deep-link is suppressed for anonymized finds (hasMapPosition is
   // already false for them server-side).
   const isLost = find.states.includes(FindState.LOST);
+  // Explicit photo-box width for the overlay wrapper — must match the
+  // ImageGallery figure (same rotate flag + maxVh) so the overlays line up.
+  const disp = photoDisplay(
+    find.primaryImage?.width,
+    find.primaryImage?.height,
+    { rotate: false, maxVh: SHOWCASE_MAX_VH },
+  );
 
   return (
     <section className="mt-8" aria-live="polite">
@@ -176,18 +189,22 @@ export function RandomFindShowcaseWidget({
         </Link>
       </div>
 
-      {/* Full-width photo. The wrapper is `w-full` (a definite width — no
-          `w-fit` shrink-wrap collapse) and ImageGallery renders `fullWidth`,
-          so the image spans the whole column. Every control + metadatum is
-          an overlay positioned against this box. */}
-      <div className="relative w-full">
+      {/* Height-capped photo (SHOWCASE_MAX_VH) — big, but a portrait still
+          fits a 1080p screen (full-width overflowed it). The wrapper takes
+          the SAME explicit width as the ImageGallery figure so the overlays
+          line up; an explicit width (not `w-fit`) avoids the shrink-to-zero
+          collapse. */}
+      <div
+        className="relative mx-auto"
+        style={{ width: disp?.widthCss, maxWidth: "100%" }}
+      >
         <ImageGallery
           image={find.primaryImage}
           cropImage={find.cropImage}
           altBase={altBase}
           findId={find.id}
           muted={isLost}
-          fullWidth
+          maxVh={SHOWCASE_MAX_VH}
           voteSlot={
             // Keyed by find.id so the rotation remounts it with the fresh
             // count + the voted state hydrated above.
@@ -241,21 +258,24 @@ export function RandomFindShowcaseWidget({
             </Link>
           )}
         </div>
-        {/* Date + time — small overlay in the BOTTOM-LEFT corner. */}
-        {foundAtDate && (
-          <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur">
-            {/* Pinned to Europe/Prague so SSR and client hydration render
-                the same clock time (this is a client component). */}
-            {formatDateTimeCs(foundAtDate, locale, "Europe/Prague")}
+        {/* Bottom overlays: date/time on top, rotation hint below — stacked
+            in the bottom-left corner. Always stacked (not split into corners
+            on desktop) because the height-capped photo can be narrow enough
+            that a left date + centred hint would still collide. */}
+        <div className="absolute inset-x-3 bottom-3 z-10 flex flex-col items-start gap-1">
+          {foundAtDate && (
+            <div className="pointer-events-none rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur">
+              {/* Pinned to Europe/Prague so SSR and client hydration render
+                  the same clock time (this is a client component). */}
+              {formatDateTimeCs(foundAtDate, locale, "Europe/Prague")}
+            </div>
+          )}
+          <div className="pointer-events-none max-w-full rounded-md bg-white/90 px-2 py-1 text-left text-[11px] font-medium text-gray-600 shadow-md ring-1 ring-black/5 backdrop-blur">
+            {t("rotationFooter", {
+              seconds: Math.round(rotationMs / 1000),
+              screensaverSeconds: Math.round(screensaverMs / 1000),
+            })}
           </div>
-        )}
-        {/* Rotation hint — overlay centered on the BOTTOM edge of the
-            photo (was a caption below the frame). */}
-        <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-md bg-white/90 px-2 py-1 text-center text-[11px] font-medium text-gray-600 shadow-md ring-1 ring-black/5 backdrop-blur">
-          {t("rotationFooter", {
-            seconds: Math.round(rotationMs / 1000),
-            screensaverSeconds: Math.round(screensaverMs / 1000),
-          })}
         </div>
         {/* Countdown overlay strip at the bottom of the photo. The `key`
             is bumped whenever the find changes, so the inner fill remounts

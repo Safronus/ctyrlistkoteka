@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Mobil/responzivita — overlaye pod sebou + výškový strop showcase fotky
+- **Datum a čas** + **GPS/rotace** overlay na spodní hraně fotky se už
+  **nepřekrývají** — jsou naskládané pod sebou (datum nahoře, GPS/rotace pod
+  ním), vlevo dole, na všech velikostech (týká se detailu nálezu i „Náhodný 🍀"
+  na hlavní stránce).
+- **Fotka „Náhodný 🍀"** už není full-width (portrét přetékal na FullHD) —
+  dostala **výškový strop 80 % výšky okna**: na FullHD se vejde celá, na 4K
+  zůstává velká (do nativní šířky). (`photoDisplay` má nový `maxVh` param,
+  `ImageGallery` prop `maxVh`; `fullWidth` zrušen.)
+
 ### Oprava — mazání ořezů míjelo NFD názvy; upload teď nahradí osiřelé
 - **Bug:** „Smazat všechny ořezy" smazalo DB CROP řádky, ale fyzické soubory s
   **NFD názvem** (diakritika z macOS, např. `RATIBOŘ`) neodstranilo —

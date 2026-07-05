@@ -45,8 +45,8 @@ export function ImageGallery({
   topBanner = null,
   bordered = false,
   goldFrame = false,
-  fullWidth = false,
   rotateLandscape = false,
+  maxVh,
   placeholderWidthCss,
   placeholderAspectRatio,
 }: {
@@ -95,14 +95,13 @@ export function ImageGallery({
   /** Czech-record find: a thicker gold frame instead of the grey border,
    *  matching the gold record banner above the photo. */
   goldFrame?: boolean;
-  /** Stretch the photo to 100% of its container instead of the natural,
-   *  height-capped `photoDisplay` width. Used by the framed-less random
-   *  showcase, which wants the image to span the full page column. The box
-   *  still reserves height via the image's aspect ratio. */
-  fullWidth?: boolean;
   /** Rotate landscape originals 90° CW so they read as portrait and don't
    *  make the photo (and the location map matched to it) too wide. */
   rotateLandscape?: boolean;
+  /** Height cap as a % of viewport height (default 70 — see photoDisplay).
+   *  The random showcase raises it so the photo is bigger yet still fits a
+   *  1080p screen. */
+  maxVh?: number;
   /** For the NO_PHOTO placeholder: the width + aspect a real photo would
    *  have occupied, so the placeholder fills the same area (and the map
    *  below still lines up). Defaults to a 16:9 box when omitted. */
@@ -195,6 +194,7 @@ export function ImageGallery({
   // rotated to portrait, width shared with the location map below.
   const disp = photoDisplay(image.width, image.height, {
     rotate: rotateLandscape,
+    maxVh,
   });
   const filterCls = muted ? "grayscale sepia-[0.12]" : "";
 
@@ -216,16 +216,8 @@ export function ImageGallery({
 
   return (
     <figure
-      className={`mx-auto overflow-hidden rounded-xl bg-gray-100 ${borderCls} ${
-        fullWidth ? "w-full" : ""
-      }`}
-      style={
-        fullWidth
-          ? undefined
-          : disp
-            ? { width: disp.widthCss, maxWidth: "100%" }
-            : undefined
-      }
+      className={`mx-auto overflow-hidden rounded-xl bg-gray-100 ${borderCls}`}
+      style={disp ? { width: disp.widthCss, maxWidth: "100%" } : undefined}
     >
       {topBanner}
       <div
@@ -276,18 +268,14 @@ export function ImageGallery({
             {statesSlot}
           </div>
         )}
-        {/* Date/time — BOTTOM-LEFT overlay (caller supplies the styled
-            pill), mirroring the random-clover showcase on the home page. */}
-        {dateSlot && (
-          <div className="pointer-events-none absolute bottom-3 left-3 z-10">
-            {dateSlot}
-          </div>
-        )}
-        {/* GPS — centered on the BOTTOM edge (caller supplies the styled
-            pill; kept interactive so the format toggle works). */}
-        {gpsSlot && (
-          <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2">
-            {gpsSlot}
+        {/* Bottom overlays: date/time on top, GPS below — stacked in the
+            bottom-left corner. Always stacked (not split into corners on
+            desktop) because the height-capped photo can be narrow enough
+            that a left date + centred GPS would still collide. */}
+        {(dateSlot || gpsSlot) && (
+          <div className="absolute inset-x-3 bottom-3 z-10 flex flex-col items-start gap-1">
+            {dateSlot && <div className="pointer-events-none">{dateSlot}</div>}
+            {gpsSlot && <div>{gpsSlot}</div>}
           </div>
         )}
         {/* Top-RIGHT control cluster: the vote button sits to the LEFT of
