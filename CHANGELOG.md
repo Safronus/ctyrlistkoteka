@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### „Náhodný 🍀" — overlaye nad fotkou jako v detailu
+- Sekce na hlavní stránce přepracovaná do stejného stylu jako detail nálezu:
+  - **Vote** a **„Na mapě"** jsou teď **overlaye nad fotkou** (vote vpravo nahoře,
+    mapa vlevo nahoře vedle fullscreen ikony). „Na mapě" je jen ikona.
+  - **„Detail nálezu"** tlačítko pryč — proklik je teď **klikací nadpis
+    „🍀 #číslo"**. Vedle něj tlačítko **„Další náhodný 🍀"** (rotace).
+  - **Datum a čas** = malý overlay vlevo dole (pinnutý na Europe/Prague, ať SSR
+    a klient renderují stejný čas).
+  - **Stavy nálezu** (LOST, DONATED, GIGANT, …) = indikátory na středu horní hrany
+    fotky, stejně jako v detailu; lost nálezy jsou i tady odbarvené.
+  - Kód + MapID lokality odstraněny; titulek sekce „Náhodný čtyřlístek" → „Náhodný 🍀".
+- **Anonymizované** nálezy dál bez prokliku na mapu i bez map-indikátoru.
+
 ### Oprava — zmizelá fotka v „Náhodný čtyřlístek" na hlavní stránce
 - Sekce showcase obalovala fotku do `w-fit` (shrink-wrap) kolem `ImageGallery`,
   jejíž šířka je `min(100%, …px, …vh)`. To je **cyklická závislost šířky** —

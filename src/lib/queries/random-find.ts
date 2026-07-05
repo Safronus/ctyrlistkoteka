@@ -6,6 +6,7 @@
  * private fields per CLAUDE.md §6.
  */
 
+import type { FindState } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { PublicImage } from "./finds";
 
@@ -34,6 +35,10 @@ export interface RandomFindShowcase {
    *  client (GET /api/finds/<id>/vote) because including it here
    *  would force the random-find endpoint to be visitor-specific. */
   voteCount: number;
+  /** Public states (LOST, DONATED, GIGANT, ANONYMIZED, …) for the badge
+   *  overlay on the photo. Retired states are filtered out at render time
+   *  by `StateBadges`. */
+  states: FindState[];
 }
 
 export async function getRandomFindShowcase(): Promise<RandomFindShowcase | null> {
@@ -73,6 +78,7 @@ export async function getRandomFindShowcase(): Promise<RandomFindShowcase | null
       isAnonymized: true,
       voteCount: true,
       location: { select: { id: true, code: true, displayName: true } },
+      states: { select: { state: true } },
       images: {
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
         select: {
@@ -103,5 +109,6 @@ export async function getRandomFindShowcase(): Promise<RandomFindShowcase | null
     cropImage,
     hasMapPosition,
     voteCount: find.voteCount,
+    states: find.states.map((s) => s.state),
   };
 }

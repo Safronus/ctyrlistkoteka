@@ -117,6 +117,12 @@ export function formatTinyDateTimeCs(
 export function formatDateTimeCs(
   date: Date | null | undefined,
   locale?: string,
+  /** Fix the output to a specific IANA zone. Pass this when formatting in
+   *  a client component that is also server-rendered (e.g. the random-find
+   *  widget) so SSR and hydration agree regardless of the server's own
+   *  timezone — otherwise the two render different clock times and React
+   *  reports a hydration mismatch. The collection is Europe/Prague. */
+  timeZone?: string,
 ): string {
   if (!date) return "—";
   return new Intl.DateTimeFormat(toIntlLocale(locale), {
@@ -127,6 +133,7 @@ export function formatDateTimeCs(
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    ...(timeZone ? { timeZone } : {}),
   }).format(date);
 }
 
