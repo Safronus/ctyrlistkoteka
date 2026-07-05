@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin check — „Ořez má stejné rozměry jako originál"
+- Nový check v `/admin/checks` (skupina „Originály ↔ ořezy") vypíše nálezy, kde
+  má **ořez stejné pixelové rozměry jako originál** — typicky celá fotka nahraná
+  jako ořez (lupa nad fotkou pak neukáže žádnou změnu). Řádek nabídne chipy
+  „Originál →" i „Ořez →" pro rychlou opravu.
+
+### Detail nálezu — „Zpět na sbírku" zpět na levý okraj fotky
+- Tlačítko „Zpět na sbírku" se vrátilo na **levý okraj fotky** (vlastní řádek
+  nad navigací, přes centrovaný `photoBox.widthCss` kontejner). Vlastní řádek
+  místo stejné linky proto, že text-tlačítko je širší než původní ← ikona a na
+  úzkém sloupci portrétní fotky by kolidovalo s prev/next. Responzivní chování
+  (skok do app baru pod `md`) zůstává.
+
 ### Detail nálezu — „Zpět na sbírku" jako tlačítko + šipky v navigaci
 - Zpátky ze samotné **ikony ← na plné tlačítko „Zpět na sbírku"** (vlevo v
   navigačním baru). Od `md` nahoru je v baru; pod `md` se skryje a převezme ho

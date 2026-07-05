@@ -1148,6 +1148,83 @@ async function readScopeFilenames(dir: string): Promise<string[]> {
   }
 }
 
+async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
+  // A real crop is a zoomed-in cutout of the clover, so its generated
+  // dimensions are smaller / a different aspect than the full-frame
+  // original. When the CROP has the EXACT same pixel size as the
+  // ORIGINAL, the "crop" is really the whole photo re-saved (not
+  // cropped) — the lupa hover on the detail page then shows no change.
+  // Flag those so the admin can replace them with an actual cutout.
+  const images = await prisma.findImage.findMany({
+    where: { imageType: { in: ["ORIGINAL", "CROP"] } },
+    select: {
+      findId: true,
+      imageType: true,
+      width: true,
+      height: true,
+      originalFilename: true,
+    },
+    // Primary first, then lowest sort order — so the (first) entry we
+    // keep per type is the one the site actually displays.
+    orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { id: "asc" }],
+  });
+
+  type Side = { w: number; h: number; name: string };
+  const byFind = new Map<number, { orig?: Side; crop?: Side }>();
+  for (const img of images) {
+    const e = byFind.get(img.findId) ?? {};
+    const side: Side = {
+      w: img.width,
+      h: img.height,
+      name: img.originalFilename,
+    };
+    if (img.imageType === "ORIGINAL") e.orig ??= side;
+    else e.crop ??= side;
+    byFind.set(img.findId, e);
+  }
+
+  const offenders: FindOffender[] = [];
+  for (const [findId, e] of byFind) {
+    if (!e.orig || !e.crop) continue; // "no crop" is another check's job
+    if (e.orig.w !== e.crop.w || e.orig.h !== e.crop.h) continue;
+    offenders.push({
+      findId,
+      locationCode: "—",
+      detail: `Ořez má stejné rozměry jako originál (${e.orig.w}×${e.orig.h} px) — je to nejspíš celá fotka, ne výřez.`,
+      filename: e.orig.name,
+      cropFilename: e.crop.name,
+    });
+  }
+  offenders.sort((a, b) => a.findId - b.findId);
+
+  // Resolve location codes for the offender column in one trip.
+  const finds =
+    offenders.length > 0
+      ? await prisma.find.findMany({
+          where: { id: { in: offenders.map((o) => o.findId) } },
+          select: { id: true, locationId: true },
+        })
+      : [];
+  const codes = await loadLocationCodes(
+    finds.map((f) => f.locationId).filter((x): x is number => x !== null),
+  );
+  const locByFind = new Map(finds.map((f) => [f.id, f.locationId]));
+  for (const o of offenders) {
+    const locId = locByFind.get(o.findId) ?? null;
+    o.locationCode = locId !== null ? (codes.get(locId) ?? `#${locId}`) : "—";
+  }
+
+  return {
+    kind: "find",
+    group: "filename-cross-ref",
+    id: "crop-same-size-as-original",
+    title: "Ořez má stejné rozměry jako originál",
+    description:
+      "Ořez čtyřlístku má být zmenšený výřez (jiné rozměry než originál). Když má ořez stejné rozměry jako originál, je to nejspíš celá fotka nahraná jako ořez — lupa nad fotkou pak neukáže žádnou změnu. Nahraď ořez skutečným výřezem.",
+    offenders,
+  };
+}
+
 export async function runAllChecks(): Promise<CheckResult[]> {
   return Promise.all([
     checkFindsInAnonLocsNotAnon(),
@@ -1161,6 +1238,7 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     checkFilenameNotInJson(),
     checkJsonNotInFilename(),
     checkOriginalCropFilenameMismatch(),
+    checkCropSameSizeAsOriginal(),
   ]);
 }
 

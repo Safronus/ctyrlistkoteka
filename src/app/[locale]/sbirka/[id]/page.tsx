@@ -347,19 +347,29 @@ export default async function FindDetailPage({ params }: PageProps) {
       {/* ← / → keyboard navigation to the neighbouring finds. */}
       <FindKeyNav prevId={adjacent.prevId} nextId={adjacent.nextId} />
       {/* Bar: the find title — "🍀 #id" — centered with the prev/next find
-          links flanking it (prev left, next right). A full "Zpět na sbírku"
-          button sits on the LEFT from `md` up; below that it's hidden and
-          the app-bar "Sbírka" chip takes over (see main-nav.tsx), so the
-          back effectively jumps up to the top bar on narrow screens. The
-          two flex-1 side cells keep the title/prev/next block centred. */}
+          links flanking it (prev left, next right).
+
+          A full "Zpět na sbírku" button sits on its OWN row above, pinned to
+          the LEFT EDGE OF THE PHOTO (the centered photo-width column) so it
+          lines up with the image below. It's a separate row rather than
+          same-line because the text button is far wider than the old ← icon
+          and would overlap the centered prev/next links on a portrait
+          photo's narrow column. From `md` down the button is hidden and the
+          app-bar "Sbírka" chip takes over (see main-nav.tsx), so the back
+          effectively jumps up to the top bar on narrow screens. */}
       <nav
         aria-label={t("navAriaLabel")}
-        className={`flex items-center justify-center gap-3 text-sm ${
+        className={`flex flex-col gap-2 text-sm ${
           hellish ? "text-red-300/80" : "text-gray-500"
         }`}
       >
-        <div className="hidden md:flex md:flex-1">
-          <BackToSbirkaLink variant="button-full" />
+        <div className="hidden md:block">
+          <div
+            className="mx-auto"
+            style={{ width: photoBox.widthCss, maxWidth: "100%" }}
+          >
+            <BackToSbirkaLink variant="button-full" />
+          </div>
         </div>
         <div className="flex items-center justify-center gap-3">
           <CloverNavLink
@@ -383,9 +393,6 @@ export default async function FindDetailPage({ params }: PageProps) {
             t={t}
           />
         </div>
-        {/* Spacer (desktop) — balances the back cell so the title stays
-            centred within the full bar. */}
-        <div className="hidden md:block md:flex-1" aria-hidden />
       </nav>
 
       {/* All the find's badges/notices now live on the photo itself: state
