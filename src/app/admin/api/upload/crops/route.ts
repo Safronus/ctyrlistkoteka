@@ -1,13 +1,16 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
-import { atomicWrite } from "@/lib/admin/atomic";
+import { atomicWrite, ensureDir, trashTimestamp } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
+import { prisma } from "@/lib/db";
 import { readExifSafe } from "@/lib/admin/exif";
 import {
   drainRequestBody,
   parseMultipartRequest,
   type MultipartFile,
 } from "@/lib/admin/multipart";
-import { safeBaseName, safeJoin } from "@/lib/admin/paths";
+import { ADMIN_ROOTS, safeBaseName, safeJoin } from "@/lib/admin/paths";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
   getAdminSession,
@@ -225,15 +228,33 @@ async function processOne(
     return reject(index, baseName, (err as Error).message, ip, credentialLabel);
   }
 
+  // `resolveDiskPath` matches NFC-insensitively, so it finds a file even
+  // when the disk name is NFD (macOS) and ours is NFC.
+  let replacedOrphan = false;
   const existing = await resolveDiskPath("findCrops", baseName);
   if (existing) {
-    return reject(
-      index,
-      baseName,
-      `Soubor s tímto jménem už existuje (na disku jako "${existing.name}", replace zatím není podporován)`,
-      ip,
-      credentialLabel,
-    );
+    // A live CROP row means this is a real, in-use crop → don't clobber it.
+    // No row means the file is an ORPHAN (e.g. left behind when a bulk
+    // "delete all crops" removed the DB rows but its NFC filename didn't
+    // match the NFD file on disk). Replace orphans so re-uploading freshly
+    // cropped versions just works.
+    const cropRow = await prisma.findImage.findFirst({
+      where: { findId, imageType: "CROP" },
+      select: { id: true },
+    });
+    if (cropRow) {
+      return reject(
+        index,
+        baseName,
+        `Soubor s tímto jménem už existuje (na disku jako "${existing.name}")`,
+        ip,
+        credentialLabel,
+      );
+    }
+    const trashDir = path.join(ADMIN_ROOTS.trash, trashTimestamp(), "crops");
+    await ensureDir(trashDir);
+    await fs.rename(existing.absolutePath, path.join(trashDir, existing.name));
+    replacedOrphan = true;
   }
 
   await atomicWrite(absolutePath, data);
@@ -255,7 +276,7 @@ async function processOne(
         : undefined;
 
   await appendAudit({
-    action: "file.upload",
+    action: replacedOrphan ? "file.replace" : "file.upload",
     ip,
     credentialLabel,
     details: {
@@ -264,6 +285,7 @@ async function processOne(
       size: data.byteLength,
       findId,
       outcome: "ok",
+      replacedOrphan,
       exifDateTaken: exif.dateTaken?.toISOString() ?? null,
       exifWarning: exifWarning ?? null,
     },
