@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Oprava — mazání ořezů míjelo NFD názvy; upload teď nahradí osiřelé
+- **Bug:** „Smazat všechny ořezy" smazalo DB CROP řádky, ale fyzické soubory s
+  **NFD názvem** (diakritika z macOS, např. `RATIBOŘ`) neodstranilo —
+  `safeBaseName` dělá NFC a přímý `fs.rename(NFC)` na NFD souboru hodil ENOENT a
+  **tiše přeskočil**. Zůstaly osiřelé soubory, které pak blokovaly upload
+  („už existuje"). Opraveno: delete teď používá **`resolveDiskPath`**
+  (NFC-necitlivé porovnání), takže odstraní i NFD názvy.
+- **Upload ořezů** nově: když soubor „už existuje", ale nález **nemá CROP řádek
+  v DB** (= osiřelý soubor), upload ho **přesune do koše a zapíše nový**. Reálný
+  synced ořez (má DB řádek) se dál chrání a odmítne. → osiřelé soubory z minulého
+  mazání se při novém uploadu samy nahradí.
+
 ### Admin — hromadné „Smazat všechny ořezy" u checku celé-fotky
 - Nad tabulkou checku „Ořez je celá fotka" je tlačítko **„Smazat všechny
   ořezy (N)"** (s potvrzením). Přesune všechny dotčené ořezy do

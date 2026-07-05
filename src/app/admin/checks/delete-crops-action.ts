@@ -7,7 +7,8 @@ import { prisma } from "@/lib/db";
 import { wholePhotoCropOffenders } from "@/lib/admin/checks";
 import { ensureDir, trashTimestamp } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
-import { ADMIN_ROOTS, safeBaseName } from "@/lib/admin/paths";
+import { ADMIN_ROOTS } from "@/lib/admin/paths";
+import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
   getAdminSession,
   getRequestIp,
@@ -53,22 +54,22 @@ export async function deleteWholePhotoCropsAction(): Promise<DeleteCropsResult> 
   const findIds: number[] = [];
   for (const o of offenders) {
     findIds.push(o.findId);
-    let name: string;
+    // Resolve NFC-insensitively — the crop's DB name is NFC but the file on
+    // disk (rsynced/exported from macOS) is often NFD, so a raw fs.rename on
+    // the NFC name would miss it and silently leave the file as an orphan.
+    const resolved = await resolveDiskPath("findCrops", o.crop.name);
+    if (!resolved) continue; // not on disk — the DB row still gets removed
     try {
-      name = safeBaseName(o.crop.name);
-    } catch {
-      continue; // skip a crop whose filename can't be safely resolved
-    }
-    const src = path.join(ADMIN_ROOTS.findCrops, name);
-    try {
-      await fs.rename(src, path.join(trashDir, name));
+      await fs.rename(
+        resolved.absolutePath,
+        path.join(trashDir, resolved.name),
+      );
       trashed += 1;
     } catch (err) {
-      // Already gone on disk — fine, the DB row still gets removed below.
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
         return {
           ok: false,
-          error: `Přesun ořezu do koše selhal (${name}): ${(err as Error).message}`,
+          error: `Přesun ořezu do koše selhal (${resolved.name}): ${(err as Error).message}`,
         };
       }
     }
