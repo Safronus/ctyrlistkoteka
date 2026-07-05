@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — hromadné „Smazat všechny ořezy" u checku celé-fotky
+- Nad tabulkou checku „Ořez je celá fotka" je tlačítko **„Smazat všechny
+  ořezy (N)"** (s potvrzením). Přesune všechny dotčené ořezy do
+  `data/.trash/<ts>/crops/` (obnovitelné) a **smaže jejich `find_images` CROP
+  řádky** — nálezy tak čistě zůstanou bez ořezu a z checku zmizí. Akce si
+  offendery **re-derivuje serverově** (nemaže dle klientského seznamu), takže
+  smaže jen to, co check aktuálně hlásí.
+- Workflow: smazat → ořezat externě z originálů → nahrát přes /admin → sync.
+  Detekce offenderů je teď sdílená (`wholePhotoCropOffenders`) mezi checkem
+  i mazáním.
+
 ### Admin — nástroj „Ořezat" (crop dialog) u checku (fáze 2–4)
 - U checku „Ořez je celá fotka" má každý řádek tlačítko **„Ořezat"**, které
   otevře **dialog se čtvercovým výběrem** (react-easy-crop — zoom/pan do

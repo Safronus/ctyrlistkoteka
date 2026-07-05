@@ -21,6 +21,7 @@ import { AckCheckButton } from "./ack-button";
 import { SyncCropNameButton } from "./sync-crop-name-button";
 import { CopyFindIdsButton } from "./copy-find-ids-button";
 import { CropOffenderTable } from "./crop-offender-table";
+import { DeleteAllCropsButton } from "./delete-all-crops-button";
 import { AnonFixButton } from "./anon-fix-button";
 import { anonymizeAnonLocationFinds } from "./anonymize-anon-loc-action";
 import { anonymizeMismatchedFilenames } from "./anonymize-ne-filename-action";
@@ -439,10 +440,11 @@ function CheckCard({ result }: { result: CheckResult }) {
 
           {result.id === "crop-same-size-as-original" &&
             result.kind === "find" && (
-              <div className="mt-3">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <CopyFindIdsButton
                   ids={result.offenders.map((o) => o.findId)}
                 />
+                <DeleteAllCropsButton count={result.offenders.length} />
               </div>
             )}
 

@@ -1157,19 +1157,33 @@ async function readScopeFilenames(dir: string): Promise<string[]> {
   }
 }
 
-async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
-  // A real crop is a zoomed-in cutout of the clover, so its generated
-  // dimensions are a DIFFERENT aspect ratio (usually squarish) and a much
-  // smaller area than the full-frame original. When the CROP has the same
-  // aspect ratio as the ORIGINAL AND covers most of its area, the "crop"
-  // is really the whole photo (possibly just scaled down) — the lupa hover
-  // on the detail page then shows no change. Flag those so the admin can
-  // replace them with an actual cutout.
-  //
-  // Aspect + area (not exact pixel match) because some full-frame "crops"
-  // are re-encoded at ~90 % scale: e.g. find #13801 has a 1077×1436 crop
-  // against a 1200×1600 original — same 3:4 framing, 80 % of the area, but
-  // NOT byte- or size-identical, so an exact compare missed it.
+export interface CropSizeSide {
+  w: number;
+  h: number;
+  name: string;
+  thumb: string;
+  web: string;
+}
+
+export interface WholePhotoCropMatch {
+  findId: number;
+  orig: CropSizeSide;
+  crop: CropSizeSide;
+  /** Crop area as a fraction of the original's area (≥0.5 by definition). */
+  areaRatio: number;
+}
+
+/** Shared detection for the "crop is really the whole photo" check AND the
+ *  bulk-delete-crops action, so both agree on exactly which finds are hit.
+ *
+ *  A real crop is a zoomed-in cutout of the clover — a DIFFERENT aspect ratio
+ *  (usually squarish) and a much smaller area than the full-frame original.
+ *  When the CROP has the same aspect ratio as the ORIGINAL AND covers most of
+ *  its area, the "crop" is really the whole photo (possibly just scaled down)
+ *  and the lupa shows no change. Aspect + area (not exact pixels) so we also
+ *  catch full-frame crops re-encoded at ~90 % scale, e.g. #13801 (1077×1436
+ *  crop vs 1200×1600 original — same 3:4, 80 % area). Sorted by find id. */
+export async function wholePhotoCropOffenders(): Promise<WholePhotoCropMatch[]> {
   const ASPECT_TOL = 0.02; // ≤2 % aspect difference counts as "same framing"
   const AREA_MIN = 0.5; // crop ≥50 % of the original's area = "whole photo"
   const images = await prisma.findImage.findMany({
@@ -1188,17 +1202,13 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
     orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { id: "asc" }],
   });
 
-  type Side = {
-    w: number;
-    h: number;
-    name: string;
-    thumb: string;
-    web: string;
-  };
-  const byFind = new Map<number, { orig?: Side; crop?: Side }>();
+  const byFind = new Map<
+    number,
+    { orig?: CropSizeSide; crop?: CropSizeSide }
+  >();
   for (const img of images) {
     const e = byFind.get(img.findId) ?? {};
-    const side: Side = {
+    const side: CropSizeSide = {
       w: img.width,
       h: img.height,
       name: img.originalFilename,
@@ -1210,7 +1220,7 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
     byFind.set(img.findId, e);
   }
 
-  const offenders: FindOffender[] = [];
+  const out: WholePhotoCropMatch[] = [];
   for (const [findId, e] of byFind) {
     if (!e.orig || !e.crop) continue; // "no crop" is another check's job
     const origAspect = e.orig.w / e.orig.h;
@@ -1219,20 +1229,27 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
       Math.abs(cropAspect - origAspect) <= ASPECT_TOL * origAspect;
     const areaRatio = (e.crop.w * e.crop.h) / (e.orig.w * e.orig.h);
     if (!sameFraming || areaRatio < AREA_MIN) continue;
-    offenders.push({
-      findId,
+    out.push({ findId, orig: e.orig, crop: e.crop, areaRatio });
+  }
+  out.sort((a, b) => a.findId - b.findId);
+  return out;
+}
+
+async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
+  const offenders: FindOffender[] = (await wholePhotoCropOffenders()).map(
+    (m) => ({
+      findId: m.findId,
       locationCode: "—",
       detail: `Ořez má stejný poměr stran jako originál a pokrývá ~${Math.round(
-        areaRatio * 100,
-      )} % jeho plochy (${e.crop.w}×${e.crop.h} vs ${e.orig.w}×${e.orig.h} px) — je to nejspíš celá fotka, ne výřez.`,
-      filename: e.orig.name,
-      cropFilename: e.crop.name,
-      originalThumb: e.orig.thumb,
-      cropThumb: e.crop.thumb,
-      originalWeb: e.orig.web,
-    });
-  }
-  offenders.sort((a, b) => a.findId - b.findId);
+        m.areaRatio * 100,
+      )} % jeho plochy (${m.crop.w}×${m.crop.h} vs ${m.orig.w}×${m.orig.h} px) — je to nejspíš celá fotka, ne výřez.`,
+      filename: m.orig.name,
+      cropFilename: m.crop.name,
+      originalThumb: m.orig.thumb,
+      cropThumb: m.crop.thumb,
+      originalWeb: m.orig.web,
+    }),
+  );
 
   // Resolve location codes for the offender column in one trip.
   const finds =
