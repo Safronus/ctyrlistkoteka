@@ -218,7 +218,7 @@ export default async function FindDetailPage({ params }: PageProps) {
       href={`/mapa?find=${find.id}`}
       aria-label={t("showOnMap")}
       title={t("showOnMap")}
-      className="inline-flex items-center justify-center rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+      className="inline-flex items-center justify-center rounded-full bg-white/90 p-2 text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
     >
       <MapPin className="h-5 w-5" aria-hidden />
     </Link>
@@ -241,7 +241,7 @@ export default async function FindDetailPage({ params }: PageProps) {
   // format toggle; it's hidden for anonymized finds, and shows a
   // question-mark placeholder for NO_GPS finds that have a photo.
   const dateSlot = (
-    <span className="rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur">
+    <span className="rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur">
       {formatDateTimeCs(find.foundAt, locale, "Europe/Prague")}
     </span>
   );
@@ -251,17 +251,17 @@ export default async function FindDetailPage({ params }: PageProps) {
         <GpsValue
           lat={find.coordinates.lat}
           lng={find.coordinates.lng}
-          tone="default"
+          tone="brand"
         />
       </div>
     ) : !find.isAnonymized &&
       !find.coordinates &&
       find.states.includes(FindState.NO_GPS) ? (
       <div className="inline-flex items-center gap-2 rounded-md bg-white/90 px-2 py-1 text-sm shadow-md ring-1 ring-black/5 backdrop-blur">
-        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        <span className="text-xs font-medium uppercase tracking-wide text-brand-700">
           GPS
         </span>
-        <span className="font-mono text-gray-400">{t("gpsUnknownValue")}</span>
+        <span className="font-mono text-brand-600">{t("gpsUnknownValue")}</span>
       </div>
     ) : null;
 
@@ -926,7 +926,7 @@ function LocationMapsGallery({
               {/* Location number — bold top-LEFT overlay on the map image. */}
               {locationBadge && (
                 <div className="absolute left-2 top-2 z-10">
-                  <span className="rounded-md bg-white/95 px-2 py-1 text-sm font-bold text-gray-800 shadow-md ring-1 ring-black/5 backdrop-blur">
+                  <span className="rounded-md bg-white/95 px-2 py-1 text-sm font-bold text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur">
                     {locationBadge}
                   </span>
                 </div>

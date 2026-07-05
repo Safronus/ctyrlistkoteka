@@ -20,8 +20,10 @@ export function GpsValue({
   lng: number;
   /** "default" — gray-on-white (used in /lokality and the regular
    *  find-detail header). "dark" — red-tinted, used by the hellish
-   *  #666 detail where the surrounding background is dark. */
-  tone?: "default" | "dark";
+   *  #666 detail where the surrounding background is dark. "brand" —
+   *  brand-green, matching the location-map deep-link chips; used by the
+   *  find-detail photo's GPS overlay. */
+  tone?: "default" | "dark" | "brand";
 }) {
   const t = useTranslations("GpsValue");
   const locale = useLocale();
@@ -41,13 +43,21 @@ export function GpsValue({
   const labelCls =
     tone === "dark"
       ? "text-xs font-medium uppercase tracking-wide text-red-300/80"
-      : "text-xs font-medium uppercase tracking-wide text-gray-500";
+      : tone === "brand"
+        ? "text-xs font-medium uppercase tracking-wide text-brand-700"
+        : "text-xs font-medium uppercase tracking-wide text-gray-500";
   const valueCls =
-    tone === "dark" ? "font-mono text-red-100" : "font-mono text-gray-800";
+    tone === "dark"
+      ? "font-mono text-red-100"
+      : tone === "brand"
+        ? "font-mono text-brand-700"
+        : "font-mono text-gray-800";
   const btnCls =
     tone === "dark"
       ? "rounded p-1 text-red-300/70 transition hover:bg-red-900/40 hover:text-red-100"
-      : "rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-brand-700";
+      : tone === "brand"
+        ? "rounded p-1 text-brand-600 transition hover:bg-brand-50 hover:text-brand-800"
+        : "rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-brand-700";
 
   return (
     <div className="flex items-center gap-2 text-sm">

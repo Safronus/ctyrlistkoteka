@@ -15,8 +15,10 @@ import type { RandomFindShowcase } from "@/lib/queries/random-find";
 
 /** The showcase photo may be taller than the find-detail page's (no
  *  competing content around it) but must still fit a 1080p viewport, so it's
- *  height-capped rather than full-width — a full-width portrait overflows. */
-const SHOWCASE_MAX_VH = 80;
+ *  height-capped rather than full-width — a full-width portrait overflows.
+ *  85 lets a landscape reach the full page column even on a scaled-down 4K
+ *  viewport (~1080 CSS px tall) while a portrait still fits FullHD. */
+const SHOWCASE_MAX_VH = 85;
 
 const DEFAULT_ROTATION_MS = 60_000;
 const DEFAULT_SCREENSAVER_MS = 10_000;
@@ -230,7 +232,7 @@ export function RandomFindShowcaseWidget({
             onClick={() => setScreensaverOpen(true)}
             aria-label={t("screensaverStartAria")}
             title={t("screensaverStartTitle")}
-            className="rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="rounded-full bg-white/90 p-2 text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <Maximize className="h-5 w-5" aria-hidden />
           </button>
@@ -240,7 +242,7 @@ export function RandomFindShowcaseWidget({
             disabled={refreshing}
             aria-label={t("showAnotherAria")}
             title={t("showAnotherLabel")}
-            className="rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-60"
+            className="rounded-full bg-white/90 p-2 text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-60"
           >
             <RefreshCw
               className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`}
@@ -252,7 +254,7 @@ export function RandomFindShowcaseWidget({
               href={`/mapa?find=${find.id}`}
               aria-label={t("showOnMapAria")}
               title={t("showOnMapAria")}
-              className="inline-flex items-center justify-center rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="inline-flex items-center justify-center rounded-full bg-white/90 p-2 text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <MapPin className="h-5 w-5" aria-hidden />
             </Link>
@@ -264,13 +266,13 @@ export function RandomFindShowcaseWidget({
             that a left date + centred hint would still collide. */}
         <div className="absolute inset-x-3 bottom-3 z-10 flex flex-col items-start gap-1">
           {foundAtDate && (
-            <div className="pointer-events-none rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur">
+            <div className="pointer-events-none rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur">
               {/* Pinned to Europe/Prague so SSR and client hydration render
                   the same clock time (this is a client component). */}
               {formatDateTimeCs(foundAtDate, locale, "Europe/Prague")}
             </div>
           )}
-          <div className="pointer-events-none max-w-full rounded-md bg-white/90 px-2 py-1 text-left text-[11px] font-medium text-gray-600 shadow-md ring-1 ring-black/5 backdrop-blur">
+          <div className="pointer-events-none max-w-full rounded-md bg-white/90 px-2 py-1 text-left text-[11px] font-medium text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur">
             {t("rotationFooter", {
               seconds: Math.round(rotationMs / 1000),
               screensaverSeconds: Math.round(screensaverMs / 1000),

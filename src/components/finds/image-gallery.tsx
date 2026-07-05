@@ -294,7 +294,7 @@ export function ImageGallery({
                 aria-label={t("showCrop")}
                 aria-pressed={showCrop}
                 title={t("showCrop")}
-                className="rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="rounded-full bg-white/90 p-2 text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <Search className="h-5 w-5" />
               </button>

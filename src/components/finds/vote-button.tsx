@@ -155,7 +155,7 @@ export function VoteButton({
           className={`inline-flex items-center gap-1.5 rounded-full p-2 shadow-md ring-1 ring-black/5 backdrop-blur transition focus:outline-none focus:ring-2 focus:ring-brand-500 ${
             voted
               ? "bg-brand-100/95 text-brand-700 hover:bg-brand-200"
-              : "bg-white/90 text-gray-700 hover:bg-white hover:text-brand-700"
+              : "bg-white/90 text-brand-700 hover:bg-white hover:text-brand-800"
           } ${isPending ? "opacity-70" : ""}`}
         >
           <CloverThumbIcon

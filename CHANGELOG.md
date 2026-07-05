@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Overlaye nad fotkou — brand barva (ladí s tlačítky) + 4K šířka
+- **Barva textu/ikon** overlayů nad fotkou (detail nálezu i „Náhodný 🍀") je
+  teď **`brand-700`** místo `gray-700` — takže v dark theme svítí **zeleně**
+  (ne bíle) a **ladí s tlačítky „Mapa"/„Detail"** nad lokační mapkou. Týká se:
+  fullscreen, refresh, pin na mapu, hlasovací tlačítko, lupa, datum+čas, GPS
+  (nový `tone="brand"` u `GpsValue`), text o rotaci — a **ID lokace** vlevo
+  nahoře nad lokační mapkou.
+- **Fotka „Náhodný 🍀"** — výškový strop zvednut 80 → 85vh, aby landscape
+  dosáhla plné šířky sloupce i na scaled-down 4K (~1080 CSS px).
+
 ### Mobil/responzivita — overlaye pod sebou + výškový strop showcase fotky
 - **Datum a čas** + **GPS/rotace** overlay na spodní hraně fotky se už
   **nepřekrývají** — jsou naskládané pod sebou (datum nahoře, GPS/rotace pod
