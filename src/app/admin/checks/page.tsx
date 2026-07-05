@@ -20,6 +20,7 @@ import {
 import { AckCheckButton } from "./ack-button";
 import { SyncCropNameButton } from "./sync-crop-name-button";
 import { CopyFindIdsButton } from "./copy-find-ids-button";
+import { CropOffenderTable } from "./crop-offender-table";
 import { AnonFixButton } from "./anon-fix-button";
 import { anonymizeAnonLocationFinds } from "./anonymize-anon-loc-action";
 import { anonymizeMismatchedFilenames } from "./anonymize-ne-filename-action";
@@ -466,7 +467,11 @@ function CheckCard({ result }: { result: CheckResult }) {
               />
             )}
 
-          <div className="mt-4 max-h-96 overflow-auto rounded-md border border-amber-200 bg-white">
+          {result.id === "crop-same-size-as-original" &&
+          result.kind === "find" ? (
+            <CropOffenderTable offenders={result.offenders} />
+          ) : (
+            <div className="mt-4 max-h-96 overflow-auto rounded-md border border-amber-200 bg-white">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-gray-50 text-gray-600">
                 <tr>
@@ -506,7 +511,8 @@ function CheckCard({ result }: { result: CheckResult }) {
                     ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          )}
         </>
       )}
     </article>

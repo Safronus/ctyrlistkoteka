@@ -31,6 +31,11 @@ export const ADMIN_ROOTS = {
   secure: SECURE_DIR,
 } as const;
 
+/** Root of the generated WebP tree (`${GENERATED_DIR}/web|thumb/…`).
+ *  `generateWebPVariants` writes the `web/` + `thumb/` subdirs under here,
+ *  so the re-crop action hands it this path just like `scripts/sync.ts`. */
+export const GENERATED_ROOT = GENERATED_DIR;
+
 export type AdminRootKey = keyof typeof ADMIN_ROOTS;
 
 /** Resolves `relative` against the named root and guarantees the result

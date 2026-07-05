@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — nástroj „Ořezat" (crop dialog) u checku (fáze 2–4)
+- U checku „Ořez je celá fotka" má každý řádek tlačítko **„Ořezat"**, které
+  otevře **dialog se čtvercovým výběrem** (react-easy-crop — zoom/pan do
+  čtverce). Uložení **přeořízne ořez z originálu na serveru**, nahradí soubor
+  v `data/crops/` (starý se zálohuje do `data/.trash/`), **regeneruje
+  watermarkované WebP** a rovnou aktualizuje `find_images` — změna je na webu
+  hned (admin = zdroj).
+- **EXIF GPS + datum pořízení se přenáší** z originálu na ořez (přes piexifjs),
+  orientace se narovná na 1 (pixely už jsou narovnané). Auto-otočení dle EXIF
+  originálu je ošetřené.
+- Dialog **naviguje na další nález** z checku; tlačítko **„Přeskočit"** posune
+  bez uložení. Ořezané řádky dostanou ✓ (z checku zmizí po přenačtení).
+- Nové závislosti: `react-easy-crop` (UI), `piexifjs` (EXIF přenos).
+
 ### Admin check „Ořez je celá fotka" — náhledy + kopírování ID (fáze 1)
 - Řádky checku teď ukazují **malé náhledy originálu a ořezu vedle sebe** — na
   první pohled vidíš, jestli je ořez skutečný výřez (vypadá jinak) nebo celá

@@ -102,6 +102,9 @@ export interface FindOffender {
    *  "crop" is really a cutout or the whole photo. */
   originalThumb?: string;
   cropThumb?: string;
+  /** Original's web-size URL (`/generated/web/<sha1>.webp`, ~1600px) — the
+   *  re-crop dialog displays this so the operator can frame the cutout. */
+  originalWeb?: string;
   /** Sub-category within the check — e.g. "Lokace" / "Stav" /
    *  "Poznámka". When set on at least one offender, the page
    *  renders the check's table grouped by category, with a small
@@ -1178,13 +1181,20 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
       height: true,
       originalFilename: true,
       thumbPath: true,
+      webPath: true,
     },
     // Primary first, then lowest sort order — so the (first) entry we
     // keep per type is the one the site actually displays.
     orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { id: "asc" }],
   });
 
-  type Side = { w: number; h: number; name: string; thumb: string };
+  type Side = {
+    w: number;
+    h: number;
+    name: string;
+    thumb: string;
+    web: string;
+  };
   const byFind = new Map<number, { orig?: Side; crop?: Side }>();
   for (const img of images) {
     const e = byFind.get(img.findId) ?? {};
@@ -1193,6 +1203,7 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
       h: img.height,
       name: img.originalFilename,
       thumb: img.thumbPath,
+      web: img.webPath,
     };
     if (img.imageType === "ORIGINAL") e.orig ??= side;
     else e.crop ??= side;
@@ -1218,6 +1229,7 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
       cropFilename: e.crop.name,
       originalThumb: e.orig.thumb,
       cropThumb: e.crop.thumb,
+      originalWeb: e.orig.web,
     });
   }
   offenders.sort((a, b) => a.findId - b.findId);
