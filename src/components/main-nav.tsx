@@ -100,8 +100,11 @@ export function MainNav() {
                 <Menu className="h-5 w-5" aria-hidden />
               )}
             </button>
+            {/* Shown below `md`: on a find-detail page the compact "Sbírka"
+                chip lives here, because from `md` up the page shows the full
+                "Zpět na sbírku" button in its nav bar instead. */}
             {isFindDetail && (
-              <div className="sm:hidden">
+              <div className="md:hidden">
                 <BackToSbirkaLink variant="button" />
               </div>
             )}

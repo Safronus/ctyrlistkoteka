@@ -9,6 +9,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Detail nálezu — „Zpět na sbírku" jako tlačítko + šipky v navigaci
+- Zpátky ze samotné **ikony ← na plné tlačítko „Zpět na sbírku"** (vlevo v
+  navigačním baru). Od `md` nahoru je v baru; pod `md` se skryje a převezme ho
+  kompaktní **„Sbírka" chip v app baru** (skočí nahoru jako na mobilu). Titulek
+  „🍀 #číslo" zůstává vycentrovaný (dvě `flex-1` buňky balancují).
+- Prev/next navigace dostala **decentní chevrony**: `‹` před „🍀 #předchozí"
+  a `›` za „🍀 #další".
+
 ### „Náhodný 🍀" — bez rámečku, fotka na plnou šířku
 - Titulek sekce i **rámeček karty odstraněny**; fotka teď zabírá **plnou šířku
   stránky** (nový `fullWidth` režim `ImageGallery` obchází výškový cap `min(100%,

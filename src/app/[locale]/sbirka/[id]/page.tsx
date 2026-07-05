@@ -1,6 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BarChart3, ExternalLink, Ghost, MapPin, Trophy } from "lucide-react";
+import {
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Ghost,
+  MapPin,
+  Trophy,
+} from "lucide-react";
 import { FindState, ImageType } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
@@ -338,30 +346,20 @@ export default async function FindDetailPage({ params }: PageProps) {
     <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       {/* ← / → keyboard navigation to the neighbouring finds. */}
       <FindKeyNav prevId={adjacent.prevId} nextId={adjacent.nextId} />
-      {/* Bar: the find title — "🍀 #id" — centered with the prev/next
-          find links flanking it (prev left, next right). On desktop a
-          subtle ← back icon is pinned to the LEFT EDGE OF THE PHOTO (the
-          centered photo-width column) rather than floating at the far page
-          edge. On phones the back lives in the app bar instead. */}
+      {/* Bar: the find title — "🍀 #id" — centered with the prev/next find
+          links flanking it (prev left, next right). A full "Zpět na sbírku"
+          button sits on the LEFT from `md` up; below that it's hidden and
+          the app-bar "Sbírka" chip takes over (see main-nav.tsx), so the
+          back effectively jumps up to the top bar on narrow screens. The
+          two flex-1 side cells keep the title/prev/next block centred. */}
       <nav
         aria-label={t("navAriaLabel")}
-        className={`relative flex flex-col gap-3 text-sm ${
+        className={`flex items-center justify-center gap-3 text-sm ${
           hellish ? "text-red-300/80" : "text-gray-500"
         }`}
       >
-        {/* Desktop back — an overlay layer the width of the whole bar, with
-            the ← anchored to the left edge of a centered photo-width box.
-            pointer-events pass through everywhere except the link, so the
-            centered title/prev/next behind stay clickable. */}
-        <div className="pointer-events-none absolute inset-x-0 top-1/2 hidden -translate-y-1/2 sm:block">
-          <div
-            className="mx-auto"
-            style={{ width: photoBox.widthCss, maxWidth: "100%" }}
-          >
-            <span className="pointer-events-auto inline-flex">
-              <BackToSbirkaLink variant="icon" />
-            </span>
-          </div>
+        <div className="hidden md:flex md:flex-1">
+          <BackToSbirkaLink variant="button-full" />
         </div>
         <div className="flex items-center justify-center gap-3">
           <CloverNavLink
@@ -385,6 +383,9 @@ export default async function FindDetailPage({ params }: PageProps) {
             t={t}
           />
         </div>
+        {/* Spacer (desktop) — balances the back cell so the title stays
+            centred within the full bar. */}
+        <div className="hidden md:block md:flex-1" aria-hidden />
       </nav>
 
       {/* All the find's badges/notices now live on the photo itself: state
@@ -1216,9 +1217,15 @@ function CloverNavLink({
       href={`/sbirka/${id}`}
       aria-label={label}
       title={label}
-      className={`whitespace-nowrap font-mono text-sm ${cls}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap font-mono text-sm ${cls}`}
     >
-      🍀 #{id}
+      {direction === "prev" && (
+        <ChevronLeft className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+      )}
+      <span>🍀 #{id}</span>
+      {direction === "next" && (
+        <ChevronRight className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+      )}
     </Link>
   );
 }
