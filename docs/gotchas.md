@@ -265,3 +265,32 @@ mapa lokality), takže ho **nesmíš obalit shrink-to-fit kontejnerem**.
   (spočítej `getBoundingClientRect()` na wrapperu — 0 = kolaps), ne backend.
 - Detail nálezu i showcase teď sdílí stejný vzor: **wrapper má explicitní
   `widthCss`, ne `w-fit`.**
+
+## 9. Po deployi servíruje ISR stránka pár requestů starý (stale) render
+
+**Co:** hned po úspěšném deployi (`DEPLOY_OK`) vracela hlavní stránka **starý
+HTML** — nová změna (`fill` → `width:100%`, přesun `statesSlot` nahoru) v něm
+nebyla, přestože zdroj i build byly správně. Vypadalo to jako „deploy se
+neprojevil / běží starý build". Po **pár requestech na `/`** se render
+přegeneroval a nový obsah naskočil.
+
+**Příčina:** hlavní stránka je **ISR** (a další agregační stránky taky). Next
+servíruje **stale-while-revalidate** — první request(y) po deployi dostanou
+poslední cachovaný (starý) render a nový se dopéká **na pozadí**. `rm -rf
+.next/cache` v deploy skriptu smaže inkrementální cache, ale prvních pár hitů
+stejně může chytit ještě „doháněcí" render. (Jiné než #7: tam jde o **404 na
+nové routě**, tady o **starý obsah na existující stránce**.)
+
+**Past:** ověřovat živý web **hned** po `DEPLOY_OK` jedním `curl` → snadno
+usoudíš „změna nešla" a začneš debugovat deploy, který je ve skutečnosti v
+pořádku.
+
+**Jak aplikovat:**
+- Po deployi **napřed prober ISR** (3–5× `curl https://…/`), teprve pak ověřuj
+  obsah — nebo počkej ~30–60 s. Cache-buster query (`?cb=…`) nestačí, ISR klíčuje
+  podle cesty.
+- Rozliš **stale obsah** (starý render existující stránky → dočasné, sám se
+  spraví) od **reálné regrese** (grep zdroje potvrdí, že změna v souboru je, ale
+  po ~10 min a mnoha requestech pořád starý HTML → teprve tehdy koukej na build/PM2).
+- Nejjistější marker pro ověření je něco, co je **v JS bundlu** (className,
+  struktura) — to se nemůže lišit „daty", jen buildem; když je starý, je to build/ISR.
