@@ -1083,7 +1083,7 @@ function AnonymizedMapOverlay({ t }: { t: FindDetailT }) {
     >
       <span
         aria-hidden
-        className="select-none text-7xl font-black text-purple-50 drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:text-8xl"
+        className="select-none text-7xl font-black text-[#faf5ff] drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:text-8xl"
       >
         ?
       </span>

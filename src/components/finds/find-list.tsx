@@ -370,7 +370,7 @@ function FindListRow({
               >
                 <span
                   aria-hidden
-                  className="select-none text-3xl font-black leading-none text-purple-50 drop-shadow-[0_2px_6px_rgba(0,0,0,0.5)]"
+                  className="select-none text-3xl font-black leading-none text-[#faf5ff] drop-shadow-[0_2px_6px_rgba(0,0,0,0.5)]"
                 >
                   ?
                 </span>

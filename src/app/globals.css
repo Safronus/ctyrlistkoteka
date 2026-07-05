@@ -106,12 +106,22 @@
   --color-brand-700: oklch(0.78 0.13 145);
   --color-brand-900: oklch(0.88 0.08 145);
 
-  /* Anonymized — purple stays purple, just inverted lightness. */
+  /* Anonymized — purple stays purple, just inverted lightness. Full scale
+     (like amber/emerald): low shades = dark surfaces, high = light text.
+     300/500/700 were missing, so `text-purple-700` (the anonymized state
+     badge, `bg-purple-100 text-purple-700`) fell back to the DEFAULT mid
+     purple → dark-on-dark. purple-950 is deliberately left at its default
+     (dark) — it's only used as a `bg-purple-950/45` scrim over photos,
+     which must stay dark in every theme (its label uses a literal light
+     colour, not `text-purple-50`, which inverts to dark here). */
   --color-purple-50: oklch(0.22 0.06 305);
   --color-purple-100: oklch(0.27 0.08 305);
   --color-purple-200: oklch(0.34 0.10 305);
+  --color-purple-300: oklch(0.46 0.14 305);
   --color-purple-400: oklch(0.66 0.18 305);
+  --color-purple-500: oklch(0.70 0.17 305);
   --color-purple-600: oklch(0.74 0.16 305);
+  --color-purple-700: oklch(0.80 0.13 305);
   --color-purple-800: oklch(0.86 0.10 305);
   --color-purple-900: oklch(0.92 0.06 305);
 

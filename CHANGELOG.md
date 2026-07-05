@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Oprava — anonymizovaný stav v dark theme (tmavé na tmavém)
+- **Purple škála v dark theme byla neúplná** (chyběly odstíny 300/500/700) →
+  odznak „Anonymizovaný" (`text-purple-700`) padal na default střední fialovou
+  na tmavém pozadí (kontrast **2.19:1**). Doplněna celá škála → **7.92:1**.
+- **Overlay „?" u anonymizované mapy** (`text-purple-50`) se v dark theme
+  přemapoval na tmavou → tmavý text na tmavém scrimu (**1.17:1**). Label má teď
+  pevnou světlou barvu nezávislou na theme → **14.00:1**. (Detail nálezu i
+  dlaždice v seznamu.)
+- Notice banner nad fotkou (`text-purple-900` na `bg-purple-50`) byl v pořádku
+  (**13.58:1**) — neměněn. Ostatní theme (light, leaf) byly celou dobu OK.
+
 ### Admin — správa textů bannerů nad fotkou nálezu
 - Nová sekce **`/admin/banner-texts`**: editace vysvětlujících pruhů nad fotkou
   nálezu (stavy `LOST` / `ANONYMIZED` / `DONATED` / `GIGANT` / `NO_GPS` /
