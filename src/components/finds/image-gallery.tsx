@@ -39,6 +39,8 @@ export function ImageGallery({
   mapSlot = null,
   voteSlot = null,
   statesSlot = null,
+  dateSlot = null,
+  gpsSlot = null,
   note = null,
   topBanner = null,
   bordered = false,
@@ -75,6 +77,12 @@ export function ImageGallery({
   /** Overlay drawn centered on the photo's top edge (desktop) / bottom
    *  edge (mobile) — the find's state badges. */
   statesSlot?: ReactNode;
+  /** Overlay pill drawn in the photo's BOTTOM-LEFT corner — the find's
+   *  date/time on the detail page (mirrors the random-clover showcase). */
+  dateSlot?: ReactNode;
+  /** Overlay pill centered on the photo's BOTTOM edge — the GPS value with
+   *  its format toggle on the detail page. Stays interactive. */
+  gpsSlot?: ReactNode;
   /** Centered caption banner on the photo's bottom edge (the find note).
    *  Rendered on both the real photo and the placeholder. */
   note?: ReactNode;
@@ -266,6 +274,20 @@ export function ImageGallery({
         {statesSlot && (
           <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 drop-shadow-sm sm:bottom-auto sm:top-3">
             {statesSlot}
+          </div>
+        )}
+        {/* Date/time — BOTTOM-LEFT overlay (caller supplies the styled
+            pill), mirroring the random-clover showcase on the home page. */}
+        {dateSlot && (
+          <div className="pointer-events-none absolute bottom-3 left-3 z-10">
+            {dateSlot}
+          </div>
+        )}
+        {/* GPS — centered on the BOTTOM edge (caller supplies the styled
+            pill; kept interactive so the format toggle works). */}
+        {gpsSlot && (
+          <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2">
+            {gpsSlot}
           </div>
         )}
         {/* Top-RIGHT control cluster: the vote button sits to the LEFT of

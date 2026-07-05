@@ -9,18 +9,25 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
-### Admin check — „Ořez má stejné rozměry jako originál"
+### Admin check — „Ořez je nejspíš celá fotka, ne výřez"
 - Nový check v `/admin/checks` (skupina „Originály ↔ ořezy") vypíše nálezy, kde
-  má **ořez stejné pixelové rozměry jako originál** — typicky celá fotka nahraná
-  jako ořez (lupa nad fotkou pak neukáže žádnou změnu). Řádek nabídne chipy
-  „Originál →" i „Ořez →" pro rychlou opravu.
+  má **ořez stejný poměr stran jako originál a pokrývá ≥50 % jeho plochy** —
+  typicky celá fotka nahraná jako ořez (lupa nad fotkou pak neukáže žádnou
+  změnu). Detekce je na **poměru stran + ploše**, ne na přesných rozměrech —
+  chytí i zmenšené kopie (např. #13801: ořez 1077×1436 vs originál 1200×1600,
+  stejné 3:4, 80 % plochy). Řádek nabídne chipy „Originál →" i „Ořez →".
 
-### Detail nálezu — „Zpět na sbírku" zpět na levý okraj fotky
-- Tlačítko „Zpět na sbírku" se vrátilo na **levý okraj fotky** (vlastní řádek
-  nad navigací, přes centrovaný `photoBox.widthCss` kontejner). Vlastní řádek
-  místo stejné linky proto, že text-tlačítko je širší než původní ← ikona a na
-  úzkém sloupci portrétní fotky by kolidovalo s prev/next. Responzivní chování
-  (skok do app baru pod `md`) zůstává.
+### Detail nálezu — datum a GPS jako overlaye nad fotkou
+- Datum a čas se přesunuly z popisku nad fotkou na **overlay vlevo dole nad
+  fotkou**; GPS souřadnice (s přepínáním formátu) na **overlay na střed spodní
+  hrany** — stejně jako to má sekce „Náhodný 🍀" na hlavní stránce. Datum je
+  pinnuté na Europe/Prague.
+
+### Detail nálezu — „Zpět na sbírku" na řádku navigace, u levého okraje fotky
+- Tlačítko je **na stejné lince** jako prev/next navigace (absolutní overlay
+  vycentrovaný na baru), zarovnané s **levým okrajem fotky**. Pod `md` se skryje
+  a převezme ho „Sbírka" chip v app baru (skok nahoru). Pozn.: na úzkém sloupci
+  portrétní fotky se širší text-tlačítko může nepatrně překrýt s „🍀 #předchozí".
 
 ### Detail nálezu — „Zpět na sbírku" jako tlačítko + šipky v navigaci
 - Zpátky ze samotné **ikony ← na plné tlačítko „Zpět na sbírku"** (vlevo v

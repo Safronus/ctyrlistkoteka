@@ -234,6 +234,37 @@ export default async function FindDetailPage({ params }: PageProps) {
   const statesSlot =
     find.states.length > 0 ? <StateBadges states={find.states} /> : null;
 
+  // Date/time + GPS as photo overlays (bottom-left / bottom-center),
+  // mirroring the random-clover showcase on the home page. The date is
+  // pinned to Europe/Prague (the collection's zone) so it matches the
+  // showcase and doesn't depend on the server's timezone. GPS keeps its
+  // format toggle; it's hidden for anonymized finds, and shows a
+  // question-mark placeholder for NO_GPS finds that have a photo.
+  const dateSlot = (
+    <span className="rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur">
+      {formatDateTimeCs(find.foundAt, locale, "Europe/Prague")}
+    </span>
+  );
+  const gpsSlot =
+    !find.isAnonymized && find.coordinates ? (
+      <div className="inline-flex rounded-md bg-white/90 px-2 py-1 shadow-md ring-1 ring-black/5 backdrop-blur">
+        <GpsValue
+          lat={find.coordinates.lat}
+          lng={find.coordinates.lng}
+          tone="default"
+        />
+      </div>
+    ) : !find.isAnonymized &&
+      !find.coordinates &&
+      find.states.includes(FindState.NO_GPS) ? (
+      <div className="inline-flex items-center gap-2 rounded-md bg-white/90 px-2 py-1 text-sm shadow-md ring-1 ring-black/5 backdrop-blur">
+        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          GPS
+        </span>
+        <span className="font-mono text-gray-400">{t("gpsUnknownValue")}</span>
+      </div>
+    ) : null;
+
   // Admin-managed banner-text overrides (data/.admin/banner-texts.json) take
   // precedence over the baked-in FindDetail defaults, per locale; bt()
   // resolves one banner's effective text.
@@ -349,26 +380,28 @@ export default async function FindDetailPage({ params }: PageProps) {
       {/* Bar: the find title — "🍀 #id" — centered with the prev/next find
           links flanking it (prev left, next right).
 
-          A full "Zpět na sbírku" button sits on its OWN row above, pinned to
-          the LEFT EDGE OF THE PHOTO (the centered photo-width column) so it
-          lines up with the image below. It's a separate row rather than
-          same-line because the text button is far wider than the old ← icon
-          and would overlap the centered prev/next links on a portrait
-          photo's narrow column. From `md` down the button is hidden and the
-          app-bar "Sbírka" chip takes over (see main-nav.tsx), so the back
-          effectively jumps up to the top bar on narrow screens. */}
+          The "Zpět na sbírku" button is an overlay pinned to the LEFT EDGE
+          OF THE PHOTO (the centered photo-width column), vertically centered
+          on the bar so it reads on the SAME line as the prev/next nav and
+          lines up with the image below. From `md` up only; below `md` it's
+          hidden and the app-bar "Sbírka" chip takes over (see main-nav.tsx),
+          so the back jumps up to the top bar on narrow screens.
+          pointer-events pass through everywhere except the button so the
+          centered nav behind it stays clickable. */}
       <nav
         aria-label={t("navAriaLabel")}
-        className={`flex flex-col gap-2 text-sm ${
+        className={`relative flex flex-col gap-3 text-sm ${
           hellish ? "text-red-300/80" : "text-gray-500"
         }`}
       >
-        <div className="hidden md:block">
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 hidden -translate-y-1/2 md:block">
           <div
             className="mx-auto"
             style={{ width: photoBox.widthCss, maxWidth: "100%" }}
           >
-            <BackToSbirkaLink variant="button-full" />
+            <span className="pointer-events-auto inline-flex">
+              <BackToSbirkaLink variant="button-full" />
+            </span>
           </div>
         </div>
         <div className="flex items-center justify-center gap-3">
@@ -400,73 +433,34 @@ export default async function FindDetailPage({ params }: PageProps) {
           banners ABOVE it, the note as a banner BELOW. So there's no
           separate header block — the photo section follows the nav. */}
 
-      {/* Time & position — frameless, centered. No heading (it's
-          self-evident): just the date/time (no label) and the GPS with
-          its format toggle, then the photo. The map offset lives as a
-          banner over the location map and the distance-from-MAP-00001 row
-          was noise, so both are gone. The photo carries the show-on-map
-          pin, the vote button and the state badges as overlays. */}
-      <section className="space-y-3">
-        <p
-          className={`text-center text-sm ${
-            hellish ? "text-red-100/90" : "text-gray-800"
-          }`}
-        >
-          {formatDateTimeCs(find.foundAt, locale)}
-        </p>
-        {!find.isAnonymized && find.coordinates && (
-          <div className="flex justify-center">
-            <GpsValue
-              lat={find.coordinates.lat}
-              lng={find.coordinates.lng}
-              tone={hellish ? "dark" : "default"}
-            />
-          </div>
-        )}
-        {/* NO_GPS: the photo exists but carries no EXIF position — show the
-            GPS row with all-question-mark placeholders so it's clear the
-            coordinates could be here, they're just missing. */}
-        {!find.isAnonymized &&
-          !find.coordinates &&
-          find.states.includes(FindState.NO_GPS) && (
-            <div className="flex items-center justify-center gap-2 text-sm">
-              <span
-                className={`text-xs font-medium uppercase tracking-wide ${
-                  hellish ? "text-red-300/80" : "text-gray-500"
-                }`}
-              >
-                GPS
-              </span>
-              <span
-                className={`font-mono ${
-                  hellish ? "text-red-200/70" : "text-gray-400"
-                }`}
-              >
-                {t("gpsUnknownValue")}
-              </span>
-            </div>
-          )}
-        <div className="pt-2">
-          <ImageGallery
-            image={mainImage}
-            cropImage={cropImage}
-            altBase={t("imageAlt", { id: find.id })}
-            findId={find.id}
-            donationPhotos={find.donationPhotos}
-            freePhotos={find.freePhotos}
-            muted={isLost}
-            mapSlot={mapSlot}
-            voteSlot={voteSlot}
-            statesSlot={statesSlot}
-            note={noteNode}
-            topBanner={photoTopBanner}
-            bordered
-            goldFrame={effect === "record"}
-            rotateLandscape
-            placeholderWidthCss={photoBox.widthCss}
-            placeholderAspectRatio={photoBox.aspectRatio}
-          />
-        </div>
+      {/* The photo carries everything as overlays now: date/time
+          (bottom-left), GPS with its format toggle (bottom-center), the
+          show-on-map pin, the vote button, the state badges and the
+          record/anonymized/lost/… banners. The map offset lives as a
+          banner over the location map; the distance-from-MAP-00001 row was
+          noise — both gone. */}
+      <section>
+        <ImageGallery
+          image={mainImage}
+          cropImage={cropImage}
+          altBase={t("imageAlt", { id: find.id })}
+          findId={find.id}
+          donationPhotos={find.donationPhotos}
+          freePhotos={find.freePhotos}
+          muted={isLost}
+          mapSlot={mapSlot}
+          voteSlot={voteSlot}
+          statesSlot={statesSlot}
+          dateSlot={dateSlot}
+          gpsSlot={gpsSlot}
+          note={noteNode}
+          topBanner={photoTopBanner}
+          bordered
+          goldFrame={effect === "record"}
+          rotateLandscape
+          placeholderWidthCss={photoBox.widthCss}
+          placeholderAspectRatio={photoBox.aspectRatio}
+        />
       </section>
 
       {/* Lokalita — frameless, stacked and centered like the meta block.

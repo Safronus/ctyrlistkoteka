@@ -1150,11 +1150,19 @@ async function readScopeFilenames(dir: string): Promise<string[]> {
 
 async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
   // A real crop is a zoomed-in cutout of the clover, so its generated
-  // dimensions are smaller / a different aspect than the full-frame
-  // original. When the CROP has the EXACT same pixel size as the
-  // ORIGINAL, the "crop" is really the whole photo re-saved (not
-  // cropped) — the lupa hover on the detail page then shows no change.
-  // Flag those so the admin can replace them with an actual cutout.
+  // dimensions are a DIFFERENT aspect ratio (usually squarish) and a much
+  // smaller area than the full-frame original. When the CROP has the same
+  // aspect ratio as the ORIGINAL AND covers most of its area, the "crop"
+  // is really the whole photo (possibly just scaled down) — the lupa hover
+  // on the detail page then shows no change. Flag those so the admin can
+  // replace them with an actual cutout.
+  //
+  // Aspect + area (not exact pixel match) because some full-frame "crops"
+  // are re-encoded at ~90 % scale: e.g. find #13801 has a 1077×1436 crop
+  // against a 1200×1600 original — same 3:4 framing, 80 % of the area, but
+  // NOT byte- or size-identical, so an exact compare missed it.
+  const ASPECT_TOL = 0.02; // ≤2 % aspect difference counts as "same framing"
+  const AREA_MIN = 0.5; // crop ≥50 % of the original's area = "whole photo"
   const images = await prisma.findImage.findMany({
     where: { imageType: { in: ["ORIGINAL", "CROP"] } },
     select: {
@@ -1186,11 +1194,18 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
   const offenders: FindOffender[] = [];
   for (const [findId, e] of byFind) {
     if (!e.orig || !e.crop) continue; // "no crop" is another check's job
-    if (e.orig.w !== e.crop.w || e.orig.h !== e.crop.h) continue;
+    const origAspect = e.orig.w / e.orig.h;
+    const cropAspect = e.crop.w / e.crop.h;
+    const sameFraming =
+      Math.abs(cropAspect - origAspect) <= ASPECT_TOL * origAspect;
+    const areaRatio = (e.crop.w * e.crop.h) / (e.orig.w * e.orig.h);
+    if (!sameFraming || areaRatio < AREA_MIN) continue;
     offenders.push({
       findId,
       locationCode: "—",
-      detail: `Ořez má stejné rozměry jako originál (${e.orig.w}×${e.orig.h} px) — je to nejspíš celá fotka, ne výřez.`,
+      detail: `Ořez má stejný poměr stran jako originál a pokrývá ~${Math.round(
+        areaRatio * 100,
+      )} % jeho plochy (${e.crop.w}×${e.crop.h} vs ${e.orig.w}×${e.orig.h} px) — je to nejspíš celá fotka, ne výřez.`,
       filename: e.orig.name,
       cropFilename: e.crop.name,
     });
@@ -1218,9 +1233,9 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
     kind: "find",
     group: "filename-cross-ref",
     id: "crop-same-size-as-original",
-    title: "Ořez má stejné rozměry jako originál",
+    title: "Ořez je nejspíš celá fotka, ne výřez",
     description:
-      "Ořez čtyřlístku má být zmenšený výřez (jiné rozměry než originál). Když má ořez stejné rozměry jako originál, je to nejspíš celá fotka nahraná jako ořez — lupa nad fotkou pak neukáže žádnou změnu. Nahraď ořez skutečným výřezem.",
+      "Ořez čtyřlístku má být zmenšený výřez — jiný poměr stran (obvykle čtvercový) a výrazně menší plocha než originál. Když má ořez stejný poměr stran jako originál a pokrývá většinu jeho plochy (≥50 %), je to nejspíš celá fotka nahraná jako ořez — lupa nad fotkou pak neukáže žádnou změnu. Nahraď ořez skutečným výřezem.",
     offenders,
   };
 }
