@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Hlavní strana — showcase/První-Poslední přes celou šířku + rotace + lupa
+- **Fotky „Náhodný 🍀" i „První vs poslední"** teď **vyplní celou šířku
+  sloupce** (zrušen výškový strop) — okraje sednou na „Nejoblíbenější".
+  Portrét proto vyjde vysoký a spodek se odscrolluje; to je zvolený kompromis
+  (velká fotka přes celou šířku > vejít se celá na výšku). `photoDisplay` má
+  nový `maxVh: null` = bez stropu.
+- **Landscape fotky** se na showcase i u První/Poslední **otáčejí 90° CW na
+  výšku** (jako na detailu) — konzistentní orientace.
+- **První/Poslední** dostaly **lupu s výřezem** vpravo nahoře vedle liku (jako
+  všude): query nově načítá i CROP obrázek (`HomeLatestFind.cropImage`).
+- **Panel s počtem nálezů** má místo 3 řádků **2**: velké číslo a pod ním
+  „nálezů (X nahraných)" — počet nahraných se přesunul do závorky.
+- **Pozn.:** nález s nízkým rozlišením originálu (např. #17844 = 960×1280)
+  zůstává užší i na plné šířce — layout ho záměrně neroztahuje nad nativní
+  velikost, aby nebyl rozmazaný.
+
 ### Hlavní strana — „První vs poslední" jako dvě fotky; pryč titulky
 - **Sekce „První vs poslední čtyřlístek"** už není dvojice vodorovných
   dlaždic — jsou to **dvě fotky nálezů vedle sebe** (na mobilu pod sebou),

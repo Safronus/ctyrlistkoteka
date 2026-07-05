@@ -36,21 +36,30 @@ export function photoDisplay(
   }: {
     rotate: boolean;
     /** Cap the photo's height at this % of the viewport, so a tall portrait
-     *  still fits on screen. The random-clover showcase raises it (bigger
-     *  than the detail page) while still fitting a 1080p viewport. */
-    maxVh?: number;
+     *  still fits on screen. The find detail keeps the default. Pass `null`
+     *  to drop the cap entirely — the home showcase + "První vs poslední"
+     *  photos do this so a portrait fills the full column width (the user
+     *  prefers the big full-width look even though a tall portrait then
+     *  scrolls past the fold). */
+    maxVh?: number | null;
   },
 ): PhotoDisplay | null {
   if (!width || !height) return null;
   const landscape = rotate && width > height;
   const displayWidth = landscape ? height : width;
   const displayHeight = landscape ? width : height;
+  // No cap (maxVh === null) → width is just min(fits the column, native px).
+  // With a cap, also clamp so the height stays within `maxVh` of the viewport.
+  const heightCap =
+    maxVh == null
+      ? ""
+      : `, calc(${maxVh}vh * ${displayWidth} / ${displayHeight})`;
   return {
     rotated: landscape,
     displayWidth,
     displayHeight,
     aspectRatio: `${displayWidth} / ${displayHeight}`,
-    // min(fits the column, never upscale past native, height-cap at maxVh)
-    widthCss: `min(100%, ${displayWidth}px, calc(${maxVh}vh * ${displayWidth} / ${displayHeight}))`,
+    // min(fits the column, never upscale past native[, height-cap at maxVh])
+    widthCss: `min(100%, ${displayWidth}px${heightCap})`,
   };
 }

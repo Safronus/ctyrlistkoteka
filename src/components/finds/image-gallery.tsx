@@ -99,9 +99,9 @@ export function ImageGallery({
    *  make the photo (and the location map matched to it) too wide. */
   rotateLandscape?: boolean;
   /** Height cap as a % of viewport height (default 70 — see photoDisplay).
-   *  The random showcase raises it so the photo is bigger yet still fits a
-   *  1080p screen. */
-  maxVh?: number;
+   *  Pass `null` to drop the cap so the photo fills the full column width
+   *  (home showcase + "První vs poslední" — a tall portrait then scrolls). */
+  maxVh?: number | null;
   /** For the NO_PHOTO placeholder: the width + aspect a real photo would
    *  have occupied, so the placeholder fills the same area (and the map
    *  below still lines up). Defaults to a 16:9 box when omitted. */

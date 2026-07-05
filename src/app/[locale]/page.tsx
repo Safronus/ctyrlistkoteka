@@ -298,19 +298,16 @@ export default async function HomePage() {
           value={
             totals.maxFindId !== null ? NF.format(totals.maxFindId) : "—"
           }
-          label={t("statFinds", {
-            count: totals.maxFindId ?? totals.finds,
-          })}
-          icon={Clover}
-          hint={
-            // Only surface the uploaded count when it actually differs
-            // from the headline max id (i.e. there's a backfill gap).
-            // When the two match the line would just repeat the big
-            // number and add visual noise.
+          // Two lines: the big find count, then "nálezů" with the uploaded
+          // count in parentheses. The parenthetical only shows when there's
+          // a backfill gap (maxFindId ≠ uploaded) — when they match it would
+          // just repeat the headline number.
+          label={
             totals.maxFindId !== null && totals.maxFindId !== totals.finds
-              ? t("statFindsUploadedHint", { count: totals.finds })
-              : undefined
+              ? `${t("statFinds", { count: totals.maxFindId })} (${t("statFindsUploadedHint", { count: totals.finds })})`
+              : t("statFinds", { count: totals.maxFindId ?? totals.finds })
           }
+          icon={Clover}
         />
         <StatCard
           value={NF.format(totals.locations)}
@@ -586,13 +583,6 @@ function NavCard({
   );
 }
 
-/** Height cap for the two First/Latest photos. They sit two-abreast in a
- *  grid, so on desktop the half-width column binds the width and this cap
- *  only bites on short viewports (stops a tall portrait from overflowing).
- *  Lower than the random showcase (85) since two of them share the page's
- *  vertical budget. */
-const FIRST_LATEST_MAX_VH = 80;
-
 function FirstVsLatestSection({
   firstFind,
   latestFind,
@@ -660,16 +650,18 @@ async function FindPhotoColumn({
         </Link>
       </div>
       {/* No frame — the photo fills its grid column. All chrome (map,
-          vote, states, date, GPS) rides on the photo as overlays,
-          mirroring the "Náhodný 🍀" showcase. No lupa (cropImage=null)
-          and no location info, per the home layout. */}
+          vote, states, date, GPS, lupa) rides on the photo as overlays,
+          mirroring the "Náhodný 🍀" showcase. No height cap so the photo
+          fills the column; landscapes rotate 90° CW to portrait. No
+          location info, per the home layout. */}
       <ImageGallery
         image={find.primaryImage}
-        cropImage={null}
+        cropImage={find.cropImage}
         altBase={altText}
         findId={find.id}
         muted={isLost}
-        maxVh={FIRST_LATEST_MAX_VH}
+        maxVh={null}
+        rotateLandscape
         mapSlot={
           hasMapPosition ? (
             <Link

@@ -32,6 +32,11 @@ export interface HomeLatestFind {
    *  Shape matches `PublicImage` so the existing `FindThumbnail`
    *  component renders it without adapting. */
   primaryImage: PublicImage | null;
+  /** CROP image (the magnified leaf cut-out) for the lupa magnifier overlay,
+   *  same as the random-clover showcase. Null when the find has no crop.
+   *  Like primaryImage it doesn't reveal identity, so it's fine for
+   *  anonymized finds too. */
+  cropImage: PublicImage | null;
   /** Find states for the badge row — public even for anonymized finds
    *  (the ANONYMIZED badge itself is shown), same as the /sbirka grid. */
   states: FindState[];
@@ -228,9 +233,9 @@ export async function getHomePageData(): Promise<HomePageData> {
         ) AS latest_found_count
     `,
 
-    // Most recent find by ID. The `images` `take: 1` with sort orders
-    // mirrors `LIST_INCLUDE` in finds.ts so we get the same primary
-    // image the /sbirka grid would show.
+    // Most recent find by ID. Fetch its images (ORIGINAL + CROP, no `take`)
+    // so the "První vs poslední" photo can render both the primary photo and
+    // the lupa magnifier's crop, like the random-clover showcase.
     prisma.find.findFirst({
       orderBy: { id: "desc" },
       select: {
@@ -241,7 +246,6 @@ export async function getHomePageData(): Promise<HomePageData> {
         states: { select: { state: true } },
         images: {
           orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
-          take: 1,
           select: {
             id: true,
             imageType: true,
@@ -285,7 +289,6 @@ export async function getHomePageData(): Promise<HomePageData> {
         states: { select: { state: true } },
         images: {
           orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
-          take: 1,
           select: {
             id: true,
             imageType: true,
@@ -484,7 +487,11 @@ export async function getHomePageData(): Promise<HomePageData> {
             coord && coord.lat !== null && coord.lng !== null
               ? { lat: coord.lat, lng: coord.lng }
               : null,
-          primaryImage: row.images[0] ?? null,
+          primaryImage:
+            row.images.find((i) => i.imageType === "ORIGINAL") ??
+            row.images[0] ??
+            null,
+          cropImage: row.images.find((i) => i.imageType === "CROP") ?? null,
           states: row.states.map((s) => s.state),
         }
       : null;
