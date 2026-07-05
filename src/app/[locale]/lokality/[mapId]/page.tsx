@@ -10,6 +10,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import { readMapNoteOverrides } from "@/lib/mapNoteOverrides";
 import { Link } from "@/i18n/navigation";
 import { GpsValue } from "@/components/finds/gps-value";
 import {
@@ -285,7 +286,7 @@ function AnonymizedStub({ id, t }: { id: number; t: DetailT }) {
   );
 }
 
-function FullDetail({
+async function FullDetail({
   detail,
   t,
   tRow,
@@ -297,6 +298,10 @@ function FullDetail({
   locale: string;
 }) {
   const { base, maps, parent, siblings, children, recentFinds } = detail;
+  // Admin-authored web-display caption overrides for these maps, keyed by
+  // MAP_ID (CS + optional EN) — the same display layer as the find-detail
+  // map caption. Applied per map below with the EN fallback.
+  const mapNoteOverrides = await readMapNoteOverrides();
   const isChild = base.parentId !== null;
   const isLeaf = base.childCount === 0;
   const aggregate = base.aggregateStats;
@@ -390,7 +395,11 @@ function FullDetail({
             return (
               <RealPhotoButton
                 photoUrl={photoMap.realPhotoUrl}
-                caption={photoMap.description ?? base.code}
+                caption={
+                  (mapNoteOverrides.get(photoMap.id)?.cs ||
+                    photoMap.description) ??
+                  base.code
+                }
               />
             );
           })()}
@@ -426,11 +435,28 @@ function FullDetail({
                     />
                   )}
                 </div>
-                {m.description && (
-                  <figcaption className="px-3 py-2 text-xs text-gray-600">
-                    {m.description}
-                  </figcaption>
-                )}
+                {(() => {
+                  // Admin caption override wins over the raw filename
+                  // description; the EN override shows flag-free on the EN
+                  // site, else the CS text with a "Czech only" flag (mirror
+                  // of the find-detail map caption).
+                  const ov = mapNoteOverrides.get(m.id);
+                  const capEn = ov?.en || null;
+                  const capCs = ov?.cs || m.description || null;
+                  const useEn = locale === "en" && capEn;
+                  const text = useEn ? capEn : capCs;
+                  if (!text) return null;
+                  return (
+                    <figcaption className="px-3 py-2 text-xs text-gray-600">
+                      {text}
+                      {locale === "en" && !useEn && (
+                        <span className="mt-1 block text-[11px] italic opacity-70">
+                          {t("czechOnly")}
+                        </span>
+                      )}
+                    </figcaption>
+                  );
+                })()}
               </figure>
             ))}
           </div>

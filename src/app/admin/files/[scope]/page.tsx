@@ -19,6 +19,7 @@ import { readMapAnonFlags } from "@/lib/admin/mapAnon";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { prisma } from "@/lib/db";
 import { readFindNoteOverrides } from "@/lib/findNoteOverrides";
+import { readMapNoteOverrides } from "@/lib/mapNoteOverrides";
 import { getRealPhotoMapKeys } from "@/lib/locationPhotos";
 import { checkSyncNeeded, type SyncScope } from "@/lib/admin/syncNeeded";
 import {
@@ -287,6 +288,29 @@ export default async function AdminScopeListPage({
       ...notedRows.map((r) => r.id),
       ...ovMap.keys(),
     ]);
+  }
+
+  // Web-display caption overrides for location maps + the raw filename
+  // description per MAP_ID — drives the per-row "pozn." editor on the maps
+  // scope. Mirror of the finds block above, keyed by MAP_ID.
+  let mapNoteOverrides:
+    | Record<number, { cs?: string; en?: string }>
+    | undefined;
+  let mapNoteRaw: Record<number, string> | undefined;
+  if (scope.slug === "maps") {
+    const [ovMap, describedRows] = await Promise.all([
+      readMapNoteOverrides(),
+      prisma.locationMap.findMany({
+        where: { description: { not: null } },
+        select: { id: true, description: true },
+      }),
+    ]);
+    mapNoteOverrides = {};
+    for (const [k, v] of ovMap) mapNoteOverrides[k] = v;
+    mapNoteRaw = {};
+    for (const r of describedRows) {
+      if (r.description) mapNoteRaw[r.id] = r.description;
+    }
   }
 
   // Sync-needed banner. Computed for finds/crops/maps because
@@ -852,6 +876,8 @@ export default async function AdminScopeListPage({
           anonymizedNames={anonymizedNamesNFC}
           mapsWithRealPhoto={mapsWithRealPhoto}
           showNonexistentBadge
+          mapNoteOverrides={mapNoteOverrides}
+          mapNoteRaw={mapNoteRaw}
         />
       ) : scope.slug === "donation-photos" ? (
         <FilesListClient

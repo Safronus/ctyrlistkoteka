@@ -33,6 +33,10 @@ import {
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { photoDisplay } from "@/lib/photoBox";
 import { getFindNoteOverride } from "@/lib/findNoteOverrides";
+import {
+  readMapNoteOverrides,
+  type MapNoteOverride,
+} from "@/lib/mapNoteOverrides";
 import { readBannerTextOverrides } from "@/lib/bannerTextOverrides";
 import { effectForFind } from "@/lib/specialFinds";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
@@ -356,6 +360,11 @@ export default async function FindDetailPage({ params }: PageProps) {
       : null;
   const noteCs = noteOverride?.cs || find.notes || null;
   const noteEn = noteOverride?.en || null;
+  // Web-display caption overrides for this find's location map(s), keyed by
+  // MAP_ID — the same admin-authored display layer as the find note above.
+  // The gallery applies the CS/EN fallback per map. (No privacy gate here:
+  // the map caption itself is already hidden for anonymized finds below.)
+  const mapNoteOverrides = await readMapNoteOverrides();
   // EN with its own override → show it untranslated-flag-free. Otherwise
   // fall back to the CS text + the Czech-only flag (machine-translating
   // user notes would ship possibly-sensitive text to a third party).
@@ -506,6 +515,7 @@ export default async function FindDetailPage({ params }: PageProps) {
               figureWidth={photoBox?.widthCss}
               locale={locale}
               t={t}
+              noteOverrides={mapNoteOverrides}
             />
           )}
 
@@ -830,6 +840,7 @@ function LocationMapsGallery({
   figureWidth,
   locale,
   t,
+  noteOverrides,
 }: {
   maps: readonly PublicLocationMap[];
   /** Pre-computed offset from the find's location polygon/center.
@@ -865,6 +876,10 @@ function LocationMapsGallery({
    *  Passed as a prop instead of re-derived here so the helper stays
    *  a sync function (next-intl's `getTranslations` is async). */
   t: FindDetailT;
+  /** Web-display caption overrides keyed by MAP_ID (admin display layer).
+   *  Per map the caption shows override.en on EN, else override.cs, else the
+   *  raw filename description; EN falls back with a "Czech only" flag. */
+  noteOverrides?: Map<number, MapNoteOverride>;
 }) {
   return (
     <div className="space-y-3 pt-2">
@@ -961,16 +976,29 @@ function LocationMapsGallery({
                 </div>
               )}
             </div>
-            {m.description && !isAnonymized && (
-              <figcaption className="border-t border-gray-200 bg-white/70 px-3 py-2 text-center text-xs text-gray-600">
-                {m.description}
-                {locale === "en" && (
-                  <span className="mt-1 block text-[11px] italic opacity-70">
-                    {t("czechOnly")}
-                  </span>
-                )}
-              </figcaption>
-            )}
+            {!isAnonymized &&
+              (() => {
+                // Admin caption override wins over the raw filename
+                // description; EN override shows flag-free on the EN site,
+                // otherwise the CS text with a "Czech only" flag. Mirrors
+                // the find note banner logic above.
+                const ov = noteOverrides?.get(m.id);
+                const capEn = ov?.en || null;
+                const capCs = ov?.cs || m.description || null;
+                const useEn = locale === "en" && capEn;
+                const text = useEn ? capEn : capCs;
+                if (!text) return null;
+                return (
+                  <figcaption className="border-t border-gray-200 bg-white/70 px-3 py-2 text-center text-xs text-gray-600">
+                    {text}
+                    {locale === "en" && !useEn && (
+                      <span className="mt-1 block text-[11px] italic opacity-70">
+                        {t("czechOnly")}
+                      </span>
+                    )}
+                  </figcaption>
+                );
+              })()}
           </figure>
         );
       })}

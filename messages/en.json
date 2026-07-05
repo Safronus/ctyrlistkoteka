@@ -456,6 +456,7 @@
     "findDetailTitle": "Find detail",
     "showFindOnMap": "Show find on map",
     "mapImageFallback": "Location map",
+    "czechOnly": "🇨🇿 In Czech only — not translated",
     "partsCountInline": "{count, plural, one {# find} other {# finds}}"
   },
   "RealPhotoButton": {

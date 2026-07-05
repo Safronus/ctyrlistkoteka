@@ -3,32 +3,45 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, StickyNote, X } from "lucide-react";
-import {
-  setFindNoteOverride,
-  type SetNoteOverrideResult,
-} from "./note-override-action";
+
+/** Minimal shape both the find- and map-note override actions return. */
+export interface NoteOverrideResult {
+  ok: boolean;
+  error?: string;
+}
 
 /**
- * Per-find button + modal for the web-display note override. Opens a
- * dialog with a Czech and an optional English variant; saving writes to
- * `data/.admin/find-note-overrides.json` (the filename + LSP JSON are
- * left untouched). The note shows in the banner under the find photo;
- * where no EN variant is set, the EN site falls back to the CS text with
- * a "Czech only" flag.
+ * Per-file button + modal for a web-display note override (CS + optional
+ * EN). Shared by the finds scope (banner under the find photo) and the
+ * maps scope (caption under the location map) — the differing bits (which
+ * server action to call, the explanatory hint) come in as props.
+ *
+ * Saving posts the filename + both variants to `action`; the action
+ * resolves the id server-side and writes the JSON override store (the
+ * filename + DB row are left untouched). Where no EN variant is set, the
+ * EN site falls back to the CS text with a "Czech only" flag.
  */
 export function NoteOverrideButton({
   filename,
   initialCs = "",
   initialEn = "",
   hasOverride = false,
+  action,
+  hint,
 }: {
   filename: string;
   initialCs?: string;
   initialEn?: string;
   /** Whether a web override actually exists (drives the chip colour) —
-   *  distinct from the pre-filled values, which may just be the raw LSP
-   *  note seeded into the fields for convenience. */
+   *  distinct from the pre-filled values, which may just be the raw
+   *  note/description seeded into the fields for convenience. */
   hasOverride?: boolean;
+  /** Server action that persists the override. Both the find- and
+   *  map-note actions match this signature. */
+  action: (formData: FormData) => Promise<NoteOverrideResult>;
+  /** Explanatory paragraph in the modal — scope-specific (where the note
+   *  shows, that the filename stays untouched, …). */
+  hint: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -56,7 +69,7 @@ export function NoteOverrideButton({
       fd.append("cs", cs);
       fd.append("en", en);
       try {
-        const r: SetNoteOverrideResult = await setFindNoteOverride(fd);
+        const r = await action(fd);
         if (!r.ok) {
           setError(r.error ?? "Uložení selhalo");
           return;
@@ -115,12 +128,7 @@ export function NoteOverrideButton({
             <p className="mb-3 break-all font-mono text-[11px] text-gray-500">
               {filename}
             </p>
-            <p className="mb-3 text-xs text-gray-500">
-              Zobrazí se v banneru pod fotkou nálezu. Nezávislé na názvu souboru
-              i LSP JSONu (ty se nemění). Předvyplněno aktuální poznámkou; EN je
-              podklad z češtiny — přelož ho. Prázdná obě pole = smazat override;
-              prázdné EN = v EN se ukáže česky s upozorněním.
-            </p>
+            <p className="mb-3 text-xs text-gray-500">{hint}</p>
 
             <label className="mb-3 block">
               <span className="mb-1 block text-xs font-medium text-gray-700">

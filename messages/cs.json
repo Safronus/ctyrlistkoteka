@@ -455,6 +455,7 @@
     "findDetailTitle": "Detail nálezu",
     "showFindOnMap": "Zobrazit nález na mapě",
     "mapImageFallback": "Mapa lokality",
+    "czechOnly": "🇨🇿 Pouze v češtině",
     "partsCountInline": "{count, plural, one {# nález} few {# nálezy} other {# nálezů}}"
   },
   "RealPhotoButton": {

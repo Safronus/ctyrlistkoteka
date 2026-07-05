@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — override popisků lokačních map pro web (CZ/EN)
+- Doplněk k override poznámek nálezů: na `/admin/files/maps` má **každá mapa**
+  tlačítko **„pozn."** s **CZ + volitelnou EN** variantou popisku. Uloží se do
+  `data/.admin/map-note-overrides.json` (klíč = MAP_ID) — **mezivrstva jen pro
+  zobrazení**, název souboru ani DB řádek se nemění. Přežije rsync i re-sync.
+  (`src/lib/mapNoteOverrides.ts` + `files/maps/note-override-action.ts`.)
+- **Web**: popisek (figcaption) pod lokační mapou — v **detailu nálezu** i na
+  **`/lokality/[mapId]`** — bere přednostně override; bez EN varianty se v EN
+  ukáže česky s upozorněním „🇨🇿 In Czech only".
+- Sdílené UI: `NoteOverrideButton` se přesunul do `files/_shared/` a bere akci
+  + hint jako props (nálezy → `setFindNoteOverride`, mapy → `setMapNoteOverride`).
+- Nový `czechOnly` klíč v i18n namespace `LocationDetail` (dřív jen `FindDetail`).
+
 ### Hlavní strana — showcase přesně přes kontejner + stavy nahoře i na mobilu
 - **Fotka „Náhodný 🍀"** teď vyplní **přesně 100 % kontejneru** (`fill`), takže
   její levá/pravá hrana sedí na levou hranu první a pravou hranu poslední
@@ -240,6 +253,7 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - Nový **filtr „S poznámkou"** v seznamu originálů (nálezy s poznámkou v LSP
   JSONu nebo s overridem).
 - Fáze pro lokační mapy (`/admin/files/maps`) zatím ne — dle domluvy později.
+  *(Doděláno 2026-07 — viz novější záznam „override popisků lokačních map".)*
 
 ### /sbirka — provázané filtry Stát → Město → Lokalita
 - Filtry se teď kaskádují (celé na klientu — každá lokalita v options nese

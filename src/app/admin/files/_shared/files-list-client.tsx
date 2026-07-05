@@ -17,7 +17,9 @@ import {
 import { FindState } from "@prisma/client";
 import { parseFindFilename } from "@/lib/parseFilename";
 import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
-import { NoteOverrideButton } from "../finds/note-override-button";
+import { NoteOverrideButton } from "./note-override-button";
+import { setFindNoteOverride } from "../finds/note-override-action";
+import { setMapNoteOverride } from "../maps/note-override-action";
 import {
   MAX_BULK_DELETE_PER_REQUEST,
   type BulkDeleteResult,
@@ -106,6 +108,13 @@ interface Props {
    *  yet, so the admin edits rather than retypes (and the CS text seeds
    *  the EN field as a translation starting point). */
   noteLsp?: Record<number, string>;
+  /** Web-display caption overrides keyed by MAP_ID. When provided (maps
+   *  scope), each row grows a "pozn." button opening the CS/EN editor
+   *  (writes data/.admin/map-note-overrides.json). Mirror of noteOverrides. */
+  mapNoteOverrides?: Record<number, { cs?: string; en?: string }>;
+  /** Raw map description per MAP_ID — pre-fills the editor when there's no
+   *  override yet (and the CS text seeds the EN field). Mirror of noteLsp. */
+  mapNoteRaw?: Record<number, string>;
 }
 
 function fmtSize(bytes: number): string {
@@ -122,6 +131,22 @@ function extractFindId(filename: string): number | null {
   const m = /^(\d+)/.exec(filename);
   return m ? Number(m[1]) : null;
 }
+
+// Maps carry the MAP_ID as the trailing 5-digit group (mirror of
+// scopes.ts `extractMapId`, re-declared here so this client module doesn't
+// pull the fs-heavy scopes.ts into the browser bundle).
+function extractMapId(filename: string): number | null {
+  const dot = filename.lastIndexOf(".");
+  const stem = dot === -1 ? filename : filename.slice(0, dot);
+  const m = /(?:^|[^0-9])(\d{5})$/.exec(stem);
+  return m ? Number(m[1]) : null;
+}
+
+// Scope-specific explanatory copy for the note-override modal.
+const FIND_NOTE_HINT =
+  "Zobrazí se v banneru pod fotkou nálezu. Nezávislé na názvu souboru i LSP JSONu (ty se nemění). Předvyplněno aktuální poznámkou; EN je podklad z češtiny — přelož ho. Prázdná obě pole = smazat override; prázdné EN = v EN se ukáže česky s upozorněním.";
+const MAP_NOTE_HINT =
+  "Zobrazí se jako popisek pod mapou (v detailu nálezu i lokality). Nezávislé na názvu souboru (ten se nemění). Předvyplněno aktuálním popisem z názvu; EN je podklad z češtiny — přelož ho. Prázdná obě pole = smazat override; prázdné EN = v EN se ukáže česky s upozorněním.";
 
 interface FindNameInfo {
   /** Filename's state token (DAROVANY, BEZGPS, …). NORMAL stays
@@ -196,6 +221,8 @@ export function FilesListClient({
   showQrZip,
   noteOverrides,
   noteLsp,
+  mapNoteOverrides,
+  mapNoteRaw,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bannerError, setBannerError] = useState<string | null>(null);
@@ -614,6 +641,7 @@ export function FilesListClient({
           const isSelected = selected.has(e.name);
           const isDup = flagged.has(e.name);
           const findId = extractFindId(e.name);
+          const mapId = extractMapId(e.name);
           const isUncovered =
             coverageFindIds !== undefined &&
             findId !== null &&
@@ -773,6 +801,29 @@ export function FilesListClient({
                       initialCs={cs}
                       initialEn={en}
                       hasOverride={!!(ov?.cs || ov?.en)}
+                      action={setFindNoteOverride}
+                      hint={FIND_NOTE_HINT}
+                    />
+                  );
+                })()}
+              {mapNoteOverrides !== undefined &&
+                mapId !== null &&
+                (() => {
+                  const ov = mapNoteOverrides[mapId];
+                  const raw = mapNoteRaw?.[mapId] ?? "";
+                  // CS: existing override, else the raw filename description.
+                  // EN: existing override, else seed from the CS text so the
+                  // admin just translates in place.
+                  const cs = ov?.cs ?? raw;
+                  const en = ov?.en ?? cs;
+                  return (
+                    <NoteOverrideButton
+                      filename={e.name}
+                      initialCs={cs}
+                      initialEn={en}
+                      hasOverride={!!(ov?.cs || ov?.en)}
+                      action={setMapNoteOverride}
+                      hint={MAP_NOTE_HINT}
                     />
                   );
                 })()}
