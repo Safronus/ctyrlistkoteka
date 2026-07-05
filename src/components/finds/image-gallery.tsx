@@ -43,6 +43,7 @@ export function ImageGallery({
   topBanner = null,
   bordered = false,
   goldFrame = false,
+  fullWidth = false,
   rotateLandscape = false,
   placeholderWidthCss,
   placeholderAspectRatio,
@@ -86,6 +87,11 @@ export function ImageGallery({
   /** Czech-record find: a thicker gold frame instead of the grey border,
    *  matching the gold record banner above the photo. */
   goldFrame?: boolean;
+  /** Stretch the photo to 100% of its container instead of the natural,
+   *  height-capped `photoDisplay` width. Used by the framed-less random
+   *  showcase, which wants the image to span the full page column. The box
+   *  still reserves height via the image's aspect ratio. */
+  fullWidth?: boolean;
   /** Rotate landscape originals 90° CW so they read as portrait and don't
    *  make the photo (and the location map matched to it) too wide. */
   rotateLandscape?: boolean;
@@ -202,8 +208,16 @@ export function ImageGallery({
 
   return (
     <figure
-      className={`mx-auto overflow-hidden rounded-xl bg-gray-100 ${borderCls}`}
-      style={disp ? { width: disp.widthCss, maxWidth: "100%" } : undefined}
+      className={`mx-auto overflow-hidden rounded-xl bg-gray-100 ${borderCls} ${
+        fullWidth ? "w-full" : ""
+      }`}
+      style={
+        fullWidth
+          ? undefined
+          : disp
+            ? { width: disp.widthCss, maxWidth: "100%" }
+            : undefined
+      }
     >
       {topBanner}
       <div

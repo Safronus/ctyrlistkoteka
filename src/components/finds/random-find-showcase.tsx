@@ -10,7 +10,6 @@ import { RandomFindScreensaver } from "./random-find-screensaver";
 import { StateBadges } from "./state-badges";
 import { VoteButton } from "./vote-button";
 import { formatDateTimeCs } from "@/lib/format";
-import { photoDisplay } from "@/lib/photoBox";
 import type { RandomFindShowcase } from "@/lib/queries/random-find";
 
 const DEFAULT_ROTATION_MS = 60_000;
@@ -143,17 +142,6 @@ export function RandomFindShowcaseWidget({
     ? tRow("anonymizedAlt", { id: find.id })
     : tRow("findAlt", { id: find.id });
   const foundAtDate = find.foundAt ? new Date(find.foundAt) : null;
-  // Explicit photo-box width for the overlay wrapper below. It must match
-  // what ImageGallery computes internally (same rotate flag — the widget
-  // never rotates landscape), because a `w-fit` shrink-wrap around the
-  // gallery's own `width: min(100%, …px, …vh)` is a circular width
-  // dependency that some browsers resolve to ZERO — collapsing the photo
-  // box to nothing (the whole section then renders empty). Sizing the
-  // wrapper explicitly, exactly like the find-detail page does, breaks the
-  // cycle so `100%` inside the gallery resolves against a definite width.
-  const disp = photoDisplay(find.primaryImage?.width, find.primaryImage?.height, {
-    rotate: false,
-  });
   // Lost finds get the same desaturated treatment as the detail page; the
   // map deep-link is suppressed for anonymized finds (hasMapPosition is
   // already false for them server-side).
@@ -175,130 +163,113 @@ export function RandomFindShowcaseWidget({
         }
       `}</style>
 
-      <div className="mb-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          {t("heading")}
-        </h2>
+      {/* No section title, no card frame — the photo spans the full page
+          column. The clickable "Náhodný 🍀 #id" heading (→ detail) sits at
+          the photo's left edge; date, states, vote and the controls all
+          live on the photo itself as overlays. */}
+      <div className="mb-2">
+        <Link
+          href={`/sbirka/${find.id}`}
+          className="text-2xl font-bold text-gray-900 transition hover:text-brand-700"
+        >
+          {t("heading")} #{find.id}
+        </Link>
       </div>
 
-      {/* Everything below the heading sits in a bordered card — the
-          heading stays outside the frame, matching the "Poslední nález"
-          section on the home page. */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
-        {/* Header row: the clickable "🍀 #id" title (→ detail) on the left,
-            the rotate button on the right. Date, location, vote and map all
-            moved onto the photo as overlays below, matching the find-detail
-            page. */}
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
-          <Link
-            href={`/sbirka/${find.id}`}
-            className="text-2xl font-bold text-gray-900 transition hover:text-brand-700"
+      {/* Full-width photo. The wrapper is `w-full` (a definite width — no
+          `w-fit` shrink-wrap collapse) and ImageGallery renders `fullWidth`,
+          so the image spans the whole column. Every control + metadatum is
+          an overlay positioned against this box. */}
+      <div className="relative w-full">
+        <ImageGallery
+          image={find.primaryImage}
+          cropImage={find.cropImage}
+          altBase={altBase}
+          findId={find.id}
+          muted={isLost}
+          fullWidth
+          voteSlot={
+            // Keyed by find.id so the rotation remounts it with the fresh
+            // count + the voted state hydrated above.
+            <VoteButton
+              key={find.id}
+              findId={find.id}
+              initialVoted={voted}
+              initialCount={find.voteCount}
+              variant="overlay"
+            />
+          }
+          statesSlot={
+            find.states.length > 0 ? <StateBadges states={find.states} /> : null
+          }
+        />
+        {/* Top-LEFT cluster — full-screen launcher, the rotate/refresh
+            button (same action as the old "Další" button), then the
+            "show on map" deep-link (suppressed for anonymized finds, whose
+            hasMapPosition is false). All mirror the lupa's pill styling. */}
+        <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setScreensaverOpen(true)}
+            aria-label={t("screensaverStartAria")}
+            title={t("screensaverStartTitle")}
+            className="rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
-            🍀 #{find.id}
-          </Link>
+            <Maximize className="h-5 w-5" aria-hidden />
+          </button>
           <button
             type="button"
             onClick={() => refresh(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm disabled:opacity-50"
             aria-label={t("showAnotherAria")}
+            title={t("showAnotherLabel")}
+            className="rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-60"
           >
             <RefreshCw
-              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+              className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`}
               aria-hidden
             />
-            <span>{t("showAnotherLabel")}</span>
           </button>
-        </div>
-
-        {/* Match the photo's width (centred) so the fullscreen button and
-            the bottom countdown strip — both overlays on THIS box — align to
-            the photo edges, not the full page width. The width is set
-            EXPLICITLY (not `w-fit`): shrink-wrapping around ImageGallery's
-            own `min(100%, …)` width collapses to zero in some browsers. */}
-        <div
-          className="relative mx-auto"
-          style={{ width: disp?.widthCss, maxWidth: "100%" }}
-        >
-          <ImageGallery
-            image={find.primaryImage}
-            cropImage={find.cropImage}
-            altBase={altBase}
-            findId={find.id}
-            muted={isLost}
-            voteSlot={
-              // Keyed by find.id so the rotation remounts it with the
-              // fresh count + the voted state hydrated above.
-              <VoteButton
-                key={find.id}
-                findId={find.id}
-                initialVoted={voted}
-                initialCount={find.voteCount}
-                variant="overlay"
-              />
-            }
-            statesSlot={
-              find.states.length > 0 ? (
-                <StateBadges states={find.states} />
-              ) : null
-            }
-          />
-          {/* Top-LEFT cluster — the full-screen screensaver launcher and,
-              to its right, the "show on map" deep-link (suppressed for
-              anonymized finds, whose hasMapPosition is false). Both mirror
-              the lupa's pill styling in the opposite corner. */}
-          <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setScreensaverOpen(true)}
-              aria-label={t("screensaverStartAria")}
-              title={t("screensaverStartTitle")}
-              className="rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          {find.hasMapPosition && (
+            <Link
+              href={`/mapa?find=${find.id}`}
+              aria-label={t("showOnMapAria")}
+              title={t("showOnMapAria")}
+              className="inline-flex items-center justify-center rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
-              <Maximize className="h-5 w-5" aria-hidden />
-            </button>
-            {find.hasMapPosition && (
-              <Link
-                href={`/mapa?find=${find.id}`}
-                aria-label={t("showOnMapAria")}
-                title={t("showOnMapAria")}
-                className="inline-flex items-center justify-center rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
-              >
-                <MapPin className="h-5 w-5" aria-hidden />
-              </Link>
-            )}
-          </div>
-          {/* Date + time — small overlay in the BOTTOM-LEFT corner (above
-              the countdown strip). */}
-          {foundAtDate && (
-            <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur">
-              {/* Pinned to Europe/Prague so SSR and client hydration render
-                  the same clock time (this is a client component). */}
-              {formatDateTimeCs(foundAtDate, locale, "Europe/Prague")}
-            </div>
+              <MapPin className="h-5 w-5" aria-hidden />
+            </Link>
           )}
-          {/* Countdown overlay strip at the bottom of the photo. The
-              `key` is bumped whenever the find changes, so the inner
-              fill remounts and the CSS animation restarts at scaleX=1.
-              The strip itself is non-interactive (decorative only). */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-1.5 overflow-hidden bg-black/20"
-            title={t("rotationTitle")}
-          >
-            <div
-              key={cycleKey}
-              className="ctyr-rf-countdown-fill h-full bg-brand-500"
-            />
-          </div>
         </div>
-
-        <p className="mt-2 text-center text-xs text-gray-600">
+        {/* Date + time — small overlay in the BOTTOM-LEFT corner. */}
+        {foundAtDate && (
+          <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur">
+            {/* Pinned to Europe/Prague so SSR and client hydration render
+                the same clock time (this is a client component). */}
+            {formatDateTimeCs(foundAtDate, locale, "Europe/Prague")}
+          </div>
+        )}
+        {/* Rotation hint — overlay centered on the BOTTOM edge of the
+            photo (was a caption below the frame). */}
+        <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-md bg-white/90 px-2 py-1 text-center text-[11px] font-medium text-gray-600 shadow-md ring-1 ring-black/5 backdrop-blur">
           {t("rotationFooter", {
             seconds: Math.round(rotationMs / 1000),
             screensaverSeconds: Math.round(screensaverMs / 1000),
           })}
-        </p>
+        </div>
+        {/* Countdown overlay strip at the bottom of the photo. The `key`
+            is bumped whenever the find changes, so the inner fill remounts
+            and the CSS animation restarts at scaleX=1. Decorative only. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-1.5 overflow-hidden bg-black/20"
+          title={t("rotationTitle")}
+        >
+          <div
+            key={cycleKey}
+            className="ctyr-rf-countdown-fill h-full bg-brand-500"
+          />
+        </div>
       </div>
 
       {screensaverOpen && (

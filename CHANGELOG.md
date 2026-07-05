@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### „Náhodný 🍀" — bez rámečku, fotka na plnou šířku
+- Titulek sekce i **rámeček karty odstraněny**; fotka teď zabírá **plnou šířku
+  stránky** (nový `fullWidth` režim `ImageGallery` obchází výškový cap `min(100%,
+  1200px, 70vh)`). Pozn.: u portrétních fotek je box vysoký (poměr stran).
+- Klikací nadpis je teď **„Náhodný 🍀 #číslo"**, zarovnaný s levým okrajem fotky.
+- Tlačítko „Další náhodný 🍀" zrušeno jako tlačítko → **refresh ikona-overlay**
+  v levém horním rohu mezi fullscreen a mapou.
+- Info „Mění se každých…" přesunuto z popisku pod fotkou na **overlay na střed
+  spodní hrany** fotky (vedle datum-overlaye vlevo dole).
+
 ### „Náhodný 🍀" — overlaye nad fotkou jako v detailu
 - Sekce na hlavní stránce přepracovaná do stejného stylu jako detail nálezu:
   - **Vote** a **„Na mapě"** jsou teď **overlaye nad fotkou** (vote vpravo nahoře,
