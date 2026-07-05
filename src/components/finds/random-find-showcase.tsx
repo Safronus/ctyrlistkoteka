@@ -8,6 +8,7 @@ import { ImageGallery } from "./image-gallery";
 import { RandomFindScreensaver } from "./random-find-screensaver";
 import { VoteButton } from "./vote-button";
 import { formatDateCs, formatLocationId } from "@/lib/format";
+import { photoDisplay } from "@/lib/photoBox";
 import type { RandomFindShowcase } from "@/lib/queries/random-find";
 
 const DEFAULT_ROTATION_MS = 60_000;
@@ -140,6 +141,17 @@ export function RandomFindShowcaseWidget({
     ? tRow("anonymizedAlt", { id: find.id })
     : tRow("findAlt", { id: find.id });
   const foundAtDate = find.foundAt ? new Date(find.foundAt) : null;
+  // Explicit photo-box width for the overlay wrapper below. It must match
+  // what ImageGallery computes internally (same rotate flag — the widget
+  // never rotates landscape), because a `w-fit` shrink-wrap around the
+  // gallery's own `width: min(100%, …px, …vh)` is a circular width
+  // dependency that some browsers resolve to ZERO — collapsing the photo
+  // box to nothing (the whole section then renders empty). Sizing the
+  // wrapper explicitly, exactly like the find-detail page does, breaks the
+  // cycle so `100%` inside the gallery resolves against a definite width.
+  const disp = photoDisplay(find.primaryImage?.width, find.primaryImage?.height, {
+    rotate: false,
+  });
 
   return (
     <section className="mt-8" aria-live="polite">
@@ -243,11 +255,15 @@ export function RandomFindShowcaseWidget({
           </div>
         </div>
 
-        {/* Shrink to the photo's width (centred) so the fullscreen button
-            and the bottom countdown strip — both overlays on THIS box —
-            align to the photo edges, not the full page width. ImageGallery
-            itself also shrink-wraps, so this w-fit resolves to the photo. */}
-        <div className="relative mx-auto w-fit max-w-full">
+        {/* Match the photo's width (centred) so the fullscreen button and
+            the bottom countdown strip — both overlays on THIS box — align to
+            the photo edges, not the full page width. The width is set
+            EXPLICITLY (not `w-fit`): shrink-wrapping around ImageGallery's
+            own `min(100%, …)` width collapses to zero in some browsers. */}
+        <div
+          className="relative mx-auto"
+          style={{ width: disp?.widthCss, maxWidth: "100%" }}
+        >
           <ImageGallery
             image={find.primaryImage}
             cropImage={find.cropImage}

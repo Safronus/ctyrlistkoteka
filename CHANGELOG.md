@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Oprava — zmizelá fotka v „Náhodný čtyřlístek" na hlavní stránce
+- Sekce showcase obalovala fotku do `w-fit` (shrink-wrap) kolem `ImageGallery`,
+  jejíž šířka je `min(100%, …px, …vh)`. To je **cyklická závislost šířky** —
+  některé prohlížeče ji vyhodnotí jako **nulovou** → box fotky zkolaboval na 0
+  a sekce vypadala prázdně (overlaye slité doprostřed). Ověřeno CSS testem:
+  `w-fit` → 0×0, explicitní šířka → 640×853.
+- Wrapper teď dostává **explicitní šířku** `photoDisplay().widthCss` (stejně jako
+  to už dělá detail nálezu), takže `100%` uvnitř galerie má definitní základ.
+  Detail nálezu byl OK, protože nikdy `w-fit` nepoužil. Viz [gotcha #8](docs/gotchas.md).
+
 ### Oprava — anonymizovaný stav v dark theme (tmavé na tmavém)
 - **Purple škála v dark theme byla neúplná** (chyběly odstíny 300/500/700) →
   odznak „Anonymizovaný" (`text-purple-700`) padal na default střední fialovou

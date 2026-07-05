@@ -236,3 +236,32 @@ netknuté (jsou ve starém i novém buildu) — 404 potká **jen nově přidanou
   problém. První kroky pak: `pm2 restart ctyrlistkoteka` (tvrdší než `reload`)
   a případně full `rm -rf .next` + rebuild (deploy maže jen `.next/cache`, viz
   #4) — spouští uživatel v Termiusu, ne Claude.
+
+## 8. `w-fit`/`fit-content` kolem prvku s `width: min(100%, …)` kolabuje na 0
+
+**Co:** „Náhodný čtyřlístek" na hlavní stránce najednou zobrazoval prázdný box
+bez fotky (overlaye — fullscreen tlačítko + countdown — slité doprostřed).
+Server byl zdravý: SSR HTML fotku obsahoval, `/api/random-find` vracelo validní
+data, obrázky `/generated/web/*.webp` házely 200, detail nálezu fotku
+renderoval. Byl to čistě **klientský layout kolaps**.
+
+**Příčina:** showcase obaloval `ImageGallery` do `div.w-fit` (`width:
+fit-content`), ale galerie si sama počítá `width: min(100%, <px>, <vh>)` (z
+`photoDisplay`). `fit-content` potřebuje intrinsic šířku dítěte, jenže to `100%`
+se v intrinsic režimu vyhodnotí jako 0 → `min(0, …)` = 0 → rodič `fit-content` =
+0 → dítě `100%` = 0. **Cyklus se ustálí na nule** a box zmizí. Ověřeno
+izolovaným CSS testem: `w-fit` → 0×0, explicitní šířka wrapperu → 640×853.
+
+**Past:** vypadá to jako „zmizelá fotka / rozbitá data / regrese v API", ale je
+to ryze CSS. `photoDisplay().widthCss` je `min(100%, …)` **záměrně** (sdílí ho
+mapa lokality), takže ho **nesmíš obalit shrink-to-fit kontejnerem**.
+
+**Jak aplikovat:**
+- Kolem prvku s `width: min(100%, …)` **nikdy nedávej `w-fit` / `inline-block` /
+  `fit-content`**. Dej wrapperu **explicitní** šířku (tu samou `widthCss`), jako
+  to dělá detail nálezu (`sbirka/[id]/page.tsx`, `style={{ width:
+  photoBox.widthCss, maxWidth: "100%" }}`). Pak má `100%` uvnitř definitní základ.
+- Když „zmizí" jen vizuál a data/SSR/HTTP jsou v pořádku, hledej **layout**
+  (spočítej `getBoundingClientRect()` na wrapperu — 0 = kolaps), ne backend.
+- Detail nálezu i showcase teď sdílí stejný vzor: **wrapper má explicitní
+  `widthCss`, ne `w-fit`.**
