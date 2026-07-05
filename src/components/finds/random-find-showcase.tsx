@@ -182,7 +182,7 @@ export function RandomFindShowcaseWidget({
           column. The clickable "Náhodný 🍀 #id" heading (→ detail) sits at
           the photo's left edge; date, states, vote and the controls all
           live on the photo itself as overlays. */}
-      <div className="mb-2">
+      <div className="mb-2 text-center">
         <Link
           href={`/sbirka/${find.id}`}
           className="text-2xl font-bold text-gray-900 transition hover:text-brand-700"

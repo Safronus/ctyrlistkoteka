@@ -1,6 +1,5 @@
 import Image from "next/image";
 import {
-  ArrowRight,
   BarChart3,
   Building2,
   CalendarRange,
@@ -14,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Metadata } from "next";
+import { FindState } from "@prisma/client";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -27,13 +27,12 @@ import { getWatermarkMeta } from "@/lib/queries/watermark";
 import {
   formatDateCs,
   formatDateTimeCs,
-  formatLocationId,
   formatShortDateTimeCs,
   locationDetailHref,
 } from "@/lib/format";
-import { formatGpsApple } from "@/lib/gpsFormat";
 import { siteName, siteNameShort } from "@/lib/siteName";
-import { FindThumbnail } from "@/components/finds/find-thumbnail";
+import { ImageGallery } from "@/components/finds/image-gallery";
+import { GpsValue } from "@/components/finds/gps-value";
 import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcase";
 import { StateBadges } from "@/components/finds/state-badges";
 import { VoteButton } from "@/components/finds/vote-button";
@@ -587,6 +586,13 @@ function NavCard({
   );
 }
 
+/** Height cap for the two First/Latest photos. They sit two-abreast in a
+ *  grid, so on desktop the half-width column binds the width and this cap
+ *  only bites on short viewports (stops a tall portrait from overflowing).
+ *  Lower than the random showcase (85) since two of them share the page's
+ *  vertical budget. */
+const FIRST_LATEST_MAX_VH = 80;
+
 function FirstVsLatestSection({
   firstFind,
   latestFind,
@@ -598,25 +604,29 @@ function FirstVsLatestSection({
   t: HomeT;
   locale: string;
 }) {
+  // With a single-find collection first === latest — show just one
+  // centered column so the same clover doesn't appear twice. The inline
+  // null-check also narrows the type.
+  const showBoth = firstFind && firstFind.id !== latestFind.id;
   return (
     <section className="mt-8">
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-        {t("firstVsLatestHeading")}
-      </h2>
-      <div className="space-y-2">
-        {/* With a single-find collection first === latest — show just one
-            tile so the same clover doesn't appear twice. The inline
-            null-check also narrows the type. */}
-        {firstFind && firstFind.id !== latestFind.id && (
-          <FindShowcaseTile find={firstFind} t={t} locale={locale} />
-        )}
-        <FindShowcaseTile find={latestFind} t={t} locale={locale} />
-      </div>
+      {showBoth ? (
+        // Two find photos side by side, filling the page width with a gap
+        // between them; they stack on phones.
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
+          <FindPhotoColumn find={firstFind} t={t} locale={locale} />
+          <FindPhotoColumn find={latestFind} t={t} locale={locale} />
+        </div>
+      ) : (
+        <div className="mx-auto max-w-lg">
+          <FindPhotoColumn find={latestFind} t={t} locale={locale} />
+        </div>
+      )}
     </section>
   );
 }
 
-async function FindShowcaseTile({
+async function FindPhotoColumn({
   find,
   t,
   locale,
@@ -630,136 +640,79 @@ async function FindShowcaseTile({
     ? tRow("anonymizedAlt", { id: find.id })
     : tRow("findAlt", { id: find.id });
   const foundAtDate = find.foundAt ? new Date(find.foundAt) : null;
-  const showMapLink = !find.isAnonymized && find.coordinates !== null;
+  // Lost finds get the desaturated treatment used on the detail page and
+  // the random showcase; the map deep-link + GPS are suppressed for
+  // anonymized finds (their exact position must never leak).
+  const isLost = find.states.includes(FindState.LOST);
+  const hasMapPosition = !find.isAnonymized && find.coordinates !== null;
 
   return (
-    // flex-col on phones so the mobile action row below the body can span
-    // the full card width; from sm: back to the row layout with the
-    // vertical map-link bar on the right edge.
-    <div className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm sm:flex-row sm:items-stretch">
+    <div>
+      {/* Clickable heading → detail, sized + centered like the random
+          showcase's "Náhodný 🍀 #id". "🍀 #1" on the left (oldest find),
+          "🍀 #<max>" on the right (newest). */}
+      <div className="mb-2 text-center">
         <Link
           href={`/sbirka/${find.id}`}
-          className="flex min-w-0 flex-1 flex-col gap-4 p-3 sm:flex-row sm:items-center sm:p-4"
+          className="text-2xl font-bold text-gray-900 transition hover:text-brand-700"
         >
-        <FindThumbnail
-          image={find.primaryImage}
-          alt={altText}
-          className="aspect-square w-full shrink-0 rounded-lg sm:w-32"
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-2xl font-bold text-gray-900 group-hover:text-brand-700">
-              #{find.id}
-            </span>
-            {foundAtDate && (
-              <span className="text-sm text-gray-500">
-                {formatDateTimeCs(foundAtDate, locale)}
-              </span>
-            )}
-            {find.states.length > 0 && <StateBadges states={find.states} />}
-          </div>
-          {find.isAnonymized ? (
-            <p className="mt-1 text-sm text-gray-500">
-              {t("latestFindAnonymizedLocation")}
-            </p>
-          ) : find.location ? (
-            <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-sm">
-              <span className="font-mono text-xs text-gray-500">
-                {formatLocationId(find.location.id)}
-              </span>
-              <span className="text-gray-400">–</span>
-              <span
-                className="truncate text-gray-800"
-                title={find.location.code}
-              >
-                {find.location.code}
-              </span>
-              {find.location.displayName &&
-                find.location.displayName !== find.location.code && (
-                  <span
-                    className="truncate text-gray-500"
-                    title={find.location.displayName}
-                  >
-                    ({find.location.displayName})
-                  </span>
-                )}
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-gray-500">
-              {t("latestFindNoLocation")}
-            </p>
-          )}
-          {find.coordinates && (
-            <p className="mt-1 truncate font-mono text-xs text-gray-500">
-              {formatGpsApple(
-                find.coordinates.lat,
-                find.coordinates.lng,
-                locale,
-              )}
-            </p>
-          )}
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            {/* Vote button — same prominent CTA size as the Popular
-                widget so visitors can like a find without scrolling to
-                the leaderboard. `autoHydrate` lets it sync `voted`/
-                `count` for this visitor against the cached server
-                render of /. */}
-            <VoteButton
-              findId={find.id}
-              initialVoted={false}
-              initialCount={0}
-              size="lg"
-              autoHydrate
-            />
-            {/* Inline "Detail nálezu" affordance is desktop-only — on
-                phones it's replaced by the real button row below the
-                card body, so showing both would duplicate the CTA. */}
-            <span className="hidden items-center gap-1 text-sm font-medium text-brand-700 sm:inline-flex">
-              {t("latestFindDetail")}
-              <ArrowRight
-                className="h-4 w-4 transition group-hover:translate-x-0.5"
-                aria-hidden
-              />
-            </span>
-          </div>
-        </div>
-      </Link>
-      {/* Desktop map affordance — the vertical icon bar on the card's
-          right edge (same pattern as /sbirka list rows). Hidden on
-          phones in favour of the explicit button row below. */}
-      {showMapLink && (
-        <Link
-          href={`/mapa?find=${find.id}`}
-          aria-label={t("latestFindShowOnMap")}
-          title={t("latestFindShowOnMap")}
-          className="hidden shrink-0 items-center justify-center border-l border-gray-100 px-3 text-gray-400 transition hover:bg-brand-100 hover:text-brand-700 focus:bg-brand-100 focus:text-brand-700 focus:outline-none sm:flex"
-        >
-          <MapPin className="h-5 w-5" aria-hidden />
+          🍀 #{find.id}
         </Link>
-      )}
-      {/* Mobile action row — two proper buttons under the card body:
-          a primary "Detail nálezu" and a small outlined map button.
-          Lives outside the body <Link> (nested anchors are invalid). */}
-      <div className="flex gap-2 border-t border-gray-100 p-3 sm:hidden">
-        <Link
-          href={`/sbirka/${find.id}`}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
-        >
-          {t("latestFindDetail")}
-          <ArrowRight className="h-4 w-4" aria-hidden />
-        </Link>
-        {showMapLink && (
-          <Link
-            href={`/mapa?find=${find.id}`}
-            aria-label={t("latestFindShowOnMap")}
-            title={t("latestFindShowOnMap")}
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-          >
-            <MapPin className="h-4 w-4" aria-hidden />
-            {t("latestFindShowOnMapShort")}
-          </Link>
-        )}
       </div>
+      {/* No frame — the photo fills its grid column. All chrome (map,
+          vote, states, date, GPS) rides on the photo as overlays,
+          mirroring the "Náhodný 🍀" showcase. No lupa (cropImage=null)
+          and no location info, per the home layout. */}
+      <ImageGallery
+        image={find.primaryImage}
+        cropImage={null}
+        altBase={altText}
+        findId={find.id}
+        muted={isLost}
+        maxVh={FIRST_LATEST_MAX_VH}
+        mapSlot={
+          hasMapPosition ? (
+            <Link
+              href={`/mapa?find=${find.id}`}
+              aria-label={t("latestFindShowOnMap")}
+              title={t("latestFindShowOnMap")}
+              className="inline-flex items-center justify-center rounded-full bg-white/90 p-2 text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            >
+              <MapPin className="h-5 w-5" aria-hidden />
+            </Link>
+          ) : null
+        }
+        voteSlot={
+          <VoteButton
+            findId={find.id}
+            initialVoted={false}
+            initialCount={0}
+            variant="overlay"
+            autoHydrate
+          />
+        }
+        statesSlot={
+          find.states.length > 0 ? <StateBadges states={find.states} /> : null
+        }
+        dateSlot={
+          foundAtDate ? (
+            <span className="rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur">
+              {formatDateTimeCs(foundAtDate, locale, "Europe/Prague")}
+            </span>
+          ) : null
+        }
+        gpsSlot={
+          hasMapPosition && find.coordinates ? (
+            <div className="rounded-md bg-white/90 px-2 py-1 shadow-md ring-1 ring-black/5 backdrop-blur">
+              <GpsValue
+                lat={find.coordinates.lat}
+                lng={find.coordinates.lng}
+                tone="brand"
+              />
+            </div>
+          ) : null
+        }
+      />
     </div>
   );
 }
@@ -787,9 +740,6 @@ function HighlightsSection({
 
   return (
     <section className="mt-8">
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-        {t("highlightsHeading")}
-      </h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <CloverFactsStatCard
           total={cloverTexts.length}

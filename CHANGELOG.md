@@ -9,6 +9,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Hlavní strana — „První vs poslední" jako dvě fotky; pryč titulky
+- **Sekce „První vs poslední čtyřlístek"** už není dvojice vodorovných
+  dlaždic — jsou to **dvě fotky nálezů vedle sebe** (na mobilu pod sebou),
+  vyplňují šířku stránky s mezerou mezi nimi, **bez rámečku**. Nad každou je
+  **na střed zarovnaný proklikávací nadpis** (`🍀 #1` vlevo = nejstarší nález,
+  `🍀 #<max>` vpravo = nejnovější) mířící na detail. Overlaye nad fotkou
+  stejně jako u „Náhodný 🍀": vlevo nahoře proklik na mapu (skryto u
+  anonymizovaných), vpravo nahoře **like** (bez lupy), na horní hraně
+  indikátory stavů, vlevo dole datum+čas a pod ním GPS. **Bez informací o
+  lokalitě.** Výškový strop 80vh (dvě fotky sdílí výšku stránky).
+- **Nadpis „Náhodný 🍀 #…"** je nově **zarovnaný na střed** (dřív vlevo).
+- **Odstraněn titulek „Zajímavosti"** nad čtyřmi dlaždicemi na hlavní straně
+  (a s ním i titulek „První vs poslední…" nad novou sekcí). Šest osiřelých
+  i18n klíčů (`highlightsHeading`, `firstVsLatestHeading`, `latestFindDetail`,
+  `latestFindShowOnMapShort`, `latestFindAnonymizedLocation`,
+  `latestFindNoLocation`) smazáno z `cs.json`/`en.json`.
+
 ### Overlaye nad fotkou — brand barva (ladí s tlačítky) + 4K šířka
 - **Barva textu/ikon** overlayů nad fotkou (detail nálezu i „Náhodný 🍀") je
   teď **`brand-700`** místo `gray-700` — takže v dark theme svítí **zeleně**
