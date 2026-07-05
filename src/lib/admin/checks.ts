@@ -96,6 +96,12 @@ export interface FindOffender {
    *  refers to the original) so the renderer can wire each chip
    *  to its own scope (/admin/files/finds vs /admin/files/crops). */
   cropFilename?: string;
+  /** Thumbnail URLs (`/generated/thumb/<sha1>.webp`) for the original and
+   *  the crop, set by the crop-vs-original check so the page can show a
+   *  side-by-side preview — the operator sees at a glance whether the
+   *  "crop" is really a cutout or the whole photo. */
+  originalThumb?: string;
+  cropThumb?: string;
   /** Sub-category within the check — e.g. "Lokace" / "Stav" /
    *  "Poznámka". When set on at least one offender, the page
    *  renders the check's table grouped by category, with a small
@@ -1171,13 +1177,14 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
       width: true,
       height: true,
       originalFilename: true,
+      thumbPath: true,
     },
     // Primary first, then lowest sort order — so the (first) entry we
     // keep per type is the one the site actually displays.
     orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { id: "asc" }],
   });
 
-  type Side = { w: number; h: number; name: string };
+  type Side = { w: number; h: number; name: string; thumb: string };
   const byFind = new Map<number, { orig?: Side; crop?: Side }>();
   for (const img of images) {
     const e = byFind.get(img.findId) ?? {};
@@ -1185,6 +1192,7 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
       w: img.width,
       h: img.height,
       name: img.originalFilename,
+      thumb: img.thumbPath,
     };
     if (img.imageType === "ORIGINAL") e.orig ??= side;
     else e.crop ??= side;
@@ -1208,6 +1216,8 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
       )} % jeho plochy (${e.crop.w}×${e.crop.h} vs ${e.orig.w}×${e.orig.h} px) — je to nejspíš celá fotka, ne výřez.`,
       filename: e.orig.name,
       cropFilename: e.crop.name,
+      originalThumb: e.orig.thumb,
+      cropThumb: e.crop.thumb,
     });
   }
   offenders.sort((a, b) => a.findId - b.findId);

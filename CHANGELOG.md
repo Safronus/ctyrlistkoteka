@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin check „Ořez je celá fotka" — náhledy + kopírování ID (fáze 1)
+- Řádky checku teď ukazují **malé náhledy originálu a ořezu vedle sebe** — na
+  první pohled vidíš, jestli je ořez skutečný výřez (vypadá jinak) nebo celá
+  fotka (vypadá stejně).
+- Tlačítko **„Kopírovat ID"** vykopíruje čísla všech dotčených nálezů (po jednom
+  na řádek) do schránky — pro dořešení jinde.
+- Neužitečné tlačítko „Přejmenovat ořez dle originálu" u tohoto checku skryto
+  (zůstává jen u checku na neshodu názvů). Vlastní **„Ořezat" nástroj** přijde
+  v další fázi.
+
 ### Admin check — „Ořez je nejspíš celá fotka, ne výřez"
 - Nový check v `/admin/checks` (skupina „Originály ↔ ořezy") vypíše nálezy, kde
   má **ořez stejný poměr stran jako originál a pokrývá ≥50 % jeho plochy** —

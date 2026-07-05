@@ -19,6 +19,7 @@ import {
 } from "@/lib/admin/checks";
 import { AckCheckButton } from "./ack-button";
 import { SyncCropNameButton } from "./sync-crop-name-button";
+import { CopyFindIdsButton } from "./copy-find-ids-button";
 import { AnonFixButton } from "./anon-fix-button";
 import { anonymizeAnonLocationFinds } from "./anonymize-anon-loc-action";
 import { anonymizeMismatchedFilenames } from "./anonymize-ne-filename-action";
@@ -96,11 +97,14 @@ export default async function AdminChecksPage() {
  *
  *  Returns an array of <tr> nodes — the caller is the <tbody> so
  *  the rows merge cleanly into the surrounding table layout. */
-function renderFindOffenderRows(offenders: readonly FindOffender[]): React.ReactNode[] {
+function renderFindOffenderRows(
+  offenders: readonly FindOffender[],
+  checkId: string,
+): React.ReactNode[] {
   const hasSubgroups = offenders.some((o) => o.subCategory !== undefined);
   if (!hasSubgroups) {
     return offenders.map((o, i) => (
-      <FindOffenderRow key={`${o.findId}:${i}`} offender={o} />
+      <FindOffenderRow key={`${o.findId}:${i}`} offender={o} checkId={checkId} />
     ));
   }
 
@@ -139,7 +143,13 @@ function renderFindOffenderRows(offenders: readonly FindOffender[]): React.React
       </tr>,
     );
     bucket.forEach((o, i) => {
-      rows.push(<FindOffenderRow key={`${key}:${o.findId}:${i}`} offender={o} />);
+      rows.push(
+        <FindOffenderRow
+          key={`${key}:${o.findId}:${i}`}
+          offender={o}
+          checkId={checkId}
+        />,
+      );
     });
   }
   return rows;
@@ -176,7 +186,13 @@ function subCategoryToJsonTab(
  *  right opens the LokaceStavyPoznamky editor pre-focused on the
  *  matching section, so the operator can fix the other side
  *  without navigating manually. */
-function FindOffenderRow({ offender }: { offender: FindOffender }) {
+function FindOffenderRow({
+  offender,
+  checkId,
+}: {
+  offender: FindOffender;
+  checkId: string;
+}) {
   const jsonTab = subCategoryToJsonTab(offender.subCategory);
   const jsonHref = jsonTab
     ? `/admin/json/lokace-stavy-poznamky?tab=${jsonTab}`
@@ -197,6 +213,42 @@ function FindOffenderRow({ offender }: { offender: FindOffender }) {
       <td className="px-2 py-1.5 text-gray-600">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
+            {/* Original ↔ crop thumbnails — the crop-vs-original check sets
+                these so the operator sees at a glance whether the "crop" is
+                a real cutout (looks different) or the whole photo (looks
+                identical). */}
+            {(offender.originalThumb || offender.cropThumb) && (
+              <div className="mb-1.5 flex items-center gap-2">
+                {offender.originalThumb && (
+                  <figure className="shrink-0 text-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={offender.originalThumb}
+                      alt=""
+                      loading="lazy"
+                      className="h-16 w-16 rounded border border-gray-300 object-cover"
+                    />
+                    <figcaption className="text-[9px] uppercase tracking-wide text-gray-400">
+                      orig
+                    </figcaption>
+                  </figure>
+                )}
+                {offender.cropThumb && (
+                  <figure className="shrink-0 text-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={offender.cropThumb}
+                      alt=""
+                      loading="lazy"
+                      className="h-16 w-16 rounded border border-gray-300 object-cover"
+                    />
+                    <figcaption className="text-[9px] uppercase tracking-wide text-gray-400">
+                      ořez
+                    </figcaption>
+                  </figure>
+                )}
+              </div>
+            )}
             <div>{offender.detail}</div>
             {/* Show both filenames as identifier text when both are
                 set (original-vs-crop mismatch). For single-file
@@ -255,9 +307,11 @@ function FindOffenderRow({ offender }: { offender: FindOffender }) {
                 passed filenames straight through and renamed the
                 crop to match a STALE original filename when the
                 operator had fixed the original in another tab. */}
-            {offender.filename && offender.cropFilename && (
-              <SyncCropNameButton findId={offender.findId} />
-            )}
+            {offender.filename &&
+              offender.cropFilename &&
+              checkId === "original-crop-filename-mismatch" && (
+                <SyncCropNameButton findId={offender.findId} />
+              )}
             {offender.subCategory && (
               <Link
                 href={jsonHref}
@@ -382,6 +436,15 @@ function CheckCard({ result }: { result: CheckResult }) {
             </div>
           )}
 
+          {result.id === "crop-same-size-as-original" &&
+            result.kind === "find" && (
+              <div className="mt-3">
+                <CopyFindIdsButton
+                  ids={result.offenders.map((o) => o.findId)}
+                />
+              </div>
+            )}
+
           {result.id === "finds-in-anon-loc-not-anon" && (
             <AnonFixButton
               count={result.offenders.length}
@@ -416,7 +479,7 @@ function CheckCard({ result }: { result: CheckResult }) {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {result.kind === "find"
-                  ? renderFindOffenderRows(result.offenders)
+                  ? renderFindOffenderRows(result.offenders, result.id)
                   : result.offenders.map((o) => (
                       <tr key={o.mapId} className="hover:bg-amber-50/40">
                         <td className="px-2 py-1.5">
