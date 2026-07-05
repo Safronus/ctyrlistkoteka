@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Hlavní strana — showcase přesně přes kontejner + stavy nahoře i na mobilu
+- **Fotka „Náhodný 🍀"** teď vyplní **přesně 100 % kontejneru** (`fill`), takže
+  její levá/pravá hrana sedí na levou hranu první a pravou hranu poslední
+  fotky (dřív byla o ~8 px užší kvůli nativnímu stropu 1200 px < 1216 px).
+  `photoDisplay` má nový `fill`.
+- **Indikátory stavů** (StateBadges) jsou teď **nahoře na všech velikostech**.
+  Na mobilu dřív skákaly dolů a **kolidovaly s datem/GPS** overlayem vlevo
+  dole. Týká se všech fotek s overlay stavy (hlavní strana i detail).
+
 ### Hlavní strana — showcase/První-Poslední přes celou šířku + rotace + lupa
 - **Fotky „Náhodný 🍀" i „První vs poslední"** teď **vyplní celou šířku
   sloupce** (zrušen výškový strop) — okraje sednou na „Nejoblíbenější".

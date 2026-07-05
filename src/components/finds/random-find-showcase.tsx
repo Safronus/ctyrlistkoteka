@@ -148,14 +148,15 @@ export function RandomFindShowcaseWidget({
   // already false for them server-side).
   const isLost = find.states.includes(FindState.LOST);
   // Explicit photo-box width for the overlay wrapper — must match the
-  // ImageGallery figure (same rotate flag + maxVh) so the overlays line up.
-  // No height cap (maxVh: null) → the photo fills the full page column; a
-  // portrait then scrolls past the fold, which the user accepts. Landscapes
-  // are rotated 90° CW to portrait, matching the find-detail page.
+  // ImageGallery figure (same rotate + fill flags) so the overlays line up.
+  // fill → the photo spans exactly 100% of the page column, so its left/
+  // right edges line up with the "První vs poslední" pair that spans the
+  // same width; a tall portrait then scrolls past the fold, which the user
+  // accepts. Landscapes are rotated 90° CW to portrait, like the detail.
   const disp = photoDisplay(
     find.primaryImage?.width,
     find.primaryImage?.height,
-    { rotate: true, maxVh: null },
+    { rotate: true, fill: true },
   );
 
   return (
@@ -187,12 +188,13 @@ export function RandomFindShowcaseWidget({
         </Link>
       </div>
 
-      {/* Full-width photo (no height cap) — fills the whole page column so
-          its edges line up with the "Nejoblíbenější" widget. A tall portrait
-          then scrolls past the fold, which the user prefers over a smaller
-          centered photo. The wrapper takes the SAME explicit width as the
-          ImageGallery figure so the overlays line up; an explicit width (not
-          `w-fit`) avoids the shrink-to-zero collapse. */}
+      {/* Full-width photo (fill) — spans exactly 100% of the page column so
+          its left/right edges line up with the first/last find photos that
+          span the same width. A tall portrait then scrolls past the fold,
+          which the user prefers over a smaller centered photo. The wrapper
+          takes the SAME explicit width as the ImageGallery figure so the
+          overlays line up; an explicit width (not `w-fit`) avoids the
+          shrink-to-zero collapse. */}
       <div
         className="relative mx-auto"
         style={{ width: disp?.widthCss, maxWidth: "100%" }}
@@ -203,7 +205,7 @@ export function RandomFindShowcaseWidget({
           altBase={altBase}
           findId={find.id}
           muted={isLost}
-          maxVh={null}
+          fill
           rotateLandscape
           voteSlot={
             // Keyed by find.id so the rotation remounts it with the fresh

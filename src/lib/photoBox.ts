@@ -33,6 +33,7 @@ export function photoDisplay(
   {
     rotate,
     maxVh = MAX_VH,
+    fill = false,
   }: {
     rotate: boolean;
     /** Cap the photo's height at this % of the viewport, so a tall portrait
@@ -42,6 +43,12 @@ export function photoDisplay(
      *  prefers the big full-width look even though a tall portrait then
      *  scrolls past the fold). */
     maxVh?: number | null;
+    /** Fill exactly 100% of the container width, upscaling past native px if
+     *  needed. The home showcase uses this so its left/right edges line up
+     *  precisely with the container — i.e. with the left edge of the first
+     *  find's photo and the right edge of the last find's photo, which span
+     *  it. Overrides both the native-px cap and maxVh. */
+    fill?: boolean;
   },
 ): PhotoDisplay | null {
   if (!width || !height) return null;
@@ -59,7 +66,8 @@ export function photoDisplay(
     displayWidth,
     displayHeight,
     aspectRatio: `${displayWidth} / ${displayHeight}`,
-    // min(fits the column, never upscale past native[, height-cap at maxVh])
-    widthCss: `min(100%, ${displayWidth}px${heightCap})`,
+    // fill → exactly 100% of the container (may upscale, edges line up);
+    // else min(fits the column, never upscale past native[, height cap]).
+    widthCss: fill ? "100%" : `min(100%, ${displayWidth}px${heightCap})`,
   };
 }

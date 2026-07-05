@@ -47,6 +47,7 @@ export function ImageGallery({
   goldFrame = false,
   rotateLandscape = false,
   maxVh,
+  fill = false,
   placeholderWidthCss,
   placeholderAspectRatio,
 }: {
@@ -74,8 +75,8 @@ export function ImageGallery({
   /** Overlay drawn in the photo's top-RIGHT corner, to the left of the
    *  crop magnifier (the vote button). Only shown on the real photo. */
   voteSlot?: ReactNode;
-  /** Overlay drawn centered on the photo's top edge (desktop) / bottom
-   *  edge (mobile) — the find's state badges. */
+  /** Overlay drawn centered on the photo's TOP edge (all sizes) — the find's
+   *  state badges. */
   statesSlot?: ReactNode;
   /** Overlay pill drawn in the photo's BOTTOM-LEFT corner — the find's
    *  date/time on the detail page (mirrors the random-clover showcase). */
@@ -102,6 +103,10 @@ export function ImageGallery({
    *  Pass `null` to drop the cap so the photo fills the full column width
    *  (home showcase + "První vs poslední" — a tall portrait then scrolls). */
   maxVh?: number | null;
+  /** Fill exactly 100% of the container width (may upscale) so the photo's
+   *  edges line up with the container — the home showcase uses this. See
+   *  photoDisplay. */
+  fill?: boolean;
   /** For the NO_PHOTO placeholder: the width + aspect a real photo would
    *  have occupied, so the placeholder fills the same area (and the map
    *  below still lines up). Defaults to a 16:9 box when omitted. */
@@ -166,7 +171,7 @@ export function ImageGallery({
             <div className="absolute left-3 top-3 z-10">{mapSlot}</div>
           )}
           {statesSlot && (
-            <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 sm:bottom-auto sm:top-3">
+            <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2">
               {statesSlot}
             </div>
           )}
@@ -195,6 +200,7 @@ export function ImageGallery({
   const disp = photoDisplay(image.width, image.height, {
     rotate: rotateLandscape,
     maxVh,
+    fill,
   });
   const filterCls = muted ? "grayscale sepia-[0.12]" : "";
 
@@ -261,10 +267,12 @@ export function ImageGallery({
         )}
         {/* Show-on-map pin — top-LEFT overlay. */}
         {mapSlot && <div className="absolute left-3 top-3 z-10">{mapSlot}</div>}
-        {/* State badges — centered on the BOTTOM edge (mobile) / TOP edge
-            (desktop). Drop-shadow keeps the pills legible over the photo. */}
+        {/* State badges — centered on the TOP edge at all sizes. (Used to
+            drop to the bottom on mobile, but that collided with the
+            bottom-left date/GPS overlays.) Drop-shadow keeps the pills
+            legible over the photo. */}
         {statesSlot && (
-          <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 drop-shadow-sm sm:bottom-auto sm:top-3">
+          <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2 drop-shadow-sm">
             {statesSlot}
           </div>
         )}
