@@ -28,7 +28,6 @@ import {
   formatDateCs,
   formatDateTimeCs,
   formatShortDateCs,
-  formatShortDateTimeCs,
   locationDetailHref,
 } from "@/lib/format";
 import { siteName, siteNameShort } from "@/lib/siteName";
@@ -38,7 +37,6 @@ import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcas
 import { StateBadges } from "@/components/finds/state-badges";
 import { VoteButton } from "@/components/finds/vote-button";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
-import { CollectionFreshnessNote } from "@/components/home/collection-freshness-note";
 import { TimePaceSummary } from "@/components/stats/time-pace-summary";
 import { GiveAwaySection } from "@/components/home/give-away-section";
 import { CloverFactsInfoButton } from "@/components/home/clover-facts-info-button";
@@ -116,7 +114,7 @@ export default async function HomePage() {
   ]);
   const popularWinner = popularTop[0] ?? null;
   const popularRunnersUp = popularTop.slice(1);
-  const { totals, highlights } = data;
+  const { totals } = data;
 
   // Ship only a small random seed of clover facts in the initial HTML; the
   // CloverFactCard pulls the full ~210-entry set from /api/clover-facts once
@@ -225,44 +223,9 @@ export default async function HomePage() {
           )}
         </div>
 
-        <p className="mx-auto mt-6 max-w-2xl text-center text-base text-gray-600 sm:text-lg">
-          {t("intro")}
-        </p>
-        {(totals.latestCreatedAt || highlights.firstCreatedAt) && (
-          // One compact "last updated (+N)" line; the ⓘ toggle reveals the
-          // founding date + last historic backfill. "Backfill" = an upload of
-          // older finds filling gaps in the historic ID range; we surface its
-          // created_at (DB insert, not EXIF date). Dates are formatted here
-          // (server-side) because formatShortDateTimeCs isn't TZ-pinned.
-          <CollectionFreshnessNote
-            lastUpdated={
-              totals.latestCreatedAt
-                ? formatShortDateTimeCs(new Date(totals.latestCreatedAt), locale)
-                : null
-            }
-            latestCount={totals.latestFoundCount}
-            firstFound={
-              highlights.firstCreatedAt
-                ? formatShortDateTimeCs(
-                    new Date(highlights.firstCreatedAt),
-                    locale,
-                  )
-                : null
-            }
-            lastBackfill={
-              totals.lastBackfillCreatedAt
-                ? formatShortDateTimeCs(
-                    new Date(totals.lastBackfillCreatedAt),
-                    locale,
-                  )
-                : null
-            }
-            backfillCount={totals.lastBackfillCount}
-          />
-        )}
       </section>
 
-      <GiveAwaySection {...donationProps} />
+      <GiveAwaySection {...donationProps} field={<DonatedBoardSection />} />
 
       <section className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <NavCard
@@ -361,13 +324,6 @@ export default async function HomePage() {
 
       {/* Closing apology + "luck is free" offer. */}
       <DisclaimerSection />
-
-      {/* Field of clovers that have already been given away on the back
-          of the apology's offer. Renders nothing when the admin list is
-          empty. The scroll anchor is the target of the concepts' "landing"
-          clover (→ pole). */}
-      <div id="pole" className="scroll-mt-8" aria-hidden />
-      <DonatedBoardSection />
     </div>
   );
 }

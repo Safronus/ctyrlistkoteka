@@ -7,14 +7,110 @@
  */
 
 import type { FindState } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import {
   MISSING_CLOVER_ID_MAX,
   MISSING_CLOVER_ID_MIN,
+  STATS_REVALIDATE,
 } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import { isFormerLocation } from "@/lib/locationCode";
 import type { PublicImage } from "./finds";
+
+export interface CollectionFreshness {
+  /** Most recent find INSERT (created_at), ISO. Anchors the footer's
+   *  "Poslední aktualizace sbírky". */
+  latestCreatedAt: string | null;
+  /** How many finds the latest upload added at the top of the collection. */
+  latestFoundCount: number;
+  /** Earliest find INSERT (created_at), ISO — the founding date. */
+  firstCreatedAt: string | null;
+  /** Most recent gap-filler INSERT in the historical id window, ISO. */
+  lastBackfillCreatedAt: string | null;
+  /** Finds in that last backfill batch (same Prague day). */
+  lastBackfillCount: number;
+}
+
+/**
+ * Just the collection-freshness numbers, so the site-wide footer can show
+ * "Poslední aktualizace sbírky" without pulling the heavy getHomePageData()
+ * bundle on every page. The SQL mirrors the freshness parts of that query
+ * (kept in sync deliberately); wrapped in `unstable_cache` under the "stats"
+ * tag so a sync's revalidation refreshes it too.
+ */
+async function getCollectionFreshnessImpl(): Promise<CollectionFreshness> {
+  const [countsRows, backfillRows] = await Promise.all([
+    prisma.$queryRaw<
+      Array<{
+        first_created_at: Date | null;
+        latest_created_at: Date | null;
+        latest_found_count: number;
+      }>
+    >`
+      SELECT
+        (SELECT MIN(created_at) FROM finds) AS first_created_at,
+        (SELECT MAX(created_at) FROM finds) AS latest_created_at,
+        (
+          WITH lu AS (
+            SELECT (MAX(created_at) AT TIME ZONE 'Europe/Prague')::date AS d
+            FROM finds
+          ),
+          pm AS (
+            SELECT COALESCE(MAX(f.id), 0) AS pmax
+            FROM finds f, lu
+            WHERE (f.created_at AT TIME ZONE 'Europe/Prague')::date < lu.d
+          )
+          SELECT COUNT(*)::int
+          FROM finds f, lu, pm
+          WHERE (f.created_at AT TIME ZONE 'Europe/Prague')::date = lu.d
+            AND f.id > pm.pmax
+        ) AS latest_found_count
+    `,
+    prisma.$queryRaw<
+      Array<{ last_backfill_at: Date | null; last_backfill_count: number }>
+    >`
+      WITH last AS (
+        SELECT MAX(created_at) AS last_at
+        FROM finds
+        WHERE id >= ${MISSING_CLOVER_ID_MIN} AND id <= ${MISSING_CLOVER_ID_MAX}
+      )
+      SELECT
+        last.last_at AS last_backfill_at,
+        (
+          SELECT COUNT(*)::int
+          FROM finds f
+          WHERE f.id >= ${MISSING_CLOVER_ID_MIN}
+            AND f.id <= ${MISSING_CLOVER_ID_MAX}
+            AND last.last_at IS NOT NULL
+            AND (f.created_at AT TIME ZONE 'Europe/Prague')::date
+                = (last.last_at AT TIME ZONE 'Europe/Prague')::date
+        ) AS last_backfill_count
+      FROM last
+    `,
+  ]);
+  const c = countsRows[0];
+  const b = backfillRows[0];
+  return {
+    latestCreatedAt: c?.latest_created_at
+      ? c.latest_created_at.toISOString()
+      : null,
+    latestFoundCount: c ? Number(c.latest_found_count) : 0,
+    firstCreatedAt: c?.first_created_at
+      ? c.first_created_at.toISOString()
+      : null,
+    lastBackfillCreatedAt: b?.last_backfill_at
+      ? b.last_backfill_at.toISOString()
+      : null,
+    lastBackfillCount: b ? Number(b.last_backfill_count) : 0,
+  };
+}
+
+export const getCollectionFreshness = unstable_cache(
+  getCollectionFreshnessImpl,
+  ["collection-freshness"],
+  { revalidate: STATS_REVALIDATE, tags: ["stats"] },
+);
 
 export interface HomeLatestFind {
   id: number;

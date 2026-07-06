@@ -1,15 +1,18 @@
+import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 import { Linkedin } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { DonatedSearchCatcher } from "./donated-search-catcher";
+import { DonatedFieldReveal } from "./donated-field-reveal";
 
 /**
  * The "give a clover away" area on the home page, top-to-bottom:
  *   1. the donation offer + LinkedIn CTA over a flood of swaying clovers,
- *   2. the drifting clovers that fly off and "land" in the field
- *      (the landing clover links to #pole — Pole darovaného štěstí),
- *   3. the running total ("Komu už putovalo štěstí" + count),
- *   4. the recipient's search ("Dostal jsi čtyřlístek?" — find it by id).
+ *   2. the drifting clovers with a "→ pole" toggle that reveals…
+ *   3. …the field of already-donated clovers (Pole darovaného štěstí),
+ *      hidden by default (passed in as `field`),
+ *   4. the running total ("Komu už putovalo štěstí" + count),
+ *   5. the recipient's search ("Dostal jsi čtyřlístek?" — find it by id).
  */
 
 type HomeT = Awaited<ReturnType<typeof getTranslations<"Home">>>;
@@ -20,6 +23,10 @@ interface Props {
   lastDonated: string | null;
   t: HomeT;
   nf: Intl.NumberFormat;
+  /** The field of already-donated clovers (DonatedBoardSection), revealed
+   *  by the "→ pole" toggle. Passed from the page so this server component
+   *  stays free of the board's data fetch. */
+  field: ReactNode;
 }
 
 /* ── swarm glyph for the drift animation ── */
@@ -44,13 +51,15 @@ const STATIC_CLUSTER = [
   { x: 65, y: 48, s: 0.65, o: 0.8 },
 ];
 
-/** The drift animation with a pulsing "landing" clover at the vanishing
- *  point linking to the donated-luck field (#pole). */
-function DriftSvg() {
+/** Just the drift animation (static cluster + clovers drifting off). The
+ *  positioning wrapper and the "→ pole" toggle that reveals the field live in
+ *  DonatedFieldReveal (client). The `ctyr-land-pulse` keyframe stays here —
+ *  it's global, so the client toggle's pulsing clover reuses it. */
+function DriftClovers() {
   const DRIFTERS = 16;
   const LOOP_S = 8;
   return (
-    <div className="relative mx-auto mt-1.5 w-full max-w-2xl">
+    <>
       <style>{`
         @keyframes ctyr-drift {
           0%   { transform: translate(82px, var(--y0)) rotate(0deg)  scale(0.7);  opacity: 0; }
@@ -100,24 +109,7 @@ function DriftSvg() {
           );
         })}
       </svg>
-      <a
-        href="#pole"
-        title="Kam padají? → Pole darovaného štěstí"
-        className="group absolute right-[6%] top-1/2 flex -translate-y-1/2 flex-col items-center gap-0.5 rounded-full p-1 transition hover:scale-110"
-      >
-        <svg
-          viewBox="-11 -11 22 22"
-          className="ctyr-land-clover h-8 w-8 drop-shadow"
-          style={{ animation: "ctyr-land-pulse 2.4s ease-in-out infinite" }}
-          aria-hidden
-        >
-          <CloverShape />
-        </svg>
-        <span className="text-[9px] font-semibold text-brand-700 opacity-70 group-hover:opacity-100">
-          → pole
-        </span>
-      </a>
-    </div>
+    </>
   );
 }
 
@@ -190,7 +182,7 @@ function FloodClover({ size, shade }: { size: number; shade: string }) {
   );
 }
 
-export function GiveAwaySection({ count, lastDonated, t, nf }: Props) {
+export function GiveAwaySection({ count, lastDonated, t, nf, field }: Props) {
   return (
     <section className="mt-8 text-center">
       <style>{`
@@ -232,8 +224,9 @@ export function GiveAwaySection({ count, lastDonated, t, nf }: Props) {
         </div>
       </div>
 
-      {/* 2 · The clovers drift off and land in the field. */}
-      <DriftSvg />
+      {/* 2 · Drifting clovers; the "→ pole" toggle reveals the field (3)
+              between here and the running total. */}
+      <DonatedFieldReveal drift={<DriftClovers />} field={field} />
 
       {/* 3 · Running total. */}
       <p className="mt-2 text-base text-gray-700 sm:text-lg">

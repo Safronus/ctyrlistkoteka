@@ -23,6 +23,9 @@ import { VisitCounter } from "@/components/visits/visit-counter";
 import { siteName } from "@/lib/siteName";
 import { getAnniversaryDates } from "@/lib/queries/anniversaries";
 import { getWatermarkMeta } from "@/lib/queries/watermark";
+import { getCollectionFreshness } from "@/lib/queries/home";
+import { CollectionFreshnessNote } from "@/components/home/collection-freshness-note";
+import { formatShortDateTimeCs } from "@/lib/format";
 import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 
@@ -55,10 +58,11 @@ export default async function PublicLayout({
   // top-level <html lang> in the root layout matches what's rendered.
   setRequestLocale(locale);
 
-  const [anniversaries, watermark, t] = await Promise.all([
+  const [anniversaries, watermark, t, freshness] = await Promise.all([
     getAnniversaryDates(),
     getWatermarkMeta(),
     getTranslations("Footer"),
+    getCollectionFreshness(),
   ]);
 
   return (
@@ -156,6 +160,43 @@ export default async function PublicLayout({
           {/* 4 — visit counter */}
           <VisitCounter />
         </div>
+        {/* Second row — collection freshness ("Poslední aktualizace sbírky"
+            + ⓘ founding / last backfill). Moved here from the home hero so it
+            rides every page's footer. Dates are formatted server-side
+            (formatShortDateTimeCs isn't TZ-pinned, so formatting client-side
+            would risk a hydration mismatch). */}
+        {(freshness.latestCreatedAt || freshness.firstCreatedAt) && (
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <CollectionFreshnessNote
+              lastUpdated={
+                freshness.latestCreatedAt
+                  ? formatShortDateTimeCs(
+                      new Date(freshness.latestCreatedAt),
+                      locale,
+                    )
+                  : null
+              }
+              latestCount={freshness.latestFoundCount}
+              firstFound={
+                freshness.firstCreatedAt
+                  ? formatShortDateTimeCs(
+                      new Date(freshness.firstCreatedAt),
+                      locale,
+                    )
+                  : null
+              }
+              lastBackfill={
+                freshness.lastBackfillCreatedAt
+                  ? formatShortDateTimeCs(
+                      new Date(freshness.lastBackfillCreatedAt),
+                      locale,
+                    )
+                  : null
+              }
+              backfillCount={freshness.lastBackfillCount}
+            />
+          </div>
+        )}
       </footer>
     </NextIntlClientProvider>
   );

@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Hlavní strana — reorganizace (patička, tagline, pole)
+- **„Poslední aktualizace sbírky"** (+ ⓘ založení / poslední backfill) přesunuta
+  z hero do **globální patičky** jako druhý řádek. Nový lehký cachovaný
+  `getCollectionFreshness` (`queries/home.ts`, tag „stats" → obnoví se po syncu),
+  aby patička nemusela tahat celý `getHomePageData` na každé stránce.
+- **Tagline** „Veřejná prezentace soukromé sbírky čtyřlístků…" **odstraněn**
+  z hlavní strany (popis webu nese `<meta description>`); mrtvý i18n klíč
+  `Home.intro` smazán (cs + en).
+- **Pole darovaného štěstí** přesunuto ze spodku strany **mezi vizualizaci
+  odlétajících čtyřlístků a počet „Komu už putovalo štěstí"**; **defaultně
+  skryté**, odkryje ho tlačítko **„→ pole"** na konci vizualizace (dřív kotva
+  `#pole` na spodní sekci → teď přepínač, nový klient `DonatedFieldReveal`;
+  `DriftSvg` rozdělen na `DriftClovers` + toggle).
+- Tím se **nabídka darování (se záplavou)** posunula výš — hned pod fakta v hero.
+
 ### /sbirka — náhled ořezu při hoveru nad fotkou
 - V mřížce i seznamu se při najetí myší na fotku nálezu plynule ukáže **ořez**
   (close-up čtyřlístku — stejná `CROP` varianta jako na detailu nálezu). Klik
