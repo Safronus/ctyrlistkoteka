@@ -110,7 +110,7 @@ export function DonatedFieldReveal({
               ? "Skrýt pole darovaného štěstí"
               : "Kam padají? → Pole darovaného štěstí"
           }
-          className="group absolute right-[6%] top-[58%] flex -translate-y-1/2 flex-col items-center gap-0.5 rounded-full p-1 transition hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          className="group absolute right-[6%] top-[58%] z-10 flex -translate-y-1/2 flex-col items-center gap-0.5 rounded-full p-2 transition hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 touch-manipulation"
         >
           <span className="relative block">
             <MapClover />

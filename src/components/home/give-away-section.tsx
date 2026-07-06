@@ -75,7 +75,7 @@ function DriftClovers() {
       <svg
         viewBox="0 5 600 72"
         preserveAspectRatio="xMidYMid meet"
-        className="h-20 w-full sm:h-24"
+        className="pointer-events-none h-20 w-full sm:h-24"
         aria-hidden
       >
         {STATIC_CLUSTER.map((c, i) => (
