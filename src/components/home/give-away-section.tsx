@@ -178,12 +178,12 @@ export function GiveAwaySection({ count, lastDonated, t, nf, field }: Props) {
         @media (prefers-reduced-motion: reduce) { .ctyr-sway { animation: none !important; } }
       `}</style>
 
-      {/* Full-width flood of swaying clovers behind the whole give-away block
-          (offer → drift → pole → total → search). Breaks out to the viewport
-          width via w-screen; the layout's overflow-x-clip guards against
-          sideways scroll. -z-10 (in this isolated section) keeps it behind
-          all the content; the fade toward the centre keeps text readable. */}
-      <div className="pointer-events-none absolute inset-y-0 left-1/2 -z-10 w-screen -translate-x-1/2 overflow-hidden">
+      {/* Flood of swaying clovers behind the whole give-away block (offer →
+          drift → pole → total → search), spanning the page's content width
+          (inset-0 = this section, i.e. as wide as the nav/stat cards — NOT
+          the whole viewport). -z-10 (in this isolated section) keeps it
+          behind the content; the fade toward the centre keeps text readable. */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         {FLOOD.map((c, i) => (
           <span
             key={i}
