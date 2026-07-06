@@ -62,9 +62,9 @@ export interface HomeTotals {
    *  the "rozcházející se lístky" showcase at the bottom of the home
    *  page. Same definition as `donatedFinds` on /statistiky. */
   donated: number;
-  /** created_at of the most recently-added DONATED find (ISO) — the
-   *  "naposledy darováno" timestamp under the donated showcase. Null when
-   *  nothing is donated yet. */
+  /** found_at (EXIF find date+time) of the most-recently-found DONATED find
+   *  (ISO) — the "naposledy darováno" timestamp under the donated showcase.
+   *  Null when nothing is donated yet (or none carry a find date). */
   lastDonatedAt: string | null;
   /** Inclusive count of distinct calendar years that contain at least
    *  one find — same definition as the existing `yearsSpan` on the home
@@ -204,10 +204,11 @@ export async function getHomePageData(): Promise<HomePageData> {
         (SELECT COUNT(*) FROM locations) AS locations,
         (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
            WHERE state = 'DONATED') AS donated,
-        -- When the most recently-added donated find reached the catalog
-        -- (created_at of the newest DONATED find) — powers the "naposledy
-        -- darováno" line under the donated showcase.
-        (SELECT MAX(f.created_at) FROM finds f
+        -- Find date+time (EXIF found_at) of the most-recently-found DONATED
+        -- clover — powers the "naposledy darováno" line under the donated
+        -- showcase. Uses found_at (the clover's own find moment), NOT
+        -- created_at; NULL found_at rows are ignored by MAX.
+        (SELECT MAX(f.found_at) FROM finds f
            JOIN find_state_assignments fsa ON fsa.find_id = f.id
            WHERE fsa.state = 'DONATED') AS last_donated_at,
         (SELECT EXTRACT(YEAR FROM MIN(found_at))::int FROM finds) AS first_year,

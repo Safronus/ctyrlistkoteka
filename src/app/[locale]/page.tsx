@@ -363,8 +363,8 @@ function DonatedShowcase({
   nf,
 }: {
   count: number;
-  /** Pre-formatted date+time the most recent donated find reached the
-   *  catalog (server-formatted, Europe/Prague). Null when none donated. */
+  /** Pre-formatted find date+time (EXIF found_at) of the most-recently-found
+   *  donated clover (server-formatted, Europe/Prague). Null when none. */
   lastDonated: string | null;
   t: HomeT;
   nf: Intl.NumberFormat;

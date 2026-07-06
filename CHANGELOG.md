@@ -15,8 +15,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   sbírky … (+N)"; datum založení a poslední backfill se schovaly za **ⓘ
   rozbalení** (nová klientská `CollectionFreshnessNote`).
 - Do sekce **„Komu už putovalo štěstí"** přibyla řádka **„Naposledy darováno:
-  {datum a čas}"** — `created_at` nejnovějšího darovaného nálezu (nový
-  `lastDonatedAt` v home query).
+  {datum a čas}"** — reálné datum+čas nálezu (`found_at`) nejnovějšího
+  darovaného čtyřlístku (nový `lastDonatedAt` v home query).
 
 ### Admin — check „bez EN překladu" s inline editací
 - Nové kontroly **„Poznámky nálezů bez EN"** a **„Popisky map bez EN"** ve
