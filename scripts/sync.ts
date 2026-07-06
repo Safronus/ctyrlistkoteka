@@ -724,6 +724,56 @@ async function scanFindDir(
   return out;
 }
 
+/**
+ * Re-link finds to their location/map from the filename + the maps present
+ * this run, independently of whether their photo changed. A find first
+ * ingested while its location map was missing keeps `location_id = null`;
+ * when the map is uploaded later the photo bytes don't change, so the
+ * per-file upsert in phaseFinds skips it and it never gets re-linked. This
+ * cheap pass closes that gap.
+ *
+ * Conservative on purpose: it only FILLS (null → id) or FIXES (wrong id →
+ * right id) links for finds whose map IS on disk this run. It never nulls a
+ * find whose map is absent, so a mapless / partial sync can't wipe existing
+ * locations. Returns how many finds it re-linked (or, in --dry-run, would).
+ */
+async function reconcileFindLinks(
+  ctx: Context,
+  all: FindFileInfo[],
+  mapToLocation: ReadonlyMap<number, number>,
+): Promise<number> {
+  // Desired link per find — POSITIVE only (map present → location known).
+  const desired = new Map<number, { locationId: number; mapId: number }>();
+  for (const f of all) {
+    if (desired.has(f.parsed.findId)) continue;
+    const locationId = mapToLocation.get(f.parsed.mapNumber);
+    if (locationId === undefined) continue; // map not on disk → never wipe
+    desired.set(f.parsed.findId, { locationId, mapId: f.parsed.mapNumber });
+  }
+  if (desired.size === 0) return 0;
+
+  const current = await ctx.prisma.find.findMany({
+    select: { id: true, locationId: true, mapId: true },
+  });
+  const mismatched = current.filter((c) => {
+    const want = desired.get(c.id);
+    return (
+      want !== undefined &&
+      (c.locationId !== want.locationId || c.mapId !== want.mapId)
+    );
+  });
+  if (mismatched.length === 0 || ctx.opts.dryRun) return mismatched.length;
+
+  for (const c of mismatched) {
+    const want = desired.get(c.id)!;
+    await ctx.prisma.find.update({
+      where: { id: c.id },
+      data: { locationId: want.locationId, mapId: want.mapId },
+    });
+  }
+  return mismatched.length;
+}
+
 async function phaseFinds(
   ctx: Context,
   mapToLocation: Map<number, number>,
@@ -759,6 +809,7 @@ async function phaseFinds(
     ).length;
     const byState = countBy(all.map((f) => f.parsed.state));
     const anonCount = all.filter((f) => f.parsed.isAnonymized).length;
+    const wouldRelink = await reconcileFindLinks(ctx, all, mapToLocation);
     ctx.log.log({
       event: "finds.plan",
       level: "info",
@@ -767,6 +818,7 @@ async function phaseFinds(
       filename_anon_flag: anonCount,
       by_state: byState,
       unknown_map_refs: unknownLocRefs,
+      would_relink: wouldRelink,
     });
     return all;
   }
@@ -1068,11 +1120,17 @@ async function phaseFinds(
   // before adding more concurrency helps.
   await Promise.all([pMap(finds, 2, processOne), pMap(crops, 2, processOne)]);
 
+  // Re-link finds whose map appeared after their photo was ingested — those
+  // get `skipped_unchanged` above and would otherwise keep a stale/null
+  // location. Runs every sync (self-healing); usually a no-op.
+  const relinked = await reconcileFindLinks(ctx, all, mapToLocation);
+
   ctx.log.log({
     event: "finds.done",
     level: "info",
     upserted: all.length - skipped,
     skipped_unchanged: skipped,
+    relinked,
     with_gps: withGps,
     without_gps: withoutGps,
     unexpected_no_gps: unexpectedNoGps,

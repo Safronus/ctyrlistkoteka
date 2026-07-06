@@ -218,7 +218,7 @@ export function GiveAwaySection({ count, lastDonated, t, nf }: Props) {
         ))}
         <div className="relative z-10 mx-auto max-w-md">
           <div className="text-3xl" aria-hidden>
-            🍀😇💌
+            🍀💌
           </div>
           <p className="mt-2 text-[15px] leading-relaxed text-gray-700">
             {t("disclaimerOffer")}

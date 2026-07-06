@@ -92,7 +92,8 @@ ideální pro browser cache (`Cache-Control: immutable`).
 ## Idempotentnost a detekce změn
 
 - **UPSERT** všude (`ON CONFLICT DO UPDATE`).
-- Hash souboru v `find_images.original_sha1` — pokud se nezměnil, přeskočit regeneraci obrázků.
+- Hash souboru v `find_images.original_sha1` — pokud se nezměnil, přeskočit regeneraci obrázků. Pozor: přeskočí se **celé** zpracování nálezu, včetně upsertu metadat.
+- **Re-link nálezů** (`reconcileFindLinks`, běží na konci fáze finds): `location_id`/`map_id` nálezu se odvozuje z názvu souboru + přítomných lokačních map. Když ale foto přeskočí předchozí bod (nezměněné), jeho upsert se nespustí — a nález přidaný, když jeho mapa **chyběla** (→ `location_id = null`), by po pozdějším nahrání mapy zůstal bez lokace navždy. Tento levný průchod to dorovná: znovu přiřadí `location_id`/`map_id` všem nálezům, jejichž mapa je na disku. **Konzervativní** — jen doplní/opraví, nikdy nevynuluje nález, jehož mapa v daném běhu chybí (aby mapless/částečný sync nesmazal lokace). V `--dry-run` jen ohlásí `would_relink`.
 - `LokaceStavyPoznamky.json` se parsuje vždy celý (je malý, zlomek sekundy).
 - Smazané soubory: pokud skript projde celým datasetem a `finds.id` X v DB není
   pokrytý žádným souborem, **neničí** ho — jen zaloguje varování. Smazání je

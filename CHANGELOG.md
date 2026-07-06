@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Sync — nálezy bez lokace se po pozdním nahrání map nedorovnaly
+- **Příčina:** sync přeskočí **celé** zpracování nálezu, když se jeho foto
+  nezměnilo (`mtime`), včetně upsertu `location_id`. Když se udělá sync
+  s **chybějícími** lokačními mapami, nálezy dostanou `location_id = null`;
+  po nahrání map a dalším syncu se ale fotky nezměnily → přeskočily se →
+  lokace se nikdy nedoplnila (např. `/sbirka/837`).
+- **Oprava:** nový průchod `reconcileFindLinks` na konci fáze finds znovu
+  přiřadí `location_id`/`map_id` z názvu souboru + přítomných map, nezávisle
+  na tom, jestli se foto změnilo. **Konzervativní** — jen doplní/opraví, nikdy
+  nevynuluje nález, jehož mapa v běhu chybí (mapless/částečný sync tak nesmaže
+  lokace). Běží každý sync (self-healing), loguje `relinked` (v `--dry-run`
+  `would_relink`). Řešení: stačí spustit normální `pnpm sync` (bez
+  `--force-regen`, žádné překódování fotek). Detail v `docs/sync-workflow.md`.
+
 ### Statistiky se po syncu neobnovovaly (cache)
 - **Příčina:** `/statistiky` (a statové panely na `/`) cachují agregace přes
   `unstable_cache(tag: "stats", revalidate 6 h)` + ISR stránek. `pnpm sync`
@@ -64,6 +78,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - Dole zbyla jen **„Malá omluva"** (bez nabídky) a pod ní „Pole darovaného
   štěstí" beze změny.
 - Uklizen mrtvý kód (starý `DonatedShowcase` + dočasný debug přepínač konceptů).
+- Smajlík u nabídky darování zjednodušen `🍀😇💌` → `🍀💌`; svatozář (😇) zůstává
+  jen dole u „Malé omluvy".
 
 ### Hlavní strana — zrušena sekce „Retrospektiva"
 - Odstraněna spodní sekce **„Retrospektiva"** (look-back mřížka napříč roky).
