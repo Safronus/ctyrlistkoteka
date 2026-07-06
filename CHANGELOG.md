@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Hlavní strana — přepracovaná sekce „darování štěstí"
+- Nabídka darování + LinkedIn se přesunula nahoru (ze spodní „malé omluvy")
+  do nové **`GiveAwaySection`** nad „Komu putovalo štěstí". Pořadí odshora:
+  **záplava čtyřlístků + nabídka + LinkedIn** (bez rámečku/pozadí, ~32
+  kolébajících se čtyřlístků) → **putující čtyřlístky s „přistávacím"
+  čtyřlístkem → Pole** (kotva `#pole`) → **počet „Komu už putovalo štěstí"** →
+  **vyhledávač darovaných** („Dostal jsi čtyřlístek?").
+- Dole zbyla jen **„Malá omluva"** (bez nabídky) a pod ní „Pole darovaného
+  štěstí" beze změny.
+- Uklizen mrtvý kód (starý `DonatedShowcase` + dočasný debug přepínač konceptů).
+
 ### Hlavní strana — zrušena sekce „Retrospektiva"
 - Odstraněna spodní sekce **„Retrospektiva"** (look-back mřížka napříč roky).
   Uklizen i mrtvý kód: komponenta `retrospective-grid.tsx`, query

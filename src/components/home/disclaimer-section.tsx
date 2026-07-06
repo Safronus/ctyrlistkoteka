@@ -1,14 +1,11 @@
-import { Linkedin } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 /**
- * Closing "Disclaimer" card at the bottom of the home page (after
- * Retrospektiva): a warm apology that the listed spots may already be
- * picked, plus an offer to send a clover — luck is free. An elegant
- * gradient card with a few faintly drifting clovers in the background.
+ * Closing "Malá omluva" note at the bottom of the home page — a warm
+ * apology that the listed spots may already be picked. The donation offer +
+ * LinkedIn CTA moved up into the give-away section; a few faintly drifting
+ * clovers stay as decoration.
  */
-
-const LINKEDIN_URL = "https://www.linkedin.com/in/petr-žáček-9a2473b7/";
 
 // Background drifters — position / size / animation per clover. Purely
 // decorative; the keyframes below pause under prefers-reduced-motion.
@@ -66,23 +63,6 @@ export async function DisclaimerSection() {
           <p className="mx-auto mt-3 max-w-2xl text-[15px] leading-relaxed text-gray-600">
             {t("disclaimerApology")}
           </p>
-          <p className="mx-auto mt-2 max-w-2xl text-[15px] leading-relaxed text-gray-600">
-            {t("disclaimerOffer")}
-          </p>
-          <p className="mt-4 text-xl font-bold text-brand-700">
-            {t("disclaimerTagline")}
-          </p>
-          <div className="mt-8 flex justify-center">
-            <a
-              href={LINKEDIN_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
-            >
-              <Linkedin className="h-4 w-4" aria-hidden />
-              {t("disclaimerCta")}
-            </a>
-          </div>
         </div>
       </div>
     </section>

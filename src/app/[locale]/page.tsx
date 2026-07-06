@@ -40,15 +40,10 @@ import { VoteButton } from "@/components/finds/vote-button";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
 import { CollectionFreshnessNote } from "@/components/home/collection-freshness-note";
 import { TimePaceSummary } from "@/components/stats/time-pace-summary";
-import { ConceptSwitcher } from "@/components/home/concept-switcher";
-import {
-  ConceptPosli,
-  ConceptZaplava,
-} from "@/components/home/donation-concepts";
+import { GiveAwaySection } from "@/components/home/give-away-section";
 import { CloverFactsInfoButton } from "@/components/home/clover-facts-info-button";
 import { PopularFindWidget } from "@/components/home/popular-find-widget";
 import { getTopFindsWithThumbs } from "@/lib/votes";
-import { DonatedSearchCatcher } from "@/components/home/donated-search-catcher";
 import { DisclaimerSection } from "@/components/home/disclaimer-section";
 import { DonatedBoardSection } from "@/components/home/donated-board";
 import {
@@ -150,7 +145,7 @@ export default async function HomePage() {
     new Set(cloverTexts.map((c) => c.category)),
   );
 
-  // Shared props for the donation-area concept variants (temporary debug).
+  // Props for the give-away section (donation offer + drift + count).
   const donationProps = {
     count: totals.donated,
     lastDonated: totals.lastDonatedAt
@@ -267,16 +262,7 @@ export default async function HomePage() {
         )}
       </section>
 
-      {/* TEMPORARY debug — compare the current donation showcase against the
-          four reorganisation concepts. Remove ConceptSwitcher + the concepts
-          once one is picked, keeping just the winner. */}
-      <ConceptSwitcher
-        labels={["Současné", "3 · Karta (základ)", "B · Záplava čtyřlístků"]}
-      >
-        <DonatedShowcase {...donationProps} />
-        <ConceptPosli {...donationProps} />
-        <ConceptZaplava {...donationProps} />
-      </ConceptSwitcher>
+      <GiveAwaySection {...donationProps} />
 
       <section className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <NavCard
@@ -385,152 +371,6 @@ export default async function HomePage() {
     </div>
   );
 }
-
-function DonatedShowcase({
-  count,
-  lastDonated,
-  t,
-  nf,
-}: {
-  count: number;
-  /** Pre-formatted find date+time (EXIF found_at) of the most-recently-found
-   *  donated clover (server-formatted, Europe/Prague). Null when none. */
-  lastDonated: string | null;
-  t: HomeT;
-  nf: Intl.NumberFormat;
-}) {
-  const DRIFTERS = 16;
-  const LOOP_S = 8;
-
-  // mt-6 instead of mt-12 — the hero already has generous bottom
-  // breathing room from its own typography, so a half-rem gap here
-  // keeps the "Komu už putovalo štěstí" line related to the totals
-  // it interprets, rather than feeling like a separate landing zone.
-  return (
-    <section className="mt-6 text-center">
-      <style>{`
-        @keyframes ctyr-drift {
-          0%   { transform: translate(82px, var(--y0)) rotate(0deg)  scale(0.7);  opacity: 0; }
-          12%  { opacity: 0.95; }
-          70%  { opacity: 0.55; }
-          100% { transform: translate(540px, calc(var(--y0) - 10px)) rotate(45deg) scale(0.5); opacity: 0; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .ctyr-drifter {
-            animation-play-state: paused !important;
-          }
-        }
-      `}</style>
-
-      <p className="text-base text-gray-700 sm:text-lg">
-        {t("donatedPrefix")}{" "}
-        <Link
-          href="/sbirka?state=DONATED"
-          className="relative inline-block transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded-sm"
-          aria-label={t("donatedAria", { count: nf.format(count) })}
-        >
-          <span className="text-2xl font-bold text-brand-700 hover:text-brand-800 sm:text-3xl">
-            {nf.format(count)}
-          </span>
-          <svg
-            viewBox="0 0 80 8"
-            preserveAspectRatio="none"
-            className="absolute -bottom-1.5 left-0 h-2 w-full text-brand-600"
-            aria-hidden
-          >
-            <path
-              d="M1 5 Q 10 1, 20 4 T 40 4 T 60 4 T 79 4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
-        </Link>{" "}
-        {t("donatedSuffix", { count })}
-      </p>
-
-      {lastDonated && (
-        <p className="mt-1 text-xs text-gray-500">
-          {t("donatedLast")}{" "}
-          <span className="text-gray-600">{lastDonated}</span>
-        </p>
-      )}
-
-      {/* viewBox cropped to 600×72 from the original 600×110 — the
-          STATIC_CLUSTER + drifters sit at y≈30–66, so the lower ~40
-          units of the viewBox were rendering as empty whitespace that
-          translated into visible padding on the page. Container
-          height shrunk to h-20/sm:h-24 to match the tighter content. */}
-      <svg
-        viewBox="0 5 600 72"
-        preserveAspectRatio="xMidYMid meet"
-        className="mx-auto mt-1.5 h-20 w-full max-w-2xl sm:h-24"
-        aria-hidden
-      >
-        {STATIC_CLUSTER.map((c, i) => (
-          <g
-            key={`s${i}`}
-            transform={`translate(${c.x} ${c.y}) scale(${c.s})`}
-            opacity={c.o}
-          >
-            <CloverShape />
-          </g>
-        ))}
-
-        {Array.from({ length: DRIFTERS }, (_, i) => {
-          const yJitter = (i * 17) % 28 - 14;
-          const delay = -((i / DRIFTERS) * LOOP_S);
-          return (
-            <g
-              key={`d${i}`}
-              className="ctyr-drifter"
-              style={
-                {
-                  animation: `ctyr-drift ${LOOP_S}s linear infinite`,
-                  animationDelay: `${delay.toFixed(2)}s`,
-                  transformOrigin: "center",
-                  transformBox: "fill-box",
-                  "--y0": `${52 + yJitter}px`,
-                } as React.CSSProperties
-              }
-            >
-              <CloverShape />
-            </g>
-          );
-        })}
-      </svg>
-
-      <DonatedSearchCatcher />
-    </section>
-  );
-}
-
-function CloverShape() {
-  return (
-    <g fill="#15803d">
-      <circle cx={0} cy={-5} r={4} />
-      <circle cx={-5} cy={0} r={4} />
-      <circle cx={5} cy={0} r={4} />
-      <circle cx={0} cy={5} r={4} />
-      <circle cx={0} cy={0} r={2.5} fill="#0f6e34" />
-    </g>
-  );
-}
-
-const STATIC_CLUSTER: ReadonlyArray<{
-  x: number;
-  y: number;
-  s: number;
-  o: number;
-}> = [
-  { x: 82, y: 52, s: 1.0, o: 1.0 },
-  { x: 70, y: 58, s: 0.85, o: 0.95 },
-  { x: 92, y: 46, s: 0.8, o: 0.9 },
-  { x: 76, y: 42, s: 0.7, o: 0.85 },
-  { x: 96, y: 62, s: 0.82, o: 0.95 },
-  { x: 65, y: 48, s: 0.65, o: 0.8 },
-];
 
 function StatCard({
   value,
