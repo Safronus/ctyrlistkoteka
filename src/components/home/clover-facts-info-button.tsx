@@ -54,7 +54,17 @@ export function CloverFactsInfoButton({
     .sort((a, b) => a.localeCompare(b));
 
   return (
-    <div ref={ref} className="absolute right-1.5 top-1.5 z-20">
+    <div
+      ref={ref}
+      // Sits just OUTSIDE the card's top-right corner (never over the card
+      // content — the corners already hold the category / source pills).
+      // Desktop has room to the right so it hangs fully to the right of the
+      // corner; on mobile the card is near full width, so it straddles the
+      // corner (centered on the right edge, lifted above the top edge) —
+      // which keeps it clear of the pills AND inside the viewport (no
+      // horizontal overflow).
+      className="absolute -top-3 right-0 z-20 translate-x-1/2 lg:left-full lg:right-auto lg:top-1 lg:ml-2 lg:translate-x-0"
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
