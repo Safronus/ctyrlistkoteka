@@ -40,6 +40,13 @@ import { VoteButton } from "@/components/finds/vote-button";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
 import { CollectionFreshnessNote } from "@/components/home/collection-freshness-note";
 import { TimePaceSummary } from "@/components/stats/time-pace-summary";
+import { ConceptSwitcher } from "@/components/home/concept-switcher";
+import {
+  ConceptKruh,
+  ConceptOdletaji,
+  ConceptPosli,
+  ConceptPole,
+} from "@/components/home/donation-concepts";
 import { CloverFactsInfoButton } from "@/components/home/clover-facts-info-button";
 import { PopularFindWidget } from "@/components/home/popular-find-widget";
 import { getTopFindsWithThumbs } from "@/lib/votes";
@@ -144,6 +151,16 @@ export default async function HomePage() {
   const cloverFactCategoryKeys = Array.from(
     new Set(cloverTexts.map((c) => c.category)),
   );
+
+  // Shared props for the donation-area concept variants (temporary debug).
+  const donationProps = {
+    count: totals.donated,
+    lastDonated: totals.lastDonatedAt
+      ? formatShortDateCs(new Date(totals.lastDonatedAt), locale)
+      : null,
+    t,
+    nf: NF,
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -252,16 +269,24 @@ export default async function HomePage() {
         )}
       </section>
 
-      <DonatedShowcase
-        count={totals.donated}
-        lastDonated={
-          totals.lastDonatedAt
-            ? formatShortDateCs(new Date(totals.lastDonatedAt), locale)
-            : null
-        }
-        t={t}
-        nf={NF}
-      />
+      {/* TEMPORARY debug — compare the current donation showcase against the
+          four reorganisation concepts. Remove ConceptSwitcher + the concepts
+          once one is picked, keeping just the winner. */}
+      <ConceptSwitcher
+        labels={[
+          "Současné",
+          "1 · Kruh štěstí",
+          "2 · Odlétají",
+          "3 · Pošli štěstí",
+          "4 · Pole pod tím",
+        ]}
+      >
+        <DonatedShowcase {...donationProps} />
+        <ConceptKruh {...donationProps} />
+        <ConceptOdletaji {...donationProps} />
+        <ConceptPosli {...donationProps} />
+        <ConceptPole {...donationProps} />
+      </ConceptSwitcher>
 
       <section className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <NavCard
@@ -363,7 +388,9 @@ export default async function HomePage() {
 
       {/* Field of clovers that have already been given away on the back
           of the apology's offer. Renders nothing when the admin list is
-          empty. */}
+          empty. The scroll anchor is the target of the concepts' "landing"
+          clover (→ pole). */}
+      <div id="pole" className="scroll-mt-8" aria-hidden />
       <DonatedBoardSection />
     </div>
   );
