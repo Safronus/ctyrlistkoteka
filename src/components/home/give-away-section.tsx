@@ -132,27 +132,32 @@ function LinkedInButton({ t }: { t: HomeT }) {
  *    centre so the donation text stays readable, and lifts near the top /
  *    bottom edges so the band reads as a meadow. ── */
 type FloodItem = { l: string; t: string; size: number; op: number };
-function buildFlood(n: number): FloodItem[] {
+function buildFlood(cols: number, rows: number): FloodItem[] {
   const items: FloodItem[] = [];
-  for (let i = 0; i < n; i++) {
-    // Two different irrationals decorrelate x/y into a scattered spread
-    // (no Math.random → no hydration drift).
-    const x = (i * 61.803398875) % 100;
-    const y = (i * 24.720132 + (i % 4) * 6.3) % 100;
-    const edge = Math.abs(x - 50) / 50; // 0 centre .. 1 edge
-    const vEdge = y < 15 || y > 85 ? 0.12 : 0;
-    const op = Math.min(0.5, 0.09 + edge * 0.4 + vEdge);
-    const size = 13 + ((i * 5) % 18);
-    items.push({
-      l: `${x.toFixed(1)}%`,
-      t: `${y.toFixed(1)}%`,
-      size,
-      op: Number(op.toFixed(2)),
-    });
+  let i = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++, i++) {
+      // Jittered grid: exactly one clover per cell plus a deterministic
+      // offset within it → even coverage across the whole area, no clumps or
+      // bald patches (SSR-stable, no Math.random).
+      const jx = (((i * 37) % 100) / 100 - 0.5) * 0.7;
+      const jy = (((i * 61) % 100) / 100 - 0.5) * 0.7;
+      const x = ((c + 0.5 + jx) / cols) * 100;
+      const y = ((r + 0.5 + jy) / rows) * 100;
+      const edge = Math.abs(x - 50) / 50; // 0 centre .. 1 edge
+      const op = Math.min(0.5, 0.12 + edge * 0.33); // fade behind centred text
+      const size = 13 + ((i * 5) % 18);
+      items.push({
+        l: `${x.toFixed(1)}%`,
+        t: `${y.toFixed(1)}%`,
+        size,
+        op: Number(op.toFixed(2)),
+      });
+    }
   }
   return items;
 }
-const FLOOD = buildFlood(64);
+const FLOOD = buildFlood(9, 7);
 
 const SHADES = ["#3f9142", "#4d9748", "#2f8038", "#57a457"];
 

@@ -128,7 +128,17 @@ export function DonatedFieldReveal({
           </span>
         </button>
       </div>
-      <div hidden={!open}>{field}</div>
+      {/* Smooth reveal: the grid row animates 0fr → 1fr (browsers animate
+          grid-template-rows) and the inner clips its overflow. `inert` when
+          collapsed keeps the hidden links out of the tab order + a11y tree. */}
+      <div
+        inert={!open}
+        className={`grid transition-all duration-500 ease-in-out motion-reduce:transition-none ${
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="min-h-0 overflow-hidden">{field}</div>
+      </div>
     </>
   );
 }

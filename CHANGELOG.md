@@ -12,12 +12,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 ### Hlavní strana — širší záplava + výraznější „→ pole"
 - **Záplava čtyřlístků** roztažena přes **šířku obsahu stránky** (jak nav/stat
   karty — `inset-0` za sekcí, ne celé okno) a za celý blok darování (nabídka →
-  odlétající → pole → počet → hledání); generuje se deterministicky
-  (`buildFlood`, 64 ks), opacita slábne ke středu kvůli čitelnosti textu, sílí
-  u horního/dolního okraje.
+  odlétající → pole → počet → hledání). Rozmístění je **rovnoměrné** —
+  jittered grid (`buildFlood` 9×7, jeden čtyřlístek na buňku + deterministický
+  posun), opacita slábne ke středu kvůli čitelnosti textu.
 - Tlačítko **„→ pole"** je **~1,5× větší**, používá **novou mapovou ikonu
   čtyřlístku** (srdíčkové lístky + tmavý obrys + žilky), posunuté níž na svislý
   střed vizualizace, a přibyl mu **třpyt (✨)**.
+- Odkrytí/zakrytí pole je **plynulé** — grid-rows `0fr→1fr` animace (+ `inert`
+  na skrytém obsahu, aby odkazy nebyly v tab pořadí / a11y stromu).
 
 ### Hlavní strana — reorganizace (patička, tagline, pole)
 - **„Poslední aktualizace sbírky"** (+ ⓘ založení / poslední backfill) přesunuta
