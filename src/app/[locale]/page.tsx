@@ -39,7 +39,7 @@ import { StateBadges } from "@/components/finds/state-badges";
 import { VoteButton } from "@/components/finds/vote-button";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
 import { CollectionFreshnessNote } from "@/components/home/collection-freshness-note";
-import { CloverFactsStatCard } from "@/components/home/clover-facts-stat-card";
+import { CloverFactsInfoButton } from "@/components/home/clover-facts-info-button";
 import { PopularFindWidget } from "@/components/home/popular-find-widget";
 import { getTopFindsWithThumbs } from "@/lib/votes";
 import { DonatedSearchCatcher } from "@/components/home/donated-search-catcher";
@@ -133,6 +133,12 @@ export default async function HomePage() {
     const tr = cloverTranslations[key];
     if (tr) cloverSeedTranslations[key] = tr;
   }
+  // Meta about the FULL fact set, for the ⓘ popover pinned to the hero card
+  // (replaces the old "Zajímavosti o čtyřlístcích" highlights tile).
+  const cloverFactBonus = cloverTexts.filter((c) => c.author === true).length;
+  const cloverFactCategoryKeys = Array.from(
+    new Set(cloverTexts.map((c) => c.category)),
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -164,6 +170,11 @@ export default async function HomePage() {
               texts={cloverSeed}
               translations={cloverSeedTranslations}
               rotationMs={rotation.cloverFactSeconds * 1000}
+            />
+            <CloverFactsInfoButton
+              total={cloverTexts.length}
+              bonus={cloverFactBonus}
+              categoryKeys={cloverFactCategoryKeys}
             />
             <Image
               src="/clover.png"
@@ -318,7 +329,6 @@ export default async function HomePage() {
         t={t}
         locale={locale}
         nf={NF}
-        cloverTexts={cloverTexts}
       />
 
       {/* Popular pick sits below "Zajímavosti" — community spotlight
@@ -707,29 +717,19 @@ function HighlightsSection({
   t,
   locale,
   nf,
-  cloverTexts,
 }: {
   highlights: HomePageData["highlights"];
   recentMonthly: HomePageData["recentMonthly"];
   t: HomeT;
   locale: string;
   nf: Intl.NumberFormat;
-  cloverTexts: ReadonlyArray<CloverText>;
 }) {
   const peakDay = highlights.peakDay;
   const top = highlights.topLocation;
-  const distinctCategoryKeys = Array.from(
-    new Set(cloverTexts.map((c) => c.category)),
-  );
 
   return (
     <section className="mt-8">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <CloverFactsStatCard
-          total={cloverTexts.length}
-          bonus={cloverTexts.filter((c) => c.author === true).length}
-          categoryKeys={distinctCategoryKeys}
-        />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {peakDay ? (
           <PeakDayCard peakDay={peakDay} t={t} locale={locale} nf={nf} />
         ) : (

@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Hlavní strana — „Zajímavosti" jako ⓘ popover u lístečku (místo dlaždice)
+- Dlaždice **„Zajímavosti o čtyřlístcích"** z řady ukazatelů odstraněna (řada
+  je teď 3 sloupce). Její obsah (počet zajímavostí + z toho autorských, počet
+  a názvy kategorií) je teď **ⓘ popover v rohu rotujícího lístečku** v heru
+  (`CloverFactsInfoButton`) — bez tlačítka „Další" (to má lísteček vlastní).
+- **Mrtvý kód uklizen**: `CloverFactsStatCard`, window event
+  `CLOVER_FACT_ADVANCE_EVENT` + jeho listener v kartě, i18n klíče `tileNext*`.
+- „Naposledy darováno" ukazuje nově **jen datum** (bez času — darování je týž
+  den, čas byl šum).
+
 ### Hlavní strana — čerstvost sbírky do jedné řádky (+ⓘ) + „naposledy darováno"
 - Tři řádky metadat pod úvodem (založení / poslední aktualizace / poslední
   doplnění historických) nahrazeny **jednou řádkou** „Poslední aktualizace

@@ -18,13 +18,6 @@ import {
 const DEFAULT_ROTATION_MS = 120_000;
 const TICK_MS = 1_000;
 
-/** Window event name dispatched by the `Drobnosti` highlights tile to
- *  ask this card to advance to the next text and reset its countdown.
- *  Exported so the tile can fire the same literal — keeps the two
- *  components decoupled (no shared context, no lifted state) while still
- *  agreeing on the wire name. */
-export const CLOVER_FACT_ADVANCE_EVENT = "ctyrlistkoteka:clover-fact-advance";
-
 const SOURCE_KEY: Record<CloverTextSource, string> = {
   fact: "cardSourceFact",
   lore: "cardSourceLore",
@@ -203,8 +196,8 @@ export function CloverFactCard({
   // Random advance — pick any index OTHER than the current one, so two
   // consecutive rotations never land on the same text. Uniform across
   // the remaining N-1 entries by sampling an offset in [1, N-1] and
-  // adding it modulo N. Shared by the timer expiry, the "Drobnosti" tile
-  // event, and the in-card shuffle button — all three behave identically.
+  // adding it modulo N. Shared by the timer expiry and the in-card
+  // shuffle button — both behave identically.
   const advance = useCallback(() => {
     const n = allTexts.length;
     nextAtRef.current = Date.now() + rotationMs;
@@ -235,14 +228,8 @@ export function CloverFactCard({
       else setRemainingMs(remaining);
     }, TICK_MS);
 
-    // External trigger from the "Drobnosti" highlights tile — reuse
-    // `advance` so the visitor-facing behaviour matches an auto-rotation.
-    const onAdvance: EventListener = () => advance();
-    window.addEventListener(CLOVER_FACT_ADVANCE_EVENT, onAdvance);
-
     return () => {
       clearInterval(tick);
-      window.removeEventListener(CLOVER_FACT_ADVANCE_EVENT, onAdvance);
     };
   }, [allTexts, rotationMs, advance]);
 
