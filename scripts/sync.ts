@@ -809,7 +809,8 @@ async function phaseFinds(
     ).length;
     const byState = countBy(all.map((f) => f.parsed.state));
     const anonCount = all.filter((f) => f.parsed.isAnonymized).length;
-    const wouldRelink = await reconcileFindLinks(ctx, all, mapToLocation);
+    // No would_relink here: in dry-run mapToLocation is a mapId→mapId
+    // stand-in (see phaseMaps), so a re-link count would be meaningless.
     ctx.log.log({
       event: "finds.plan",
       level: "info",
@@ -818,7 +819,6 @@ async function phaseFinds(
       filename_anon_flag: anonCount,
       by_state: byState,
       unknown_map_refs: unknownLocRefs,
-      would_relink: wouldRelink,
     });
     return all;
   }

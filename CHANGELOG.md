@@ -19,8 +19,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   přiřadí `location_id`/`map_id` z názvu souboru + přítomných map, nezávisle
   na tom, jestli se foto změnilo. **Konzervativní** — jen doplní/opraví, nikdy
   nevynuluje nález, jehož mapa v běhu chybí (mapless/částečný sync tak nesmaže
-  lokace). Běží každý sync (self-healing), loguje `relinked` (v `--dry-run`
-  `would_relink`). Řešení: stačí spustit normální `pnpm sync` (bez
+  lokace). Běží každý ostrý sync (self-healing), loguje `relinked`. Řešení:
+  stačí spustit normální `pnpm sync` (bez
   `--force-regen`, žádné překódování fotek). Detail v `docs/sync-workflow.md`.
 
 ### Statistiky se po syncu neobnovovaly (cache)
