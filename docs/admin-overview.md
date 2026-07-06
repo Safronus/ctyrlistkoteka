@@ -36,7 +36,7 @@ Přibyly v provozu, ve stejném auth + atomic-write + audit patternu:
 | **Rozdané** (`/admin/donated`) | „Pole darovaného štěstí" pod „Malou omluvou" na homepage. Toggle-seznam **darovaných** nálezů od #22094 výš (starší předcházejí nabídce), nejnovější nahoře; zapnuté se vykreslí jako rozházené pin-čtyřlístky. | `src/app/admin/donated/*`, `src/lib/donatedBoard.ts` + `…server.ts`, config `data/.admin/donated-board.json` |
 | **Hlasování** (`/admin/votes`) | Audit + mazání hlasů (single / fingerprint / uuid), tlačítko na kompletní reset. | `src/app/admin/votes/*` |
 | **Návštěvnost** (`/admin/visitors`) | Souhrn návštěvnosti webu. | `src/app/admin/visitors/*` |
-| **Kontroly** (`/admin/checks`) | Kontroly konzistence dat (anonymizace, EXIF datum, originál ↔ výřez, EXIF GPS bez `NO_GPS`…). | `src/app/admin/checks/*`, `src/lib/admin/checks.ts` |
+| **Kontroly** (`/admin/checks`) | Kontroly konzistence dat (anonymizace, EXIF datum, originál ↔ výřez, EXIF GPS bez `NO_GPS`…) + skupina **Překlady (EN)**: poznámky nálezů a popisky map bez anglické varianty, s inline „pozn.“ editorem (CZ + prázdné EN, aby nevznikla kopie). | `src/app/admin/checks/*`, `src/lib/admin/checks.ts`, `src/lib/noteTranslations.ts` |
 | **Audit** (`/admin/audit`) | Prohlížeč append-only audit logu (každá mutace + auth event). | `src/app/admin/audit/*`, `src/lib/admin/audit.ts` |
 
 Konfigy „Efekty" a „Rozdané" žijí v `data/.admin/` vedle sync-statusu a

@@ -12,7 +12,9 @@ import {
   CHECK_GROUP_ORDER,
   CHECK_SUBCATEGORIES,
   EXIF_CHECK_ID,
+  FINDS_MISSING_EN_ID,
   GPS_CHECK_ID,
+  MAPS_MISSING_EN_ID,
   runAllChecks,
   type CheckResult,
   type FindOffender,
@@ -21,6 +23,7 @@ import { AckCheckButton } from "./ack-button";
 import { SyncCropNameButton } from "./sync-crop-name-button";
 import { CopyFindIdsButton } from "./copy-find-ids-button";
 import { CropOffenderTable } from "./crop-offender-table";
+import { MissingEnOffenderTable } from "./missing-en-offender-table";
 import { DeleteAllCropsButton } from "./delete-all-crops-button";
 import { AnonFixButton } from "./anon-fix-button";
 import { anonymizeAnonLocationFinds } from "./anonymize-anon-loc-action";
@@ -469,8 +472,28 @@ function CheckCard({ result }: { result: CheckResult }) {
               />
             )}
 
-          {result.id === "crop-same-size-as-original" &&
-          result.kind === "find" ? (
+          {result.id === FINDS_MISSING_EN_ID && result.kind === "find" ? (
+            <MissingEnOffenderTable
+              kind="find"
+              rows={result.offenders.map((o) => ({
+                id: o.findId,
+                filename: o.filename,
+                cs: o.noteCs ?? o.detail,
+                locationCode: o.locationCode,
+              }))}
+            />
+          ) : result.id === MAPS_MISSING_EN_ID && result.kind === "map" ? (
+            <MissingEnOffenderTable
+              kind="map"
+              rows={result.offenders.map((o) => ({
+                id: o.mapId,
+                filename: o.originalFilename || undefined,
+                cs: o.noteCs ?? o.detail,
+                locationCode: o.locationCode,
+              }))}
+            />
+          ) : result.id === "crop-same-size-as-original" &&
+            result.kind === "find" ? (
             <CropOffenderTable offenders={result.offenders} />
           ) : (
             <div className="mt-4 max-h-96 overflow-auto rounded-md border border-amber-200 bg-white">

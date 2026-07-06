@@ -2,6 +2,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { FindState } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { collectNotesToTranslate } from "@/lib/noteTranslations";
 import { readCheckAckSet } from "./checkAcks";
 import { parseRanges } from "@/lib/parseRanges";
 import {
@@ -50,12 +51,14 @@ interface BaseCheckResult {
 export type CheckGroup =
   | "data-integrity"
   | "filesystem-vs-json"
-  | "filename-cross-ref";
+  | "filename-cross-ref"
+  | "translations";
 
 export const CHECK_GROUP_LABELS: Record<CheckGroup, string> = {
   "data-integrity": "Konzistence dat v DB",
   "filesystem-vs-json": "Konzistence názvů souborů a JSON",
   "filename-cross-ref": "Originály ↔ ořezy",
+  translations: "Překlady (EN)",
 };
 
 /** Render order for the page — fixed so groups appear top-down in a
@@ -65,6 +68,7 @@ export const CHECK_GROUP_ORDER: readonly CheckGroup[] = [
   "data-integrity",
   "filesystem-vs-json",
   "filename-cross-ref",
+  "translations",
 ];
 
 export interface FindCheckResult extends BaseCheckResult {
@@ -112,6 +116,10 @@ export interface FindOffender {
    *  CHECK_SUBCATEGORY_ORDER below pins the display order so the
    *  same labels always appear in the same sequence. */
   subCategory?: CheckSubCategory;
+  /** The find's public Czech note (override.cs || notes) — set by the
+   *  missing-EN translation check so its inline editor can seed the CS
+   *  field while the operator types the English. */
+  noteCs?: string;
 }
 
 /** Pre-defined sub-category labels used by the filename↔JSON checks.
@@ -135,6 +143,10 @@ export interface MapOffender {
   originalFilename: string;
   locationCode: string;
   detail: string;
+  /** The map's public Czech caption (override.cs || description) — set by
+   *  the missing-EN translation check so its inline editor can seed the CS
+   *  field while the operator types the English. */
+  noteCs?: string;
 }
 
 
@@ -1279,6 +1291,89 @@ async function checkCropSameSizeAsOriginal(): Promise<FindCheckResult> {
   };
 }
 
+/** Stable ids of the missing-EN translation checks — the page keys its
+ *  inline CS/EN note editor off them. */
+export const FINDS_MISSING_EN_ID = "finds-missing-en";
+export const MAPS_MISSING_EN_ID = "maps-missing-en";
+
+/** Find notes shown publicly that still lack an English override. Reuses
+ *  collectNotesToTranslate (the exact "missing EN" set as /admin/translations)
+ *  and enriches each with its original filename + location code so the page
+ *  can offer an inline editor. Surfaces after a sync brings in new notes. */
+async function checkFindsMissingEn(): Promise<FindCheckResult> {
+  const base = {
+    kind: "find" as const,
+    group: "translations" as const,
+    id: FINDS_MISSING_EN_ID,
+    title: "Poznámky nálezů bez anglického překladu",
+    description:
+      "Nálezy s českou poznámkou, které zatím nemají anglickou variantu. Doplň EN přes tlačítko „pozn.“ u řádku (nebo hromadně v sekci Překlady).",
+  };
+  const { finds } = await collectNotesToTranslate();
+  if (finds.length === 0) return { ...base, offenders: [] };
+
+  const rows = await prisma.find.findMany({
+    where: { id: { in: finds.map((f) => f.id) } },
+    select: {
+      id: true,
+      location: { select: { code: true } },
+      images: {
+        where: { imageType: "ORIGINAL" },
+        select: { originalFilename: true, isPrimary: true },
+        orderBy: { isPrimary: "desc" },
+        take: 1,
+      },
+    },
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+
+  const offenders: FindOffender[] = finds.map((f) => {
+    const r = byId.get(f.id);
+    const filename = r?.images[0]?.originalFilename;
+    return {
+      findId: f.id,
+      locationCode: r?.location?.code ?? "—",
+      detail: f.cs,
+      noteCs: f.cs,
+      ...(filename ? { filename } : {}),
+    };
+  });
+  return { ...base, offenders };
+}
+
+/** Map captions shown publicly that still lack an English override. Same
+ *  shape as the find variant, keyed by MAP_ID. */
+async function checkMapsMissingEn(): Promise<MapCheckResult> {
+  const base = {
+    kind: "map" as const,
+    group: "translations" as const,
+    id: MAPS_MISSING_EN_ID,
+    title: "Popisky map bez anglického překladu",
+    description:
+      "Lokační mapy s českým popiskem, které zatím nemají anglickou variantu. Doplň EN přes tlačítko „pozn.“ u řádku (nebo hromadně v sekci Překlady).",
+  };
+  const { maps } = await collectNotesToTranslate();
+  if (maps.length === 0) return { ...base, offenders: [] };
+
+  const rows = await prisma.locationMap.findMany({
+    where: { id: { in: maps.map((m) => m.id) } },
+    select: { id: true, originalFilename: true, locationCode: true },
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+
+  const offenders: MapOffender[] = maps.map((m) => {
+    const r = byId.get(m.id);
+    return {
+      mapId: m.id,
+      originalFilename: r?.originalFilename ?? "",
+      locationCode: r?.locationCode ?? "—",
+      detail: m.cs,
+      noteCs: m.cs,
+    };
+  });
+  return { ...base, offenders };
+}
+
 export async function runAllChecks(): Promise<CheckResult[]> {
   return Promise.all([
     checkFindsInAnonLocsNotAnon(),
@@ -1293,6 +1388,8 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     checkJsonNotInFilename(),
     checkOriginalCropFilenameMismatch(),
     checkCropSameSizeAsOriginal(),
+    checkFindsMissingEn(),
+    checkMapsMissingEn(),
   ]);
 }
 

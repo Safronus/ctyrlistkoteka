@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — check „bez EN překladu" s inline editací
+- Nové kontroly **„Poznámky nálezů bez EN"** a **„Popisky map bez EN"** ve
+  vlastní skupině **Překlady (EN)** na `/admin/checks`. Po syncu nových
+  nálezů/map hned ukážou, u kterých chybí anglická varianta.
+- **Inline editace:** u každého řádku tlačítko **„pozn.“** otevře CZ/EN editor
+  přednastavený českým textem a **prázdným EN** (aby nevznikla nechtěná kopie
+  češtiny). Uložení zapíše override a řádek po refreshi zmizí. (Alternativa:
+  hromadně v sekci Překlady.)
+- Sdílí `collectNotesToTranslate` s exportem, takže počty „bez EN" sedí napříč
+  `/admin/checks` i `/admin/translations`.
+
 ### Admin — dávkový CZ→EN překlad poznámek (stáhnout/nahrát na /admin)
 - Nová sekce **`/admin/translations`** („Překlady"): **stáhne** JSON s českými
   zdrojovými texty poznámek nálezů + popisků map; po přeložení ho **nahraješ
