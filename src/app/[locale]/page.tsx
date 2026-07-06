@@ -42,9 +42,8 @@ import { CollectionFreshnessNote } from "@/components/home/collection-freshness-
 import { TimePaceSummary } from "@/components/stats/time-pace-summary";
 import { ConceptSwitcher } from "@/components/home/concept-switcher";
 import {
-  ConceptCloverHeart,
-  ConceptMeadow,
   ConceptPosli,
+  ConceptZaplava,
 } from "@/components/home/donation-concepts";
 import { CloverFactsInfoButton } from "@/components/home/clover-facts-info-button";
 import { PopularFindWidget } from "@/components/home/popular-find-widget";
@@ -272,17 +271,11 @@ export default async function HomePage() {
           four reorganisation concepts. Remove ConceptSwitcher + the concepts
           once one is picked, keeping just the winner. */}
       <ConceptSwitcher
-        labels={[
-          "Současné",
-          "3 · Karta (základ)",
-          "A · V srdci čtyřlístku",
-          "B · Louka štěstí",
-        ]}
+        labels={["Současné", "3 · Karta (základ)", "B · Záplava čtyřlístků"]}
       >
         <DonatedShowcase {...donationProps} />
         <ConceptPosli {...donationProps} />
-        <ConceptCloverHeart {...donationProps} />
-        <ConceptMeadow {...donationProps} />
+        <ConceptZaplava {...donationProps} />
       </ConceptSwitcher>
 
       <section className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

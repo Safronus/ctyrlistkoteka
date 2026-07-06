@@ -4,8 +4,8 @@ import { Link } from "@/i18n/navigation";
 import { DonatedSearchCatcher } from "./donated-search-catcher";
 
 /**
- * TEMPORARY debug — variant 3 ("Pošli štěstí") was chosen; these are richer
- * clover/meadow visualisations that house the donation offer + LinkedIn CTA.
+ * TEMPORARY debug — variant 3 chosen and refined: no card/frame/background,
+ * just the offer text + LinkedIn CTA amid a flood of gently swaying clovers.
  * The count line + drift animation (with the "landing" clover → #pole) stay
  * on top. Behind ConceptSwitcher; keep the winner + delete the rest later.
  */
@@ -20,7 +20,7 @@ interface ConceptProps {
   nf: Intl.NumberFormat;
 }
 
-/* ── shared: the swarm SVG glyph ── */
+/* ── the swarm SVG glyph (drift animation) ── */
 function CloverShape() {
   return (
     <g fill="#15803d">
@@ -161,42 +161,6 @@ function LinkedInButton({ t }: { t: HomeT }) {
   );
 }
 
-/** A lush four-leaf clover glyph — rounded gradient leaves + a curved stem.
- *  Used big (backdrop) and small (meadow). */
-function BigClover({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 200 236" className={className} aria-hidden>
-      <defs>
-        <radialGradient id="ctyr-leaf" cx="46%" cy="34%" r="70%">
-          <stop offset="0%" stopColor="#bbf7d0" />
-          <stop offset="45%" stopColor="#4ade80" />
-          <stop offset="100%" stopColor="#15803d" />
-        </radialGradient>
-      </defs>
-      {/* stem */}
-      <path
-        d="M100 132 q -4 52 -26 78"
-        stroke="#15803d"
-        strokeWidth="6"
-        fill="none"
-        strokeLinecap="round"
-      />
-      <g fill="url(#ctyr-leaf)" stroke="#16a34a" strokeWidth="1.5">
-        <ellipse cx="70" cy="64" rx="38" ry="46" transform="rotate(-45 70 64)" />
-        <ellipse cx="130" cy="64" rx="38" ry="46" transform="rotate(45 130 64)" />
-        <ellipse cx="70" cy="122" rx="38" ry="46" transform="rotate(45 70 122)" />
-        <ellipse cx="130" cy="122" rx="38" ry="46" transform="rotate(-45 130 122)" />
-      </g>
-      {/* soft leaf highlights */}
-      <g fill="#ffffff" opacity="0.28">
-        <ellipse cx="60" cy="50" rx="10" ry="15" transform="rotate(-45 60 50)" />
-        <ellipse cx="140" cy="50" rx="10" ry="15" transform="rotate(45 140 50)" />
-      </g>
-      <circle cx="100" cy="93" r="11" fill="#166534" />
-    </svg>
-  );
-}
-
 /* ─────────── Concept 3 (base) — the plain letter card ─────────── */
 export function ConceptPosli(p: ConceptProps) {
   const { t } = p;
@@ -225,105 +189,94 @@ export function ConceptPosli(p: ConceptProps) {
   );
 }
 
-/* ───────── A — V srdci čtyřlístku (offer inside a big clover) ───────── */
-export function ConceptCloverHeart(p: ConceptProps) {
+/* ─────────── B — Záplava čtyřlístků (no card, just a flood) ───────────
+ * Clovers cluster along the edges (top band, sides, and a denser "grass"
+ * row at the bottom) and thin out — very faint — behind the centred text so
+ * it stays readable. Deterministic (SSR-stable, no hydration drift). */
+const FLOOD: ReadonlyArray<{ l: string; t: string; size: number; op: number }> =
+  [
+    // top band
+    { l: "3%", t: "1%", size: 28, op: 0.5 },
+    { l: "15%", t: "8%", size: 18, op: 0.36 },
+    { l: "28%", t: "2%", size: 23, op: 0.44 },
+    { l: "42%", t: "7%", size: 15, op: 0.26 },
+    { l: "57%", t: "1%", size: 21, op: 0.42 },
+    { l: "70%", t: "8%", size: 17, op: 0.32 },
+    { l: "84%", t: "2%", size: 26, op: 0.48 },
+    { l: "95%", t: "9%", size: 16, op: 0.3 },
+    // left column
+    { l: "1%", t: "28%", size: 21, op: 0.38 },
+    { l: "7%", t: "50%", size: 16, op: 0.28 },
+    { l: "2%", t: "70%", size: 25, op: 0.46 },
+    { l: "11%", t: "86%", size: 18, op: 0.34 },
+    // right column
+    { l: "97%", t: "30%", size: 21, op: 0.38 },
+    { l: "91%", t: "52%", size: 16, op: 0.28 },
+    { l: "98%", t: "72%", size: 23, op: 0.44 },
+    { l: "88%", t: "88%", size: 18, op: 0.34 },
+    // bottom "grass" row (denser)
+    { l: "6%", t: "95%", size: 27, op: 0.52 },
+    { l: "18%", t: "90%", size: 19, op: 0.4 },
+    { l: "30%", t: "96%", size: 23, op: 0.46 },
+    { l: "42%", t: "91%", size: 16, op: 0.32 },
+    { l: "52%", t: "97%", size: 21, op: 0.44 },
+    { l: "63%", t: "90%", size: 18, op: 0.38 },
+    { l: "74%", t: "96%", size: 25, op: 0.48 },
+    { l: "86%", t: "92%", size: 17, op: 0.34 },
+    { l: "95%", t: "97%", size: 20, op: 0.42 },
+    // faint scatter behind the text
+    { l: "24%", t: "34%", size: 14, op: 0.13 },
+    { l: "68%", t: "30%", size: 13, op: 0.12 },
+    { l: "33%", t: "58%", size: 15, op: 0.15 },
+    { l: "60%", t: "62%", size: 13, op: 0.13 },
+    { l: "48%", t: "44%", size: 12, op: 0.1 },
+    { l: "17%", t: "62%", size: 12, op: 0.12 },
+    { l: "80%", t: "60%", size: 14, op: 0.13 },
+  ];
+
+function FloodClover({ size, shade }: { size: number; shade: string }) {
+  return (
+    <svg viewBox="0 0 100 100" width={size} height={size} className="block" aria-hidden>
+      <g fill={shade}>
+        <ellipse cx="35" cy="35" rx="17" ry="21" transform="rotate(-45 35 35)" />
+        <ellipse cx="65" cy="35" rx="17" ry="21" transform="rotate(45 65 35)" />
+        <ellipse cx="35" cy="65" rx="17" ry="21" transform="rotate(45 35 65)" />
+        <ellipse cx="65" cy="65" rx="17" ry="21" transform="rotate(-45 65 65)" />
+        <circle cx="50" cy="50" r="6" fill="#166534" />
+      </g>
+    </svg>
+  );
+}
+
+const SHADES = ["#3f9142", "#4d9748", "#2f8038", "#57a457"];
+
+export function ConceptZaplava(p: ConceptProps) {
   const { t } = p;
   return (
     <section className="text-center">
       <CountLine {...p} />
       <DriftSvg poleHref="#pole" />
-      <div className="relative mx-auto mt-4 flex min-h-[19rem] max-w-lg items-center justify-center px-2 sm:min-h-[21rem]">
-        <BigClover className="absolute left-1/2 top-0 h-full w-auto -translate-x-1/2 drop-shadow-[0_10px_24px_rgba(21,128,61,0.25)]" />
-        {/* content nestled in the clover's heart */}
-        <div className="relative z-10 mx-6 mt-[-2rem] max-w-[19rem] rounded-2xl bg-white/85 px-5 py-4 shadow-lg ring-1 ring-emerald-100 backdrop-blur-sm">
-          <div className="text-2xl" aria-hidden>
-            💌
-          </div>
-          <p className="mt-1 text-sm leading-relaxed text-gray-700">
-            {t("disclaimerOffer")}
-          </p>
-          <p className="mt-2 text-base font-bold text-brand-700">
-            {t("disclaimerTagline")}
-          </p>
-          <div className="mt-3 flex justify-center">
-            <LinkedInButton t={t} />
-          </div>
-        </div>
-      </div>
-      <div className="mt-3">
-        <DonatedSearchCatcher />
-      </div>
-    </section>
-  );
-}
-
-/* ───────── B — Louka štěstí (a meadow / field of clovers) ───────── */
-const MEADOW = [
-  { l: "5%", b: "6%", size: 30, op: 0.55 },
-  { l: "13%", b: "16%", size: 20, op: 0.4 },
-  { l: "21%", b: "4%", size: 26, op: 0.5 },
-  { l: "30%", b: "12%", size: 16, op: 0.32 },
-  { l: "40%", b: "5%", size: 22, op: 0.45 },
-  { l: "50%", b: "14%", size: 15, op: 0.3 },
-  { l: "60%", b: "6%", size: 24, op: 0.48 },
-  { l: "69%", b: "13%", size: 18, op: 0.36 },
-  { l: "78%", b: "4%", size: 28, op: 0.52 },
-  { l: "87%", b: "15%", size: 19, op: 0.38 },
-  { l: "94%", b: "7%", size: 23, op: 0.44 },
-  { l: "9%", b: "70%", size: 14, op: 0.22 },
-  { l: "89%", b: "66%", size: 16, op: 0.24 },
-  { l: "46%", b: "78%", size: 12, op: 0.18 },
-];
-
-function MeadowClovers() {
-  return (
-    <>
       <style>{`
-        @keyframes ctyr-sway { 0%,100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+        @keyframes ctyr-sway { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
         @media (prefers-reduced-motion: reduce) { .ctyr-sway { animation: none !important; } }
       `}</style>
-      {MEADOW.map((m, i) => (
-        <span
-          key={i}
-          aria-hidden
-          className="ctyr-sway pointer-events-none absolute"
-          style={{
-            left: m.l,
-            bottom: m.b,
-            opacity: m.op,
-            transformOrigin: "bottom center",
-            animation: `ctyr-sway ${3.5 + (i % 4) * 0.7}s ease-in-out ${-(i % 5) * 0.6}s infinite`,
-          }}
-        >
-          <svg
-            viewBox="0 0 100 100"
-            width={m.size}
-            height={m.size}
-            className="block"
+      <div className="relative mx-auto mt-4 flex min-h-[24rem] max-w-2xl items-center justify-center px-4">
+        {FLOOD.map((c, i) => (
+          <span
+            key={i}
             aria-hidden
+            className="ctyr-sway pointer-events-none absolute"
+            style={{
+              left: c.l,
+              top: c.t,
+              opacity: c.op,
+              transformOrigin: "bottom center",
+              animation: `ctyr-sway ${3.4 + (i % 5) * 0.6}s ease-in-out ${-(i % 6) * 0.5}s infinite`,
+            }}
           >
-            <g fill="#3f9142">
-              <ellipse cx="35" cy="35" rx="17" ry="21" transform="rotate(-45 35 35)" />
-              <ellipse cx="65" cy="35" rx="17" ry="21" transform="rotate(45 65 35)" />
-              <ellipse cx="35" cy="65" rx="17" ry="21" transform="rotate(45 35 65)" />
-              <ellipse cx="65" cy="65" rx="17" ry="21" transform="rotate(-45 65 65)" />
-              <circle cx="50" cy="50" r="6" fill="#166534" />
-            </g>
-          </svg>
-        </span>
-      ))}
-    </>
-  );
-}
-
-export function ConceptMeadow(p: ConceptProps) {
-  const { t } = p;
-  return (
-    <section className="text-center">
-      <CountLine {...p} />
-      <DriftSvg poleHref="#pole" />
-      <div className="relative mx-auto mt-4 max-w-2xl overflow-hidden rounded-[2rem] border border-emerald-200 bg-gradient-to-b from-emerald-50 via-green-50 to-emerald-100/70 px-6 pb-10 pt-8 shadow-sm">
-        <MeadowClovers />
+            <FloodClover size={c.size} shade={SHADES[i % SHADES.length]!} />
+          </span>
+        ))}
         <div className="relative z-10 mx-auto max-w-md">
           <div className="text-2xl" aria-hidden>
             🍀😇💌
