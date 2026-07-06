@@ -11,10 +11,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ### Admin — dávkový CZ→EN překlad poznámek (stáhnout/nahrát na /admin)
 - Nová sekce **`/admin/translations`** („Překlady"): **stáhne** JSON s českými
-  zdrojovými texty všech poznámek nálezů + popisků map, které ještě nemají EN
-  variantu; po přeložení ho **nahraješ zpět** — zapíše se jen `en` do override
-  vrstev (čeština dál sleduje název souboru / LSP). Ukazuje počty „zbývá
-  přeložit".
+  zdrojovými texty poznámek nálezů + popisků map; po přeložení ho **nahraješ
+  zpět** — zapíše se jen `en` do override vrstev (čeština dál sleduje název
+  souboru / LSP). Ukazuje počty „celkem" a „bez EN".
+- **Dvě varianty stažení:** *„Vše (ke kontrole)"* (`?all=1` — i položky, co už
+  EN mají, s přiloženým současným `en`, na odhalení nepřeložených CS-kopií) a
+  *„Jen nepřeložené"*.
 - **Bez SSH/pnpm** — celé přes autentizované admin API (`notes/export` GET
   download, `notes/import` POST). Po importu se veřejné stránky přegenerují.
 - **Ochrana soukromí:** export vynechává anonymizované + darované nálezy a

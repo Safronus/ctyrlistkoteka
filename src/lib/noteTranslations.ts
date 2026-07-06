@@ -20,23 +20,43 @@ import {
  * excluded, so their notes never leave the box.
  */
 
-export interface NotesToTranslate {
-  /** Find id → its public Czech note (override.cs || finds.notes). */
-  finds: { id: number; cs: string }[];
-  /** Map id → its public Czech caption (override.cs || map.description). */
-  maps: { id: number; cs: string }[];
+export interface NoteToTranslate {
+  id: number;
+  /** Public Czech source text (override.cs || finds.notes / map.description). */
+  cs: string;
+  /** Current EN override, if any. Included only by the "all" (review) export
+   *  so bogus CS-copies (en === cs) and stale translations are visible and
+   *  can be re-checked; absent from the default "missing only" export. */
+  en?: string;
 }
 
-/** Every find note + map caption shown publicly that still LACKS an English
- *  override, as CS source text ready for translation. */
-export async function collectNotesToTranslate(): Promise<NotesToTranslate> {
+export interface NotesToTranslate {
+  finds: NoteToTranslate[];
+  maps: NoteToTranslate[];
+}
+
+/**
+ * Every find note + map caption shown publicly, as CS source ready for
+ * translation.
+ *
+ * @param opts.all When false (default) only entries that still LACK an EN
+ *   override are returned, as `{ id, cs }`. When true EVERY entry with a CS
+ *   source is returned, with its current `en` included — for a full review
+ *   pass (an EN that just copies the CS, or a stale translation, is only
+ *   visible this way).
+ */
+export async function collectNotesToTranslate(opts?: {
+  all?: boolean;
+}): Promise<NotesToTranslate> {
+  const all = opts?.all ?? false;
   const [findOverrides, mapOverrides] = await Promise.all([
     readFindNoteOverrides(),
     readMapNoteOverrides(),
   ]);
 
   // Finds — public note = override.cs || notes. Match the find-detail note
-  // gate: non-anonymized AND not donated. Skip rows already carrying EN.
+  // gate: non-anonymized AND not donated. In "missing" mode skip rows that
+  // already carry EN; in "all" mode keep them and surface the current EN.
   const findRows = await prisma.find.findMany({
     where: {
       isAnonymized: false,
@@ -45,12 +65,13 @@ export async function collectNotesToTranslate(): Promise<NotesToTranslate> {
     select: { id: true, notes: true },
     orderBy: { id: "asc" },
   });
-  const finds: { id: number; cs: string }[] = [];
+  const finds: NoteToTranslate[] = [];
   for (const r of findRows) {
     const ov = findOverrides.get(r.id);
-    if (ov?.en) continue;
+    if (!all && ov?.en) continue;
     const cs = (ov?.cs ?? r.notes ?? "").trim();
-    if (cs) finds.push({ id: r.id, cs });
+    if (!cs) continue;
+    finds.push(all && ov?.en ? { id: r.id, cs, en: ov.en } : { id: r.id, cs });
   }
 
   // Maps — public caption = override.cs || description. Non-anonymized only.
@@ -59,12 +80,13 @@ export async function collectNotesToTranslate(): Promise<NotesToTranslate> {
     select: { id: true, description: true },
     orderBy: { id: "asc" },
   });
-  const maps: { id: number; cs: string }[] = [];
+  const maps: NoteToTranslate[] = [];
   for (const r of mapRows) {
     const ov = mapOverrides.get(r.id);
-    if (ov?.en) continue;
+    if (!all && ov?.en) continue;
     const cs = (ov?.cs ?? r.description ?? "").trim();
-    if (cs) maps.push({ id: r.id, cs });
+    if (!cs) continue;
+    maps.push(all && ov?.en ? { id: r.id, cs, en: ov.en } : { id: r.id, cs });
   }
 
   return { finds, maps };

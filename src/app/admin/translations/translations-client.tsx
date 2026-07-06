@@ -11,11 +11,15 @@ import { CheckCircle2, Download, Loader2, Upload } from "lucide-react";
  * body, then refreshes so the "remaining" counts update.
  */
 export function TranslationsClient({
-  findsCount,
-  mapsCount,
+  findsTotal,
+  findsMissing,
+  mapsTotal,
+  mapsMissing,
 }: {
-  findsCount: number;
-  mapsCount: number;
+  findsTotal: number;
+  findsMissing: number;
+  mapsTotal: number;
+  mapsMissing: number;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -64,21 +68,30 @@ export function TranslationsClient({
     });
   };
 
-  const total = findsCount + mapsCount;
+  const missingTotal = findsMissing + mapsMissing;
 
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm">
-        <span className="text-gray-600">Bez anglického překladu zbývá: </span>
-        <strong className="text-gray-900">{findsCount}</strong>
-        <span className="text-gray-600"> poznámek nálezů + </span>
-        <strong className="text-gray-900">{mapsCount}</strong>
-        <span className="text-gray-600"> popisků map.</span>
-        {total === 0 && (
-          <span className="ml-1 font-medium text-brand-700">
-            Vše přeloženo 🎉
-          </span>
-        )}
+        <div>
+          <span className="text-gray-600">Celkem k dispozici: </span>
+          <strong className="text-gray-900">{findsTotal}</strong>
+          <span className="text-gray-600"> poznámek nálezů + </span>
+          <strong className="text-gray-900">{mapsTotal}</strong>
+          <span className="text-gray-600"> popisků map.</span>
+        </div>
+        <div className="mt-1">
+          <span className="text-gray-600">Zatím bez EN varianty: </span>
+          <strong className="text-gray-900">{findsMissing}</strong>
+          <span className="text-gray-600"> + </span>
+          <strong className="text-gray-900">{mapsMissing}</strong>
+          <span className="text-gray-600">.</span>
+          {missingTotal === 0 && (
+            <span className="ml-1 font-medium text-brand-700">
+              Vše má EN 🎉 (ale zkontroluj přes „vše“)
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-4">
@@ -86,16 +99,28 @@ export function TranslationsClient({
           1. Stáhnout k překladu
         </h2>
         <p className="mb-3 text-xs text-gray-500">
-          České zdrojové texty (jen ty bez EN varianty) jako JSON.
+          <strong>„Vše (ke kontrole)“</strong> = všechny texty včetně stávajícího
+          EN (na odhalení nepřeložených kopií). <strong>„Jen nepřeložené“</strong>{" "}
+          = pouze položky bez EN varianty.
         </p>
-        <a
-          href="/admin/api/notes/export"
-          download
-          className="inline-flex items-center gap-1.5 rounded bg-gray-800 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-900"
-        >
-          <Download className="h-4 w-4" aria-hidden />
-          Stáhnout to-translate.json
-        </a>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href="/admin/api/notes/export?all=1"
+            download
+            className="inline-flex items-center gap-1.5 rounded bg-gray-800 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-900"
+          >
+            <Download className="h-4 w-4" aria-hidden />
+            Stáhnout vše (ke kontrole)
+          </a>
+          <a
+            href="/admin/api/notes/export"
+            download
+            className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          >
+            <Download className="h-4 w-4" aria-hidden />
+            Jen nepřeložené
+          </a>
+        </div>
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-4">

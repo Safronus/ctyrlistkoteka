@@ -9,9 +9,11 @@ export const dynamic = "force-dynamic";
 export default async function TranslationsAdminPage() {
   await ensureAdminAuth();
 
-  // Counts of what still lacks an EN translation, so the operator sees the
-  // remaining work at a glance (and 0/0 once everything's done).
-  const { finds, maps } = await collectNotesToTranslate();
+  // Full set (with current EN) so we can show both the total and how many
+  // still lack an EN variant.
+  const { finds, maps } = await collectNotesToTranslate({ all: true });
+  const findsMissing = finds.filter((f) => !f.en).length;
+  const mapsMissing = maps.filter((m) => !m.en).length;
 
   return (
     <div className="space-y-4">
@@ -35,9 +37,20 @@ export default async function TranslationsAdminPage() {
           se <strong>neexportují</strong> (jejich text se veřejně nezobrazuje).
           Po nahrání se veřejné stránky přegenerují.
         </p>
+        <p className="max-w-3xl text-sm text-gray-600">
+          Dřív se EN varianta občas jen <strong>zkopírovala z češtiny</strong>{" "}
+          bez překladu — proto je tu i <strong>„Stáhnout vše (ke kontrole)“</strong>
+          , které zahrne i položky s EN a přiloží u nich současný{" "}
+          <code>en</code> k revizi.
+        </p>
       </header>
 
-      <TranslationsClient findsCount={finds.length} mapsCount={maps.length} />
+      <TranslationsClient
+        findsTotal={finds.length}
+        findsMissing={findsMissing}
+        mapsTotal={maps.length}
+        mapsMissing={mapsMissing}
+      />
     </div>
   );
 }
