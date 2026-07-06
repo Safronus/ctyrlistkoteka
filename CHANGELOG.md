@@ -9,6 +9,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Hlavní strana — zrušena sekce „Retrospektiva"
+- Odstraněna spodní sekce **„Retrospektiva"** (look-back mřížka napříč roky).
+  Uklizen i mrtvý kód: komponenta `retrospective-grid.tsx`, query
+  `queries/retrospective.ts`, fetch/import na hlavní straně a celý i18n
+  namespace `Retrospective` (cs + en).
+
 ### Hlavní strana — panel „Odhadovaná doba sbírání" + centrování Top lokality
 - Nad třemi ukazateli je nově **panel přes celou šířku** s **„Odhadovanou
   dobou sbírání"** + průměrným tempem (od počátku sbírání) — stejná část jako

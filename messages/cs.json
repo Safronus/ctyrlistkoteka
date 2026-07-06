@@ -289,20 +289,6 @@
     "11": "lis",
     "12": "pro"
   },
-  "Retrospective": {
-    "heading": "Retrospektiva — kde dnes stojím napříč roky",
-    "anchorDate": "{day}. {month}. {year} · ISO týden {isoWeek}",
-    "totalSuffix": "Celkem za toto období: <total></total> {count, plural, one {nález} few {nálezy} other {nálezů}}",
-    "barTitle": "{year}: {count, number} {count, plural, one {nález} few {nálezy} other {nálezů}}",
-    "dayLabel": "Den {day}. {month}.",
-    "dayHint": "{day}. {month}. napříč všemi roky",
-    "weekLabel": "Týden {isoWeek}",
-    "weekHint": "ISO týden {isoWeek} napříč všemi roky",
-    "monthLabel": "{monthName}",
-    "monthHint": "{monthName} napříč všemi roky",
-    "yearLabel": "Rok {year}",
-    "yearHint": "Celý rok napříč historií sbírky"
-  },
   "RandomFind": {
     "heading": "Náhodný 🍀",
     "showAnotherAria": "Zobrazit jiný náhodný čtyřlístek",

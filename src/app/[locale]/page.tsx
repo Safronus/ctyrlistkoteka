@@ -22,7 +22,6 @@ import { Link } from "@/i18n/navigation";
 import { getHomePageData, type HomePageData } from "@/lib/queries/home";
 import { getRandomFindShowcase } from "@/lib/queries/random-find";
 import { getHomeRotationSettings } from "@/lib/homeRotation.server";
-import { getRetrospective } from "@/lib/queries/retrospective";
 import { getStatsTimeAndPace } from "@/lib/queries/stats";
 import { getWatermarkMeta } from "@/lib/queries/watermark";
 import {
@@ -45,7 +44,6 @@ import { CloverFactsInfoButton } from "@/components/home/clover-facts-info-butto
 import { PopularFindWidget } from "@/components/home/popular-find-widget";
 import { getTopFindsWithThumbs } from "@/lib/votes";
 import { DonatedSearchCatcher } from "@/components/home/donated-search-catcher";
-import { RetrospectiveGrid } from "@/components/home/retrospective-grid";
 import { DisclaimerSection } from "@/components/home/disclaimer-section";
 import { DonatedBoardSection } from "@/components/home/donated-board";
 import {
@@ -94,7 +92,6 @@ export default async function HomePage() {
     data,
     watermark,
     randomFind,
-    retrospective,
     cloverTexts,
     cloverTranslations,
     popularTop,
@@ -104,7 +101,6 @@ export default async function HomePage() {
     getHomePageData(),
     getWatermarkMeta(),
     getRandomFindShowcase(),
-    getRetrospective(),
     getCloverTexts(),
     getCloverTranslations(),
     // Top 3 across all-time — homepage "Nejoblíbenější čtyřlístek"
@@ -361,11 +357,6 @@ export default async function HomePage() {
         rotationMs={rotation.randomFindSeconds * 1000}
         screensaverMs={rotation.screensaverSeconds * 1000}
       />
-
-      {/* Retrospective last — it's a heavy "look-back" section that
-       *  belongs at the bottom of the page, after the visitor has
-       *  seen the current state of the collection. */}
-      {retrospective && <RetrospectiveGrid data={retrospective} />}
 
       {/* Closing apology + "luck is free" offer. */}
       <DisclaimerSection />

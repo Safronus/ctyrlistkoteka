@@ -290,20 +290,6 @@
     "11": "Nov",
     "12": "Dec"
   },
-  "Retrospective": {
-    "heading": "Retrospective — where I stand today across the years",
-    "anchorDate": "{day}/{month}/{year} · ISO week {isoWeek}",
-    "totalSuffix": "Total for this period: <total></total> {count, plural, one {find} other {finds}}",
-    "barTitle": "{year}: {count, number} {count, plural, one {find} other {finds}}",
-    "dayLabel": "Day {day}/{month}",
-    "dayHint": "{day}/{month} across all years",
-    "weekLabel": "Week {isoWeek}",
-    "weekHint": "ISO week {isoWeek} across all years",
-    "monthLabel": "{monthName}",
-    "monthHint": "{monthName} across all years",
-    "yearLabel": "Year {year}",
-    "yearHint": "The whole year across the collection's history"
-  },
   "RandomFind": {
     "heading": "Random 🍀",
     "showAnotherAria": "Show another random clover",

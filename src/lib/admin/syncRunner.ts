@@ -183,8 +183,8 @@ export async function startRun(opts: StartOptions): Promise<SyncStatus> {
         });
       }
       // Drop the ISR cache entries for the public surfaces that
-      // depend on freshly synced data. The home retrospective and the
-      // /sbirka grid both rely on `revalidate = 3600` — without an
+      // depend on freshly synced data. The home page and the /sbirka
+      // grid both rely on `revalidate = 3600` — without an
       // explicit kick the user sees stale numbers for up to an hour
       // after adding today's finds, which defeats the purpose of
       // running a sync. PM2 cluster mode is fine here: revalidatePath
