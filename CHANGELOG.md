@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Hlavní strana — panel „Odhadovaná doba sbírání" + centrování Top lokality
+- Nad třemi ukazateli je nově **panel přes celou šířku** s **„Odhadovanou
+  dobou sbírání"** + průměrným tempem (od počátku sbírání) — stejná část jako
+  na `/statistiky`. Vytaženo do sdílené `TimePaceSummary` (statistiky ji
+  používá taky; per-year rozpad zůstává jen tam).
+- **Fix**: název lokality v panelu „Top lokalita" byl mírně vlevo (kvůli
+  `pr-8` kolem proklik tlačítka na detail) → `px-8` (symetrické = zůstane na
+  střed, pořád mimo tlačítko).
+
 ### Hlavní strana — „Zajímavosti" jako ⓘ popover u lístečku (místo dlaždice)
 - Dlaždice **„Zajímavosti o čtyřlístcích"** z řady ukazatelů odstraněna (řada
   je teď 3 sloupce). Její obsah (počet zajímavostí + z toho autorských, počet

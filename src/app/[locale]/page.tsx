@@ -23,6 +23,7 @@ import { getHomePageData, type HomePageData } from "@/lib/queries/home";
 import { getRandomFindShowcase } from "@/lib/queries/random-find";
 import { getHomeRotationSettings } from "@/lib/homeRotation.server";
 import { getRetrospective } from "@/lib/queries/retrospective";
+import { getStatsTimeAndPace } from "@/lib/queries/stats";
 import { getWatermarkMeta } from "@/lib/queries/watermark";
 import {
   formatDateCs,
@@ -39,6 +40,7 @@ import { StateBadges } from "@/components/finds/state-badges";
 import { VoteButton } from "@/components/finds/vote-button";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
 import { CollectionFreshnessNote } from "@/components/home/collection-freshness-note";
+import { TimePaceSummary } from "@/components/stats/time-pace-summary";
 import { CloverFactsInfoButton } from "@/components/home/clover-facts-info-button";
 import { PopularFindWidget } from "@/components/home/popular-find-widget";
 import { getTopFindsWithThumbs } from "@/lib/votes";
@@ -83,6 +85,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function HomePage() {
   const locale = await getLocale();
   const t = await getTranslations("Home");
+  // "Statistiky" namespace — the collecting-time panel reuses the same
+  // labels as /statistiky (via the shared TimePaceSummary component).
+  const tStats = await getTranslations("Statistiky");
   const intlLocale = toIntlLocale(locale);
   const NF = new Intl.NumberFormat(intlLocale);
   const [
@@ -94,6 +99,7 @@ export default async function HomePage() {
     cloverTranslations,
     popularTop,
     rotation,
+    timePace,
   ] = await Promise.all([
     getHomePageData(),
     getWatermarkMeta(),
@@ -108,6 +114,9 @@ export default async function HomePage() {
     // Admin-tunable rotation intervals (seconds) for the three rotating
     // surfaces — passed down to the client widgets as ms.
     getHomeRotationSettings(),
+    // All-time collecting time + pace — the full-width panel above the
+    // highlights row reuses /statistiky's estimate/pace summary.
+    getStatsTimeAndPace(),
   ]);
   const popularWinner = popularTop[0] ?? null;
   const popularRunnersUp = popularTop.slice(1);
@@ -327,6 +336,8 @@ export default async function HomePage() {
         highlights={data.highlights}
         recentMonthly={data.recentMonthly}
         t={t}
+        tStats={tStats}
+        timePace={timePace}
         locale={locale}
         nf={NF}
       />
@@ -715,12 +726,16 @@ function HighlightsSection({
   highlights,
   recentMonthly,
   t,
+  tStats,
+  timePace,
   locale,
   nf,
 }: {
   highlights: HomePageData["highlights"];
   recentMonthly: HomePageData["recentMonthly"];
   t: HomeT;
+  tStats: Awaited<ReturnType<typeof getTranslations<"Statistiky">>>;
+  timePace: Awaited<ReturnType<typeof getStatsTimeAndPace>>;
   locale: string;
   nf: Intl.NumberFormat;
 }) {
@@ -728,7 +743,14 @@ function HighlightsSection({
   const top = highlights.topLocation;
 
   return (
-    <section className="mt-8">
+    <section className="mt-8 space-y-3">
+      {/* Full-width "Odhadovaná doba sbírání" + all-time pace panel above
+          the three highlight tiles — the same summary as /statistiky. */}
+      {timePace.totalFindsWithDate > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <TimePaceSummary data={timePace} t={tStats} locale={locale} />
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {peakDay ? (
           <PeakDayCard peakDay={peakDay} t={t} locale={locale} nf={nf} />
@@ -770,7 +792,10 @@ function TopLocationCard({
         {t("topLocationLabel")}
       </p>
       <p
-        className="mt-1 truncate pr-8 text-base font-semibold text-gray-900"
+        // Symmetric px-8 (not pr-8): the detail-link button is an absolute
+        // overlay in the top-right corner, so equal left/right padding keeps
+        // the (centered) name actually centered while still clearing it.
+        className="mt-1 truncate px-8 text-base font-semibold text-gray-900"
         title={location.code}
       >
         {location.code}
