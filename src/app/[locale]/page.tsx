@@ -27,6 +27,7 @@ import { getWatermarkMeta } from "@/lib/queries/watermark";
 import {
   formatDateCs,
   formatDateTimeCs,
+  formatShortDateCs,
   formatShortDateTimeCs,
   locationDetailHref,
 } from "@/lib/format";
@@ -239,7 +240,7 @@ export default async function HomePage() {
         count={totals.donated}
         lastDonated={
           totals.lastDonatedAt
-            ? formatShortDateTimeCs(new Date(totals.lastDonatedAt), locale)
+            ? formatShortDateCs(new Date(totals.lastDonatedAt), locale)
             : null
         }
         t={t}
