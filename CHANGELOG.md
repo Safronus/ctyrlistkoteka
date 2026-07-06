@@ -9,6 +9,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — náhled ořezu při hoveru nad fotkou
+- V mřížce i seznamu se při najetí myší na fotku nálezu plynule ukáže **ořez**
+  (close-up čtyřlístku — stejná `CROP` varianta jako na detailu nálezu). Klik
+  dál vede na detail. Čistě CSS (`group-hover/thumb`, žádný client JS); ořezová
+  vrstva je `loading="lazy"` + `fetchPriority="low"`, aby neovlivnila LCP mřížky.
+  `FindThumbnail` dostal prop `cropImage` + helper `cropVariant`; data už byla
+  k dispozici (`find.images` nese i CROP).
+
 ### Sync — nálezy bez lokace se po pozdním nahrání map nedorovnaly
 - **Příčina:** sync přeskočí **celé** zpracování nálezu, když se jeho foto
   nezměnilo (`mtime`), včetně upsertu `location_id`. Když se udělá sync

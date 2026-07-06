@@ -3,7 +3,7 @@ import { FindState } from "@prisma/client";
 import { Camera, Images, MapPin, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
-import { FindThumbnail } from "./find-thumbnail";
+import { FindThumbnail, cropVariant } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
 import { VoteButton } from "./vote-button";
 import {
@@ -153,6 +153,7 @@ function FindListRow({
               list-level echo of the detail page's elegy treatment. */}
           <FindThumbnail
             image={find.primaryImage}
+            cropImage={cropVariant(find.primaryImage, find.images)}
             alt={altText}
             priority={priority}
             className={`h-24 w-24 rounded-md sm:h-28 sm:w-28 ${

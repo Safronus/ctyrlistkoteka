@@ -3,7 +3,7 @@ import { FindState } from "@prisma/client";
 import { Camera, Images, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
-import { FindThumbnail } from "./find-thumbnail";
+import { FindThumbnail, cropVariant } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
 import { VoteButton } from "./vote-button";
 import {
@@ -71,6 +71,7 @@ export async function FindCard({
             their colors. */}
         <FindThumbnail
           image={find.primaryImage}
+          cropImage={cropVariant(find.primaryImage, find.images)}
           alt={altText}
           priority={priority}
           className={`aspect-square ${
