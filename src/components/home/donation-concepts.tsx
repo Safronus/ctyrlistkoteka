@@ -2,15 +2,12 @@ import { getTranslations } from "next-intl/server";
 import { Linkedin } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { DonatedSearchCatcher } from "./donated-search-catcher";
-import { DonatedBoardSection } from "./donated-board";
 
 /**
- * TEMPORARY debug — four concept variants for reorganising the donation
- * area ("Komu už putovalo štěstí"): each weaves the donation offer + the
- * LinkedIn CTA (moved up from the bottom disclaimer) into the showcase, and
- * plants a "landing" clover where the drifting clovers vanish that links to
- * "Pole darovaného štěstí" (id="pole"). Rendered behind ConceptSwitcher.
- * Once a concept is picked, keep one and delete the rest + the switcher.
+ * TEMPORARY debug — variant 3 ("Pošli štěstí") was chosen; these are richer
+ * clover/meadow visualisations that house the donation offer + LinkedIn CTA.
+ * The count line + drift animation (with the "landing" clover → #pole) stay
+ * on top. Behind ConceptSwitcher; keep the winner + delete the rest later.
  */
 
 type HomeT = Awaited<ReturnType<typeof getTranslations<"Home">>>;
@@ -23,6 +20,7 @@ interface ConceptProps {
   nf: Intl.NumberFormat;
 }
 
+/* ── shared: the swarm SVG glyph ── */
 function CloverShape() {
   return (
     <g fill="#15803d">
@@ -155,7 +153,7 @@ function LinkedInButton({ t }: { t: HomeT }) {
       href={LINKEDIN_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+      className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-brand-700 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
     >
       <Linkedin className="h-4 w-4" aria-hidden />
       {t("disclaimerCta")}
@@ -163,66 +161,43 @@ function LinkedInButton({ t }: { t: HomeT }) {
   );
 }
 
-/* ─────────────── Concept 1 — Kruh štěstí ─────────────── */
-export function ConceptKruh(p: ConceptProps) {
-  const { t } = p;
+/** A lush four-leaf clover glyph — rounded gradient leaves + a curved stem.
+ *  Used big (backdrop) and small (meadow). */
+function BigClover({ className }: { className?: string }) {
   return (
-    <section className="text-center">
-      <CountLine {...p} />
-      <DriftSvg poleHref="#pole" />
-      <div className="mx-auto mt-2 grid max-w-3xl gap-3 sm:grid-cols-2">
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white p-5">
-          <p className="text-[15px] leading-relaxed text-gray-600">
-            {t("disclaimerOffer")}
-          </p>
-          <LinkedInButton t={t} />
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-5">
-          <DonatedSearchCatcher />
-        </div>
-      </div>
-      <p className="mt-4 text-xl font-bold text-brand-700">
-        {t("disclaimerTagline")}
-      </p>
-    </section>
+    <svg viewBox="0 0 200 236" className={className} aria-hidden>
+      <defs>
+        <radialGradient id="ctyr-leaf" cx="46%" cy="34%" r="70%">
+          <stop offset="0%" stopColor="#bbf7d0" />
+          <stop offset="45%" stopColor="#4ade80" />
+          <stop offset="100%" stopColor="#15803d" />
+        </radialGradient>
+      </defs>
+      {/* stem */}
+      <path
+        d="M100 132 q -4 52 -26 78"
+        stroke="#15803d"
+        strokeWidth="6"
+        fill="none"
+        strokeLinecap="round"
+      />
+      <g fill="url(#ctyr-leaf)" stroke="#16a34a" strokeWidth="1.5">
+        <ellipse cx="70" cy="64" rx="38" ry="46" transform="rotate(-45 70 64)" />
+        <ellipse cx="130" cy="64" rx="38" ry="46" transform="rotate(45 130 64)" />
+        <ellipse cx="70" cy="122" rx="38" ry="46" transform="rotate(45 70 122)" />
+        <ellipse cx="130" cy="122" rx="38" ry="46" transform="rotate(-45 130 122)" />
+      </g>
+      {/* soft leaf highlights */}
+      <g fill="#ffffff" opacity="0.28">
+        <ellipse cx="60" cy="50" rx="10" ry="15" transform="rotate(-45 60 50)" />
+        <ellipse cx="140" cy="50" rx="10" ry="15" transform="rotate(45 140 50)" />
+      </g>
+      <circle cx="100" cy="93" r="11" fill="#166534" />
+    </svg>
   );
 }
 
-/* ─────────── Concept 2 — Odlétají za tebou ─────────── */
-export function ConceptOdletaji(p: ConceptProps) {
-  const { t } = p;
-  return (
-    <section className="text-center">
-      <CountLine {...p} />
-      <div className="mx-auto mt-2 flex max-w-3xl flex-col items-center gap-3 sm:flex-row sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <DriftSvg />
-        </div>
-        <div className="shrink-0 text-center">
-          <LinkedInButton t={t} />
-          <p className="mx-auto mt-2 max-w-[16rem] text-sm text-gray-600">
-            {t("disclaimerOffer")}
-          </p>
-        </div>
-      </div>
-      <div className="mt-3">
-        <DonatedSearchCatcher />
-      </div>
-      <p className="mt-4 flex items-center justify-center gap-3 text-xl font-bold text-brand-700">
-        {t("disclaimerTagline")}
-        <a
-          href="#pole"
-          title="Pole darovaného štěstí"
-          className="text-sm font-semibold text-brand-600 hover:text-brand-800"
-        >
-          🍀 → pole
-        </a>
-      </p>
-    </section>
-  );
-}
-
-/* ───────────── Concept 3 — Pošli štěstí (💌) ───────────── */
+/* ─────────── Concept 3 (base) — the plain letter card ─────────── */
 export function ConceptPosli(p: ConceptProps) {
   const { t } = p;
   return (
@@ -250,27 +225,123 @@ export function ConceptPosli(p: ConceptProps) {
   );
 }
 
-/* ───────────── Concept 4 — Pole hned pod tím ───────────── */
-export async function ConceptPole(p: ConceptProps) {
+/* ───────── A — V srdci čtyřlístku (offer inside a big clover) ───────── */
+export function ConceptCloverHeart(p: ConceptProps) {
   const { t } = p;
   return (
     <section className="text-center">
       <CountLine {...p} />
       <DriftSvg poleHref="#pole" />
-      <p className="mx-auto mt-2 max-w-2xl text-[15px] leading-relaxed text-gray-600">
-        {t("disclaimerOffer")}
-      </p>
-      <div className="mt-4 flex justify-center">
-        <LinkedInButton t={t} />
+      <div className="relative mx-auto mt-4 flex min-h-[19rem] max-w-lg items-center justify-center px-2 sm:min-h-[21rem]">
+        <BigClover className="absolute left-1/2 top-0 h-full w-auto -translate-x-1/2 drop-shadow-[0_10px_24px_rgba(21,128,61,0.25)]" />
+        {/* content nestled in the clover's heart */}
+        <div className="relative z-10 mx-6 mt-[-2rem] max-w-[19rem] rounded-2xl bg-white/85 px-5 py-4 shadow-lg ring-1 ring-emerald-100 backdrop-blur-sm">
+          <div className="text-2xl" aria-hidden>
+            💌
+          </div>
+          <p className="mt-1 text-sm leading-relaxed text-gray-700">
+            {t("disclaimerOffer")}
+          </p>
+          <p className="mt-2 text-base font-bold text-brand-700">
+            {t("disclaimerTagline")}
+          </p>
+          <div className="mt-3 flex justify-center">
+            <LinkedInButton t={t} />
+          </div>
+        </div>
       </div>
-      <p className="mt-4 text-lg font-bold text-brand-700">
-        {t("disclaimerTagline")}
-      </p>
       <div className="mt-3">
         <DonatedSearchCatcher />
       </div>
-      {/* The field pulled up right below — clovers "land" here. */}
-      <DonatedBoardSection />
+    </section>
+  );
+}
+
+/* ───────── B — Louka štěstí (a meadow / field of clovers) ───────── */
+const MEADOW = [
+  { l: "5%", b: "6%", size: 30, op: 0.55 },
+  { l: "13%", b: "16%", size: 20, op: 0.4 },
+  { l: "21%", b: "4%", size: 26, op: 0.5 },
+  { l: "30%", b: "12%", size: 16, op: 0.32 },
+  { l: "40%", b: "5%", size: 22, op: 0.45 },
+  { l: "50%", b: "14%", size: 15, op: 0.3 },
+  { l: "60%", b: "6%", size: 24, op: 0.48 },
+  { l: "69%", b: "13%", size: 18, op: 0.36 },
+  { l: "78%", b: "4%", size: 28, op: 0.52 },
+  { l: "87%", b: "15%", size: 19, op: 0.38 },
+  { l: "94%", b: "7%", size: 23, op: 0.44 },
+  { l: "9%", b: "70%", size: 14, op: 0.22 },
+  { l: "89%", b: "66%", size: 16, op: 0.24 },
+  { l: "46%", b: "78%", size: 12, op: 0.18 },
+];
+
+function MeadowClovers() {
+  return (
+    <>
+      <style>{`
+        @keyframes ctyr-sway { 0%,100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+        @media (prefers-reduced-motion: reduce) { .ctyr-sway { animation: none !important; } }
+      `}</style>
+      {MEADOW.map((m, i) => (
+        <span
+          key={i}
+          aria-hidden
+          className="ctyr-sway pointer-events-none absolute"
+          style={{
+            left: m.l,
+            bottom: m.b,
+            opacity: m.op,
+            transformOrigin: "bottom center",
+            animation: `ctyr-sway ${3.5 + (i % 4) * 0.7}s ease-in-out ${-(i % 5) * 0.6}s infinite`,
+          }}
+        >
+          <svg
+            viewBox="0 0 100 100"
+            width={m.size}
+            height={m.size}
+            className="block"
+            aria-hidden
+          >
+            <g fill="#3f9142">
+              <ellipse cx="35" cy="35" rx="17" ry="21" transform="rotate(-45 35 35)" />
+              <ellipse cx="65" cy="35" rx="17" ry="21" transform="rotate(45 65 35)" />
+              <ellipse cx="35" cy="65" rx="17" ry="21" transform="rotate(45 35 65)" />
+              <ellipse cx="65" cy="65" rx="17" ry="21" transform="rotate(-45 65 65)" />
+              <circle cx="50" cy="50" r="6" fill="#166534" />
+            </g>
+          </svg>
+        </span>
+      ))}
+    </>
+  );
+}
+
+export function ConceptMeadow(p: ConceptProps) {
+  const { t } = p;
+  return (
+    <section className="text-center">
+      <CountLine {...p} />
+      <DriftSvg poleHref="#pole" />
+      <div className="relative mx-auto mt-4 max-w-2xl overflow-hidden rounded-[2rem] border border-emerald-200 bg-gradient-to-b from-emerald-50 via-green-50 to-emerald-100/70 px-6 pb-10 pt-8 shadow-sm">
+        <MeadowClovers />
+        <div className="relative z-10 mx-auto max-w-md">
+          <div className="text-2xl" aria-hidden>
+            🍀😇💌
+          </div>
+          <p className="mt-2 text-[15px] leading-relaxed text-gray-700">
+            {t("disclaimerOffer")}
+          </p>
+          <p className="mt-3 text-lg font-bold text-brand-700">
+            {t("disclaimerTagline")}
+          </p>
+          <div className="mt-4 flex justify-center">
+            <LinkedInButton t={t} />
+          </div>
+        </div>
+      </div>
+      <div className="mt-3">
+        <DonatedSearchCatcher />
+      </div>
     </section>
   );
 }
