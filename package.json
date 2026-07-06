@@ -17,9 +17,7 @@
     "diagnose:locations": "tsx scripts/diagnose-location-ids.ts",
     "generate-images": "tsx scripts/generate-images.ts",
     "backfill-map-thumbs": "tsx scripts/backfill-map-thumbs.ts",
-    "watermark": "tsx scripts/apply-watermark.ts",
-    "notes:export": "tsx scripts/export-notes-for-translation.ts",
-    "notes:import": "tsx scripts/import-note-translations.ts"
+    "watermark": "tsx scripts/apply-watermark.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",

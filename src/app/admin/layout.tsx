@@ -8,6 +8,7 @@ import {
   FolderTree,
   Gauge,
   Gift,
+  Languages,
   QrCode,
   ShieldCheck,
   Sparkles,
@@ -58,6 +59,11 @@ export default async function AdminLayout({
                   href="/admin/json/lokace-stavy-poznamky"
                   icon={FileJson}
                   label="JSON"
+                />
+                <NavLink
+                  href="/admin/translations"
+                  icon={Languages}
+                  label="Překlady"
                 />
                 <NavLink href="/admin/sync" icon={Database} label="Sync" />
                 <NavLink href="/admin/qr" icon={QrCode} label="QR" />

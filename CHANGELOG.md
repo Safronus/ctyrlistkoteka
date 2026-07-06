@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — dávkový CZ→EN překlad poznámek (stáhnout/nahrát na /admin)
+- Nová sekce **`/admin/translations`** („Překlady"): **stáhne** JSON s českými
+  zdrojovými texty všech poznámek nálezů + popisků map, které ještě nemají EN
+  variantu; po přeložení ho **nahraješ zpět** — zapíše se jen `en` do override
+  vrstev (čeština dál sleduje název souboru / LSP). Ukazuje počty „zbývá
+  přeložit".
+- **Bez SSH/pnpm** — celé přes autentizované admin API (`notes/export` GET
+  download, `notes/import` POST). Po importu se veřejné stránky přegenerují.
+- **Ochrana soukromí:** export vynechává anonymizované + darované nálezy a
+  anonymizované mapy (jejich text se veřejně nezobrazuje → nesmí opustit
+  server, CLAUDE.md §6). Ven jde jen text, co už tak visí veřejně.
+- Sdílená logika v `src/lib/noteTranslations.ts`.
+
 ### Admin — override popisků lokačních map pro web (CZ/EN)
 - Doplněk k override poznámek nálezů: na `/admin/files/maps` má **každá mapa**
   tlačítko **„pozn."** s **CZ + volitelnou EN** variantou popisku. Uloží se do

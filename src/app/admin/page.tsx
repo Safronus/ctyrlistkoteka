@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   Images as ImagesIcon,
   ListChecks,
+  Languages,
   MapPinned,
   Map as MapIcon,
   Megaphone,
@@ -290,6 +291,16 @@ export default async function AdminHomePage() {
           lines={[
             "data/.admin/banner-texts.json",
             "Pruhy nad fotkou nálezu (stavy, rekord) — CZ/EN",
+          ]}
+        />
+        <FeatureCard
+          icon={Languages}
+          title="Překlady poznámek"
+          status="ok"
+          href="/admin/translations"
+          lines={[
+            "Dávkový export/import EN variant",
+            "Poznámky nálezů + popisky map (CZ→EN)",
           ]}
         />
         <FeatureCard
