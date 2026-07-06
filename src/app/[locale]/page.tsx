@@ -37,6 +37,7 @@ import { RandomFindShowcaseWidget } from "@/components/finds/random-find-showcas
 import { StateBadges } from "@/components/finds/state-badges";
 import { VoteButton } from "@/components/finds/vote-button";
 import { CloverFactCard } from "@/components/home/clover-fact-card";
+import { CollectionFreshnessNote } from "@/components/home/collection-freshness-note";
 import { CloverFactsStatCard } from "@/components/home/clover-facts-stat-card";
 import { PopularFindWidget } from "@/components/home/popular-find-widget";
 import { getTopFindsWithThumbs } from "@/lib/votes";
@@ -201,70 +202,49 @@ export default async function HomePage() {
           {t("intro")}
         </p>
         {(totals.latestCreatedAt || highlights.firstCreatedAt) && (
-          <div className="mt-2 text-center text-xs text-gray-600">
-            {highlights.firstCreatedAt && (
-              <p>
-                {t("firstFound")}{" "}
-                <span className="text-gray-500">
-                  {formatShortDateTimeCs(
+          // One compact "last updated (+N)" line; the ⓘ toggle reveals the
+          // founding date + last historic backfill. "Backfill" = an upload of
+          // older finds filling gaps in the historic ID range; we surface its
+          // created_at (DB insert, not EXIF date). Dates are formatted here
+          // (server-side) because formatShortDateTimeCs isn't TZ-pinned.
+          <CollectionFreshnessNote
+            lastUpdated={
+              totals.latestCreatedAt
+                ? formatShortDateTimeCs(new Date(totals.latestCreatedAt), locale)
+                : null
+            }
+            latestCount={totals.latestFoundCount}
+            firstFound={
+              highlights.firstCreatedAt
+                ? formatShortDateTimeCs(
                     new Date(highlights.firstCreatedAt),
                     locale,
-                  )}
-                </span>
-              </p>
-            )}
-            {totals.latestCreatedAt && (
-              <p>
-                {t("lastUpdated")}{" "}
-                <span className="text-gray-500">
-                  {formatShortDateTimeCs(
-                    new Date(totals.latestCreatedAt),
-                    locale,
-                  )}
-                </span>
-                {totals.latestFoundCount > 0 && (
-                  <>
-                    {" "}
-                    <span className="text-gray-500">
-                      ({t("lastBackfillCount", {
-                        count: totals.latestFoundCount,
-                      })})
-                    </span>
-                  </>
-                )}
-              </p>
-            )}
-            {totals.lastBackfillCreatedAt && (
-              // "Backfill" = the user uploaded older finds that fill
-              // gaps in the historic ID range. We surface the most
-              // recent such upload's `created_at` (DB insert time, not
-              // the EXIF date) so visitors can tell when historic
-              // photos last landed in the catalog.
-              <p>
-                {t("lastBackfill")}{" "}
-                <span className="text-gray-500">
-                  {formatShortDateTimeCs(
+                  )
+                : null
+            }
+            lastBackfill={
+              totals.lastBackfillCreatedAt
+                ? formatShortDateTimeCs(
                     new Date(totals.lastBackfillCreatedAt),
                     locale,
-                  )}
-                </span>
-                {totals.lastBackfillCount > 0 && (
-                  <>
-                    {" "}
-                    <span className="text-gray-500">
-                      ({t("lastBackfillCount", {
-                        count: totals.lastBackfillCount,
-                      })})
-                    </span>
-                  </>
-                )}
-              </p>
-            )}
-          </div>
+                  )
+                : null
+            }
+            backfillCount={totals.lastBackfillCount}
+          />
         )}
       </section>
 
-      <DonatedShowcase count={totals.donated} t={t} nf={NF} />
+      <DonatedShowcase
+        count={totals.donated}
+        lastDonated={
+          totals.lastDonatedAt
+            ? formatShortDateTimeCs(new Date(totals.lastDonatedAt), locale)
+            : null
+        }
+        t={t}
+        nf={NF}
+      />
 
       <section className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <NavCard
@@ -378,10 +358,14 @@ export default async function HomePage() {
 
 function DonatedShowcase({
   count,
+  lastDonated,
   t,
   nf,
 }: {
   count: number;
+  /** Pre-formatted date+time the most recent donated find reached the
+   *  catalog (server-formatted, Europe/Prague). Null when none donated. */
+  lastDonated: string | null;
   t: HomeT;
   nf: Intl.NumberFormat;
 }) {
@@ -435,6 +419,13 @@ function DonatedShowcase({
         </Link>{" "}
         {t("donatedSuffix", { count })}
       </p>
+
+      {lastDonated && (
+        <p className="mt-1 text-xs text-gray-500">
+          {t("donatedLast")}{" "}
+          <span className="text-gray-600">{lastDonated}</span>
+        </p>
+      )}
 
       {/* viewBox cropped to 600×72 from the original 600×110 — the
           STATIC_CLUSTER + drifters sit at y≈30–66, so the lower ~40

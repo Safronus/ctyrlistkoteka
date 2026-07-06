@@ -62,6 +62,10 @@ export interface HomeTotals {
    *  the "rozcházející se lístky" showcase at the bottom of the home
    *  page. Same definition as `donatedFinds` on /statistiky. */
   donated: number;
+  /** created_at of the most recently-added DONATED find (ISO) — the
+   *  "naposledy darováno" timestamp under the donated showcase. Null when
+   *  nothing is donated yet. */
+  lastDonatedAt: string | null;
   /** Inclusive count of distinct calendar years that contain at least
    *  one find — same definition as the existing `yearsSpan` on the home
    *  stat card, kept stable for the card label's pluralisation. */
@@ -184,6 +188,7 @@ export async function getHomePageData(): Promise<HomePageData> {
         max_find_id: number | null;
         locations: bigint;
         donated: bigint;
+        last_donated_at: Date | null;
         first_year: number | null;
         last_year: number | null;
         first_found_at: Date | null;
@@ -199,6 +204,12 @@ export async function getHomePageData(): Promise<HomePageData> {
         (SELECT COUNT(*) FROM locations) AS locations,
         (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
            WHERE state = 'DONATED') AS donated,
+        -- When the most recently-added donated find reached the catalog
+        -- (created_at of the newest DONATED find) — powers the "naposledy
+        -- darováno" line under the donated showcase.
+        (SELECT MAX(f.created_at) FROM finds f
+           JOIN find_state_assignments fsa ON fsa.find_id = f.id
+           WHERE fsa.state = 'DONATED') AS last_donated_at,
         (SELECT EXTRACT(YEAR FROM MIN(found_at))::int FROM finds) AS first_year,
         (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year,
         (SELECT MIN(found_at) FROM finds) AS first_found_at,
@@ -463,6 +474,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     cities: cityKeys.size,
     countries: countryKeys.size,
     donated: c ? Number(c.donated) : 0,
+    lastDonatedAt: c?.last_donated_at ? c.last_donated_at.toISOString() : null,
     yearsSpan,
     latestFoundAt: c?.latest_found_at ? c.latest_found_at.toISOString() : null,
     latestCreatedAt: c?.latest_created_at

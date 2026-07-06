@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Hlavní strana — čerstvost sbírky do jedné řádky (+ⓘ) + „naposledy darováno"
+- Tři řádky metadat pod úvodem (založení / poslední aktualizace / poslední
+  doplnění historických) nahrazeny **jednou řádkou** „Poslední aktualizace
+  sbírky … (+N)"; datum založení a poslední backfill se schovaly za **ⓘ
+  rozbalení** (nová klientská `CollectionFreshnessNote`).
+- Do sekce **„Komu už putovalo štěstí"** přibyla řádka **„Naposledy darováno:
+  {datum a čas}"** — `created_at` nejnovějšího darovaného nálezu (nový
+  `lastDonatedAt` v home query).
+
 ### Admin — check „bez EN překladu" s inline editací
 - Nové kontroly **„Poznámky nálezů bez EN"** a **„Popisky map bez EN"** ve
   vlastní skupině **Překlady (EN)** na `/admin/checks`. Po syncu nových
