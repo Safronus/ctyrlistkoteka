@@ -42,7 +42,7 @@ export interface MapLocation {
 
 export interface MapData {
   locations: MapLocation[];
-  /** Tightly-packed `[lat, lng, locationId, findId, deviated]` of
+  /** Tightly-packed `[lat, lng, locationId, findId, tone]` of
    *  every non-anonymized find that has GPS recorded. The /mapa page
    *  paints them as tiny clover dots in a single canvas overlay
    *  (interactive only as a density visualisation — no popups, no
@@ -54,13 +54,15 @@ export interface MapData {
    *                        a location)
    *   - [3] findId       — dim by /sbirka filter (which IDs match the
    *                        user's narrowing)
-   *   - [4] deviated     — 1 when the find's GPS falls outside its
-   *                        location's polygon, or beyond
-   *                        FIND_DEVIATION_RADIUS_M of the centre for
-   *                        polygon-less locations. 0 otherwise (or for
-   *                        finds without a location). Drives the
-   *                        "Skrýt odchýlené nálezy" sub-toggle under
-   *                        Nálezy in the Vrstvy panel.
+   *   - [4] tone         — three-band offset classification, the SAME as
+   *                        /sbirka + find detail (see
+   *                        locationOffsetToneClass): 0 = green (at the
+   *                        location), 1 = amber (deviated but within a
+   *                        location-map bbox), 2 = rose (deviated, outside
+   *                        every map). Drives the find-dot colour (the
+   *                        "Barevně odlišit odchýlené" toggle) and, via
+   *                        tone ≥ 1, the "Skrýt odchýlené nálezy" toggle —
+   *                        both under Nálezy in the Vrstvy panel.
    *
    *  Tuples instead of objects keep the payload small (5×17k floats ≈
    *  680 KB pre-gzip), and the canvas reads them by index. */
@@ -121,23 +123,29 @@ export async function getMapData(): Promise<MapData> {
     // Per-find coordinates for the canvas density layer. Anonymized
     // finds and finds without GPS are excluded server-side — there's no
     // client filter that could leak them. Returned as `{lat, lng,
-    // lid, fid, deviated}` rows; we tuple-pack just before serialising.
+    // lid, fid, tone}` rows; we tuple-pack just before serialising.
     //
-    // `deviated` flag: 1 when the find sits OUTSIDE the location's
-    // polygon (ST_Covers false), or further than
-    // FIND_DEVIATION_RADIUS_M metres from the centre for polygon-less
-    // locations. Polygon-bearing locations dominate the dataset, so
-    // the LEFT JOIN + CASE only adds one nested-loop predicate per
-    // find — fast enough not to need denormalisation. Finds with no
-    // location_id (and so no expectation of "at the location") map to
-    // 0.
+    // `tone` — the SAME three-band offset classification as /sbirka +
+    // the find-detail Lokalita section (see locationOffsetToneClass in
+    // src/lib/format.ts and the canonical SQL in queries/finds.ts):
+    //   0 = green — "at the location": GPS inside the AOI polygon, or
+    //       within FIND_DEVIATION_RADIUS_M of the centre for polygon-less
+    //       locations, or no polygon/centre expectation at all (incl.
+    //       finds with no location_id).
+    //   1 = amber — deviated, but GPS still falls inside one of the
+    //       location's location-map image bounding boxes.
+    //   2 = rose  — deviated and outside every one of the location's maps.
+    // Tone ≥ 1 is what the "Skrýt odchýlené nálezy" toggle hides, so the
+    // hide semantic is unchanged from the old binary `deviated` flag.
+    // The CASE short-circuits at green (the common case), so the amber
+    // EXISTS sub-select only runs for the minority of deviated finds.
     prisma.$queryRaw<
       Array<{
         lat: number;
         lng: number;
         lid: number | null;
         fid: number;
-        deviated: boolean;
+        tone: number;
       }>
     >`
       SELECT ROUND(ST_Y(f.coordinates)::numeric, 6)::float8 AS lat,
@@ -145,14 +153,29 @@ export async function getMapData(): Promise<MapData> {
              f.location_id AS lid,
              f.id AS fid,
              CASE
-               WHEN l.polygon IS NOT NULL THEN
-                 NOT ST_Covers(l.polygon::geography, f.coordinates::geography)
-               WHEN l.center_point IS NOT NULL THEN
-                 ST_DistanceSphere(f.coordinates, l.center_point)
-                   > ${FIND_DEVIATION_RADIUS_M}
-               ELSE
-                 false
-             END AS deviated
+               WHEN (l.polygon IS NOT NULL
+                     AND ST_Covers(l.polygon::geography,
+                                   f.coordinates::geography))
+                 OR (l.polygon IS NULL AND l.center_point IS NOT NULL
+                     AND ST_DistanceSphere(f.coordinates, l.center_point)
+                           <= ${FIND_DEVIATION_RADIUS_M})
+                 OR (l.polygon IS NULL AND l.center_point IS NULL)
+                 THEN 0
+               WHEN EXISTS (
+                     SELECT 1
+                     FROM location_maps lm
+                     WHERE lm.location_id = f.location_id
+                       AND lm.image_bounds IS NOT NULL
+                       AND ST_Y(f.coordinates)
+                         BETWEEN (lm.image_bounds->0->>0)::float8
+                             AND (lm.image_bounds->1->>0)::float8
+                       AND ST_X(f.coordinates)
+                         BETWEEN (lm.image_bounds->0->>1)::float8
+                             AND (lm.image_bounds->1->>1)::float8
+                   )
+                 THEN 1
+               ELSE 2
+             END AS tone
       FROM finds f
       LEFT JOIN locations l ON l.id = f.location_id
       WHERE f.is_anonymized = false AND f.coordinates IS NOT NULL
@@ -204,7 +227,7 @@ export async function getMapData(): Promise<MapData> {
 
   const findCoords = coordRows.map(
     (r) =>
-      [r.lat, r.lng, r.lid ?? 0, r.fid, r.deviated ? 1 : 0] as readonly [
+      [r.lat, r.lng, r.lid ?? 0, r.fid, Number(r.tone)] as readonly [
         number,
         number,
         number,

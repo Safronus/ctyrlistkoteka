@@ -25,6 +25,8 @@ export function MapView({
   showFinds,
   showGone,
   hideDeviatedFinds,
+  showDeviationColors,
+  findIconSize,
   enabledChildPolygonIds,
   highlightFind,
   highlightFindIds,
@@ -43,9 +45,14 @@ export function MapView({
   showFinds: boolean;
   showGone: boolean;
   /** Vrstvy → Nálezy → "Skrýt odchýlené nálezy" sub-toggle. Skips
-   *  finds whose `deviated` server flag is set so the canvas isn't
-   *  cluttered with GPS outliers. */
+   *  finds whose tone (server slot [4]) is ≥ 1 (deviated) so the canvas
+   *  isn't cluttered with GPS outliers. */
   hideDeviatedFinds: boolean;
+  /** Vrstvy → Nálezy → "Barevně odlišit odchýlené" sub-toggle. When true,
+   *  deviated finds paint amber/rose per their tone; when false all green. */
+  showDeviationColors: boolean;
+  /** Find-dot sprite size in CSS pixels (from the size slider). */
+  findIconSize: number;
   enabledChildPolygonIds: ReadonlySet<number>;
   highlightFind: HighlightFind | null;
   /** Find IDs to keep bright on the canvas — typically populated when
@@ -202,6 +209,8 @@ export function MapView({
           focusFindIds={focusFindIds}
           highlightFindIds={highlightFindIds}
           hideDeviated={hideDeviatedFinds}
+          showDeviationColors={showDeviationColors}
+          iconSize={findIconSize}
         />
       )}
       {highlightFind && (

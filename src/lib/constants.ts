@@ -19,6 +19,21 @@ export const FINDS_PER_PAGE = 48;
 export const MAP_CLUSTER_RADIUS = 80;
 
 /**
+ * Find-dot sprite sizing on /mapa. The canvas overlay
+ * (src/components/map/find-dots-canvas.ts) paints each find as a small
+ * clover at `MAP_FIND_ICON_BASE_PX × scale` CSS pixels, where the visitor
+ * picks the scale via the Vrstvy → Nálezy size slider. Base = the historical
+ * fixed size (the slider's "1×" centre); the min/max keep dots legible at
+ * country scale without swallowing dense clusters whole. Step matches the
+ * slider granularity. Persisted per browser (LS_KEY_ICON_SCALE in mapa-shell).
+ */
+export const MAP_FIND_ICON_BASE_PX = 10;
+export const MAP_FIND_ICON_MIN_SCALE = 0.6;
+export const MAP_FIND_ICON_MAX_SCALE = 2;
+export const MAP_FIND_ICON_SCALE_STEP = 0.1;
+export const MAP_FIND_ICON_DEFAULT_SCALE = 1;
+
+/**
  * Radius (in metres) around a location's centre point that still counts
  * as "at the location" for finds at locations WITHOUT a polygon AOI.
  * Beyond this radius the find is treated as a deviation — coloured red

@@ -9,6 +9,24 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Mapa — velikost ikon nálezů + barevné odlišení odchýlených
+- Pod „Nálezy" ve Vrstvách přibyly dva ovladače (sub-řádky vedle „Skrýt
+  odchýlené"):
+  - **Posuvník „Velikost ikon"** — zvětší/zmenší body nálezů na mapě
+    (0,6–2×, výchozí 1× = dosavadní 10 px). Ukládá se v prohlížeči.
+  - **Přepínač „Barevně odlišit odchýlené"** (výchozí zapnuto) — body
+    dostanou stejné třípásmové barvy (zelená/žlutá/červená) jako v `/sbirka`
+    a na detailu nálezu: zelená = na lokaci, žlutá = mimo lokaci ale v lokační
+    mapě, červená = mimo všechny mapy. Reaguje na „Skrýt odchýlené" jako dřív
+    (žlutá + červená = odchýlené).
+- Server tuple `findCoords[4]` se z binárního `deviated` (0/1) změnil na
+  **`tone` (0/1/2)** — počítáno **jedním** SQL `CASE`, který znovupoužívá
+  stejná pravidla jako `/sbirka` (`locationOffsetToneClass` + `withinMap`
+  EXISTS proti `location_maps.image_bounds`), nepočítá se nic znovu. `CASE`
+  zkratuje na zelené (běžný případ), takže amber EXISTS běží jen pro menšinu.
+- Konstanty velikosti v `constants.ts` (`MAP_FIND_ICON_*`). Nápověda Vrstvy
+  (`MapaHelp.sectionLayers`) doplněna o oba ovladače.
+
 ### Hlavní strana — přepracovaná sekce „darování štěstí"
 - Nabídka darování + LinkedIn se přesunula nahoru (ze spodní „malé omluvy")
   do nové **`GiveAwaySection`** nad „Komu putovalo štěstí". Pořadí odshora:

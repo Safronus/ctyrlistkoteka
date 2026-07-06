@@ -7,7 +7,14 @@ import { MapLoader } from "./map-loader";
 import { MapSidebar } from "./map-sidebar";
 import { LocationTopSheet } from "./location-top-sheet";
 import { HelpDialog } from "@/components/help/help-dialog";
-import { AUTHOR_LOCATION_ID } from "@/lib/constants";
+import {
+  AUTHOR_LOCATION_ID,
+  MAP_FIND_ICON_BASE_PX,
+  MAP_FIND_ICON_MIN_SCALE,
+  MAP_FIND_ICON_MAX_SCALE,
+  MAP_FIND_ICON_SCALE_STEP,
+  MAP_FIND_ICON_DEFAULT_SCALE,
+} from "@/lib/constants";
 import type { MapData } from "@/lib/queries/map";
 import type { LocationListItem } from "@/lib/queries/locations";
 import type { HighlightFind } from "@/lib/queries/finds";
@@ -39,6 +46,8 @@ const LS_KEY_LOCATIONS = "mapa.layers.locations";
 const LS_KEY_FINDS = "mapa.layers.finds";
 const LS_KEY_GONE = "mapa.layers.gone";
 const LS_KEY_HIDE_DEVIATED = "mapa.layers.hideDeviated";
+const LS_KEY_DEVIATION_COLORS = "mapa.layers.deviationColors";
+const LS_KEY_ICON_SCALE = "mapa.layers.iconScale";
 
 export function MapaShell({
   mapData,
@@ -165,6 +174,15 @@ export function MapaShell({
    *  a new visitor sees the full dataset; persisted to localStorage
    *  once they flip it on (LS_KEY_HIDE_DEVIATED). */
   const [hideDeviatedFinds, setHideDeviatedFinds] = useState(false);
+  /** "Barevně odlišit odchýlené" sub-toggle under Nálezy. Default ON —
+   *  the amber/rose colouring is the point of the feature; persisted so
+   *  a visitor who turns it off stays off (LS_KEY_DEVIATION_COLORS). */
+  const [showDeviationColors, setShowDeviationColors] = useState(true);
+  /** Find-dot size multiplier (× MAP_FIND_ICON_BASE_PX). Default 1×;
+   *  persisted per browser (LS_KEY_ICON_SCALE). */
+  const [findIconScale, setFindIconScale] = useState(
+    MAP_FIND_ICON_DEFAULT_SCALE,
+  );
 
   // Children of polygon-owning parents are hidden by default — they'd
   // stack on top of the parent's polygon and clutter the view. The
@@ -351,6 +369,22 @@ export function MapaShell({
       // only honour an explicit "true" from a prior session.
       const sd = window.localStorage.getItem(LS_KEY_HIDE_DEVIATED);
       if (sd === "true") setHideDeviatedFinds(true);
+      // deviationColors defaults ON — only honour an explicit "false".
+      const dc = window.localStorage.getItem(LS_KEY_DEVIATION_COLORS);
+      if (dc === "false") setShowDeviationColors(false);
+      // iconScale: parse + clamp to the slider range; ignore garbage.
+      const is = window.localStorage.getItem(LS_KEY_ICON_SCALE);
+      if (is !== null) {
+        const n = Number.parseFloat(is);
+        if (Number.isFinite(n)) {
+          setFindIconScale(
+            Math.min(
+              MAP_FIND_ICON_MAX_SCALE,
+              Math.max(MAP_FIND_ICON_MIN_SCALE, n),
+            ),
+          );
+        }
+      }
     } catch {
       /* localStorage unavailable — keep defaults */
     }
@@ -387,6 +421,23 @@ export function MapaShell({
       /* ignore */
     }
   }, [hideDeviatedFinds]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        LS_KEY_DEVIATION_COLORS,
+        String(showDeviationColors),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [showDeviationColors]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LS_KEY_ICON_SCALE, String(findIconScale));
+    } catch {
+      /* ignore */
+    }
+  }, [findIconScale]);
 
   /**
    * Set of locationIds belonging to the focused location's subtree
@@ -444,7 +495,7 @@ export function MapaShell({
       const all = mapData.findCoords;
       if (focusedLocationIds === null) {
         let dev = 0;
-        for (const c of all) if (c[4] === 1) dev++;
+        for (const c of all) if (c[4] >= 1) dev++;
         return {
           visibleFindCount: all.length,
           visibleDeviatedCount: dev,
@@ -456,7 +507,7 @@ export function MapaShell({
       for (const c of all) {
         if (!focusedLocationIds.has(c[2])) continue;
         total++;
-        if (c[4] === 1) dev++;
+        if (c[4] >= 1) dev++;
       }
       return {
         visibleFindCount: total,
@@ -479,6 +530,8 @@ export function MapaShell({
         showFinds={showFinds}
         showGone={showGone}
         hideDeviatedFinds={hideDeviatedFinds}
+        showDeviationColors={showDeviationColors}
+        findIconSize={MAP_FIND_ICON_BASE_PX * findIconScale}
         enabledChildPolygonIds={enabledChildPolygonIds}
         highlightFind={effectiveHighlightFind}
         highlightFindIds={highlightFindIds}
@@ -634,6 +687,10 @@ export function MapaShell({
             onToggleGone={setShowGone}
             hideDeviatedFinds={hideDeviatedFinds}
             onToggleHideDeviatedFinds={setHideDeviatedFinds}
+            showDeviationColors={showDeviationColors}
+            onToggleDeviationColors={setShowDeviationColors}
+            iconScale={findIconScale}
+            onChangeIconScale={setFindIconScale}
             locationCount={activeLocationCount}
             goneCount={goneLocationCount}
             findCount={visibleFindCount}
@@ -703,6 +760,10 @@ function LayerToggleCard({
   onToggleGone,
   hideDeviatedFinds,
   onToggleHideDeviatedFinds,
+  showDeviationColors,
+  onToggleDeviationColors,
+  iconScale,
+  onChangeIconScale,
   locationCount,
   goneCount,
   findCount,
@@ -719,6 +780,13 @@ function LayerToggleCard({
   onToggleGone: (v: boolean) => void;
   hideDeviatedFinds: boolean;
   onToggleHideDeviatedFinds: (v: boolean) => void;
+  /** "Barevně odlišit odchýlené" sub-toggle — amber/rose colouring of
+   *  deviated finds. */
+  showDeviationColors: boolean;
+  onToggleDeviationColors: (v: boolean) => void;
+  /** Find-dot size multiplier (× base px) from the size slider. */
+  iconScale: number;
+  onChangeIconScale: (v: number) => void;
   locationCount: number;
   goneCount: number;
   findCount: number;
@@ -727,9 +795,9 @@ function LayerToggleCard({
    *  caller can't compute a meaningful per-location hidden figure
    *  cheaply, so the subtitle just disappears in that case. */
   hiddenFindCount: number;
-  /** Number of finds the `deviated` server flag is set on — surfaced
-   *  in the sub-toggle count slot so the operator can see at a glance
-   *  what flipping the switch would hide. */
+  /** Number of finds flagged as deviated (tone ≥ 1) — surfaced in the
+   *  sub-toggle count slot so the operator can see at a glance what
+   *  flipping the "Skrýt odchýlené" switch would hide. */
   deviatedFindCount: number;
   expanded: boolean;
   onToggleExpanded: () => void;
@@ -780,6 +848,7 @@ function LayerToggleCard({
                 tHelp("sectionLayers3"),
                 tHelp("sectionLayers4"),
                 tHelp("sectionLayers5"),
+                tHelp("sectionLayers6"),
               ],
             },
             {
@@ -839,11 +908,11 @@ function LayerToggleCard({
                 : undefined
             }
           />
-          {/* "Skrýt odchýlené" as a visual sub-row of Nálezy, same
-           *  ml-2 + left-rule pattern as Zaniklé under Lokality.
-           *  Disabled when the parent Nálezy toggle is off (there's
-           *  nothing to filter when the whole layer is hidden). */}
-          <div className="ml-2 border-l border-gray-200 pl-2">
+          {/* Nálezy sub-rows — same ml-2 + left-rule pattern as Zaniklé
+           *  under Lokality. All disabled when the parent Nálezy toggle
+           *  is off (nothing to filter / recolour / resize when the whole
+           *  layer is hidden). */}
+          <div className="ml-2 space-y-0.5 border-l border-gray-200 pl-2">
             <ToggleRow
               label={t("layerHideDeviatedFinds")}
               count={deviatedFindCount}
@@ -852,6 +921,19 @@ function LayerToggleCard({
               disabled={!showFinds}
               numFmt={numFmt}
               subtitle={t("layerHideDeviatedFindsSubtitle")}
+            />
+            <ToggleRow
+              label={t("layerDeviationColors")}
+              checked={showDeviationColors}
+              onChange={onToggleDeviationColors}
+              disabled={!showFinds}
+              subtitle={t("layerDeviationColorsSubtitle")}
+            />
+            <FindIconSizeControl
+              label={t("layerFindIconSize")}
+              value={iconScale}
+              onChange={onChangeIconScale}
+              disabled={!showFinds}
             />
           </div>
         </div>
@@ -870,12 +952,14 @@ function ToggleRow({
   numFmt,
 }: {
   label: string;
-  count: number;
+  /** Optional count badge shown on the right. Omit for toggles that
+   *  don't quantify anything (e.g. "Barevně odlišit odchýlené"). */
+  count?: number;
   checked: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
   subtitle?: string;
-  numFmt: Intl.NumberFormat;
+  numFmt?: Intl.NumberFormat;
 }) {
   return (
     <label
@@ -896,9 +980,11 @@ function ToggleRow({
           />
           <span>{label}</span>
         </span>
-        <span className="font-mono text-xs text-gray-500">
-          ({numFmt.format(count)})
-        </span>
+        {count !== undefined && (
+          <span className="font-mono text-xs text-gray-500">
+            ({numFmt ? numFmt.format(count) : count})
+          </span>
+        )}
       </span>
       {subtitle && (
         <span className="ml-6 mt-0.5 block text-[11px] text-gray-500">
@@ -906,6 +992,53 @@ function ToggleRow({
         </span>
       )}
     </label>
+  );
+}
+
+/**
+ * Range slider controlling the find-dot sprite size on /mapa. Sits as a
+ * sub-row under Nálezy alongside the deviation toggles. The value is a
+ * multiplier (× MAP_FIND_ICON_BASE_PX); the slider snaps to
+ * MAP_FIND_ICON_SCALE_STEP so identical-step drags don't churn state (see
+ * the size-slider note in mapa-shell). Lives in the overlay card (a sibling
+ * of the Leaflet container), so drag events never reach the map's pan
+ * handler.
+ */
+function FindIconSizeControl({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className={`px-1 py-0.5 ${disabled ? "opacity-40" : ""}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={`text-sm ${disabled ? "text-gray-400" : "text-gray-700"}`}
+        >
+          {label}
+        </span>
+        <span className="font-mono text-xs text-gray-500" aria-hidden>
+          {value.toFixed(1)}×
+        </span>
+      </div>
+      <input
+        type="range"
+        min={MAP_FIND_ICON_MIN_SCALE}
+        max={MAP_FIND_ICON_MAX_SCALE}
+        step={MAP_FIND_ICON_SCALE_STEP}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number.parseFloat(e.target.value))}
+        aria-label={label}
+        className="mt-1 h-1.5 w-full cursor-pointer accent-brand-600 disabled:cursor-not-allowed"
+      />
+    </div>
   );
 }
 
