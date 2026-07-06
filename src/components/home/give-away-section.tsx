@@ -127,44 +127,32 @@ function LinkedInButton({ t }: { t: HomeT }) {
   );
 }
 
-/* ── the flood: clovers along the edges + a bottom "grass" row, thinning to
- *    very faint behind the centred text so it stays readable. Deterministic
- *    (SSR-stable). ── */
-const FLOOD: ReadonlyArray<{ l: string; t: string; size: number; op: number }> =
-  [
-    { l: "3%", t: "1%", size: 28, op: 0.5 },
-    { l: "15%", t: "8%", size: 18, op: 0.36 },
-    { l: "28%", t: "2%", size: 23, op: 0.44 },
-    { l: "42%", t: "7%", size: 15, op: 0.26 },
-    { l: "57%", t: "1%", size: 21, op: 0.42 },
-    { l: "70%", t: "8%", size: 17, op: 0.32 },
-    { l: "84%", t: "2%", size: 26, op: 0.48 },
-    { l: "95%", t: "9%", size: 16, op: 0.3 },
-    { l: "1%", t: "28%", size: 21, op: 0.38 },
-    { l: "7%", t: "50%", size: 16, op: 0.28 },
-    { l: "2%", t: "70%", size: 25, op: 0.46 },
-    { l: "11%", t: "86%", size: 18, op: 0.34 },
-    { l: "97%", t: "30%", size: 21, op: 0.38 },
-    { l: "91%", t: "52%", size: 16, op: 0.28 },
-    { l: "98%", t: "72%", size: 23, op: 0.44 },
-    { l: "88%", t: "88%", size: 18, op: 0.34 },
-    { l: "6%", t: "95%", size: 27, op: 0.52 },
-    { l: "18%", t: "90%", size: 19, op: 0.4 },
-    { l: "30%", t: "96%", size: 23, op: 0.46 },
-    { l: "42%", t: "91%", size: 16, op: 0.32 },
-    { l: "52%", t: "97%", size: 21, op: 0.44 },
-    { l: "63%", t: "90%", size: 18, op: 0.38 },
-    { l: "74%", t: "96%", size: 25, op: 0.48 },
-    { l: "86%", t: "92%", size: 17, op: 0.34 },
-    { l: "95%", t: "97%", size: 20, op: 0.42 },
-    { l: "24%", t: "34%", size: 14, op: 0.13 },
-    { l: "68%", t: "30%", size: 13, op: 0.12 },
-    { l: "33%", t: "58%", size: 15, op: 0.15 },
-    { l: "60%", t: "62%", size: 13, op: 0.13 },
-    { l: "48%", t: "44%", size: 12, op: 0.1 },
-    { l: "17%", t: "62%", size: 12, op: 0.12 },
-    { l: "80%", t: "60%", size: 14, op: 0.13 },
-  ];
+/* ── the flood: a deterministic (SSR-stable) full-width scatter of clovers
+ *    behind the whole give-away block. Opacity fades toward the horizontal
+ *    centre so the donation text stays readable, and lifts near the top /
+ *    bottom edges so the band reads as a meadow. ── */
+type FloodItem = { l: string; t: string; size: number; op: number };
+function buildFlood(n: number): FloodItem[] {
+  const items: FloodItem[] = [];
+  for (let i = 0; i < n; i++) {
+    // Two different irrationals decorrelate x/y into a scattered spread
+    // (no Math.random → no hydration drift).
+    const x = (i * 61.803398875) % 100;
+    const y = (i * 24.720132 + (i % 4) * 6.3) % 100;
+    const edge = Math.abs(x - 50) / 50; // 0 centre .. 1 edge
+    const vEdge = y < 15 || y > 85 ? 0.12 : 0;
+    const op = Math.min(0.5, 0.09 + edge * 0.4 + vEdge);
+    const size = 13 + ((i * 5) % 18);
+    items.push({
+      l: `${x.toFixed(1)}%`,
+      t: `${y.toFixed(1)}%`,
+      size,
+      op: Number(op.toFixed(2)),
+    });
+  }
+  return items;
+}
+const FLOOD = buildFlood(64);
 
 const SHADES = ["#3f9142", "#4d9748", "#2f8038", "#57a457"];
 
@@ -184,19 +172,23 @@ function FloodClover({ size, shade }: { size: number; shade: string }) {
 
 export function GiveAwaySection({ count, lastDonated, t, nf, field }: Props) {
   return (
-    <section className="mt-8 text-center">
+    <section className="relative isolate mt-8 text-center">
       <style>{`
         @keyframes ctyr-sway { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
         @media (prefers-reduced-motion: reduce) { .ctyr-sway { animation: none !important; } }
       `}</style>
 
-      {/* 1 · Offer + LinkedIn over a flood of clovers (no card / frame). */}
-      <div className="relative mx-auto flex min-h-[22rem] max-w-2xl items-center justify-center px-4">
+      {/* Full-width flood of swaying clovers behind the whole give-away block
+          (offer → drift → pole → total → search). Breaks out to the viewport
+          width via w-screen; the layout's overflow-x-clip guards against
+          sideways scroll. -z-10 (in this isolated section) keeps it behind
+          all the content; the fade toward the centre keeps text readable. */}
+      <div className="pointer-events-none absolute inset-y-0 left-1/2 -z-10 w-screen -translate-x-1/2 overflow-hidden">
         {FLOOD.map((c, i) => (
           <span
             key={i}
             aria-hidden
-            className="ctyr-sway pointer-events-none absolute"
+            className="ctyr-sway absolute"
             style={{
               left: c.l,
               top: c.t,
@@ -208,7 +200,11 @@ export function GiveAwaySection({ count, lastDonated, t, nf, field }: Props) {
             <FloodClover size={c.size} shade={SHADES[i % SHADES.length]!} />
           </span>
         ))}
-        <div className="relative z-10 mx-auto max-w-md">
+      </div>
+
+      {/* 1 · Offer + LinkedIn (the flood shows through behind it). */}
+      <div className="relative mx-auto flex min-h-[15rem] max-w-md items-center justify-center px-4 py-4">
+        <div className="mx-auto max-w-md">
           <div className="text-3xl" aria-hidden>
             🍀💌
           </div>

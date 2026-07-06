@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Hlavní strana — širší záplava + výraznější „→ pole"
+- **Záplava čtyřlístků** roztažena přes **celou šířku stránky** a za celý blok
+  darování (nabídka → odlétající → pole → počet → hledání) — full-bleed
+  `w-screen` vrstva za sekcí; generuje se deterministicky (`buildFlood`, 64 ks),
+  opacita slábne ke středu kvůli čitelnosti textu, sílí u horního/dolního okraje.
+- Tlačítko **„→ pole"** je **~1,5× větší**, používá **novou mapovou ikonu
+  čtyřlístku** (srdíčkové lístky + tmavý obrys + žilky), posunuté níž na svislý
+  střed vizualizace, a přibyl mu **třpyt (✨)**.
+
 ### Hlavní strana — reorganizace (patička, tagline, pole)
 - **„Poslední aktualizace sbírky"** (+ ⓘ založení / poslední backfill) přesunuta
   z hero do **globální patičky** jako druhý řádek. Nový lehký cachovaný
