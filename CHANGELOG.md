@@ -26,6 +26,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   zkratuje na zelené (běžný případ), takže amber EXISTS běží jen pro menšinu.
 - Konstanty velikosti v `constants.ts` (`MAP_FIND_ICON_*`). Nápověda Vrstvy
   (`MapaHelp.sectionLayers`) doplněna o oba ovladače.
+- **Nová ikona nálezu** — bod nálezu je teď vykreslený **čtyřlístek** (čtyři
+  srdíčkové lístky do „X" s tmavým obrysem a tmavými „žilkami" sbíhajícími se
+  ke středu), místo dřívějších čtyř slitých koleček s tmavým jádrem. Kreslí se
+  na canvas v `createSprite` (`find-dots-canvas.ts`), jednou předrenderované na
+  tón, takže překreslení zůstává rychlé; barvy tónů se nemění.
 
 ### Hlavní strana — přepracovaná sekce „darování štěstí"
 - Nabídka darování + LinkedIn se přesunula nahoru (ze spodní „malé omluvy")

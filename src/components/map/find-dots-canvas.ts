@@ -9,11 +9,12 @@ import { MAP_FIND_ICON_BASE_PX } from "@/lib/constants";
  * pre-rendered sprites + a single drawImage per point keeps redraw under a
  * few ms even with future growth toward 100k.
  *
- * The shape mirrors the find-detail map pin: four overlapping circles with a
- * slightly darker centre disc for readability against OSM tiles. Colour
- * encodes the find's location-offset tone (slot [4]) — the SAME green /
- * amber / rose bands as /sbirka + the find detail: green = at the location,
- * amber = off but inside a location-map bbox, rose = outside every map.
+ * Each sprite is a four-leaf clover: four heart-shaped leaves in an X with a
+ * dark outline and dark centre "veins" reaching into the notches between the
+ * leaves, for readability against OSM tiles. Colour encodes the find's
+ * location-offset tone (slot [4]) — the SAME green / amber / rose bands as
+ * /sbirka + the find detail: green = at the location, amber = off but inside
+ * a location-map bbox, rose = outside every map.
  * Anonymized finds and finds without GPS never make it into `coords` — the
  * server query already filters them.
  */
@@ -32,15 +33,17 @@ type FindCoord = readonly [number, number, number, number, number];
 // only backstops a bare createFindDotsLayer() call.
 const DEFAULT_SPRITE_SIZE = MAP_FIND_ICON_BASE_PX;
 // Sprite is rendered into a slightly larger canvas (× this factor) to give
-// the four circles room to "bloom" outside the nominal size without clipping.
-const SPRITE_PAD_RATIO = 0.1;
-// Per-tone { leaf, centre } fills. Green mirrors the find-detail pin; amber
-// and rose match Tailwind amber-500/700 and rose-500/700 so a dot's colour
-// on the map matches the same find's offset dot on /sbirka.
-const TONE_COLORS: ReadonlyArray<{ leaf: string; centre: string }> = [
-  { leaf: "#15803d", centre: "#0f6e34" }, // 0 green — at the location
-  { leaf: "#f59e0b", centre: "#b45309" }, // 1 amber — within a location map
-  { leaf: "#f43f5e", centre: "#be123c" }, // 2 rose  — outside all maps
+// the +18 % dark outline (see createSprite) room outside the nominal size
+// without clipping.
+const SPRITE_PAD_RATIO = 0.15;
+// Per-tone { leaf, dark } fills — `leaf` fills the four leaves, `dark` draws
+// the outline + centre veins. Green mirrors the find-detail pin; amber and
+// rose track the amber/rose offset bands on /sbirka so a dot's colour on the
+// map matches the same find's offset dot in the list.
+const TONE_COLORS: ReadonlyArray<{ leaf: string; dark: string }> = [
+  { leaf: "#15803d", dark: "#0b5c2a" }, // 0 green — at the location
+  { leaf: "#f59e0b", dark: "#8a4a06" }, // 1 amber — within a location map
+  { leaf: "#f43f5e", dark: "#8a1030" }, // 2 rose  — outside all maps
 ];
 // Alpha applied to finds outside the currently bright set. Light enough
 // to read as "secondary" while still hinting at density.
@@ -118,7 +121,7 @@ const FindDotsLayer = L.Layer.extend({
         this._spriteSize,
         this._spriteBox,
         c.leaf,
-        c.centre,
+        c.dark,
       ),
     );
 
@@ -304,46 +307,105 @@ export function createFindDotsLayer(
 }
 
 /**
- * Pre-renders one four-circle clover sprite (in the given leaf / centre
- * colours) once. Drawing this every frame for thousands of points would
- * dominate redraw time; rendering once into an offscreen canvas lets the
- * per-point work be a single drawImage of a tiny bitmap.
+ * Pre-renders one four-leaf clover sprite in the given fill (`leaf`) + `dark`
+ * colours once. Drawing this per point every frame would dominate redraw;
+ * rendering once into an offscreen canvas makes the per-point cost a single
+ * drawImage of a tiny bitmap.
+ *
+ * Geometry is authored in a unit space centred on (0,0): each heart-shaped
+ * leaf has its tip at the centre and its notched lobes reaching out to
+ * radius ~36. `S` scales that space so the coloured fill spans ~0.96 ×
+ * spriteSize (matching the old dot) while the +18 % dark underlay — which
+ * reads as an outline where it peeks past the fill — still fits inside
+ * spriteBox. A dark disc plus four spikes into the notches (N/E/S/W) tie the
+ * centre to that outline.
  */
 function createSprite(
   dpr: number,
   spriteSize: number,
   spriteBox: number,
   leaf: string,
-  centre: string,
+  dark: string,
 ): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = spriteBox * dpr;
   canvas.height = spriteBox * dpr;
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
+
+  // Lobe tips at 36 units → 0.48 × spriteSize, so the coloured clover is
+  // ~0.96 × spriteSize across and the 1.18× outline lands at ~0.57 ×
+  // spriteSize radius, inside spriteBox/2 (SPRITE_PAD_RATIO guarantees room).
+  const S = spriteSize / 75;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.translate(spriteBox / 2, spriteBox / 2);
+  ctx.scale(S, S);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
 
-  const cx = spriteBox / 2;
-  const cy = spriteBox / 2;
-  const off = spriteSize * 0.16;
-  const leafR = spriteSize * 0.32;
-  const coreR = spriteSize * 0.18;
-
-  ctx.fillStyle = leaf;
-  for (const [dx, dy] of [
-    [0, -off],
-    [off, 0],
-    [0, off],
-    [-off, 0],
-  ] as const) {
+  // One heart leaflet: tip at the origin (clover centre), notched lobes
+  // pointing "up" (−y). The caller rotates it into each diagonal position.
+  const traceHeart = () => {
     ctx.beginPath();
-    ctx.arc(cx + dx, cy + dy, leafR, 0, Math.PI * 2);
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-8, -5, -16.5, -13.5, -16.5, -22.5);
+    ctx.bezierCurveTo(-16.5, -30.5, -12.5, -36, -7, -36);
+    ctx.bezierCurveTo(-3, -36, -1, -32, 0, -27.5);
+    ctx.bezierCurveTo(1, -32, 3, -36, 7, -36);
+    ctx.bezierCurveTo(12.5, -36, 16.5, -30.5, 16.5, -22.5);
+    ctx.bezierCurveTo(16.5, -13.5, 8, -5, 0, 0);
+    ctx.closePath();
+  };
+
+  // Stem (curving down-right from just above centre) + the four leaflets in
+  // one colour. Stem first so the leaves sit over its top.
+  const drawLeaves = (color: string) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -1);
+    ctx.quadraticCurveTo(3, 14, 12, 19);
+    ctx.stroke();
+    ctx.fillStyle = color;
+    for (const deg of [45, 135, 225, 315]) {
+      ctx.save();
+      ctx.rotate((deg * Math.PI) / 180);
+      traceHeart();
+      ctx.fill();
+      ctx.restore();
+    }
+  };
+
+  // Dark centre: a disc plus four thin spikes into the notches between the
+  // leaves (N/E/S/W), tying the centre to the outline.
+  const drawCentre = (color: string) => {
+    ctx.fillStyle = color;
+    for (const deg of [0, 90, 180, 270]) {
+      ctx.save();
+      ctx.rotate((deg * Math.PI) / 180);
+      ctx.beginPath();
+      ctx.moveTo(0, -27);
+      ctx.lineTo(-2.6, -4);
+      ctx.lineTo(2.6, -4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 5, 0, Math.PI * 2);
     ctx.fill();
-  }
-  ctx.fillStyle = centre;
-  ctx.beginPath();
-  ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
-  ctx.fill();
+  };
+
+  // Dark underlay scaled +18 % → the outline; then the coloured fill; then
+  // the dark centre veins on top.
+  ctx.save();
+  ctx.scale(1.18, 1.18);
+  drawLeaves(dark);
+  drawCentre(dark);
+  ctx.restore();
+
+  drawLeaves(leaf);
+  drawCentre(dark);
 
   return canvas;
 }
