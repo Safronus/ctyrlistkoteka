@@ -9,6 +9,28 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Statistiky se po syncu neobnovovaly (cache)
+- **Příčina:** `/statistiky` (a statové panely na `/`) cachují agregace přes
+  `unstable_cache(tag: "stats", revalidate 6 h)` + ISR stránek. `pnpm sync`
+  z Termiusu běží mimo Next runtime a **neinvaliduje nic** (dělal jen IndexNow
+  ping), takže se každá sekce obnovila teprve po vypršení vlastního 6h časovače
+  — každá v jiný čas → sekce se navzájem i s `/sbirka` (ta je `force-dynamic`,
+  čerstvá) neshodovaly. Výpočet je přitom správný: kalendář i „průměrné tempo"
+  počítají rok byte-identickým SQL (`EXTRACT(YEAR FROM found_at)`), DB běží
+  v UTC. Šlo tedy o **přechodnou staleness**, ne chybu v číslech.
+- **Oprava:** sdílený helper `revalidatePublicSurfaces()`
+  (`src/lib/revalidate.ts`) = `revalidateTag("stats")` +
+  `revalidatePath("/","/sbirka","/statistiky","/lokality","/mapa")`. Volá ho
+  admin-UI sync (`syncRunner.ts` — dřív volal jen `revalidatePath`, chyběl
+  `revalidateTag`, takže se datová cache statistik nevyčistila ani tam) i nový
+  endpoint `POST /api/admin/revalidate` (bearer `REVALIDATE_TOKEN`,
+  timing-safe, fail-closed bez tokenu). `pnpm sync` ho na konci ostrého běhu
+  pingne přes `127.0.0.1` (`src/lib/revalidatePing.ts`), takže se statistiky
+  obnoví **hned** místo čekání na 6h TTL. Bez tokenu no-op; cluster-safe
+  (invalidace přes sdílený on-disk `.next/cache`).
+- Nový volitelný env **`REVALIDATE_TOKEN`** (viz `.env.example`); detail v
+  `docs/sync-workflow.md` → „Revalidace cache po syncu".
+
 ### Mapa — velikost ikon nálezů + barevné odlišení odchýlených
 - Pod „Nálezy" ve Vrstvách přibyly dva ovladače (sub-řádky vedle „Skrýt
   odchýlené"):

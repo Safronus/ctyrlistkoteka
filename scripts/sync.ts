@@ -36,6 +36,7 @@ import { splitLocationCode, toAsciiCode } from "../src/lib/locationCode";
 import { parseRanges } from "../src/lib/parseRanges";
 import { JSON_STATE_MAP } from "../src/lib/stateMapping";
 import { findUrl, pingIndexNow } from "../src/lib/indexnow";
+import { pingRevalidate } from "../src/lib/revalidatePing";
 import type { WatermarkSpec } from "../src/lib/images";
 import {
   DEFAULT_WATERMARK_OPTIONS,
@@ -1998,6 +1999,21 @@ async function main() {
           error: err instanceof Error ? err.message : String(err),
         });
       }
+    }
+
+    // Nudge the running Next server to drop its stats + ISR caches so
+    // /statistiky and the home stat panels reflect this sync immediately
+    // instead of waiting out their revalidate window. Best-effort, localhost
+    // only, no-op without REVALIDATE_TOKEN (see src/lib/revalidatePing.ts).
+    if (!opts.dryRun) {
+      const rv = await pingRevalidate();
+      log.log({
+        event: "revalidate.ping",
+        level: rv.ok ? "info" : "warn",
+        ok: rv.ok,
+        status: rv.status ?? null,
+        skipped: rv.skipped ?? null,
+      });
     }
 
     log.log({

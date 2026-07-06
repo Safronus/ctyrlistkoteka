@@ -1,7 +1,7 @@
 import { promises as fs, createReadStream } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { revalidatePath } from "next/cache";
+import { revalidatePublicSurfaces } from "../revalidate";
 import { ADMIN_ROOTS } from "./paths";
 import { atomicWrite, ensureDir, trashTimestamp } from "./atomic";
 import { writeLastSyncSuccess } from "./syncNeeded";
@@ -182,22 +182,16 @@ export async function startRun(opts: StartOptions): Promise<SyncStatus> {
           err,
         });
       }
-      // Drop the ISR cache entries for the public surfaces that
-      // depend on freshly synced data. The home page and the /sbirka
-      // grid both rely on `revalidate = 3600` — without an
-      // explicit kick the user sees stale numbers for up to an hour
-      // after adding today's finds, which defeats the purpose of
-      // running a sync. PM2 cluster mode is fine here: revalidatePath
-      // writes to .next/cache on disk, which both workers share.
+      // Drop every cache layer that depends on freshly synced data — the
+      // `unstable_cache` stats aggregations (tag "stats") AND the ISR route
+      // caches — so the user doesn't see stale numbers after adding finds,
+      // which would defeat the purpose of running a sync. Same helper the
+      // CLI path reaches via /api/admin/revalidate. PM2 cluster mode is
+      // fine: the writes land in the shared on-disk .next/cache.
       try {
-        revalidatePath("/");
-        revalidatePath("/sbirka");
-        revalidatePath("/statistiky");
-        revalidatePath("/lokality");
+        revalidatePublicSurfaces();
       } catch (err) {
-        console.error("[admin/sync] revalidatePath after sync failed", {
-          err,
-        });
+        console.error("[admin/sync] revalidate after sync failed", { err });
       }
     }
   });

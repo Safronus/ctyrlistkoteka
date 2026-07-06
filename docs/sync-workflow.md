@@ -139,6 +139,35 @@ nikdy nerozbije sync; na localhostu / v dry-runu je to no-op. Klíč je
 veřejný v kódu, ověřuje se přes route `/indexnow-key`. Google IndexNow
 nepoužívá (řeší sitemap + Search Console).
 
+## Revalidace cache po syncu
+
+Statistiky (`/statistiky` a statové panely na `/`) se počítají přes
+`unstable_cache` s tagem `"stats"` a `revalidate` **6 h**; stránky `/` a
+`/statistiky` navíc cachují ISR render. `/sbirka`, `/mapa` a `/lokality`
+jsou `force-dynamic` (čtou z DB při každém requestu), takže se po syncu
+aktualizují samy — ale **statistiky ne**, dokud nevyprší jejich okno.
+
+`pnpm sync` běží **mimo** Next runtime, takže `revalidateTag`/`revalidatePath`
+nemůže volat přímo. Na konci ostrého (ne `--dry-run`) syncu proto pingne
+`POST http://127.0.0.1:$PORT/api/admin/revalidate` (`src/lib/revalidatePing.ts`)
+s bearer tokenem `REVALIDATE_TOKEN`. Endpoint (uvnitř serveru) zavolá
+`revalidatePublicSurfaces()` = `revalidateTag("stats")` + `revalidatePath(…)`,
+takže se čísla obnoví **hned**. Bez `REVALIDATE_TOKEN` se ping přeskočí a
+endpoint vrací fail-closed 503 — statistiky se pak dorovnají až po TTL.
+
+Vlastnosti:
+
+- **Best-effort** — selhání jen zaloguje `revalidate.ping` (`warn`), nikdy
+  nerozbije sync; bez tokenu je to no-op (`skipped: "no-token"`).
+- **Cluster-safe** — `revalidateTag`/`revalidatePath` zapisují do sdíleného
+  on-disk `.next/cache`, takže oba PM2 workery invalidaci vidí.
+- Stejnou revalidaci dělá i **admin-UI** cesta syncu (`syncRunner.ts`)
+  přímo v procesu — sdílený helper `src/lib/revalidate.ts`.
+- Token je tajný (repo je veřejné). Endpoint žije pod `/api/admin`, takže
+  ho pro externí volající navíc kryje Nginx cloak; lokální ping jde na Next
+  napřímo a cloak obchází. Token vygeneruj `openssl rand -hex 32` a vlož do
+  `.env` (stejná hodnota pro web i pro `pnpm sync`).
+
 ## Automatický sync (volitelné)
 
 `deploy/systemd-sync.service` + `systemd-sync.timer` spouští sync každou noc
