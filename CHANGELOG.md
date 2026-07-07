@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Statistiky — kratší TTL cache (cluster prodleva po syncu)
+- Po syncu se `/statistiky` občas neobnovila, zatímco hlavní strana ano (např.
+  745 vs 740 hledání). Příčina: **PM2 cluster** (2 workeři), každý má vlastní
+  in-memory kopii statistik; `revalidateTag("stats")` z pingu dorovná jen
+  workera, který ping obsloužil, takže málo navštěvovaná `/statistiky` dojížděla
+  na starých číslech druhého workera (stránky jsou `force-dynamic`, jediná cache
+  je tedy datová `unstable_cache`). **`STATS_REVALIDATE` sníženo 6 h → 10 min**,
+  takže se taková divergence sama srovná do pár minut; běžný případ řeší
+  `revalidateTag` okamžitě. (Plné odstranění by chtělo sdílený cache handler
+  přes Redis — zatím není zapojený.)
+
 ### Sync — nálezy po skupinách (originál před ořezem, vzestupně)
 - Protože `/sbirka` teď ukazuje jako náhled **ořez**, ořez vygenerovaný **dřív
   než originál** během syncu způsoboval, že web během importu vypadal rozbitě.

@@ -143,10 +143,14 @@ nepoužívá (řeší sitemap + Search Console).
 ## Revalidace cache po syncu
 
 Statistiky (`/statistiky` a statové panely na `/`) se počítají přes
-`unstable_cache` s tagem `"stats"` a `revalidate` **6 h**; stránky `/` a
-`/statistiky` navíc cachují ISR render. `/sbirka`, `/mapa` a `/lokality`
-jsou `force-dynamic` (čtou z DB při každém requestu), takže se po syncu
-aktualizují samy — ale **statistiky ne**, dokud nevyprší jejich okno.
+`unstable_cache` s tagem `"stats"` a `revalidate` **10 min** (datová cache —
+stránky jsou přes layout `force-dynamic`, ISR na úrovni stránky je tedy
+neúčinné). `/sbirka`, `/mapa` a `/lokality` čtou z DB při každém requestu,
+takže se po syncu aktualizují samy. Statistiky obnoví `revalidateTag("stats")`
+(viz níže) hned; kratší TTL je jen pojistka pro **PM2 cluster** — 2 workeři,
+každý má vlastní in-memory kopii a `revalidateTag` nemusí spolehlivě dorazit na
+workera, který ping neobsloužil, takže by málo navštěvovaná `/statistiky` jinak
+mohla chvíli dojíždět na starých číslech (teď se to srovná do pár minut).
 
 `pnpm sync` běží **mimo** Next runtime, takže `revalidateTag`/`revalidatePath`
 nemůže volat přímo. Na konci ostrého (ne `--dry-run`) syncu proto pingne

@@ -65,7 +65,15 @@ export const POLYGON_FREE_AREA_M2 = Math.PI * FIND_DEVIATION_RADIUS_M ** 2;
 // ISR revalidation (seconds)
 export const HOME_REVALIDATE = 60 * 60; // 1 h
 export const FIND_REVALIDATE = 24 * 60 * 60; // 24 h
-export const STATS_REVALIDATE = 6 * 60 * 60; // 6 h
+// `unstable_cache` TTL for the stats aggregations (a DATA cache — the pages
+// are force-dynamic, so page-level ISR is inert). A sync clears them at once
+// via revalidateTag("stats"), so this is mainly the safety net for PM2
+// cluster mode: each worker keeps its own in-memory copy and revalidateTag
+// doesn't reliably reach a worker that didn't handle the ping, so a
+// low-traffic page like /statistiky could otherwise serve one worker's stale
+// numbers for the whole window. Keep it short so any such split self-heals in
+// minutes rather than hours.
+export const STATS_REVALIDATE = 10 * 60; // 10 min
 
 // Anonymization: rounding for public GPS (~100 m at midlatitudes). Used by
 // /mapa's raw-SQL coarsening pipeline; the find queries / detail page drop
