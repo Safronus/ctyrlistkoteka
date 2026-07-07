@@ -100,20 +100,35 @@ export function HighlightFindMarker({
             : "ctyr-find-highlight-popup"
         }
       >
+        {/* Text colours are CSS variables (not literal hex) so the popup
+            stays legible in dark theme too — the wrapper background is
+            re-tinted dark in globals.css, and these `var(--color-*)`
+            tokens flip from dark-on-light to light-on-dark on their own. */}
         <div style={{ minWidth: 200, lineHeight: 1.35 }}>
           <strong
-            style={{ color: isRecord ? "#92400e" : "#14532d", fontSize: 14 }}
+            style={{
+              color: isRecord
+                ? "var(--color-amber-700)"
+                : "var(--color-brand-700)",
+              fontSize: 14,
+            }}
           >
             {isRecord && "🏆 "}
             {t("highlightFindHeading", { id: find.id })}
           </strong>
           {find.locationCode && (
-            <div style={{ marginTop: 4, color: "#111827", fontSize: 12 }}>
+            <div
+              style={{
+                marginTop: 4,
+                color: "var(--color-gray-900)",
+                fontSize: 12,
+              }}
+            >
               <span style={{ fontFamily: "var(--font-mono, monospace)" }}>
                 {find.locationCode}
               </span>
               {showSecondaryName && (
-                <span style={{ color: "#6b7280" }}>
+                <span style={{ color: "var(--color-gray-500)" }}>
                   {" "}
                   ({find.locationDisplayName})
                 </span>
@@ -121,14 +136,20 @@ export function HighlightFindMarker({
             </div>
           )}
           {find.foundAt && (
-            <div style={{ marginTop: 2, color: "#374151", fontSize: 12 }}>
+            <div
+              style={{
+                marginTop: 2,
+                color: "var(--color-gray-700)",
+                fontSize: 12,
+              }}
+            >
               {formatDateTimeCs(find.foundAt, locale)}
             </div>
           )}
           <div
             style={{
               marginTop: 2,
-              color: "#374151",
+              color: "var(--color-gray-700)",
               fontSize: 11,
               fontFamily: "var(--font-mono, monospace)",
             }}
@@ -136,7 +157,13 @@ export function HighlightFindMarker({
             {formatGpsApple(find.lat, find.lng, locale)}
           </div>
           {find.offset && (
-            <div style={{ marginTop: 4, color: "#15803d", fontSize: 12 }}>
+            <div
+              style={{
+                marginTop: 4,
+                color: "var(--color-brand-700)",
+                fontSize: 12,
+              }}
+            >
               {find.offset.mode === "polygon"
                 ? find.offset.inside
                   ? tOffset("inside")

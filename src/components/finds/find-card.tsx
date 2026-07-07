@@ -1,6 +1,6 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import { FindState } from "@prisma/client";
-import { Camera, Images, Trophy } from "lucide-react";
+import { Camera, Images, MapPin, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail, cropVariant } from "./find-thumbnail";
@@ -27,28 +27,68 @@ export async function FindCard({
     ? tRow("anonymizedAlt", { id: find.id })
     : tRow("findAlt", { id: find.id });
 
+  // Same gate as the /sbirka list row's map-pin: only finds with a real
+  // (non-anonymized) coordinate can be pointed at on the map.
+  const showMapLink = !find.isAnonymized && find.coordinates !== null;
+
   return (
-    <Link
-      href={`/sbirka/${find.id}`}
-      className="group block overflow-hidden rounded-lg border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm"
-    >
-      {/* Find number banner above the photo, centred: "🍀 #123". */}
-      <div className="flex items-center justify-center gap-1.5 px-3 py-2">
-        <span className="text-sm font-semibold text-gray-900 group-hover:text-brand-700">
-          🍀 #{find.id}
-        </span>
-        {find.isRecord && (
-          <span
-            className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
-            title={tRow("recordBadgeTitle")}
+    <div className="group overflow-hidden rounded-lg border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm">
+      {/* Banner above the photo: map-pin (left) · "🍀 #123" (centre) ·
+          vote (right). The pin and the vote button are SIBLINGS of the
+          detail links below — never nested inside an <a> — so the markup
+          stays valid and each control keeps its own click target. When a
+          side control is absent, a same-size spacer holds the number
+          roughly centred. */}
+      <div className="flex items-center justify-between gap-1 px-2 py-1.5">
+        {/* Left — map-pin deep-link to /mapa (or spacer). */}
+        {showMapLink ? (
+          <Link
+            href={`/mapa?find=${find.id}`}
+            className="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-gray-500 transition hover:bg-brand-100 hover:text-brand-700 focus:bg-brand-100 focus:text-brand-700 focus:outline-none"
+            aria-label={tRow("showOnMap")}
+            title={tRow("showOnMap")}
           >
-            <Trophy className="h-3 w-3" aria-hidden />
-            {tRow("recordBadge")}
+            <MapPin className="h-4 w-4" aria-hidden />
+          </Link>
+        ) : (
+          <span aria-hidden className="h-7 w-7 shrink-0" />
+        )}
+
+        {/* Centre — the find number links to the detail page. */}
+        <Link
+          href={`/sbirka/${find.id}`}
+          className="flex min-w-0 flex-1 items-center justify-center gap-1.5"
+        >
+          <span className="truncate text-sm font-semibold text-gray-900 group-hover:text-brand-700">
+            🍀 #{find.id}
           </span>
+          {find.isRecord && (
+            <span
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
+              title={tRow("recordBadgeTitle")}
+            >
+              <Trophy className="h-3 w-3" aria-hidden />
+              {tRow("recordBadge")}
+            </span>
+          )}
+        </Link>
+
+        {/* Right — vote pill (or spacer). Only when a thumbnail exists
+            (no-photo finds have nothing to vote on). */}
+        {find.primaryImage ? (
+          <div className="shrink-0">
+            <VoteButton
+              findId={find.id}
+              initialVoted={voted}
+              initialCount={voteCount}
+            />
+          </div>
+        ) : (
+          <span aria-hidden className="h-7 w-7 shrink-0" />
         )}
       </div>
 
-      <div className="relative">
+      <Link href={`/sbirka/${find.id}`} className="relative block">
         {/* LOST finds render their photo in grayscale — the quiet
             list-level echo of the detail page's elegy treatment. The
             overlays are siblings, so they keep their colours. */}
@@ -64,18 +104,6 @@ export async function FindCard({
         {find.states.length > 0 && (
           <div className="pointer-events-none absolute inset-x-2 top-2">
             <StateBadges states={find.states} className="drop-shadow-sm" />
-          </div>
-        )}
-        {/* Vote button — top-right corner. Only when a thumbnail exists
-         *  (no-photo finds have nothing to vote on). */}
-        {find.primaryImage && (
-          <div className="absolute right-2 top-2">
-            <VoteButton
-              findId={find.id}
-              initialVoted={voted}
-              initialCount={voteCount}
-              variant="overlay"
-            />
           </div>
         )}
         {/* Date + time — bottom overlay, centred, over a strong gradient +
@@ -129,7 +157,7 @@ export async function FindCard({
             )}
           </div>
         )}
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }

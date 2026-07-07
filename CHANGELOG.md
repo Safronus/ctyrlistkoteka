@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Dlaždice /sbirka — banner s pinem + lajkem, dark popup na mapě
+- **Banner dlaždice** přeskládán: **pin s proklikem na mapu** (`/mapa?find=<id>`,
+  stejný odkaz i gate jako v seznamu — `!isAnonymized && coordinates≠null`)
+  vlevo, **`🍀 #id`** uprostřed (odkaz na detail), **hlasovací tlačítko** vpravo
+  (varianta `default` — pilulka s počtem, sedí na plný podklad líp než plovoucí
+  overlay chip). Lajk se tím přesunul z overlaye fotky do banneru. Dlaždice už
+  není jeden vnější `<Link>` — pin i lajk jsou **sourozenci** detail-odkazů
+  (validní HTML, žádné vnořené `<a>`/`<button>`).
+- **Leaflet „highlight" popup v dark theme** (bublina zvýrazněného nálezu na
+  `/mapa`) měl natvrdo světlý gradient (`#f0fdf4→#ffffff`) → v tmavém režimu
+  svítil jako bílý ostrov. Přidán `[data-theme="dark"]` override: **tmavě zelené**
+  pozadí (record varianta **zlaté**) + světlá zavírací „×". Text uvnitř popupu
+  přepnut z literálních hex na `var(--color-*)` tokeny, takže se **sám obrací**
+  (tmavý na světlém / světlý na tmavém) a světlý motiv zůstává beze změny.
+
 ### /sbirka — datum čitelné i v dark theme + zapamatované zobrazení
 - **Datum v dlaždici** má teď fixní **světlou zelenou** (`#bbf7d0`) přes inline
   `color` (ne Tailwind třídu): dark theme obrací barevné třídy, takže se

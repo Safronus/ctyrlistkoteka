@@ -333,6 +333,35 @@
   border: 1px solid #fcd34d;
 }
 
+/* Dark theme — the four rules above paint the popup with literal light
+   gradients (#f0fdf4 / #fffbeb → #ffffff) that ignore the inverted
+   colour scale, so on the near-black map they'd glow as bright islands.
+   Re-tint the wrapper + tip to dark green / gold surfaces here. The
+   popup's body text is theme-aware (it uses `var(--color-*)` in
+   highlight-find-marker.tsx), so it flips on its own — only these fixed
+   backgrounds and Leaflet's dark close "×" need an override. */
+[data-theme="dark"] .ctyr-find-highlight-popup .leaflet-popup-content-wrapper {
+  background: linear-gradient(135deg, oklch(0.27 0.07 145), oklch(0.19 0.02 145) 72%);
+  border-color: oklch(0.46 0.12 145);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+[data-theme="dark"] .ctyr-find-highlight-popup .leaflet-popup-tip {
+  background: oklch(0.24 0.05 145);
+  border-color: oklch(0.46 0.12 145);
+}
+[data-theme="dark"] .ctyr-find-highlight-popup--record .leaflet-popup-content-wrapper {
+  background: linear-gradient(135deg, oklch(0.27 0.07 80), oklch(0.19 0.02 80) 72%);
+  border-color: oklch(0.56 0.14 80);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+[data-theme="dark"] .ctyr-find-highlight-popup--record .leaflet-popup-tip {
+  background: oklch(0.24 0.05 80);
+  border-color: oklch(0.56 0.14 80);
+}
+[data-theme="dark"] .ctyr-find-highlight-popup .leaflet-popup-close-button {
+  color: oklch(0.72 0 0);
+}
+
 /* `.leaflet-container { z-index: auto }` lifts the popup-pane
    (z-index 700 inside the container) out of the stacking context that
    the default `z-index: 0` on `.leaflet-container` would otherwise
