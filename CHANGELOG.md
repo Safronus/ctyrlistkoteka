@@ -10,8 +10,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 ## 2026-07
 
 ### Dlaždice + čtyřlístková chybová stránka
-- **Datum v dlaždici** `/sbirka` je čitelné i na světlých/šedých fotkách —
-  silnější spodní gradient (`from-black/85 via-black/50`) + výrazný text-shadow.
+- **Datum v dlaždici** `/sbirka` je čitelné i na světlých fotkách — silný spodní
+  gradient + dvojitý text-shadow, obojí **inline stylem** (Tailwind arbitrary
+  `text-shadow` se spolehlivě nekompiloval, takže první pokus nebyl vidět).
+- **Dark theme:** smajlík autora v navigaci detailu nálezu (první/poslední nález
+  → „snad brzy") dostal `theme-invertible` — ve tmavém režimu je světlý jako
+  v patičce (dřív černý na černém, neviditelný).
 - **Hlasovací tlačítko** v dlaždici používá `variant="overlay"` (kulatý
   bílý/blur chip, brand barva po hlasování) místo vlastního obalu — čistší.
 - **Nová globální chybová stránka** (`src/app/global-error.tsx`) místo ošklivého

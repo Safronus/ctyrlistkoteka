@@ -80,10 +80,23 @@ export async function FindCard({
         )}
         {/* Date + time — bottom overlay, centred, over a strong gradient +
             text-shadow so it stays legible on any photo (incl. bright /
-            grayscale ones). */}
+            grayscale ones). Both are inline styles on purpose: Tailwind's
+            arbitrary text-shadow value didn't reliably compile. */}
         {find.foundAt && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-2 pb-2 pt-9">
-            <p className="text-center text-xs font-semibold tracking-tight text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.95)]">
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 px-2 pb-2 pt-10"
+            style={{
+              background:
+                "linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.6) 45%, transparent)",
+            }}
+          >
+            <p
+              className="text-center text-xs font-semibold tracking-tight text-white"
+              style={{
+                textShadow:
+                  "0 1px 4px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.85)",
+              }}
+            >
               {formatShortDateTimeCs(find.foundAt, locale)}
             </p>
           </div>
