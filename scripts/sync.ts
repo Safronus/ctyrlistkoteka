@@ -1109,16 +1109,36 @@ async function phaseFinds(
     progress.tick();
   }
 
-  // Two parallel streams — ORIGINAL and CROP — with 2 workers each
-  // (= 4 concurrent processOne calls total). Sized for the 6-vCPU
-  // VPS with `sharp.concurrency(1)` set above: at most 4 sharp
-  // pipelines × 1 libvips thread = 4 threads, leaving 2 vCPUs for
-  // Postgres + heic-convert + the Node event loop. Going wider
-  // started oversubscribing in local testing without measurable
-  // throughput gain — the per-file work is dominated by sha1
-  // streaming + WebP encode, both of which hit disk/CPU limits
-  // before adding more concurrency helps.
-  await Promise.all([pMap(finds, 2, processOne), pMap(crops, 2, processOne)]);
+  // Process each find as a unit — its ORIGINAL first (the foundAt source),
+  // then its CROP — and take finds in ascending id order. /sbirka now shows
+  // the CROP as the thumbnail, so a crop that landed before its original
+  // during a sync made the live grid look half-broken; grouping guarantees a
+  // find's original is always in place before its crop, and finds fill in
+  // smoothly in order. Concurrency 4 keeps the same "4 files in flight"
+  // throughput as the old two-stream Promise.all — sized for the 6-vCPU VPS
+  // with `sharp.concurrency(1)` set above (≤ 4 sharp pipelines × 1 libvips
+  // thread = 4 threads, leaving 2 vCPUs for Postgres + heic-convert + the
+  // event loop). Each worker runs one file at a time (original then crop),
+  // so it's still ≤ 4 concurrent sharp pipelines.
+  const byFindId = new Map<
+    number,
+    { original?: FindFileInfo; crop?: FindFileInfo }
+  >();
+  for (const f of finds) {
+    const g = byFindId.get(f.parsed.findId) ?? {};
+    g.original = f;
+    byFindId.set(f.parsed.findId, g);
+  }
+  for (const c of crops) {
+    const g = byFindId.get(c.parsed.findId) ?? {};
+    g.crop = c;
+    byFindId.set(c.parsed.findId, g);
+  }
+  const findGroups = [...byFindId.entries()].sort((a, b) => a[0] - b[0]);
+  await pMap(findGroups, 4, async ([, g]) => {
+    if (g.original) await processOne(g.original);
+    if (g.crop) await processOne(g.crop);
+  });
 
   // Re-link finds whose map appeared after their photo was ingested — those
   // get `skipped_unchanged` above and would otherwise keep a stale/null

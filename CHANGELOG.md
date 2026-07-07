@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Sync — nálezy po skupinách (originál před ořezem, vzestupně)
+- Protože `/sbirka` teď ukazuje jako náhled **ořez**, ořez vygenerovaný **dřív
+  než originál** během syncu způsoboval, že web během importu vypadal rozbitě.
+  Sync teď zpracovává každý nález jako **celek** — nejprve originál (zdroj
+  `foundAt`), pak ořez — a nálezy jdou **vzestupně podle id**. Ořez se tak nikdy
+  neobjeví před svým originálem a nálezy plynule přibývají. Propustnost stejná:
+  concurrency 4 (jeden soubor na worker naráz) = stejné „4 soubory naráz" jako
+  dřívější dva paralelní proudy `pMap(finds) + pMap(crops)`.
+
 ### /sbirka — přeuspořádání dlaždice (mřížka)
 - Číslo nálezu přesunuto **nad fotku** jako centrovaný banner „🍀 #123"
   (+ odznak REKORD, pokud jde o rekord).
