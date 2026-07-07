@@ -46,13 +46,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   `DriftSvg` rozdělen na `DriftClovers` + toggle).
 - Tím se **nabídka darování (se záplavou)** posunula výš — hned pod fakta v hero.
 
-### /sbirka — náhled ořezu při hoveru nad fotkou
-- V mřížce i seznamu se při najetí myší na fotku nálezu plynule ukáže **ořez**
-  (close-up čtyřlístku — stejná `CROP` varianta jako na detailu nálezu). Klik
-  dál vede na detail. Čistě CSS (`group-hover/thumb`, žádný client JS); ořezová
-  vrstva je `loading="lazy"` + `fetchPriority="low"`, aby neovlivnila LCP mřížky.
-  `FindThumbnail` dostal prop `cropImage` + helper `cropVariant`; data už byla
-  k dispozici (`find.images` nese i CROP).
+### /sbirka — v seznamu i mřížce rovnou ořez nálezu
+- Náhled nálezu v `/sbirka` (mřížka i seznam) je teď rovnou **ořez** (close-up
+  čtyřlístku, `CROP`) místo hlavní fotky — v malém náhledu je čitelnější; celá
+  fotka je o klik dál na detailu. Helper `cropVariant` vybírá CROP (fallback na
+  originál), data už byla k dispozici (`find.images`). Nahradilo to krátce živý
+  hover-náhled ořezu (ten už není potřeba).
 
 ### Sync — nálezy bez lokace se po pozdním nahrání map nedorovnaly
 - **Příčina:** sync přeskočí **celé** zpracování nálezu, když se jeho foto

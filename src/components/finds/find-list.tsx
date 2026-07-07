@@ -152,8 +152,7 @@ function FindListRow({
           {/* LOST finds render their photo in grayscale — the quiet
               list-level echo of the detail page's elegy treatment. */}
           <FindThumbnail
-            image={find.primaryImage}
-            cropImage={cropVariant(find.primaryImage, find.images)}
+            image={cropVariant(find.primaryImage, find.images) ?? find.primaryImage}
             alt={altText}
             priority={priority}
             className={`h-24 w-24 rounded-md sm:h-28 sm:w-28 ${

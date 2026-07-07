@@ -70,8 +70,7 @@ export async function FindCard({
             overlaid badges/vote button are siblings, so they keep
             their colors. */}
         <FindThumbnail
-          image={find.primaryImage}
-          cropImage={cropVariant(find.primaryImage, find.images)}
+          image={cropVariant(find.primaryImage, find.images) ?? find.primaryImage}
           alt={altText}
           priority={priority}
           className={`aspect-square ${
