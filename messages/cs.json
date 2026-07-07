@@ -911,6 +911,8 @@
     "cookiesIntro": "Web neukládá do vašeho zařízení nic pro reklamu ani sledování napříč weby. Používá pouze:",
     "cookieVoteName": "vote_voter_uuid",
     "cookieVoteDesc": "funkční cookie (platnost 1 rok), nastaví se až při hlasování a brání dvojímu hlasování.",
+    "cookieViewName": "view",
+    "cookieViewDesc": "funkční cookie (platnost 1 rok), pamatuje si, zda ve Sbírce chceš dlaždice, nebo seznam. Neslouží ke sledování.",
     "storageThemeName": "theme",
     "storageThemeDesc": "volba vzhledu (světlý/tmavý/čtyřlístkový) uložená v localStorage prohlížeče; na server se neodesílá.",
     "cookiesNoBanner": "Protože nepoužíváme sledovací ani reklamní cookies, web podle § 89 zákona č. 127/2005 Sb. nevyžaduje souhlasovou („cookie“) lištu.",

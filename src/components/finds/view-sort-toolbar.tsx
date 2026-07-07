@@ -121,7 +121,13 @@ export function ViewSortToolbar({
           { value: "grid", label: t("viewGrid"), icon: <LayoutGrid className="h-4 w-4" /> },
           { value: "list", label: t("viewList"), icon: <List className="h-4 w-4" /> },
         ]}
-        onChange={(v) => setParam("view", v, defaultView)}
+        onChange={(v) => {
+          // Remember the choice as a functional cookie (1 year) so the
+          // server renders it as the default on the next visit — no flash.
+          // Purely a UI preference; disclosed in /soukromi.
+          document.cookie = `view=${v}; path=/; max-age=31536000; samesite=lax`;
+          setParam("view", v, defaultView);
+        }}
       />
 
       {/* Sort: native <select> dropdown, mirroring /lokality. The

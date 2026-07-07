@@ -131,6 +131,10 @@ export default async function PrivacyPage() {
             {t("cookieVoteDesc")}
           </li>
           <li>
+            <code className={CODE_CLASS}>{t("cookieViewName")}</code> —{" "}
+            {t("cookieViewDesc")}
+          </li>
+          <li>
             <code className={CODE_CLASS}>{t("storageThemeName")}</code> —{" "}
             {t("storageThemeDesc")}
           </li>

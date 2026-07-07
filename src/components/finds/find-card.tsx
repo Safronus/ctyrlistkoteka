@@ -91,8 +91,13 @@ export async function FindCard({
             }}
           >
             <p
-              className="text-center text-xs font-semibold tracking-tight text-white"
+              className="text-center text-xs font-semibold tracking-tight"
               style={{
+                // Literal light clover-green (not a Tailwind class): the dark
+                // theme inverts colour classes, which flipped `text-white` to
+                // black — but the gradient below is a fixed literal dark, so
+                // the text must be a fixed light colour in both themes.
+                color: "#bbf7d0",
                 textShadow:
                   "0 1px 4px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.85)",
               }}

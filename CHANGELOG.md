@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — datum čitelné i v dark theme + zapamatované zobrazení
+- **Datum v dlaždici** má teď fixní **světlou zelenou** (`#bbf7d0`) přes inline
+  `color` (ne Tailwind třídu): dark theme obrací barevné třídy, takže se
+  `text-white` převracel na černou → „tmavé na tmavém". Gradient pod ním je
+  fixní tmavý, takže text musí být fixně světlý v obou režimech.
+- **Zapamatování zobrazení**: volba **dlaždice/seznam** se ukládá do funkční
+  cookie `view` (1 rok), server ji čte jako výchozí → drží se napříč
+  návštěvami, bez blikání. **Dlaždice jsou nově výchozí pro všechny** (dřív jen
+  telefony přes UA; desktop/tablet měl seznam). Nová cookie doplněna do
+  „Ochrana soukromí" (funkční, neslouží ke sledování).
+
 ### Dlaždice + čtyřlístková chybová stránka
 - **Datum v dlaždici** `/sbirka` je čitelné i na světlých fotkách — silný spodní
   gradient + dvojitý text-shadow, obojí **inline stylem** (Tailwind arbitrary

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
 import { Map as MapIcon } from "lucide-react";
 import { FindState } from "@prisma/client";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -120,15 +120,8 @@ function parseSort(value: string | undefined): FindSort {
   return "desc";
 }
 
-/** Phone-class User-Agent → the default view is the tile grid; tablets
- *  and desktops default to the list. `Mobi` covers iPhone + Android
- *  phones (Chrome on Android tablets omits it, so they stay on the list,
- *  matching desktop). Only a *default*: an explicit `?view=` always wins. */
-const MOBILE_UA_RE =
-  /Mobi|iPhone|iPod|Android.*Mobile|Windows Phone|BlackBerry|IEMobile|Opera Mini/i;
-
-/** Explicit `?view=` choice, or null when absent (→ fall back to the
- *  UA-derived default). */
+/** Explicit `?view=` choice, or the remembered `view` cookie value, parsed
+ *  to a FindView — null when absent/garbage (→ fall back to the default). */
 function parseExplicitView(value: string | undefined): FindView | null {
   return value === "grid" ? "grid" : value === "list" ? "list" : null;
 }
@@ -184,14 +177,14 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const page = parsePositiveInt(pickString(sp.page)) ?? 1;
   const pageSize = parseSbirkaPageSize(pickString(sp.size));
   const sort = parseSort(pickString(sp.sort));
-  // View defaults responsively: phones get the tile grid, everyone else
-  // the list. The page is force-dynamic, so reading the request UA here
-  // is free and renders a single view (no flash, no double-render). An
-  // explicit `?view=` from the toolbar always overrides the default.
+  // View: an explicit `?view=` wins; otherwise the visitor's remembered
+  // choice (the functional `view` cookie the toolbar sets); otherwise the
+  // tile grid by default. Read server-side (the page is force-dynamic) so a
+  // single view renders — no flash, no double-render.
   const explicitView = parseExplicitView(pickString(sp.view));
-  const ua = (await headers()).get("user-agent") ?? "";
-  const defaultView: FindView = MOBILE_UA_RE.test(ua) ? "grid" : "list";
-  const view: FindView = explicitView ?? defaultView;
+  const cookieView = parseExplicitView((await cookies()).get("view")?.value);
+  const defaultView: FindView = "grid";
+  const view: FindView = explicitView ?? cookieView ?? defaultView;
 
   const locale = await getLocale();
   // Resolve the dominant location's code for the toggle's hover label
