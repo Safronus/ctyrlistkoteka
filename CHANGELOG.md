@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Dlaždice + čtyřlístková chybová stránka
+- **Datum v dlaždici** `/sbirka` je čitelné i na světlých/šedých fotkách —
+  silnější spodní gradient (`from-black/85 via-black/50`) + výrazný text-shadow.
+- **Hlasovací tlačítko** v dlaždici používá `variant="overlay"` (kulatý
+  bílý/blur chip, brand barva po hlasování) místo vlastního obalu — čistší.
+- **Nová globální chybová stránka** (`src/app/global-error.tsx`) místo ošklivého
+  Next defaultu „Application error: a client-side exception…": čtyřlístková
+  scéna s animací — houpající se čtyřlístek (mapová ikona), stoupající lístky,
+  třpyt ✨, střídající se vtipné hlášky („Sázíme nové čtyřlístky…"). Při chybě
+  načtení chunku (typicky **během deploye**) se stránka **sama obnoví** za 4 s
+  (pojistka proti smyčce: max 1× za 20 s). Self-contained — vlastní
+  `<html>/<body>`, inline styly, žádný Tailwind/next-intl (běží mimo layout).
+
 ### Statistiky — kratší TTL cache (cluster prodleva po syncu)
 - Po syncu se `/statistiky` občas neobnovila, zatímco hlavní strana ano (např.
   745 vs 740 hledání). Příčina: **PM2 cluster** (2 workeři), každý má vlastní

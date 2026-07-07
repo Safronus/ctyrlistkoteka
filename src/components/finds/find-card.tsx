@@ -69,20 +69,21 @@ export async function FindCard({
         {/* Vote button — top-right corner. Only when a thumbnail exists
          *  (no-photo finds have nothing to vote on). */}
         {find.primaryImage && (
-          <div className="absolute right-2 top-2 rounded-full bg-white/90 backdrop-blur-sm drop-shadow-sm">
+          <div className="absolute right-2 top-2">
             <VoteButton
               findId={find.id}
               initialVoted={voted}
               initialCount={voteCount}
-              size="md"
+              variant="overlay"
             />
           </div>
         )}
-        {/* Date + time — bottom overlay, centred, over a soft gradient so it
-            stays legible on any photo. */}
+        {/* Date + time — bottom overlay, centred, over a strong gradient +
+            text-shadow so it stays legible on any photo (incl. bright /
+            grayscale ones). */}
         {find.foundAt && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent px-2 pb-1.5 pt-6">
-            <p className="text-center text-xs font-medium text-white drop-shadow">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-2 pb-2 pt-9">
+            <p className="text-center text-xs font-semibold tracking-tight text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.95)]">
               {formatShortDateTimeCs(find.foundAt, locale)}
             </p>
           </div>
