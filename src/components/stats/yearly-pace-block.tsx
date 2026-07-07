@@ -54,7 +54,7 @@ export function YearlyPaceBlock({
   return (
     <div className="flex flex-col">
       <div className="flex flex-wrap items-baseline justify-center gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
           {t("paceYear")}
         </p>
         {/* Per-button chips with their own border keep the row tidy when

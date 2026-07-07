@@ -42,7 +42,7 @@ export function TimePaceSummary({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div className="flex flex-col items-center justify-center text-center">
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
           {t("timePaceEstimate")}
         </p>
         <p className="mt-1 text-3xl font-bold text-brand-700">{totalLabel}</p>
@@ -67,7 +67,7 @@ export function TimePaceSummary({
       </div>
 
       <div className="flex flex-col">
-        <p className="text-center text-xs font-medium uppercase tracking-wide text-gray-500">
+        <p className="text-center text-xs font-medium uppercase tracking-wide text-brand-700">
           {t("paceAllTime")}
         </p>
         <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">

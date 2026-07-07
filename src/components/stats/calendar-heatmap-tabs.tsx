@@ -59,7 +59,7 @@ export function CalendarHeatmapTabs({
         <div role="tabpanel">{daysView}</div>
       ) : (
         <div role="tabpanel" className="rounded-xl border border-gray-200 bg-white p-5">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-700">
             {t("minuteHeatmapHeading")}
           </h3>
           <p className="mb-3 text-xs text-gray-500">

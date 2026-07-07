@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Dark theme — brand-800 dodefinováno + zelené popisky statistik
+- **`brand-800` konečně definováno** (v `@theme` i v dark bloku, interpolace
+  mezi 700 a 900). Dřív `--color-brand-800` neexistoval: `text-brand-800`
+  (odznaky „darováno" / části lokace, aktivní stránkování, „voted" palec)
+  padal na zděděnou barvu textu a `bg-brand-800/40` (admin/audit) se počítalo
+  jako **průhledné**. Teď mají reálnou tmavou/světlou zelenou (kontrast
+  8,9–11,9:1 v obou motivech).
+- **Popisky sekcí na `/statistiky`** (17 „eyebrow" nadpisů
+  `uppercase tracking-wide`) přebarveno ze šedé na **`brand-700`** — zelený
+  akcent jako jinde na webu (hodnoty u nich už zelené byly). Kontrast 7,8:1
+  (světlý) / 10,2:1 (dark). Datové hodnoty a legendy zůstávají neutrální.
+
 ### Dlaždice /sbirka — banner s pinem + lajkem, dark popup na mapě
 - **Banner dlaždice** přeskládán: **pin s proklikem na mapu** (`/mapa?find=<id>`,
   stejný odkaz i gate jako v seznamu — `!isAnonymized && coordinates≠null`)

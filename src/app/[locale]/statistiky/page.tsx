@@ -668,7 +668,7 @@ function BestSessionsCard({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left — the single biggest bout, dominant. */}
         <div className="flex flex-col items-center justify-center text-center">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
             {t("bestSessionHeading")}
           </p>
           <p className="mt-1 text-3xl font-bold text-brand-700">
@@ -715,7 +715,7 @@ function BestSessionsCard({
             to /sbirka filtered to that bout's day(s). */}
         {others.length > 0 && (
           <div className="flex flex-col">
-            <p className="text-center text-xs font-medium uppercase tracking-wide text-gray-500">
+            <p className="text-center text-xs font-medium uppercase tracking-wide text-brand-700">
               {t("bestSessionOthers")}
             </p>
             <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -906,7 +906,7 @@ function DeviationStatsCard({
             {/* Direction rose — dominant octant + 8-way distribution. */}
             <div className="rounded-lg border border-brand-100 bg-white p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
                 {t("deviationDirectionLabel")}
               </p>
               {dom !== null && (
@@ -1077,7 +1077,7 @@ function DeviationStat({
     <div
       className={`flex h-full flex-col rounded-lg border border-brand-100 bg-white p-3 ${className}`}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
         {label}
       </p>
       <div className="mt-1 flex flex-1 flex-col">{children}</div>
@@ -1175,7 +1175,7 @@ function FindHighlightCard({
       }`}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-700">
           {label}
         </h2>
         <span className="font-mono text-xs text-gray-500">
@@ -1302,7 +1302,7 @@ function GeoStatsSection({
         </div>
         {localizedByCountry.length > 0 && (
           <div>
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-700">
               {t("geoMapHeading")}
             </h3>
             <GeoMapToggle
@@ -1340,7 +1340,7 @@ function CountTable({
   const truncated = maxRows ? rows.length - visible.length : 0;
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-700">
         {title}
       </h3>
       {visible.length === 0 ? (
@@ -1506,7 +1506,7 @@ function DayStreakInfo({
 }) {
   return (
     <div className="text-left text-xs leading-snug sm:text-right">
-      <p className="font-medium uppercase tracking-wide text-gray-500">
+      <p className="font-medium uppercase tracking-wide text-brand-700">
         {t("streakHeading")}
       </p>
       <p className="mt-0.5 text-gray-600">
@@ -1619,7 +1619,7 @@ function MonthDayHeatmap({
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-700">
         {t("heatmapHeading")}
       </h3>
       <p className="mb-3 text-xs text-gray-500">
@@ -1744,7 +1744,7 @@ function CalendarSubsection({
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-700">
         {title}
       </h3>
 
@@ -1785,7 +1785,7 @@ function CalendarSubsection({
       </div>
 
       <details className="mt-4 group">
-        <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-gray-500 hover:text-gray-700">
+        <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-brand-700 hover:text-brand-800">
           {t("valueTable")}
         </summary>
         <dl
@@ -2043,7 +2043,7 @@ function PeakSlidingCard({
     >
       <div className="flex items-center justify-center gap-2">
         <Icon className="h-4 w-4 text-brand-700" aria-hidden />
-        <h3 className="text-center text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="text-center text-xs font-semibold uppercase tracking-wide text-brand-700">
           {label}
         </h3>
       </div>
@@ -2305,7 +2305,7 @@ function PeakBucketCard({
     >
       <div className="flex items-center justify-center gap-2">
         <Icon className="h-4 w-4 text-brand-700" aria-hidden />
-        <h3 className="text-center text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="text-center text-xs font-semibold uppercase tracking-wide text-brand-700">
           {label}
         </h3>
       </div>

@@ -28,6 +28,12 @@
   --color-brand-500: oklch(0.58 0.17 145);
   --color-brand-600: oklch(0.50 0.17 145);
   --color-brand-700: oklch(0.42 0.15 145);
+  /* brand-800 was never defined — `text-brand-800` (voted vote pill,
+     active pagination, "darováno" / location part badges) resolved to an
+     undefined var and fell back to the inherited text colour, and
+     `bg-brand-800` (admin/audit) computed to transparent. Interpolated
+     between 700 and 900 so those surfaces get a real dark clover green. */
+  --color-brand-800: oklch(0.35 0.12 145);
   --color-brand-900: oklch(0.28 0.09 145);
 }
 
@@ -104,6 +110,9 @@
   --color-brand-500: oklch(0.66 0.18 145);
   --color-brand-600: oklch(0.58 0.18 145);
   --color-brand-700: oklch(0.78 0.13 145);
+  /* Dark counterpart of brand-800 (see @theme note) — light clover green
+     so `text-brand-800` badges read on the dark-tinted brand surfaces. */
+  --color-brand-800: oklch(0.83 0.10 145);
   --color-brand-900: oklch(0.88 0.08 145);
 
   /* Anonymized — purple stays purple, just inverted lightness. Full scale
