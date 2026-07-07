@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — přeuspořádání dlaždice (mřížka)
+- Číslo nálezu přesunuto **nad fotku** jako centrovaný banner „🍀 #123"
+  (+ odznak REKORD, pokud jde o rekord).
+- **Palec hlasování** přesunut do **pravého horního rohu** fotky.
+- **Datum a čas** jako overlay na **spodní hraně** fotky, na střed (bílý text
+  na jemném gradientu kvůli čitelnosti).
+- Z dlaždice **zmizely GPS, kód lokace i puntík odchylky** od lokace — celý
+  spodní popisný banner je pryč (vše zůstává na detailu nálezu). Týká se jen
+  mřížky/dlaždic; seznam (list) beze změny. Uklizeny osiřelé importy.
+
 ### Statistiky — „Top 10 lokalit" i podle počtu sbírání
 - Žebříček „Top 10 lokalit" má nový přepínač **„Podle sbírání"** — kolikrát jsem
   na dané lokalitě byl na čtyřlístkách (počet hledání). V řádku: **počet hledání**
