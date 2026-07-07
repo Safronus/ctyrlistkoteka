@@ -433,16 +433,20 @@ async function TopLocationsSection() {
   const {
     topLocations,
     topLocationsByDensity,
+    topLocationsBySessions,
     avgFindsPerLocation,
     avgDensityPer100m2,
+    avgFindsPerSession,
   } = await getStatsTopLocations();
   if (topLocations.length === 0) return null;
   return (
     <TopLocationsCard
       byCount={topLocations}
       byDensity={topLocationsByDensity}
+      bySessions={topLocationsBySessions}
       avgCount={avgFindsPerLocation}
       avgDensity={avgDensityPer100m2}
+      avgSessions={avgFindsPerSession}
     />
   );
 }

@@ -119,6 +119,22 @@ export interface LocationDensityPoint {
   isAnonymized: boolean;
 }
 
+/** A leaderboard row for the "TOP by collecting sessions" view — how many
+ *  distinct visits (runs of finds ≤ STATS_SESSION_GAP_MS apart) the location
+ *  saw, plus its find count and the average finds per session. Sub-parts are
+ *  folded into their master location, like the by-count view. */
+export interface LocationSessionPoint {
+  id: number;
+  code: string;
+  name: string;
+  /** Number of collecting sessions (visits) at this location. */
+  sessions: number;
+  /** Total finds across those sessions. */
+  finds: number;
+  /** finds / sessions. */
+  avgPerSession: number;
+}
+
 /** Calendar-axis aggregations independent of the year. */
 export interface CalendarPoint {
   /** 0–23 for hour, 1–7 (mon–sun) for dow, 1–12 for month. */
@@ -436,6 +452,8 @@ export interface StatsJubileesResult {
 export interface StatsTopLocationsResult {
   topLocations: LocationPoint[];
   topLocationsByDensity: LocationDensityPoint[];
+  /** Top 10 locations by number of collecting sessions (visits). */
+  topLocationsBySessions: LocationSessionPoint[];
   /** Mean finds per location across every location = located finds /
    *  location count. Shown beside the "by count" toggle as a baseline. */
   avgFindsPerLocation: number;
@@ -444,6 +462,9 @@ export interface StatsTopLocationsResult {
    *  included with a 5 m-radius circle as their area. Shown beside the
    *  "by density" toggle. */
   avgDensityPer100m2: number;
+  /** Mean finds per session across all sessions (all-time). Shown beside the
+   *  "by sessions" toggle as a baseline. */
+  avgFindsPerSession: number;
 }
 
 export interface StatsGeoResult {
@@ -1315,7 +1336,8 @@ async function getStatsJubileesImpl(): Promise<StatsJubileesResult> {
 }
 
 async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
-  const [topLocRows, topDensityRows, avgRows] = await Promise.all([
+  const [topLocRows, topDensityRows, avgRows, sessionRows, locNameRows] =
+    await Promise.all([
     // Top 10 locations by find count.
     // - Anonymized locations are dropped (their code/name/findCount can't
     //   be exposed publicly per CLAUDE.md §6).
@@ -1444,7 +1466,82 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
            JOIN areas a ON a.id = c.location_id
            WHERE a.area_m2 > 0)::float8 AS avg_density
     `,
+    // Collecting sessions per location (folded into master locations, like
+    // the by-count view): (bucket_id, found_at) for every dated, located,
+    // non-anonymized find, ordered so the JS walk below can count runs of
+    // finds ≤ STATS_SESSION_GAP_MS apart as one visit.
+    prisma.$queryRaw<Array<{ bucket_id: number; found_at: Date }>>`
+      WITH anon AS (
+        SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
+      ),
+      bucket AS (
+        SELECT
+          CASE
+            WHEN l.parent_id IS NOT NULL
+                 AND l.parent_id NOT IN (SELECT location_id FROM anon)
+            THEN l.parent_id ELSE f.location_id
+          END AS bucket_id,
+          f.found_at
+        FROM finds f
+        LEFT JOIN locations l ON l.id = f.location_id
+        WHERE f.found_at IS NOT NULL AND f.location_id IS NOT NULL
+      )
+      SELECT bucket_id, found_at
+      FROM bucket
+      WHERE bucket_id NOT IN (SELECT location_id FROM anon)
+      ORDER BY bucket_id, found_at ASC
+    `,
+    // Names for the (non-anonymized) master locations, so the top-sessions
+    // rows can be labelled without carrying the name on every find row above.
+    prisma.$queryRaw<Array<{ id: number; code: string; name: string }>>`
+      WITH anon AS (
+        SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
+      )
+      SELECT id, code, COALESCE(NULLIF(display_name, ''), code) AS name
+      FROM locations
+      WHERE id NOT IN (SELECT location_id FROM anon)
+    `,
   ]);
+
+  // Fold finds into per-master-location sessions: walk each bucket's finds
+  // (already time-sorted by the query) and open a new session whenever the
+  // gap exceeds STATS_SESSION_GAP_MS — the same rule as the pace estimate.
+  const nameById = new Map(
+    locNameRows.map((r) => [r.id, { code: r.code, name: r.name }]),
+  );
+  const byBucket = new Map<number, number[]>();
+  for (const r of sessionRows) {
+    const ts = r.found_at.getTime();
+    const arr = byBucket.get(r.bucket_id);
+    if (arr) arr.push(ts);
+    else byBucket.set(r.bucket_id, [ts]);
+  }
+  let totalSessions = 0;
+  let totalSessionFinds = 0;
+  const sessionPoints: LocationSessionPoint[] = [];
+  for (const [id, ts] of byBucket.entries()) {
+    let sessions = 1;
+    for (let i = 1; i < ts.length; i++) {
+      if (ts[i]! - ts[i - 1]! > STATS_SESSION_GAP_MS) sessions += 1;
+    }
+    totalSessions += sessions;
+    totalSessionFinds += ts.length;
+    const nm = nameById.get(id);
+    if (!nm) continue;
+    sessionPoints.push({
+      id,
+      code: nm.code,
+      name: nm.name,
+      sessions,
+      finds: ts.length,
+      avgPerSession: ts.length / sessions,
+    });
+  }
+  sessionPoints.sort((a, b) => b.sessions - a.sessions || a.id - b.id);
+  const topLocationsBySessions = sessionPoints.slice(0, 10);
+  const avgFindsPerSession =
+    totalSessions > 0 ? totalSessionFinds / totalSessions : 0;
+
   const avg = avgRows[0];
   const locCount = avg ? Number(avg.loc_count) : 0;
   const avgFindsPerLocation =
@@ -1454,6 +1551,8 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
   return {
     avgFindsPerLocation,
     avgDensityPer100m2,
+    avgFindsPerSession,
+    topLocationsBySessions,
     topLocations: topLocRows.map((r) => ({
       id: r.id,
       code: r.code,

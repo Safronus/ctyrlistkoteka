@@ -14,9 +14,10 @@ import { CollapsibleSection } from "@/components/stats/collapsible-section";
 import type {
   LocationDensityPoint,
   LocationPoint,
+  LocationSessionPoint,
 } from "@/lib/queries/stats";
 
-type Mode = "count" | "density";
+type Mode = "count" | "density" | "sessions";
 
 function toIntlLocale(locale: string): string {
   if (locale === "cs") return "cs-CZ";
@@ -27,16 +28,21 @@ function toIntlLocale(locale: string): string {
 export function TopLocationsCard({
   byCount,
   byDensity,
+  bySessions,
   avgCount,
   avgDensity,
+  avgSessions,
 }: {
   byCount: readonly LocationPoint[];
   byDensity: readonly LocationDensityPoint[];
+  bySessions: readonly LocationSessionPoint[];
   /** Mean finds per location, shown beside the "by count" toggle. */
   avgCount: number;
   /** Mean density (clovers / 100 m²), shown beside the "by density"
    *  toggle. */
   avgDensity: number;
+  /** Mean finds per session, shown beside the "by sessions" toggle. */
+  avgSessions: number;
 }) {
   const t = useTranslations("Statistiky");
   const locale = useLocale();
@@ -47,47 +53,66 @@ export function TopLocationsCard({
   const [mode, setMode] = useState<Mode>("count");
 
   const hasDensity = byDensity.length > 0;
-  const showToggle = hasDensity;
-  const activeMode: Mode = !hasDensity ? "count" : mode;
+  const hasSessions = bySessions.length > 0;
+  const showToggle = hasDensity || hasSessions;
+  // Fall back to "count" if the picked mode has no data (e.g. no polygons).
+  const activeMode: Mode =
+    (mode === "density" && !hasDensity) || (mode === "sessions" && !hasSessions)
+      ? "count"
+      : mode;
+
+  const title =
+    activeMode === "count"
+      ? t("topLocationsHeading", { count: byCount.length })
+      : activeMode === "density"
+        ? t("topByDensityHeading", { count: byDensity.length })
+        : t("topBySessionsHeading", { count: bySessions.length });
+  const subtitle =
+    activeMode === "count"
+      ? t("topLocationsSubtitle")
+      : activeMode === "density"
+        ? t("topByDensitySubtitle")
+        : t("topBySessionsSubtitle");
+  const baselineTitle =
+    activeMode === "count"
+      ? t("topAvgCountTitle")
+      : activeMode === "density"
+        ? t("topAvgDensityTitle")
+        : t("topAvgSessionsTitle");
+  const baseline =
+    activeMode === "count"
+      ? t("topAvgCount", { avg: avgFmt.format(avgCount) })
+      : activeMode === "density"
+        ? t("topAvgDensity", { avg: formatDensity(avgDensity) })
+        : t("topAvgSessions", { avg: avgFmt.format(avgSessions) });
 
   return (
     <CollapsibleSection
       storageKey="topLocations"
       id="top-locations"
-      title={
-        activeMode === "count"
-          ? t("topLocationsHeading", { count: byCount.length })
-          : t("topByDensityHeading", { count: byDensity.length })
-      }
-      subtitle={
-        activeMode === "count"
-          ? t("topLocationsSubtitle")
-          : t("topByDensitySubtitle")
-      }
+      title={title}
+      subtitle={subtitle}
     >
       <div className="mb-4 flex items-center justify-between gap-2">
-        <p
-          className="text-xs text-gray-500"
-          title={
-            activeMode === "count"
-              ? t("topAvgCountTitle")
-              : t("topAvgDensityTitle")
-          }
-        >
-          {activeMode === "count"
-            ? t("topAvgCount", { avg: avgFmt.format(avgCount) })
-            : t("topAvgDensity", {
-                avg: formatDensity(avgDensity),
-              })}
+        <p className="text-xs text-gray-500" title={baselineTitle}>
+          {baseline}
         </p>
         {showToggle && (
-          <ModeToggle mode={activeMode} onChange={setMode} t={t} />
+          <ModeToggle
+            mode={activeMode}
+            onChange={setMode}
+            hasDensity={hasDensity}
+            hasSessions={hasSessions}
+            t={t}
+          />
         )}
       </div>
       {activeMode === "count" ? (
         <CountList rows={byCount} numFmt={numFmt} t={t} />
-      ) : (
+      ) : activeMode === "density" ? (
         <DensityList rows={byDensity} numFmt={numFmt} t={t} />
+      ) : (
+        <SessionsList rows={bySessions} numFmt={numFmt} avgFmt={avgFmt} t={t} />
       )}
     </CollapsibleSection>
   );
@@ -98,10 +123,14 @@ type StatsT = ReturnType<typeof useTranslations<"Statistiky">>;
 function ModeToggle({
   mode,
   onChange,
+  hasDensity,
+  hasSessions,
   t,
 }: {
   mode: Mode;
   onChange: (next: Mode) => void;
+  hasDensity: boolean;
+  hasSessions: boolean;
   t: StatsT;
 }) {
   return (
@@ -115,11 +144,20 @@ function ModeToggle({
         onClick={() => onChange("count")}
         label={t("topToggleByCount")}
       />
-      <ModeButton
-        active={mode === "density"}
-        onClick={() => onChange("density")}
-        label={t("topToggleByDensity")}
-      />
+      {hasDensity && (
+        <ModeButton
+          active={mode === "density"}
+          onClick={() => onChange("density")}
+          label={t("topToggleByDensity")}
+        />
+      )}
+      {hasSessions && (
+        <ModeButton
+          active={mode === "sessions"}
+          onClick={() => onChange("sessions")}
+          label={t("topToggleBySessions")}
+        />
+      )}
     </div>
   );
 }
@@ -208,6 +246,43 @@ function DensityList({
           suffix={t("rowSuffixCountWithArea", {
             count: numFmt.format(r.count),
             area: formatAreaM2(r.areaM2),
+          })}
+          t={t}
+        />
+      ))}
+    </ol>
+  );
+}
+
+function SessionsList({
+  rows,
+  numFmt,
+  avgFmt,
+  t,
+}: {
+  rows: readonly LocationSessionPoint[];
+  numFmt: Intl.NumberFormat;
+  avgFmt: Intl.NumberFormat;
+  t: StatsT;
+}) {
+  const max = rows.reduce((m, r) => Math.max(m, r.sessions), 0);
+  return (
+    <ol className="space-y-2">
+      {rows.map((r, i) => (
+        <Row
+          key={r.id}
+          rank={i + 1}
+          id={r.id}
+          code={r.code}
+          name={r.name}
+          isAnonymized={false}
+          value={r.sessions}
+          max={max}
+          valueLabel={numFmt.format(r.sessions)}
+          labelWidthClass="w-16"
+          suffix={t("rowSuffixSessions", {
+            avg: avgFmt.format(r.avgPerSession),
+            count: numFmt.format(r.finds),
           })}
           t={t}
         />

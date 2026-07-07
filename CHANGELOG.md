@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Statistiky — „Top 10 lokalit" i podle počtu sbírání
+- Žebříček „Top 10 lokalit" má nový přepínač **„Podle sbírání"** — kolikrát jsem
+  na dané lokalitě byl na čtyřlístkách (počet hledání). V řádku: **počet hledání**
+  (sloupec) + **průměrný počet nálezů na hledání** + celkem nálezů; vedle
+  přepínače baseline „⌀ nálezů / hledání".
+- Sběr (session) = běh nálezů max 15 min od sebe (`STATS_SESSION_GAP_MS`, stejné
+  pravidlo jako „Odhadovaná doba sbírání"). Počítá se v `getStatsTopLocations`
+  (sub-části se skládají do master lokace jako u „podle počtu"); nový typ
+  `LocationSessionPoint` + `topLocationsBySessions` / `avgFindsPerSession`.
+
 ### Hlavní strana — širší záplava + výraznější „→ pole"
 - **Záplava čtyřlístků** roztažena přes **šířku obsahu stránky** (jak nav/stat
   karty — `inset-0` za sekcí, ne celé okno) a za celý blok darování (nabídka →
