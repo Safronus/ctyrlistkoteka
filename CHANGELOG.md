@@ -30,6 +30,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   prokliku navíc **panel detailu lokality na mapě ukazuje kontext filtru**
   („Zobrazení odpovídá filtru: …"), takže uživatel ví, proč jsou nálezy
   ztlumené. /mapa nově přebírá i `fromTs/toTs` (přesný sběr).
+- **Faceted county v comboboxech**: u každé položky (stát, město, lokalita,
+  stav, rok) je nově **počet nálezů, který reaguje na ostatní aktivní
+  filtry** — např. po výběru „Darovaný" ukazuje stát/lokalita počty jen
+  darovaných. **Nulové možnosti se z nabídky skryjí** (kromě aktuálně
+  zvolené). County počítá `getFacetCounts` (každá dimenze vynechá svůj
+  vlastní filtr; nálezy dětských lokací se rolují do rodiče, ať sedí, co
+  výběr rodiče reálně vrátí).
+- **County u toggle „S fotkou daru" a „Skrýt největší lokalitu"** nově
+  odpovídají tomu, co se reálně skryje/zůstane vůči aktuálnímu filtru
+  (dřív byly statické, nezávislé na filtru).
 
 ### Nejoblíbenější nálezy — ořez místo originálu (Domů + /statistiky)
 - Tlačítko „nejoblíbenější" na Domů a leaderboard **„Top 10

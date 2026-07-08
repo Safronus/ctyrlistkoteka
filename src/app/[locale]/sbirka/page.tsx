@@ -21,7 +21,6 @@ import { PageSizeSelector } from "@/components/finds/page-size-selector";
 import { Pagination } from "@/components/finds/pagination";
 import { DOMINANT_LOCATION_ID, FINDS_PER_PAGE } from "@/lib/constants";
 import { prisma } from "@/lib/db";
-import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { cityFromCadastralArea } from "@/lib/locationCode";
 import {
   formatShortDateCs,
@@ -30,8 +29,8 @@ import {
 } from "@/lib/format";
 import { buildFilterSummary } from "@/lib/filterSummary";
 import {
-  countFindsAtLocationSubtree,
   getCollectionProgress,
+  getFacetCounts,
   getFilteredLocationSpan,
   getFilterOptions,
   listFinds,
@@ -201,14 +200,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   // RSC cache; the cost is negligible next to listFinds. Null when
   // the configured id doesn't exist yet (early dev, fresh DB) — the
   // toggle hides itself in that case.
-  const [
-    optionsRaw,
-    result,
-    progress,
-    dominantLocation,
-    donationPhotoIds,
-    dominantFindCount,
-  ] = await Promise.all([
+  const [optionsRaw, result, progress, dominantLocation] = await Promise.all([
     getFilterOptions(),
     listFinds(filters, page, pageSize, sort),
     getCollectionProgress(),
@@ -216,14 +208,12 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
       where: { id: DOMINANT_LOCATION_ID },
       select: { id: true, code: true },
     }),
-    // Counts shown on the two ViewSortToolbar toggles, both
-    // independent of the active filter so they read as "how big is
-    // the pool this toggle touches". Donation-photo set comes from
-    // the on-disk find-photos directory cache; dominant-location
-    // count mirrors the hideTop exclude subtree.
-    getFindIdsWithRealPhotos(),
-    countFindsAtLocationSubtree(DOMINANT_LOCATION_ID),
   ]);
+  // Faceted counts for the filter dropdowns + the two toolbar toggles:
+  // every dimension's numbers react to the OTHER active filters, and
+  // zero-count options drop out of the lists. Runs after getFilterOptions
+  // because it reuses that call's resolved location → city/country map.
+  const facets = await getFacetCounts(filters, optionsRaw.locations);
 
   // Pre-resolve "did this visitor already vote?" + counts for the
   // page of finds. Done at the SSR boundary so the rendered buttons
@@ -508,6 +498,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
 
       <FilterBar
         options={options}
+        facets={facets}
         current={{
           q: filters.q ?? "",
           locationId: filters.locationId ? String(filters.locationId) : "",
@@ -559,9 +550,9 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
         minDate={options.minDate}
         maxDate={options.maxDate}
         hasPhoto={filters.hasRealPhoto === true}
-        hasPhotoCount={donationPhotoIds.size}
+        hasPhotoCount={facets.hasPhoto}
         hideDominant={hideDominant}
-        hideDominantCount={dominantFindCount}
+        hideDominantCount={facets.hideDominant}
         // Pass the dominant location's code through so the toggle's
         // title attribute shows the user *which* location is being
         // hidden — better than a context-free "Skrýt největší

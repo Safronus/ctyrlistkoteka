@@ -2,9 +2,9 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
-import type { FilterOptions } from "@/lib/queries/finds";
+import type { FacetCounts, FilterOptions } from "@/lib/queries/finds";
 import type { FindState } from "@prisma/client";
 import { RETIRED_STATES } from "@/lib/stateLabels";
 
@@ -26,9 +26,14 @@ function titleCase(s: string): string {
 
 export function FilterBar({
   options,
+  facets,
   current,
 }: {
   options: FilterOptions;
+  /** Per-option match counts that react to the OTHER active filters.
+   *  Each option shows its count and drops out of the list when zero
+   *  (unless it's the current selection, which always stays visible). */
+  facets: FacetCounts;
   current: {
     q: string;
     locationId: string;
@@ -41,6 +46,7 @@ export function FilterBar({
   const t = useTranslations("FilterBar");
   const tCommon = useTranslations("Common");
   const tStates = useTranslations("States");
+  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -155,6 +161,14 @@ export function FilterBar({
     [options.locations, effectiveCountry, current.city],
   );
 
+  const nf = useMemo(
+    () => new Intl.NumberFormat(locale === "en" ? "en-GB" : "cs-CZ"),
+    [locale],
+  );
+  /** "Darovaný" + 123 → "Darovaný (123)"; count omitted when undefined. */
+  const withCount = (label: string, count: number | undefined) =>
+    count == null ? label : `${label} (${nf.format(count)})`;
+
   const hasAny =
     current.q ||
     current.locationId ||
@@ -210,11 +224,17 @@ export function FilterBar({
               className={`${SELECT_CLS} w-full disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400`}
             >
               <option value="">{tCommon("all")}</option>
-              {options.countries.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.name}
-                </option>
-              ))}
+              {options.countries
+                .filter(
+                  (c) =>
+                    (facets.countries[c.code] ?? 0) > 0 ||
+                    c.code === effectiveCountry,
+                )
+                .map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {withCount(c.name, facets.countries[c.code])}
+                  </option>
+                ))}
             </select>
             <ChevronDown
               className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
@@ -245,11 +265,16 @@ export function FilterBar({
               className={`${SELECT_CLS} w-full`}
             >
               <option value="">{tCommon("allAlt")}</option>
-              {visibleCities.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {titleCase(c.name)}
-                </option>
-              ))}
+              {visibleCities
+                .filter(
+                  (c) =>
+                    (facets.cities[c.name] ?? 0) > 0 || c.name === current.city,
+                )
+                .map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {withCount(titleCase(c.name), facets.cities[c.name])}
+                  </option>
+                ))}
             </select>
             <ChevronDown
               className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
@@ -285,11 +310,17 @@ export function FilterBar({
               className={`${SELECT_CLS} w-full`}
             >
               <option value="">{tCommon("all")}</option>
-              {visibleLocations.map((l) => (
-                <option key={l.id} value={String(l.id)}>
-                  {l.label}
-                </option>
-              ))}
+              {visibleLocations
+                .filter(
+                  (l) =>
+                    (facets.locations[l.id] ?? 0) > 0 ||
+                    String(l.id) === current.locationId,
+                )
+                .map((l) => (
+                  <option key={l.id} value={String(l.id)}>
+                    {withCount(l.label, facets.locations[l.id])}
+                  </option>
+                ))}
             </select>
             <ChevronDown
               className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
@@ -309,11 +340,20 @@ export function FilterBar({
               className={`${SELECT_CLS} w-full`}
             >
               <option value="">{tCommon("all")}</option>
-              {sortedStates.map((s) => (
-                <option key={s} value={s}>
-                  {tStates(s as FindState)}
-                </option>
-              ))}
+              {sortedStates
+                .filter(
+                  (s) =>
+                    (facets.states[s as FindState] ?? 0) > 0 ||
+                    s === current.state,
+                )
+                .map((s) => (
+                  <option key={s} value={s}>
+                    {withCount(
+                      tStates(s as FindState),
+                      facets.states[s as FindState],
+                    )}
+                  </option>
+                ))}
             </select>
             <ChevronDown
               className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
@@ -333,11 +373,15 @@ export function FilterBar({
               className={`${SELECT_CLS} w-full`}
             >
               <option value="">{tCommon("allShort")}</option>
-              {options.years.map((y) => (
-                <option key={y} value={String(y)}>
-                  {y}
-                </option>
-              ))}
+              {options.years
+                .filter(
+                  (y) => (facets.years[y] ?? 0) > 0 || String(y) === current.year,
+                )
+                .map((y) => (
+                  <option key={y} value={String(y)}>
+                    {withCount(String(y), facets.years[y])}
+                  </option>
+                ))}
             </select>
             <ChevronDown
               className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"

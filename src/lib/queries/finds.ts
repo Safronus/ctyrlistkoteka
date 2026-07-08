@@ -8,7 +8,7 @@
 import { FindState, Prisma, type ImageType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { anonymize } from "@/lib/anonymize";
-import { DEFAULT_LOCATION_ID } from "@/lib/constants";
+import { DEFAULT_LOCATION_ID, DOMINANT_LOCATION_ID } from "@/lib/constants";
 import {
   getFindIdsWithRealPhotos,
   getFindPhotos,
@@ -733,6 +733,170 @@ export async function getFilteredLocationSpan(
     mappableLocationCount: count,
     soleLocationId: count === 1 ? (rows[0]!.locationId ?? null) : null,
   };
+}
+
+export interface FacetCounts {
+  /** Count per state under every OTHER active filter. */
+  states: Partial<Record<FindState, number>>;
+  /** Count per location id. */
+  locations: Record<number, number>;
+  /** Count per city (cadastral-area → city name, matching FilterOptions). */
+  cities: Record<string, number>;
+  /** Count per ISO country code. */
+  countries: Record<string, number>;
+  /** Count per year. */
+  years: Record<number, number>;
+  /** Finds that would remain if "S fotkou daru" were toggled ON, under the
+   *  other active filters. */
+  hasPhoto: number;
+  /** Finds that would be hidden if "Skrýt největší lokalitu" were toggled
+   *  ON, under the other active filters. */
+  hideDominant: number;
+}
+
+/**
+ * Faceted counts for the /sbirka filter bar: for each dimension, how many
+ * finds match every OTHER active filter plus a given option. Lets the
+ * dropdowns show live counts that react to the current filters and drop
+ * options that would yield nothing. Each dimension excludes its OWN filter
+ * (standard faceting) so the visitor can always switch within it.
+ *
+ * `locationMeta` (id → city → country, already resolved by
+ * getFilterOptions) is reused to roll per-location counts up into the city
+ * and country facets without re-running the PostGIS country lookup.
+ *
+ * Anonymized finds ARE counted — they still appear in /sbirka (redacted),
+ * so the filter counts must include them; only getFilteredLocationSpan
+ * excludes them, because that's specifically about map placement.
+ */
+export async function getFacetCounts(
+  filters: FindFilters,
+  locationMeta: ReadonlyArray<{ id: number; city: string; country: string }>,
+): Promise<FacetCounts> {
+  // WHERE for `filters` minus one or more dimensions, with the on-disk
+  // photo filter folded back in (unless photo itself is omitted).
+  const whereFor = async (
+    omit: ReadonlyArray<keyof FindFilters>,
+  ): Promise<Prisma.FindWhereInput> => {
+    const sub: FindFilters = { ...filters };
+    for (const k of omit) delete sub[k];
+    const base = await buildWhere(sub);
+    return sub.hasRealPhoto ? mergeRealPhotoFilter(base) : base;
+  };
+
+  const [dominantChildren, allLocations] = await Promise.all([
+    prisma.location.findMany({
+      where: { parentId: DOMINANT_LOCATION_ID },
+      select: { id: true },
+    }),
+    // parentId map so per-location counts can roll children up into their
+    // parent — selecting a parent in the dropdown filters its whole subtree
+    // (buildWhere expands parent → children), so its count must too, or a
+    // parent whose finds live only in child locations would show 0 and get
+    // hidden. Hierarchy is max depth 2, so a single pass suffices.
+    prisma.location.findMany({ select: { id: true, parentId: true } }),
+  ]);
+  const dominantIds = [
+    DOMINANT_LOCATION_ID,
+    ...dominantChildren.map((c) => c.id),
+  ];
+
+  const [
+    stateRows,
+    locForLocation,
+    locForCity,
+    locForCountry,
+    yearDates,
+    hasPhoto,
+    hideDominant,
+  ] = await Promise.all([
+    whereFor(["state"]).then((where) =>
+      prisma.findStateAssignment.groupBy({
+        by: ["state"],
+        where: { find: where },
+        _count: { findId: true },
+      }),
+    ),
+    whereFor(["locationId"]).then((where) =>
+      prisma.find.groupBy({
+        by: ["locationId"],
+        where: { AND: [where, { locationId: { not: null } }] },
+        _count: { _all: true },
+      }),
+    ),
+    whereFor(["cadastralArea"]).then((where) =>
+      prisma.find.groupBy({
+        by: ["locationId"],
+        where: { AND: [where, { locationId: { not: null } }] },
+        _count: { _all: true },
+      }),
+    ),
+    whereFor(["country"]).then((where) =>
+      prisma.find.groupBy({
+        by: ["locationId"],
+        where: { AND: [where, { locationId: { not: null } }] },
+        _count: { _all: true },
+      }),
+    ),
+    whereFor(["year"]).then((where) =>
+      prisma.find.findMany({
+        where: { AND: [where, { foundAt: { not: null } }] },
+        select: { foundAt: true },
+      }),
+    ),
+    // "S fotkou daru" toggle count — the other filters AND a donation photo.
+    buildWhere({ ...filters, hasRealPhoto: undefined })
+      .then((base) => mergeRealPhotoFilter(base))
+      .then((where) => prisma.find.count({ where })),
+    // "Skrýt největší lokalitu" toggle count — how many of the otherwise
+    // matching finds sit in the dominant subtree (i.e. would be hidden).
+    whereFor(["excludeLocationId"]).then((where) =>
+      prisma.find.count({
+        where: { AND: [where, { locationId: { in: dominantIds } }] },
+      }),
+    ),
+  ]);
+
+  const states: Partial<Record<FindState, number>> = {};
+  for (const r of stateRows) states[r.state] = r._count.findId;
+
+  const locToCity = new Map(locationMeta.map((l) => [l.id, l.city]));
+  const locToCountry = new Map(locationMeta.map((l) => [l.id, l.country]));
+
+  const directLocationCounts: Record<number, number> = {};
+  for (const r of locForLocation) {
+    if (r.locationId != null) directLocationCounts[r.locationId] = r._count._all;
+  }
+  // Roll each child's direct count up into its parent so a parent option's
+  // number matches what selecting it actually returns (parent + children).
+  const parentOf = new Map(allLocations.map((l) => [l.id, l.parentId]));
+  const locations: Record<number, number> = { ...directLocationCounts };
+  for (const [idStr, direct] of Object.entries(directLocationCounts)) {
+    const parentId = parentOf.get(Number(idStr));
+    if (parentId != null) {
+      locations[parentId] = (locations[parentId] ?? 0) + direct;
+    }
+  }
+  const cities: Record<string, number> = {};
+  for (const r of locForCity) {
+    const city = r.locationId != null ? locToCity.get(r.locationId) : undefined;
+    if (city) cities[city] = (cities[city] ?? 0) + r._count._all;
+  }
+  const countries: Record<string, number> = {};
+  for (const r of locForCountry) {
+    const code =
+      r.locationId != null ? locToCountry.get(r.locationId) : undefined;
+    if (code) countries[code] = (countries[code] ?? 0) + r._count._all;
+  }
+  const years: Record<number, number> = {};
+  for (const r of yearDates) {
+    if (r.foundAt) {
+      const y = r.foundAt.getUTCFullYear();
+      years[y] = (years[y] ?? 0) + 1;
+    }
+  }
+
+  return { states, locations, cities, countries, years, hasPhoto, hideDominant };
 }
 
 /** Mixes the `?hasPhoto=1` filter into the existing WHERE by AND-ing
