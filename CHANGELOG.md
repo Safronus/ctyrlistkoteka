@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Deploy — brány proti nasazení rozbitého `.next` (fail-closed)
+- **Incident (2026-07-08):** deploy hlásil `success`, ale `next build`
+  skončil `exit 0` a přesto nechal šest **0 B manifestů** v `.next`. Při
+  restartu workerů `next start` udělal `JSON.parse("")` →
+  `Unexpected end of JSON input` → crash-loop → **nginx 502** na celém webu.
+  Disk plný nebyl. Oprava: čistý rebuild přes re-run deploye.
+- **Prevence:** deploy má teď mezi `pnpm build` a `pm2 reload` dvě
+  fail-closed brány: **(1) integrity gate** ověří, že klíčové manifesty
+  (`BUILD_ID`, `required-server-files`, `prerender`, `routes`,
+  `build-manifest`) jsou neprázdné — jinak `exit 1` **před** reloadem (PM2
+  dál servíruje starý dobrý build); **(2) health gate** po reloadu curlne
+  `127.0.0.1:3000` a padne, když app neožije. Detail: `docs/gotchas.md` #5.
+
 ### Odchýlené nálezy — počty „(N žlutě, M červeně)" u počtů nálezů
 - Vedle počtu nálezů se nově ukazuje, kolik z nich je **odchýlených**:
   **žlutě** (mimo lokaci, ale v rámci některé lokační mapy) a **červeně**

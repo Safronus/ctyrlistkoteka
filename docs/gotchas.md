@@ -158,6 +158,19 @@ Actions). Po nabootování PM2 resurrect načetl rozbitý `.next` → crash-loop
 Druhý spouštěč téhož: rychlé pushe za sebou, kdy novější push zrušil
 běžící build (proto `cancel-in-progress: false`, viz #4).
 
+**Varianta „build skončil `exit 0`, ale manifesty jsou 0 B" (2026-07-08):**
+podruhé to spadlo jinak — deploy hlásil **success**, `set -euo pipefail`
+i `cancel-in-progress:false` byly na místě, a přesto zůstalo v `.next`
+šest **nulových (0 B) manifestů** (`required-server-files.json`,
+`prerender-manifest.json`, `routes-manifest.json`, `app-path-routes-…`,
+`images-manifest.json`, `functions-config-manifest.json`). Signatura pádu
+proto **není** „Could not find a production build", ale
+`SyntaxError: Unexpected end of JSON input at JSON.parse (<anonymous>)`
+dokola à ~1 s (to je přesně `JSON.parse("")`). Disk plný nebyl. Past
+sklapla až když se workeři restartovali (~16 min po deployi) a načetli ty
+prázdné manifesty. Poučení: build může „uspět" a přesto vyrobit rozbitý
+`.next`, takže `pm2 reload` na něj **nesmí** proběhnout naslepo.
+
 **Jak aplikovat:**
 - **Nereebootuj / nevypínej VPS, dokud běží deploy build** (runner je na
   stejném stroji). Mrkni do Actions / `gh run list`, že nic neběží.
@@ -170,7 +183,18 @@ běžící build (proto `cancel-in-progress: false`, viz #4).
   pushni cokoliv — deploy přebuilduje a reloadne sám.)
 - Diagnóza: `pm2 logs ctyrlistkoteka --nostream` (hláška o chybějícím
   buildu) + `ls /var/www/ctyrlistkoteka/.next/BUILD_ID`.
-- **Trvalé otužení (volitelné, neimplementováno):** buildit do dočasného
+- **Otužení deploye (implementováno 2026-07-08):** deploy má teď mezi
+  `pnpm build` a `pm2 reload` dvě brány (obě **fail-closed**):
+  1. **Integrity gate** — po buildu ověří, že `BUILD_ID` +
+     `required-server-files.json` + `prerender-manifest.json` +
+     `routes-manifest.json` + `build-manifest.json` jsou **neprázdné**
+     (`[ -s ]`). Když je kterýkoli 0 B, deploy `exit 1` **ještě před**
+     reloadem → PM2 dál servíruje starý dobrý build z paměti, Actions jsou
+     červené. Chytá přesně variantu „exit 0 + prázdné manifesty".
+  2. **Health gate** — po `pm2 reload` curlne `http://127.0.0.1:3000/`
+     (až 10× à 3 s, bere 2xx/3xx vč. locale redirectu). Když app neožije,
+     deploy padne načerveno hned, ne až se to projeví jako 502 za pár hodin.
+- **Ještě silnější (stále neimplementováno):** buildit do dočasného
   adresáře a atomicky přehodit (`distDir` přes env → `mv`), takže přerušený
   build nechá živý `.next` netknutý a reboot/crash appku nepoloží.
 

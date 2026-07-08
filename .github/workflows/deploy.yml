@@ -101,5 +101,48 @@ jobs:
           # recompile per deploy.
           rm -rf .next/cache
           pnpm build
+
+          # --- Build integrity gate ---------------------------------------
+          # A build can exit 0 yet leave 0-byte manifests (observed
+          # 2026-07-08: required-server-files.json, prerender-manifest.json
+          # et al. all at 0 B → `next start` does JSON.parse("") on boot →
+          # "Unexpected end of JSON input" → every worker crash-loops →
+          # nginx 502). `set -e` + cancel-in-progress:false don't catch this
+          # because the build didn't fail or get cancelled — it "succeeded"
+          # broken. Refuse to reload onto it: fail the deploy so the running
+          # PM2 workers keep serving their good in-memory build and this goes
+          # RED, instead of shipping a landmine that detonates on the next
+          # worker restart. See docs/gotchas.md #5.
+          for f in .next/BUILD_ID \
+                   .next/required-server-files.json \
+                   .next/prerender-manifest.json \
+                   .next/routes-manifest.json \
+                   .next/build-manifest.json; do
+            if [ ! -s "$f" ]; then
+              echo "::error::Broken build: $f is missing or empty — refusing to reload." >&2
+              exit 1
+            fi
+          done
+
           pm2 reload ctyrlistkoteka
           pm2 save
+
+          # --- Post-reload health gate ------------------------------------
+          # Confirm the reloaded workers actually serve HTTP before calling
+          # the deploy done. Any 2xx/3xx (incl. the locale redirect) means
+          # the Node process is up; 000/connection-refused or 5xx means it
+          # isn't. Retry to let the rolling reload settle. Turns a bad reload
+          # into a RED deploy now, not a 502 discovered hours later.
+          for i in $(seq 1 10); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1:3000/ || true)"
+            case "$code" in
+              2*|3*) echo "Health check OK (HTTP $code)"; break ;;
+              *)
+                if [ "$i" -eq 10 ]; then
+                  echo "::error::App unhealthy after reload (last HTTP ${code:-000})." >&2
+                  exit 1
+                fi
+                sleep 3
+                ;;
+            esac
+          done
