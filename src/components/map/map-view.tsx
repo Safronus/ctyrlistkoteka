@@ -15,6 +15,7 @@ import { LocationPolygons } from "./location-polygons";
 import { LocationDots } from "./location-dots";
 import { AuthorMarker } from "./author-marker";
 import { FindDotsLayer } from "./find-dots-layer";
+import { SelectedLocationDecor } from "./selected-location-decor";
 import { HighlightFindMarker } from "./highlight-find-marker";
 import type { MapData } from "@/lib/queries/map";
 import type { HighlightFind } from "@/lib/queries/finds";
@@ -171,6 +172,16 @@ export function MapView({
     return set;
   }, [focusLocationId, data.locations]);
 
+  // The selected location object — SelectedLocationDecor only decorates it
+  // when it's polygon-less (checked there).
+  const focusedLocation = useMemo(
+    () =>
+      focusLocationId == null
+        ? null
+        : (data.locations.find((l) => l.id === focusLocationId) ?? null),
+    [focusLocationId, data.locations],
+  );
+
   return (
     <MapContainer
       center={CZ_CENTER}
@@ -216,14 +227,22 @@ export function MapView({
         </>
       )}
       {showFinds && data.findCoords.length > 0 && (
-        <FindDotsLayer
-          coords={data.findCoords}
-          focusFindIds={focusFindIds}
-          highlightFindIds={highlightFindIds}
-          hideDeviated={hideDeviatedFinds}
-          showDeviationColors={showDeviationColors}
-          iconSize={findIconSize}
-        />
+        <>
+          <FindDotsLayer
+            coords={data.findCoords}
+            focusFindIds={focusFindIds}
+            highlightFindIds={highlightFindIds}
+            hideDeviated={hideDeviatedFinds}
+            showDeviationColors={showDeviationColors}
+            iconSize={findIconSize}
+          />
+          {/* Green 5 m circle + amber hull (under the finds) + pulsing rose
+              outliers for the selected polygon-less location. */}
+          <SelectedLocationDecor
+            location={focusedLocation}
+            findCoords={data.findCoords}
+          />
+        </>
       )}
       {highlightFind && (
         <HighlightFindMarker

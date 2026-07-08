@@ -317,6 +317,39 @@
   border-color: rgba(180, 83, 9, 0.9);
 }
 
+/* Rose (far-outlier) finds of the selected polygon-less location gently
+   pulse so they're noticeable in the dense cluster — no convex hull for
+   them (it would balloon, since they're far from the centre by definition).
+   Rendered by SelectedLocationDecor as divIcons over the finds. */
+.ctyr-rose-pulse {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #f43f5e;
+  box-shadow: 0 0 0 2px #fff;
+  animation: ctyr-rose-pulse 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes ctyr-rose-pulse {
+  0%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ctyr-rose-pulse {
+    animation: none;
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
 /* Popup that opens for the deep-linked find. Tinted green so the visitor
    immediately reads it as "the one you came here for" rather than a
    regular interactive popup. Same brand-green palette the clover sprite

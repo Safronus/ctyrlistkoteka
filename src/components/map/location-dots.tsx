@@ -85,22 +85,10 @@ export function LocationDots({
         const fill = focused ? "#f59e0b" : l.isGone ? "#e11d48" : "#1e40af";
         return (
           <Fragment key={`${l.id}-${enablePopup ? "p" : "np"}`}>
-            {focused && (
-              // Selection halo — a soft outer ring (stroke only, so it glows
-              // around the dot without tinting the finds underneath).
-              <CircleMarker
-                center={[l.centerLat, l.centerLng]}
-                radius={14}
-                interactive={false}
-                pane="loc-dots"
-                pathOptions={{
-                  color: "#f59e0b",
-                  weight: 3,
-                  opacity: 0.45,
-                  fill: false,
-                }}
-              />
-            )}
+            {/* The focused location's area is shown by the green deviation
+                circle (SelectedLocationDecor), so the dot itself just grows +
+                keeps its white outline — no separate amber halo ring (it read
+                as a small orange "circle" and clashed with the green one). */}
             <CircleMarker
               center={[l.centerLat, l.centerLng]}
               radius={focused ? 8 : 6}
