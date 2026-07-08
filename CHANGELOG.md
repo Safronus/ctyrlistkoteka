@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /mapa — vrstva Nálezy už nezůstane skrytá po `?find` prokliku
+- Proklik na `/mapa?find=X` schová hromadnou vrstvu Nálezy, aby vynikl jeden
+  zvýrazněný marker (záměr). Jenže ten vynucený „off" se **ukládal do
+  localStorage**, takže návrat na prostou `/mapa` nechal Nálezy skryté, i když
+  mají být defaultně zobrazené. Fix: highlight-driven „off" se **neukládá**
+  (ruční zapnutí během highlightu se pořád uloží). Navíc **bump klíče**
+  (`mapa.layers.finds` → `.v2`) zahojí prohlížeče, které už mají uložené to
+  vadné „false" — spadnou zpět na výchozí zobrazeno.
+
 ### Domů — „Náhodný čtyřlístek" se na širokoúzkém okně otočí na šířku
 - Showcase fotka vyplňovala 100 % šířky sloupce bez stropu na výšku, takže
   vysoký portrét na FullHD přetekl (vidět půlka). Nově: **vejde-li se

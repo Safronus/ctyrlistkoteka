@@ -43,7 +43,13 @@ const DEFAULT_FOCUS_ID = AUTHOR_LOCATION_ID;
 // qualifies. SSR can't read localStorage, so the first paint always
 // shows the defaults; the effect below rehydrates after mount.
 const LS_KEY_LOCATIONS = "mapa.layers.locations";
-const LS_KEY_FINDS = "mapa.layers.finds";
+// `.v2`: the old `.finds` key got polluted with a stale "false" — a bug wrote
+// the ?find highlight's forced-off default to storage, so returning to a plain
+// /mapa left the Nálezy layer hidden. The write is fixed below, but bumping the
+// key also HEALS browsers that already saved that bad "false" (they fall back
+// to the shown-by-default). A visitor who had genuinely hidden finds just
+// re-hides them once — cheap, and finds are the map's core content anyway.
+const LS_KEY_FINDS = "mapa.layers.finds.v2";
 const LS_KEY_GONE = "mapa.layers.gone";
 const LS_KEY_HIDE_DEVIATED = "mapa.layers.hideDeviated";
 const LS_KEY_DEVIATION_COLORS = "mapa.layers.deviationColors";
@@ -415,12 +421,19 @@ export function MapaShell({
     }
   }, [showLocations]);
   useEffect(() => {
+    // Don't persist the ?find highlight's forced-off default: the visitor
+    // never chose it, and writing "false" would leave the Nálezy layer hidden
+    // on the NEXT plain /mapa visit (they'd come back to hidden finds even
+    // though the default is shown). A manual flip-ON during a highlight
+    // (showFinds === true) still saves, as does any toggle in a normal
+    // session — only the highlight's own hidden default is skipped.
+    if (hasHighlight && !showFinds) return;
     try {
       window.localStorage.setItem(LS_KEY_FINDS, String(showFinds));
     } catch {
       /* ignore */
     }
-  }, [showFinds]);
+  }, [showFinds, hasHighlight]);
   useEffect(() => {
     try {
       window.localStorage.setItem(LS_KEY_GONE, String(showGone));
