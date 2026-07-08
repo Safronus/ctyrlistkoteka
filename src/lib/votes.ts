@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { ImageType } from "@prisma/client";
 import { cookies, headers } from "next/headers";
+import { clientIpFromHeaders } from "@/lib/clientIp";
 import { prisma } from "@/lib/db";
 
 /**
@@ -74,8 +75,14 @@ interface FingerprintInputs {
  */
 export async function readFingerprintInputs(): Promise<FingerprintInputs> {
   const h = await headers();
-  const fwd = h.get("x-forwarded-for");
-  const ip = fwd ? fwd.split(",")[0]!.trim() : (h.get("x-real-ip") ?? "");
+  // Spoofing-resistant read (X-Real-IP first; never the client-controlled
+  // first XFF element) — otherwise a voter could rotate the IP component
+  // of the fingerprint per request just by sending a forged
+  // X-Forwarded-For header, defeating the per-IP dedup this exists for.
+  // For legitimate visitors the resolved value is identical to before
+  // (Nginx's XFF starts with $remote_addr when the client sent none),
+  // so existing fingerprints keep matching. See src/lib/clientIp.ts.
+  const ip = clientIpFromHeaders(h) ?? "";
   const userAgent = h.get("user-agent") ?? "";
   const acceptLanguage = h.get("accept-language") ?? "";
   return { ip, userAgent, acceptLanguage };

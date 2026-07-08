@@ -1,9 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  getAdminSession,
-  isAuthenticated,
-  touchSession,
-} from "@/lib/admin/session";
+import { tryRequireAuth } from "@/lib/admin/session";
 import { getStatus, tailLog } from "@/lib/admin/syncRunner";
 
 export const runtime = "nodejs";
@@ -13,11 +9,13 @@ export const dynamic = "force-dynamic";
  *  status JSON plus any log bytes appended since the last poll's
  *  offset. The client renders new bytes by appending to its buffer. */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const session = await getAdminSession();
-  if (!isAuthenticated(session)) {
+  // tryRequireAuth also refreshes the sliding TTL, which is exactly what
+  // this poll endpoint wants: an admin watching a long sync stays
+  // signed in for its whole duration.
+  const session = await tryRequireAuth();
+  if (!session) {
     return new NextResponse("Not found", { status: 404 });
   }
-  await touchSession();
 
   const sp = request.nextUrl.searchParams;
   const offsetParam = sp.get("offset");

@@ -14,11 +14,7 @@ import {
 } from "@/lib/admin/blocklist";
 import { loadAbuseIpdbSummary } from "@/lib/admin/abuseipdb";
 import { loadPermabanSnapshot } from "@/lib/admin/permaban";
-import {
-  getAdminSession,
-  isAuthenticated,
-  touchSession,
-} from "@/lib/admin/session";
+import { tryRequireAuth } from "@/lib/admin/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,22 +22,21 @@ export const dynamic = "force-dynamic";
 /** Exports for the blocklist admin page. Streams the source TSV when
  *  `kind=raw`, computes derived views (`ips`, `permaban`, `recent`,
  *  `denied`, `whitelist`, `abuseipdb`) otherwise. Auth-gated like every
- *  other /api/admin/* route — failure renders as a 404 to avoid
+ *  other /api/admin/* route — auth failure renders as a 404 to avoid
  *  disclosing the endpoint to unauthenticated scanners. */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const session = await getAdminSession();
-  if (!isAuthenticated(session)) {
-    // Surface 401 (not 404) inside the authenticated admin shell so a
-    // browser save-as on this response makes the cause obvious. The
-    // /admin path itself is still cloaked at the nginx layer for
-    // unauthorized IPs, so this never leaks the route's existence to
-    // scanners (they get an upstream 404 before reaching Next.js).
-    return NextResponse.json(
-      { error: "unauthenticated" },
-      { status: 401 },
-    );
+  // tryRequireAuth also refreshes the sliding TTL — no separate
+  // touchSession() call needed.
+  const session = await tryRequireAuth();
+  if (!session) {
+    // 404, matching every other /api/admin/* route. This used to be a
+    // 401 "so a save-as makes the cause obvious", justified by a claim
+    // that Nginx cloaks the route from scanners — but /api/admin/* is
+    // matched by the `location /api/` block, NOT the IP-allowlisted
+    // `location /admin`, so the 401 actually reached the open internet
+    // and disclosed the endpoint's existence. Cloak-matching 404 it is.
+    return new NextResponse("Not found", { status: 404 });
   }
-  await touchSession();
 
   const sp = request.nextUrl.searchParams;
   const kind = sp.get("kind") ?? "raw";

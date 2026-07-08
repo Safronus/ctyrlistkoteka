@@ -1,11 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { appendAudit } from "@/lib/admin/audit";
-import {
-  getAdminSession,
-  getRequestIp,
-  isAuthenticated,
-  touchSession,
-} from "@/lib/admin/session";
+import { getRequestIp, tryRequireAuth } from "@/lib/admin/session";
 import { startRun } from "@/lib/admin/syncRunner";
 
 export const runtime = "nodejs";
@@ -15,13 +10,14 @@ export const dynamic = "force-dynamic";
  *  Refuses when a run is already in progress (the runner does the
  *  check on disk, so it's race-safe across PM2 cluster workers). */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const session = await getAdminSession();
-  if (!isAuthenticated(session)) {
+  // tryRequireAuth also refreshes the sliding TTL — no separate
+  // touchSession() call needed.
+  const session = await tryRequireAuth();
+  if (!session) {
     return new NextResponse("Not found", { status: 404 });
   }
   const credentialLabel = session.credentialLabel!;
   const ip = await getRequestIp();
-  await touchSession();
 
   let body: { dryRun?: boolean; only?: string };
   try {

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { promises as fs } from "node:fs";
-import { getAdminSession, isAuthenticated } from "@/lib/admin/session";
+import { tryRequireAuth } from "@/lib/admin/session";
 import { getScope, statScopeFile } from "@/lib/admin/scopes";
 
 // Auth-gated download endpoint for files outside the public Nginx
@@ -19,8 +19,8 @@ export const dynamic = "force-dynamic";
 const MAX_BYTES = 80 * 1024 * 1024;
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const session = await getAdminSession();
-  if (!isAuthenticated(session)) {
+  const session = await tryRequireAuth();
+  if (!session) {
     // 404 instead of 401 — match the Nginx-side IP cloak so probing
     // /api/admin/file from a logged-out browser tells the attacker
     // nothing about whether the route exists.

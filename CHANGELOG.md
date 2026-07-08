@@ -9,6 +9,31 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Bezpečnostní otužení: anti-spoofing IP, boot-guard hesla, sjednocené API gaty
+- **`clientIp` helper (anti-spoofing):** `getRequestIp()` (admin audit log) i
+  fingerprint hlasování četly **první** prvek `X-Forwarded-For` — ten si ale
+  klient může podvrhnout (Nginx appenduje reálnou IP na konec). Nový sdílený
+  `src/lib/clientIp.ts` bere **`X-Real-IP`** (Nginx ji přepisuje natvrdo na
+  `$remote_addr`), fallback poslední prvek XFF; + unit testy. Pro legitimní
+  návštěvníky se hodnota nemění (fingerprinty hlasů zůstávají platné) — mění
+  se jen pro požadavky s podvrženou hlavičkou. Pozn.: **/admin IP-allowlist
+  tím nikdy ohrožen nebyl** — vynucuje ho Nginx `allow/deny` na
+  `$remote_addr` (TCP peer), hlavičky na něj nemají vliv.
+- **Module-load guard hesla:** `session.ts` v produkci **vyhodí chybu už při
+  načtení modulu**, když `ADMIN_SESSION_PASSWORD` chybí nebo má < 32 znaků —
+  zavírá i cesty, které volají `getAdminSession()` napřímo a `requireAuth()`
+  guard by obešly. Modul importuje jen admin kód, veřejný web to nikdy
+  neshodí; na VPS se to projeví jako červený deploy (build importuje admin
+  moduly), zatímco běžící app dál servíruje. Redundantní kontrola v
+  `requireAuth()` odstraněna (mrtvá větev po guardu).
+- **`tryRequireAuth()` + sjednocení 4 rout `/api/admin/*`** (`file`,
+  `sync/start`, `sync/status`, `blocklist/export`): místo přímého
+  `getAdminSession()+isAuthenticated()` jdou přes jediný choke point
+  (vč. sliding-TTL touch). `blocklist/export` při neautentizaci nově vrací
+  cloak-matching **404** místo 401 — komentář zdůvodňující 401 tvrdil, že
+  scannery zastaví Nginx, ale `/api/admin/*` matchuje `location /api/`
+  (bez allowlistu), takže 401 prozrazovalo existenci endpointu.
+
 ### /lokality/[id] — „Nedávné nálezy" jako dlaždice ze /sbirka
 - Sekce „Nedávné nálezy" na detailu lokality používá teď **stejné dlaždice
   jako /sbirka** (`FindGrid`/`FindCard`) místo vlastní mřížky: **fotky ořezů**

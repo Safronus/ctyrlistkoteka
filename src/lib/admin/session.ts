@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { getIronSession, type SessionOptions } from "iron-session";
+import { clientIpFromHeaders } from "@/lib/clientIp";
 
 export interface AdminSessionData {
   /** Set on successful authentication; absent means anonymous. The
@@ -21,12 +22,27 @@ export interface AdminSessionData {
 }
 
 const sessionPassword = process.env.ADMIN_SESSION_PASSWORD;
-// Single source of truth for "is the configured password usable", shared by
-// the cookie-encryption key below and the requireAuth() guard so the two
-// can't drift. iron-session needs ≥32 chars; anything shorter (or missing)
-// falls back to the PUBLIC dev key, which must never authenticate in prod.
+// Single source of truth for "is the configured password usable" —
+// iron-session needs ≥32 chars; anything shorter (or missing) falls back
+// to the PUBLIC dev key, which must never authenticate in production.
 const hasStrongSessionPassword =
   !!sessionPassword && sessionPassword.length >= 32;
+
+// Fail closed AT MODULE LOAD in production: this file is imported only by
+// admin code (admin pages/layout, server actions, /api/admin routes — the
+// public site never touches it), so throwing here bricks every admin entry
+// point at once when the password is weak/missing. That closes the paths a
+// per-function guard can't reach — e.g. a future handler calling
+// getAdminSession() + isAuthenticated() directly and never hitting
+// requireAuth(): its session would happily unseal against the public dev
+// fallback key. On the VPS the build imports admin modules too, so a
+// misconfigured .env surfaces as a RED deploy (integrity/health gates keep
+// the running app serving) instead of a silently forgeable admin cookie.
+if (process.env.NODE_ENV === "production" && !hasStrongSessionPassword) {
+  throw new Error(
+    "ADMIN_SESSION_PASSWORD must be set to at least 32 characters in production",
+  );
+}
 
 /** 1-hour sliding session — long enough for a typical upload+sync run,
  *  short enough that a stolen cookie doesn't grant indefinite access.
@@ -35,13 +51,15 @@ export const SESSION_TTL_MS = 60 * 60 * 1000;
 export const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
 const sessionOptions: SessionOptions = {
+  // The fallback below is dev-only, not a real credential: the
+  // module-load guard above throws in production before this key could
+  // ever seal a session there — hence the scoped lint disable.
+  // eslint-disable-next-line sonarjs/no-hardcoded-passwords
   password: hasStrongSessionPassword
     ? sessionPassword! // guard above guarantees a ≥32-char string here
-    : // Dev fallback — explicitly noisy so misconfig in prod fails
-      // closed (the session is never readable by a real user but
-      // login still works for local development). requireAuth() refuses
-      // to authenticate in production whenever this fallback is in play
-      // (env var missing OR shorter than 32 chars).
+    : // Dev fallback — explicitly noisy: local dev keeps working without
+      // env setup, while the module-load guard above makes production
+      // refuse to boot the admin surface with this key in play.
       "dev-only-fallback-do-not-use-in-prod-aaaaaaaaaaaaaaaa",
   cookieName: "ctyr_admin",
   cookieOptions: {
@@ -83,19 +101,11 @@ export async function touchSession(): Promise<void> {
   }
 }
 
-/** Refuses to proceed unless the session is authenticated AND a *strong*
- *  production session password is configured. The password guard is a
- *  belt-and-braces check — without it, sessions encrypted with the public
- *  dev fallback key (used whenever the env var is missing OR shorter than
- *  32 chars) would be trivially forgeable. Checks the SAME condition the
- *  cookie key uses, so a too-short password fails closed instead of
- *  silently authenticating against the public key. */
+/** Refuses to proceed unless the session is authenticated. The strong-
+ *  password requirement is enforced by the module-load guard above (this
+ *  code can only run in production if the password already passed it), so
+ *  no per-call re-check is needed here. */
 export async function requireAuth(): Promise<AdminSessionData> {
-  if (process.env.NODE_ENV === "production" && !hasStrongSessionPassword) {
-    throw new Error(
-      "ADMIN_SESSION_PASSWORD must be set to at least 32 characters in production",
-    );
-  }
   const session = await getAdminSession();
   if (!isAuthenticated(session)) {
     throw new Error("Unauthenticated");
@@ -104,13 +114,28 @@ export async function requireAuth(): Promise<AdminSessionData> {
   return session;
 }
 
-/** Returns the best-effort remote IP for audit logging. Trusts the
- *  X-Forwarded-For chain because requests reach Next.js exclusively
- *  through Nginx — set up to add the header. Falls back to "unknown"
- *  to keep the audit row well-formed even when the chain is missing. */
+/** Route-handler variant of requireAuth(): resolves to the session when
+ *  authenticated, `null` otherwise — never throws for auth reasons. Route
+ *  handlers want to answer an unauthenticated probe with a deliberate
+ *  response (the cloak-matching 404, or blocklist-export's explicit 401)
+ *  rather than let an exception bubble into a generic 500. Built ON
+ *  requireAuth so it stays the single auth choke point: any future
+ *  tightening there applies to route handlers automatically, and the
+ *  sliding-TTL touch happens here too. */
+export async function tryRequireAuth(): Promise<AdminSessionData | null> {
+  try {
+    return await requireAuth();
+  } catch {
+    return null;
+  }
+}
+
+/** Returns the best-effort remote IP for audit logging. Resolution is
+ *  spoofing-resistant (X-Real-IP first — Nginx overwrites it with the
+ *  TCP peer; never the client-controlled first XFF element), see
+ *  src/lib/clientIp.ts. Falls back to "unknown" to keep the audit row
+ *  well-formed even when the headers are missing (local dev). */
 export async function getRequestIp(): Promise<string> {
   const h = await headers();
-  const fwd = h.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
-  return h.get("x-real-ip") ?? "unknown";
+  return clientIpFromHeaders(h) ?? "unknown";
 }
