@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — vylepšení filtrů a UX (série)
+- **Nadpis** „Sbírka nálezů" → **„Sbírka 🍀"**.
+- **Ikona nápovědy** už není v kolečku s rámečkem — jen samotná ikonka.
+- **Banner „Sbírka se postupně doplňuje"** je nově **skrytý** za malým
+  přesýpacím tlačítkem u „Počet nálezů celkem" (dřív zabíral místo nad
+  filtry pořád); rozbalí se kliknutím.
+
 ### Nejoblíbenější nálezy — ořez místo originálu (Domů + /statistiky)
 - Tlačítko „nejoblíbenější" na Domů a leaderboard **„Top 10
   nejoblíbenějších"** na `/statistiky` ukazovaly thumbnail **originální**

@@ -7,6 +7,7 @@ import { localizedCountryName } from "@/lib/world-countries";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { Link } from "@/i18n/navigation";
 import { CollectionProgressBanner } from "@/components/finds/collection-progress-banner";
+import { CollectionInfo } from "@/components/finds/collection-info";
 import { FilterBar } from "@/components/finds/filter-bar";
 import { HelpDialog } from "@/components/help/help-dialog";
 import { RememberSbirkaSearch } from "@/components/finds/sbirka-back-link";
@@ -272,6 +273,22 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     filters.excludeLocationId
   );
 
+  // The completeness notice ("Sbírka se postupně doplňuje") is a collapsed
+  // disclosure next to the total count. Decide here whether it has anything
+  // to reveal — the same guard the banner applies internally — so the
+  // toggle only shows up when there's a leading gap or internal holes and
+  // no filter is narrowing the view.
+  const progressLeadingGap =
+    progress.minFindId !== null ? Math.max(0, progress.minFindId - 1) : 0;
+  const progressInternalGaps =
+    progress.minFindId !== null && progress.maxFindId !== null
+      ? progress.maxFindId - progress.minFindId + 1 - progress.count
+      : 0;
+  const showProgressNotice =
+    !hasFilters &&
+    progress.count > 0 &&
+    (progressLeadingGap > 0 || progressInternalGaps > 0);
+
   // Result-aware /mapa deep-link for the "Zobrazit na mapě" toolbar
   // chip. /mapa accepts the same filter param shape (q, loc, city,
   // country, state, year, from, to) and dims everything outside the
@@ -381,6 +398,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
             title={tHelp("modalTitle")}
             buttonTitle={tHelp("buttonTitle")}
             buttonAriaLabel={tHelp("buttonAria")}
+            buttonClassName="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-gray-400 transition hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             intro={tHelp("intro")}
             sections={[
               {
@@ -415,22 +433,21 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
             ]}
           />
         </div>
-        <p className="text-gray-600">
-          {t("totalSummary", {
+        <CollectionInfo
+          summary={t("totalSummary", {
             count: result.total,
             withSuffix: result.total === 0 ? "no" : "yes",
           })}
-        </p>
+          hasNotice={showProgressNotice}
+        >
+          <CollectionProgressBanner
+            count={progress.count}
+            minFindId={progress.minFindId}
+            maxFindId={progress.maxFindId}
+            gaps={progress.gaps}
+          />
+        </CollectionInfo>
       </header>
-
-      {!hasFilters && (
-        <CollectionProgressBanner
-          count={progress.count}
-          minFindId={progress.minFindId}
-          maxFindId={progress.maxFindId}
-          gaps={progress.gaps}
-        />
-      )}
 
       <FilterBar
         options={options}
