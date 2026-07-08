@@ -172,6 +172,17 @@ export function MapaShell({
   // dropped the visitor on the wrong place).
   const [highlightCleared, setHighlightCleared] = useState(false);
   const effectiveHighlightFind = highlightCleared ? null : highlightFind;
+  // Same gate for the filter-driven bright set: once the visitor clicks a
+  // location themselves, the arrived-from-/sbirka highlight must yield so
+  // the canvas can brighten the clicked location's finds instead (the
+  // focus-based path in FindDotsLayer). Without this the filter highlight
+  // takes absolute priority in the painter and clicking locations does
+  // nothing — "překlikávání" felt broken after a deep-link.
+  const effectiveHighlightFindIds = highlightCleared ? null : highlightFindIds;
+  // Hide the "view matches filter …" note in the location sheet once the
+  // filter highlight is consumed — otherwise it would claim a filter that's
+  // no longer what the canvas is showing.
+  const sheetFilterSummary = highlightCleared ? "" : activeFilterSummary;
   // Former (NEEXISTUJE-) locations stay hidden by default — the typical
   // visitor wants to browse active places. Toggling them on reveals the
   // red striped polygons + dots; legend swatch matches either way.
@@ -540,7 +551,7 @@ export function MapaShell({
         findIconSize={MAP_FIND_ICON_BASE_PX * findIconScale}
         enabledChildPolygonIds={enabledChildPolygonIds}
         highlightFind={effectiveHighlightFind}
-        highlightFindIds={highlightFindIds}
+        highlightFindIds={effectiveHighlightFindIds}
         onSelectLocation={handleSelectLocation}
         onDeselectLocation={handleDeselectLocation}
         onHighlightDismiss={handleHighlightDismiss}
@@ -555,7 +566,7 @@ export function MapaShell({
           <LocationTopSheet
             location={focusedLocation}
             onClose={handleDeselectLocation}
-            filterSummary={activeFilterSummary}
+            filterSummary={sheetFilterSummary}
           />
         </div>
       )}
@@ -712,7 +723,7 @@ export function MapaShell({
             <LocationTopSheet
               location={focusedLocation}
               onClose={handleDeselectLocation}
-              filterSummary={activeFilterSummary}
+              filterSummary={sheetFilterSummary}
             />
           </div>
         )}

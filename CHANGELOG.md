@@ -46,6 +46,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   prokliku navíc **panel detailu lokality na mapě ukazuje kontext filtru**
   („Zobrazení odpovídá filtru: …"), takže uživatel ví, proč jsou nálezy
   ztlumené. /mapa nově přebírá i `fromTs/toTs` (přesný sběr).
+- **Fix highlightu na mapě po prokliku**: filtrový highlight z deep-linku
+  měl v painteru absolutní přednost, takže po příchodu z /sbirka klik na
+  lokaci nezvýraznil její nálezy („překlikávání nefungovalo"). Nově se
+  filtrový highlight „spotřebuje", jakmile uživatel sám klikne lokaci
+  (`highlightCleared`), a zvýraznění přejde na kliknutou lokaci — a kontext
+  filtru v panelu zmizí, aby netvrdil filtr, který už není vidět.
 - **Faceted county v comboboxech**: u každé položky (stát, město, lokalita,
   stav, rok) je nově **počet nálezů, který reaguje na ostatní aktivní
   filtry** — např. po výběru „Darovaný" ukazuje stát/lokalita počty jen
