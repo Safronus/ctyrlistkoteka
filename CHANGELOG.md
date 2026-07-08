@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /mapa — panel Vrstvy se na mobilu už nepřekrývá s detailem lokality
+- Na mobilu se rozbalený panel **Vrstvy** kreslil **za** kartou detailu
+  lokality (vyšší z-index) → toggly byly schované. Nově tvoří obě karty
+  jeden **flex-sloupec**: Vrstvy se rozbalí **přes celou šířku** a detail
+  lokality **odsune pod sebe** (žádný překryv). Sbalený zůstává úzký (w-40),
+  takže pilulka „Lokality" vpravo prosvítá skrz (`pointer-events-none` na
+  kontejneru, karty si je zapínají zpět). Desktop beze změny — Vrstvy a
+  detail zůstávají vedle sebe (flex-řádek). Sjednoceno do jedné responzivní
+  karty (dřív se detail renderoval zvlášť pro mobil a desktop).
+
 ### Navbar detailu, info ikona na Domů, anon lokality
 - **/sbirka/[id] — navbar už se nesmršťuje na úzkou fotku.** Lišta prev/next
   s „Zpět na sbírku" má nově vlastní **komfortní min šířku (768 px)**

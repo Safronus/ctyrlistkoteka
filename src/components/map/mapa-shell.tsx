@@ -558,19 +558,6 @@ export function MapaShell({
         enableLocationPopup={false}
       />
 
-      {/* Mobile placement of the top sheet — full-width banner below
-          the top control row. Hidden on desktop where the sheet
-          renders inside the Vrstvy flex row instead (see below). */}
-      {focusedLocation && (
-        <div className="absolute inset-x-2 top-14 z-[450] md:hidden">
-          <LocationTopSheet
-            location={focusedLocation}
-            onClose={handleDeselectLocation}
-            filterSummary={sheetFilterSummary}
-          />
-        </div>
-      )}
-
       {/* GPS-accuracy notice. Pinned bottom-left so it sits above OSM
           attribution but stays clear of the sidebar (right) and zoom
           controls (top-left). Only relevant when the find dots are
@@ -678,24 +665,26 @@ export function MapaShell({
         </>
       )}
 
-      {/* Vrstvy lives OUTSIDE the sidebar so it stays visible when the
-       *  panel is collapsed. Sits flush in the top-left corner across
-       *  every viewport — Leaflet's +/- zoom buttons are hidden globally
-       *  (see globals.css) since pinch / trackpad / scroll-wheel zoom
-       *  covers the gesture and the corner reads cleaner without them.
+      {/* Vrstvy + the selected-location card. Vrstvy lives OUTSIDE the
+       *  sidebar so it stays visible when the panel is collapsed. Leaflet's
+       *  +/- zoom buttons are hidden globally (see globals.css) since pinch /
+       *  trackpad / scroll-wheel zoom covers the gesture.
        *
-       *  On desktop the location top sheet renders as a flex sibling
-       *  to the right of Vrstvy via `hidden md:block`, so an expanded
-       *  layer card and the selected-location card share a single row.
-       *  Mobile gets its own full-width banner below this row (see the
-       *  separate wrapper above) — there's no horizontal room next to
-       *  Vrstvy on a phone.
+       *  Desktop (md+): a flex ROW in the top-left corner — an expanded layer
+       *  card and the location card sit side by side.
        *
-       *  Width is capped on mobile (w-40 = 10rem) so the card fits
-       *  between the corner and the right-side "Lokality" pill on a
-       *  375px viewport without overlapping. Desktop drops the cap. */}
-      <div className="absolute left-3 top-3 z-[400] flex items-start gap-2">
-        <div className="w-40 shrink-0 md:w-auto md:max-w-xs">
+       *  Mobile: a full-width flex COLUMN. The layer card spans the width
+       *  when EXPANDED and pushes the location card BELOW it (they used to
+       *  overlap — the location card, at a higher z, painted over the
+       *  expanded toggles). COLLAPSED it stays narrow (w-40) so the
+       *  right-side "Lokality" pill shows through the transparent,
+       *  pointer-events-none column (children re-enable pointer events). */}
+      <div className="pointer-events-none absolute left-2 right-2 top-3 z-[450] flex flex-col items-start gap-2 md:left-3 md:right-auto md:z-[400] md:flex-row">
+        <div
+          className={`pointer-events-auto shrink-0 md:w-auto md:max-w-xs ${
+            layersExpanded ? "w-full" : "w-40"
+          }`}
+        >
           <LayerToggleCard
             showLocations={showLocations}
             onToggleLocations={setShowLocations}
@@ -719,7 +708,7 @@ export function MapaShell({
           />
         </div>
         {focusedLocation && (
-          <div className="hidden shrink-0 md:block md:w-80">
+          <div className="pointer-events-auto w-full shrink-0 md:w-80">
             <LocationTopSheet
               location={focusedLocation}
               onClose={handleDeselectLocation}
