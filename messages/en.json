@@ -688,6 +688,8 @@
     "rowMapAria": "Show location on map",
     "rowDetail": "Detail",
     "rowDetailAria": "Location detail",
+    "rowFinds": "Show finds",
+    "rowFindsAria": "Show the location's finds on the Collection page",
     "rowSuffixCountWithArea": "{count} clovers · {area}",
     "rowSuffixSessions": "{count} finds · ⌀ {avg} / trip",
     "weekDay1": "Monday",

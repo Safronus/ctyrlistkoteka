@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, EyeOff, MapPin } from "lucide-react";
+import { ExternalLink, EyeOff, ListIcon, MapPin } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import {
@@ -338,6 +338,7 @@ function Row({
         {!isAnonymized && (
           <div className="flex shrink-0 items-start gap-1">
             <DetailButton id={id} t={t} />
+            <FindsButton id={id} t={t} />
             <MapButton id={id} t={t} />
           </div>
         )}
@@ -434,6 +435,20 @@ function MapButton({ id, t }: { id: number; t: StatsT }) {
     >
       <MapPin className="h-3.5 w-3.5" aria-hidden />
       <span className="hidden sm:inline">{t("rowMap")}</span>
+    </Link>
+  );
+}
+
+function FindsButton({ id, t }: { id: number; t: StatsT }) {
+  return (
+    <Link
+      href={`/sbirka?loc=${id}`}
+      aria-label={t("rowFindsAria")}
+      title={t("rowFindsAria")}
+      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+    >
+      <ListIcon className="h-3.5 w-3.5" aria-hidden />
+      <span className="hidden sm:inline">{t("rowFinds")}</span>
     </Link>
   );
 }

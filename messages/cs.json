@@ -687,6 +687,8 @@
     "rowMapAria": "Zobrazit lokalitu na mapě",
     "rowDetail": "Detail",
     "rowDetailAria": "Detail lokality",
+    "rowFinds": "Ukázat nálezy",
+    "rowFindsAria": "Ukázat nálezy lokality na stránce Sbírka",
     "rowSuffixCountWithArea": "{count} čtyřlístků · {area}",
     "rowSuffixSessions": "{count} nálezů · ⌀ {avg} / hledání",
     "weekDay1": "pondělí",
