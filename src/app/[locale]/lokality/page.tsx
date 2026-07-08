@@ -84,6 +84,16 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   const onlyGone = pickString(sp.onlyGone) === "1";
   const showGone = onlyGone || pickString(sp.showGone) === "1";
   const hasRealPhoto = pickString(sp.hasPhoto) === "1";
+  // Rows to render pre-expanded. `?open=id,id2` is written by a row's toggle
+  // (client, native replaceState — see LocationListRow.syncOpenParam) so
+  // returning via Back after a click into a find / the map re-opens them.
+  // Not a filter: it never touches the query, just seeds `defaultOpen`.
+  const openIds = new Set(
+    (pickString(sp.open) ?? "")
+      .split(",")
+      .map((s) => Number(s))
+      .filter((n) => Number.isInteger(n) && n > 0),
+  );
 
   const locale = await getLocale();
   const [filterOptions, locations, toggleCounts, realPhotoIds, progress] =
@@ -278,7 +288,10 @@ export default async function LokalityPage({ searchParams }: PageProps) {
         <ul className="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white">
           {locations.map((location) => (
             <li key={location.id}>
-              <LocationListRow location={location} />
+              <LocationListRow
+                location={location}
+                defaultOpen={openIds.has(location.id)}
+              />
             </li>
           ))}
         </ul>

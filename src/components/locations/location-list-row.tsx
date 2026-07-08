@@ -31,10 +31,44 @@ import type { FindState } from "@prisma/client";
 
 type RowT = ReturnType<typeof useTranslations<"LocationRow">>;
 
-export function LocationListRow({ location }: { location: LocationListItem }) {
+/** Mirror an expanded row into the URL (`?open=id,id2…`) via NATIVE
+ *  replaceState — no navigation, no server refetch, no re-render of the other
+ *  rows. It just rewrites the current /lokality history entry so that after
+ *  the visitor clicks through to a find / the map and hits Back, the list
+ *  re-renders with those rows expanded (the page reads `?open` and seeds each
+ *  row's `defaultOpen`). Next 15 tracks native history writes, so Back
+ *  restores the URL and re-SSRs the expanded list; native scroll restoration
+ *  then returns the visitor to the row they left from. */
+function syncOpenParam(id: number, open: boolean) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  const ids = new Set(
+    (url.searchParams.get("open") ?? "").split(",").filter(Boolean),
+  );
+  if (open) ids.add(String(id));
+  else ids.delete(String(id));
+  if (ids.size > 0) url.searchParams.set("open", [...ids].join(","));
+  else url.searchParams.delete("open");
+  window.history.replaceState(window.history.state, "", url.toString());
+}
+
+export function LocationListRow({
+  location,
+  defaultOpen = false,
+}: {
+  location: LocationListItem;
+  /** Seeded from the page's `?open` param so a row expanded before the
+   *  visitor navigated away comes back expanded (see syncOpenParam). */
+  defaultOpen?: boolean;
+}) {
   const t = useTranslations("LocationRow");
-  const [open, setOpen] = useState(false);
-  const toggle = () => setOpen((o) => !o);
+  const [open, setOpen] = useState(defaultOpen);
+  const toggle = () =>
+    setOpen((o) => {
+      const next = !o;
+      syncOpenParam(location.id, next);
+      return next;
+    });
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -56,7 +90,7 @@ export function LocationListRow({ location }: { location: LocationListItem }) {
     : "";
 
   return (
-    <div>
+    <div id={`loc-${location.id}`} className="scroll-mt-24">
       <div
         role="button"
         tabIndex={0}

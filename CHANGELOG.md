@@ -9,6 +9,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /lokality — návrat zpět znovu rozbalí lokalitu
+- Rozbalený řádek lokality se teď zrcadlí do URL (`?open=id,id2`) přes nativní
+  `replaceState` (bez reloadu, bez re-renderu ostatních řádků). Po prokliku
+  z rozbaleného řádku na detail nálezu / mapu a stisku **Zpět** se list
+  re-SSRuje s tím řádkem **rozbaleným** (server čte `?open` → `defaultOpen`),
+  a nativní scroll restoration vrátí na místo. Bez client-storage (jako
+  filtry). `?open` není filtr — nesahá na dotaz.
+
 ### /lokality — na mobilu jen ikonky u tlačítek v řádku
 - Tlačítka v nerozbalené části řádku lokality (Detail lokality / Zobrazit na
   mapě / Zobrazit nálezy lokality) se pod `lg` scvrknou **jen na ikonku s
