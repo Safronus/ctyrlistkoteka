@@ -77,27 +77,27 @@ export function LocationDots({
     <>
       {dots.map((l) => {
         const focused = l.id === focusLocationId;
-        // Solid fill + a WHITE outline so the dot reads as a distinct marker
-        // over the (round, green/amber) clover finds it now sits ON TOP of —
-        // opaque, not the old translucent circle that drowned in a dense
-        // cluster. Blue = active, rose = former, amber = focused (focus wins
-        // over former: "you selected this" beats "this is gone").
-        const fill = focused ? "#f59e0b" : l.isGone ? "#e11d48" : "#1e40af";
+        // Blue = active, rose = former. NO amber-on-focus: a selected
+        // location is already carried by its bright finds + the green
+        // deviation circle (SelectedLocationDecor), and an orange dot both
+        // shouted over those finds and clashed with the green circle.
+        const fill = l.isGone ? "#e11d48" : "#1e40af";
         return (
           <Fragment key={`${l.id}-${enablePopup ? "p" : "np"}`}>
-            {/* The focused location's area is shown by the green deviation
-                circle (SelectedLocationDecor), so the dot itself just grows +
-                keeps its white outline — no separate amber halo ring (it read
-                as a small orange "circle" and clashed with the green one). */}
+            {/* Prominence INVERTS with selection: bold + opaque when NOT
+                selected (so you can spot + click a polygon-less place amid a
+                dense find cluster — the original problem), then the dot
+                RECEDES once selected (translucent, thinner outline) so the
+                clover icons + green circle play first fiddle. */}
             <CircleMarker
               center={[l.centerLat, l.centerLng]}
-              radius={focused ? 8 : 6}
+              radius={6}
               pane="loc-dots"
               pathOptions={{
                 color: "#ffffff",
-                weight: focused ? 3 : 2,
+                weight: focused ? 1.5 : 2,
                 fillColor: fill,
-                fillOpacity: 1,
+                fillOpacity: focused ? 0.5 : 1,
               }}
               eventHandlers={{
                 add: (e) => {

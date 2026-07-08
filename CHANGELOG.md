@@ -13,8 +13,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - Lokace bez polygonu (jen středový bod) se ztrácela pod hustým shlukem
   poloprůhledných čtyřlístků — bod byl navíc kreslený *pod* vrstvou nálezů.
   **Body lokací teď v pane nad nálezy** (z-index 560 > 550 canvasu),
-  **neprůhledné, s bílým obrysem** (oddělí je od kulatých zelených ikonek),
-  při výběru větší.
+  **neprůhledné, s bílým obrysem** (oddělí je od kulatých zelených ikonek).
+  Výraznost se **obrací dle výběru**: nevybraný bod je výrazný (najdeš ho),
+  vybraný **ustoupí** (poloprůhledný, tenčí obrys) — po zakliknutí hrají prim
+  ikonky nálezů + zelený kruh. Žádná oranžová na bodu (bila se se zeleným
+  kruhem).
 - **Dekorace vybrané polygonless lokace** (`SelectedLocationDecor`):
   - **zelený 5m radiální gradient** (střed výrazný → okraj průhledný) pod
     nálezy — hranice odchýlení; pokryje přesně zelené (≤5 m) nálezy,
