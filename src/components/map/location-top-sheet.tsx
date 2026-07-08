@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, ListIcon, MapPin, X } from "lucide-react";
+import { ExternalLink, Filter, ListIcon, MapPin, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { formatLocationId, locationDetailHref } from "@/lib/format";
@@ -21,9 +21,14 @@ function toIntlLocale(locale: string): string {
 export function LocationTopSheet({
   location,
   onClose,
+  filterSummary = "",
 }: {
   location: MapLocation;
   onClose: () => void;
+  /** Active /sbirka filter that led here (e.g. "stav Darovaný"), shown as
+   *  a context chip so the visitor knows why finds on the map are dimmed.
+   *  Empty string → no chip. */
+  filterSummary?: string;
 }) {
   const t = useTranslations("Mapa");
   const tStats = useTranslations("Statistiky");
@@ -89,6 +94,13 @@ export function LocationTopSheet({
           {tStats("labelFinds", { count: location.findCount })}
         </span>
       </p>
+
+      {filterSummary && (
+        <p className="mt-1.5 flex items-start gap-1.5 rounded-md bg-brand-50 px-2 py-1 text-[11px] leading-snug text-brand-800">
+          <Filter className="mt-0.5 h-3 w-3 shrink-0 text-brand-600" aria-hidden />
+          <span>{t("filterContext", { summary: filterSummary })}</span>
+        </p>
+      )}
 
       <div className="mt-2 grid grid-cols-2 gap-1.5">
         <Link

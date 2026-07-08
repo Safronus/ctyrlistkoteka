@@ -757,6 +757,7 @@
     "topSheetDetail": "Detail lokality",
     "topSheetShowFinds": "Ukázat nálezy",
     "topSheetCloseHint": "Kliknutím na mapu nebo X panel zavřete",
+    "filterContext": "Zobrazení odpovídá filtru: {summary}",
     "popupSubPart": "dílčí část",
     "popupGone": "Zaniklá",
     "popupDetail": "Detail lokality →",

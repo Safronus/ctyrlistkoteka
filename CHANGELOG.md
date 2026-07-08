@@ -23,6 +23,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   „stav Darovaný", „sběr …"). Cíl: po prokliku z „Nejlepší den"/statistik
   uživatel hned vidí, čím je výběr zúžený. Popis je ve sdíleném helperu
   `buildFilterSummary` (použije ho i mapa).
+- **Tlačítko „Zobrazit na mapě"** se nově zobrazí **jen když vyfiltrované
+  nálezy spadají do jedné mapovatelné lokace** (výslovná lokace s aspoň
+  jedním nálezem, nebo výběr, co se do jedné lokace scvrkl). Dřív vedlo
+  i na prázdnou/anonymizovanou mapu (anonymní nálezy nemají bod). Po
+  prokliku navíc **panel detailu lokality na mapě ukazuje kontext filtru**
+  („Zobrazení odpovídá filtru: …"), takže uživatel ví, proč jsou nálezy
+  ztlumené. /mapa nově přebírá i `fromTs/toTs` (přesný sběr).
 
 ### Nejoblíbenější nálezy — ořez místo originálu (Domů + /statistiky)
 - Tlačítko „nejoblíbenější" na Domů a leaderboard **„Top 10

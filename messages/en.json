@@ -758,6 +758,7 @@
     "topSheetDetail": "Location detail",
     "topSheetShowFinds": "Show finds",
     "topSheetCloseHint": "Tap the map or the X to close",
+    "filterContext": "View matches filter: {summary}",
     "popupSubPart": "sub-part",
     "popupGone": "Former",
     "popupDetail": "Location detail →",

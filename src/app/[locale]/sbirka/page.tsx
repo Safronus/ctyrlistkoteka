@@ -32,6 +32,7 @@ import { buildFilterSummary } from "@/lib/filterSummary";
 import {
   countFindsAtLocationSubtree,
   getCollectionProgress,
+  getFilteredLocationSpan,
   getFilterOptions,
   listFinds,
   type FindFilters,
@@ -354,7 +355,27 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   // single biggest reason users called the chip broken.
   const singleFindId =
     result.total === 1 ? (result.items[0]?.id ?? null) : null;
-  const mapLinkApplies = singleFindId !== null || !!filters.locationId;
+  // The chip must only lead to a useful single-location map view. Work out
+  // how many mappable (non-anonymized) locations the filtered finds span:
+  //  - explicit location filter → focus it, provided its subtree holds at
+  //    least one mappable find (an anonymized-only location has none, so
+  //    the chip correctly hides);
+  //  - otherwise → only when the whole result collapses to exactly one
+  //    location (a state / date filter that happens to hit a single spot).
+  // Anything spanning many locations, or anonymized-only, hides the chip —
+  // clicking through would just show the world with a diffuse dim, which
+  // the user flagged as worse than no chip.
+  let focusLocationId: number | null = null;
+  if (hasFilters && singleFindId === null) {
+    const span = await getFilteredLocationSpan(filters);
+    focusLocationId =
+      filters.locationId != null
+        ? span.mappableLocationCount >= 1
+          ? filters.locationId
+          : null
+        : span.soleLocationId;
+  }
+  const mapLinkApplies = singleFindId !== null || focusLocationId !== null;
   const buildMapHref = (f: typeof filters) => {
     if (singleFindId !== null) {
       return `/mapa?find=${singleFindId}&showFinds=1`;
@@ -370,10 +391,11 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     if (f.dateTo) params.set("to", dateToString(f.dateTo));
     if (f.hasRealPhoto) params.set("hasPhoto", "1");
     if (f.excludeLocationId) params.set("hideTop", "1");
-    // Auto-zoom to the location whenever it's part of the filter. The
-    // map already accepts `focus` from /lokality deep-links so we can
-    // piggy-back on that path here.
-    if (f.locationId) params.set("focus", String(f.locationId));
+    // Auto-zoom to the sole matching location — the explicit location
+    // filter, or the single location the result collapsed to. The map
+    // already accepts `focus` from /lokality deep-links so we piggy-back
+    // on that path here.
+    if (focusLocationId != null) params.set("focus", String(focusLocationId));
     params.set("showFinds", "1");
     return `/mapa?${params.toString()}`;
   };

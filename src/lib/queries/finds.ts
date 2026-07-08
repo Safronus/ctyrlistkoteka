@@ -707,6 +707,34 @@ export async function listFinds(
   };
 }
 
+/**
+ * How many distinct MAPPABLE locations the filtered finds span, capped at
+ * 2 — the "Zobrazit na mapě" chip only needs to know "none / exactly one /
+ * many". Anonymized finds and finds with no location are excluded: they
+ * have no point to focus on the map, which is precisely why the chip must
+ * hide for an anonymized-only or multi-location result (clicking through
+ * used to land on an empty world view). `soleLocationId` is set only when
+ * the span is exactly one, so the caller can focus that location.
+ */
+export async function getFilteredLocationSpan(
+  filters: FindFilters,
+): Promise<{ mappableLocationCount: number; soleLocationId: number | null }> {
+  const base = await buildWhere(filters);
+  const where = filters.hasRealPhoto ? await mergeRealPhotoFilter(base) : base;
+  const rows = await prisma.find.groupBy({
+    by: ["locationId"],
+    where: { AND: [where, { isAnonymized: false, locationId: { not: null } }] },
+    _count: { _all: true },
+    orderBy: { locationId: "asc" },
+    take: 2,
+  });
+  const count = rows.length;
+  return {
+    mappableLocationCount: count,
+    soleLocationId: count === 1 ? (rows[0]!.locationId ?? null) : null,
+  };
+}
+
 /** Mixes the `?hasPhoto=1` filter into the existing WHERE by AND-ing
  *  in the IDs from the on-disk photo index. Returns a sentinel WHERE
  *  that matches zero rows when there are no photos at all, so the

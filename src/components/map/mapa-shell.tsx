@@ -56,6 +56,7 @@ export function MapaShell({
   urlShowFinds,
   highlightFind,
   highlightFindIds,
+  activeFilterSummary,
 }: {
   mapData: MapData;
   sidebarLocations: readonly LocationListItem[];
@@ -77,6 +78,11 @@ export function MapaShell({
    *  from /sbirka filter params so the visitor sees their filtered set
    *  highlighted against the rest of the map. */
   highlightFindIds: ReadonlySet<number> | null;
+  /** Human-readable description of the /sbirka filter that led here (e.g.
+   *  "stav Darovaný, rok 2024"), shown in the location detail sheet so the
+   *  visitor knows why finds are dimmed. Empty string when no filter is
+   *  active. */
+  activeFilterSummary: string;
 }) {
   const t = useTranslations("Mapa");
   const locale = useLocale();
@@ -549,6 +555,7 @@ export function MapaShell({
           <LocationTopSheet
             location={focusedLocation}
             onClose={handleDeselectLocation}
+            filterSummary={activeFilterSummary}
           />
         </div>
       )}
@@ -705,6 +712,7 @@ export function MapaShell({
             <LocationTopSheet
               location={focusedLocation}
               onClose={handleDeselectLocation}
+              filterSummary={activeFilterSummary}
             />
           </div>
         )}

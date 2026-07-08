@@ -10,6 +10,8 @@ import {
   type FindFilters,
 } from "@/lib/queries/finds";
 import { DOMINANT_LOCATION_ID } from "@/lib/constants";
+import { buildFilterSummary } from "@/lib/filterSummary";
+import { formatShortDateCs, formatTinyDateTimeCs } from "@/lib/format";
 import { MapaShell } from "@/components/map/mapa-shell";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -65,6 +67,12 @@ function parseDateOnly(value: string | undefined): Date | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
+function parseDateTime(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 export default async function MapaPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const focusRaw = pickString(sp.focus);
@@ -98,6 +106,8 @@ export default async function MapaPage({ searchParams }: PageProps) {
     year: parsePositiveInt(pickString(sp.year)),
     dateFrom: parseDateOnly(pickString(sp.from)),
     dateTo: parseDateOnly(pickString(sp.to)),
+    foundAtFrom: parseDateTime(pickString(sp.fromTs)),
+    foundAtTo: parseDateTime(pickString(sp.toTs)),
     excludeLocationId: hideDominantOnMap ? DOMINANT_LOCATION_ID : undefined,
   };
   const hasFindFilter = !!(
@@ -109,6 +119,8 @@ export default async function MapaPage({ searchParams }: PageProps) {
     findFilters.year ||
     findFilters.dateFrom ||
     findFilters.dateTo ||
+    findFilters.foundAtFrom ||
+    findFilters.foundAtTo ||
     findFilters.excludeLocationId
   );
 
@@ -129,6 +141,40 @@ export default async function MapaPage({ searchParams }: PageProps) {
   const highlightFindIds: ReadonlySet<number> | null =
     highlightIdList !== null ? new Set(highlightIdList) : null;
 
+  // Human-readable description of the filter that narrowed this view,
+  // surfaced in the location detail sheet so a visitor arriving from a
+  // filtered /sbirka "Zobrazit na mapě" chip knows WHY finds are dimmed.
+  // Location / city / country are dropped: the sheet already names the
+  // location it belongs to, so only the extra dimensions (state, date, …)
+  // add information here.
+  const tSummary = await getTranslations("FilterSummary");
+  const tStates = await getTranslations("States");
+  const locale = await getLocale();
+  const tSummaryFn = tSummary as unknown as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
+  const tStateFn = tStates as unknown as (key: string) => string;
+  const activeFilterSummary = hasFindFilter
+    ? buildFilterSummary(
+        {
+          ...findFilters,
+          locationId: undefined,
+          cadastralArea: undefined,
+          country: undefined,
+        },
+        {
+          t: tSummaryFn,
+          stateLabel: tStateFn,
+          locationLabel: () => "",
+          countryLabel: () => "",
+          cityLabel: (name) => name,
+          formatDay: (d) => formatShortDateCs(d, locale),
+          formatInstant: (d) => formatTinyDateTimeCs(d, locale),
+        },
+      )
+    : "";
+
   return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 125px)" }}>
       <div className="flex-1 overflow-hidden">
@@ -139,6 +185,7 @@ export default async function MapaPage({ searchParams }: PageProps) {
           urlShowFinds={urlShowFinds}
           highlightFind={highlightFind}
           highlightFindIds={highlightFindIds}
+          activeFilterSummary={activeFilterSummary}
         />
       </div>
     </div>
