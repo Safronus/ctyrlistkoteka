@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin session — krátké prod heslo teď selže fail-closed
+- `sessionOptions.password` spadlo na **veřejný dev fallback klíč**, kdykoli
+  byl `ADMIN_SESSION_PASSWORD` kratší než 32 znaků, ale `requireAuth()`
+  hlídal jen `chybí` (ne `krátké`) — takže krátké prod heslo → session
+  zapečetěné veřejně známým klíčem → **zfalšovatelná admin cookie**, a guard
+  to nechytil. Není to aktivní díra při ≥32znakovém hesle, ale latentní
+  fail-open na misconfiguraci. Fix: jedna sdílená podmínka
+  `hasStrongSessionPassword` (≥32) pro klíč i guard → krátké/chybějící heslo
+  v produkci `requireAuth()` odmítne (fail-closed).
+
 ### Deploy — brány proti nasazení rozbitého `.next` (fail-closed)
 - **Incident (2026-07-08):** deploy hlásil `success`, ale `next build`
   skončil `exit 0` a přesto nechal šest **0 B manifestů** v `.next`. Při

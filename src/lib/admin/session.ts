@@ -21,6 +21,12 @@ export interface AdminSessionData {
 }
 
 const sessionPassword = process.env.ADMIN_SESSION_PASSWORD;
+// Single source of truth for "is the configured password usable", shared by
+// the cookie-encryption key below and the requireAuth() guard so the two
+// can't drift. iron-session needs ≥32 chars; anything shorter (or missing)
+// falls back to the PUBLIC dev key, which must never authenticate in prod.
+const hasStrongSessionPassword =
+  !!sessionPassword && sessionPassword.length >= 32;
 
 /** 1-hour sliding session — long enough for a typical upload+sync run,
  *  short enough that a stolen cookie doesn't grant indefinite access.
@@ -29,15 +35,14 @@ export const SESSION_TTL_MS = 60 * 60 * 1000;
 export const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
 const sessionOptions: SessionOptions = {
-  password:
-    sessionPassword && sessionPassword.length >= 32
-      ? sessionPassword
-      : // Dev fallback — explicitly noisy so misconfig in prod fails
-        // closed (the session is never readable by a real user but
-        // login still works for local development). The check in
-        // requireAuth() will refuse to authenticate when the env var
-        // is missing in production.
-        "dev-only-fallback-do-not-use-in-prod-aaaaaaaaaaaaaaaa",
+  password: hasStrongSessionPassword
+    ? sessionPassword! // guard above guarantees a ≥32-char string here
+    : // Dev fallback — explicitly noisy so misconfig in prod fails
+      // closed (the session is never readable by a real user but
+      // login still works for local development). requireAuth() refuses
+      // to authenticate in production whenever this fallback is in play
+      // (env var missing OR shorter than 32 chars).
+      "dev-only-fallback-do-not-use-in-prod-aaaaaaaaaaaaaaaa",
   cookieName: "ctyr_admin",
   cookieOptions: {
     httpOnly: true,
@@ -78,14 +83,17 @@ export async function touchSession(): Promise<void> {
   }
 }
 
-/** Refuses to proceed unless the session is authenticated AND the
- *  production session-password env var is present. The password
- *  guard is a belt-and-braces check — without it, sessions would be
- *  encrypted with the dev fallback key and trivially forgeable. */
+/** Refuses to proceed unless the session is authenticated AND a *strong*
+ *  production session password is configured. The password guard is a
+ *  belt-and-braces check — without it, sessions encrypted with the public
+ *  dev fallback key (used whenever the env var is missing OR shorter than
+ *  32 chars) would be trivially forgeable. Checks the SAME condition the
+ *  cookie key uses, so a too-short password fails closed instead of
+ *  silently authenticating against the public key. */
 export async function requireAuth(): Promise<AdminSessionData> {
-  if (process.env.NODE_ENV === "production" && !sessionPassword) {
+  if (process.env.NODE_ENV === "production" && !hasStrongSessionPassword) {
     throw new Error(
-      "ADMIN_SESSION_PASSWORD is required in production",
+      "ADMIN_SESSION_PASSWORD must be set to at least 32 characters in production",
     );
   }
   const session = await getAdminSession();
