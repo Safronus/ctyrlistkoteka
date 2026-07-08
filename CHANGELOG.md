@@ -12,18 +12,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 ### /mapa — bod lokace bez polygonu je vidět i v hustých nálezech
 - Lokace bez polygonu (jen středový bod) se ztrácela pod hustým shlukem
   poloprůhledných čtyřlístků — bod byl navíc kreslený *pod* vrstvou nálezů.
-  **Body lokací teď v pane nad nálezy** (z-index 560 > 550 canvasu),
-  **neprůhledné, s bílým obrysem** (oddělí je od kulatých zelených ikonek).
-  Výraznost se **obrací dle výběru**: nevybraný bod je výrazný (najdeš ho),
-  vybraný **ustoupí** (poloprůhledný, tenčí obrys) — po zakliknutí hrají prim
-  ikonky nálezů + zelený kruh. Žádná oranžová na bodu (bila se se zeleným
-  kruhem).
+  **Nevybraný bod** je v pane **nad nálezy** (z-index 560 > 550 canvasu),
+  neprůhledný, s bílým obrysem (najdeš + klikneš ho i v hustém shluku).
+  **Po výběru** bod **klesne pod nálezy** (overlayPane) a zprůhlední → prim
+  hrají ikonky nálezů + zelený kruh; deselect ho zase vynese nahoru.
 - **Dekorace vybrané polygonless lokace** (`SelectedLocationDecor`):
   - **zelený 5m radiální gradient** (střed výrazný → okraj průhledný) pod
     nálezy — hranice odchýlení; pokryje přesně zelené (≤5 m) nálezy,
-  - **jemný amber konvexní obal** amber nálezů (tone 1) pod nálezy,
-  - **rose outliery (tone 2) jemně pulzují** nad nálezy (CSS, respekt
-    k `prefers-reduced-motion`) — bez obalu, ten by se u vzdálených nafoukl.
+  - **nálezy lokality pulzují** (čtyřlístkové ikonky matchující canvas, přes
+    znovupoužitý sprite; CSS, respekt k `prefers-reduced-motion`) jako
+    highlight. Bez konvexního obalu (hranatý, u <3 nálezů prázdný).
+  - **Přepínače v panelu Vrstvy → Nálezy**: „Pulzovat odchýlené" (default
+    zap) a „Pulzovat i nálezy do 5 m" (default vyp). Perzistentní; odchýlené
+    jsou skoro vždy menšina → pulz je levný i u lokalit s tisíci nálezy.
 
 ### /mapa — vrstva Nálezy už nezůstane skrytá po `?find` prokliku
 - Proklik na `/mapa?find=X` schová hromadnou vrstvu Nálezy, aby vynikl jeden

@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { Marker, Pane, Polygon, SVGOverlay } from "react-leaflet";
+import { Marker, Pane, SVGOverlay } from "react-leaflet";
 import L from "leaflet";
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import { cloverSpriteDataUrl } from "./find-dots-canvas";
 import type { MapLocation } from "@/lib/queries/map";
 
 /** `[lat, lng, locationId, findId, tone]` — same packed tuple the find-dots
@@ -11,62 +12,35 @@ import type { MapLocation } from "@/lib/queries/map";
  *  inside a location-map bbox), 2 rose (deviated, outside every map). */
 type FindCoord = readonly [number, number, number, number, number];
 
-/** Andrew's monotone-chain convex hull. Returns [] for < 3 points (nothing to
- *  outline). Input/return are [lat, lng] pairs — orientation is irrelevant for
- *  a filled polygon. */
-function convexHull(pts: ReadonlyArray<[number, number]>): [number, number][] {
-  if (pts.length < 3) return [];
-  const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-  const cross = (
-    o: [number, number],
-    a: [number, number],
-    b: [number, number],
-  ) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-  const build = (order: ReadonlyArray<[number, number]>): [number, number][] => {
-    const chain: [number, number][] = [];
-    for (const q of order) {
-      while (chain.length >= 2) {
-        const a = chain[chain.length - 2];
-        const b = chain[chain.length - 1];
-        if (!a || !b || cross(a, b, q) > 0) break;
-        chain.pop();
-      }
-      chain.push(q);
-    }
-    chain.pop(); // drop the last point — it's the first of the other chain
-    return chain;
-  };
-  const lower = build(p);
-  const upper = build([...p].reverse());
-  return lower.concat(upper);
-}
-
-// Pulsing rose-outlier marker. A plain divIcon with one span the CSS animates;
-// white ring so it reads over anything. Static + always mounted (icons are
-// cheap to reuse). Anchored at centre.
-const ROSE_PULSE_ICON = L.divIcon({
-  className: "ctyr-rose-pulse-wrap",
-  html: '<span class="ctyr-rose-pulse"></span>',
-  iconSize: [16, 16],
-  iconAnchor: [8, 8],
-});
+/** Icon box (CSS px) for a pulsing clover — a touch bigger than a map dot so
+ *  the pulse reads clearly. */
+const PULSE_BOX = 24;
 
 /**
  * Decorations for the currently-selected POLYGON-LESS location, so a place
  * that's only a centre point stays legible under a dense find cluster:
- *   • green radial-gradient circle at the 5 m deviation radius (under the
- *     finds) — the boundary where on-location (green) tips over to deviated;
- *   • a faint amber convex hull of the amber (in-map-bbox) deviated finds;
- *   • the far rose outliers gently pulse (above the finds) — no hull for them,
- *     which would balloon since they're far from the centre by definition.
+ *   • a green radial-gradient circle at the 5 m deviation radius (under the
+ *     finds) — the boundary where on-location (green, ≤5 m) tips over to
+ *     deviated; it "hugs" the tight on-location cluster;
+ *   • the location's finds gently PULSE (clover icons matching the canvas
+ *     dots) as a highlight. Which tiers pulse is visitor-toggleable: the
+ *     deviated (amber+rose) outliers by default — they're the scattered ones
+ *     that need attributing — and optionally the on-location (green) ones too.
  * Polygon locations render their real outline, so this is skipped for them.
  */
 export function SelectedLocationDecor({
   location,
   findCoords,
+  pulseDeviated,
+  pulseOnLocation,
 }: {
   location: MapLocation | null;
   findCoords: ReadonlyArray<FindCoord>;
+  /** Pulse the deviated finds (amber+rose, tone ≥ 1). */
+  pulseDeviated: boolean;
+  /** Also pulse the on-location finds (green, ≤5 m, tone 0) — they already
+   *  sit inside the circle, so this is mostly a look/testing aid. */
+  pulseOnLocation: boolean;
 }) {
   const active =
     location &&
@@ -76,17 +50,32 @@ export function SelectedLocationDecor({
       ? location
       : null;
 
-  const { amberHull, rose } = useMemo(() => {
-    if (!active) return { amberHull: [] as [number, number][], rose: [] };
-    const amber: [number, number][] = [];
-    const roseFinds: [number, number][] = [];
+  // One divIcon per tone; the clover img matches the canvas find dots exactly
+  // (same sprite). Client-only (the sprite is canvas-rendered).
+  const icons = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const make = (tone: number) =>
+      L.divIcon({
+        className: "",
+        html: `<img class="ctyr-find-pulse" alt="" width="${PULSE_BOX}" height="${PULSE_BOX}" src="${cloverSpriteDataUrl(tone, PULSE_BOX)}" />`,
+        iconSize: [PULSE_BOX, PULSE_BOX],
+        iconAnchor: [PULSE_BOX / 2, PULSE_BOX / 2],
+      });
+    return [make(0), make(1), make(2)] as const;
+  }, []);
+
+  const pulsing = useMemo(() => {
+    if (!active) return [];
+    const out: Array<{ lat: number; lng: number; tone: number }> = [];
     for (const c of findCoords) {
       if (c[2] !== active.id) continue;
-      if (c[4] === 1) amber.push([c[0], c[1]]);
-      else if (c[4] === 2) roseFinds.push([c[0], c[1]]);
+      const tone = c[4];
+      if ((tone === 0 && pulseOnLocation) || (tone >= 1 && pulseDeviated)) {
+        out.push({ lat: c[0], lng: c[1], tone });
+      }
     }
-    return { amberHull: convexHull(amber), rose: roseFinds };
-  }, [active, findCoords]);
+    return out;
+  }, [active, findCoords, pulseDeviated, pulseOnLocation]);
 
   if (!active) return null;
   const lat = active.centerLat as number;
@@ -97,8 +86,8 @@ export function SelectedLocationDecor({
 
   return (
     <>
-      {/* z-index 450: BELOW the find-dots canvas (550) so the circle + hull
-          sit UNDER the clover icons, as a soft backdrop. */}
+      {/* z-index 450: BELOW the find-dots canvas (550) so the circle is a soft
+          backdrop under the clover icons. */}
       <Pane name="loc-decor-under" style={{ zIndex: 450 }}>
         <SVGOverlay
           bounds={circleBounds}
@@ -115,32 +104,18 @@ export function SelectedLocationDecor({
           </defs>
           <circle cx="50" cy="50" r="50" fill="url(#loc-decor-grad)" />
         </SVGOverlay>
-        {amberHull.length >= 3 && (
-          <Polygon
-            positions={amberHull}
-            interactive={false}
-            pane="loc-decor-under"
-            pathOptions={{
-              color: "#d97706",
-              weight: 1,
-              opacity: 0.35,
-              fillColor: "#f59e0b",
-              fillOpacity: 0.06,
-            }}
-          />
-        )}
       </Pane>
-      {/* Rose outliers pulse ABOVE the finds (default markerPane, 600).
-          One divIcon per outlier — there are usually only a handful. */}
-      {rose.map(([rlat, rlng], i) => (
-        <Marker
-          key={`${active.id}-rose-${i}`}
-          position={[rlat, rlng]}
-          icon={ROSE_PULSE_ICON}
-          interactive={false}
-          keyboard={false}
-        />
-      ))}
+      {/* Pulsing finds ride the default markerPane (600), above the finds. */}
+      {icons &&
+        pulsing.map((f, i) => (
+          <Marker
+            key={`${active.id}-pulse-${i}`}
+            position={[f.lat, f.lng]}
+            icon={icons[f.tone] ?? icons[0]}
+            interactive={false}
+            keyboard={false}
+          />
+        ))}
     </>
   );
 }

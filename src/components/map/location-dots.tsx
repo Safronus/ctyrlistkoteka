@@ -83,16 +83,23 @@ export function LocationDots({
         // shouted over those finds and clashed with the green circle.
         const fill = l.isGone ? "#e11d48" : "#1e40af";
         return (
-          <Fragment key={`${l.id}-${enablePopup ? "p" : "np"}`}>
-            {/* Prominence INVERTS with selection: bold + opaque when NOT
-                selected (so you can spot + click a polygon-less place amid a
-                dense find cluster — the original problem), then the dot
-                RECEDES once selected (translucent, thinner outline) so the
-                clover icons + green circle play first fiddle. */}
+          // `focused` is in the key so the marker REMOUNTS on select/deselect
+          // — Leaflet can't move a layer between panes after creation, and the
+          // pane flips with selection (below).
+          <Fragment
+            key={`${l.id}-${enablePopup ? "p" : "np"}-${focused ? "f" : "u"}`}
+          >
+            {/* Prominence + STACKING invert with selection. NOT selected: bold,
+                opaque, in the loc-dots pane ABOVE the finds — so you can spot +
+                click a polygon-less place amid a dense cluster (the original
+                problem). SELECTED: the dot drops BELOW the finds (overlayPane)
+                and goes translucent, so the clover icons (which can sit right
+                on top of it) + the green circle play first fiddle; deselecting
+                lifts it back on top to be clickable again. */}
             <CircleMarker
               center={[l.centerLat, l.centerLng]}
               radius={6}
-              pane="loc-dots"
+              pane={focused ? "overlayPane" : "loc-dots"}
               pathOptions={{
                 color: "#ffffff",
                 weight: focused ? 1.5 : 2,

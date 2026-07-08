@@ -36,6 +36,8 @@ export function MapLoader({
   showGone,
   hideDeviatedFinds,
   showDeviationColors,
+  pulseDeviated,
+  pulseOnLocation,
   findIconSize,
   enabledChildPolygonIds,
   highlightFind,
@@ -53,6 +55,8 @@ export function MapLoader({
   showGone: boolean;
   hideDeviatedFinds: boolean;
   showDeviationColors: boolean;
+  pulseDeviated: boolean;
+  pulseOnLocation: boolean;
   findIconSize: number;
   enabledChildPolygonIds: ReadonlySet<number>;
   highlightFind: HighlightFind | null;
@@ -75,6 +79,8 @@ export function MapLoader({
       showGone={showGone}
       hideDeviatedFinds={hideDeviatedFinds}
       showDeviationColors={showDeviationColors}
+      pulseDeviated={pulseDeviated}
+      pulseOnLocation={pulseOnLocation}
       findIconSize={findIconSize}
       enabledChildPolygonIds={enabledChildPolygonIds}
       highlightFind={highlightFind}

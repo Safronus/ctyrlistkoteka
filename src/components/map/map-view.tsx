@@ -33,6 +33,8 @@ export function MapView({
   showGone,
   hideDeviatedFinds,
   showDeviationColors,
+  pulseDeviated,
+  pulseOnLocation,
   findIconSize,
   enabledChildPolygonIds,
   highlightFind,
@@ -58,6 +60,10 @@ export function MapView({
   /** Vrstvy → Nálezy → "Barevně odlišit odchýlené" sub-toggle. When true,
    *  deviated finds paint amber/rose per their tone; when false all green. */
   showDeviationColors: boolean;
+  /** Pulse the selected polygon-less location's deviated / on-location finds
+   *  (see SelectedLocationDecor). */
+  pulseDeviated: boolean;
+  pulseOnLocation: boolean;
   /** Find-dot sprite size in CSS pixels (from the size slider). */
   findIconSize: number;
   enabledChildPolygonIds: ReadonlySet<number>;
@@ -236,11 +242,13 @@ export function MapView({
             showDeviationColors={showDeviationColors}
             iconSize={findIconSize}
           />
-          {/* Green 5 m circle + amber hull (under the finds) + pulsing rose
-              outliers for the selected polygon-less location. */}
+          {/* Green 5 m circle (under the finds) + pulsing finds for the
+              selected polygon-less location. */}
           <SelectedLocationDecor
             location={focusedLocation}
             findCoords={data.findCoords}
+            pulseDeviated={pulseDeviated}
+            pulseOnLocation={pulseOnLocation}
           />
         </>
       )}

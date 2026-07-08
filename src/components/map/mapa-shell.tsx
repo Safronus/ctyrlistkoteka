@@ -54,6 +54,11 @@ const LS_KEY_GONE = "mapa.layers.gone";
 const LS_KEY_HIDE_DEVIATED = "mapa.layers.hideDeviated";
 const LS_KEY_DEVIATION_COLORS = "mapa.layers.deviationColors";
 const LS_KEY_ICON_SCALE = "mapa.layers.iconScale";
+// Pulse toggles for the selected polygon-less location's finds. Deviated
+// (amber+rose) pulse by default (they're the scattered outliers that need
+// attributing); the on-location (green) pulse is opt-in.
+const LS_KEY_PULSE_DEVIATED = "mapa.layers.pulseDeviated";
+const LS_KEY_PULSE_ONLOC = "mapa.layers.pulseOnLoc";
 
 export function MapaShell({
   mapData,
@@ -201,6 +206,10 @@ export function MapaShell({
    *  the amber/rose colouring is the point of the feature; persisted so
    *  a visitor who turns it off stays off (LS_KEY_DEVIATION_COLORS). */
   const [showDeviationColors, setShowDeviationColors] = useState(true);
+  /** Pulse the selected polygon-less location's deviated finds (default ON)
+   *  and/or its on-location finds (default OFF) — see SelectedLocationDecor. */
+  const [pulseDeviated, setPulseDeviated] = useState(true);
+  const [pulseOnLocation, setPulseOnLocation] = useState(false);
   /** Find-dot size multiplier (× MAP_FIND_ICON_BASE_PX). Default 1×;
    *  persisted per browser (LS_KEY_ICON_SCALE). */
   const [findIconScale, setFindIconScale] = useState(
@@ -395,6 +404,12 @@ export function MapaShell({
       // deviationColors defaults ON — only honour an explicit "false".
       const dc = window.localStorage.getItem(LS_KEY_DEVIATION_COLORS);
       if (dc === "false") setShowDeviationColors(false);
+      // pulseDeviated defaults ON (honour explicit "false"); pulseOnLocation
+      // defaults OFF (honour explicit "true").
+      const ppd = window.localStorage.getItem(LS_KEY_PULSE_DEVIATED);
+      if (ppd === "false") setPulseDeviated(false);
+      const ppo = window.localStorage.getItem(LS_KEY_PULSE_ONLOC);
+      if (ppo === "true") setPulseOnLocation(true);
       // iconScale: parse + clamp to the slider range; ignore garbage.
       const is = window.localStorage.getItem(LS_KEY_ICON_SCALE);
       if (is !== null) {
@@ -461,6 +476,23 @@ export function MapaShell({
       /* ignore */
     }
   }, [showDeviationColors]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LS_KEY_PULSE_DEVIATED, String(pulseDeviated));
+    } catch {
+      /* ignore */
+    }
+  }, [pulseDeviated]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        LS_KEY_PULSE_ONLOC,
+        String(pulseOnLocation),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [pulseOnLocation]);
   useEffect(() => {
     try {
       window.localStorage.setItem(LS_KEY_ICON_SCALE, String(findIconScale));
@@ -561,6 +593,8 @@ export function MapaShell({
         showGone={showGone}
         hideDeviatedFinds={hideDeviatedFinds}
         showDeviationColors={showDeviationColors}
+        pulseDeviated={pulseDeviated}
+        pulseOnLocation={pulseOnLocation}
         findIconSize={MAP_FIND_ICON_BASE_PX * findIconScale}
         enabledChildPolygonIds={enabledChildPolygonIds}
         highlightFind={effectiveHighlightFind}
@@ -709,6 +743,10 @@ export function MapaShell({
             onToggleHideDeviatedFinds={setHideDeviatedFinds}
             showDeviationColors={showDeviationColors}
             onToggleDeviationColors={setShowDeviationColors}
+            pulseDeviated={pulseDeviated}
+            onTogglePulseDeviated={setPulseDeviated}
+            pulseOnLocation={pulseOnLocation}
+            onTogglePulseOnLocation={setPulseOnLocation}
             iconScale={findIconScale}
             onChangeIconScale={setFindIconScale}
             locationCount={activeLocationCount}
@@ -783,6 +821,10 @@ function LayerToggleCard({
   onToggleHideDeviatedFinds,
   showDeviationColors,
   onToggleDeviationColors,
+  pulseDeviated,
+  onTogglePulseDeviated,
+  pulseOnLocation,
+  onTogglePulseOnLocation,
   iconScale,
   onChangeIconScale,
   locationCount,
@@ -805,6 +847,12 @@ function LayerToggleCard({
    *  deviated finds. */
   showDeviationColors: boolean;
   onToggleDeviationColors: (v: boolean) => void;
+  /** Pulse the selected polygon-less location's deviated / on-location finds
+   *  (see SelectedLocationDecor). Only affects a selected marker-only place. */
+  pulseDeviated: boolean;
+  onTogglePulseDeviated: (v: boolean) => void;
+  pulseOnLocation: boolean;
+  onTogglePulseOnLocation: (v: boolean) => void;
   /** Find-dot size multiplier (× base px) from the size slider. */
   iconScale: number;
   onChangeIconScale: (v: number) => void;
@@ -949,6 +997,22 @@ function LayerToggleCard({
               onChange={onToggleDeviationColors}
               disabled={!showFinds}
               subtitle={t("layerDeviationColorsSubtitle")}
+            />
+            {/* Pulse toggles — only bite for a SELECTED polygon-less location,
+                but they live here so they're discoverable + testable. */}
+            <ToggleRow
+              label={t("layerPulseDeviated")}
+              checked={pulseDeviated}
+              onChange={onTogglePulseDeviated}
+              disabled={!showFinds}
+              subtitle={t("layerPulseDeviatedSubtitle")}
+            />
+            <ToggleRow
+              label={t("layerPulseOnLocation")}
+              checked={pulseOnLocation}
+              onChange={onTogglePulseOnLocation}
+              disabled={!showFinds}
+              subtitle={t("layerPulseOnLocationSubtitle")}
             />
             <FindIconSizeControl
               label={t("layerFindIconSize")}

@@ -409,3 +409,21 @@ function createSprite(
 
   return canvas;
 }
+
+/**
+ * A single tier-coloured clover as a PNG data URL, for reuse OUTSIDE this
+ * canvas layer: the selected-location pulse (SelectedLocationDecor) mounts
+ * these as <img> inside Leaflet divIcons so the pulsing markers match the
+ * canvas dots exactly. Rendered once per tone by the caller (memoised).
+ * Client-only (uses a canvas). `boxPx` is the full icon box in CSS px.
+ */
+export function cloverSpriteDataUrl(tone: number, boxPx: number): string {
+  const c = TONE_COLORS[tone];
+  if (!c) return "";
+  const spriteSize = boxPx / (1 + 2 * SPRITE_PAD_RATIO);
+  const dpr =
+    typeof window !== "undefined"
+      ? Math.min(window.devicePixelRatio || 1, 2)
+      : 2;
+  return createSprite(dpr, spriteSize, boxPx, c.leaf, c.dark).toDataURL();
+}
