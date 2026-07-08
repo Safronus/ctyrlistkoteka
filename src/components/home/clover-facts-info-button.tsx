@@ -56,11 +56,15 @@ export function CloverFactsInfoButton({
   return (
     <div
       ref={ref}
-      // On the card's top edge, just LEFT of the thumbtack pin (which sits
-      // at right-6) so the ⓘ reads as part of the pin cluster rather than
-      // hanging off the right corner. Desktop keeps its roomier placement
-      // hanging fully to the right of the card.
-      className="absolute -top-3 right-12 z-20 lg:left-full lg:right-auto lg:top-1 lg:ml-2"
+      // Hanging just off the card's top-RIGHT corner at every breakpoint.
+      // `left-full` pins it to the card's right edge; `-top-3` lifts the icon
+      // so its top meets the paper's top edge (the card is tilted -2°, so the
+      // right corner rides a few px above the layout box). The gap is
+      // responsive: `sm:ml-4` gives the full ~20px on tablet/desktop, while
+      // `ml-1` on phones keeps the whole icon on-screen — a 320px card nearly
+      // fills a narrow viewport, so a 20px gap there would run the icon off
+      // the edge (the page's overflow-x-clip would then swallow it).
+      className="absolute -top-3 left-full z-20 ml-1 sm:ml-4"
     >
       <button
         type="button"
