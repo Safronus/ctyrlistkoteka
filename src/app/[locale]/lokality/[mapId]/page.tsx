@@ -472,7 +472,7 @@ async function FullDetail({
           <div className="space-y-3">
             {parent && (
               <div className="space-y-1.5">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
                   {t("parentSection")}
                 </p>
                 <HandleRow handle={parent} t={t} />
@@ -480,7 +480,7 @@ async function FullDetail({
             )}
             {siblings.length > 0 && (
               <div className="space-y-1.5">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
                   {t("siblingsSection", { count: siblings.length })}
                 </p>
                 <ul className="space-y-1">
@@ -495,7 +495,7 @@ async function FullDetail({
             {children.length > 0 && (
               <div className="space-y-1.5">
                 {isChild && (
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
                     {t("subpartsSection", { count: children.length })}
                   </p>
                 )}
@@ -720,7 +720,7 @@ function Field({
 }) {
   return (
     <div className="flex flex-col items-start gap-1">
-      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
+      <dt className="text-xs font-medium uppercase tracking-wide text-brand-700">
         {label}
       </dt>
       <dd className="text-gray-800">{children}</dd>

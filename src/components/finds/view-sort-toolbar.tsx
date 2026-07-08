@@ -215,7 +215,7 @@ export function ViewSortToolbar({
         aria-label={t("dateGroup")}
         className="inline-flex flex-wrap items-center gap-1.5 text-sm text-gray-600 sm:ml-auto"
       >
-        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        <span className="text-xs font-medium uppercase tracking-wide text-brand-700">
           {t("dateLabel")}
         </span>
         <div className="inline-flex items-center gap-0.5">

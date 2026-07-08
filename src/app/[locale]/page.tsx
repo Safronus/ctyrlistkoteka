@@ -592,7 +592,7 @@ function TopLocationCard({
       >
         <ExternalLink className="h-4 w-4" aria-hidden />
       </Link>
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
         {t("topLocationLabel")}
       </p>
       <p
@@ -683,7 +683,7 @@ function PeakDayCard({
   const netLabel = formatDurationMinutes(peakDay.netMinutes);
   return (
     <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3 text-center">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
         {t("peakDayLabel")}
       </p>
       <p className="mt-1 truncate text-base font-semibold text-gray-900">
@@ -758,7 +758,7 @@ function HighlightCard({
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-3 text-center">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
         {label}
       </p>
       <p className="mt-1 truncate text-base font-semibold text-gray-900">
@@ -797,7 +797,7 @@ async function SparklineCard({
 
   return (
     <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3 text-center">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
         {t("sparklineTitle")}
       </p>
       <p className="mt-1 truncate text-base font-semibold text-gray-900">

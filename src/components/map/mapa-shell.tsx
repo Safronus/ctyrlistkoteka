@@ -819,7 +819,7 @@ function LayerToggleCard({
           aria-expanded={expanded}
           aria-label={expanded ? t("layersCollapse") : t("layersExpand")}
         >
-          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">
             {t("layersHeading")}
           </h3>
           <ChevronDown

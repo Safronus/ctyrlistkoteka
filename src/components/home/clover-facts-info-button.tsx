@@ -82,7 +82,7 @@ export function CloverFactsInfoButton({
           className="absolute right-0 top-9 z-30 w-64 max-w-[80vw] rounded-lg border border-gray-200 bg-white p-3 text-left shadow-xl"
         >
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-brand-700">
               {t("tileLabel")}
             </p>
             <button

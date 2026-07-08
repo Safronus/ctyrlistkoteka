@@ -388,7 +388,7 @@ function StatsPanel({
 
           {view.states.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-700">
                 {t("statesHeading")}
               </h3>
               <ul className="space-y-1.5">

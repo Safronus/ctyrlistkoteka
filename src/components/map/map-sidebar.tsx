@@ -69,7 +69,7 @@ export function MapSidebar({
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       <div className="border-b border-gray-200 px-3 py-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">
           {t("sidebarHeading", { count: numFmt.format(locations.length) })}
           {anonymizedLocationCount > 0 && (
             <span
