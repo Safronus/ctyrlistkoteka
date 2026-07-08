@@ -68,6 +68,10 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   ostatní zmizí). Nativní `<select>` nahrazen checkbox dropdownem
   (`StateMultiSelect`), URL nese opakované `?state=`. Staré single-stav
   deep-linky (`?state=DONATED` ze statistik/Domů) fungují beze změny.
+- **Nápověda `/sbirka`** aktualizována dle všech změn (multi-select stavů,
+  faceted county + skrývání nulových, tlačítko na mapu jen pro jednu lokaci
+  + kontext filtru, „Filtr je aktivní" řádek, přežití filtrů při změně
+  jazyka) + nadpis „Sbírka 🍀".
 - **Deep-link `?loc=X`** (proklik „Top lokalita" / statistiky / lokality /
   mapa → „Ukázat nálezy") nově **nastaví i dropdowny Stát a Město** podle
   zvolené lokace — stejně, jako když lokalitu vybereš přímo ve filtru.

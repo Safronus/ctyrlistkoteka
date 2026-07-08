@@ -459,6 +459,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
                   tHelp("sectionFilters2"),
                   tHelp("sectionFilters3"),
                   tHelp("sectionFilters4"),
+                  tHelp("sectionFilters5"),
                 ],
               },
               {
