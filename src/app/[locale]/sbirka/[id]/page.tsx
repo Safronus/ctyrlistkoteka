@@ -168,13 +168,19 @@ export default async function FindDetailPage({ params }: PageProps) {
     : (find.images.find((i) => i.imageType === ImageType.CROP) ?? null);
 
   // Displayed photo geometry (height-capped, landscape rotated to portrait).
-  // The location map + facts below are widened to `photoBox.widthCss` so
+  // The location map + facts below are widened to `photoBox.layoutWidthCss` so
   // they line up. For NO_PHOTO finds there's no real image, so we fall back
   // to a default 3:4 portrait box — the placeholder then occupies the same
   // area a real photo would, and the map still matches it.
+  // `minWidthPx` floors the LAYOUT (nav / map / facts) at ~28rem so an
+  // unusually narrow low-res photo (e.g. #165, #166) can't squeeze the
+  // whole detail page — the photo itself stays at its native width, just
+  // centred in the wider column.
   const photoBox =
-    photoDisplay(mainImage?.width, mainImage?.height, { rotate: true }) ??
-    photoDisplay(900, 1200, { rotate: false })!;
+    photoDisplay(mainImage?.width, mainImage?.height, {
+      rotate: true,
+      minWidthPx: 448,
+    }) ?? photoDisplay(900, 1200, { rotate: false })!;
 
   // Special atmospheric effect for this find (record / heavenly /
   // hellish), resolved from the admin-assignable config (defaults seed
@@ -406,7 +412,7 @@ export default async function FindDetailPage({ params }: PageProps) {
         <div className="pointer-events-none absolute inset-x-0 top-1/2 hidden -translate-y-1/2 md:block">
           <div
             className="mx-auto"
-            style={{ width: photoBox.widthCss, maxWidth: "100%" }}
+            style={{ width: photoBox.layoutWidthCss, maxWidth: "100%" }}
           >
             <span className="pointer-events-auto inline-flex">
               <BackToSbirkaLink variant="button-full" />
@@ -467,7 +473,7 @@ export default async function FindDetailPage({ params }: PageProps) {
           bordered
           goldFrame={effect === "record"}
           rotateLandscape
-          placeholderWidthCss={photoBox.widthCss}
+          placeholderWidthCss={photoBox.layoutWidthCss}
           placeholderAspectRatio={photoBox.aspectRatio}
         />
       </section>
@@ -512,7 +518,7 @@ export default async function FindDetailPage({ params }: PageProps) {
               /* Match the map exactly to the find photo's displayed width so
                the two line up (falls back to max-w-2xl when there's no
                photo to measure against). */
-              figureWidth={photoBox?.widthCss}
+              figureWidth={photoBox?.layoutWidthCss}
               locale={locale}
               t={t}
               noteOverrides={mapNoteOverrides}
@@ -531,7 +537,7 @@ export default async function FindDetailPage({ params }: PageProps) {
             }`}
             style={
               photoBox
-                ? { width: photoBox.widthCss, maxWidth: "100%" }
+                ? { width: photoBox.layoutWidthCss, maxWidth: "100%" }
                 : undefined
             }
           >

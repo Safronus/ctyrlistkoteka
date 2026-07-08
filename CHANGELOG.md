@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Drobné korekce stylu
+- **Karta zajímavostí (Domů)**: tlačítko „další fakt" (shuffle) je na mobilu
+  nově vpravo dole — dekorativní watermark smajlík v levém dolním rohu
+  (`lg:hidden`) ho jinak překrýval. Na desktopu (smajlík skrytý) zůstává
+  vlevo jako dřív.
+- **Detail nálezu — úzké fotky**: nekvalitní fotky s malou šířkou (např.
+  `/sbirka/165`, `/166`) už netáhnou celou stránku do úzkého sloupce.
+  Navigace + sekce Lokalita mají nově **minimální šířku ~28rem**
+  (`layoutWidthCss` v `photoBox`), fotka zůstává ve své nativní šířce,
+  vycentrovaná. Široké fotky se chovají beze změny (layout = šířka fotky).
+- **/mapa — scroll hlavičky**: stránka mapy nově **zamyká scroll a skrývá
+  patičku** (`:has([data-map-fullscreen])`), takže mapa vlastní celý
+  viewport pod sticky hlavičkou. Dřív šlo scrollovat s kurzorem nad
+  hlavičkou a Leaflet panes (vysoký z-index) přejely přes ni.
+
 ### Odolnost deploye — čtyřlístková obrazovka i pro „rozbitý styl"
 - **Detekce rozbitého CSS během deploye.** Když se build zruší mid-flight
   (timeout / superseding push), starý PM2 proces dál servíruje HTML s hashi,

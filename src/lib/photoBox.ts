@@ -22,6 +22,13 @@ export interface PhotoDisplay {
   aspectRatio: string;
   /** Shared `width` for the photo box AND the location-map figure. */
   widthCss: string;
+  /** Width for the surrounding LAYOUT — the prev/next nav bar, the
+   *  location map + facts. Same as `widthCss` for normal photos, but
+   *  floored at `minWidthPx` (when given) so a low-quality, unusually
+   *  NARROW photo doesn't drag the whole detail page — and its nav +
+   *  location section — down to a cramped column. The photo itself keeps
+   *  `widthCss` (its native size, centred), the chrome around it doesn't. */
+  layoutWidthCss: string;
 }
 
 /** Default fraction of the viewport height the photo may occupy. */
@@ -34,6 +41,7 @@ export function photoDisplay(
     rotate,
     maxVh = MAX_VH,
     fill = false,
+    minWidthPx,
   }: {
     rotate: boolean;
     /** Cap the photo's height at this % of the viewport, so a tall portrait
@@ -49,25 +57,37 @@ export function photoDisplay(
      *  find's photo and the right edge of the last find's photo, which span
      *  it. Overrides both the native-px cap and maxVh. */
     fill?: boolean;
+    /** Floor (in px) for `layoutWidthCss` only — the nav/map/facts chrome
+     *  never gets narrower than this even when the photo does, so a narrow
+     *  low-res photo can't cramp the whole detail page. The photo (`widthCss`)
+     *  is untouched. Omit to keep the layout exactly matched to the photo. */
+    minWidthPx?: number;
   },
 ): PhotoDisplay | null {
   if (!width || !height) return null;
   const landscape = rotate && width > height;
   const displayWidth = landscape ? height : width;
   const displayHeight = landscape ? width : height;
-  // No cap (maxVh === null) → width is just min(fits the column, native px).
-  // With a cap, also clamp so the height stays within `maxVh` of the viewport.
-  const heightCap =
+  // The photo's natural displayed width — native px, optionally clamped so
+  // its height stays within `maxVh` of the viewport (maxVh === null drops
+  // the clamp). `widthCss` then caps this at the container (100%).
+  const naturalWidth =
     maxVh == null
-      ? ""
-      : `, calc(${maxVh}vh * ${displayWidth} / ${displayHeight})`;
+      ? `${displayWidth}px`
+      : `min(${displayWidth}px, calc(${maxVh}vh * ${displayWidth} / ${displayHeight}))`;
+  const widthCss = fill ? "100%" : `min(100%, ${naturalWidth})`;
   return {
     rotated: landscape,
     displayWidth,
     displayHeight,
     aspectRatio: `${displayWidth} / ${displayHeight}`,
-    // fill → exactly 100% of the container (may upscale, edges line up);
-    // else min(fits the column, never upscale past native[, height cap]).
-    widthCss: fill ? "100%" : `min(100%, ${displayWidth}px${heightCap})`,
+    widthCss,
+    // Layout floored at `minWidthPx`: wide photo → matches the photo
+    // (max resolves to the photo width); narrow photo → the floor, still
+    // capped at the viewport. No floor (or fill) → identical to widthCss.
+    layoutWidthCss:
+      fill || minWidthPx == null
+        ? widthCss
+        : `min(100%, max(${minWidthPx}px, ${naturalWidth}))`,
   };
 }

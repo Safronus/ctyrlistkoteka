@@ -178,7 +178,17 @@ export default async function MapaPage({ searchParams }: PageProps) {
     : "";
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 125px)" }}>
+    // `data-map-fullscreen` triggers the globals.css rules that lock page
+    // scroll and hide the footer, so the map owns the whole viewport below
+    // the sticky header — without them the page scrolled and the Leaflet
+    // panes (high z-index) slid over the header when the wheel was on it.
+    // Height offsets match the header: ~6.6rem on the two-row mobile nav,
+    // ~3.8rem once it collapses to a single row from `sm` up. 100dvh keeps
+    // it right as mobile browser chrome shows/hides.
+    <div
+      data-map-fullscreen
+      className="flex flex-col h-[calc(100dvh-6.6rem)] sm:h-[calc(100dvh-3.8rem)]"
+    >
       <div className="flex-1 overflow-hidden">
         <MapaShell
           mapData={data}

@@ -354,16 +354,22 @@ export function CloverFactCard({
 
       {/* Manual "next" — the auto-rotation runs on a timer, but a visitor
           who wants a fresh lísteček now shouldn't have to wait or scroll
-          down to the Drobnosti tile. Quiet paper-margin affordance in the
-          bottom-left corner, tonal to the variant; hidden on link cards
-          (the whole card is a <Link> there — no nested interactive). */}
+          down to the Drobnosti tile. Quiet paper-margin affordance, tonal
+          to the variant; hidden on link cards (the whole card is a <Link>
+          there — no nested interactive).
+
+          Sits bottom-RIGHT below `lg` and bottom-LEFT from `lg` up: the
+          mobile-only decorative watermark smiley (page.tsx, `-bottom-7
+          -left-4 lg:hidden`) overlaps the card's bottom-left corner and
+          was covering this button on phones. Desktop hides that smiley, so
+          the original left placement is kept there. */}
       {!text.link && (
         <button
           type="button"
           onClick={advance}
           aria-label={t("cardNextButtonAria")}
           title={t("cardNextButtonTitle")}
-          className={`absolute bottom-1.5 left-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full opacity-45 transition hover:bg-black/[0.06] hover:opacity-90 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-brand-500 ${styles.idColor}`}
+          className={`absolute bottom-1.5 right-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full opacity-45 transition hover:bg-black/[0.06] hover:opacity-90 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-brand-500 lg:left-1.5 lg:right-auto ${styles.idColor}`}
         >
           <Shuffle className="h-3 w-3" aria-hidden />
         </button>

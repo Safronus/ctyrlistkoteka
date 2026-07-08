@@ -385,6 +385,19 @@
   z-index: auto;
 }
 
+/* Full-screen map page (mapa/page.tsx marks its root `data-map-fullscreen`).
+   Lock page scroll so the sticky header can't drift under the Leaflet panes
+   when the wheel is over it, and drop the footer — the map owns the viewport
+   below the header. `:has()` scopes this to /mapa without threading route
+   state through the shared server layout; browsers without :has() simply
+   keep the previous scrollable behaviour. */
+body:has([data-map-fullscreen]) {
+  overflow: hidden;
+}
+body:has([data-map-fullscreen]) > footer {
+  display: none;
+}
+
 /* Hide Leaflet's +/- zoom buttons across every viewport. Pinch /
    trackpad / scroll-wheel zoom covers the gesture, and freeing the
    prime top-left corner lets Vrstvy land flush in the corner on
