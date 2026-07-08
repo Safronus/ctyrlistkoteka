@@ -59,12 +59,12 @@ export function CloverFactsInfoButton({
       // Hanging just off the card's top-RIGHT corner at every breakpoint.
       // `left-full` pins it to the card's right edge; `-top-3` lifts the icon
       // so its top meets the paper's top edge (the card is tilted -2°, so the
-      // right corner rides a few px above the layout box). The gap is
-      // responsive: `sm:ml-4` gives the full ~20px on tablet/desktop, while
-      // `ml-1` on phones keeps the whole icon on-screen — a 320px card nearly
-      // fills a narrow viewport, so a 20px gap there would run the icon off
-      // the edge (the page's overflow-x-clip would then swallow it).
-      className="absolute -top-3 left-full z-20 ml-1 sm:ml-4"
+      // right corner rides a few px above the layout box). The gap is small on
+      // purpose: `sm:ml-2` ≈ 11px from the card edge on tablet/desktop, `ml-1`
+      // ≈ 7px on phones (where a ~320px card nearly fills a narrow viewport,
+      // so a bigger gap would push the icon off-screen and the page's
+      // overflow-x-clip would swallow it).
+      className="absolute -top-3 left-full z-20 ml-1 sm:ml-2"
     >
       <button
         type="button"
