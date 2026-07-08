@@ -353,19 +353,26 @@ function StatsPanel({
   t: RowT;
 }) {
   const tStates = useTranslations("States");
-  if (location.isAnonymized) {
-    return (
-      <div className="border-t border-purple-200 bg-purple-50 px-3 py-4 text-sm text-purple-900 sm:px-6">
-        {t("expandedAnonymized")}
-      </div>
-    );
-  }
-
+  const anon = location.isAnonymized;
   const view = location.aggregateStats;
   const stateMax = view.states.reduce((m, s) => Math.max(m, s.count), 0);
 
   return (
-    <div className="border-t border-gray-200 bg-gray-50 px-3 py-4 sm:px-6">
+    <div
+      className={`border-t px-3 py-4 sm:px-6 ${
+        anon ? "border-purple-200 bg-purple-50" : "border-gray-200 bg-gray-50"
+      }`}
+    >
+      {/* Anonymized locations DO show the state breakdown + first/last find
+          here (the individual finds are already reachable via the row's
+          "Zobrazit nálezy" link, each self-anonymizing on /sbirka). The note
+          just makes clear that only the place's identity — exact location,
+          GPS, map — stays withheld, not these aggregate counts. */}
+      {anon && (
+        <p className="mb-4 text-sm text-purple-900">
+          {t("expandedAnonymized")}
+        </p>
+      )}
       {view.total === 0 ? (
         <p className="text-sm text-gray-500">{t("emptyForLocation")}</p>
       ) : (

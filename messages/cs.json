@@ -416,7 +416,7 @@
     "firstFindLink": "První nález #{id} →",
     "lastFindLink": "Poslední nález #{id} →",
     "allInCollectionLink": "Vše ve sbírce →",
-    "expandedAnonymized": "Detail anonymizované lokality se nezobrazuje.",
+    "expandedAnonymized": "Lokalita je anonymizovaná — přesné místo, souřadnice ani mapa se nezobrazují. Počty podle stavů a první i poslední nález ano.",
     "emptyForLocation": "Pro tuto lokalitu zatím nejsou žádné nálezy."
   },
   "LocationDetail": {

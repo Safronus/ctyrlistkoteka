@@ -9,6 +9,26 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Navbar detailu, info ikona na Domů, anon lokality
+- **/sbirka/[id] — navbar už se nesmršťuje na úzkou fotku.** Lišta prev/next
+  s „Zpět na sbírku" má nově vlastní **komfortní min šířku (768 px)**
+  nezávislou na fotce; fotka + mapa + fakta si drží svou (klidně menší)
+  šířku. Tím zmizel překryv tlačítka „Zpět na sbírku" přes odkaz na
+  předchozí nález u úzkých/nekvalitních fotek. **Široké fotky beze změny** —
+  jejich šířka floor stejně převyšuje, takže navbar u nich lícuje s fotkou
+  jako dřív. (`photoBox.layoutWidthCss` vedle `widthCss`; odstraněn nefunkční
+  `minWidthPx` z `ImageGallery`.)
+- **Domů — ⓘ ikona nápovědy k lístečku** přesunuta k **pravému hornímu rohu**
+  kartičky pro všechna rozlišení (dřív na mobilu vlevo u špendlíku). Horní
+  hrana ikonky lícuje s horní hranou nakloněné kartičky, mezera ~20 px na
+  tabletu/desktopu; na úzkém telefonu menší (kartička skoro vyplní šířku,
+  plná mezera by ikonu vytlačila mimo obrazovku).
+- **/lokality — anonymizovaná lokalita** v rozbaleném detailu nově ukazuje
+  **počty podle stavů + první a poslední nález** (nálezy jsou stejně
+  dostupné přes „Zobrazit nálezy", každý si drží vlastní anonymizaci na
+  /sbirka). Skrytá zůstává jen **identita místa** — přesná poloha, GPS,
+  mapa i katastr.
+
 ### Počty v hlavičce (/sbirka, /lokality) + „Ukázat nálezy" na /statistiky
 - **Počty přesunuty na úroveň hlavního titulku, zarovnané doprava.** Místo
   počtu *vyfiltrovaných* (ten je teď v „Filtr je aktivní" pod filtry) hlavička

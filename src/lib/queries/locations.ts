@@ -557,25 +557,27 @@ export async function listLocations(
       // surfacing it would reveal which sub-parts belong to a hidden
       // master location, defeating the anonymization.
       //
-      // What we *do* expose: the bare find count (`total`) + the
-      // count of finds within that are themselves anonymized. Neither
-      // leaks anything beyond "this place has N finds total, of which
-      // M are private" — the place itself is already named via its
-      // `code`, so the count adds nothing identifying. Everything
-      // else (dates, year range, state breakdown, first/last find
-      // pointers) is kept zeroed to avoid behavioural fingerprinting
-      // ("this location had a find on 2026-05-22" leaks too much).
+      // What we expose (owner's call — the individual finds are already
+      // reachable via the row's "Zobrazit nálezy" link, each self-anonymizing
+      // its notes/GPS on /sbirka): the find count, the per-state breakdown and
+      // the first/last find pointers + their dates. None of these reveal WHERE
+      // the place is — the anonymization protects the location's identity
+      // (name, GPS, map, area stay null below), not the bare fact that it has
+      // N finds in these states between these dates.
+      //
+      // Still kept null: parentId (would out a sub-part's hidden master) and
+      // the year range / yearly histogram (not surfaced in the list detail).
       const realStats = totalsByLoc.get(l.id) ?? EMPTY_STATS;
       const visibleStats: LocationStats = {
         total: realStats.total,
         anonymized: realStats.anonymized,
         firstYear: null,
         lastYear: null,
-        firstFoundAt: null,
-        lastFoundAt: null,
-        firstFindId: null,
-        lastFindId: null,
-        states: [],
+        firstFoundAt: realStats.firstFoundAt,
+        lastFoundAt: realStats.lastFoundAt,
+        firstFindId: realStats.firstFindId,
+        lastFindId: realStats.lastFindId,
+        states: [...realStats.states],
         yearly: [],
       };
       return {

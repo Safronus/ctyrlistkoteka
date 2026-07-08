@@ -417,7 +417,7 @@
     "firstFindLink": "First find #{id} →",
     "lastFindLink": "Last find #{id} →",
     "allInCollectionLink": "All in collection →",
-    "expandedAnonymized": "Detail of an anonymized location is hidden.",
+    "expandedAnonymized": "This location is anonymized — its exact place, coordinates and map stay hidden. The per-state counts and the first and last find are shown.",
     "emptyForLocation": "No finds for this location yet."
   },
   "LocationDetail": {
