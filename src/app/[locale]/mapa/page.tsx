@@ -53,11 +53,13 @@ function parsePositiveInt(value: string | undefined): number | undefined {
   return Number.isInteger(n) && n > 0 ? n : undefined;
 }
 
-function parseState(value: string | undefined): FindState | undefined {
-  if (!value) return undefined;
-  return (Object.values(FindState) as string[]).includes(value)
-    ? (value as FindState)
-    : undefined;
+function parseStates(
+  value: string | string[] | undefined,
+): FindState[] | undefined {
+  const raw = value === undefined ? [] : Array.isArray(value) ? value : [value];
+  const valid = new Set(Object.values(FindState) as string[]);
+  const out = [...new Set(raw.filter((v) => valid.has(v)))] as FindState[];
+  return out.length > 0 ? out : undefined;
 }
 
 function parseDateOnly(value: string | undefined): Date | undefined {
@@ -102,7 +104,7 @@ export default async function MapaPage({ searchParams }: PageProps) {
     locationId: parsePositiveInt(pickString(sp.loc)),
     cadastralArea: pickString(sp.city) || undefined,
     country: pickString(sp.country) || undefined,
-    state: parseState(pickString(sp.state)),
+    states: parseStates(sp.state),
     year: parsePositiveInt(pickString(sp.year)),
     dateFrom: parseDateOnly(pickString(sp.from)),
     dateTo: parseDateOnly(pickString(sp.to)),
@@ -115,7 +117,7 @@ export default async function MapaPage({ searchParams }: PageProps) {
     findFilters.locationId ||
     findFilters.cadastralArea ||
     findFilters.country ||
-    findFilters.state ||
+    findFilters.states?.length ||
     findFilters.year ||
     findFilters.dateFrom ||
     findFilters.dateTo ||

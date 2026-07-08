@@ -112,11 +112,15 @@ function parseDateTime(value: string | undefined): Date | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
-function parseState(value: string | undefined): FindState | undefined {
-  if (!value) return undefined;
-  return (Object.values(FindState) as string[]).includes(value)
-    ? (value as FindState)
-    : undefined;
+/** Parse the (possibly repeated) `?state=` param into a de-duplicated list
+ *  of valid states. `state=LOST&state=ANONYMIZED` → `[LOST, ANONYMIZED]`. */
+function parseStates(
+  value: string | string[] | undefined,
+): FindState[] | undefined {
+  const raw = value === undefined ? [] : Array.isArray(value) ? value : [value];
+  const valid = new Set(Object.values(FindState) as string[]);
+  const out = [...new Set(raw.filter((v) => valid.has(v)))] as FindState[];
+  return out.length > 0 ? out : undefined;
 }
 
 function parseSort(value: string | undefined): FindSort {
@@ -169,7 +173,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     // user sees in the list.
     cadastralArea: cityFromCadastralArea(pickString(sp.city)) || undefined,
     country: pickString(sp.country) || undefined,
-    state: parseState(pickString(sp.state)),
+    states: parseStates(sp.state),
     year: parsePositiveInt(pickString(sp.year)),
     dateFrom: parseDateOnly(pickString(sp.from)),
     dateTo: parseDateOnly(pickString(sp.to)),
@@ -260,7 +264,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     filters.locationId ||
     filters.cadastralArea ||
     filters.country ||
-    filters.state ||
+    filters.states?.length ||
     filters.year ||
     filters.dateFrom ||
     filters.dateTo ||
@@ -375,7 +379,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     if (f.locationId) params.set("loc", String(f.locationId));
     if (f.cadastralArea) params.set("city", f.cadastralArea);
     if (f.country) params.set("country", f.country);
-    if (f.state) params.set("state", f.state);
+    if (f.states) for (const s of f.states) params.append("state", s);
     if (f.year) params.set("year", String(f.year));
     if (f.dateFrom) params.set("from", dateToString(f.dateFrom));
     if (f.dateTo) params.set("to", dateToString(f.dateTo));
@@ -396,7 +400,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     if (filters.locationId) params.set("loc", String(filters.locationId));
     if (filters.cadastralArea) params.set("city", filters.cadastralArea);
     if (filters.country) params.set("country", filters.country);
-    if (filters.state) params.set("state", filters.state);
+    if (filters.states) for (const s of filters.states) params.append("state", s);
     if (filters.year) params.set("year", String(filters.year));
     if (filters.dateFrom) params.set("from", dateToString(filters.dateFrom));
     if (filters.dateTo) params.set("to", dateToString(filters.dateTo));
@@ -504,7 +508,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
           locationId: filters.locationId ? String(filters.locationId) : "",
           city: filters.cadastralArea ?? "",
           country: filters.country ?? "",
-          state: filters.state ?? "",
+          states: filters.states ?? [],
           year: filters.year ? String(filters.year) : "",
         }}
       />

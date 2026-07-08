@@ -41,7 +41,10 @@ export function buildFilterSummary(
     parts.push(r.t("city", { name: r.cityLabel(f.cadastralArea) }));
   }
   if (f.country) parts.push(r.t("country", { name: r.countryLabel(f.country) }));
-  if (f.state) parts.push(r.t("state", { label: r.stateLabel(f.state) }));
+  if (f.states?.length) {
+    const labels = f.states.map((s) => r.stateLabel(s)).join(", ");
+    parts.push(r.t(f.states.length === 1 ? "state" : "states", { label: labels }));
+  }
   if (f.year != null) parts.push(r.t("year", { year: f.year }));
   // Instant window (a /statistiky "zátah" deep-link) takes precedence over
   // the day-level range — they never both apply from a real source, but if

@@ -138,7 +138,10 @@ export interface FindFilters {
    *  the choropleth on /statistiky. Filters finds whose location's
    *  center point falls inside that country's polygon. */
   country?: string;
-  state?: FindState;
+  /** Selected find states — AND semantics: a find must carry EVERY state
+   *  in the list (e.g. `[LOST, ANONYMIZED]` → finds that are both lost and
+   *  anonymized). Empty / undefined means no state filter. */
+  states?: FindState[];
   year?: number;
   /** Inclusive lower bound on `foundAt`. Day-resolution; the parser
    *  pins this to UTC midnight. */
@@ -260,7 +263,11 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
       and.push({ locationId: { in: ids } });
     }
   }
-  if (f.state) and.push({ states: { some: { state: f.state } } });
+  // AND across selected states: each pushes its own `some` clause, so a
+  // find must have an assignment for every one of them.
+  if (f.states?.length) {
+    for (const s of f.states) and.push({ states: { some: { state: s } } });
+  }
   if (f.year) {
     const from = new Date(Date.UTC(f.year, 0, 1));
     const to = new Date(Date.UTC(f.year + 1, 0, 1));
@@ -810,7 +817,13 @@ export async function getFacetCounts(
     hasPhoto,
     hideDominant,
   ] = await Promise.all([
-    whereFor(["state"]).then((where) =>
+    // State facet uses the FULL where (INCLUDING the already-selected
+    // states): grouping state assignments over the current result set gives
+    // each candidate state its co-occurrence count with the selection —
+    // exactly the AND-multiselect rule ("if ANONYMIZED still co-occurs with
+    // the chosen LOST it stays offered; states that don't, drop to 0 and
+    // hide"). Already-selected states come back at the full total.
+    whereFor([]).then((where) =>
       prisma.findStateAssignment.groupBy({
         by: ["state"],
         where: { find: where },

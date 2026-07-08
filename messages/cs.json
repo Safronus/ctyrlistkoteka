@@ -83,6 +83,7 @@
     "city": "město {name}",
     "country": "stát {name}",
     "state": "stav {label}",
+    "states": "stavy {label}",
     "year": "rok {year}",
     "day": "datum {date}",
     "dayRange": "{from} – {to}",
@@ -131,7 +132,8 @@
     "location": "Lokalita",
     "state": "Stav",
     "year": "Rok",
-    "clearAll": "Zrušit filtry"
+    "clearAll": "Zrušit filtry",
+    "statesSelected": "{count} vybráno"
   },
   "FindRow": {
     "anonymizedAlt": "Anonymizovaný nález #{id}",

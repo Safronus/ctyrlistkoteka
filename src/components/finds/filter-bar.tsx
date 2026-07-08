@@ -7,6 +7,7 @@ import { ChevronDown } from "lucide-react";
 import type { FacetCounts, FilterOptions } from "@/lib/queries/finds";
 import type { FindState } from "@prisma/client";
 import { RETIRED_STATES } from "@/lib/stateLabels";
+import { StateMultiSelect } from "./state-multi-select";
 
 const INPUT_CLS =
   "h-10 rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
@@ -39,7 +40,7 @@ export function FilterBar({
     locationId: string;
     city: string;
     country: string;
-    state: string;
+    states: FindState[];
     year: string;
   };
 }) {
@@ -101,6 +102,18 @@ export function FilterBar({
       else params.delete(key);
     }
     params.delete("page"); // reset pagination on filter change
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
+  };
+
+  // The state filter is multi-value (repeated `?state=`), so it needs its
+  // own updater — updateMany only ever sets one value per key.
+  const updateStates = (states: FindState[]) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("state");
+    for (const s of states) params.append("state", s);
+    params.delete("page");
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
     });
@@ -182,7 +195,7 @@ export function FilterBar({
     current.locationId ||
     current.city ||
     current.country ||
-    current.state ||
+    current.states.length ||
     current.year;
 
   return (
@@ -337,38 +350,20 @@ export function FilterBar({
           </div>
         </label>
 
-        <label>
+        <div>
           <span className="mb-1 block text-xs font-medium text-gray-700">
             {t("state")}
           </span>
-          <div className="relative">
-            <select
-              value={current.state}
-              onChange={(e) => update("state", e.currentTarget.value)}
-              className={`${SELECT_CLS} w-full`}
-            >
-              <option value="">{tCommon("all")}</option>
-              {sortedStates
-                .filter(
-                  (s) =>
-                    (facets.states[s as FindState] ?? 0) > 0 ||
-                    s === current.state,
-                )
-                .map((s) => (
-                  <option key={s} value={s}>
-                    {withCount(
-                      tStates(s as FindState),
-                      facets.states[s as FindState],
-                    )}
-                  </option>
-                ))}
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-              aria-hidden
-            />
-          </div>
-        </label>
+          <StateMultiSelect
+            available={sortedStates}
+            selected={current.states}
+            counts={facets.states}
+            formatCount={(n) => nf.format(n)}
+            onChange={updateStates}
+            selectCls={`${SELECT_CLS} w-full`}
+            allLabel={tCommon("all")}
+          />
+        </div>
 
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">

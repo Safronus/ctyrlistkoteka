@@ -62,6 +62,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **County u toggle „S fotkou daru" a „Skrýt největší lokalitu"** nově
   odpovídají tomu, co se reálně skryje/zůstane vůči aktuálnímu filtru
   (dřív byly statické, nezávislé na filtru).
+- **Stav je nově multi-select (AND)**: lze vybrat víc stavů, např.
+  „Ztracený" + „Anonymizovaný" → nálezy, které mají **oba** stavy. Nabídka
+  ukazuje jen stavy, co s výběrem **koexistují** (co-occurrence county;
+  ostatní zmizí). Nativní `<select>` nahrazen checkbox dropdownem
+  (`StateMultiSelect`), URL nese opakované `?state=`. Staré single-stav
+  deep-linky (`?state=DONATED` ze statistik/Domů) fungují beze změny.
 - **Deep-link `?loc=X`** (proklik „Top lokalita" / statistiky / lokality /
   mapa → „Ukázat nálezy") nově **nastaví i dropdowny Stát a Město** podle
   zvolené lokace — stejně, jako když lokalitu vybereš přímo ve filtru.

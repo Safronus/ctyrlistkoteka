@@ -84,6 +84,7 @@
     "city": "town {name}",
     "country": "country {name}",
     "state": "state {label}",
+    "states": "states {label}",
     "year": "year {year}",
     "day": "date {date}",
     "dayRange": "{from} – {to}",
@@ -132,7 +133,8 @@
     "location": "Location",
     "state": "State",
     "year": "Year",
-    "clearAll": "Clear filters"
+    "clearAll": "Clear filters",
+    "statesSelected": "{count} selected"
   },
   "FindRow": {
     "anonymizedAlt": "Anonymized find #{id}",
