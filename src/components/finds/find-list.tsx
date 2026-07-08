@@ -93,8 +93,8 @@ function FindListRow({
     : tRow("findAlt", { id: find.id });
 
   // The map deep-link only makes sense when the find has a public GPS
-  // point to focus on. Anonymized finds expose at most coarsened coords
-  // — pinning them precisely on the map would defeat anonymization.
+  // point to focus on. Anonymized finds have their coordinates hidden
+  // (nulled), so both the flag and the null coord gate the link off.
   const showMapLink = !find.isAnonymized && find.coordinates !== null;
 
   // Red-zone finds (outside every location-map bbox) win over the

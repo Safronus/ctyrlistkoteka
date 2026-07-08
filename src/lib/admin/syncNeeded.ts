@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ADMIN_ROOTS } from "./paths";
+import { atomicWrite, ensureDir } from "./atomic";
 
 /** "Has anything in the synced data dirs changed since the last
  *  successful `pnpm sync`?" — drives the orange "Změny od posledního
@@ -52,8 +53,13 @@ export async function readLastSyncSuccess(): Promise<LastSyncSuccess | null> {
 export async function writeLastSyncSuccess(
   entry: LastSyncSuccess,
 ): Promise<void> {
-  await fs.mkdir(path.dirname(LAST_SUCCESS_FILE), { recursive: true });
-  await fs.writeFile(LAST_SUCCESS_FILE, JSON.stringify(entry, null, 2));
+  // Atomic (tmp → fsync → rename) for consistency with every other admin
+  // state write (CLAUDE.md §9a); a torn write here would only mis-drive the
+  // "changes since last sync" banner, but uniform atomicity keeps the
+  // invariant honest and cheap. atomicWrite requires the parent dir to
+  // exist, so ensureDir first (mirrors the previous fs.mkdir).
+  await ensureDir(path.dirname(LAST_SUCCESS_FILE));
+  await atomicWrite(LAST_SUCCESS_FILE, JSON.stringify(entry, null, 2));
 }
 
 const DIR_KEYS_BY_SCOPE: Record<SyncScope, Array<keyof typeof ADMIN_ROOTS>> = {

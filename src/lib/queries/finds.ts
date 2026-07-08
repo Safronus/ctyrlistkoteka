@@ -51,7 +51,7 @@ export interface PublicFind {
   foundAt: Date | null;
   notes: string | null; // nulled for anonymized
   isAnonymized: boolean;
-  coordinates: { lat: number; lng: number } | null; // coarsened for anonymized
+  coordinates: { lat: number; lng: number } | null; // null for anonymized (hidden, not coarsened)
   location: PublicLocation | null;
   states: FindState[];
   images: PublicImage[];
@@ -1461,8 +1461,8 @@ export async function getFilteredFindIds(
 
 /** Slim payload used by /mapa's `?find=N` deep-link to highlight a single
  *  find. Anonymized finds intentionally resolve to `null` — their coords
- *  are coarsened or hidden, so pinning them precisely on the map would
- *  defeat the anonymization. */
+ *  are hidden entirely, so surfacing them on the map at all would defeat
+ *  the anonymization. */
 export interface HighlightFind {
   id: number;
   lat: number;
