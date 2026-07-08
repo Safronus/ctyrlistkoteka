@@ -14,13 +14,13 @@ import { readMapNoteOverrides } from "@/lib/mapNoteOverrides";
 import { Link } from "@/i18n/navigation";
 import { GpsValue } from "@/components/finds/gps-value";
 import { DeviationCounts } from "@/components/finds/deviation-counts";
+import { FindGrid } from "@/components/finds/find-grid";
 import {
   formatAreaM2,
   formatDateCs,
   formatDensity,
   formatDistance,
   formatLocationId,
-  formatShortDateCs,
   locationDetailHref,
 } from "@/lib/format";
 import {
@@ -28,8 +28,9 @@ import {
   getLocationDetailById,
   type LocationHandle,
   type LocationDetail,
-  type LocationDetailFindPreview,
 } from "@/lib/queries/locations";
+import { listFinds } from "@/lib/queries/finds";
+import { getFindVoteCounts } from "@/lib/votes";
 import { countryFromCoords } from "@/lib/geo";
 import { localizedCountryName } from "@/lib/world-countries";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
@@ -298,7 +299,28 @@ async function FullDetail({
   tRow: RowT;
   locale: string;
 }) {
-  const { base, maps, parent, siblings, children, recentFinds } = detail;
+  const { base, maps, parent, siblings, children } = detail;
+
+  // Recent finds — the 12 newest (id desc), parent→children folded, shown
+  // as the same tiles as /sbirka (crop photo, action banner, date+time,
+  // state badges). Fetched HERE rather than in getLocationDetailById to
+  // avoid a locations↔finds import cycle. FullDetail only renders for
+  // public locations (anonymized ones get AnonymizedStub), so this never
+  // leaks an anonymized location's finds.
+  //
+  // Vote COUNTS only — no per-visitor voted state: this page is ISR-cached
+  // (see `revalidate` above), so the server can't read the visitor's cookie
+  // at cache time. getFindVoteCounts is a plain DB query, so it keeps the
+  // render static; the cards pass `autoHydrate`, letting VoteButton fetch
+  // the real voted state + a fresh count on mount (same pattern as the
+  // homepage Popular tile and /statistiky leaderboard).
+  const recentFinds = (await listFinds({ locationId: base.id }, 1, 12, "desc"))
+    .items;
+  const recentVoteCounts =
+    recentFinds.length > 0
+      ? await getFindVoteCounts(recentFinds.map((f) => f.id))
+      : new Map<number, number>();
+
   // Admin-authored web-display caption overrides for these maps, keyed by
   // MAP_ID (CS + optional EN) — the same display layer as the find-detail
   // map caption. Applied per map below with the EN fallback.
@@ -525,10 +547,12 @@ async function FullDetail({
             </Link>
           }
         >
-          <RecentFindsGrid
+          <FindGrid
             finds={recentFinds}
-            locationCode={base.code}
-            locale={locale}
+            voteCounts={recentVoteCounts}
+            autoHydrate
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+            priority={false}
           />
         </Panel>
       )}
@@ -769,64 +793,5 @@ function HandleRow({ handle, t }: { handle: LocationHandle; t: DetailT }) {
         <DeviationCounts amber={handle.amber} rose={handle.rose} />
       </span>
     </Link>
-  );
-}
-
-async function RecentFindsGrid({
-  finds,
-  locationCode,
-  locale,
-}: {
-  finds: readonly LocationDetailFindPreview[];
-  locationCode: string;
-  locale: string;
-}) {
-  const tRow = await getTranslations("FindRow");
-  return (
-    <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-      {finds.map((f) => {
-        const altText = f.isAnonymized
-          ? tRow("anonymizedAlt", { id: f.id })
-          : `${tRow("findAlt", { id: f.id })} – ${locationCode}`;
-        return (
-          <li key={f.id}>
-            <Link
-              href={`/sbirka/${f.id}`}
-              className="group block overflow-hidden rounded-md border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm"
-            >
-              <div className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-brand-50 to-brand-100">
-                {f.thumbUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={f.thumbUrl}
-                    alt={altText}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div
-                    aria-hidden
-                    className="absolute inset-0 flex items-center justify-center text-3xl opacity-40"
-                  >
-                    🍀
-                  </div>
-                )}
-              </div>
-              <div className="px-2 py-1.5 text-xs">
-                <span className="font-mono font-semibold text-gray-800 group-hover:text-brand-700">
-                  #{f.id}
-                </span>
-                {f.foundAt && (
-                  <span className="ml-1.5 text-gray-500">
-                    {formatShortDateCs(f.foundAt, locale)}
-                  </span>
-                )}
-              </div>
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
   );
 }

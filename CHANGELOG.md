@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /lokality/[id] — „Nedávné nálezy" jako dlaždice ze /sbirka
+- Sekce „Nedávné nálezy" na detailu lokality používá teď **stejné dlaždice
+  jako /sbirka** (`FindGrid`/`FindCard`) místo vlastní mřížky: **fotky ořezů**
+  (ne originály), banner nad fotkou (mapa-pin · „🍀 #id" · hlasování),
+  datum + čas přes fotkou, indikátory stavu, chipy fotek. Layout **3 sloupce
+  × 4 řady = 12** (dřív 6 × 2).
+- Data jdou přes `listFinds({ locationId }, 1, 12, "desc")` (parent→children,
+  jako /sbirka) — načteno v page.tsx (ne v `getLocationDetailById`), aby
+  nevznikl import cyklus `locations↔finds`. Stránka zůstává **ISR** (žádné
+  cookies/headers): počty hlasů z DB, per-návštěvník voted stav si dlaždice
+  dotáhne na klientu přes `autoHydrate` (stejně jako homepage/statistiky).
+- Smazána mrtvá `RecentFindsGrid`, `fetchRecentFindsForLocation`,
+  `LocationDetailFindPreview` a `recentFinds` z `LocationDetail`.
+  `FindGrid`/`FindCard` dostaly volitelné `className`, `priority`,
+  `autoHydrate` (zpětně kompatibilní — /sbirka beze změny).
+
 ### Admin session — krátké prod heslo teď selže fail-closed
 - `sessionOptions.password` spadlo na **veřejný dev fallback klíč**, kdykoli
   byl `ADMIN_SESSION_PASSWORD` kratší než 32 znaků, ale `requireAuth()`

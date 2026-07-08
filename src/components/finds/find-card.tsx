@@ -13,12 +13,17 @@ export async function FindCard({
   voted,
   voteCount,
   priority = false,
+  autoHydrate = false,
 }: {
   find: PublicFind;
   voted: boolean;
   voteCount: number;
   /** Eager-load this card's thumbnail (first grid row) to fix the LCP. */
   priority?: boolean;
+  /** Forwarded to VoteButton: self-hydrate the voted state on mount when
+   *  the host page is ISR-cached (e.g. the location detail page's recent
+   *  finds). Off for dynamic pages that pass an accurate initial state. */
+  autoHydrate?: boolean;
 }) {
   const locale = await getLocale();
   const tRow = await getTranslations("FindRow");
@@ -81,6 +86,7 @@ export async function FindCard({
               findId={find.id}
               initialVoted={voted}
               initialCount={voteCount}
+              autoHydrate={autoHydrate}
             />
           </div>
         ) : (

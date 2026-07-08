@@ -1214,15 +1214,6 @@ export interface LocationHandle {
   isGone: boolean;
 }
 
-/** Sibling preview entry — recent finds at this location. The detail
- *  page shows a small grid; the full list lives at /sbirka?loc=<id>. */
-export interface LocationDetailFindPreview {
-  id: number;
-  foundAt: Date | null;
-  thumbUrl: string | null;
-  isAnonymized: boolean;
-}
-
 export interface LocationDetail {
   /** Same row shape as the /lokality list. Anonymized location detail
    *  pages render only a stub — `getLocationDetailById` returns the
@@ -1236,7 +1227,6 @@ export interface LocationDetail {
    *  separately via `parent`. */
   siblings: LocationHandle[];
   children: LocationHandle[];
-  recentFinds: LocationDetailFindPreview[];
 }
 
 /**
@@ -1286,11 +1276,10 @@ export async function getLocationDetailById(
       parent: null,
       siblings: [],
       children: [],
-      recentFinds: [],
     };
   }
 
-  const [mapRows, parentRow, childRows, parentChildRows, recentRows] =
+  const [mapRows, parentRow, childRows, parentChildRows] =
     await Promise.all([
       prisma.locationMap.findMany({
         where: { locationId: id, isAnonymized: false },
@@ -1357,10 +1346,6 @@ export async function getLocationDetailById(
             code: string;
             displayName: string;
           }>),
-      // Recent finds preview — own + (when this location is a parent)
-      // every visible sub-part. listLocations already exposes the count
-      // via aggregateStats; we just need lightweight rows here.
-      fetchRecentFindsForLocation(id),
     ]);
 
   // Lookup per-handle find counts in one batched query so the parent +
@@ -1464,45 +1449,7 @@ export async function getLocationDetailById(
     parent,
     siblings,
     children,
-    recentFinds: recentRows,
   };
-}
-
-async function fetchRecentFindsForLocation(
-  parentLocationId: number,
-): Promise<LocationDetailFindPreview[]> {
-  // Fold parent → children when the requested id has any. Mirrors the
-  // /sbirka filter behaviour so the detail page's "recent finds"
-  // preview matches what visitors see when they click through to the
-  // full list.
-  const childIds = await prisma.location.findMany({
-    where: { parentId: parentLocationId },
-    select: { id: true },
-  });
-  const ids = [parentLocationId, ...childIds.map((c) => c.id)];
-
-  const rows = await prisma.find.findMany({
-    where: { locationId: { in: ids } },
-    select: {
-      id: true,
-      foundAt: true,
-      isAnonymized: true,
-      images: {
-        where: { imageType: "ORIGINAL" },
-        select: { thumbPath: true },
-        take: 1,
-      },
-    },
-    orderBy: { id: "desc" },
-    take: 12,
-  });
-
-  return rows.map((r) => ({
-    id: r.id,
-    foundAt: r.foundAt,
-    isAnonymized: r.isAnonymized,
-    thumbUrl: r.images[0]?.thumbPath ?? null,
-  }));
 }
 
 async function fetchFindCountsByLocation(
