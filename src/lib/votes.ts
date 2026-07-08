@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { ImageType } from "@prisma/client";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/db";
 
@@ -275,10 +276,10 @@ export interface TopFindRich {
   findId: number;
   voteCount: number;
   isAnonymized: boolean;
-  /** Thumbnail URL of the primary image (if any). Anonymized finds
-   *  may still surface a thumbnail because the user explicitly opted
-   *  in to having them in the leaderboard ("voting is about the
-   *  image, not the location"). */
+  /** Thumbnail URL — the CROP close-up when the find has one, else the
+   *  primary original. Anonymized finds may still surface a thumbnail
+   *  because the user explicitly opted in to having them in the
+   *  leaderboard ("voting is about the image, not the location"). */
   thumbUrl: string | null;
   /** EXIF DateTimeOriginal as ISO — null for finds without EXIF.
    *  Surfaced for the homepage tile so the visitor sees WHEN the
@@ -326,9 +327,22 @@ export async function getTopFindsWithThumbs(args: {
         },
       },
     }),
+    // Fetch the primary original AND the CROP close-up for the top set so
+    // the tile can prefer the crop — the four-leaf clover reads far better
+    // at thumbnail size than the whole photo (same rationale as the
+    // /sbirka grid thumbnails). Falls back to the primary when a find has
+    // no distinct crop.
     prisma.findImage.findMany({
-      where: { findId: { in: findIds }, isPrimary: true },
-      select: { findId: true, thumbPath: true },
+      where: {
+        findId: { in: findIds },
+        OR: [{ isPrimary: true }, { imageType: ImageType.CROP }],
+      },
+      select: {
+        findId: true,
+        thumbPath: true,
+        imageType: true,
+        isPrimary: true,
+      },
     }),
     // DONATED-state membership in one IN-list query. Builds a Set the
     // map step below treats as O(1) lookup. Same pattern the
@@ -339,7 +353,16 @@ export async function getTopFindsWithThumbs(args: {
     }),
   ]);
   const findById = new Map(findRows.map((r) => [r.id, r]));
-  const thumbById = new Map(imageRows.map((r) => [r.findId, r.thumbPath]));
+  // Two lookups so the crop can win over the primary original per find.
+  const cropThumbById = new Map<number, string>();
+  const primaryThumbById = new Map<number, string>();
+  for (const r of imageRows) {
+    if (r.imageType === ImageType.CROP) {
+      if (!cropThumbById.has(r.findId)) cropThumbById.set(r.findId, r.thumbPath);
+    } else if (r.isPrimary) {
+      primaryThumbById.set(r.findId, r.thumbPath);
+    }
+  }
   const donatedSet = new Set(donatedRows.map((r) => r.findId));
   return top.map((t) => {
     const f = findById.get(t.findId);
@@ -348,7 +371,8 @@ export async function getTopFindsWithThumbs(args: {
       findId: t.findId,
       voteCount: t.voteCount,
       isAnonymized,
-      thumbUrl: thumbById.get(t.findId) ?? null,
+      thumbUrl:
+        cropThumbById.get(t.findId) ?? primaryThumbById.get(t.findId) ?? null,
       foundAt: f?.foundAt ? f.foundAt.toISOString() : null,
       location: f && !f.isAnonymized ? f.location : null,
       // Anonymized winners hide the donated flag for the same

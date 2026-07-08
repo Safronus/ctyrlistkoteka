@@ -9,6 +9,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Nejoblíbenější nálezy — ořez místo originálu (Domů + /statistiky)
+- Tlačítko „nejoblíbenější" na Domů a leaderboard **„Top 10
+  nejoblíbenějších"** na `/statistiky` ukazovaly thumbnail **originální**
+  fotky. Teď preferují **ořez čtyřlístku** (stejně jako dlaždice `/sbirka`) —
+  ve `getTopFindsWithThumbs` se dotahuje i CROP obrázek a bere se přednostně,
+  s fallbackem na primární originál. Jedna změna, obě plochy (home tile
+  `limit 3` i tři okna leaderboardu `limit 10`).
+
 ### Dark theme — brand-800 dodefinováno + zelené popisky sekcí (celý web)
 - **`brand-800` konečně definováno** (v `@theme` i v dark bloku, interpolace
   mezi 700 a 900). Dřív `--color-brand-800` neexistoval: `text-brand-800`
