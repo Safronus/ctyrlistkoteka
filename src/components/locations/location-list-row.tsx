@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import {
   Camera,
@@ -52,17 +52,43 @@ function syncOpenParam(id: number, open: boolean) {
   window.history.replaceState(window.history.state, "", url.toString());
 }
 
+/** Is this location in the LIVE URL's `?open` list? Read on the CLIENT
+ *  (window) so it reflects the real address bar even when Back served a stale
+ *  cached render: the router cache keeps the server payload from the last full
+ *  load, so the server-seeded `defaultOpen` prop lags a step behind after
+ *  replaceState-only toggles. Reading the live URL is the source of truth. */
+function isOpenInUrl(id: number): boolean {
+  if (typeof window === "undefined") return false;
+  return (new URLSearchParams(window.location.search).get("open") ?? "")
+    .split(",")
+    .includes(String(id));
+}
+
 export function LocationListRow({
   location,
   defaultOpen = false,
 }: {
   location: LocationListItem;
-  /** Seeded from the page's `?open` param so a row expanded before the
-   *  visitor navigated away comes back expanded (see syncOpenParam). */
+  /** SSR seed from the page's `?open` param. The client re-reads the live URL
+   *  on mount + Back (isOpenInUrl), so a stale router-cache render can't leave
+   *  the row a step behind. */
   defaultOpen?: boolean;
 }) {
   const t = useTranslations("LocationRow");
-  const [open, setOpen] = useState(defaultOpen);
+  // SSR uses the server-parsed seed (no window); the client reads the LIVE URL
+  // so Back restoring `?open=…` expands the right rows even when the cached
+  // server render was stale. On the initial load both agree (same URL) → no
+  // hydration mismatch.
+  const [open, setOpen] = useState(() =>
+    typeof window === "undefined" ? defaultOpen : isOpenInUrl(location.id),
+  );
+  // Re-sync on Back/Forward in case the page is restored WITHOUT remounting
+  // (then the initializer above doesn't re-run).
+  useEffect(() => {
+    const sync = () => setOpen(isOpenInUrl(location.id));
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, [location.id]);
   const toggle = () =>
     setOpen((o) => {
       const next = !o;
