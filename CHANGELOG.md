@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Odchýlené nálezy — počty „(N žlutě, M červeně)" u počtů nálezů
+- Vedle počtu nálezů se nově ukazuje, kolik z nich je **odchýlených**:
+  **žlutě** (mimo lokaci, ale v rámci některé lokační mapy) a **červeně**
+  (mimo všechny mapy) — barevně ladí s tečkami na mapě (stejná tone-klasifikace).
+  Platí pro **všechny lokality včetně polygonových**.
+- Zobrazeno na čtyřech místech: **panel detailu vybrané lokace na /mapa**,
+  **seznam /lokality** (rozbalená část), **/lokality/[id] → Souhrn**, a
+  u **rodičovského detailu i počty potomků** v sekci „Dílčí části" /
+  sourozenci / rodič (rodič agreguje celý podstrom, stejně jako počet nálezů).
+- Sdílená komponenta `DeviationCounts`; nová i18n sekce `Deviation`. Počty
+  jdou z jedné dávkové SQL (sdílený `TONE_CASE_SQL` fragment), jen non-anon
+  nálezy se souřadnicemi — tatáž množina, kterou kreslí mapa.
+
 ### /mapa — bod lokace bez polygonu je vidět i v hustých nálezech
 - Lokace bez polygonu (jen středový bod) se ztrácela pod hustým shlukem
   poloprůhledných čtyřlístků — bod byl navíc kreslený *pod* vrstvou nálezů.

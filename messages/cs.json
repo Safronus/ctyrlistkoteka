@@ -388,6 +388,11 @@
     "sortDistAsc": "Nejbližší",
     "sortDistDesc": "Nejvzdálenější"
   },
+  "Deviation": {
+    "amber": "žlutě",
+    "rose": "červeně",
+    "title": "Odchýlené nálezy — žlutě: mimo lokaci, ale v některé mapě; červeně: mimo všechny mapy"
+  },
   "LocationRow": {
     "subPartAria": "Dílčí část lokality",
     "partsBadge": "{count, plural, one {# část} few {# části} other {# částí}}",

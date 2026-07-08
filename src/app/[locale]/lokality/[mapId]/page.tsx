@@ -13,6 +13,7 @@ import { getTranslations } from "next-intl/server";
 import { readMapNoteOverrides } from "@/lib/mapNoteOverrides";
 import { Link } from "@/i18n/navigation";
 import { GpsValue } from "@/components/finds/gps-value";
+import { DeviationCounts } from "@/components/finds/deviation-counts";
 import {
   formatAreaM2,
   formatDateCs,
@@ -580,6 +581,11 @@ function SummaryGrid({
         <span className="font-mono text-base font-semibold text-brand-700 tabular-nums">
           {numFmt.format(aggregate.total)}
         </span>
+        <DeviationCounts
+          amber={aggregate.amber}
+          rose={aggregate.rose}
+          className="ml-2"
+        />
         {hasChildren && (
           <span className="ml-2 text-xs text-gray-500">
             {t("kvFindCountSplit", {
@@ -758,8 +764,9 @@ function HandleRow({ handle, t }: { handle: LocationHandle; t: DetailT }) {
           </span>
         )}
       </div>
-      <span className="shrink-0 text-xs text-gray-500">
-        {t("partsCountInline", { count: handle.findCount })}
+      <span className="flex shrink-0 items-baseline gap-1.5 text-xs text-gray-500">
+        <span>{t("partsCountInline", { count: handle.findCount })}</span>
+        <DeviationCounts amber={handle.amber} rose={handle.rose} />
       </span>
     </Link>
   );

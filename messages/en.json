@@ -389,6 +389,11 @@
     "sortDistAsc": "Nearest",
     "sortDistDesc": "Farthest"
   },
+  "Deviation": {
+    "amber": "amber",
+    "rose": "red",
+    "title": "Deviated finds — amber: off the location but on a map; red: off every map"
+  },
   "LocationRow": {
     "subPartAria": "Sub-part of a location",
     "partsBadge": "{count, plural, one {# part} other {# parts}}",

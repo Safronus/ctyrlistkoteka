@@ -9,7 +9,11 @@
 
 import { FindState, ImageType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { DEFAULT_LOCATION_ID, POLYGON_FREE_AREA_M2 } from "@/lib/constants";
+import {
+  DEFAULT_LOCATION_ID,
+  FIND_DEVIATION_RADIUS_M,
+  POLYGON_FREE_AREA_M2,
+} from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import { getLocationMapPhotoUrl } from "@/lib/locationPhotos";
 import {
@@ -47,6 +51,12 @@ export interface LocationStats {
   /** ID of the latest find at this location (by id, mirroring
    *  firstFindId). Used by the detail panel's "Poslední nález" link. */
   lastFindId: number | null;
+  /** Deviated-find counts by band, mirroring the map's tone classification
+   *  (non-anonymized finds only): `amber` = off the location but inside a
+   *  location-map bbox (tone 1), `rose` = outside every map (tone 2). Shown as
+   *  "(N žlutě, M červeně)" next to the find count. */
+  amber: number;
+  rose: number;
   states: Array<{ state: FindState; count: number }>;
   yearly: Array<{ year: number; count: number }>;
 }
@@ -302,9 +312,79 @@ const EMPTY_STATS: LocationStats = {
   lastFoundAt: null,
   firstFindId: null,
   lastFindId: null,
+  amber: 0,
+  rose: 0,
   states: [],
   yearly: [],
 };
+
+/**
+ * Find-tone classification, mirroring the map's find-dots CASE so the
+ * deviation counts match the coloured dots exactly. Expects the enclosing
+ * query to expose `l` (locations) and `f` (finds) aliases.
+ *
+ * tone 0 = on-location (inside the polygon, or — polygon-less — within
+ * `FIND_DEVIATION_RADIUS_M` of the centre, or no polygon *and* no centre);
+ * tone 1 = off the location but inside some location-map bbox (amber);
+ * tone 2 = outside every map (rose). Callers restrict to non-anon, GPS-ed
+ * finds — the same set the map paints.
+ */
+const TONE_CASE_SQL = Prisma.sql`
+  CASE
+    WHEN (l.polygon IS NOT NULL
+          AND ST_Covers(l.polygon::geography, f.coordinates::geography))
+      OR (l.polygon IS NULL AND l.center_point IS NOT NULL
+          AND ST_DistanceSphere(f.coordinates, l.center_point)
+                <= ${FIND_DEVIATION_RADIUS_M})
+      OR (l.polygon IS NULL AND l.center_point IS NULL)
+      THEN 0
+    WHEN EXISTS (
+          SELECT 1 FROM location_maps lm
+          WHERE lm.location_id = f.location_id
+            AND lm.image_bounds IS NOT NULL
+            AND ST_Y(f.coordinates)
+              BETWEEN (lm.image_bounds->0->>0)::float8
+                  AND (lm.image_bounds->1->>0)::float8
+            AND ST_X(f.coordinates)
+              BETWEEN (lm.image_bounds->0->>1)::float8
+                  AND (lm.image_bounds->1->>1)::float8
+        )
+      THEN 1
+    ELSE 2
+  END`;
+
+/**
+ * Per-location deviated-find counts (amber = tone 1, rose = tone 2),
+ * keyed by location id. Locations with no deviated finds are absent from
+ * the map. Non-anon, GPS-ed finds only — mirrors {@link TONE_CASE_SQL}.
+ */
+async function fetchDeviationCountsByLocation(
+  ids: readonly number[],
+): Promise<Map<number, { amber: number; rose: number }>> {
+  const out = new Map<number, { amber: number; rose: number }>();
+  if (ids.length === 0) return out;
+  const rows = await prisma.$queryRaw<
+    Array<{ location_id: number; amber: bigint; rose: bigint }>
+  >`
+    SELECT location_id,
+           COUNT(*) FILTER (WHERE tone = 1) AS amber,
+           COUNT(*) FILTER (WHERE tone = 2) AS rose
+    FROM (
+      SELECT f.location_id AS location_id, ${TONE_CASE_SQL} AS tone
+      FROM "locations" l
+      JOIN "finds" f ON f.location_id = l.id
+      WHERE l.id IN (${Prisma.join(ids as number[])})
+        AND f.coordinates IS NOT NULL
+        AND f.is_anonymized = false
+    ) t
+    WHERE tone >= 1
+    GROUP BY location_id
+  `;
+  for (const r of rows) {
+    out.set(r.location_id, { amber: Number(r.amber), rose: Number(r.rose) });
+  }
+  return out;
+}
 
 export async function listLocations(
   filter: LocationFilter,
@@ -511,9 +591,23 @@ export async function listLocations(
       lastFoundAt: r.last_found_at ? r.last_found_at.toISOString() : null,
       firstFindId: r.first_find_id ?? null,
       lastFindId: r.last_find_id ?? null,
+      amber: 0,
+      rose: 0,
       states: [],
       yearly: [],
     });
+  }
+
+  // ------------------------------------------------------------ deviation bands (amber / rose)
+  // Per-location counts of deviated finds by band, mirroring the map's tone
+  // CASE (find-dots). Same query the detail page's handles reuse.
+  const devMap = await fetchDeviationCountsByLocation(ids);
+  for (const [locId, d] of devMap) {
+    const entry = totalsByLoc.get(locId);
+    if (entry) {
+      entry.amber = d.amber;
+      entry.rose = d.rose;
+    }
   }
 
   // ------------------------------------------------------------ state breakdown
@@ -587,6 +681,8 @@ export async function listLocations(
         lastFoundAt: realStats.lastFoundAt,
         firstFindId: realStats.firstFindId,
         lastFindId: realStats.lastFindId,
+        amber: realStats.amber,
+        rose: realStats.rose,
         states: [...realStats.states],
         yearly: [],
       };
@@ -955,6 +1051,8 @@ function parseImageBounds(
 function foldStats(into: LocationStats, from: LocationStats): void {
   into.total += from.total;
   into.anonymized += from.anonymized;
+  into.amber += from.amber;
+  into.rose += from.rose;
   into.firstYear = minNullable(into.firstYear, from.firstYear);
   into.lastYear = maxNullable(into.lastYear, from.lastYear);
   into.firstFoundAt = minIso(into.firstFoundAt, from.firstFoundAt);
@@ -1109,6 +1207,10 @@ export interface LocationHandle {
   code: string;
   displayName: string;
   findCount: number;
+  /** Deviated-find counts in this handle's subtree (amber = tone 1,
+   *  rose = tone 2), same classification the map paints. */
+  amber: number;
+  rose: number;
   isGone: boolean;
 }
 
@@ -1273,6 +1375,9 @@ export async function getLocationDetailById(
     ...childRows.map((c) => c.id),
   ];
   const findCounts = await fetchFindCountsByLocation(handleIds);
+  // Deviated-find counts for the same handles, so each chip can annotate
+  // "(N žlutě, M červeně)" next to its find count. One batched query.
+  const devCounts = await fetchDeviationCountsByLocation(handleIds);
 
   const parent: LocationHandle | null = parentRow
     ? {
@@ -1283,6 +1388,20 @@ export async function getLocationDetailById(
           (findCounts.get(parentRow.id) ?? 0) +
           parentChildRows.reduce(
             (sum, c) => sum + (findCounts.get(c.id) ?? 0),
+            0,
+          ),
+        // Parent chip folds its whole subtree, so its deviation counts
+        // sum the parent-own row plus every child — matching findCount.
+        amber:
+          (devCounts.get(parentRow.id)?.amber ?? 0) +
+          parentChildRows.reduce(
+            (sum, c) => sum + (devCounts.get(c.id)?.amber ?? 0),
+            0,
+          ),
+        rose:
+          (devCounts.get(parentRow.id)?.rose ?? 0) +
+          parentChildRows.reduce(
+            (sum, c) => sum + (devCounts.get(c.id)?.rose ?? 0),
             0,
           ),
         isGone: isFormerLocation(parentRow.code),
@@ -1296,6 +1415,8 @@ export async function getLocationDetailById(
       code: c.code,
       displayName: c.displayName,
       findCount: findCounts.get(c.id) ?? 0,
+      amber: devCounts.get(c.id)?.amber ?? 0,
+      rose: devCounts.get(c.id)?.rose ?? 0,
       isGone: isFormerLocation(c.code),
     }));
 
@@ -1304,6 +1425,8 @@ export async function getLocationDetailById(
     code: c.code,
     displayName: c.displayName,
     findCount: findCounts.get(c.id) ?? 0,
+    amber: devCounts.get(c.id)?.amber ?? 0,
+    rose: devCounts.get(c.id)?.rose ?? 0,
     isGone: isFormerLocation(c.code),
   }));
 

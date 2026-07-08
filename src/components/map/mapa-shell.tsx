@@ -552,35 +552,51 @@ export function MapaShell({
    * Performance: single pass over findCoords (~17k tuples) per
    * focusId change; cheap enough not to need deeper memo deps.
    */
-  const { visibleFindCount, visibleDeviatedCount, hiddenFindCount } =
-    useMemo(() => {
-      const all = mapData.findCoords;
-      if (focusedLocationIds === null) {
-        let dev = 0;
-        for (const c of all) if (c[4] >= 1) dev++;
-        return {
-          visibleFindCount: all.length,
-          visibleDeviatedCount: dev,
-          hiddenFindCount: Math.max(0, mapData.findCountTotal - all.length),
-        };
-      }
+  const {
+    visibleFindCount,
+    visibleDeviatedCount,
+    visibleAmber,
+    visibleRose,
+    hiddenFindCount,
+  } = useMemo(() => {
+    const all = mapData.findCoords;
+    const countTiers = (predicate: (c: (typeof all)[number]) => boolean) => {
       let total = 0;
-      let dev = 0;
+      let amber = 0;
+      let rose = 0;
       for (const c of all) {
-        if (!focusedLocationIds.has(c[2])) continue;
+        if (!predicate(c)) continue;
         total++;
-        if (c[4] >= 1) dev++;
+        if (c[4] === 1) amber++;
+        else if (c[4] === 2) rose++;
       }
+      return { total, amber, rose };
+    };
+    if (focusedLocationIds === null) {
+      const { amber, rose } = countTiers(() => true);
       return {
-        visibleFindCount: total,
-        visibleDeviatedCount: dev,
-        // Focused mode: the "hidden" subtitle would need a per-
-        // subtree total (incl. anonymized / no-GPS) we don't push
-        // down. Skip the subtitle here rather than show a
-        // misleading global figure.
-        hiddenFindCount: 0,
+        visibleFindCount: all.length,
+        visibleDeviatedCount: amber + rose,
+        visibleAmber: amber,
+        visibleRose: rose,
+        hiddenFindCount: Math.max(0, mapData.findCountTotal - all.length),
       };
-    }, [mapData.findCoords, mapData.findCountTotal, focusedLocationIds]);
+    }
+    const { total, amber, rose } = countTiers((c) =>
+      focusedLocationIds.has(c[2]),
+    );
+    return {
+      visibleFindCount: total,
+      visibleDeviatedCount: amber + rose,
+      visibleAmber: amber,
+      visibleRose: rose,
+      // Focused mode: the "hidden" subtitle would need a per-
+      // subtree total (incl. anonymized / no-GPS) we don't push
+      // down. Skip the subtitle here rather than show a
+      // misleading global figure.
+      hiddenFindCount: 0,
+    };
+  }, [mapData.findCoords, mapData.findCountTotal, focusedLocationIds]);
 
   return (
     <div className="relative h-full w-full">
@@ -764,6 +780,8 @@ export function MapaShell({
               location={focusedLocation}
               onClose={handleDeselectLocation}
               filterSummary={sheetFilterSummary}
+              amber={visibleAmber}
+              rose={visibleRose}
             />
           </div>
         )}

@@ -16,6 +16,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import type { LocationListItem } from "@/lib/queries/locations";
 import { GpsValue } from "@/components/finds/gps-value";
+import { DeviationCounts } from "@/components/finds/deviation-counts";
 import { STATE_BADGE } from "@/lib/stateLabels";
 import {
   formatAreaM2,
@@ -399,6 +400,7 @@ function RowCount({
   return (
     <p className="text-sm font-medium text-brand-700">
       {t("findCountClover", { count: view.total })}
+      <DeviationCounts amber={view.amber} rose={view.rose} className="ml-1.5" />
       {hasChildren && (
         <span className="ml-2 text-xs font-normal text-gray-500">
           {t("subpartsCountSuffix")}

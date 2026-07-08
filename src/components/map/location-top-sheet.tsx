@@ -4,6 +4,7 @@ import { ExternalLink, Filter, ListIcon, MapPin, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { formatLocationId, locationDetailHref } from "@/lib/format";
+import { DeviationCounts } from "@/components/finds/deviation-counts";
 import type { MapLocation } from "@/lib/queries/map";
 
 function toIntlLocale(locale: string): string {
@@ -22,6 +23,8 @@ export function LocationTopSheet({
   location,
   onClose,
   filterSummary = "",
+  amber = 0,
+  rose = 0,
 }: {
   location: MapLocation;
   onClose: () => void;
@@ -29,6 +32,10 @@ export function LocationTopSheet({
    *  a context chip so the visitor knows why finds on the map are dimmed.
    *  Empty string → no chip. */
   filterSummary?: string;
+  /** Deviated-find counts (amber = tone 1, rose = tone 2) for this location's
+   *  painted subtree, shown after the find count. */
+  amber?: number;
+  rose?: number;
 }) {
   const t = useTranslations("Mapa");
   const tStats = useTranslations("Statistiky");
@@ -97,6 +104,7 @@ export function LocationTopSheet({
         <span className="ml-1 text-gray-600">
           {tStats("labelFinds", { count: location.findCount })}
         </span>
+        <DeviationCounts amber={amber} rose={rose} className="ml-1.5" />
       </p>
 
       {filterSummary && (
