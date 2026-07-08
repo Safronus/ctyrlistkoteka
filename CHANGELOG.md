@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /lokality — na mobilu jen ikonky u tlačítek v řádku
+- Tlačítka v nerozbalené části řádku lokality (Detail lokality / Zobrazit na
+  mapě / Zobrazit nálezy lokality) se pod `lg` scvrknou **jen na ikonku s
+  tooltipem** (`title`) — na telefonu se tři textová tlačítka jinak zalamovala
+  do několika stísněných řádků. Text se vrací od `lg` (≥1024 px, kde se
+  i nejdelší počet „12 494 🍀 (vč. dílčích částí)" + tři tlačítka vejdou na
+  řádek) — **velké rozlišení beze změny**. Popisek zůstává `sr-only`, takže
+  čtečky ho čtou i u ikonek.
+
 ### /lokality — rozbalený detail: náhledy prvního/posledního nálezu
 - Rozbalená část řádku lokality přepracována kolem **prvního a posledního
   nálezu**:

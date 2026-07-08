@@ -273,10 +273,14 @@ function MapLink({
     <Link
       href={`/mapa?focus=${location.id}`}
       onClick={(e) => e.stopPropagation()}
+      title={t("mapLink")}
       className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
     >
       <MapPin className="h-3.5 w-3.5" aria-hidden />
-      <span>{t("mapLink")}</span>
+      {/* Below lg the label is sr-only → icon-only button (the row's three
+          buttons would otherwise wrap to several cramped lines on a phone);
+          the title carries the tooltip. Full text returns at lg+. */}
+      <span className="sr-only lg:not-sr-only">{t("mapLink")}</span>
     </Link>
   );
 }
@@ -292,10 +296,12 @@ function DetailLink({
     <Link
       href={locationDetailHref(location.id)}
       onClick={(e) => e.stopPropagation()}
+      title={t("detailLink")}
       className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
     >
       <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-      <span>{t("detailLink")}</span>
+      {/* icon-only < lg (see MapLink) */}
+      <span className="sr-only lg:not-sr-only">{t("detailLink")}</span>
     </Link>
   );
 }
@@ -311,10 +317,12 @@ function FindsLink({
     <Link
       href={`/sbirka?loc=${location.id}`}
       onClick={(e) => e.stopPropagation()}
+      title={t("findsLink")}
       className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
     >
       <Images className="h-3.5 w-3.5" aria-hidden />
-      <span>{t("findsLink")}</span>
+      {/* icon-only < lg (see MapLink) */}
+      <span className="sr-only lg:not-sr-only">{t("findsLink")}</span>
     </Link>
   );
 }
