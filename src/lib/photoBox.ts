@@ -20,12 +20,18 @@ export interface PhotoDisplay {
   displayHeight: number;
   /** `aspect-ratio` for the reserved image box (portrait after rotation). */
   aspectRatio: string;
-  /** Shared `width` for the photo box, the prev/next nav bar AND the
-   *  location-map figure — they all track it so the detail column reads as
-   *  one aligned unit. With `minWidthPx` set, an unusually tall/narrow photo
-   *  gets a floored width here (see the option) so the whole column stays
-   *  usable instead of collapsing to a cramped strip. */
+  /** Native (height-capped) displayed width for the PHOTO box + the location
+   *  map + facts below it — they all track it so photo, map and facts line up
+   *  as one column. Wide photos are untouched; a tall/narrow photo simply
+   *  stays at its (possibly narrow) height-capped width. */
   widthCss: string;
+  /** Width for the prev/next NAV bar's "Zpět na sbírku" column, floored at
+   *  `minWidthPx`. The back link is pinned to the LEFT of this centered
+   *  column; without a floor it collides with the centered prev/next links
+   *  whenever the photo below is narrow. Same as `widthCss` once the photo is
+   *  already wider than the floor (so wide photos keep the nav aligned to the
+   *  image, as before). */
+  layoutWidthCss: string;
 }
 
 /** Default fraction of the viewport height the photo may occupy. */
@@ -54,13 +60,13 @@ export function photoDisplay(
      *  find's photo and the right edge of the last find's photo, which span
      *  it. Overrides both the native-px cap and maxVh. */
     fill?: boolean;
-    /** Minimum displayed width (px) for the photo, which RELAXES the `maxVh`
-     *  height cap up to this floor — but never past the native pixel width
-     *  (so a low-res photo is never upscaled) or the container (100%). Lets
-     *  an unusually tall/narrow photo (e.g. a 739×1600 portrait squeezed to
-     *  ~290 px by the 70vh cap) display comfortably wide instead of dragging
-     *  the whole aligned detail column — photo, nav bar and location map —
-     *  into a cramped strip. Omit to keep the plain height-capped width. */
+    /** Minimum width (px) for the prev/next NAV bar column ONLY (see
+     *  `layoutWidthCss`). It does NOT touch the photo or the map — those keep
+     *  their native height-capped width. Flooring just the nav keeps the
+     *  "Zpět na sbírku" back link (pinned to the column's left edge) clear of
+     *  the centered prev/next links even when the photo below is narrow. The
+     *  photo can then sit at whatever (smaller) width it is; the nav stays
+     *  comfortably wide. Omit to keep the nav equal to the photo width. */
     minWidthPx?: number;
   },
 ): PhotoDisplay | null {
@@ -68,27 +74,28 @@ export function photoDisplay(
   const landscape = rotate && width > height;
   const displayWidth = landscape ? height : width;
   const displayHeight = landscape ? width : height;
-  // Displayed width: native px, height-capped to `maxVh` of the viewport.
-  // `minWidthPx` lifts the height cap up to a floor (bounded by native px so
-  // it never upscales), so tall/narrow photos aren't squeezed to a strip.
-  let widthCss: string;
-  if (fill) {
-    widthCss = "100%";
-  } else if (maxVh == null) {
-    widthCss = `min(100%, ${displayWidth}px)`;
-  } else {
-    const cap = `calc(${maxVh}vh * ${displayWidth} / ${displayHeight})`;
-    const heightBound =
-      minWidthPx == null
-        ? cap
-        : `max(${cap}, min(${minWidthPx}px, ${displayWidth}px))`;
-    widthCss = `min(100%, ${displayWidth}px, ${heightBound})`;
-  }
+  // Native displayed width: native px, height-capped to `maxVh` of the
+  // viewport. This drives the PHOTO + map + facts — wide photos unchanged,
+  // narrow photos left as-is (never upscaled).
+  const naturalWidth =
+    maxVh == null
+      ? `${displayWidth}px`
+      : `min(${displayWidth}px, calc(${maxVh}vh * ${displayWidth} / ${displayHeight}))`;
+  const widthCss = fill ? "100%" : `min(100%, ${naturalWidth})`;
+  // Nav-bar width: floored at `minWidthPx` so the back link clears the prev/
+  // next even when the photo is narrow. The nav has no image, so — unlike the
+  // photo — it MAY exceed the native px width. Collapses to `widthCss` for
+  // wide photos (already past the floor) and whenever no floor is given.
+  const layoutWidthCss =
+    fill || minWidthPx == null
+      ? widthCss
+      : `min(100%, max(${minWidthPx}px, ${naturalWidth}))`;
   return {
     rotated: landscape,
     displayWidth,
     displayHeight,
     aspectRatio: `${displayWidth} / ${displayHeight}`,
     widthCss,
+    layoutWidthCss,
   };
 }

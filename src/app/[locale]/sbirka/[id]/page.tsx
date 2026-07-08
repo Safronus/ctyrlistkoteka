@@ -70,11 +70,15 @@ interface PageProps {
 // src/lib/constants.ts (24 hours).
 export const revalidate = 86400;
 
-// Floor for the displayed photo width (px). A tall/narrow photo relaxes the
-// 70vh height cap up to this so the aligned detail column (photo + nav +
-// location map) stays usable. Shared by the page's photoDisplay and the
-// ImageGallery below so both compute the same width.
-const PHOTO_MIN_WIDTH_PX = 448;
+// Min width (px) for the prev/next NAV bar's "Zpět na sbírku" column only.
+// The back link is pinned to the LEFT of this centered column; flooring it
+// keeps it clear of the centered prev/next links even when the photo below is
+// narrow. The photo, map + facts keep their own (possibly narrower) width —
+// i.e. the nav bar no longer shrinks to a small photo. Wide photos already
+// exceed this, so the nav then aligns to the photo exactly as before.
+// 768px verified to clear the back button (both the longer EN label and CS)
+// from the centered prev/next with comfortable margin.
+const NAV_MIN_WIDTH_PX = 768;
 
 export async function generateStaticParams() {
   // Pre-render finds that exist at build time; further IDs use ISR.
@@ -174,22 +178,19 @@ export default async function FindDetailPage({ params }: PageProps) {
     : (find.images.find((i) => i.imageType === ImageType.CROP) ?? null);
 
   // Displayed photo geometry (height-capped, landscape rotated to portrait).
-  // Photo, prev/next nav bar and location map + facts all share
-  // `photoBox.widthCss`, so the column reads as one aligned unit. For
-  // NO_PHOTO finds there's no real image, so we fall back to a default 3:4
-  // portrait box — the placeholder occupies the area a real photo would.
-  //
-  // `minWidthPx` relaxes the 70vh height cap up to ~28rem (never past native
-  // px, so no upscaling) so an unusually tall/narrow photo (e.g. #165 =
-  // 739×1600, otherwise squeezed to ~290 px) displays comfortably wide and
-  // widens the whole aligned column with it. Wide photos are untouched —
-  // their height-capped width already clears the floor. The gallery below is
-  // handed the same value so its own photoDisplay computes an identical width.
+  // The photo + location map + facts share `photoBox.widthCss` (native,
+  // height-capped) so they line up; the prev/next nav bar uses the wider
+  // `photoBox.layoutWidthCss` (floored at NAV_MIN_WIDTH_PX) so the back link
+  // never overlaps the centered prev/next on a narrow photo — the photo just
+  // sits at its own (smaller) width beneath the roomier nav. For NO_PHOTO
+  // finds there's no real image, so we fall back to a default 3:4 portrait
+  // box — the placeholder occupies the area a real photo would.
   const photoBox =
     photoDisplay(mainImage?.width, mainImage?.height, {
       rotate: true,
-      minWidthPx: PHOTO_MIN_WIDTH_PX,
-    }) ?? photoDisplay(900, 1200, { rotate: false })!;
+      minWidthPx: NAV_MIN_WIDTH_PX,
+    }) ??
+    photoDisplay(900, 1200, { rotate: false, minWidthPx: NAV_MIN_WIDTH_PX })!;
 
   // Special atmospheric effect for this find (record / heavenly /
   // hellish), resolved from the admin-assignable config (defaults seed
@@ -421,7 +422,7 @@ export default async function FindDetailPage({ params }: PageProps) {
         <div className="pointer-events-none absolute inset-x-0 top-1/2 hidden -translate-y-1/2 md:block">
           <div
             className="mx-auto"
-            style={{ width: photoBox.widthCss, maxWidth: "100%" }}
+            style={{ width: photoBox.layoutWidthCss, maxWidth: "100%" }}
           >
             <span className="pointer-events-auto inline-flex">
               <BackToSbirkaLink variant="button-full" />
@@ -482,7 +483,6 @@ export default async function FindDetailPage({ params }: PageProps) {
           bordered
           goldFrame={effect === "record"}
           rotateLandscape
-          minWidthPx={PHOTO_MIN_WIDTH_PX}
           placeholderWidthCss={photoBox.widthCss}
           placeholderAspectRatio={photoBox.aspectRatio}
         />
