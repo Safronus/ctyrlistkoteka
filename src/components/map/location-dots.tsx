@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { CircleMarker, useMap } from "react-leaflet";
 import L, { type CircleMarker as LCircleMarker } from "leaflet";
 import type { MapLocation } from "@/lib/queries/map";
@@ -77,63 +77,73 @@ export function LocationDots({
     <>
       {dots.map((l) => {
         const focused = l.id === focusLocationId;
-        // Three-hue palette mirrors LocationPolygons: blue for active,
-        // rose for former, amber for the currently-focused row. Focus
-        // wins over former so a selected gone location reads as
-        // "you've selected this" rather than "this is also gone".
-        const ring = focused
-          ? "#b45309"
-          : l.isGone
-            ? "#9f1239"
-            : "#1e40af";
-        const fill = focused
-          ? "#fbbf24"
-          : l.isGone
-            ? "#e11d48"
-            : "#1e40af";
+        // Solid fill + a WHITE outline so the dot reads as a distinct marker
+        // over the (round, green/amber) clover finds it now sits ON TOP of —
+        // opaque, not the old translucent circle that drowned in a dense
+        // cluster. Blue = active, rose = former, amber = focused (focus wins
+        // over former: "you selected this" beats "this is gone").
+        const fill = focused ? "#f59e0b" : l.isGone ? "#e11d48" : "#1e40af";
         return (
-          <CircleMarker
-            key={`${l.id}-${enablePopup ? "p" : "np"}`}
-            center={[l.centerLat, l.centerLng]}
-            radius={focused ? 9 : 6}
-            pathOptions={{
-              color: ring,
-              fillColor: fill,
-              fillOpacity: focused ? 0.7 : 0.6,
-              weight: focused ? 2 : 1,
-            }}
-            eventHandlers={{
-              add: (e) => {
-                const layer = e.target as LCircleMarker;
-                if (enablePopup && popupLabels) {
-                  layer.bindPopup(
-                    buildLocationPopupHtml(
-                      {
-                        id: l.id,
-                        code: l.code,
-                        displayName: l.displayName,
-                        findCount: l.findCount,
-                        isGone: l.isGone,
-                        isChild: l.parentId !== null,
-                      },
-                      popupLabels,
-                    ),
-                  );
-                }
-                layerRefs.current.set(l.id, layer);
-              },
-              click: (e) => {
-                // Stop the click from reaching the map's background
-                // handler — otherwise the deselect would fire right
-                // after the select.
-                L.DomEvent.stopPropagation(e);
-                onSelect?.(l.id);
-              },
-              remove: () => {
-                layerRefs.current.delete(l.id);
-              },
-            }}
-          />
+          <Fragment key={`${l.id}-${enablePopup ? "p" : "np"}`}>
+            {focused && (
+              // Selection halo — a soft outer ring (stroke only, so it glows
+              // around the dot without tinting the finds underneath).
+              <CircleMarker
+                center={[l.centerLat, l.centerLng]}
+                radius={14}
+                interactive={false}
+                pane="loc-dots"
+                pathOptions={{
+                  color: "#f59e0b",
+                  weight: 3,
+                  opacity: 0.45,
+                  fill: false,
+                }}
+              />
+            )}
+            <CircleMarker
+              center={[l.centerLat, l.centerLng]}
+              radius={focused ? 8 : 6}
+              pane="loc-dots"
+              pathOptions={{
+                color: "#ffffff",
+                weight: focused ? 3 : 2,
+                fillColor: fill,
+                fillOpacity: 1,
+              }}
+              eventHandlers={{
+                add: (e) => {
+                  const layer = e.target as LCircleMarker;
+                  if (enablePopup && popupLabels) {
+                    layer.bindPopup(
+                      buildLocationPopupHtml(
+                        {
+                          id: l.id,
+                          code: l.code,
+                          displayName: l.displayName,
+                          findCount: l.findCount,
+                          isGone: l.isGone,
+                          isChild: l.parentId !== null,
+                        },
+                        popupLabels,
+                      ),
+                    );
+                  }
+                  layerRefs.current.set(l.id, layer);
+                },
+                click: (e) => {
+                  // Stop the click from reaching the map's background
+                  // handler — otherwise the deselect would fire right
+                  // after the select.
+                  L.DomEvent.stopPropagation(e);
+                  onSelect?.(l.id);
+                },
+                remove: () => {
+                  layerRefs.current.delete(l.id);
+                },
+              }}
+            />
+          </Fragment>
         );
       })}
     </>

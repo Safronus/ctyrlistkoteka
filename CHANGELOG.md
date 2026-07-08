@@ -9,6 +9,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /mapa — bod lokace bez polygonu je vidět i v hustých nálezech (1/2)
+- Lokace bez polygonu (jen středový bod) se ztrácela pod hustým shlukem
+  poloprůhledných čtyřlístků — bod byl navíc kreslený *pod* vrstvou nálezů.
+  Fáze 1: body lokací teď v **pane nad nálezy** (z-index 560 > 550 canvasu),
+  **neprůhledné, s bílým obrysem** (oddělí je od kulatých zelených ikonek),
+  a při výběru **větší + jemné halo**. Fáze 2 (dekorace vybrané lokace — 5m
+  gradientní kruh / amber obal / rose pulz) přijde samostatně.
+
 ### /mapa — vrstva Nálezy už nezůstane skrytá po `?find` prokliku
 - Proklik na `/mapa?find=X` schová hromadnou vrstvu Nálezy, aby vynikl jeden
   zvýrazněný marker (záměr). Jenže ten vynucený „off" se **ukládal do

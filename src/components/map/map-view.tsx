@@ -1,6 +1,12 @@
 "use client";
 
-import { MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import {
+  MapContainer,
+  Pane,
+  TileLayer,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
 import { type LatLngBoundsExpression } from "leaflet";
 import { useEffect, useMemo, useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
@@ -190,16 +196,22 @@ export function MapView({
             popupLabels={popupLabels}
             onSelect={onSelectLocation}
           />
-          <LocationDots
-            locations={data.locations}
-            focusLocationId={focusLocationId}
-            enabledChildPolygonIds={enabledChildPolygonIds}
-            showGone={showGone}
-            suppressPopupAutoOpen={highlightFind !== null}
-            enablePopup={enableLocationPopup}
-            popupLabels={popupLabels}
-            onSelect={onSelectLocation}
-          />
+          {/* z-index 560: ABOVE the find-dots canvas (its pane is 550) so a
+              polygon-less location's dot with many finds stacked over it stays
+              visible instead of being buried. markerPane (600) still wins for
+              popups/the highlight marker. */}
+          <Pane name="loc-dots" style={{ zIndex: 560 }}>
+            <LocationDots
+              locations={data.locations}
+              focusLocationId={focusLocationId}
+              enabledChildPolygonIds={enabledChildPolygonIds}
+              showGone={showGone}
+              suppressPopupAutoOpen={highlightFind !== null}
+              enablePopup={enableLocationPopup}
+              popupLabels={popupLabels}
+              onSelect={onSelectLocation}
+            />
+          </Pane>
           <AuthorMarker locations={data.locations} />
         </>
       )}
