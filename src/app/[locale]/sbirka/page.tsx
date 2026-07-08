@@ -7,7 +7,7 @@ import { localizedCountryName } from "@/lib/world-countries";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { Link } from "@/i18n/navigation";
 import { CollectionProgressBanner } from "@/components/finds/collection-progress-banner";
-import { CollectionInfo } from "@/components/finds/collection-info";
+import { FilterablePageHeader } from "@/components/filterable-page-header";
 import { FilterActiveNotice } from "@/components/filter-active-notice";
 import { FilterBar } from "@/components/finds/filter-bar";
 import { HelpDialog } from "@/components/help/help-dialog";
@@ -438,15 +438,32 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <RememberSbirkaSearch />
-      <header className="space-y-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
-          {/* Help dialog button. MAINTENANCE: when you change the
-              filters, sort options, layers, or any other public-page
-              feature listed in the dialog, update the matching
-              SbirkaHelp.* keys in cs.json / en.json. The help text
-              is part of the page's UX contract. */}
-          <HelpDialog
+      <FilterablePageHeader
+        // Filter-independent totals, pinned to the right of the title. The
+        // per-filter count moved to the "Filtr je aktivní" strip below.
+        counts={t("headingCounts", {
+          locations: options.locations.length,
+          finds: progress.count,
+        })}
+        progressToggleLabel={
+          showProgressNotice ? t("progressToggle") : undefined
+        }
+        notice={
+          <CollectionProgressBanner
+            count={progress.count}
+            minFindId={progress.minFindId}
+            maxFindId={progress.maxFindId}
+            gaps={progress.gaps}
+          />
+        }
+      >
+        <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
+        {/* Help dialog button. MAINTENANCE: when you change the
+            filters, sort options, layers, or any other public-page
+            feature listed in the dialog, update the matching
+            SbirkaHelp.* keys in cs.json / en.json. The help text
+            is part of the page's UX contract. */}
+        <HelpDialog
             title={tHelp("modalTitle")}
             buttonTitle={tHelp("buttonTitle")}
             buttonAriaLabel={tHelp("buttonAria")}
@@ -484,22 +501,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
               },
             ]}
           />
-        </div>
-        <CollectionInfo
-          summary={t("totalSummary", {
-            count: result.total,
-            withSuffix: result.total === 0 ? "no" : "yes",
-          })}
-          hasNotice={showProgressNotice}
-        >
-          <CollectionProgressBanner
-            count={progress.count}
-            minFindId={progress.minFindId}
-            maxFindId={progress.maxFindId}
-            gaps={progress.gaps}
-          />
-        </CollectionInfo>
-      </header>
+      </FilterablePageHeader>
 
       <FilterBar
         options={options}

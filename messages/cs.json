@@ -70,12 +70,12 @@
     "metaTitle": "Sbírka",
     "metaDescription": "Galerie všech nálezů čtyřlístků s filtry a hledáním.",
     "h1": "Sbírka 🍀",
-    "totalSummary": "{count, plural, =0 {0 nálezů} one {# nález} few {# nálezy} other {# nálezů}}{withSuffix, select, yes { celkem} other {}}",
     "filterActive": "Filtr je aktivní —",
     "filterMatches": "{count, plural, =0 {0 🍀 odpovídá} one {# 🍀 odpovídá} few {# 🍀 odpovídají} other {# 🍀 odpovídá}} filtru",
     "showOnMap": "Zobrazit na mapě",
     "noFindsMatch": "Žádné nálezy neodpovídají filtrům.",
-    "progressToggle": "Zobrazit stav doplňování sbírky"
+    "progressToggle": "Zobrazit stav doplňování sbírky",
+    "headingCounts": "{locations, plural, one {# lokalita} few {# lokality} other {# lokalit}} · {finds, plural, one {# nález} few {# nálezy} other {# nálezů}}"
   },
   "FilterSummary": {
     "search": "hledání „{q}“",
@@ -360,9 +360,9 @@
     "metaTitle": "Lokality",
     "metaDescription": "Seznam všech lokačních map čtyřlístkové sbírky s filtry a souhrnnou statistikou nálezů.",
     "h1": "Lokality",
-    "summary": "{count, plural, one {# lokalita} few {# lokality} other {# lokalit}}{withSuffix, select, filtered { v aktuálním filtru} total { celkem} other {}}",
     "filterActive": "Filtr je aktivní —",
     "filterMatches": "{count, plural, =0 {0 🍀 lokalit odpovídá} one {# 🍀 lokalita odpovídá} few {# 🍀 lokality odpovídají} other {# 🍀 lokalit odpovídá}} filtru",
+    "headingCounts": "{locations, plural, one {# lokalita} few {# lokality} other {# lokalit}} ({anon} anonymizovaných) · {finds, plural, one {# nález} few {# nálezy} other {# nálezů}}",
     "onlyGoneBanner": "Filtr: <strong>pouze zaniklé lokality</strong> ({count}).",
     "onlyGoneClear": "Zrušit filtr",
     "noLocationsMatch": "Žádné lokality neodpovídají filtrům."

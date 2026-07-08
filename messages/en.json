@@ -71,12 +71,12 @@
     "metaTitle": "Collection",
     "metaDescription": "Gallery of every four-leaf clover find with filters and search.",
     "h1": "Collection 🍀",
-    "totalSummary": "{count, plural, =0 {0 finds} one {# find} other {# finds}}{withSuffix, select, yes { in total} other {}}",
     "filterActive": "Filter is active —",
     "filterMatches": "{count, plural, =0 {0 🍀 match} one {# 🍀 matches} other {# 🍀 match}} the filter",
     "showOnMap": "Show on map",
     "noFindsMatch": "No finds match the filters.",
-    "progressToggle": "Show collection completeness note"
+    "progressToggle": "Show collection completeness note",
+    "headingCounts": "{locations, plural, one {# location} other {# locations}} · {finds, plural, one {# find} other {# finds}}"
   },
   "FilterSummary": {
     "search": "search “{q}”",
@@ -361,9 +361,9 @@
     "metaTitle": "Locations",
     "metaDescription": "List of every location map in the four-leaf clover collection with filters and aggregate find statistics.",
     "h1": "Locations",
-    "summary": "{count, plural, one {# location} other {# locations}}{withSuffix, select, filtered { in current filter} total { in total} other {}}",
     "filterActive": "Filter is active —",
     "filterMatches": "{count, plural, =0 {0 🍀 locations match} one {# 🍀 location matches} other {# 🍀 locations match}} the filter",
+    "headingCounts": "{locations, plural, one {# location} other {# locations}} ({anon} anonymized) · {finds, plural, one {# find} other {# finds}}",
     "onlyGoneBanner": "Filter: <strong>former locations only</strong> ({count}).",
     "onlyGoneClear": "Clear filter",
     "noLocationsMatch": "No locations match the filters."

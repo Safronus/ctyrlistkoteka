@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Počty v hlavičce (/sbirka, /lokality) + „Ukázat nálezy" na /statistiky
+- **Počty přesunuty na úroveň hlavního titulku, zarovnané doprava.** Místo
+  počtu *vyfiltrovaných* (ten je teď v „Filtr je aktivní" pod filtry) hlavička
+  ukazuje **filter-independent** souhrn: **počet lokalit · celkový počet
+  nálezů**. Na /lokality navíc **v závorce počet anonymizovaných**. Řádek
+  pod titulkem (redundantní) odstraněn. Sdílená komponenta
+  `FilterablePageHeader` (obě stránky). Na /sbirka se s počty přesunulo i
+  **přesýpací tlačítko** rozbalující „Sbírka se postupně doplňuje".
+- **/statistiky — „Top 10 lokalit"**: nové tlačítko **„Ukázat nálezy"** mezi
+  „Detail" a „Mapa" v každém řádku → proklik `/sbirka?loc=<id>` (stejně jako
+  „Nejlepší den" na Domů, mapa a lokality).
+
 ### /lokality sladěno s /sbirka (+ sdílené komponenty)
 - **Ikona nápovědy bez kolečka** — borderless je nově **default** v
   `HelpDialog`, takže /sbirka, /lokality i /statistiky vypadají stejně

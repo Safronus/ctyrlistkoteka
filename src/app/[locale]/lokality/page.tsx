@@ -3,6 +3,7 @@ import { Archive, X } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { HelpDialog } from "@/components/help/help-dialog";
+import { FilterablePageHeader } from "@/components/filterable-page-header";
 import { FilterActiveNotice } from "@/components/filter-active-notice";
 import { LocationsFilterBar } from "@/components/locations/locations-filter-bar";
 import { LocationsToolbar } from "@/components/locations/locations-toolbar";
@@ -13,7 +14,7 @@ import {
   listLocations,
   type LocationSort,
 } from "@/lib/queries/locations";
-import { getFilterOptions } from "@/lib/queries/finds";
+import { getCollectionProgress, getFilterOptions } from "@/lib/queries/finds";
 import { buildFilterSummary } from "@/lib/filterSummary";
 import { cityFromCadastralArea } from "@/lib/locationCode";
 import { localizedCountryName } from "@/lib/world-countries";
@@ -85,7 +86,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   const hasRealPhoto = pickString(sp.hasPhoto) === "1";
 
   const locale = await getLocale();
-  const [filterOptions, locations, toggleCounts, realPhotoIds] =
+  const [filterOptions, locations, toggleCounts, realPhotoIds, progress] =
     await Promise.all([
       // Shared with /sbirka — its `cities` carry the country each sits in,
       // which the filter bar needs to cascade Stát → Město the same way.
@@ -103,7 +104,10 @@ export default async function LokalityPage({ searchParams }: PageProps) {
       countAnonymizedAndFormerLocations(),
       // Filter-independent count for the "S reálnou fotkou" toggle.
       getLocationIdsWithRealPhotos(),
+      // Total find count for the filter-independent heading counts.
+      getCollectionProgress(),
     ]);
+  const totalFinds = progress.count;
 
   const cities = filterOptions.cities;
   // Country names from the shared options are raw English (Natural Earth).
@@ -127,10 +131,6 @@ export default async function LokalityPage({ searchParams }: PageProps) {
     showGone ||
     hasRealPhoto ||
     onlyGone;
-  // The count under the heading is ALWAYS filter-affected (hide-anon +
-  // hide-former are baseline defaults), so it stays on the "v aktuálním
-  // filtru" branch rather than ever claiming to be the full catalog.
-  const summarySuffix = "filtered";
 
   // Human description of the active filters for the notice below the bar,
   // built with /sbirka's shared buildFilterSummary. Only q / city / country
@@ -162,14 +162,20 @@ export default async function LokalityPage({ searchParams }: PageProps) {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-      <header className="space-y-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
-          {/* Help dialog button. MAINTENANCE: when you change the
-              filters, sort options or anything else listed in the
-              dialog, update the matching LokalityHelp.* keys in
-              cs.json / en.json. */}
-          <HelpDialog
+      <FilterablePageHeader
+        // Filter-independent totals pinned to the right of the title; the
+        // per-filter count lives in the "Filtr je aktivní" strip below.
+        counts={t("headingCounts", {
+          locations: filterOptions.locations.length,
+          anon: toggleCounts.anonymized,
+          finds: totalFinds,
+        })}
+      >
+        <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
+        {/* Help dialog button. MAINTENANCE: when you change the
+            filters, sort options or anything else listed in the dialog,
+            update the matching LokalityHelp.* keys in cs.json / en.json. */}
+        <HelpDialog
             title={tHelp("modalTitle")}
             buttonTitle={tHelp("buttonTitle")}
             buttonAriaLabel={tHelp("buttonAria")}
@@ -204,14 +210,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
               },
             ]}
           />
-        </div>
-        <p className="text-gray-600">
-          {t("summary", {
-            count: locations.length,
-            withSuffix: summarySuffix,
-          })}
-        </p>
-      </header>
+      </FilterablePageHeader>
 
       <LocationsFilterBar
         cities={cities}
