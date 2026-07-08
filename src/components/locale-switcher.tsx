@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { routing } from "@/i18n/routing";
@@ -31,13 +32,18 @@ export function LocaleSwitcher() {
   // ourselves below for non-default locales, and drop it entirely
   // for the default (cs) — matching `localePrefix: 'as-needed'`.
   const pathname = usePathname();
+  // Preserve the query string across the language switch so filter /
+  // sort / search state on /sbirka (and any other page's params) survives
+  // CS ⇄ EN — otherwise switching language silently reset every filter.
+  const searchParams = useSearchParams();
 
   const buildHref = (next: Locale): string => {
     const tail = pathname === "/" ? "" : pathname;
-    if (next === routing.defaultLocale) {
-      return tail || "/";
-    }
-    return `/${next}${tail}`;
+    const query = searchParams.toString();
+    const suffix = query ? `?${query}` : "";
+    const base =
+      next === routing.defaultLocale ? tail || "/" : `/${next}${tail}`;
+    return `${base}${suffix}`;
   };
 
   return (

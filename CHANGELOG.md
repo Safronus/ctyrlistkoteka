@@ -15,6 +15,9 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **Banner „Sbírka se postupně doplňuje"** je nově **skrytý** za malým
   přesýpacím tlačítkem u „Počet nálezů celkem" (dřív zabíral místo nad
   filtry pořád); rozbalí se kliknutím.
+- **Přepnutí jazyka** (CS ⇄ EN) nově **zachová query string** — filtry,
+  řazení a hledání na /sbirka (i parametry jiných stránek) přežijí, dřív
+  se přepnutím jazyka mlčky vynulovaly.
 
 ### Nejoblíbenější nálezy — ořez místo originálu (Domů + /statistiky)
 - Tlačítko „nejoblíbenější" na Domů a leaderboard **„Top 10
