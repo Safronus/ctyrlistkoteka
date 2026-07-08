@@ -41,7 +41,11 @@ export function LocationTopSheet({
     <div
       role="dialog"
       aria-label={t("topSheetAria")}
-      className="rounded-lg border border-gray-200 bg-white p-3 shadow-xl"
+      // `relative` anchors the absolute close button to THIS panel. Without
+      // it the button escapes to the nearest positioned ancestor — on /mapa
+      // mobile that's the Vrstvy+detail stack wrapper, so the ✕ stuck to the
+      // top of the stack instead of riding down with the pushed-down panel.
+      className="relative rounded-lg border border-gray-200 bg-white p-3 shadow-xl"
     >
       <button
         type="button"
