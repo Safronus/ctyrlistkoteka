@@ -393,13 +393,20 @@ function StatsPanel({
               </h3>
               <ul className="space-y-1.5">
                 {view.states.map((s) => (
-                  <li key={s.state} className="flex items-center gap-2">
+                  // Grid, not flex: a fixed-width first column for the state
+                  // chip means every bar track starts at the same x and is
+                  // the same length regardless of how wide the chip's label
+                  // is (chips are left-aligned inside their column).
+                  <li
+                    key={s.state}
+                    className="grid grid-cols-[7.5rem_1fr_2.5rem] items-center gap-2"
+                  >
                     <span
-                      className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${STATE_BADGE[s.state]}`}
+                      className={`justify-self-start rounded-md px-2 py-0.5 text-xs font-medium ${STATE_BADGE[s.state]}`}
                     >
                       {tStates(s.state as FindState)}
                     </span>
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                       <div
                         className="h-full rounded-full bg-brand-500"
                         style={{
@@ -410,7 +417,7 @@ function StatsPanel({
                         }}
                       />
                     </div>
-                    <span className="w-10 shrink-0 text-right font-mono text-xs tabular-nums text-gray-600">
+                    <span className="text-right font-mono text-xs tabular-nums text-gray-600">
                       {s.count}
                     </span>
                   </li>

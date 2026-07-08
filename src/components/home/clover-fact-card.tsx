@@ -320,20 +320,35 @@ export function CloverFactCard({
           chrome. Aria-hidden; purely decorative. */}
       {styles.decoration === "happy" && <HappySparkles />}
 
-      {/* Tiny countdown until the next lísteček. Styled as a quiet
-          paper-margin annotation rather than a UI counter — italic
-          serif label, monospace digits, muted to the variant's
-          `idColor`. Sits in the flow at the very bottom of the card,
-          so it never collides with the absolute corner items above. */}
-      <p
-        aria-hidden
-        data-fact-id
-        className={`mt-1.5 select-none text-center text-[10px] ${styles.idColor}`}
-        title={t("cardNextInTitle", { time: mmss })}
-      >
-        <span className="font-serif italic">{t("cardNextInPrefix")}</span>
-        <span className="font-mono tracking-wider">{mmss}</span>
-      </p>
+      {/* Countdown until the next lísteček + the manual "shuffle now"
+          button, inline and centred at the very bottom of the card. The
+          shuffle used to be a corner affordance, but bottom-right collided
+          with the #id stamp on phones and bottom-left with the watermark
+          smiley; next to the countdown it's clear of every corner at all
+          sizes. Countdown itself stays a quiet paper-margin annotation
+          (italic serif label, monospace digits, muted to the variant). */}
+      <div className="mt-1.5 flex items-center justify-center gap-1.5">
+        <p
+          aria-hidden
+          data-fact-id
+          className={`select-none text-center text-[10px] ${styles.idColor}`}
+          title={t("cardNextInTitle", { time: mmss })}
+        >
+          <span className="font-serif italic">{t("cardNextInPrefix")}</span>
+          <span className="font-mono tracking-wider">{mmss}</span>
+        </p>
+        {!text.link && (
+          <button
+            type="button"
+            onClick={advance}
+            aria-label={t("cardNextButtonAria")}
+            title={t("cardNextButtonTitle")}
+            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full opacity-45 transition hover:bg-black/[0.06] hover:opacity-90 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-brand-500 ${styles.idColor}`}
+          >
+            <Shuffle className="h-3 w-3" aria-hidden />
+          </button>
+        )}
+      </div>
 
       <span
         aria-hidden
@@ -352,28 +367,6 @@ export function CloverFactCard({
         </span>
       )}
 
-      {/* Manual "next" — the auto-rotation runs on a timer, but a visitor
-          who wants a fresh lísteček now shouldn't have to wait or scroll
-          down to the Drobnosti tile. Quiet paper-margin affordance, tonal
-          to the variant; hidden on link cards (the whole card is a <Link>
-          there — no nested interactive).
-
-          Sits bottom-RIGHT below `lg` and bottom-LEFT from `lg` up: the
-          mobile-only decorative watermark smiley (page.tsx, `-bottom-7
-          -left-4 lg:hidden`) overlaps the card's bottom-left corner and
-          was covering this button on phones. Desktop hides that smiley, so
-          the original left placement is kept there. */}
-      {!text.link && (
-        <button
-          type="button"
-          onClick={advance}
-          aria-label={t("cardNextButtonAria")}
-          title={t("cardNextButtonTitle")}
-          className={`absolute bottom-1.5 right-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full opacity-45 transition hover:bg-black/[0.06] hover:opacity-90 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-brand-500 lg:left-1.5 lg:right-auto ${styles.idColor}`}
-        >
-          <Shuffle className="h-3 w-3" aria-hidden />
-        </button>
-      )}
     </aside>
   );
 

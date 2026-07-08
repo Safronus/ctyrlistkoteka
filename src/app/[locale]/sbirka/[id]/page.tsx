@@ -70,6 +70,12 @@ interface PageProps {
 // src/lib/constants.ts (24 hours).
 export const revalidate = 86400;
 
+// Floor for the displayed photo width (px). A tall/narrow photo relaxes the
+// 70vh height cap up to this so the aligned detail column (photo + nav +
+// location map) stays usable. Shared by the page's photoDisplay and the
+// ImageGallery below so both compute the same width.
+const PHOTO_MIN_WIDTH_PX = 448;
+
 export async function generateStaticParams() {
   // Pre-render finds that exist at build time; further IDs use ISR.
   const ids = await getAllFindIds();
@@ -168,18 +174,21 @@ export default async function FindDetailPage({ params }: PageProps) {
     : (find.images.find((i) => i.imageType === ImageType.CROP) ?? null);
 
   // Displayed photo geometry (height-capped, landscape rotated to portrait).
-  // The location map + facts below are widened to `photoBox.layoutWidthCss` so
-  // they line up. For NO_PHOTO finds there's no real image, so we fall back
-  // to a default 3:4 portrait box — the placeholder then occupies the same
-  // area a real photo would, and the map still matches it.
-  // `minWidthPx` floors the LAYOUT (nav / map / facts) at ~28rem so an
-  // unusually narrow low-res photo (e.g. #165, #166) can't squeeze the
-  // whole detail page — the photo itself stays at its native width, just
-  // centred in the wider column.
+  // Photo, prev/next nav bar and location map + facts all share
+  // `photoBox.widthCss`, so the column reads as one aligned unit. For
+  // NO_PHOTO finds there's no real image, so we fall back to a default 3:4
+  // portrait box — the placeholder occupies the area a real photo would.
+  //
+  // `minWidthPx` relaxes the 70vh height cap up to ~28rem (never past native
+  // px, so no upscaling) so an unusually tall/narrow photo (e.g. #165 =
+  // 739×1600, otherwise squeezed to ~290 px) displays comfortably wide and
+  // widens the whole aligned column with it. Wide photos are untouched —
+  // their height-capped width already clears the floor. The gallery below is
+  // handed the same value so its own photoDisplay computes an identical width.
   const photoBox =
     photoDisplay(mainImage?.width, mainImage?.height, {
       rotate: true,
-      minWidthPx: 448,
+      minWidthPx: PHOTO_MIN_WIDTH_PX,
     }) ?? photoDisplay(900, 1200, { rotate: false })!;
 
   // Special atmospheric effect for this find (record / heavenly /
@@ -412,7 +421,7 @@ export default async function FindDetailPage({ params }: PageProps) {
         <div className="pointer-events-none absolute inset-x-0 top-1/2 hidden -translate-y-1/2 md:block">
           <div
             className="mx-auto"
-            style={{ width: photoBox.layoutWidthCss, maxWidth: "100%" }}
+            style={{ width: photoBox.widthCss, maxWidth: "100%" }}
           >
             <span className="pointer-events-auto inline-flex">
               <BackToSbirkaLink variant="button-full" />
@@ -473,7 +482,8 @@ export default async function FindDetailPage({ params }: PageProps) {
           bordered
           goldFrame={effect === "record"}
           rotateLandscape
-          placeholderWidthCss={photoBox.layoutWidthCss}
+          minWidthPx={PHOTO_MIN_WIDTH_PX}
+          placeholderWidthCss={photoBox.widthCss}
           placeholderAspectRatio={photoBox.aspectRatio}
         />
       </section>
@@ -518,7 +528,7 @@ export default async function FindDetailPage({ params }: PageProps) {
               /* Match the map exactly to the find photo's displayed width so
                the two line up (falls back to max-w-2xl when there's no
                photo to measure against). */
-              figureWidth={photoBox?.layoutWidthCss}
+              figureWidth={photoBox?.widthCss}
               locale={locale}
               t={t}
               noteOverrides={mapNoteOverrides}
@@ -537,7 +547,7 @@ export default async function FindDetailPage({ params }: PageProps) {
             }`}
             style={
               photoBox
-                ? { width: photoBox.layoutWidthCss, maxWidth: "100%" }
+                ? { width: photoBox.widthCss, maxWidth: "100%" }
                 : undefined
             }
           >

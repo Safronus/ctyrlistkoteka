@@ -196,7 +196,9 @@ export default async function HomePage() {
               width={128}
               height={128}
               priority
-              className="absolute -left-4 -top-4 z-10 h-14 w-14 -rotate-12 lg:hidden"
+              // `-scale-x-100` mirrors it across the vertical axis (the stem
+              // then points the other way) while keeping the same corner.
+              className="absolute -left-4 -top-4 z-10 h-14 w-14 -rotate-12 -scale-x-100 lg:hidden"
             />
             {watermark && (
               // eslint-disable-next-line @next/next/no-img-element

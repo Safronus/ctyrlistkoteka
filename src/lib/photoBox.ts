@@ -20,15 +20,12 @@ export interface PhotoDisplay {
   displayHeight: number;
   /** `aspect-ratio` for the reserved image box (portrait after rotation). */
   aspectRatio: string;
-  /** Shared `width` for the photo box AND the location-map figure. */
+  /** Shared `width` for the photo box, the prev/next nav bar AND the
+   *  location-map figure — they all track it so the detail column reads as
+   *  one aligned unit. With `minWidthPx` set, an unusually tall/narrow photo
+   *  gets a floored width here (see the option) so the whole column stays
+   *  usable instead of collapsing to a cramped strip. */
   widthCss: string;
-  /** Width for the surrounding LAYOUT — the prev/next nav bar, the
-   *  location map + facts. Same as `widthCss` for normal photos, but
-   *  floored at `minWidthPx` (when given) so a low-quality, unusually
-   *  NARROW photo doesn't drag the whole detail page — and its nav +
-   *  location section — down to a cramped column. The photo itself keeps
-   *  `widthCss` (its native size, centred), the chrome around it doesn't. */
-  layoutWidthCss: string;
 }
 
 /** Default fraction of the viewport height the photo may occupy. */
@@ -57,10 +54,13 @@ export function photoDisplay(
      *  find's photo and the right edge of the last find's photo, which span
      *  it. Overrides both the native-px cap and maxVh. */
     fill?: boolean;
-    /** Floor (in px) for `layoutWidthCss` only — the nav/map/facts chrome
-     *  never gets narrower than this even when the photo does, so a narrow
-     *  low-res photo can't cramp the whole detail page. The photo (`widthCss`)
-     *  is untouched. Omit to keep the layout exactly matched to the photo. */
+    /** Minimum displayed width (px) for the photo, which RELAXES the `maxVh`
+     *  height cap up to this floor — but never past the native pixel width
+     *  (so a low-res photo is never upscaled) or the container (100%). Lets
+     *  an unusually tall/narrow photo (e.g. a 739×1600 portrait squeezed to
+     *  ~290 px by the 70vh cap) display comfortably wide instead of dragging
+     *  the whole aligned detail column — photo, nav bar and location map —
+     *  into a cramped strip. Omit to keep the plain height-capped width. */
     minWidthPx?: number;
   },
 ): PhotoDisplay | null {
@@ -68,26 +68,27 @@ export function photoDisplay(
   const landscape = rotate && width > height;
   const displayWidth = landscape ? height : width;
   const displayHeight = landscape ? width : height;
-  // The photo's natural displayed width — native px, optionally clamped so
-  // its height stays within `maxVh` of the viewport (maxVh === null drops
-  // the clamp). `widthCss` then caps this at the container (100%).
-  const naturalWidth =
-    maxVh == null
-      ? `${displayWidth}px`
-      : `min(${displayWidth}px, calc(${maxVh}vh * ${displayWidth} / ${displayHeight}))`;
-  const widthCss = fill ? "100%" : `min(100%, ${naturalWidth})`;
+  // Displayed width: native px, height-capped to `maxVh` of the viewport.
+  // `minWidthPx` lifts the height cap up to a floor (bounded by native px so
+  // it never upscales), so tall/narrow photos aren't squeezed to a strip.
+  let widthCss: string;
+  if (fill) {
+    widthCss = "100%";
+  } else if (maxVh == null) {
+    widthCss = `min(100%, ${displayWidth}px)`;
+  } else {
+    const cap = `calc(${maxVh}vh * ${displayWidth} / ${displayHeight})`;
+    const heightBound =
+      minWidthPx == null
+        ? cap
+        : `max(${cap}, min(${minWidthPx}px, ${displayWidth}px))`;
+    widthCss = `min(100%, ${displayWidth}px, ${heightBound})`;
+  }
   return {
     rotated: landscape,
     displayWidth,
     displayHeight,
     aspectRatio: `${displayWidth} / ${displayHeight}`,
     widthCss,
-    // Layout floored at `minWidthPx`: wide photo → matches the photo
-    // (max resolves to the photo width); narrow photo → the floor, still
-    // capped at the viewport. No floor (or fill) → identical to widthCss.
-    layoutWidthCss:
-      fill || minWidthPx == null
-        ? widthCss
-        : `min(100%, max(${minWidthPx}px, ${naturalWidth}))`,
   };
 }

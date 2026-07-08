@@ -47,6 +47,7 @@ export function ImageGallery({
   goldFrame = false,
   rotateLandscape = false,
   maxVh,
+  minWidthPx,
   fill = false,
   placeholderWidthCss,
   placeholderAspectRatio,
@@ -103,6 +104,11 @@ export function ImageGallery({
    *  Pass `null` to drop the cap so the photo fills the full column width
    *  (home showcase + "První vs poslední" — a tall portrait then scrolls). */
   maxVh?: number | null;
+  /** Minimum displayed width (px) — relaxes the height cap so a very
+   *  tall/narrow photo isn't squeezed to a strip (see photoDisplay). Must
+   *  match what the find-detail page passes to its own photoDisplay so the
+   *  photo and the nav/map around it stay the same width. */
+  minWidthPx?: number;
   /** Fill exactly 100% of the container width (may upscale) so the photo's
    *  edges line up with the container — the home showcase uses this. See
    *  photoDisplay. */
@@ -201,6 +207,7 @@ export function ImageGallery({
     rotate: rotateLandscape,
     maxVh,
     fill,
+    minWidthPx,
   });
   const filterCls = muted ? "grayscale sepia-[0.12]" : "";
 

@@ -27,15 +27,24 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   filter-bary zůstávají zvlášť (filtrují jiné entity), ale sdílí tyto kusy.
 
 ### Drobné korekce stylu
-- **Karta zajímavostí (Domů)**: tlačítko „další fakt" (shuffle) je na mobilu
-  nově vpravo dole — dekorativní watermark smajlík v levém dolním rohu
-  (`lg:hidden`) ho jinak překrýval. Na desktopu (smajlík skrytý) zůstává
-  vlevo jako dřív.
-- **Detail nálezu — úzké fotky**: nekvalitní fotky s malou šířkou (např.
-  `/sbirka/165`, `/166`) už netáhnou celou stránku do úzkého sloupce.
-  Navigace + sekce Lokalita mají nově **minimální šířku ~28rem**
-  (`layoutWidthCss` v `photoBox`), fotka zůstává ve své nativní šířce,
-  vycentrovaná. Široké fotky se chovají beze změny (layout = šířka fotky).
+- **Karta zajímavostí (Domů)**: tlačítko „další fakt" (shuffle) je nově
+  **inline za odpočtem času** dole uprostřed karty — v rohu kolidovalo s
+  #id (vpravo) i watermark smajlíkem (vlevo). Info ikona (ⓘ) ztratila
+  kolečkový rámeček a přesunula se **vlevo vedle špendlíku** na horní hranu
+  karty. Dekorativní **čtyřlístek** v levém horním rohu (mobil) je
+  **zrcadlově převrácený** (`-scale-x-100`).
+- **/lokality — bary stavů**: po rozbalení detailu lokality mají pruhy
+  jednotlivých stavů **stejnou délku** nezávisle na šířce štítku stavu
+  (grid s fixním sloupcem pro štítek místo flexu).
+- **Detail nálezu — vysoké/úzké fotky**: fotka, kterou 70vh height-cap
+  scvrkne do úzkého proužku (např. `/sbirka/165` = 739×1600 → ~290 px),
+  **uvolní cap až na ~28rem** (nikdy přes native px → žádný upscale), takže
+  se zobrazí pohodlně široká a **celý zarovnaný sloupec** (fotka + navigace
+  + lokační mapa) se roztáhne s ní. Široké fotky beze změny (jejich
+  cap-šířka floor převyšuje). `minWidthPx` v `photoBox` řídí fotku i chrome
+  přes jednu `widthCss` (galerie dostává stejnou hodnotu). *(Oprava
+  předchozího pokusu, který podlažoval jen chrome → nesoulad fotka vs
+  navigace.)*
 - **/mapa — scroll hlavičky**: stránka mapy nově **zamyká scroll a skrývá
   patičku** (`:has([data-map-fullscreen])`), takže mapa vlastní celý
   viewport pod sticky hlavičkou. Dřív šlo scrollovat s kurzorem nad

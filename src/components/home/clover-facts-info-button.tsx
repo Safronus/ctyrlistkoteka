@@ -56,14 +56,11 @@ export function CloverFactsInfoButton({
   return (
     <div
       ref={ref}
-      // Sits just OUTSIDE the card's top-right corner (never over the card
-      // content — the corners already hold the category / source pills).
-      // Desktop has room to the right so it hangs fully to the right of the
-      // corner; on mobile the card is near full width, so it straddles the
-      // corner (centered on the right edge, lifted above the top edge) —
-      // which keeps it clear of the pills AND inside the viewport (no
-      // horizontal overflow).
-      className="absolute -top-3 right-0 z-20 translate-x-1/2 lg:left-full lg:right-auto lg:top-1 lg:ml-2 lg:translate-x-0"
+      // On the card's top edge, just LEFT of the thumbtack pin (which sits
+      // at right-6) so the ⓘ reads as part of the pin cluster rather than
+      // hanging off the right corner. Desktop keeps its roomier placement
+      // hanging fully to the right of the card.
+      className="absolute -top-3 right-12 z-20 lg:left-full lg:right-auto lg:top-1 lg:ml-2"
     >
       <button
         type="button"
@@ -71,7 +68,7 @@ export function CloverFactsInfoButton({
         aria-expanded={open}
         aria-label={t("infoAria")}
         title={t("infoAria")}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-gray-500 shadow-sm ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        className="inline-flex h-7 w-7 items-center justify-center rounded text-gray-500 transition hover:text-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
       >
         <Info className="h-4 w-4" aria-hidden />
       </button>
