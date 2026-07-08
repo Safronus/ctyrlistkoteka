@@ -40,6 +40,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **County u toggle „S fotkou daru" a „Skrýt největší lokalitu"** nově
   odpovídají tomu, co se reálně skryje/zůstane vůči aktuálnímu filtru
   (dřív byly statické, nezávislé na filtru).
+- **Deep-link `?loc=X`** (proklik „Top lokalita" / statistiky / lokality /
+  mapa → „Ukázat nálezy") nově **nastaví i dropdowny Stát a Město** podle
+  zvolené lokace — stejně, jako když lokalitu vybereš přímo ve filtru.
+  Dřív zůstaly na „Všechny" (nekonzistentní). Odvození je klientské
+  (URL zůstává čistá `?loc=X`).
 
 ### Nejoblíbenější nálezy — ořez místo originálu (Domů + /statistiky)
 - Tlačítko „nejoblíbenější" na Domů a leaderboard **„Top 10

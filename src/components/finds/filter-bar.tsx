@@ -133,12 +133,20 @@ export function FilterBar({
       );
   }, [options.states, tStates]);
 
-  // Cascading geo filters. A selected city pins its country (even on a
-  // deep-linked URL that only carries `city`), so `effectiveCountry`
-  // resolves the country from the city when the country param is absent.
+  // Cascading geo filters. A selected city pins its country, and a
+  // selected location pins BOTH its city and country — even on a deep-link
+  // that only carries `loc` (the homepage "Top lokalita", /statistiky,
+  // /lokality and /mapa all link to /sbirka?loc=X). So the Stát/Město
+  // dropdowns reflect the location exactly the way picking it in the
+  // Lokalita dropdown does, instead of sitting on "Všechny".
+  const selectedLocation = current.locationId
+    ? options.locations.find((l) => String(l.id) === current.locationId)
+    : undefined;
+  const effectiveCity = current.city || selectedLocation?.city || "";
   const effectiveCountry =
     current.country ||
-    options.cities.find((c) => c.name === current.city)?.country ||
+    options.cities.find((c) => c.name === effectiveCity)?.country ||
+    selectedLocation?.country ||
     "";
 
   // City dropdown narrows to the (effective) country; location dropdown
@@ -156,9 +164,9 @@ export function FilterBar({
       options.locations.filter(
         (l) =>
           (!effectiveCountry || l.country === effectiveCountry) &&
-          (!current.city || l.city === current.city),
+          (!effectiveCity || l.city === effectiveCity),
       ),
-    [options.locations, effectiveCountry, current.city],
+    [options.locations, effectiveCountry, effectiveCity],
   );
 
   const nf = useMemo(
@@ -212,7 +220,7 @@ export function FilterBar({
                 city (below) to unlock it. */}
             <select
               value={effectiveCountry}
-              disabled={!!current.city}
+              disabled={!!effectiveCity}
               onChange={(e) =>
                 // Changing country invalidates city + location.
                 updateMany({
@@ -249,7 +257,7 @@ export function FilterBar({
           </span>
           <div className="relative">
             <select
-              value={current.city}
+              value={effectiveCity}
               onChange={(e) => {
                 const city = e.currentTarget.value;
                 if (!city) {
@@ -268,7 +276,7 @@ export function FilterBar({
               {visibleCities
                 .filter(
                   (c) =>
-                    (facets.cities[c.name] ?? 0) > 0 || c.name === current.city,
+                    (facets.cities[c.name] ?? 0) > 0 || c.name === effectiveCity,
                 )
                 .map((c) => (
                   <option key={c.name} value={c.name}>
