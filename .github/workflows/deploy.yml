@@ -67,7 +67,15 @@ jobs:
     # workflow — a fork's code would otherwise execute on the VPS runner.
     # Also: repo Settings → Actions → require approval for fork PRs.
     runs-on: self-hosted
-    timeout-minutes: 15
+    # A normal cold build is ~2–3 min; 25 gives huge headroom for an
+    # occasional slow one. The point is to let a slow build FINISH: a
+    # cancel mid-`pnpm build` (timeout or a superseding push) overwrites
+    # .next/static half-way, so the still-running old process serves 404s
+    # for its (now-deleted) hashed CSS/JS → the site renders unstyled until
+    # the next successful deploy (exactly what happened 2026-07-08 at 15 min).
+    # DeployHealthScript covers the user-facing symptom; this reduces how
+    # often it triggers at all.
+    timeout-minutes: 25
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Deploy locally on the VPS

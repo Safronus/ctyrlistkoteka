@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { getLocale } from "next-intl/server";
 import { ThemeScript } from "@/components/theme-script";
+import { DeployHealthScript } from "@/components/deploy-health-script";
 import { SITE_DESCRIPTION } from "@/lib/constants";
 import { siteName } from "@/lib/siteName";
 import { siteBaseUrl } from "@/lib/seo";
@@ -99,6 +100,7 @@ export default async function RootLayout({
     >
       <body className="flex min-h-screen flex-col">
         <ThemeScript />
+        <DeployHealthScript />
         {children}
       </body>
     </html>

@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Odolnost deploye — čtyřlístková obrazovka i pro „rozbitý styl"
+- **Detekce rozbitého CSS během deploye.** Když se build zruší mid-flight
+  (timeout / superseding push), starý PM2 proces dál servíruje HTML s hashi,
+  které přebuild smazal → assety vrací 404 a stránka se vykreslí **bez
+  stylů** (nic nespadne, takže `global-error` se nespustí; často je i JS
+  mrtvý, takže React guard by se nezhydratoval). Nový **inline nonced
+  skript** (`DeployHealthScript`, vzor dle `ThemeScript`) hlídá `error` na
+  stylesheetech + probne na `window.load`, jestli platí Tailwind `.hidden`;
+  když ne, vykreslí čtyřlístkovou „Web se aktualizuje…" obrazovku a
+  auto-reloadne (throttle 20 s, cap 10×) do doběhnutí buildu. Funguje i bez
+  živého JS, protože jede přímo ze SSR HTML.
+- **Deploy scéna vytažena** z `global-error.tsx` do sdílené `DeployScene`
+  (chunk/JS pády = plná animovaná scéna, rozbitý-styl = odlehčený overlay).
+- **Timeout deploye 15 → 25 min**, aby pomalý build **doběhl** místo zrušení
+  mid-build (což `.next/static` rozbije). Příčina outage 2026-07-08.
+
 ### /sbirka — vylepšení filtrů a UX (série)
 - **Nadpis** „Sbírka nálezů" → **„Sbírka 🍀"**.
 - **Ikona nápovědy** už není v kolečku s rámečkem — jen samotná ikonka.
