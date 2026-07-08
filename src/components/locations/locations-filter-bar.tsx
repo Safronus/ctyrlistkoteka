@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { useMemo, useTransition } from "react";
 import { ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -13,10 +13,18 @@ export function LocationsFilterBar({
   cities,
   countries,
   current,
+  hasFilters,
 }: {
-  cities: readonly string[];
+  /** City + the country it sits in, so the two selects cascade the same
+   *  way /sbirka's do (pick a city → its country pins; pick a country →
+   *  the city list narrows). */
+  cities: ReadonlyArray<{ name: string; country: string }>;
   countries: ReadonlyArray<{ code: string; name: string }>;
   current: { q: string; city: string; country: string };
+  /** True when ANY filter (incl. the toolbar toggles) is active — drives
+   *  the "Zrušit filtry" button, kept here to match /sbirka's placement
+   *  (bottom of the filter card, not out in the toolbar). */
+  hasFilters: boolean;
 }) {
   const t = useTranslations("LocationsFilterBar");
   const tCommon = useTranslations("Common");
@@ -25,14 +33,46 @@ export function LocationsFilterBar({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  const update = (key: string, value: string) => {
+  // Set/clear several params in one navigation — the country/city cascade
+  // needs to change both at once (picking a city also pins its country).
+  const updateMany = (entries: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value) params.set(key, value);
-    else params.delete(key);
+    for (const [key, value] of Object.entries(entries)) {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
     });
   };
+  const update = (key: string, value: string) => updateMany({ [key]: value });
+
+  const clearAll = () => {
+    // Keep the presentation param (sort) — it's orthogonal to filters —
+    // and drop everything else, mirroring /sbirka's "Zrušit filtry".
+    const params = new URLSearchParams();
+    const sort = searchParams.get("sort");
+    if (sort) params.set("sort", sort);
+    const qs = params.toString();
+    startTransition(() => {
+      router.push(qs ? `${pathname}?${qs}` : pathname);
+    });
+  };
+
+  // A selected city pins its country (even on a deep-link that only carries
+  // `city`); `effectiveCountry` resolves it so the country select shows the
+  // right value and the city list narrows accordingly.
+  const effectiveCountry =
+    current.country ||
+    cities.find((c) => c.name === current.city)?.country ||
+    "";
+  const visibleCities = useMemo(
+    () =>
+      effectiveCountry
+        ? cities.filter((c) => c.country === effectiveCountry)
+        : cities,
+    [cities, effectiveCountry],
+  );
 
   return (
     <div
@@ -53,9 +93,11 @@ export function LocationsFilterBar({
             onChange={(e) => {
               const v = e.currentTarget.value;
               window.clearTimeout(
-                (e.currentTarget as HTMLInputElement & {
-                  _t?: ReturnType<typeof setTimeout>;
-                })._t,
+                (
+                  e.currentTarget as HTMLInputElement & {
+                    _t?: ReturnType<typeof setTimeout>;
+                  }
+                )._t,
               );
               (
                 e.currentTarget as HTMLInputElement & {
@@ -71,10 +113,15 @@ export function LocationsFilterBar({
             {t("country")}
           </span>
           <div className="relative">
+            {/* Locked while a city is selected — the city pins its country;
+                clear the city to unlock it. */}
             <select
-              value={current.country}
-              onChange={(e) => update("country", e.currentTarget.value)}
-              className={`${SELECT_CLS} w-full`}
+              value={effectiveCountry}
+              disabled={!!current.city}
+              onChange={(e) =>
+                updateMany({ country: e.currentTarget.value, city: "" })
+              }
+              className={`${SELECT_CLS} w-full disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400`}
             >
               <option value="">{tCommon("all")}</option>
               {countries.map((c) => (
@@ -97,13 +144,24 @@ export function LocationsFilterBar({
           <div className="relative">
             <select
               value={current.city}
-              onChange={(e) => update("city", e.currentTarget.value)}
+              onChange={(e) => {
+                const city = e.currentTarget.value;
+                if (!city) {
+                  updateMany({ city: "" });
+                } else {
+                  // Selecting a city pins its country.
+                  const country =
+                    cities.find((c) => c.name === city)?.country ??
+                    current.country;
+                  updateMany({ city, country });
+                }
+              }}
               className={`${SELECT_CLS} w-full`}
             >
               <option value="">{tCommon("allAlt")}</option>
-              {cities.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              {visibleCities.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
                 </option>
               ))}
             </select>
@@ -114,6 +172,16 @@ export function LocationsFilterBar({
           </div>
         </label>
       </div>
+
+      {hasFilters && (
+        <button
+          type="button"
+          onClick={clearAll}
+          className="mt-3 text-sm text-brand-700 hover:underline"
+        >
+          {t("clearFilters")}
+        </button>
+      )}
     </div>
   );
 }

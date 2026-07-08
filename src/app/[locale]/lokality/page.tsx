@@ -3,17 +3,18 @@ import { Archive, X } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { HelpDialog } from "@/components/help/help-dialog";
+import { FilterActiveNotice } from "@/components/filter-active-notice";
 import { LocationsFilterBar } from "@/components/locations/locations-filter-bar";
 import { LocationsToolbar } from "@/components/locations/locations-toolbar";
 import { LocationListRow } from "@/components/locations/location-list-row";
 import {
   countAnonymizedAndFormerLocations,
   getLocationIdsWithRealPhotos,
-  listCadastralAreas,
-  listCountries,
   listLocations,
   type LocationSort,
 } from "@/lib/queries/locations";
+import { getFilterOptions } from "@/lib/queries/finds";
+import { buildFilterSummary } from "@/lib/filterSummary";
 import { cityFromCadastralArea } from "@/lib/locationCode";
 import { localizedCountryName } from "@/lib/world-countries";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
@@ -84,10 +85,11 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   const hasRealPhoto = pickString(sp.hasPhoto) === "1";
 
   const locale = await getLocale();
-  const [cities, countriesRaw, locations, toggleCounts, realPhotoIds] =
+  const [filterOptions, locations, toggleCounts, realPhotoIds] =
     await Promise.all([
-      listCadastralAreas(),
-      listCountries(),
+      // Shared with /sbirka — its `cities` carry the country each sits in,
+      // which the filter bar needs to cascade Stát → Město the same way.
+      getFilterOptions(),
       listLocations({
         q: q || undefined,
         cadastralArea: city || undefined,
@@ -103,29 +105,60 @@ export default async function LokalityPage({ searchParams }: PageProps) {
       getLocationIdsWithRealPhotos(),
     ]);
 
-  // Country names from listCountries are raw English (Natural Earth).
+  const cities = filterOptions.cities;
+  // Country names from the shared options are raw English (Natural Earth).
   // Localize at the page boundary so the dropdown renders the user's
-  // language while the upstream query stays cache-shareable across
-  // locales.
-  const countries = countriesRaw
+  // language while the upstream query stays cache-shareable across locales.
+  const countries = filterOptions.countries
     .map((c) => ({ code: c.code, name: localizedCountryName(c.name, locale) }))
     .sort((a, b) =>
       a.name.localeCompare(b.name, locale === "en" ? "en" : "cs"),
     );
 
-  // Anything that flips the listing away from the "default-default"
-  // view counts as an active filter for the "Zrušit filtry" button.
-  // Note this does NOT drive the summary text — the displayed count
-  // is ALWAYS filter-affected (hide-anon and hide-former are
-  // baseline defaults), so calling the default view "celkem" would
-  // mislead the visitor into thinking that's the full catalog size.
-  // `summarySuffix` is hard-wired to the "v aktuálním filtru"
-  // branch; the "total" branch of the i18n string stays for any
-  // future caller that genuinely wants it.
+  // Any real FILTER (not sort — sort is presentation, matching /sbirka)
+  // drives both the "Filtr je aktivní" notice and the "Zrušit filtry"
+  // button. Sort is deliberately excluded so merely re-sorting doesn't
+  // read as "filtered"; `clearAll` in the filter bar still keeps sort.
   const filterActive =
-    !!q || !!city || !!country || sort !== "finds" || showAnonymized
-      || showGone || hasRealPhoto || onlyGone;
+    !!q ||
+    !!city ||
+    !!country ||
+    showAnonymized ||
+    showGone ||
+    hasRealPhoto ||
+    onlyGone;
+  // The count under the heading is ALWAYS filter-affected (hide-anon +
+  // hide-former are baseline defaults), so it stays on the "v aktuálním
+  // filtru" branch rather than ever claiming to be the full catalog.
   const summarySuffix = "filtered";
+
+  // Human description of the active filters for the notice below the bar,
+  // built with /sbirka's shared buildFilterSummary. Only q / city / country
+  // apply here (the toggles read as pressed buttons in the toolbar), so the
+  // state / location / date resolvers are never reached.
+  const tSummary = await getTranslations("FilterSummary");
+  const filterSummary = filterActive
+    ? buildFilterSummary(
+        {
+          q: q || undefined,
+          cadastralArea: city || undefined,
+          country: country || undefined,
+        },
+        {
+          t: tSummary as unknown as (
+            k: string,
+            v?: Record<string, string | number>,
+          ) => string,
+          stateLabel: (s) => s,
+          locationLabel: () => "",
+          countryLabel: (code) =>
+            countries.find((c) => c.code === code)?.name ?? code,
+          cityLabel: (name) => name,
+          formatDay: (d) => d.toISOString(),
+          formatInstant: (d) => d.toISOString(),
+        },
+      )
+    : "";
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
@@ -184,7 +217,16 @@ export default async function LokalityPage({ searchParams }: PageProps) {
         cities={cities}
         countries={countries}
         current={{ q, city, country }}
+        hasFilters={filterActive}
       />
+
+      {filterActive && (
+        <FilterActiveNotice
+          label={t("filterActive")}
+          matches={t("filterMatches", { count: locations.length })}
+          summary={filterSummary}
+        />
+      )}
 
       <LocationsToolbar
         current={{
@@ -192,7 +234,6 @@ export default async function LokalityPage({ searchParams }: PageProps) {
           showAnonymized,
           showGone,
           hasRealPhoto,
-          hasFilters: filterActive,
         }}
         anonymizedCount={toggleCounts.anonymized}
         formerCount={toggleCounts.former}

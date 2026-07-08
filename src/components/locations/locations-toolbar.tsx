@@ -33,7 +33,6 @@ export function LocationsToolbar({
     showAnonymized: boolean;
     showGone: boolean;
     hasRealPhoto: boolean;
-    hasFilters: boolean;
   };
   /** Total locations the "Anonymizované" toggle would reveal when
    *  switched on — surfaced in the button label so the visitor sees
@@ -69,12 +68,6 @@ export function LocationsToolbar({
     update(key, on ? "1" : "");
   };
 
-  const clearAll = () => {
-    startTransition(() => {
-      router.push(pathname);
-    });
-  };
-
   return (
     <div
       className={`flex flex-wrap items-center justify-between gap-3 transition-opacity ${
@@ -103,15 +96,6 @@ export function LocationsToolbar({
           label={t("hasRealPhoto")}
           count={realPhotoCount}
         />
-        {current.hasFilters && (
-          <button
-            type="button"
-            onClick={clearAll}
-            className="ml-1 text-sm text-brand-700 hover:underline"
-          >
-            {t("clearFilters")}
-          </button>
-        )}
       </div>
 
       {/* Sort: single dropdown instead of a 6-button group. Native

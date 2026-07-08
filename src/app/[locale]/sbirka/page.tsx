@@ -8,6 +8,7 @@ import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { Link } from "@/i18n/navigation";
 import { CollectionProgressBanner } from "@/components/finds/collection-progress-banner";
 import { CollectionInfo } from "@/components/finds/collection-info";
+import { FilterActiveNotice } from "@/components/filter-active-notice";
 import { FilterBar } from "@/components/finds/filter-bar";
 import { HelpDialog } from "@/components/help/help-dialog";
 import { RememberSbirkaSearch } from "@/components/finds/sbirka-back-link";
@@ -449,7 +450,6 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
             title={tHelp("modalTitle")}
             buttonTitle={tHelp("buttonTitle")}
             buttonAriaLabel={tHelp("buttonAria")}
-            buttonClassName="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-gray-400 transition hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             intro={tHelp("intro")}
             sections={[
               {
@@ -515,35 +515,26 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
       />
 
       {hasFilters && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2 text-sm text-brand-900">
-          <span>
-            {t("filterActive")}{" "}
-            <strong className="font-semibold">
-              {t("filterMatches", { count: result.total })}
-            </strong>
-            {filterSummary && (
-              <span className="font-normal text-brand-800/80">
-                {" "}
-                ({filterSummary})
-              </span>
-            )}
-          </span>
-          {/* Map link only renders for the two filter shapes that
-              translate to a meaningful map view — see mapLinkApplies
-              above. City / country / state-only / etc. multi-region
-              filters hide the chip; for them /mapa would just show
-              the world with diffuse highlight dim, which the user
-              flagged as worse than no chip at all. */}
-          {mapLinkApplies && (
-            <Link
-              href={buildMapHref(filters)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-sm font-medium text-brand-800 shadow-sm transition hover:border-brand-500 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-            >
-              <MapIcon className="h-4 w-4" aria-hidden />
-              <span>{t("showOnMap")}</span>
-            </Link>
-          )}
-        </div>
+        <FilterActiveNotice
+          label={t("filterActive")}
+          matches={t("filterMatches", { count: result.total })}
+          summary={filterSummary}
+          // Map link only renders for the two filter shapes that translate
+          // to a meaningful map view — see mapLinkApplies above. City /
+          // country / state-only / etc. multi-region filters hide the chip;
+          // for them /mapa would just show the world with a diffuse dim.
+          action={
+            mapLinkApplies ? (
+              <Link
+                href={buildMapHref(filters)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-sm font-medium text-brand-800 shadow-sm transition hover:border-brand-500 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              >
+                <MapIcon className="h-4 w-4" aria-hidden />
+                <span>{t("showOnMap")}</span>
+              </Link>
+            ) : undefined
+          }
+        />
       )}
 
       <ViewSortToolbar

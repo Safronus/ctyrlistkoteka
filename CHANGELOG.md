@@ -9,6 +9,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /lokality sladěno s /sbirka (+ sdílené komponenty)
+- **Ikona nápovědy bez kolečka** — borderless je nově **default** v
+  `HelpDialog`, takže /sbirka, /lokality i /statistiky vypadají stejně
+  (/mapa má vlastní styl). Redundantní override na /sbirka odstraněn.
+- **Kaskáda Stát ↔ Město** ve filtru lokalit jako na /sbirka (výběr města
+  připne stát, výběr státu zúží města). Města i státy nově berou ze
+  **sdíleného `getFilterOptions`** (nese vazbu město→stát).
+- **„Zrušit filtry"** přesunuto z toolbaru na **spodek filter-baru** (stejné
+  místo jako /sbirka); zachovává řazení, čistí jen filtry.
+- **Řádek „Filtr je aktivní — N 🍀 lokalit odpovídá filtru (*popis*)"** pod
+  filtry, stejně jako nedávná korekce na /sbirka. Počítá vyfiltrované
+  lokality a popisuje filtr (hledání / město / stát). `sort` už nepočítá
+  jako filtr (jako na /sbirka).
+- **Sjednoceno**: nová sdílená `FilterActiveNotice` (používá /sbirka i
+  /lokality) + reuse `buildFilterSummary` a `getFilterOptions`. Oba
+  filter-bary zůstávají zvlášť (filtrují jiné entity), ale sdílí tyto kusy.
+
 ### Drobné korekce stylu
 - **Karta zajímavostí (Domů)**: tlačítko „další fakt" (shuffle) je na mobilu
   nově vpravo dole — dekorativní watermark smajlík v levém dolním rohu

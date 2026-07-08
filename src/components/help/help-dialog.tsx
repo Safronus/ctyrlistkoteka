@@ -34,8 +34,8 @@ export function HelpDialog({
   intro,
   sections,
   /** Optional inline class overrides for the button. Used on /mapa to
-   *  match the Vrstvy panel's color scheme; defaults work for h1
-   *  adjacencies on /sbirka + /lokality. */
+   *  match the Vrstvy panel's color scheme; the default (a borderless
+   *  icon) suits the h1 adjacencies on /sbirka, /lokality + /statistiky. */
   buttonClassName,
 }: {
   title: string;
@@ -75,7 +75,7 @@ export function HelpDialog({
         aria-label={buttonAriaLabel}
         className={
           buttonClassName ??
-          "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+          "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-gray-400 transition hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
         }
       >
         <HelpCircle className="h-4 w-4" aria-hidden />
