@@ -9,6 +9,24 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /lokality — rozbalený detail: náhledy prvního/posledního nálezu
+- Rozbalená část řádku lokality přepracována kolem **prvního a posledního
+  nálezu**:
+  - **Ořezový náhled** (crop) nálezu doleva před popis — **klikatelný na
+    detail nálezu** (`/sbirka/{id}`).
+  - **Pin v pravém horním rohu** karty → **nález na mapě** (`/mapa?find={id}`).
+    Skrytý u anonymizovaných lokalit, aby se neprozradila poloha skrytého
+    místa (crop na /sbirka zůstává — self-anonymizuje se).
+  - Titulky **„První 🍀 #id"** / **„Poslední 🍀 #id"**.
+  - **Odstraněno** (redundantní — je to výš v nerozbalené části): panel
+    „Celkem nálezů" a tlačítka „První nález" / „Poslední nález" / „Vše ve
+    sbírce". Tlačítka nahrazuje klik na ořez.
+- V nerozbalené části **„N nálezů" → „N 🍀"**.
+- Crop náhledy prvního/posledního nálezu dodává `listLocations` jedním
+  dávkovým dotazem (po foldu rodič/dítě). Uklizeny mrtvé i18n klíče
+  (`totalFinds`, `firstFound`, `lastFound`, `firstFindLink`, `lastFindLink`,
+  `allInCollectionLink`, `ownVsChildren`).
+
 ### /mapa — panel Vrstvy se na mobilu už nepřekrývá s detailem lokality
 - Na mobilu se rozbalený panel **Vrstvy** kreslil **za** kartou detailu
   lokality (vyšší z-index) → toggly byly schované. Nově tvoří obě karty

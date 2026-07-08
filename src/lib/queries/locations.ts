@@ -7,7 +7,7 @@
  * straight from the server payload — no extra fetch on click.
  */
 
-import { FindState, Prisma } from "@prisma/client";
+import { FindState, ImageType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_LOCATION_ID, POLYGON_FREE_AREA_M2 } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
@@ -118,6 +118,16 @@ export interface LocationListItem {
    *  without children, so call sites that don't care about the split can
    *  read `aggregateStats` unconditionally. */
   aggregateStats: LocationStats;
+  /** CROP thumbnail (magnified leaf cut-out) of the aggregate first / last
+   *  find — the expanded detail shows each as a clickable thumbnail linking
+   *  to the find. Null when that find has no crop image (or there is no
+   *  first/last find). Populated in one batched query after the fold, since
+   *  the aggregate first/last find IDs are only final post-fold. Safe for
+   *  anonymized finds too: the crop is just a leaf, and the find page
+   *  self-anonymizes — but the map-pin link built from it is gated on the
+   *  LOCATION not being anonymized (see the row component). */
+  firstFindCropUrl: string | null;
+  lastFindCropUrl: string | null;
   /** True when at least one of this location's non-anonymized maps has
    *  a matching real-life photo on disk in
    *  `${GENERATED_DIR}/location-photos/`. Drives the "Reálná fotka"
@@ -600,6 +610,11 @@ export async function listLocations(
         childCount: 0,
         stats: visibleStats,
         aggregateStats: visibleStats,
+        // Filled by the batched crop fetch below (the leaf close-up doesn't
+        // reveal WHERE, and the find page self-anonymizes). The map-pin link
+        // built from it stays hidden for anonymized locations in the row.
+        firstFindCropUrl: null,
+        lastFindCropUrl: null,
         // Anonymized locations don't expose photo presence — even the
         // boolean would leak whether the user has a real-life photo of
         // a private spot.
@@ -646,6 +661,10 @@ export async function listLocations(
       childCount: 0,
       stats,
       aggregateStats,
+      // Filled by the batched crop fetch below, once the fold has settled
+      // the aggregate first/last find IDs.
+      firstFindCropUrl: null,
+      lastFindCropUrl: null,
       hasRealPhoto: realPhotoLocs.has(l.id),
     };
   });
@@ -714,6 +733,37 @@ export async function listLocations(
       item.aggregateStats.total > 0
         ? (item.aggregateStats.total / item.effectiveAreaM2) * 100
         : null;
+  }
+
+  // ------------------------------------------------------------ first/last crop thumbnails
+  // One batched query for the CROP close-up of every visible location's
+  // aggregate first + last find (IDs are final now that the fold settled).
+  // The expanded detail renders these as clickable thumbnails. Cheap: a
+  // single indexed lookup returning ~2 short URL strings per location.
+  const cropFindIds = [
+    ...new Set(
+      items.flatMap((it) => [
+        it.aggregateStats.firstFindId,
+        it.aggregateStats.lastFindId,
+      ]),
+    ),
+  ].filter((id): id is number => id !== null);
+  if (cropFindIds.length > 0) {
+    const cropRows = await prisma.findImage.findMany({
+      where: { findId: { in: cropFindIds }, imageType: ImageType.CROP },
+      select: { findId: true, thumbPath: true },
+    });
+    const cropById = new Map<number, string>();
+    for (const r of cropRows) {
+      if (!cropById.has(r.findId)) cropById.set(r.findId, r.thumbPath);
+    }
+    for (const item of items) {
+      const { firstFindId, lastFindId } = item.aggregateStats;
+      item.firstFindCropUrl =
+        firstFindId !== null ? (cropById.get(firstFindId) ?? null) : null;
+      item.lastFindCropUrl =
+        lastFindId !== null ? (cropById.get(lastFindId) ?? null) : null;
+    }
   }
 
   // ------------------------------------------------------------ sort

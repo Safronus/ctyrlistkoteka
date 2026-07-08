@@ -330,7 +330,7 @@ function RowCount({
   const view = location.aggregateStats;
   return (
     <p className="text-sm font-medium text-brand-700">
-      {t("countSuffix", { count: view.total })}
+      {t("findCountClover", { count: view.total })}
       {hasChildren && (
         <span className="ml-2 text-xs font-normal text-gray-500">
           {t("subpartsCountSuffix")}
@@ -377,21 +377,36 @@ function StatsPanel({
         <p className="text-sm text-gray-500">{t("emptyForLocation")}</p>
       ) : (
         <div className="space-y-4">
-          <SummaryRow
-            ownTotal={location.stats.total}
-            aggregateTotal={view.total}
-            firstFoundAt={view.firstFoundAt}
-            lastFoundAt={view.lastFoundAt}
-            childCount={location.childCount}
-            t={t}
-          />
-
-          <DetailLinks
-            firstFindId={view.firstFindId}
-            lastFindId={view.lastFindId}
-            locationId={location.id}
-            t={t}
-          />
+          {/* First + last find as thumbnail cards. The total count and the
+              "Vše ve sbírce" link are deliberately NOT repeated here — both
+              already sit in the collapsed row above. The crop is the link to
+              the find detail; the corner pin (non-anonymized locations only,
+              so an anon spot's position can't leak) opens it on the map. */}
+          {(view.firstFindId !== null || view.lastFindId !== null) && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {view.firstFindId !== null && (
+                <FindCard
+                  kind="first"
+                  id={view.firstFindId}
+                  cropUrl={location.firstFindCropUrl}
+                  foundAt={view.firstFoundAt}
+                  showMapPin={!anon}
+                  t={t}
+                />
+              )}
+              {view.lastFindId !== null &&
+                view.lastFindId !== view.firstFindId && (
+                  <FindCard
+                    kind="last"
+                    id={view.lastFindId}
+                    cropUrl={location.lastFindCropUrl}
+                    foundAt={view.lastFoundAt}
+                    showMapPin={!anon}
+                    t={t}
+                  />
+                )}
+            </div>
+          )}
 
           {view.states.length > 0 && (
             <div>
@@ -438,109 +453,87 @@ function StatsPanel({
   );
 }
 
-function SummaryRow({
-  ownTotal,
-  aggregateTotal,
-  firstFoundAt,
-  lastFoundAt,
-  childCount,
+/** First / last find as a thumbnail card: the CROP close-up links to the
+ *  find detail, the corner pin opens it on the map (non-anonymized locations
+ *  only — see `showMapPin`). Replaces the old total/first/last stat grid +
+ *  the "První/Poslední nález" + "Vše ve sbírce" button row (all redundant
+ *  with the collapsed row above). */
+function FindCard({
+  kind,
+  id,
+  cropUrl,
+  foundAt,
+  showMapPin,
   t,
 }: {
-  ownTotal: number;
-  aggregateTotal: number;
-  firstFoundAt: string | null;
-  lastFoundAt: string | null;
-  childCount: number;
+  kind: "first" | "last";
+  id: number;
+  cropUrl: string | null;
+  foundAt: string | null;
+  /** Hidden for anonymized locations — opening the find on the map would
+   *  reveal the hidden spot's position. The crop → find page stays (it
+   *  self-anonymizes). */
+  showMapPin: boolean;
   t: RowT;
 }) {
   const locale = useLocale();
   const tTimeSince = useTranslations("TimeSince");
-  const first = firstFoundAt ? new Date(firstFoundAt) : null;
-  const last = lastFoundAt ? new Date(lastFoundAt) : null;
-  const hasChildren = childCount > 0;
-  const totalSub = hasChildren
-    ? t("ownVsChildren", {
-        own: ownTotal,
-        children: aggregateTotal - ownTotal,
-      })
-    : null;
+  const found = foundAt ? new Date(foundAt) : null;
+  const title =
+    kind === "first"
+      ? t("firstFindTitle", { id })
+      : t("lastFindTitle", { id });
   return (
-    <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-      <Stat
-        label={t("totalFinds")}
-        value={String(aggregateTotal)}
-        sub={totalSub}
-      />
-      <Stat
-        label={t("firstFound")}
-        value={first ? formatDateTimeCs(first, locale) : "—"}
-        sub={first ? formatTimeSinceCs(first, tTimeSince) : null}
-      />
-      <Stat
-        label={t("lastFound")}
-        value={last ? formatDateTimeCs(last, locale) : "—"}
-        sub={last ? formatTimeSinceCs(last, tTimeSince) : null}
-      />
-    </dl>
-  );
-}
-
-function DetailLinks({
-  firstFindId,
-  lastFindId,
-  locationId,
-  t,
-}: {
-  firstFindId: number | null;
-  lastFindId: number | null;
-  locationId: number;
-  t: RowT;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {firstFindId !== null && (
-        <Link
-          href={`/sbirka/${firstFindId}`}
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
-        >
-          {t("firstFindLink", { id: firstFindId })}
-        </Link>
-      )}
-      {lastFindId !== null && lastFindId !== firstFindId && (
-        <Link
-          href={`/sbirka/${lastFindId}`}
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
-        >
-          {t("lastFindLink", { id: lastFindId })}
-        </Link>
-      )}
+    <div className="relative flex items-center gap-3 rounded-md border border-gray-200 bg-white p-3">
+      {/* Crop → find detail. stopPropagation so the click doesn't also
+          toggle the row open/closed. */}
       <Link
-        href={`/sbirka?loc=${locationId}`}
+        href={`/sbirka/${id}`}
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+        aria-label={t("openFindAria", { id })}
+        className="block h-16 w-16 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-50 transition hover:border-brand-300 hover:shadow-sm"
       >
-        {t("allInCollectionLink")}
+        {cropUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={cropUrl}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center text-2xl text-gray-300">
+            🍀
+          </span>
+        )}
       </Link>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub?: string | null;
-}) {
-  return (
-    <div className="rounded-md border border-gray-200 bg-white p-3">
-      <dt className="text-xs font-medium text-gray-500">{label}</dt>
-      <dd className="mt-1 text-sm font-semibold text-gray-900">{value}</dd>
-      {sub && <dd className="mt-0.5 text-xs text-gray-500">{sub}</dd>}
+      {/* pr leaves room for the corner pin so the title never runs under it. */}
+      <div className="min-w-0 flex-1 pr-6">
+        <p className="text-sm font-semibold text-gray-900">{title}</p>
+        {found && (
+          <p className="text-xs text-gray-600">
+            {formatDateTimeCs(found, locale)}
+          </p>
+        )}
+        {found && (
+          <p className="text-xs text-gray-400">
+            {formatTimeSinceCs(found, tTimeSince)}
+          </p>
+        )}
+      </div>
+      {showMapPin && (
+        <Link
+          href={`/mapa?find=${id}`}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={t("showFindOnMapAria")}
+          title={t("showFindOnMapAria")}
+          className="absolute right-2 top-2 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white p-1 text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+        >
+          <MapPin className="h-4 w-4" aria-hidden />
+        </Link>
+      )}
     </div>
   );
 }
