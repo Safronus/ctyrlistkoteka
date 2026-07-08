@@ -32,10 +32,46 @@ export interface PhotoDisplay {
    *  already wider than the floor (so wide photos keep the nav aligned to the
    *  image, as before). */
   layoutWidthCss: string;
+  /** Present only for the home showcase (opt in via `landscapeOnTall`). See
+   *  {@link TallRotate}. Everything else leaves it undefined and renders
+   *  exactly as before. */
+  tallRotate?: TallRotate;
+}
+
+/** Showcase-only viewport-conditional LANDSCAPE flip.
+ *
+ *  The random-find showcase spans the full page column so its left/right
+ *  edges line up with the "První vs poslední" pair above it. But a full-width
+ *  TALL portrait then overflows a short window (e.g. FullHD) — you only see
+ *  the top half. On wide windows where the upright full-width portrait no
+ *  longer fits the viewport height, we flip the DISPLAY to landscape: still
+ *  full width (edges keep lining up), now short enough to fit. `ImageGallery`
+ *  turns these numbers into a per-image `@media` rule (no JS, no flash). */
+export interface TallRotate {
+  /** `min-width` of the media query — at/above this the page column is at its
+   *  capped width, so the portrait is at its tallest (below it the photo is
+   *  narrower and more likely to fit upright, so we don't flip). */
+  minWidthPx: number;
+  /** `max-height` of the media query — below this the upright full-width
+   *  portrait no longer fits, so flip to landscape. */
+  maxHeightPx: number;
+  /** Box `aspect-ratio` in the flipped (landscape) state (width / height). */
+  altAspectRatio: string;
+  /** Whether the IMG is 90°-rotated in the flipped state: true for a portrait
+   *  original (must rotate to read landscape), false for a landscape original
+   *  (the flip just drops the portrait rotation, showing it natural). */
+  altRotated: boolean;
 }
 
 /** Default fraction of the viewport height the photo may occupy. */
 const MAX_VH = 70;
+
+/** Home page column width on wide viewports: max-w-7xl (1280) − lg px-8 (64).
+ *  Used to size the landscape-flip media-query threshold. */
+const SHOWCASE_MAX_WIDTH_PX = 1216;
+/** Vertical room reserved above the showcase photo (the "Náhodný 🍀 #id"
+ *  title) when deciding whether the upright portrait fits. */
+const SHOWCASE_TALL_MARGIN_PX = 64;
 
 export function photoDisplay(
   width: number | null | undefined,
@@ -45,6 +81,7 @@ export function photoDisplay(
     maxVh = MAX_VH,
     fill = false,
     minWidthPx,
+    landscapeOnTall = false,
   }: {
     rotate: boolean;
     /** Cap the photo's height at this % of the viewport, so a tall portrait
@@ -68,6 +105,10 @@ export function photoDisplay(
      *  photo can then sit at whatever (smaller) width it is; the nav stays
      *  comfortably wide. Omit to keep the nav equal to the photo width. */
     minWidthPx?: number;
+    /** Home showcase only: emit {@link TallRotate} so a full-width tall
+     *  portrait flips to landscape on short-but-wide windows instead of
+     *  overflowing. No effect anywhere it isn't passed. */
+    landscapeOnTall?: boolean;
   },
 ): PhotoDisplay | null {
   if (!width || !height) return null;
@@ -90,6 +131,23 @@ export function photoDisplay(
     fill || minWidthPx == null
       ? widthCss
       : `min(100%, max(${minWidthPx}px, ${naturalWidth}))`;
+  // Landscape-flip params (showcase only). The flip fires when the upright
+  // full-width portrait (at the capped column width) is taller than the
+  // window; then the box turns landscape (aspect swapped) and the IMG rotates
+  // iff the original was portrait. altRotated = !landscape covers both:
+  // portrait originals rotate to read landscape, landscape originals just drop
+  // their portrait rotation.
+  const tallRotate: TallRotate | undefined = landscapeOnTall
+    ? {
+        minWidthPx: 1280,
+        maxHeightPx: Math.round(
+          (SHOWCASE_MAX_WIDTH_PX * displayHeight) / displayWidth +
+            SHOWCASE_TALL_MARGIN_PX,
+        ),
+        altAspectRatio: `${displayHeight} / ${displayWidth}`,
+        altRotated: !landscape,
+      }
+    : undefined;
   return {
     rotated: landscape,
     displayWidth,
@@ -97,5 +155,6 @@ export function photoDisplay(
     aspectRatio: `${displayWidth} / ${displayHeight}`,
     widthCss,
     layoutWidthCss,
+    tallRotate,
   };
 }

@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Domů — „Náhodný čtyřlístek" se na širokoúzkém okně otočí na šířku
+- Showcase fotka vyplňovala 100 % šířky sloupce bez stropu na výšku, takže
+  vysoký portrét na FullHD přetekl (vidět půlka). Nově: **vejde-li se
+  vzpřímený, nech ho** (4K/vysoká okna beze změny); **nevejde-li se na výšku**
+  (široké-krátké okno), **překlopí se na šířku** — pořád **plná šířka** (hrany
+  lícují s párem prvního/posledního nálezu nad ním), teď dost nízký, aby byl
+  **celý vidět**. Portrét originál se otočí o 90°, landscape originál se ukáže
+  ve své **přirozené šířce**. Overlaye (ikony, datum) zůstávají **vzpřímené**,
+  crop/lupa se otáčí s fotkou.
+- Čistě CSS (per-image `@media (min-width:1280px) and (max-height:…)`, práh
+  z rozměrů fota) — **žádný JS, žádné probliknutí**. Za flag `landscapeOnTall`,
+  který posílá **jen showcase** → sdílená `ImageGallery` na detailu /sbirka se
+  chová **beze změny**. Fullscreen (šetřič) se **neotáčí** (plní se dle výšky).
+
 ### /lokality — návrat zpět znovu rozbalí lokalitu
 - Rozbalený řádek lokality se zrcadlí do URL (`?open=id,id2`) přes nativní
   `replaceState` (bez reloadu, bez re-renderu ostatních řádků). Po prokliku

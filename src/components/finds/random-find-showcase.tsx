@@ -147,12 +147,15 @@ export function RandomFindShowcaseWidget({
   // map deep-link is suppressed for anonymized finds (hasMapPosition is
   // already false for them server-side).
   const isLost = find.states.includes(FindState.LOST);
-  // Explicit photo-box width for the overlay wrapper — must match the
-  // ImageGallery figure (same rotate + fill flags) so the overlays line up.
-  // fill → the photo spans exactly 100% of the page column, so its left/
-  // right edges line up with the "První vs poslední" pair that spans the
-  // same width; a tall portrait then scrolls past the fold, which the user
-  // accepts. Landscapes are rotated 90° CW to portrait, like the detail.
+  // Explicit photo-box width for the overlay wrapper — 100% (fill) so its
+  // left/right edges line up with the "První vs poslední" pair above, which
+  // spans the same column. Landscapes are rotated 90° CW to portrait like the
+  // detail. `landscapeOnTall` (passed to the ImageGallery below, not needed
+  // here — this disp is only read for widthCss) makes a full-width tall
+  // portrait FLIP to landscape on short-but-wide windows so the whole photo
+  // stays visible without breaking that edge alignment (see photoBox
+  // TallRotate); the wrapper stays 100% wide either way, its height just
+  // follows the (now shorter) figure.
   const disp = photoDisplay(
     find.primaryImage?.width,
     find.primaryImage?.height,
@@ -190,8 +193,9 @@ export function RandomFindShowcaseWidget({
 
       {/* Full-width photo (fill) — spans exactly 100% of the page column so
           its left/right edges line up with the first/last find photos that
-          span the same width. A tall portrait then scrolls past the fold,
-          which the user prefers over a smaller centered photo. The wrapper
+          span the same width. On short-but-wide windows a tall portrait would
+          overflow, so `landscapeOnTall` flips it to landscape (still full
+          width, now fitting) instead — see photoBox TallRotate. The wrapper
           takes the SAME explicit width as the ImageGallery figure so the
           overlays line up; an explicit width (not `w-fit`) avoids the
           shrink-to-zero collapse. */}
@@ -207,6 +211,7 @@ export function RandomFindShowcaseWidget({
           muted={isLost}
           fill
           rotateLandscape
+          landscapeOnTall
           voteSlot={
             // Keyed by find.id so the rotation remounts it with the fresh
             // count + the voted state hydrated above.

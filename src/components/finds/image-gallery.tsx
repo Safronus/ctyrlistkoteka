@@ -1,14 +1,40 @@
 "use client";
 
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useId, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import type { PublicImage } from "@/lib/queries/finds";
 import type { FindPhotoEntry } from "@/lib/findPhotos";
 import type { FindFreePhotoEntry } from "@/lib/findFreePhotos";
-import { photoDisplay } from "@/lib/photoBox";
+import { photoDisplay, type PhotoDisplay, type TallRotate } from "@/lib/photoBox";
 import { DonationPhotosButton } from "./donation-photos-button";
 import { FreePhotosButton } from "./free-photos-button";
+
+/** Per-image CSS for the home showcase's landscape-on-tall flip (photoBox
+ *  {@link TallRotate}). Scoped by a unique class so it only touches this one
+ *  gallery. The plain rules are the DEFAULT (upright, == current behaviour);
+ *  the `@media` block flips the box aspect + the img/crop rotation on
+ *  short-but-wide windows. Emitted ONLY when `disp.tallRotate` is set (the
+ *  showcase) — the detail page never gets it. */
+function tallRotateCss(cls: string, disp: PhotoDisplay, tr: TallRotate): string {
+  const upright =
+    "position:absolute;inset:0;width:100%;height:100%;max-width:100%;transform:none";
+  const rotated =
+    "position:absolute;inset:auto;left:50%;top:50%;width:100cqh;height:100cqw;max-width:none;transform:translate(-50%,-50%) rotate(90deg)";
+  const defImg = disp.rotated ? rotated : upright;
+  const altImg = tr.altRotated ? rotated : upright;
+  const defCt = disp.rotated ? "size" : "normal";
+  const altCt = tr.altRotated ? "size" : "normal";
+  return [
+    `.${cls}-box{aspect-ratio:${disp.aspectRatio};container-type:${defCt}}`,
+    `.${cls}-main,.${cls}-crop{${defImg}}`,
+    `.${cls}-main{object-fit:cover}`,
+    `.${cls}-crop{object-fit:contain}`,
+    `@media (min-width:${tr.minWidthPx}px) and (max-height:${tr.maxHeightPx}px){` +
+      `.${cls}-box{aspect-ratio:${tr.altAspectRatio};container-type:${altCt}}` +
+      `.${cls}-main,.${cls}-crop{${altImg}}}`,
+  ].join("");
+}
 
 /**
  * Renders the find's main photo (ORIGINAL) with an optional zoom button.
@@ -48,6 +74,7 @@ export function ImageGallery({
   rotateLandscape = false,
   maxVh,
   fill = false,
+  landscapeOnTall = false,
   placeholderWidthCss,
   placeholderAspectRatio,
 }: {
@@ -107,6 +134,11 @@ export function ImageGallery({
    *  edges line up with the container — the home showcase uses this. See
    *  photoDisplay. */
   fill?: boolean;
+  /** Home showcase only: flip a full-width tall portrait to landscape on
+   *  short-but-wide windows so the whole photo stays visible without shrinking
+   *  it off the column edges. Forwarded to photoDisplay; drives the injected
+   *  per-image media query. No effect on the detail page (never passed). */
+  landscapeOnTall?: boolean;
   /** For the NO_PHOTO placeholder: the width + aspect a real photo would
    *  have occupied, so the placeholder fills the same area (and the map
    *  below still lines up). Defaults to a 16:9 box when omitted. */
@@ -116,6 +148,9 @@ export function ImageGallery({
   const t = useTranslations("ImageGallery");
   const tCommon = useTranslations("Common");
   const [showCrop, setShowCrop] = useState(false);
+  // Stable unique scope for the showcase landscape-flip CSS (see below).
+  // Sanitised because useId() contains ':' which isn't valid in a selector.
+  const galleryId = useId().replace(/[^a-zA-Z0-9]/g, "");
 
   // The free-photo button stacks below the camera (top-28) when both
   // galleries are present; otherwise it takes the camera's top-16 slot
@@ -201,8 +236,15 @@ export function ImageGallery({
     rotate: rotateLandscape,
     maxVh,
     fill,
+    landscapeOnTall,
   });
   const filterCls = muted ? "grayscale sepia-[0.12]" : "";
+  // Showcase landscape-flip: when photoDisplay hands back `tallRotate`, the
+  // box + imgs are driven by an injected, scoped `<style>` (so a media query
+  // can flip them) instead of the inline transforms below. `tr` null → the
+  // detail page's exact current behaviour.
+  const tr = disp?.tallRotate ?? null;
+  const rf = tr ? `rf-${galleryId}` : "";
 
   // Rotated images fill the box via container-query units (100cqh wide,
   // 100cqw tall, then rotated 90° — see photoBox.ts for the geometry);
@@ -226,15 +268,18 @@ export function ImageGallery({
       style={disp ? { width: disp.widthCss, maxWidth: "100%" } : undefined}
     >
       {topBanner}
+      {tr && disp && <style>{tallRotateCss(rf, disp, tr)}</style>}
       <div
-        className="relative"
+        className={`relative ${tr ? `${rf}-box` : ""}`}
         style={
-          disp
-            ? {
-                aspectRatio: disp.aspectRatio,
-                ...(disp.rotated ? { containerType: "size" } : {}),
-              }
-            : undefined
+          tr
+            ? undefined
+            : disp
+              ? {
+                  aspectRatio: disp.aspectRatio,
+                  ...(disp.rotated ? { containerType: "size" } : {}),
+                }
+              : undefined
         }
       >
         {/* Served by Nginx; Next Image optimizer not needed. */}
@@ -245,13 +290,15 @@ export function ImageGallery({
           width={image.width}
           height={image.height}
           className={
-            disp?.rotated
-              ? `object-cover ${mainImgCls}`
-              : disp
-                ? `absolute inset-0 h-full w-full object-cover ${mainImgCls}`
-                : `block h-auto w-full ${mainImgCls}`
+            tr
+              ? `${rf}-main ${mainImgCls}`
+              : disp?.rotated
+                ? `object-cover ${mainImgCls}`
+                : disp
+                  ? `absolute inset-0 h-full w-full object-cover ${mainImgCls}`
+                  : `block h-auto w-full ${mainImgCls}`
           }
-          style={disp?.rotated ? rotatedImgStyle : undefined}
+          style={tr ? undefined : disp?.rotated ? rotatedImgStyle : undefined}
         />
         {cropImage && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -259,10 +306,16 @@ export function ImageGallery({
             src={cropImage.webPath}
             alt={t("cropAlt", { base: altBase })}
             aria-hidden={!showCrop}
-            className={`pointer-events-none object-contain transition-opacity duration-150 ${
-              disp?.rotated ? "" : "absolute inset-0 h-full w-full"
-            } ${showCrop ? "opacity-100" : "opacity-0"} ${filterCls}`}
-            style={disp?.rotated ? rotatedImgStyle : undefined}
+            className={
+              tr
+                ? `${rf}-crop pointer-events-none transition-opacity duration-150 ${
+                    showCrop ? "opacity-100" : "opacity-0"
+                  } ${filterCls}`
+                : `pointer-events-none object-contain transition-opacity duration-150 ${
+                    disp?.rotated ? "" : "absolute inset-0 h-full w-full"
+                  } ${showCrop ? "opacity-100" : "opacity-0"} ${filterCls}`
+            }
+            style={tr ? undefined : disp?.rotated ? rotatedImgStyle : undefined}
           />
         )}
         {/* Show-on-map pin — top-LEFT overlay. */}
