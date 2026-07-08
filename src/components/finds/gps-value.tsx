@@ -18,11 +18,13 @@ export function GpsValue({
 }: {
   lat: number;
   lng: number;
-  /** "default" — gray-on-white (used in /lokality and the regular
-   *  find-detail header). "dark" — red-tinted, used by the hellish
-   *  #666 detail where the surrounding background is dark. "brand" —
-   *  brand-green, matching the location-map deep-link chips; used by the
-   *  find-detail photo's GPS overlay. */
+  /** "default" — green "GPS" label (matching every other uppercase
+   *  section eyebrow site-wide) with a neutral gray coordinate value;
+   *  used in /lokality and the regular find-detail header. "dark" —
+   *  red-tinted, used by the hellish #666 detail where the surrounding
+   *  background is dark. "brand" — fully brand-green (value included),
+   *  matching the location-map deep-link chips; used by the find-detail
+   *  photo's GPS overlay. */
   tone?: "default" | "dark" | "brand";
 }) {
   const t = useTranslations("GpsValue");
@@ -43,9 +45,9 @@ export function GpsValue({
   const labelCls =
     tone === "dark"
       ? "text-xs font-medium uppercase tracking-wide text-red-300/80"
-      : tone === "brand"
-        ? "text-xs font-medium uppercase tracking-wide text-brand-700"
-        : "text-xs font-medium uppercase tracking-wide text-gray-500";
+      : // default + brand share the green label; they differ in the value
+        // colour below (default keeps a neutral gray coordinate).
+        "text-xs font-medium uppercase tracking-wide text-brand-700";
   const valueCls =
     tone === "dark"
       ? "font-mono text-red-100"

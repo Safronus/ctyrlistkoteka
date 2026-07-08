@@ -20,9 +20,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   na **`brand-700`** kvůli konzistenci — nejdřív `/statistiky` (17), pak
   sjednoceno i na **Domů, lokality, `/sbirka` toolbar a `/mapa` sidebar**
   (dalších 13). Zelený akcent jako jinde na webu (hodnoty u nich už zelené
-  byly). Kontrast 7,8:1 (světlý) / 10,2:1 (dark). Neutrální **záměrně**
-  zůstávají: muted stavy (jubilejní placeholdery), legenda kompasu, datové
-  popisky a `gps-value` v default tónu (má vlastní `tone="brand"` pro zelenou).
+  byly). Kontrast 7,8:1 (světlý) / 10,2:1 (dark). Popisek **„GPS"**
+  (`gps-value`, ~175× na `/lokality`) v default tónu je taky zelený — jen
+  samotná souřadnice zůstává neutrální `gray-800` (popisek zelený, hodnota
+  neutrální). Neutrální **záměrně** zůstávají: muted stavy (jubilejní
+  placeholdery), legenda kompasu a datové popisky.
 
 ### Dlaždice /sbirka — banner s pinem + lajkem, dark popup na mapě
 - **Banner dlaždice** přeskládán: **pin s proklikem na mapu** (`/mapa?find=<id>`,
