@@ -18,6 +18,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **Přepnutí jazyka** (CS ⇄ EN) nově **zachová query string** — filtry,
   řazení a hledání na /sbirka (i parametry jiných stránek) přežijí, dřív
   se přepnutím jazyka mlčky vynulovaly.
+- **Text „Filtr je aktivní"** nově zní „…N 🍀 odpovídá filtru (*popis*)"
+  s lidským popisem aktivních filtrů (např. „datum po 25. 12. 2024",
+  „stav Darovaný", „sběr …"). Cíl: po prokliku z „Nejlepší den"/statistik
+  uživatel hned vidí, čím je výběr zúžený. Popis je ve sdíleném helperu
+  `buildFilterSummary` (použije ho i mapa).
 
 ### Nejoblíbenější nálezy — ořez místo originálu (Domů + /statistiky)
 - Tlačítko „nejoblíbenější" na Domů a leaderboard **„Top 10

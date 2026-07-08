@@ -72,10 +72,23 @@
     "h1": "Sbírka 🍀",
     "totalSummary": "{count, plural, =0 {0 nálezů} one {# nález} few {# nálezy} other {# nálezů}}{withSuffix, select, yes { celkem} other {}}",
     "filterActive": "Filtr je aktivní —",
-    "filterMatches": "{count, plural, =0 {0 nálezů odpovídá} one {# nález odpovídá} few {# nálezy odpovídají} other {# nálezů odpovídá}} filtru.",
+    "filterMatches": "{count, plural, =0 {0 🍀 odpovídá} one {# 🍀 odpovídá} few {# 🍀 odpovídají} other {# 🍀 odpovídá}} filtru",
     "showOnMap": "Zobrazit na mapě",
     "noFindsMatch": "Žádné nálezy neodpovídají filtrům.",
     "progressToggle": "Zobrazit stav doplňování sbírky"
+  },
+  "FilterSummary": {
+    "search": "hledání „{q}“",
+    "location": "lokalita {label}",
+    "city": "město {name}",
+    "country": "stát {name}",
+    "state": "stav {label}",
+    "year": "rok {year}",
+    "day": "datum {date}",
+    "dayRange": "{from} – {to}",
+    "session": "sběr {from} – {to}",
+    "hasPhoto": "s fotkou daru",
+    "hideTop": "bez největší lokality"
   },
   "Vote": {
     "buttonVote": "Líbí se mi",

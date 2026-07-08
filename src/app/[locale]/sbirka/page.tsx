@@ -24,6 +24,12 @@ import { prisma } from "@/lib/db";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { cityFromCadastralArea } from "@/lib/locationCode";
 import {
+  formatShortDateCs,
+  formatTinyDateTimeCs,
+  formatLocationId,
+} from "@/lib/format";
+import { buildFilterSummary } from "@/lib/filterSummary";
+import {
   countFindsAtLocationSubtree,
   getCollectionProgress,
   getFilterOptions,
@@ -289,6 +295,35 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     progress.count > 0 &&
     (progressLeadingGap > 0 || progressInternalGaps > 0);
 
+  // Localized one-line description of the active filters, appended to the
+  // "Filtr je aktivní" banner so the visitor sees WHAT is narrowing the
+  // view — most valuable when they arrive from a deep-link that set a
+  // non-obvious filter (e.g. the homepage "Nejlepší den" date link). Same
+  // FilterSummary namespace /mapa reuses, so both pages phrase it alike.
+  const tSummary = await getTranslations("FilterSummary");
+  const tStates = await getTranslations("States");
+  // next-intl's translators are keyed to their namespace's literal keys;
+  // buildFilterSummary passes keys as plain strings, so widen once here.
+  const tSummaryFn = tSummary as unknown as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
+  const tStateFn = tStates as unknown as (key: string) => string;
+  const filterSummary = hasFilters
+    ? buildFilterSummary(filters, {
+        t: tSummaryFn,
+        stateLabel: tStateFn,
+        locationLabel: (id) =>
+          options.locations.find((l) => l.id === id)?.label ??
+          formatLocationId(id),
+        countryLabel: (code) =>
+          options.countries.find((c) => c.code === code)?.name ?? code,
+        cityLabel: (name) => name,
+        formatDay: (d) => formatShortDateCs(d, locale),
+        formatInstant: (d) => formatTinyDateTimeCs(d, locale),
+      })
+    : "";
+
   // Result-aware /mapa deep-link for the "Zobrazit na mapě" toolbar
   // chip. /mapa accepts the same filter param shape (q, loc, city,
   // country, state, year, from, to) and dims everything outside the
@@ -468,6 +503,12 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
             <strong className="font-semibold">
               {t("filterMatches", { count: result.total })}
             </strong>
+            {filterSummary && (
+              <span className="font-normal text-brand-800/80">
+                {" "}
+                ({filterSummary})
+              </span>
+            )}
           </span>
           {/* Map link only renders for the two filter shapes that
               translate to a meaningful map view — see mapLinkApplies

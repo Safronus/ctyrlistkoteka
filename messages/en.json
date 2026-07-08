@@ -73,10 +73,23 @@
     "h1": "Collection 🍀",
     "totalSummary": "{count, plural, =0 {0 finds} one {# find} other {# finds}}{withSuffix, select, yes { in total} other {}}",
     "filterActive": "Filter is active —",
-    "filterMatches": "{count, plural, =0 {0 finds match} one {# find matches} other {# finds match}} the filter.",
+    "filterMatches": "{count, plural, =0 {0 🍀 match} one {# 🍀 matches} other {# 🍀 match}} the filter",
     "showOnMap": "Show on map",
     "noFindsMatch": "No finds match the filters.",
     "progressToggle": "Show collection completeness note"
+  },
+  "FilterSummary": {
+    "search": "search “{q}”",
+    "location": "location {label}",
+    "city": "town {name}",
+    "country": "country {name}",
+    "state": "state {label}",
+    "year": "year {year}",
+    "day": "date {date}",
+    "dayRange": "{from} – {to}",
+    "session": "session {from} – {to}",
+    "hasPhoto": "with donation photo",
+    "hideTop": "excluding the largest location"
   },
   "Vote": {
     "buttonVote": "Like",
