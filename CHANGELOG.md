@@ -20,6 +20,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   (§9c), stejně jako replace/delete; fail-closed (bez zálohy nepřepíše).
 - **Auto-prune koše** (§9c): dokumentován cron `find -mtime +30` pro
   `data/.trash/<ts>/` (viz `docs/deployment.md`) — appka koš sama nemaže.
+- **/go throttle + body cap**: `/go/<token>` škrtí scan-zápisy (1× / 10 s na
+  token) proti nafouknutí analytiky; upload/qr-zip/notes-import mají
+  Content-Length cap před bufferováním (Nginx 200M zůstává hlavní gate).
+- **Symlink guard**: `resolveDiskPath` odmítne, když je resolvnutý leaf
+  symlink (fail-closed → 404) — planted `data/finds/evil → /etc/passwd` se
+  už nenásleduje při čtení/kopii.
+- **Dependency patche** (transitivní): `postcss` 8.4.31→8.5.10,
+  `dompurify` 3.4.8→3.4.11, `@babel/core` 7.29.0→7.29.7 přes surgical
+  `pnpm.overrides` (drženo ve stejném majoru). `pnpm audit` čistý.
 
 ### Bezpečnostní otužení: anti-spoofing IP, boot-guard hesla, sjednocené API gaty
 - **`clientIp` helper (anti-spoofing):** `getRequestIp()` (admin audit log) i
