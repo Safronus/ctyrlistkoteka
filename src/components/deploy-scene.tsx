@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  DEPLOY_MAX_AUTO_RELOADS,
+  nextReloadDelayMs,
+} from "@/lib/deployReload";
 
 /**
  * The clover-themed "something's happening" full-screen scene, shared by
@@ -117,12 +121,15 @@ const SPARKLES = [
  *  so a genuinely stuck build can't reload the tab forever. */
 const RELOAD_AT_KEY = "ctyr-deploy-reload-at";
 const RELOAD_COUNT_KEY = "ctyr-deploy-reload-count";
-const MAX_AUTO_RELOADS = 10;
 
 export function DeployScene({ mode }: { mode: "deploy" | "error" }) {
   const deploy = mode === "deploy";
   const [msg, setMsg] = useState(0);
   const [secs, setSecs] = useState(4);
+  // Whether an auto-reload is still scheduled. Flips false once the per-tab
+  // cap is hit — then only the manual button remains and the "…za N s…"
+  // line is hidden rather than frozen at a number that never ticks.
+  const [willAutoReload, setWillAutoReload] = useState(deploy);
 
   useEffect(() => {
     const id = setInterval(() => setMsg((m) => (m + 1) % MESSAGES.length), 2600);
@@ -130,22 +137,34 @@ export function DeployScene({ mode }: { mode: "deploy" | "error" }) {
   }, []);
 
   // Auto-reload on the deploy path — a hard reload fetches the finished
-  // build. Guarded two ways: at most one reload per 20 s per tab (so a
-  // still-broken reload doesn't spin), and a hard cap on total auto-reloads
-  // so a build that never recovers ends up on the manual button instead of
-  // an endless loop.
+  // build. Guarded two ways: never sooner than 20 s after the previous
+  // auto-reload (so a still-broken reload doesn't spin), and a hard cap on
+  // total auto-reloads so a build that never recovers ends up on the manual
+  // button instead of an endless loop.
   useEffect(() => {
     if (!deploy) return;
     const last = Number(sessionStorage.getItem(RELOAD_AT_KEY) ?? "0");
     const count = Number(sessionStorage.getItem(RELOAD_COUNT_KEY) ?? "0");
-    if (count >= MAX_AUTO_RELOADS) return;
-    if (Date.now() - last < 20000) return;
+    if (count >= DEPLOY_MAX_AUTO_RELOADS) {
+      // Cap reached — give up on auto-reload, keep the manual button.
+      setWillAutoReload(false);
+      return;
+    }
+    // Delay until the next reload (see nextReloadDelayMs): 4 s on a fresh
+    // landing, but never sooner than 20 s after the previous auto-reload.
+    // Drive the visible countdown off this SAME delay — the old code
+    // returned early inside the throttle window, which froze "…za 4 s…"
+    // with no tick AND no scheduled reload (so after the first auto-reload
+    // it just hung until you clicked).
+    const delayMs = nextReloadDelayMs(last, Date.now());
+    setWillAutoReload(true);
+    setSecs(Math.ceil(delayMs / 1000));
     const tick = setInterval(() => setSecs((s) => Math.max(0, s - 1)), 1000);
     const to = setTimeout(() => {
       sessionStorage.setItem(RELOAD_AT_KEY, String(Date.now()));
       sessionStorage.setItem(RELOAD_COUNT_KEY, String(count + 1));
       window.location.reload();
-    }, 4000);
+    }, delayMs);
     return () => {
       clearInterval(tick);
       clearTimeout(to);
@@ -277,7 +296,7 @@ export function DeployScene({ mode }: { mode: "deploy" | "error" }) {
             : "Něco se na chvilku zaseklo. Nadechni se, dej čtyřlístku vteřinku a zkus to znovu. 🌱"}
         </p>
 
-        {deploy && (
+        {deploy && willAutoReload && (
           <p
             aria-live="polite"
             style={{ margin: "14px 0 0", fontSize: "13px", color: "#6b8f78" }}

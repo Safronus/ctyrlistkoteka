@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Fix: deploy „aktualizuje se" scéna zamrzávala na countdownu
+- Countdown „Sám se obnovím za N s…" po **prvním** auto-reloadu zamrznul na
+  4 s a další obnovení se nenaplánovalo (musel jsi kliknout „Zkusit hned").
+  Příčina: 20s throttle dělal `return` **před** spuštěním ticku, takže se
+  interval ani timeout nenastartovaly. Nově countdown vždy běží podle
+  skutečné prodlevy (`nextReloadDelayMs`: 4 s při prvním načtení, jinak
+  zbytek do 20s okna) a při vyčerpání limitu (10×) se text skryje místo
+  zamrznutí. Jádro výpočtu vytaženo do `src/lib/deployReload.ts` + unit testy.
+
 ### Bezpečnostní otužení — follow-up LOW nálezy z auditu (po fázích)
 - **CSP nonce**: skutečných 16 náhodných bytů (`getRandomValues`) místo base64
   z UUID-stringu — matchuje komentář, kratší hlavička. `style-src
