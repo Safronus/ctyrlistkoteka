@@ -24,11 +24,23 @@ export async function resolveDiskPath(
   const direct = safeJoin(rootKey, requestedName);
   const baseName = path.basename(direct);
 
-  try {
-    await fs.access(direct);
+  // lstat (not access) so we also see whether the leaf is a SYMLINK: a
+  // planted `data/finds/evil -> /etc/passwd` would otherwise be followed
+  // by the subsequent read/copy and leak an out-of-tree file. Our paths
+  // are always <root>/<basename> (safeBaseName forbids separators), so the
+  // leaf is the only attacker-influenced component; lstat still follows
+  // ancestor symlinks (e.g. a data root that lives on another mount) to
+  // reach it, so a legitimately symlinked root is unaffected. Refusal
+  // throws — callers already map resolveDiskPath throws to 404.
+  const directStat = await fs.lstat(direct).catch((err: unknown) => {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  });
+  if (directStat) {
+    if (directStat.isSymbolicLink()) {
+      throw new Error(`resolveDiskPath: refusing symlink '${direct}'`);
+    }
     return { name: baseName, absolutePath: direct };
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
   }
 
   const requestedNFC = baseName.normalize("NFC");
@@ -40,7 +52,13 @@ export async function resolveDiskPath(
     throw err;
   }
   const match = names.find((n) => n.normalize("NFC") === requestedNFC);
-  return match ? { name: match, absolutePath: path.join(root, match) } : null;
+  if (!match) return null;
+  const matchAbs = path.join(root, match);
+  // Same symlink guard on the NFC-resolved leaf.
+  if ((await fs.lstat(matchAbs)).isSymbolicLink()) {
+    throw new Error(`resolveDiskPath: refusing symlink '${matchAbs}'`);
+  }
+  return { name: match, absolutePath: matchAbs };
 }
 
 /** URL-friendly slugs admin pages use to refer to a scope. Must stay
