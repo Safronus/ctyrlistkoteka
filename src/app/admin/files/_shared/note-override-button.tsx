@@ -103,15 +103,18 @@ export function NoteOverrideButton({
       </button>
 
       {open && (
-        // Backdrop: click outside to close (Escape also closes, above).
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-lg rounded-lg bg-white p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop as a real <button> so click-to-close is keyboard-
+              operable too (Escape also closes, above); a plain <div onClick>
+              trips S1082. It sits behind the panel via -z-10, so panel
+              clicks never reach it — no stopPropagation needed. */}
+          <button
+            type="button"
+            aria-label="Zavřít"
+            onClick={() => setOpen(false)}
+            className="absolute inset-0 -z-10 h-full w-full cursor-default bg-black/40"
+          />
+          <div className="w-full max-w-lg rounded-lg bg-white p-4 shadow-xl">
             <div className="mb-2 flex items-start justify-between gap-3">
               <h2 className="text-sm font-semibold text-gray-900">
                 Poznámka pro web
