@@ -1,11 +1,10 @@
 "use server";
 
 import { promises as fs } from "node:fs";
-import path from "node:path";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { appendAudit } from "@/lib/admin/audit";
-import { ADMIN_ROOTS, safeBaseName, safeJoin } from "@/lib/admin/paths";
+import { safeBaseName, safeJoin } from "@/lib/admin/paths";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
   getAdminSession,
@@ -49,7 +48,7 @@ export async function restoreMapNonexistent(formData: FormData): Promise<void> {
   if (newName.length === 0) {
     throw new Error("Po obnově by zbyl prázdný název");
   }
-  const newAbs = path.join(ADMIN_ROOTS.locationMaps, newName);
+  const newAbs = safeJoin("locationMaps", newName);
   try {
     await fs.access(newAbs);
     throw new Error(`Cíl "${newName}" už existuje`);
@@ -353,7 +352,7 @@ export async function markMapNonexistent(formData: FormData): Promise<void> {
     throw new Error("Soubor neexistuje");
   }
   const newName = NONEXISTENT_PREFIX + resolved.name;
-  const newAbs = path.join(ADMIN_ROOTS.locationMaps, newName);
+  const newAbs = safeJoin("locationMaps", newName);
 
   // If a NEEXISTUJE-<same name> already exists (somehow), refuse —
   // would clobber an earlier rename's history.
@@ -427,7 +426,7 @@ export async function markMapsNonexistentBulk(
         continue;
       }
       const newName = NONEXISTENT_PREFIX + resolved.name;
-      const newAbs = path.join(ADMIN_ROOTS.locationMaps, newName);
+      const newAbs = safeJoin("locationMaps", newName);
       try {
         await fs.access(newAbs);
         results.push({

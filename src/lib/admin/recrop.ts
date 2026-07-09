@@ -9,7 +9,7 @@ import {
   getWatermarkBuffer,
 } from "@/lib/watermark";
 import { atomicWrite, ensureDir, trashTimestamp } from "./atomic";
-import { ADMIN_ROOTS, GENERATED_ROOT, safeBaseName } from "./paths";
+import { ADMIN_ROOTS, GENERATED_ROOT, safeBaseName, safeJoin } from "./paths";
 
 /**
  * Re-crop a find's CROP image from its ORIGINAL. The admin selects a square
@@ -142,8 +142,8 @@ export async function recropFind(
     return { ok: false, error: (e as Error).message };
   }
 
-  const origPath = path.join(ADMIN_ROOTS.findOriginals, origName);
-  const cropPath = path.join(ADMIN_ROOTS.findCrops, cropName);
+  const origPath = safeJoin("findOriginals", origName);
+  const cropPath = safeJoin("findCrops", cropName);
 
   let origBuf: Buffer;
   try {

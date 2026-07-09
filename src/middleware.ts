@@ -100,9 +100,14 @@ function buildCsp(nonce: string): string {
 }
 
 export function middleware(request: NextRequest) {
-  // 16 random bytes is plenty of entropy for a per-request nonce; the
-  // base64 encoding keeps the header value compact.
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  // 16 cryptographically-random bytes, base64-encoded (~128 bits) — plenty
+  // of entropy for a per-request CSP nonce, and compact in the header.
+  // getRandomValues is the same Web Crypto surface as the previous
+  // randomUUID(); this just drops the UUID-string detour the old comment
+  // mis-described as "16 random bytes".
+  const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString(
+    "base64",
+  );
   const csp = buildCsp(nonce);
 
   const pathname = request.nextUrl.pathname;
