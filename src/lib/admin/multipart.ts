@@ -25,6 +25,40 @@ export interface ParsedMultipart {
   fields: Record<string, string>;
 }
 
+/** Thrown by {@link assertBodyWithinLimit} when the declared body exceeds
+ *  the cap. Routes can map it to a 413. */
+export class BodyTooLargeError extends Error {
+  constructor(
+    readonly declaredBytes: number,
+    readonly maxBytes: number,
+  ) {
+    super(`Request body too large: ${declaredBytes} B (max ${maxBytes} B)`);
+    this.name = "BodyTooLargeError";
+  }
+}
+
+/** True when the request's declared `Content-Length` exceeds `maxBytes`.
+ *  A belt-and-suspenders check on top of Nginx's `client_max_body_size`
+ *  so a single admin request can't buffer an oversized body into RAM.
+ *  A client that omits or understates Content-Length isn't bounded here;
+ *  Nginx enforces the real body size at the proxy. Route handlers use this
+ *  for a clean early 413; {@link assertBodyWithinLimit} is the throwing
+ *  variant for helpers already inside a try/catch. */
+export function bodyExceedsLimit(request: Request, maxBytes: number): boolean {
+  const declared = Number(request.headers.get("content-length"));
+  return Number.isFinite(declared) && declared > maxBytes;
+}
+
+/** Throwing variant of {@link bodyExceedsLimit}, for callers (like
+ *  parseMultipartRequest) whose callers already map thrown errors to a
+ *  response. */
+export function assertBodyWithinLimit(request: Request, maxBytes: number): void {
+  const declared = Number(request.headers.get("content-length"));
+  if (bodyExceedsLimit(request, maxBytes)) {
+    throw new BodyTooLargeError(declared, maxBytes);
+  }
+}
+
 /** Parses a `multipart/form-data` request body using busboy. We use
  *  busboy instead of `request.formData()` because the latter (which
  *  routes through undici's FormData parser in Next.js) silently fails
@@ -48,6 +82,11 @@ export async function parseMultipartRequest(
      *  routes pass MAX_FILES_PER_REQUEST so the form's expectation
      *  matches. */
     maxFiles?: number;
+    /** Total request-body byte cap, checked against Content-Length before
+     *  buffering (throws {@link BodyTooLargeError}). Default 210 MB — just
+     *  above Nginx's 200 MB `client_max_body_size` so Nginx is the primary
+     *  gate and this is the in-process backstop. */
+    maxTotalBytes?: number;
   } = {},
 ): Promise<ParsedMultipart> {
   const contentType = request.headers.get("content-type");
@@ -56,6 +95,9 @@ export async function parseMultipartRequest(
       `Content-Type must be multipart/form-data, got ${contentType ?? "<none>"}`,
     );
   }
+
+  // Reject an oversized body before allocating it in memory.
+  assertBodyWithinLimit(request, opts.maxTotalBytes ?? 210 * 1024 * 1024);
 
   // Read the whole body upfront and feed busboy synchronously, instead
   // of `Readable.fromWeb(request.body).pipe(busboy)`. The piped variant

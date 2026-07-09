@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
 import { appendAudit } from "@/lib/admin/audit";
+import { bodyExceedsLimit } from "@/lib/admin/multipart";
 import {
   getAdminSession,
   getRequestIp,
@@ -31,6 +32,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const ip = await getRequestIp();
   await touchSession();
 
+  // Notes JSON for the whole collection is at most a few MB; cap generously
+  // below Nginx's 200 MB so a runaway body can't buffer into RAM.
+  if (bodyExceedsLimit(request, 50 * 1024 * 1024)) {
+    return new NextResponse("Payload too large", { status: 413 });
+  }
   let payload: unknown;
   try {
     payload = await request.json();

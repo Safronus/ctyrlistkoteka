@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { NextResponse, type NextRequest } from "next/server";
 import { appendAudit } from "@/lib/admin/audit";
+import { bodyExceedsLimit } from "@/lib/admin/multipart";
 import { renderFindQrSvg } from "@/lib/admin/qr";
 import { parseFindFilename } from "@/lib/parseFilename";
 import {
@@ -48,6 +49,11 @@ export async function POST(request: NextRequest): Promise<Response> {
   const ip = await getRequestIp();
   await touchSession();
 
+  // Body is just a list of filenames — cap well below Nginx's 200 MB so a
+  // runaway request can't buffer a huge FormData into RAM.
+  if (bodyExceedsLimit(request, 10 * 1024 * 1024)) {
+    return new NextResponse("Payload too large", { status: 413 });
+  }
   const formData = await request.formData();
   const rawNames = formData.getAll("filename");
   const filenames: string[] = [];

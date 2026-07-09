@@ -14,6 +14,17 @@ import { qrTargetPath } from "@/lib/admin/qrTargets";
  */
 export const dynamic = "force-dynamic";
 
+/** Collapse rapid repeat hits on the SAME token into one logged scan per
+ *  window, so hammering `/go/<token>` can't inflate a code's scan count or
+ *  grow `qr_scans` unbounded. In-memory + per PM2 worker (resets on
+ *  restart) — fine, this only bounds abuse; exact counts aren't critical
+ *  and a human's genuine re-scans are seconds-to-minutes apart, well
+ *  outside the window. Keyed by token, so the map is bounded by the number
+ *  of real QR codes (only reached for tokens that resolve to a row). The
+ *  redirect itself is never throttled. */
+const SCAN_LOG_THROTTLE_MS = 10_000;
+const lastScanLoggedAt = new Map<string, number>();
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
@@ -34,10 +45,17 @@ export async function GET(
       target = qr.target;
       locale = qr.locale;
       // Best-effort scan log; never block the redirect on a write error.
-      try {
-        await prisma.qrScan.create({ data: { qrCodeId: qr.id } });
-      } catch {
-        /* swallow — redirect the visitor regardless */
+      // Throttled per token so a rapid burst logs at most one scan per
+      // window (abuse guard — see note above).
+      const now = Date.now();
+      const prev = lastScanLoggedAt.get(token);
+      if (prev === undefined || now - prev >= SCAN_LOG_THROTTLE_MS) {
+        lastScanLoggedAt.set(token, now);
+        try {
+          await prisma.qrScan.create({ data: { qrCodeId: qr.id } });
+        } catch {
+          /* swallow — redirect the visitor regardless */
+        }
       }
     }
   }
