@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Bezpečnostní otužení — follow-up LOW nálezy z auditu (po fázích)
+- **CSP nonce**: skutečných 16 náhodných bytů (`getRandomValues`) místo base64
+  z UUID-stringu — matchuje komentář, kratší hlavička. `style-src
+  'unsafe-inline'` zůstává (Tailwind; script CSP je striktní nonce+strict-dynamic).
+- **`path.join` → `safeJoin`**: sjednocení §9b kontejnmentu na posledních 2
+  místech (maps „mark nonexistent" rename, `recrop.ts`) — názvy byly už
+  bezpečné, teď je assertion uniformní.
+- **map-anon toggle**: před in-place přepisem PNG teď dělá `.trash` snapshot
+  (§9c), stejně jako replace/delete; fail-closed (bez zálohy nepřepíše).
+- **Auto-prune koše** (§9c): dokumentován cron `find -mtime +30` pro
+  `data/.trash/<ts>/` (viz `docs/deployment.md`) — appka koš sama nemaže.
+
 ### Bezpečnostní otužení: anti-spoofing IP, boot-guard hesla, sjednocené API gaty
 - **`clientIp` helper (anti-spoofing):** `getRequestIp()` (admin audit log) i
   fingerprint hlasování četly **první** prvek `X-Forwarded-For` — ten si ale

@@ -1,10 +1,11 @@
 "use server";
 
 import { promises as fs } from "node:fs";
+import path from "node:path";
 import { revalidatePath } from "next/cache";
-import { atomicWrite } from "@/lib/admin/atomic";
+import { atomicWrite, ensureDir, trashTimestamp } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
-import { safeBaseName } from "@/lib/admin/paths";
+import { ADMIN_ROOTS, safeBaseName } from "@/lib/admin/paths";
 import { setPngTextTag } from "@/lib/admin/pngTextEdit";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import { cascadeMapAnon, type AnonCascadeResult } from "@/lib/admin/anonCascade";
@@ -124,6 +125,26 @@ export async function setMapAnonymized(
       anonymized: false,
       removed: 0,
       added: 0,
+    };
+  }
+
+  // Snapshot the current PNG before the in-place rewrite (§9c), same shape
+  // as delete/replace: data/.trash/<ts>/maps/<name>. The edit only toggles a
+  // tEXt metadata chunk (reversible by toggling back), but keep the trash
+  // trail uniform with every other destructive map op. Fail closed: if the
+  // backup can't be written we do NOT overwrite the original.
+  try {
+    const trashDir = path.join(ADMIN_ROOTS.trash, trashTimestamp(), "maps");
+    await ensureDir(trashDir);
+    await fs.copyFile(
+      resolved.absolutePath,
+      path.join(trashDir, resolved.name),
+    );
+  } catch (err) {
+    return {
+      ok: false,
+      filename: resolved.name,
+      error: `Záloha do koše selhala: ${(err as Error).message}`,
     };
   }
 

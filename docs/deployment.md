@@ -164,7 +164,16 @@ crontab -e
 Přidej:
 ```
 0 3 * * * pg_dump ctyrlistkoteka | gzip > /var/backups/postgres/ctyrlistkoteka-$(date +\%F).sql.gz && find /var/backups/postgres -mtime +14 -delete
+# Auto-prune admin koše (CLAUDE.md §9c): smaž trash-buckety starší 30 dní.
+# -mindepth/-maxdepth 1 + -type d cílí jen na časové adresáře data/.trash/<ts>/,
+# nikdy na .trash samotný ani na nic jiného. Buckety se po vytvoření nemění,
+# takže mtime ≈ čas smazání. Uprav cestu, pokud máš jiný DATA_DIR.
+15 3 * * * find /var/ctyrlistkoteka/data/.trash -mindepth 1 -maxdepth 1 -type d -mtime +30 -exec rm -rf {} +
 ```
+
+> **Pozn.:** appka `.trash` sama nemaže (time-based cleanup patří do cronu,
+> ne do request-flow). Když crontab tenhle řádek nemá, koš roste donekonečna —
+> `crontab -l` ověří, jestli tam už je.
 
 ---
 
