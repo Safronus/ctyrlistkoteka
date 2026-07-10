@@ -1,5 +1,12 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import {
+  donationSharesFilePath,
+  readDonationShares,
+  sharedPhotoFilename,
+  sharedThumbFilename,
+  type DonationSharesManifest,
+} from "@/lib/donationShares";
 
 /**
  * On-disk lookup for the optional "real-life" donation photos a find can
@@ -52,6 +59,10 @@ export interface FindPhotoEntry {
    *  After the visitor types the unlock code, a server action returns a
    *  one-shot base64 data URL that's used in place of `null`. */
   url: string | null;
+  /** Public URL of a smaller thumbnail, when one exists (shared/dedup
+   *  photos generate one; per-find photos don't). `null` when absent or
+   *  for ANON entries — callers fall back to `url`. */
+  thumbUrl: string | null;
   /** Filename on disk (with extension). Kept around so the unlock
    *  server action can read the bytes without walking the dir again. */
   filename: string;
@@ -66,6 +77,10 @@ interface DirCache {
    *  cache check lets every PM2 worker notice changes made by its
    *  siblings — no IPC, no Redis. */
   dirMtimeMs: number;
+  /** Mtime of the shared-photo manifest (a different dir), so re-linking
+   *  existing shared photos to new finds — which doesn't touch the
+   *  find-photos dir — still busts the cache across PM2 workers. */
+  manifestMtimeMs: number;
 }
 
 let dirCache: DirCache | null = null;
@@ -97,11 +112,15 @@ async function loadDirCache(): Promise<DirCache> {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
   }
   const byFindId = new Map<number, FindPhotoEntry[]>();
+  // Every filename present in the dir (NFC-normalized), so the manifest
+  // merge can skip assignments whose shared file was deleted (orphan link).
+  const presentFiles = new Set<string>();
   for (const name of entries) {
     // NFC-normalize before regex match — Mac → Linux rsync can decompose
     // accents on some paths. Filename pattern is ASCII so the practical
     // risk is low, but the helper stays consistent with locationPhotos.
     const normalized = name.normalize("NFC");
+    presentFiles.add(normalized);
     const m = FILENAME_RE.exec(normalized);
     if (!m) continue;
     const ext = path.extname(normalized).toLowerCase();
@@ -117,27 +136,79 @@ async function loadDirCache(): Promise<DirCache> {
       url: isAnonymized
         ? null
         : `${URL_PREFIX}/${encodeURIComponent(normalized)}`,
+      thumbUrl: null,
       filename: normalized,
     });
     byFindId.set(findId, list);
   }
+
+  // Merge the shared ("dedup") photo links — one file linked to many finds.
+  const [manifest, manifestMtimeMs] = await Promise.all([
+    readDonationShares(),
+    getDirMtimeMs(donationSharesFilePath()).then((m) => m ?? 0),
+  ]);
+  mergeDonationShares(byFindId, manifest, presentFiles, URL_PREFIX);
+
   // Sort each find's photos by slot — alphabetical so "a" (front) comes
   // before "b" (back) in the gallery carousel.
   for (const list of byFindId.values()) {
     list.sort((a, b) => a.slot.localeCompare(b.slot));
   }
-  return { byFindId, loadedAt: Date.now(), dirMtimeMs };
+  return { byFindId, loadedAt: Date.now(), dirMtimeMs, manifestMtimeMs };
+}
+
+/**
+ * Folds the shared-photo manifest into the per-find index. Pure (no I/O) so
+ * it's unit-testable: for each assignment it resolves the sha1 to its
+ * on-disk filename and, when that file is actually present, pushes a
+ * FindPhotoEntry. Anon links carry `url: null` (Nginx 404s the file; the
+ * modal unlocks it) and no thumb; public links expose the web URL + thumb.
+ */
+export function mergeDonationShares(
+  byFindId: Map<number, FindPhotoEntry[]>,
+  manifest: DonationSharesManifest,
+  presentFiles: ReadonlySet<string>,
+  urlPrefix: string,
+): void {
+  for (const [findIdStr, assignments] of Object.entries(manifest.assignments)) {
+    const findId = Number(findIdStr);
+    if (!Number.isInteger(findId) || findId <= 0) continue;
+    for (const a of assignments) {
+      const webFile = sharedPhotoFilename(a.sha1, a.anon);
+      if (!presentFiles.has(webFile)) continue; // orphan link → skip
+      const thumbFile = sharedThumbFilename(a.sha1);
+      const list = byFindId.get(findId) ?? [];
+      list.push({
+        slot: a.slot,
+        isAnonymized: a.anon,
+        url: a.anon ? null : `${urlPrefix}/${webFile}`,
+        thumbUrl:
+          a.anon || !presentFiles.has(thumbFile)
+            ? null
+            : `${urlPrefix}/${thumbFile}`,
+        filename: webFile,
+      });
+      byFindId.set(findId, list);
+    }
+  }
 }
 
 async function getDirCache(): Promise<DirCache> {
   const now = Date.now();
   if (dirCache && now - dirCache.loadedAt < DIR_CACHE_TTL_MS) {
-    // Mtime hot-check: if the directory hasn't been touched since the
-    // last load, skip readdir entirely. If it has — even by a sibling
-    // PM2 worker — reload. Single fs.stat per check, sub-millisecond
-    // on a hot inode.
-    const currentMtime = await getDirMtimeMs(getPhotosDir());
-    if (currentMtime !== null && currentMtime === dirCache.dirMtimeMs) {
+    // Mtime hot-check: if neither the photo dir nor the shared-photo
+    // manifest has been touched since the last load, skip the reload. Either
+    // being bumped — even by a sibling PM2 worker — triggers a reload. Two
+    // fs.stat per check, sub-millisecond on hot inodes.
+    const [currentMtime, currentManifestMtime] = await Promise.all([
+      getDirMtimeMs(getPhotosDir()),
+      getDirMtimeMs(donationSharesFilePath()).then((m) => m ?? 0),
+    ]);
+    if (
+      currentMtime !== null &&
+      currentMtime === dirCache.dirMtimeMs &&
+      currentManifestMtime === dirCache.manifestMtimeMs
+    ) {
       return dirCache;
     }
   }
