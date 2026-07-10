@@ -182,6 +182,34 @@ export function FilterBar({
     [options.locations, effectiveCountry, effectiveCity],
   );
 
+  // Group the visible cities by country so the flat list (when no country is
+  // pinned) reads under country headers — the city options already carry each
+  // city's country, mirroring the Stát filter. Groups are ordered like the
+  // country dropdown; the current city always stays visible even at count 0.
+  // A single group (country pinned, or one-country data) renders flat below.
+  const cityGroups = useMemo(() => {
+    const shown = visibleCities.filter(
+      (c) => (facets.cities[c.name] ?? 0) > 0 || c.name === effectiveCity,
+    );
+    const byCode = new Map<string, typeof shown>();
+    for (const c of shown) {
+      const list = byCode.get(c.country) ?? [];
+      list.push(c);
+      byCode.set(c.country, list);
+    }
+    const codes = options.countries
+      .map((c) => c.code)
+      .filter((code) => byCode.has(code));
+    // Any city whose country isn't in the countries list (shouldn't happen)
+    // still gets a group so it's never dropped.
+    for (const code of byCode.keys()) if (!codes.includes(code)) codes.push(code);
+    return codes.map((code) => ({
+      code,
+      name: options.countries.find((c) => c.code === code)?.name ?? code,
+      cities: byCode.get(code) ?? [],
+    }));
+  }, [visibleCities, facets.cities, effectiveCity, options.countries]);
+
   const nf = useMemo(
     () => new Intl.NumberFormat(locale === "en" ? "en-GB" : "cs-CZ"),
     [locale],
@@ -286,16 +314,23 @@ export function FilterBar({
               className={`${SELECT_CLS} w-full`}
             >
               <option value="">{tCommon("allAlt")}</option>
-              {visibleCities
-                .filter(
-                  (c) =>
-                    (facets.cities[c.name] ?? 0) > 0 || c.name === effectiveCity,
-                )
-                .map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {withCount(titleCase(c.name), facets.cities[c.name])}
-                  </option>
-                ))}
+              {cityGroups.length > 1
+                ? cityGroups.map((g) => (
+                    <optgroup key={g.code} label={g.name}>
+                      {g.cities.map((c) => (
+                        <option key={c.name} value={c.name}>
+                          {withCount(titleCase(c.name), facets.cities[c.name])}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))
+                : cityGroups
+                    .flatMap((g) => g.cities)
+                    .map((c) => (
+                      <option key={c.name} value={c.name}>
+                        {withCount(titleCase(c.name), facets.cities[c.name])}
+                      </option>
+                    ))}
             </select>
             <ChevronDown
               className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"

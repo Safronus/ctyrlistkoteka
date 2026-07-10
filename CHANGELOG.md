@@ -9,6 +9,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — filtr „Město" seskupený podle státu
+- Když není vybraný stát, dropdown Město teď řadí položky pod hlavičky států
+  (`<optgroup>`) místo ploché změti — města už svůj stát nesou, tak to jen
+  zrcadlí filtr Stát. Skupiny jsou seřazené jako filtr Stát; při vybraném
+  státu (jedna skupina) zůstává seznam plochý. Beze změny logiky filtrování.
+
 ### Admin — hromadné přiřazení sdílené fotky daru (dedup)
 - Na `/admin/files/donation-photos` nový panel „Hromadné přiřazení sdílené
   fotky": nahraješ pár fotek (jakýkoli formát/název → normalizace na WebP
