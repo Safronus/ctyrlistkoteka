@@ -40,3 +40,50 @@ export interface UploadResponse {
   results: UploadResult[];
   error?: string;
 }
+
+// ─── Bulk shared-photo assignment ─────────────────────────────────────────
+// Upload a few real donation photos ONCE and link them to a whole range of
+// finds (a voucher covering N clovers), instead of N physical copies.
+
+/** Photos per bulk request (slots a…). A donation card is front/back-ish. */
+export const MAX_BULK_PHOTOS = 12;
+/** Find ids per bulk request — bounds the DB `IN` query + manifest write. */
+export const MAX_BULK_FINDS = 2000;
+
+export interface BulkAssignPhoto {
+  slot: string;
+  sha1: string;
+  sourceFormat: string;
+  /** True when the shared file already existed on disk (dedup — nothing
+   *  new was written for this photo). */
+  reused: boolean;
+}
+
+export interface BulkCollision {
+  findId: number;
+  slot: string;
+  /** `manifest` — an existing shared link (overwritable); `file` — a
+   *  per-find photo file (never shadowed, always kept). */
+  kind: "manifest" | "file";
+}
+
+export interface BulkAssignResponse {
+  /** False when the request was a collision preview (nothing written) or
+   *  failed validation; true once links were committed. */
+  applied: boolean;
+  /** Whole-batch failure (auth, parse, no valid ids, un-decodable photo). */
+  error?: string;
+  photos?: BulkAssignPhoto[];
+  /** Range ids that exist in the DB — the assignment targets. */
+  targetFindIds?: number[];
+  /** Range ids not in the DB — reported, never assigned. */
+  unknownFindIds?: number[];
+  /** Slot collisions. With `overwrite=0` any collision makes the request a
+   *  no-op preview (`applied:false`) so the operator can review + resubmit. */
+  collisions?: BulkCollision[];
+  /** (findId, slot) kept because a per-find FILE already occupies it — files
+   *  are never shadowed by a shared link, even with overwrite. */
+  keptOwnFile?: BulkCollision[];
+  /** Count of (findId, slot) links written to the manifest. */
+  assignedLinks?: number;
+}

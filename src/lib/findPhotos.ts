@@ -238,6 +238,24 @@ export async function getFindPhotos(
 }
 
 /**
+ * For a set of find ids, returns each one's current photos (per-find files
+ * + shared links), keyed by id, omitting ids with none. One dir-cache load
+ * for the whole set — used by the bulk-assign flow to detect which target
+ * slots are already occupied before writing.
+ */
+export async function getExistingPhotosForFinds(
+  ids: readonly number[],
+): Promise<Map<number, FindPhotoEntry[]>> {
+  const cache = await getDirCache();
+  const out = new Map<number, FindPhotoEntry[]>();
+  for (const id of ids) {
+    const entries = cache.byFindId.get(id);
+    if (entries && entries.length > 0) out.set(id, entries);
+  }
+  return out;
+}
+
+/**
  * Set of find IDs that have at least one donation photo on disk. Used
  * by the /sbirka list to decorate the camera badge + by /sbirka filter
  * `?hasPhoto=1` to keep only those rows. Computed once per cache

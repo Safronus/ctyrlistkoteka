@@ -206,6 +206,84 @@ export async function generateWebPVariants(params: {
   };
 }
 
+export interface NormalizedPhoto {
+  /** sha1 of the ORIGINAL uploaded bytes — the dedup key + filename stem.
+   *  Hashing the source (not the encode) means re-uploading the exact same
+   *  file dedups regardless of sharp's encode determinism. */
+  sha1: string;
+  /** Web-resolution WebP (limiting edge = WEB_SIZE), EXIF stripped. */
+  webBuf: Buffer;
+  /** Thumbnail WebP (limiting edge = THUMB_SIZE), EXIF stripped. */
+  thumbBuf: Buffer;
+  width: number;
+  height: number;
+  sourceFormat: "heic" | "jpeg" | "png" | "unknown";
+}
+
+/**
+ * Normalizes an arbitrary uploaded photo buffer (HEIC / JPEG / PNG / WebP)
+ * into web + thumb WebP buffers — auto-oriented via EXIF then stripped of
+ * all metadata (GPS/date/camera never leak into the served derivative).
+ * No watermark: donation photos are the donor's own, not our collection
+ * imagery. Throws if the bytes don't decode (sharp), which the caller maps
+ * to a per-file rejection. Used by the bulk donation-photo assign flow.
+ */
+export async function normalizeToWebp(original: Buffer): Promise<NormalizedPhoto> {
+  const sha1 = createHash("sha1").update(original).digest("hex");
+  const format = detectFormat(original);
+
+  let pixelBuffer: Buffer;
+  if (format === "heic") {
+    const heicConvert = require("heic-convert") as (opts: {
+      buffer: Buffer;
+      format: "JPEG" | "PNG";
+      quality?: number;
+    }) => Promise<Buffer>;
+    const jpegBuf = await heicConvert({
+      buffer: original,
+      format: "JPEG",
+      quality: 0.95,
+    });
+    pixelBuffer = Buffer.from(jpegBuf);
+  } else {
+    // sharp decodes JPEG/PNG/WebP natively; "unknown" (e.g. WebP) still
+    // flows here and either decodes or throws → caller rejects that file.
+    pixelBuffer = original;
+  }
+
+  const sharp = require("sharp") as typeof import("sharp");
+  const pipeline = sharp(pixelBuffer, { failOn: "none" }).rotate();
+  const web = await pipeline
+    .clone()
+    .resize({
+      width: WEB_SIZE,
+      height: WEB_SIZE,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: WEB_QUALITY })
+    .toBuffer({ resolveWithObject: true });
+  const thumb = await pipeline
+    .clone()
+    .resize({
+      width: THUMB_SIZE,
+      height: THUMB_SIZE,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: THUMB_QUALITY })
+    .toBuffer({ resolveWithObject: true });
+
+  return {
+    sha1,
+    webBuf: web.data,
+    thumbBuf: thumb.data,
+    width: web.info.width,
+    height: web.info.height,
+    sourceFormat: format,
+  };
+}
+
 /**
  * Resizes the source pipeline to the target edge length, applies the
  * watermark when one is provided, and encodes the result as WebP. When

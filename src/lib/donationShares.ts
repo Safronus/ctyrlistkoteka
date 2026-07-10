@@ -64,6 +64,53 @@ export function sharedThumbFilename(sha1: string): string {
   return `s_${sha1}_DAR.thumb.webp`;
 }
 
+/** Directory the shared photo files live in — flat inside the generated
+ *  find-photos dir (same dir the per-find donation photos + Nginx alias
+ *  use). */
+export function sharedPhotosDir(): string {
+  const generatedDir = process.env.GENERATED_DIR ?? "./public/generated";
+  return path.join(generatedDir, "find-photos");
+}
+
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await fs.stat(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Writes a normalized shared photo to disk. Idempotent — skips a variant
+ *  that already exists (the whole point of dedup: re-assigning the same
+ *  photo writes nothing). Public photos get web + thumb; anon photos get
+ *  only the `_ANON` web file (Nginx 404s it; no thumb is served). Returns
+ *  which files were newly written. */
+export async function storeSharedPhoto(params: {
+  sha1: string;
+  anon: boolean;
+  webBuf: Buffer;
+  thumbBuf: Buffer;
+}): Promise<{ webWritten: boolean; thumbWritten: boolean }> {
+  const dir = sharedPhotosDir();
+  await ensureDir(dir);
+  const webPath = path.join(dir, sharedPhotoFilename(params.sha1, params.anon));
+  let webWritten = false;
+  if (!(await fileExists(webPath))) {
+    await atomicWrite(webPath, params.webBuf);
+    webWritten = true;
+  }
+  let thumbWritten = false;
+  if (!params.anon) {
+    const thumbPath = path.join(dir, sharedThumbFilename(params.sha1));
+    if (!(await fileExists(thumbPath))) {
+      await atomicWrite(thumbPath, params.thumbBuf);
+      thumbWritten = true;
+    }
+  }
+  return { webWritten, thumbWritten };
+}
+
 function cleanAssignment(v: unknown): DonationShareAssignment | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
