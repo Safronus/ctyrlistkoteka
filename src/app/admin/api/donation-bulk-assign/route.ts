@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { appendAudit } from "@/lib/admin/audit";
-import { drainRequestBody, parseMultipartRequest } from "@/lib/admin/multipart";
 import {
   getAdminSession,
   getRequestIp,
@@ -9,23 +8,23 @@ import {
   touchSession,
 } from "@/lib/admin/session";
 import { prisma } from "@/lib/db";
-import { normalizeToWebp } from "@/lib/images";
 import { parseRanges } from "@/lib/parseRanges";
 import {
   getExistingPhotosForFinds,
   invalidateFindPhotosCache,
 } from "@/lib/findPhotos";
 import {
+  isPhotoStaged,
+  promoteStagedPhoto,
   readDonationShares,
-  storeSharedPhoto,
   writeDonationShares,
   type DonationShareAssignment,
 } from "@/lib/donationShares";
 import {
   MAX_BULK_FINDS,
   MAX_BULK_PHOTOS,
-  MAX_FILE_BYTES,
   type BulkAssignPhoto,
+  type BulkAssignRequest,
   type BulkAssignResponse,
   type BulkCollision,
 } from "@/app/admin/files/donation-photos/upload-types";
@@ -33,18 +32,18 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const SHA1_RE = /^[0-9a-f]{40}$/;
+
 /**
- * Bulk shared donation-photo assignment. Accepts multipart/form-data:
- *   - `files`     — the photos (any format/name); upload order = slot a, b, …
- *   - `range`     — find-id ranges, e.g. "16330-16440,16500"
- *   - `anon`      — "1"/"0": link the photos as anonymized (Nginx-404 file)
- *   - `overwrite` — "1"/"0": replace existing SHARED links on colliding slots
+ * Step 2 of the bulk shared-photo flow (JSON — no file bytes, so it can't
+ * truncate). Links already-STAGED photos (uploaded via /donation-shared-
+ * upload) to a range of finds. Order of `sha1s` = slot a, b, c…
  *
- * Two-pass by design: a first submit with `overwrite=0` that hits any shared
- * collision returns `applied:false` + the collisions (a preview, nothing
- * written), so the operator reviews and resubmits with `overwrite=1`. Per-
- * find photo FILES are never shadowed — a slot they occupy is reported in
- * `keptOwnFile` and skipped, regardless of overwrite.
+ * Two-pass: a first call with `overwrite=false` that hits any SHARED-link
+ * collision returns `applied:false` + the collisions (nothing written), so
+ * the operator reviews and resubmits with `overwrite=true`. Per-find photo
+ * FILES are never shadowed — a slot they occupy is reported in `keptOwnFile`
+ * and skipped, regardless of overwrite.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -65,7 +64,6 @@ function json(body: BulkAssignResponse, status = 200): NextResponse {
 function bad(error: string, status = 400): NextResponse {
   return json({ applied: false, error }, status);
 }
-/** slot index → letter: 0 → "a", 1 → "b", … (bounded by MAX_BULK_PHOTOS). */
 function slotLetter(i: number): string {
   return String.fromCharCode(97 + i);
 }
@@ -73,47 +71,38 @@ function slotLetter(i: number): string {
 async function handle(request: NextRequest): Promise<NextResponse> {
   const session = await getAdminSession();
   if (!isAuthenticated(session)) {
-    // Drain the upload body before answering so a mid-upload POST gets a
-    // clean 404 rather than a reset connection (surfaces as "Load failed").
-    await drainRequestBody(request);
     return new NextResponse("Not found", { status: 404 });
   }
   const credentialLabel = session.credentialLabel!;
   const ip = await getRequestIp();
   await touchSession();
 
-  let parsed;
+  let body: BulkAssignRequest;
   try {
-    parsed = await parseMultipartRequest(request, {
-      maxFileSize: MAX_FILE_BYTES + 1,
-      maxFiles: MAX_BULK_PHOTOS,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return bad(`Zpracování nahrávky selhalo: ${message}`);
+    body = (await request.json()) as BulkAssignRequest;
+  } catch {
+    return bad("Neplatné tělo požadavku.");
   }
 
-  const files = parsed.files.filter((f) => f.fieldName === "files");
-  const anon = parsed.fields.anon === "1";
-  const overwrite = parsed.fields.overwrite === "1";
+  const anon = body.anon === true;
+  const overwrite = body.overwrite === true;
 
-  // ── validate photos ──────────────────────────────────────────────────
-  if (files.length === 0) return bad("Nahraj aspoň jednu fotku.");
-  if (files.length > MAX_BULK_PHOTOS)
+  // ── validate staged photos ───────────────────────────────────────────
+  const sha1s = Array.isArray(body.sha1s)
+    ? body.sha1s.map((s) => String(s).toLowerCase())
+    : [];
+  if (sha1s.length === 0) return bad("Nejsou nahrané žádné fotky.");
+  if (sha1s.length > MAX_BULK_PHOTOS)
     return bad(`Max ${MAX_BULK_PHOTOS} fotek na dávku.`);
-  for (const f of files) {
-    if (f.data.byteLength === 0)
-      return bad(`Prázdný soubor: ${f.filename || "(bez názvu)"}.`);
-    if (f.data.byteLength > MAX_FILE_BYTES)
-      return bad(
-        `Soubor ${f.filename || "(bez názvu)"} je větší než ` +
-          `${Math.floor(MAX_FILE_BYTES / (1024 * 1024))} MB.`,
-      );
+  if (!sha1s.every((s) => SHA1_RE.test(s))) return bad("Neplatný identifikátor fotky.");
+  for (const sha1 of sha1s) {
+    if (!(await isPhotoStaged(sha1)))
+      return bad("Některá fotka už není nahraná — nahraj fotky znovu a zkus to.");
   }
-  const slots = files.map((_, i) => slotLetter(i));
+  const slots = sha1s.map((_, i) => slotLetter(i));
 
   // ── validate range ───────────────────────────────────────────────────
-  const specs = (parsed.fields.range ?? "")
+  const specs = String(body.range ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
@@ -146,7 +135,7 @@ async function handle(request: NextRequest): Promise<NextResponse> {
       unknownFindIds,
     });
 
-  // ── collision detection (cheap — before any image processing) ────────
+  // ── collision detection ──────────────────────────────────────────────
   const existingPhotos = await getExistingPhotosForFinds(targetFindIds);
   const slotSet = new Set(slots);
   const collisions: BulkCollision[] = [];
@@ -159,9 +148,6 @@ async function handle(request: NextRequest): Promise<NextResponse> {
       else keptOwnFile.push({ findId, slot: e.slot, kind: "file" });
     }
   }
-
-  // Shared-link collisions block unless the operator confirmed overwrite;
-  // return a no-write preview so they can review first.
   if (collisions.length > 0 && !overwrite) {
     return json({
       applied: false,
@@ -172,44 +158,14 @@ async function handle(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  // ── commit: normalize all photos (all-or-nothing) ────────────────────
-  const photos: Array<
-    BulkAssignPhoto & { webBuf: Buffer; thumbBuf: Buffer }
-  > = [];
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]!;
-    try {
-      const n = await normalizeToWebp(file.data);
-      photos.push({
-        slot: slots[i]!,
-        sha1: n.sha1,
-        sourceFormat: n.sourceFormat,
-        reused: false,
-        webBuf: n.webBuf,
-        thumbBuf: n.thumbBuf,
-      });
-    } catch (err) {
-      return bad(
-        `Fotku "${file.filename || slots[i]}" se nepodařilo zpracovat jako ` +
-          `obrázek: ${(err as Error).message}`,
-      );
-    }
+  // ── commit: promote staged photos to served, then link ───────────────
+  const photos: BulkAssignPhoto[] = [];
+  for (let i = 0; i < sha1s.length; i++) {
+    const sha1 = sha1s[i]!;
+    const { webWritten } = await promoteStagedPhoto(sha1, anon);
+    photos.push({ slot: slots[i]!, sha1, reused: !webWritten });
   }
 
-  // Store the shared files (dedup — an identical photo writes nothing).
-  for (const p of photos) {
-    const { webWritten } = await storeSharedPhoto({
-      sha1: p.sha1,
-      anon,
-      webBuf: p.webBuf,
-      thumbBuf: p.thumbBuf,
-    });
-    p.reused = !webWritten;
-  }
-
-  // Merge links into the manifest: for each target find, replace the shared
-  // assignments on the slots we're setting, keep others; never write a slot
-  // a per-find FILE already occupies.
   const manifest = await readDonationShares();
   const fileBlocked = new Set(keptOwnFile.map((c) => `${c.findId}:${c.slot}`));
   let assignedLinks = 0;
@@ -253,12 +209,7 @@ async function handle(request: NextRequest): Promise<NextResponse> {
 
   return json({
     applied: true,
-    photos: photos.map((p) => ({
-      slot: p.slot,
-      sha1: p.sha1,
-      sourceFormat: p.sourceFormat,
-      reused: p.reused,
-    })),
+    photos,
     targetFindIds,
     unknownFindIds,
     collisions,

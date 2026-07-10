@@ -25,6 +25,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - `s_` prefix drží sdílené soubory mimo per-find `^\d+` reader regex; reader
   je merguje a přeskočí osiřelé odkazy. Kompletní pokrytí testy (merge,
   anon-skrytí, orphan, filename konvence).
+- **Upload odolný proti truncation:** fotky jdou v **malých dávkách (≤8 MB)**
+  do non-served **stagingu** (`data/.admin/donation-staging/`), přiřazení je
+  pak **malý JSON** (jen sha1 + rozsah) — obchází ~10 MB multipart body cap,
+  na který velké/četné fotky v jednom requestu narážely. Public/anon jméno se
+  rozhodne až při promote ze stagingu → anon-only fotka nikdy nemá veřejně
+  servírovaný soubor. Staging čistí cron (viz `docs/deployment.md`).
 
 ### Fix: deploy „aktualizuje se" scéna zamrzávala na countdownu
 - Countdown „Sám se obnovím za N s…" po **prvním** auto-reloadu zamrznul na

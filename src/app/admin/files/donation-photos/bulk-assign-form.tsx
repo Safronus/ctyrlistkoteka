@@ -12,10 +12,13 @@ import {
   X,
 } from "lucide-react";
 import {
+  MAX_BATCH_BYTES,
   MAX_BULK_FINDS,
   MAX_BULK_PHOTOS,
   MAX_FILE_BYTES,
+  MAX_FILES_PER_REQUEST,
   type BulkAssignResponse,
+  type SharedUploadResponse,
 } from "./upload-types";
 
 interface PhotoItem {
@@ -23,6 +26,8 @@ interface PhotoItem {
   file: File;
   /** object URL for the preview thumbnail (revoked on remove/unmount). */
   url: string;
+  /** sha1 once the photo has been staged server-side; drives assign. */
+  sha1?: string;
 }
 
 function slotLetter(i: number): string {
@@ -39,20 +44,58 @@ function newId(): string {
     : Math.random().toString(36).slice(2);
 }
 
+/** Byte-aware batching so each staging request stays under the ~10 MB
+ *  multipart body-truncation cap (same reason as the per-find uploader). */
+function splitBatches(items: PhotoItem[]): PhotoItem[][] {
+  const batches: PhotoItem[][] = [];
+  let cur: PhotoItem[] = [];
+  let bytes = 0;
+  for (const it of items) {
+    const tooMany = cur.length >= MAX_FILES_PER_REQUEST;
+    const tooBig = cur.length > 0 && bytes + it.file.size > MAX_BATCH_BYTES;
+    if (tooMany || tooBig) {
+      batches.push(cur);
+      cur = [];
+      bytes = 0;
+    }
+    cur.push(it);
+    bytes += it.file.size;
+  }
+  if (cur.length > 0) batches.push(cur);
+  return batches;
+}
+
+async function postStagingBatch(
+  batch: PhotoItem[],
+): Promise<SharedUploadResponse> {
+  const fd = new FormData();
+  for (const p of batch) fd.append("files", p.file);
+  const r = await fetch("/admin/api/donation-shared-upload", {
+    method: "POST",
+    body: fd,
+  });
+  try {
+    return (await r.json()) as SharedUploadResponse;
+  } catch {
+    return {
+      results: [],
+      error: r.ok
+        ? "Server vrátil neparsovatelnou odpověď."
+        : `HTTP ${r.status}${r.statusText ? " " + r.statusText : ""}`,
+    };
+  }
+}
+
 async function postAssign(
-  photos: PhotoItem[],
+  sha1s: string[],
   range: string,
   anon: boolean,
   overwrite: boolean,
 ): Promise<BulkAssignResponse> {
-  const fd = new FormData();
-  for (const p of photos) fd.append("files", p.file);
-  fd.append("range", range);
-  fd.append("anon", anon ? "1" : "0");
-  fd.append("overwrite", overwrite ? "1" : "0");
   const r = await fetch("/admin/api/donation-bulk-assign", {
     method: "POST",
-    body: fd,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sha1s, range, anon, overwrite }),
   });
   try {
     return (await r.json()) as BulkAssignResponse;
@@ -73,9 +116,9 @@ export function DonationPhotosBulkAssignForm() {
   const [dragActive, setDragActive] = useState(false);
   const [result, setResult] = useState<BulkAssignResponse | null>(null);
   const [bannerError, setBannerError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [phase, setPhase] = useState<"idle" | "uploading" | "assigning">("idle");
+  const [, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
-  // Keep a live ref so the unmount cleanup revokes whatever's current.
   const photosRef = useRef<PhotoItem[]>([]);
   photosRef.current = photos;
   useEffect(
@@ -84,6 +127,8 @@ export function DonationPhotosBulkAssignForm() {
     },
     [],
   );
+
+  const isPending = phase !== "idle";
 
   const addPhotos = useCallback((incoming: FileList | File[]) => {
     setBannerError(null);
@@ -132,9 +177,50 @@ export function DonationPhotosBulkAssignForm() {
     if (inputRef.current) inputRef.current.value = "";
   };
 
+  /** Stages any photos that don't yet have a sha1 (chunked). Returns the
+   *  ordered sha1 list, or null on failure (banner already set). */
+  const ensureStaged = async (current: PhotoItem[]): Promise<string[] | null> => {
+    const pending = current.filter((p) => !p.sha1);
+    if (pending.length > 0) {
+      setPhase("uploading");
+      for (const batch of splitBatches(pending)) {
+        const { results, error } = await postStagingBatch(batch);
+        if (error) {
+          setBannerError(error);
+          return null;
+        }
+        // Map batch-relative index → photo; stamp sha1 into state.
+        const staged = new Map<string, string>();
+        for (const r of results) {
+          const photo = batch[r.index];
+          if (!photo) continue;
+          if (r.status === "ok" && r.sha1) staged.set(photo.id, r.sha1);
+          else {
+            setBannerError(
+              `Fotku "${photo.file.name}" nešlo nahrát: ${r.reason ?? "neznámá chyba"}`,
+            );
+            return null;
+          }
+        }
+        setPhotos((prev) =>
+          prev.map((p) =>
+            staged.has(p.id) ? { ...p, sha1: staged.get(p.id) } : p,
+          ),
+        );
+        for (const [id, sha1] of staged) {
+          const p = current.find((x) => x.id === id);
+          if (p) p.sha1 = sha1; // keep local copy in sync for the return
+        }
+      }
+    }
+    const sha1s = current.map((p) => p.sha1).filter((s): s is string => !!s);
+    return sha1s.length === current.length ? sha1s : null;
+  };
+
   const submit = (overwrite: boolean) => {
     if (isPending) return;
-    if (photos.length === 0) {
+    const current = photos;
+    if (current.length === 0) {
       setBannerError("Přidej aspoň jednu fotku.");
       return;
     }
@@ -144,9 +230,16 @@ export function DonationPhotosBulkAssignForm() {
     }
     setBannerError(null);
     startTransition(async () => {
-      const res = await postAssign(photos, range, anon, overwrite);
-      setResult(res);
-      if (res.error) setBannerError(res.error);
+      try {
+        const sha1s = await ensureStaged(current);
+        if (!sha1s) return;
+        setPhase("assigning");
+        const res = await postAssign(sha1s, range, anon, overwrite);
+        setResult(res);
+        if (res.error) setBannerError(res.error);
+      } finally {
+        setPhase("idle");
+      }
     });
   };
 
@@ -163,11 +256,10 @@ export function DonationPhotosBulkAssignForm() {
       </header>
       <p className="mb-3 text-xs text-gray-600">
         Nahraj pár fotek (jakýkoli formát/název — normalizují se na WebP) a
-        přiřaď je rozsahu čísel nálezů. Fotky se uloží{" "}
-        <strong>jednou</strong> a všechny nálezy na ně jen odkážou (žádné
-        kopie). Pořadí = sloty <code className="font-mono">a, b, c…</code> Max{" "}
-        {MAX_BULK_PHOTOS} fotek, {MAX_BULK_FINDS} nálezů, {fmtSize(MAX_FILE_BYTES)}
-        /fotka.
+        přiřaď je rozsahu čísel nálezů. Fotky se uloží <strong>jednou</strong>{" "}
+        a všechny nálezy na ně jen odkážou (žádné kopie). Pořadí = sloty{" "}
+        <code className="font-mono">a, b, c…</code> Max {MAX_BULK_PHOTOS} fotek,{" "}
+        {MAX_BULK_FINDS} nálezů, {fmtSize(MAX_FILE_BYTES)}/fotka.
       </p>
 
       <div
@@ -232,6 +324,14 @@ export function DonationPhotosBulkAssignForm() {
               <span className="absolute left-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-700 font-mono text-[11px] font-bold text-white shadow">
                 {slotLetter(i)}
               </span>
+              {p.sha1 && (
+                <span
+                  className="absolute right-1.5 top-1.5 rounded-full bg-emerald-600 p-0.5 text-white shadow"
+                  title="Nahráno"
+                >
+                  <CheckCircle2 className="h-3 w-3" aria-hidden />
+                </span>
+              )}
               <div className="flex items-center justify-between gap-1 px-1.5 py-1">
                 <span
                   className="min-w-0 flex-1 truncate text-[10px] text-gray-500"
@@ -312,7 +412,11 @@ export function DonationPhotosBulkAssignForm() {
           ) : (
             <Layers className="h-3.5 w-3.5" aria-hidden />
           )}
-          Přiřadit
+          {phase === "uploading"
+            ? "Nahrávám…"
+            : phase === "assigning"
+              ? "Přiřazuji…"
+              : "Přiřadit"}
         </button>
         {(photos.length > 0 || range !== "") && (
           <button

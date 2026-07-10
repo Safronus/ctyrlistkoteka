@@ -169,11 +169,15 @@ Přidej:
 # nikdy na .trash samotný ani na nic jiného. Buckety se po vytvoření nemění,
 # takže mtime ≈ čas smazání. Uprav cestu, pokud máš jiný DATA_DIR.
 15 3 * * * find /var/ctyrlistkoteka/data/.trash -mindepth 1 -maxdepth 1 -type d -mtime +30 -exec rm -rf {} +
+# Auto-prune staging sdílených darovaných fotek: normalizované WebP čekající
+# na přiřazení (donation dedup). Po přiřazení zůstávají pro případný re-assign
+# jiného anon-stavu; po 7 dnech je smaž (dá se znovu nahrát). Malé soubory.
+20 3 * * * find /var/ctyrlistkoteka/data/.admin/donation-staging -type f -mtime +7 -delete 2>/dev/null
 ```
 
-> **Pozn.:** appka `.trash` sama nemaže (time-based cleanup patří do cronu,
-> ne do request-flow). Když crontab tenhle řádek nemá, koš roste donekonečna —
-> `crontab -l` ověří, jestli tam už je.
+> **Pozn.:** appka `.trash` ani staging sama nemaže (time-based cleanup patří
+> do cronu, ne do request-flow). Když crontab tyhle řádky nemá, adresáře
+> rostou donekonečna — `crontab -l` ověří, jestli tam už jsou.
 
 ---
 

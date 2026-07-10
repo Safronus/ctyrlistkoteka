@@ -81,34 +81,75 @@ async function fileExists(p: string): Promise<boolean> {
   }
 }
 
-/** Writes a normalized shared photo to disk. Idempotent — skips a variant
- *  that already exists (the whole point of dedup: re-assigning the same
- *  photo writes nothing). Public photos get web + thumb; anon photos get
- *  only the `_ANON` web file (Nginx 404s it; no thumb is served). Returns
- *  which files were newly written. */
-export async function storeSharedPhoto(params: {
+// ─── Staging ──────────────────────────────────────────────────────────────
+// Uploaded photos are normalized and parked in a NON-SERVED staging dir
+// keyed by sha1, THEN promoted to a served `s_<sha1>_DAR[_ANON].webp` name at
+// assign time. Two reasons: (1) the upload can be chunked into small requests
+// (dodging the ~10 MB multipart body-truncation cap) while assignment is a
+// tiny JSON call; (2) the public-vs-anon filename is only decided at assign
+// time, so an anon-only photo never leaves a publicly-servable file behind.
+
+/** Non-served staging dir under data/.admin/. */
+export function stagingDir(): string {
+  return path.join(ADMIN_DIR, "donation-staging");
+}
+function stagingWebPath(sha1: string): string {
+  return path.join(stagingDir(), `${sha1}.webp`);
+}
+function stagingThumbPath(sha1: string): string {
+  return path.join(stagingDir(), `${sha1}.thumb.webp`);
+}
+
+/** True when a photo has been staged (uploaded) and can be assigned. */
+export async function isPhotoStaged(sha1: string): Promise<boolean> {
+  return fileExists(stagingWebPath(sha1));
+}
+
+/** Parks a normalized photo in staging (non-served), idempotently — a
+ *  re-upload of the same bytes writes nothing. Returns whether it already
+ *  existed (dedup). */
+export async function writeStagedPhoto(params: {
   sha1: string;
-  anon: boolean;
   webBuf: Buffer;
   thumbBuf: Buffer;
-}): Promise<{ webWritten: boolean; thumbWritten: boolean }> {
+}): Promise<{ reused: boolean }> {
+  const webPath = stagingWebPath(params.sha1);
+  if (await fileExists(webPath)) return { reused: true };
+  await ensureDir(stagingDir());
+  await atomicWrite(webPath, params.webBuf);
+  await atomicWrite(stagingThumbPath(params.sha1), params.thumbBuf);
+  return { reused: false };
+}
+
+/** Promotes a staged photo to the served find-photos dir under its
+ *  public/anon name (copy — staging is left for a later GC). Public gets
+ *  web + thumb; anon gets only the `_ANON` web file (Nginx 404s it). Dedup:
+ *  a served file already present is left as-is. Throws if the photo was
+ *  never staged. Returns whether a served web file was newly created. */
+export async function promoteStagedPhoto(
+  sha1: string,
+  anon: boolean,
+): Promise<{ webWritten: boolean }> {
   const dir = sharedPhotosDir();
   await ensureDir(dir);
-  const webPath = path.join(dir, sharedPhotoFilename(params.sha1, params.anon));
-  let webWritten = false;
-  if (!(await fileExists(webPath))) {
-    await atomicWrite(webPath, params.webBuf);
-    webWritten = true;
+  const servedWeb = path.join(dir, sharedPhotoFilename(sha1, anon));
+  // Already served (re-assign / dedup) — nothing to promote, and we don't
+  // need staging to still be around.
+  if (await fileExists(servedWeb)) return { webWritten: false };
+
+  const stagedWeb = stagingWebPath(sha1);
+  if (!(await fileExists(stagedWeb))) {
+    throw new Error(`Fotka ${sha1} není nahraná (staging chybí) — nahraj znovu.`);
   }
-  let thumbWritten = false;
-  if (!params.anon) {
-    const thumbPath = path.join(dir, sharedThumbFilename(params.sha1));
-    if (!(await fileExists(thumbPath))) {
-      await atomicWrite(thumbPath, params.thumbBuf);
-      thumbWritten = true;
+  await fs.copyFile(stagedWeb, servedWeb);
+  if (!anon) {
+    const servedThumb = path.join(dir, sharedThumbFilename(sha1));
+    const stagedThumb = stagingThumbPath(sha1);
+    if (!(await fileExists(servedThumb)) && (await fileExists(stagedThumb))) {
+      await fs.copyFile(stagedThumb, servedThumb);
     }
   }
-  return { webWritten, thumbWritten };
+  return { webWritten: true };
 }
 
 function cleanAssignment(v: unknown): DonationShareAssignment | null {

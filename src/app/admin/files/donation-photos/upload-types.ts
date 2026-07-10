@@ -50,12 +50,39 @@ export const MAX_BULK_PHOTOS = 12;
 /** Find ids per bulk request — bounds the DB `IN` query + manifest write. */
 export const MAX_BULK_FINDS = 2000;
 
+/** Per-photo result of the chunked staging upload (step 1 of the bulk flow:
+ *  normalize + park in staging, before the tiny JSON assign in step 2). */
+export interface SharedUploadResult {
+  index: number;
+  filename: string;
+  status: "ok" | "rejected";
+  reason?: string;
+  /** sha1 of the original bytes — the id the assign step references. */
+  sha1?: string;
+  sourceFormat?: string;
+  /** True when the photo was already staged (dedup). */
+  reused?: boolean;
+}
+
+export interface SharedUploadResponse {
+  results: SharedUploadResult[];
+  error?: string;
+}
+
+/** JSON body of the assign step — no file bytes, so it can't truncate. */
+export interface BulkAssignRequest {
+  /** sha1s of already-staged photos, in slot order (a, b, c…). */
+  sha1s: string[];
+  range: string;
+  anon: boolean;
+  overwrite: boolean;
+}
+
 export interface BulkAssignPhoto {
   slot: string;
   sha1: string;
-  sourceFormat: string;
-  /** True when the shared file already existed on disk (dedup — nothing
-   *  new was written for this photo). */
+  /** True when the served shared file already existed (dedup — nothing new
+   *  was written promoting this photo). */
   reused: boolean;
 }
 
