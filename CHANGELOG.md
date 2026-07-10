@@ -9,6 +9,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — hromadné přiřazení sdílené fotky daru (dedup)
+- Na `/admin/files/donation-photos` nový panel „Hromadné přiřazení sdílené
+  fotky": nahraješ pár fotek (jakýkoli formát/název → normalizace na WebP
+  web+thumb, EXIF strip) a přiřadíš je **rozsahu čísel nálezů** (např.
+  `16330-16440`). Fotky se uloží **jednou** (`generated/find-photos/
+  s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
+  přes manifest `data/.admin/donation-photo-shares.json` — žádné N kopií.
+  Pořadí fotek = sloty `a, b, c…` (v UI přeuspořádatelné, s náhledy).
+- Validace: čísla se ověří proti DB (neexistující se nahlásí a přeskočí).
+  **Kolize** slotu (už tam sdílená fotka je) vrátí náhled bez zápisu a čeká
+  na potvrzení „Přepsat"; per-find **soubory** se nikdy nepřepíšou (ponechány).
+- Anon odkaz: soubor `_ANON` (Nginx ho 404uje jako u per-find), v detailu
+  placeholder + odemčení kódem (sdílí stávající unlock flow).
+- `s_` prefix drží sdílené soubory mimo per-find `^\d+` reader regex; reader
+  je merguje a přeskočí osiřelé odkazy. Kompletní pokrytí testy (merge,
+  anon-skrytí, orphan, filename konvence).
+
 ### Fix: deploy „aktualizuje se" scéna zamrzávala na countdownu
 - Countdown „Sám se obnovím za N s…" po **prvním** auto-reloadu zamrznul na
   4 s a další obnovení se nenaplánovalo (musel jsi kliknout „Zkusit hned").

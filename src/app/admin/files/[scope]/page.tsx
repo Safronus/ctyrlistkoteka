@@ -41,6 +41,7 @@ import { deleteCropsBulk } from "../crops/delete-action";
 import { CropsUploadForm } from "../crops/upload-form";
 import { deleteDonationPhotosBulk } from "../donation-photos/delete-action";
 import { DonationPhotosUploadForm } from "../donation-photos/upload-form";
+import { DonationPhotosBulkAssignForm } from "../donation-photos/bulk-assign-form";
 import { deleteFreePhotosBulk } from "../free-photos/delete-action";
 import { deleteFindsBulk } from "../finds/delete-action";
 import { FindsUploadForm } from "../finds/upload-form";
@@ -541,6 +542,7 @@ export default async function AdminScopeListPage({
       {scope.slug === "crops" && <CropsUploadForm />}
       {scope.slug === "maps" && <MapsUploadForm />}
       {scope.slug === "donation-photos" && <DonationPhotosUploadForm />}
+      {scope.slug === "donation-photos" && <DonationPhotosBulkAssignForm />}
       {scope.slug === "location-photos" && <LocationPhotosUploadForm />}
 
       {syncBannerProps && (
