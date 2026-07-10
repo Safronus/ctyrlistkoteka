@@ -25,6 +25,31 @@ function titleCase(s: string): string {
     );
 }
 
+/** Buckets items under their country, ordered like the Stát dropdown
+ *  (`countries` order; any stray country not in that list is appended so
+ *  nothing is ever dropped). Shared by the Město + Lokalita `<optgroup>`
+ *  grouping — both carry each item's country code. */
+function groupByCountry<T>(
+  items: readonly T[],
+  countryOf: (item: T) => string,
+  countries: readonly { code: string; name: string }[],
+): Array<{ code: string; name: string; items: T[] }> {
+  const byCode = new Map<string, T[]>();
+  for (const item of items) {
+    const code = countryOf(item);
+    const list = byCode.get(code) ?? [];
+    list.push(item);
+    byCode.set(code, list);
+  }
+  const codes = countries.map((c) => c.code).filter((code) => byCode.has(code));
+  for (const code of byCode.keys()) if (!codes.includes(code)) codes.push(code);
+  return codes.map((code) => ({
+    code,
+    name: countries.find((c) => c.code === code)?.name ?? code,
+    items: byCode.get(code) ?? [],
+  }));
+}
+
 export function FilterBar({
   options,
   facets,
@@ -182,33 +207,35 @@ export function FilterBar({
     [options.locations, effectiveCountry, effectiveCity],
   );
 
-  // Group the visible cities by country so the flat list (when no country is
-  // pinned) reads under country headers — the city options already carry each
-  // city's country, mirroring the Stát filter. Groups are ordered like the
-  // country dropdown; the current city always stays visible even at count 0.
-  // A single group (country pinned, or one-country data) renders flat below.
-  const cityGroups = useMemo(() => {
-    const shown = visibleCities.filter(
-      (c) => (facets.cities[c.name] ?? 0) > 0 || c.name === effectiveCity,
-    );
-    const byCode = new Map<string, typeof shown>();
-    for (const c of shown) {
-      const list = byCode.get(c.country) ?? [];
-      list.push(c);
-      byCode.set(c.country, list);
-    }
-    const codes = options.countries
-      .map((c) => c.code)
-      .filter((code) => byCode.has(code));
-    // Any city whose country isn't in the countries list (shouldn't happen)
-    // still gets a group so it's never dropped.
-    for (const code of byCode.keys()) if (!codes.includes(code)) codes.push(code);
-    return codes.map((code) => ({
-      code,
-      name: options.countries.find((c) => c.code === code)?.name ?? code,
-      cities: byCode.get(code) ?? [],
-    }));
-  }, [visibleCities, facets.cities, effectiveCity, options.countries]);
+  // Group the visible cities + locations by country so each flat list (when
+  // no country is pinned) reads under country headers — both already carry
+  // their country, mirroring the Stát filter. The current selection always
+  // stays visible even at count 0. A single group (country/city pinned, or
+  // one-country data) renders flat below, with no redundant header.
+  const cityGroups = useMemo(
+    () =>
+      groupByCountry(
+        visibleCities.filter(
+          (c) => (facets.cities[c.name] ?? 0) > 0 || c.name === effectiveCity,
+        ),
+        (c) => c.country,
+        options.countries,
+      ),
+    [visibleCities, facets.cities, effectiveCity, options.countries],
+  );
+  const locationGroups = useMemo(
+    () =>
+      groupByCountry(
+        visibleLocations.filter(
+          (l) =>
+            (facets.locations[l.id] ?? 0) > 0 ||
+            String(l.id) === current.locationId,
+        ),
+        (l) => l.country,
+        options.countries,
+      ),
+    [visibleLocations, facets.locations, current.locationId, options.countries],
+  );
 
   const nf = useMemo(
     () => new Intl.NumberFormat(locale === "en" ? "en-GB" : "cs-CZ"),
@@ -317,7 +344,7 @@ export function FilterBar({
               {cityGroups.length > 1
                 ? cityGroups.map((g) => (
                     <optgroup key={g.code} label={g.name}>
-                      {g.cities.map((c) => (
+                      {g.items.map((c) => (
                         <option key={c.name} value={c.name}>
                           {withCount(titleCase(c.name), facets.cities[c.name])}
                         </option>
@@ -325,7 +352,7 @@ export function FilterBar({
                     </optgroup>
                   ))
                 : cityGroups
-                    .flatMap((g) => g.cities)
+                    .flatMap((g) => g.items)
                     .map((c) => (
                       <option key={c.name} value={c.name}>
                         {withCount(titleCase(c.name), facets.cities[c.name])}
@@ -366,17 +393,23 @@ export function FilterBar({
               className={`${SELECT_CLS} w-full`}
             >
               <option value="">{tCommon("all")}</option>
-              {visibleLocations
-                .filter(
-                  (l) =>
-                    (facets.locations[l.id] ?? 0) > 0 ||
-                    String(l.id) === current.locationId,
-                )
-                .map((l) => (
-                  <option key={l.id} value={String(l.id)}>
-                    {withCount(l.label, facets.locations[l.id])}
-                  </option>
-                ))}
+              {locationGroups.length > 1
+                ? locationGroups.map((g) => (
+                    <optgroup key={g.code} label={g.name}>
+                      {g.items.map((l) => (
+                        <option key={l.id} value={String(l.id)}>
+                          {withCount(l.label, facets.locations[l.id])}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))
+                : locationGroups
+                    .flatMap((g) => g.items)
+                    .map((l) => (
+                      <option key={l.id} value={String(l.id)}>
+                        {withCount(l.label, facets.locations[l.id])}
+                      </option>
+                    ))}
             </select>
             <ChevronDown
               className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
