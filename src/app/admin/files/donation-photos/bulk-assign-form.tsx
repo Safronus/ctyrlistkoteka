@@ -117,6 +117,8 @@ export function DonationPhotosBulkAssignForm() {
   const [result, setResult] = useState<BulkAssignResponse | null>(null);
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [phase, setPhase] = useState<"idle" | "uploading" | "assigning">("idle");
+  const [uploaded, setUploaded] = useState(0);
+  const [uploadTotal, setUploadTotal] = useState(0);
   const [, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const photosRef = useRef<PhotoItem[]>([]);
@@ -183,6 +185,9 @@ export function DonationPhotosBulkAssignForm() {
     const pending = current.filter((p) => !p.sha1);
     if (pending.length > 0) {
       setPhase("uploading");
+      setUploaded(0);
+      setUploadTotal(pending.length);
+      let done = 0;
       for (const batch of splitBatches(pending)) {
         const { results, error } = await postStagingBatch(batch);
         if (error) {
@@ -211,6 +216,8 @@ export function DonationPhotosBulkAssignForm() {
           const p = current.find((x) => x.id === id);
           if (p) p.sha1 = sha1; // keep local copy in sync for the return
         }
+        done += batch.length;
+        setUploaded(done);
       }
     }
     const sha1s = current.map((p) => p.sha1).filter((s): s is string => !!s);
@@ -429,6 +436,38 @@ export function DonationPhotosBulkAssignForm() {
           </button>
         )}
       </div>
+
+      {phase === "uploading" && uploadTotal > 0 && (
+        <div className="mt-2" aria-live="polite">
+          <div className="flex items-center justify-between text-xs text-gray-600">
+            <span className="flex items-center gap-1.5">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600" aria-hidden />
+              Nahrávám a zpracovávám fotky…
+            </span>
+            <span className="font-mono tabular-nums">
+              {uploaded}/{uploadTotal}
+            </span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-200">
+            <div
+              className="h-full rounded-full bg-brand-500 transition-[width] duration-300"
+              style={{
+                width: `${Math.round((uploaded / uploadTotal) * 100)}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {phase === "assigning" && (
+        <p
+          className="mt-2 flex items-center gap-1.5 text-xs text-gray-600"
+          aria-live="polite"
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600" aria-hidden />
+          Přiřazuji fotky nálezům…
+        </p>
+      )}
 
       {bannerError && (
         <p className="mt-2 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-800">
