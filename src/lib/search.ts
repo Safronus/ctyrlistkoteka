@@ -30,7 +30,7 @@ export interface IdQuery {
 export function parseIdQuery(q: string): IdQuery | null {
   const trimmed = q.trim().replace(/^#/, "");
   if (!/^\d+$/.test(trimmed)) return null;
-  const n = parseInt(trimmed, 10);
+  const n = Number.parseInt(trimmed, 10);
   if (!Number.isFinite(n) || n < 0) return null;
   return { exactId: n, digits: trimmed };
 }

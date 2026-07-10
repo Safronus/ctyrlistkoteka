@@ -54,7 +54,7 @@ export async function unlockFindPhotos(
   const findIdRaw = formData.get("findId");
   const codeRaw = formData.get("code");
   const findId =
-    typeof findIdRaw === "string" ? Number(findIdRaw) : NaN;
+    typeof findIdRaw === "string" ? Number(findIdRaw) : Number.NaN;
   const code = typeof codeRaw === "string" ? codeRaw.trim() : "";
   if (!Number.isInteger(findId) || findId <= 0) {
     return { ...FIND_PHOTO_UNLOCK_INITIAL, status: "error" };

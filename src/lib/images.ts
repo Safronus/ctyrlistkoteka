@@ -558,7 +558,7 @@ function parseAoiFromTags(
   if (out.length < 3) return null;
   // Close the linear ring as PostGIS expects.
   const first = out[0]!;
-  const last = out[out.length - 1]!;
+  const last = out.at(-1)!;
   if (first[0] !== last[0] || first[1] !== last[1]) {
     out.push([first[0], first[1]]);
   }

@@ -216,7 +216,7 @@ function joinCs(parts: readonly string[], conn: string): string {
   if (parts.length === 0) return "";
   if (parts.length === 1) return parts[0]!;
   if (parts.length === 2) return `${parts[0]} ${conn} ${parts[1]}`;
-  return `${parts.slice(0, -1).join(", ")} ${conn} ${parts[parts.length - 1]}`;
+  return `${parts.slice(0, -1).join(", ")} ${conn} ${parts.at(-1)}`;
 }
 
 /**

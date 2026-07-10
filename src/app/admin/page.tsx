@@ -87,7 +87,7 @@ function aggregateUploadBatches(
 ): ActivityRow[] {
   const out: ActivityRow[] = [];
   for (const row of recent) {
-    const last = out[out.length - 1];
+    const last = out.at(-1);
     const scope =
       typeof row.details?.scope === "string" ? row.details.scope : undefined;
     if (

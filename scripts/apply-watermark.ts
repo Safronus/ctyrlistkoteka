@@ -81,16 +81,16 @@ function parseArgs(argv: string[]): Args {
   };
   for (cur.i = 0; cur.i < argv.length; cur.i++) {
     const a = argv[cur.i];
-    if (a === "--find-id") args.findId = parseInt(need(a), 10);
+    if (a === "--find-id") args.findId = Number.parseInt(need(a), 10);
     else if (a === "--all") args.all = true;
     else if (a === "--watermark") args.watermarkPath = need(a);
     else if (a === "--width-ratio")
-      args.options.widthRatio = parseFloat(need(a));
-    else if (a === "--opacity") args.options.opacity = parseFloat(need(a));
+      args.options.widthRatio = Number.parseFloat(need(a));
+    else if (a === "--opacity") args.options.opacity = Number.parseFloat(need(a));
     else if (a === "--margin-ratio")
-      args.options.marginRatio = parseFloat(need(a));
+      args.options.marginRatio = Number.parseFloat(need(a));
     else if (a === "--rotation")
-      args.options.rotation = parseFloat(need(a));
+      args.options.rotation = Number.parseFloat(need(a));
     else if (a === "--skip-thumbs") args.skipThumbs = true;
     else if (a === "--reset") args.reset = true;
     else if (a === "--dry-run") args.dryRun = true;
@@ -98,9 +98,9 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--regen-only") {
       args.regenerate = true;
       args.regenOnly = true;
-    } else if (a === "--web-quality") args.webQuality = parseInt(need(a), 10);
+    } else if (a === "--web-quality") args.webQuality = Number.parseInt(need(a), 10);
     else if (a === "--thumb-quality")
-      args.thumbQuality = parseInt(need(a), 10);
+      args.thumbQuality = Number.parseInt(need(a), 10);
     else if (a === "--help" || a === "-h") {
       console.log(
         "Usage: pnpm watermark [--find-id N | --all] [--watermark PATH]\n" +

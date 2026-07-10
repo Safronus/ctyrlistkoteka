@@ -50,7 +50,7 @@ export const revalidate = 86400;
 
 function parseMapId(value: string): number | null {
   if (!/^\d+$/.test(value)) return null;
-  const n = parseInt(value, 10);
+  const n = Number.parseInt(value, 10);
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 

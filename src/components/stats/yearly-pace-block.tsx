@@ -24,7 +24,7 @@ export function YearlyPaceBlock({
     maximumFractionDigits: 1,
   });
 
-  const initialYear = entries[entries.length - 1]?.year;
+  const initialYear = entries.at(-1)?.year;
   const [selectedYear, setSelectedYear] = useState<number | undefined>(
     initialYear,
   );
@@ -33,7 +33,7 @@ export function YearlyPaceBlock({
 
   const selected =
     entries.find((e) => e.year === selectedYear) ??
-    entries[entries.length - 1]!;
+    entries.at(-1)!;
 
   // The edge years don't span a full calendar year, so their pace is
   // computed over fewer days — not wrong, just a shorter window: the

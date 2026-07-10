@@ -37,7 +37,7 @@ export function clientIpFromHeaders(h: HeaderReader): string | null {
   const fwd = h.get("x-forwarded-for");
   if (fwd) {
     const parts = fwd.split(",");
-    const last = parts[parts.length - 1]?.trim();
+    const last = parts.at(-1)?.trim();
     if (last) return last;
   }
   return null;

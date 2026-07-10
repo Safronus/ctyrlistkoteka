@@ -31,7 +31,7 @@ export interface SaveRotationResult {
  *  rejects it with a clear message instead of silently coercing to 0. */
 function readNumber(formData: FormData, key: string): number {
   const v = formData.get(key);
-  return typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  return typeof v === "string" && v.trim() !== "" ? Number(v) : Number.NaN;
 }
 
 /** Admin action: auth → validate the three second-values against their
