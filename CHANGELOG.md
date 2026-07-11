@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — výrazné zrychlení filtrování (3–5s → ~0.65s)
+- Profilováním (`?debug=timing`, skrytý gated blok pro budoucí ladění) se
+  našly tři věci: **(1)** `buildWhere` rozkládal stát→lokality přes JS
+  point-in-polygon nad všemi lokacemi a volal se **6–7× za render** (v
+  `listFinds` + každém facetu) → obaleno React `cache()` (per-request 7×→1×);
+  to samo srazilo `country=CZ` z 3.3s na 1.2s. **(2)** `getFilterOptions`
+  (~670ms, 5 agregací) je **identický pro každý request** → `unstable_cache`
+  (revalidate 300s); tím zmizel nejen jeho čas, ale i **contention DB poolu**,
+  takže i `listFinds` spadl z ~925 na ~311ms. **(3)** stejně cachnutý
+  `getCollectionProgress`. Výsledek: výběr lokality/státu **3–5s → ~0.65s**,
+  base **1.3s → 0.7s**. Filtr-options se po syncu projeví do 5 min.
+
 ### /sbirka — filtry „Město" a „Lokalita" seskupené podle státu
 - Když není vybraný stát, dropdowny Město i Lokalita teď řadí položky pod
   hlavičky států (`<optgroup>`) místo ploché změti — obě položky svůj stát
