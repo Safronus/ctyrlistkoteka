@@ -204,6 +204,15 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   // on normal loads — the timers are cheap Date.now() calls and the sink is
   // only passed when the flag is on.
   const debugTiming = pickString(sp.debug) === "timing";
+  const bt: Record<string, number> = {};
+  const ptap = <T,>(key: string, p: Promise<T>): Promise<T> => {
+    if (!debugTiming) return p;
+    const t = Date.now();
+    return p.then((r) => {
+      bt[key] = Date.now() - t;
+      return r;
+    });
+  };
   const tBatchStart = Date.now();
   // Resolve the dominant location's code for the toggle's hover label
   // ("Skrýt #00003 — ZLÍN_JSVAHY-KŘIBY-V001"). Single trip, cached
@@ -212,13 +221,16 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   // the configured id doesn't exist yet (early dev, fresh DB) — the
   // toggle hides itself in that case.
   const [optionsRaw, result, progress, dominantLocation] = await Promise.all([
-    getFilterOptions(),
-    listFinds(filters, page, pageSize, sort),
-    getCollectionProgress(),
-    prisma.location.findUnique({
-      where: { id: DOMINANT_LOCATION_ID },
-      select: { id: true, code: true },
-    }),
+    ptap("batch.filterOptions", getFilterOptions()),
+    ptap("batch.listFinds", listFinds(filters, page, pageSize, sort)),
+    ptap("batch.progress", getCollectionProgress()),
+    ptap(
+      "batch.dominant",
+      prisma.location.findUnique({
+        where: { id: DOMINANT_LOCATION_ID },
+        select: { id: true, code: true },
+      }),
+    ),
   ]);
   const msBatch = Date.now() - tBatchStart;
   // Faceted counts for the filter dropdowns + the two toolbar toggles:
@@ -458,7 +470,9 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
           hidden
           data-sbirka-timing={`batch=${msBatch} facets=${msFacets} votes=${msVotes} approxTotal=${
             msBatch + msFacets + msVotes
-          } rows=${result.items.length} :: ${Object.entries(facetTimings)
+          } rows=${result.items.length} :: ${Object.entries(bt)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(" ")} :: ${Object.entries(facetTimings)
             .map(([k, v]) => `${k}=${v}`)
             .join(" ")}`}
         />
