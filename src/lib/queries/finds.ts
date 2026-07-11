@@ -6,6 +6,7 @@
  */
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { FindState, Prisma, type ImageType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { anonymize } from "@/lib/anonymize";
@@ -1656,7 +1657,22 @@ export interface FilterOptions {
   maxDate: string | null;
 }
 
-export async function getFilterOptions(): Promise<FilterOptions> {
+/**
+ * Filter-bar options are IDENTICAL for every /sbirka request (they depend
+ * only on the collection, not the active filter or locale — countries stay
+ * as raw codes/names, localized at the page boundary). Measured at ~670 ms
+ * (five aggregations), it dominated the render's first phase. Cache the
+ * result across requests so only the first load per window pays for it and
+ * every subsequent filter click reuses it. Options change only on `sync`,
+ * so a short revalidate window is plenty.
+ */
+export const getFilterOptions = unstable_cache(
+  getFilterOptionsImpl,
+  ["sbirka-filter-options"],
+  { revalidate: 300 },
+);
+
+async function getFilterOptionsImpl(): Promise<FilterOptions> {
   const [locationRows, yearRows, countries, dateBounds, anonMaps] =
     await Promise.all([
       // id/code/displayName plus the cadastral area (→ city) and centre
