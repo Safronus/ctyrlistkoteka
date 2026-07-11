@@ -779,7 +779,23 @@ export interface FacetCounts {
 export async function getFacetCounts(
   filters: FindFilters,
   locationMeta: ReadonlyArray<{ id: number; city: string; country: string }>,
+  /** Optional profiling sink — when passed, each sub-query's wall time (ms)
+   *  is recorded under a stable key. Only wired from the `?debug=timing`
+   *  path; normal loads pass nothing and pay no overhead. */
+  timings?: Record<string, number>,
 ): Promise<FacetCounts> {
+  // Times a promise into `timings` when profiling; a no-op passthrough
+  // otherwise. Queries run concurrently, so these overlap — the max is what
+  // gates the Promise.all.
+  const tap = <T>(key: string, p: Promise<T>): Promise<T> => {
+    if (!timings) return p;
+    const t = Date.now();
+    return p.then((r) => {
+      timings[key] = Date.now() - t;
+      return r;
+    });
+  };
+
   // WHERE for `filters` minus one or more dimensions, with the on-disk
   // photo filter folded back in (unless photo itself is omitted).
   const whereFor = async (
@@ -791,7 +807,9 @@ export async function getFacetCounts(
     return sub.hasRealPhoto ? mergeRealPhotoFilter(base) : base;
   };
 
-  const [dominantChildren, allLocations] = await Promise.all([
+  const [dominantChildren, allLocations] = await tap(
+    "facet.locMeta",
+    Promise.all([
     prisma.location.findMany({
       where: { parentId: DOMINANT_LOCATION_ID },
       select: { id: true },
@@ -802,7 +820,8 @@ export async function getFacetCounts(
     // parent whose finds live only in child locations would show 0 and get
     // hidden. Hierarchy is max depth 2, so a single pass suffices.
     prisma.location.findMany({ select: { id: true, parentId: true } }),
-  ]);
+    ]),
+  );
   const dominantIds = [
     DOMINANT_LOCATION_ID,
     ...dominantChildren.map((c) => c.id),
@@ -823,50 +842,71 @@ export async function getFacetCounts(
     // exactly the AND-multiselect rule ("if ANONYMIZED still co-occurs with
     // the chosen LOST it stays offered; states that don't, drop to 0 and
     // hide"). Already-selected states come back at the full total.
-    whereFor([]).then((where) =>
-      prisma.findStateAssignment.groupBy({
-        by: ["state"],
-        where: { find: where },
-        _count: { findId: true },
-      }),
+    tap(
+      "facet.state",
+      whereFor([]).then((where) =>
+        prisma.findStateAssignment.groupBy({
+          by: ["state"],
+          where: { find: where },
+          _count: { findId: true },
+        }),
+      ),
     ),
-    whereFor(["locationId"]).then((where) =>
-      prisma.find.groupBy({
-        by: ["locationId"],
-        where: { AND: [where, { locationId: { not: null } }] },
-        _count: { _all: true },
-      }),
+    tap(
+      "facet.loc",
+      whereFor(["locationId"]).then((where) =>
+        prisma.find.groupBy({
+          by: ["locationId"],
+          where: { AND: [where, { locationId: { not: null } }] },
+          _count: { _all: true },
+        }),
+      ),
     ),
-    whereFor(["cadastralArea"]).then((where) =>
-      prisma.find.groupBy({
-        by: ["locationId"],
-        where: { AND: [where, { locationId: { not: null } }] },
-        _count: { _all: true },
-      }),
+    tap(
+      "facet.city",
+      whereFor(["cadastralArea"]).then((where) =>
+        prisma.find.groupBy({
+          by: ["locationId"],
+          where: { AND: [where, { locationId: { not: null } }] },
+          _count: { _all: true },
+        }),
+      ),
     ),
-    whereFor(["country"]).then((where) =>
-      prisma.find.groupBy({
-        by: ["locationId"],
-        where: { AND: [where, { locationId: { not: null } }] },
-        _count: { _all: true },
-      }),
+    tap(
+      "facet.country",
+      whereFor(["country"]).then((where) =>
+        prisma.find.groupBy({
+          by: ["locationId"],
+          where: { AND: [where, { locationId: { not: null } }] },
+          _count: { _all: true },
+        }),
+      ),
     ),
-    whereFor(["year"]).then((where) =>
-      prisma.find.findMany({
-        where: { AND: [where, { foundAt: { not: null } }] },
-        select: { foundAt: true },
-      }),
+    tap(
+      "facet.year",
+      whereFor(["year"]).then((where) =>
+        prisma.find.findMany({
+          where: { AND: [where, { foundAt: { not: null } }] },
+          select: { foundAt: true },
+        }),
+      ),
     ),
     // "S fotkou daru" toggle count — the other filters AND a donation photo.
-    buildWhere({ ...filters, hasRealPhoto: undefined })
-      .then((base) => mergeRealPhotoFilter(base))
-      .then((where) => prisma.find.count({ where })),
+    tap(
+      "facet.hasPhoto",
+      buildWhere({ ...filters, hasRealPhoto: undefined })
+        .then((base) => mergeRealPhotoFilter(base))
+        .then((where) => prisma.find.count({ where })),
+    ),
     // "Skrýt největší lokalitu" toggle count — how many of the otherwise
     // matching finds sit in the dominant subtree (i.e. would be hidden).
-    whereFor(["excludeLocationId"]).then((where) =>
-      prisma.find.count({
-        where: { AND: [where, { locationId: { in: dominantIds } }] },
-      }),
+    tap(
+      "facet.hideDominant",
+      whereFor(["excludeLocationId"]).then((where) =>
+        prisma.find.count({
+          where: { AND: [where, { locationId: { in: dominantIds } }] },
+        }),
+      ),
     ),
   ]);
 

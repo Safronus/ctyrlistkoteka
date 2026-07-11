@@ -199,6 +199,12 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const view: FindView = explicitView ?? cookieView ?? defaultView;
 
   const locale = await getLocale();
+  // `?debug=timing` renders a hidden per-phase timing block (curl-readable /
+  // view-source-able) for profiling this force-dynamic page. Zero overhead
+  // on normal loads — the timers are cheap Date.now() calls and the sink is
+  // only passed when the flag is on.
+  const debugTiming = pickString(sp.debug) === "timing";
+  const tBatchStart = Date.now();
   // Resolve the dominant location's code for the toggle's hover label
   // ("Skrýt #00003 — ZLÍN_JSVAHY-KŘIBY-V001"). Single trip, cached
   // per-request because the dynamic page already short-circuits the
@@ -214,11 +220,19 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
       select: { id: true, code: true },
     }),
   ]);
+  const msBatch = Date.now() - tBatchStart;
   // Faceted counts for the filter dropdowns + the two toolbar toggles:
   // every dimension's numbers react to the OTHER active filters, and
   // zero-count options drop out of the lists. Runs after getFilterOptions
   // because it reuses that call's resolved location → city/country map.
-  const facets = await getFacetCounts(filters, optionsRaw.locations);
+  const facetTimings: Record<string, number> = {};
+  const tFacetsStart = Date.now();
+  const facets = await getFacetCounts(
+    filters,
+    optionsRaw.locations,
+    debugTiming ? facetTimings : undefined,
+  );
+  const msFacets = Date.now() - tFacetsStart;
 
   // Pre-resolve "did this visitor already vote?" + counts for the
   // page of finds. Done at the SSR boundary so the rendered buttons
@@ -229,6 +243,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const findIdsOnPage = result.items.map((f) => f.id);
   let votedSet: ReadonlySet<number> = new Set<number>();
   let voteCounts: ReadonlyMap<number, number> = new Map<number, number>();
+  const tVotesStart = Date.now();
   try {
     const [uuid, fpInputs] = await Promise.all([
       readVoterUuid(),
@@ -245,6 +260,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     // voted yet" until the operator sets VOTE_FINGERPRINT_SALT.
     voteCounts = await getFindVoteCounts(findIdsOnPage);
   }
+  const msVotes = Date.now() - tVotesStart;
   // FilterOptions.countries carries raw English (Natural Earth) names —
   // localize at the page boundary so the dropdown reads in the user's
   // language while the cached upstream query stays locale-agnostic.
@@ -437,6 +453,16 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+      {debugTiming && (
+        <div
+          hidden
+          data-sbirka-timing={`batch=${msBatch} facets=${msFacets} votes=${msVotes} approxTotal=${
+            msBatch + msFacets + msVotes
+          } rows=${result.items.length} :: ${Object.entries(facetTimings)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(" ")}`}
+        />
+      )}
       <RememberSbirkaSearch />
       <FilterablePageHeader
         // Filter-independent totals, pinned to the right of the title. The
