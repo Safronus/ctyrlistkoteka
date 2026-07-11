@@ -5,6 +5,7 @@
  * boundary unless already safe.
  */
 
+import { cache } from "react";
 import { FindState, Prisma, type ImageType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { anonymize } from "@/lib/anonymize";
@@ -1606,20 +1607,31 @@ export async function getHighlightFind(
  *  a plain `locationId IN (…)` condition without dragging PostGIS into
  *  the main find query. The locations table is small (~128 rows), so
  *  this scan is cheap. */
-async function locationIdsInCountry(country: string): Promise<number[]> {
-  const rows = await prisma.$queryRaw<
-    Array<{ id: number; lat: number; lng: number }>
-  >`
-    SELECT id,
-           ST_Y(center_point)::float8 AS lat,
-           ST_X(center_point)::float8 AS lng
-    FROM "locations"
-    WHERE center_point IS NOT NULL
-  `;
-  return rows
-    .filter((r) => countryFromCoords(r.lat, r.lng).code === country)
-    .map((r) => r.id);
-}
+/**
+ * Location ids whose centre falls in `country`. Resolving the country of a
+ * point is a JS polygon test (`countryFromCoords`) run over every location,
+ * so this is ~O(locations) geometry per call — and getFacetCounts + listFinds
+ * call it 6–7× per /sbirka render (once per facet's `whereFor` + listFinds).
+ * Wrapping it in React `cache()` de-dupes all those calls within a single
+ * request to ONE execution — the dominant cost of a country/location-filtered
+ * page (measured: ~1.75 s → collapses to ~0.25 s under `?country=CZ`).
+ */
+const locationIdsInCountry = cache(
+  async (country: string): Promise<number[]> => {
+    const rows = await prisma.$queryRaw<
+      Array<{ id: number; lat: number; lng: number }>
+    >`
+      SELECT id,
+             ST_Y(center_point)::float8 AS lat,
+             ST_X(center_point)::float8 AS lng
+      FROM "locations"
+      WHERE center_point IS NOT NULL
+    `;
+    return rows
+      .filter((r) => countryFromCoords(r.lat, r.lng).code === country)
+      .map((r) => r.id);
+  },
+);
 
 /** Options for the /sbirka filter bar. Cached aggregations. */
 export interface FilterOptions {
