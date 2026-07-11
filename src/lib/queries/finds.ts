@@ -1793,7 +1793,17 @@ export interface CollectionProgress {
  * gaps within its current range). Cheap — one count + a min/max query +
  * one window-function pass over the id column.
  */
-export async function getCollectionProgress(): Promise<CollectionProgress> {
+/** Collection-wide completeness stats (min/max id, gaps, count) — like the
+ *  filter options, identical for every request and only moved by `sync`, so
+ *  cache it across requests. Measured ~300 ms under contention; freeing it
+ *  from the per-render batch also relieves the pool for listFinds. */
+export const getCollectionProgress = unstable_cache(
+  getCollectionProgressImpl,
+  ["sbirka-collection-progress"],
+  { revalidate: 300 },
+);
+
+async function getCollectionProgressImpl(): Promise<CollectionProgress> {
   const [count, range, gapRows] = await Promise.all([
     prisma.find.count(),
     prisma.$queryRaw<Array<{ min_id: number | null; max_id: number | null }>>`
