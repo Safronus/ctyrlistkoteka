@@ -35,6 +35,10 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_COMMIT_COUNT: gitCommitCount(),
   },
+  // yauzl (streaming unzip for the /admin package import) is required at
+  // runtime; keep it + its CJS deps out of the webpack server bundle so the
+  // interop stays intact (archiver broke exactly this way — see qr-zip).
+  serverExternalPackages: ["yauzl"],
   experimental: {
     serverActions: {
       // Admin upload of find photos: each JPEG after prepare-upload is
