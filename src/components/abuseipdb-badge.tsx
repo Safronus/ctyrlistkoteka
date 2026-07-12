@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { ShieldCheck } from "lucide-react";
 import {
   ABUSEIPDB_CONTRIBUTOR_URL,
-  getAbuseReport,
+  getAbuseReportCount,
 } from "@/lib/abuseipdbBadge";
 
 /** Shared shield icon + "AbuseIPDB" link. The count is optional so the same
@@ -32,23 +32,21 @@ async function BadgeShell({ children }: { children?: React.ReactNode }) {
  *  a cold/slow fetch never blocks page render — the link shows immediately and
  *  the number streams in. */
 export async function AbuseIpdbBadge() {
-  const [t, report] = await Promise.all([
+  const [t, count] = await Promise.all([
     getTranslations("Footer"),
-    getAbuseReport(),
+    getAbuseReportCount(),
   ]);
   return (
-    <span data-abuse-debug={report.note}>
-      <BadgeShell>
-        {report.count !== null && (
-          <>
-            <span aria-hidden>·</span>
-            <span title={t("abuseipdbTitle")}>
-              {t("abuseipdbCount", { count: report.count })}
-            </span>
-          </>
-        )}
-      </BadgeShell>
-    </span>
+    <BadgeShell>
+      {count !== null && (
+        <>
+          <span aria-hidden>·</span>
+          <span title={t("abuseipdbTitle")}>
+            {t("abuseipdbCount", { count })}
+          </span>
+        </>
+      )}
+    </BadgeShell>
   );
 }
 

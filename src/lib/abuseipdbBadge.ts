@@ -41,38 +41,36 @@ export function parseReportedCount(svg: string): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-export interface AbuseReport {
-  count: number | null;
-  /** TEMP debug marker surfaced in the DOM to diagnose the empty count. */
-  note: string;
-}
-
-async function fetchReport(): Promise<AbuseReport> {
+async function fetchReportedCount(): Promise<number | null> {
   try {
     const res = await fetch(BADGE_SVG_URL, {
+      // NB: do NOT add `cache: "no-store"` here — Next throws on a no-store
+      // fetch inside unstable_cache, and our catch would swallow it into a
+      // null (that was the original empty-count bug). unstable_cache owns the
+      // result caching; the signal just bounds a slow request.
       signal: AbortSignal.timeout(8000),
       headers: {
+        // abuseipdb.com is behind Cloudflare; the badge is normally fetched
+        // by browsers (it's embedded via <img>), so present a browser-shaped
+        // Accept + UA to avoid bot mitigation on the datacenter IP.
         accept: "image/svg+xml,image/*,*/*;q=0.8",
         "accept-language": "en;q=0.8",
         "user-agent":
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
       },
     });
-    if (!res.ok) return { count: null, note: `http_${res.status}` };
-    const svg = await res.text();
-    const count = parseReportedCount(svg);
-    return { count, note: `ok_len${svg.length}_count${count ?? "null"}` };
-  } catch (e) {
-    const err = e as Error;
-    return {
-      count: null,
-      note: `err_${err.name}_${(err.message ?? "").slice(0, 50)}`,
-    };
+    if (!res.ok) return null;
+    return parseReportedCount(await res.text());
+  } catch {
+    // Network error / timeout / abuseipdb down — the footer just omits the
+    // number. Never throw into the render path.
+    return null;
   }
 }
 
-/** Cached reported-IP count for the footer. null on any failure. TEMP: short
- *  revalidate + debug note while diagnosing. */
-export const getAbuseReport = unstable_cache(fetchReport, ["abuseipdb-report"], {
-  revalidate: 60,
-});
+/** Cached (≤6 h) reported-IP count for the footer. null on any failure. */
+export const getAbuseReportCount = unstable_cache(
+  fetchReportedCount,
+  ["abuseipdb-reported-count-v2"],
+  { revalidate: 21600 },
+);
