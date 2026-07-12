@@ -31,6 +31,7 @@ Přibyly v provozu, ve stejném auth + atomic-write + audit patternu:
 
 | Sekce (nav) | Co dělá | Klíčové soubory / config |
 | --- | --- | --- |
+| **Import balíčku** (`/admin/import`) | Hromadný import jednoho **ZIP „balíčku pro web"** (originály + výřezy + mapy + `meta/LokaceStavyPoznamky.json`) najednou. Dvoufázově: analýza (nic nezapisuje) → přehled → potvrzení → staging souborů + merge LSP. Nezapisuje DB — připraví soubory pro `sync`. Idempotentní (přepis podle ID / MAP_ID, ne duplikace). | `src/app/admin/import/*`, `src/app/admin/api/import/{upload-chunk,analyze,commit,cancel}/route.ts`, `src/lib/admin/importZip.ts` + `importPackage.ts` |
 | **QR** (`/admin/qr`) | Generování QR kódů na nálezy, export do PDF/PNG/ZIP. SVG fonty jen systémové (web font v `<img>`→canvas rasteru zmizí — viz `docs/gotchas.md`). | `src/app/admin/qr/*`, `src/app/admin/api/qr-zip/route.ts` |
 | **Efekty** (`/admin/special`) | Speciální atmosférický efekt na detailu nálezu (`record` / `heavenly` / `hellish`) přiřaditelný k libovolnému ID. „Rekord" je **jeden** (přiřazení jinému ho z předchozího sundá) a táhne i zlatý marker na `/mapa`, kartu na `/statistiky` a odznak v `/sbirka`. | `src/app/admin/special/*`, `src/lib/specialFinds.ts` + `…server.ts`, config `data/.admin/special-finds.json` |
 | **Rozdané** (`/admin/donated`) | „Pole darovaného štěstí" pod „Malou omluvou" na homepage. Toggle-seznam **darovaných** nálezů od #22094 výš (starší předcházejí nabídce), nejnovější nahoře; zapnuté se vykreslí jako rozházené pin-čtyřlístky. | `src/app/admin/donated/*`, `src/lib/donatedBoard.ts` + `…server.ts`, config `data/.admin/donated-board.json` |
@@ -93,7 +94,43 @@ state mezi workery, jde přes disk:
 | Replace (maps detail) | NFC name-compare s confirm flag, magic bytes | `copyFile` → trash, `atomicWrite` | `file.replace` |
 | Rename (mark/restore zaniklé, popisek) | parseMapFilename + segmentace `+` | `fs.rename` | `file.rename` |
 | JSON save | Zod `lokaceStavyPoznamkySchema.safeParse` | `copyFile` → trash, `atomicWrite` | `json.update` |
+| Import balíčku (upload) | `isValidUploadId` + offset + chunk-size cap | chunk `fs.write` na offset do `data/.admin/import-tmp/<id>.zip` | — |
+| Import balíčku (commit) | streaming unzip (yauzl), `findIdOf`/`mapIdOf`, `safeBaseName`+`safeJoin` | staré ID/MAP_ID → `.trash`, `atomicWrite` per soubor; LSP přes `mergeWholeFile` | `file.replace` (`scope: import-package`) |
 | Sync start | concurrent-run check on disk | spawn child + write status JSON | `sync.start` |
+
+### Import balíčku pro web — tok
+
+Cíl: nahrát celou dávku nových/změněných dat jedním ZIP místo po scope.
+ZIP má v rootu `finds/` (JPG originály), `crops/` (JPG výřezy), `maps/`
+(PNG mapy) a `meta/LokaceStavyPoznamky.json` (částečný LSP výřez).
+
+1. **Upload** (client → `upload-chunk`): prohlížeč `crypto.randomUUID()`,
+   nakrájí ZIP na **8 MB** bloky a POSTuje je s `?uploadId&offset` (raw
+   body). Server je zapisuje na offset do `data/.admin/import-tmp/<id>.zip`
+   — obchází ~10 MB truncation cap, stovky MB se poskládají na disku bez
+   držení v paměti. `offset=0` soubor vytvoří/zkrátí.
+2. **Analyze** (`analyze` → `analyzeImportZip`): **read-only** streaming
+   průchod (yauzl, `lazyEntries`). Napočítá finds/crops/maps `{total, +nové,
+   ↻přepis}` (přepis = ID/MAP_ID už na disku existuje), nekompletní páry
+   (jen originál / jen výřez), nerozpoznané názvy a náhled LSP (počty +
+   **konflikty poznámek** — stejné ID, jiný text, na kterých by se merge
+   přerušil). Nic nezapisuje.
+3. **Confirm/Cancel** (UI): uživatel vidí přehled. Cancel → `cancel` smaže
+   temp ZIP hned (jinak ho po 1 dni sklidí `import-tmp` cron).
+4. **Commit** (`commit` → `commitImportFiles`): streaming zápis každého
+   souboru do `data/{finds,crops,maps}`. Přepis je **podle ID / MAP_ID**,
+   ne podle názvu → existující soubor(y) pro to ID jdou nejdřív do
+   `.trash/<ts>/<scope>/`, pak se atomicky zapíše nový (tmp → rename).
+   Syrové názvy z disku se drží kvůli NFC/NFD renamu; parsuje se na NFC.
+   LSP se pak sloučí přes `mergeWholeFile` (aditivně, s abort na konflikt,
+   snapshot do `.trash` + rotující záloha). **Nezapisuje DB.** Temp ZIP se
+   smaže při úspěchu i chybě (idempotence → stačí nahrát znovu).
+5. **Sync**: sumář odkáže na `/admin/sync`, který teprve zapíše DB a
+   vygeneruje WebP.
+
+Idempotence: opakovaný import stejného balíčku soubory **přepíše podle ID**,
+nezduplikuje (to řeší jednorázový problém name-keyed uploadu, kde by změněný
+odvozený název vytvořil druhý soubor pro totéž ID).
 
 ## 4. Veřejný web vs admin — invariants
 

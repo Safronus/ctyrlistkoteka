@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — import „balíčku pro web" (ZIP) jedním nahráním
+- Nová sekce `/admin/import`: nahraj jeden **ZIP** s `finds/` (originály),
+  `crops/` (výřezy), `maps/` (mapy lokalit) a
+  `meta/LokaceStavyPoznamky.json` a naimportuj celou dávku najednou místo
+  po scope. **Dvoufázově**: nahrání (chunkovaně po 8 MB → temp na disku,
+  obchází ~10 MB cap; stovky MB se streamují, ne do paměti) → **analýza**
+  (read-only průchod ZIPem přes yauzl: počty nové vs. přepis, nekompletní
+  páry, nerozpoznané názvy, náhled LSP + konflikty poznámek) → **přehled**
+  → potvrzení/zrušení. Teprve po potvrzení se soubory nahrají a LSP se
+  sloučí (`mergeWholeFile`). **Nezapisuje DB** — připraví soubory do
+  `data/`, sumář odkáže na `sync`, který teprve zapíše DB + WebP.
+- **Idempotentní**: přepis je podle **ID nálezu / MAP_ID**, ne podle názvu
+  souboru — opakovaný import stejného balíčku soubory přepíše (staré do
+  `.trash`), nezduplikuje. Temp ZIP se maže při úspěchu i chybě; zbytky
+  sklidí nový `import-tmp` cron (deployment.md).
+
 ### /sbirka — výrazné zrychlení filtrování (3–5s → ~0.65s)
 - Profilováním (`?debug=timing`, skrytý gated blok pro budoucí ladění) se
   našly tři věci: **(1)** `buildWhere` rozkládal stát→lokality přes JS

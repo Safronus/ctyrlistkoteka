@@ -19,6 +19,7 @@ import {
   Map as MapIcon,
   Megaphone,
   Network,
+  PackageOpen,
   Gift,
   ShieldCheck,
   Sparkles,
@@ -191,6 +192,16 @@ export default async function AdminHomePage() {
           Lokační mapy define the location universe, real-photo
           uploads sit in generated/ and are an admin-only overlay. */}
       <Group title="Soubory sbírky">
+        <FeatureCard
+          icon={PackageOpen}
+          title="Import balíčku pro web"
+          status="ok"
+          href="/admin/import"
+          lines={[
+            "Jeden ZIP → originály, výřezy, mapy, meta",
+            "Analýza → potvrzení → sync",
+          ]}
+        />
         <FeatureCard
           icon={ImageIcon}
           title="Originály nálezů"
