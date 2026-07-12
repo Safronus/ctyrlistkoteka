@@ -66,4 +66,37 @@ describe("lokaceStavyPoznamkyMergeInputSchema (bulk-merge input)", () => {
     });
     expect(r.success).toBe(false);
   });
+
+  it("accepts empty {} sections the export tool emits (anonymizace/poznamky/stavy)", () => {
+    // Real package export: only lokace is populated, the other three are
+    // present but empty. `anonymizace: {}` used to fail because the strict
+    // sub-schema required ANONYMIZOVANE — the lenient variant makes it
+    // optional so an empty section == no change.
+    const input = {
+      anonymizace: {},
+      lokace: { "201": ["27273"], "30": ["27274-27445"], "32": ["27270-27272"] },
+      poznamky: {},
+      stavy: {},
+    };
+    const r = lokaceStavyPoznamkyMergeInputSchema.safeParse(input);
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.anonymizace).toEqual({});
+      expect(r.data.anonymizace?.ANONYMIZOVANE).toBeUndefined();
+      expect(r.data.lokace).toEqual({
+        "201": ["27273"],
+        "30": ["27274-27445"],
+        "32": ["27270-27272"],
+      });
+    }
+  });
+
+  it("still rejects an unknown key inside anonymizace", () => {
+    // The lenient variant relaxes the REQUIRED ANONYMIZOVANE but stays a
+    // strictObject — a typo'd key is still caught.
+    const r = lokaceStavyPoznamkyMergeInputSchema.safeParse({
+      anonymizace: { ANONYMIZOVANEE: ["1"] },
+    });
+    expect(r.success).toBe(false);
+  });
 });

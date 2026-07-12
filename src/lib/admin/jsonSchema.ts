@@ -64,6 +64,16 @@ export const anonymizaceSchema = z.strictObject({
   ANONYMIZOVANE: rangesField,
 });
 
+/** Lenient anonymizace for the bulk "Celý soubor" merge + package import:
+ *  `ANONYMIZOVANE` is optional, so an empty `"anonymizace": {}` section —
+ *  which the export tool emits when there's nothing to anonymize — is
+ *  accepted the same as omitting the section entirely (consumers coalesce
+ *  the missing array with `?? []`). The strict `anonymizaceSchema` above,
+ *  used for the canonical on-disk file, still REQUIRES `ANONYMIZOVANE`. */
+export const anonymizaceMergeSchema = z.strictObject({
+  ANONYMIZOVANE: rangesField.optional(),
+});
+
 export const lokaceSchema = z.record(z.string().min(1), rangesField);
 
 export const poznamkySchema = z.record(
@@ -92,7 +102,7 @@ export type LokaceStavyPoznamky = z.infer<typeof lokaceStavyPoznamkySchema>;
  *  The merge always re-validates the final, fully-merged object against
  *  the strict `lokaceStavyPoznamkySchema` before writing. */
 export const lokaceStavyPoznamkyMergeInputSchema = z.object({
-  anonymizace: anonymizaceSchema.optional(),
+  anonymizace: anonymizaceMergeSchema.optional(),
   lokace: lokaceSchema.optional(),
   poznamky: poznamkySchema.optional(),
   stavy: stavySchema.optional(),

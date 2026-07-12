@@ -83,13 +83,31 @@ export function ImportPanel() {
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Id of the upload whose (partial or full) temp ZIP is still on disk.
+  // Cleared once the server has deleted it (commit's finally) so we don't
+  // fire a pointless discard afterwards.
+  const uploadIdRef = useRef<string | null>(null);
+
+  /** Tell the server to delete the temp ZIP now (frees disk immediately
+   *  instead of waiting for the import-tmp cron). Fire-and-forget, no-op on
+   *  an already-gone id. */
+  const discardUpload = useCallback((uploadId: string) => {
+    fetch("/admin/api/import/cancel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ uploadId }),
+    }).catch(() => undefined);
+  }, []);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    const id = uploadIdRef.current;
+    uploadIdRef.current = null;
+    if (id) discardUpload(id); // discard a partial/uploaded ZIP off disk
     setPhase({ kind: "idle" });
     if (inputRef.current) inputRef.current.value = "";
-  }, []);
+  }, [discardUpload]);
 
   const start = useCallback(async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".zip")) {
@@ -109,6 +127,7 @@ export function ImportPanel() {
     }
 
     const uploadId = crypto.randomUUID();
+    uploadIdRef.current = uploadId; // temp ZIP now (partially) on disk
     const controller = new AbortController();
     abortRef.current = controller;
     setPhase({ kind: "uploading", fileName: file.name, total: file.size, sent: 0 });
@@ -143,15 +162,19 @@ export function ImportPanel() {
     } catch (err) {
       abortRef.current = null;
       if (controller.signal.aborted) {
+        // reset() already discarded the temp ZIP + cleared the ref.
         setPhase({ kind: "idle" });
         return;
       }
+      const id = uploadIdRef.current;
+      uploadIdRef.current = null;
+      if (id) discardUpload(id); // clean the now-useless temp ZIP off disk
       setPhase({
         kind: "error",
         message: err instanceof Error ? err.message : "Nahrávání selhalo.",
       });
     }
-  }, []);
+  }, [discardUpload]);
 
   const confirm = useCallback(async (uploadId: string, fileName: string) => {
     setPhase({ kind: "committing", fileName });
@@ -161,25 +184,15 @@ export function ImportPanel() {
         summary: ImportFileSummary;
         lsp: LspMergeResult | null;
       }>("/admin/api/import/commit", { uploadId });
+      uploadIdRef.current = null; // commit's finally already deleted the ZIP
       setPhase({ kind: "done", fileName, summary, lsp: lsp ?? null });
     } catch (err) {
+      uploadIdRef.current = null; // ...deleted on failure too (idempotent retry)
       setPhase({
         kind: "error",
         message: err instanceof Error ? err.message : "Import selhal.",
       });
     }
-  }, []);
-
-  const cancelReview = useCallback((uploadId: string) => {
-    // Fire-and-forget cleanup (already handled via .catch); UI resets
-    // immediately either way.
-    fetch("/admin/api/import/cancel", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ uploadId }),
-    }).catch(() => undefined);
-    setPhase({ kind: "idle" });
-    if (inputRef.current) inputRef.current.value = "";
   }, []);
 
   const onPick = (files: FileList | null) => {
@@ -236,7 +249,7 @@ export function ImportPanel() {
         plan={phase.plan}
         fileName={phase.fileName}
         onConfirm={() => void confirm(phase.uploadId, phase.fileName)}
-        onCancel={() => cancelReview(phase.uploadId)}
+        onCancel={reset}
       />
     );
   }
