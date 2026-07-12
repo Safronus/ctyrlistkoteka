@@ -3,7 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { CloverThumbIcon } from "@/components/icons/clover-thumb-icon";
 import { VoteButton } from "@/components/finds/vote-button";
-import { formatShortDateTimeCs } from "@/lib/format";
+import { formatShortDateTimeCs, formatTinyDateTimeCs } from "@/lib/format";
 import type { TopFindRich } from "@/lib/votes";
 
 type PopularT = Awaited<ReturnType<typeof getTranslations<"Popular">>>;
@@ -48,6 +48,12 @@ export async function PopularFindWidget({
     !winner.isAnonymized && winner.foundAt
       ? formatShortDateTimeCs(new Date(winner.foundAt), locale)
       : null;
+  // Most-recent vote timestamp shown in parens next to the count. Vote timing
+  // doesn't identify the location, so it's kept even for anonymized winners.
+  // Pinned to the collection's zone so it reads as local wall-clock time.
+  const lastVoteLine = winner.lastVotedAt
+    ? formatTinyDateTimeCs(new Date(winner.lastVotedAt), locale, "Europe/Prague")
+    : null;
   const locationLine =
     !winner.isAnonymized && winner.location
       ? winner.location.displayName &&
@@ -174,6 +180,7 @@ export async function PopularFindWidget({
               <WinnerInfo
                 winner={winner}
                 dateLine={dateLine}
+                lastVoteLine={lastVoteLine}
                 locationLine={locationLine}
                 showLocation
                 t={t}
@@ -190,6 +197,7 @@ export async function PopularFindWidget({
           <WinnerInfo
             winner={winner}
             dateLine={dateLine}
+            lastVoteLine={lastVoteLine}
             locationLine={locationLine}
             showLocation={false}
             t={t}
@@ -231,6 +239,7 @@ export async function PopularFindWidget({
 function WinnerInfo({
   winner,
   dateLine,
+  lastVoteLine,
   locationLine,
   showLocation,
   t,
@@ -238,6 +247,7 @@ function WinnerInfo({
 }: {
   winner: TopFindRich;
   dateLine: string | null;
+  lastVoteLine: string | null;
   locationLine: string | null;
   showLocation: boolean;
   t: PopularT;
@@ -291,6 +301,11 @@ function WinnerInfo({
           <dd className="font-mono tabular-nums font-semibold text-brand-700">
             {t("voteCount", { count: winner.voteCount })}
           </dd>
+          {lastVoteLine && (
+            <dd className="text-gray-500" title={t("leaderboardLastVoteTitle")}>
+              ({lastVoteLine})
+            </dd>
+          )}
         </div>
       </dl>
     </div>

@@ -1,12 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
-import { Heart, Trophy } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { Clock, Heart, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { VoteButton } from "@/components/finds/vote-button";
 import { CollapsibleSection } from "@/components/stats/collapsible-section";
+import { formatTinyDateTimeCs } from "@/lib/format";
 import type { TopFindRich } from "@/lib/votes";
+
+/** Vote timestamps render in a Client Component, so pin the zone to the
+ *  collection's wall clock — otherwise SSR (server zone) and the browser
+ *  disagree and React reports a hydration mismatch. */
+const COLLECTION_TZ = "Europe/Prague";
 
 interface Props {
   /** Rich entries for the all-time leaderboard. */
@@ -35,9 +41,13 @@ interface Props {
  */
 export function TopFindsLeaderboard({ allTime, yearly, monthly }: Props) {
   const t = useTranslations("Popular");
+  const locale = useLocale();
   const [active, setActive] = useState<"all" | "year" | "month">("all");
   const entries =
     active === "all" ? allTime : active === "year" ? yearly : monthly;
+  // Windowed tabs rank by period votes — show "period / all-time" so a low
+  // all-time entry that's trending still reads sensibly.
+  const isPeriod = active !== "all";
 
   return (
     <CollapsibleSection
@@ -134,27 +144,52 @@ export function TopFindsLeaderboard({ allTime, yearly, monthly }: Props) {
                   </span>
                 )}
               </Link>
-              <div className="flex items-center justify-between gap-2 px-2 py-1.5 text-xs">
+              <div className="flex items-center justify-between gap-2 px-2 pt-1.5 text-xs">
                 <Link
                   href={`/sbirka/${e.findId}`}
                   className="font-mono text-gray-700 hover:underline"
                 >
                   #{e.findId}
                 </Link>
-                {/* autoHydrate so the per-visitor voted state lands
-                 *  even though /statistiky is ISR-cached and can't
-                 *  read cookies during the cached render. The button
-                 *  starts with the public count, then GET fixes it
-                 *  on mount. Switching tabs unmounts → remounts via
-                 *  the parent's conditional render, so each tab gets
-                 *  its own fresh hydration. */}
+                {/* Count is always the ALL-TIME total (that's what a vote
+                 *  changes) — passing it here avoids the period→total flip on
+                 *  autoHydrate in the windowed tabs. autoHydrate then lands
+                 *  the per-visitor voted state (ISR render can't read cookies);
+                 *  tab switch remounts so each gets a fresh hydration. */}
                 <VoteButton
                   findId={e.findId}
                   initialVoted={false}
-                  initialCount={e.voteCount}
+                  initialCount={e.totalVoteCount}
                   compact
                   autoHydrate
                 />
+              </div>
+              {/* Caption: window/all-time ratio (windowed tabs only) + when
+                  the most recent vote landed (all tabs). */}
+              <div className="space-y-0.5 px-2 pb-1.5 pt-0.5 text-[10px] leading-tight text-gray-500">
+                {isPeriod && (
+                  <div title={t("leaderboardPeriodRatioTitle")}>
+                    <span className="font-semibold text-gray-700">
+                      {e.voteCount}
+                    </span>{" "}
+                    / {e.totalVoteCount} {t("votesShort")}
+                  </div>
+                )}
+                {e.lastVotedAt && (
+                  <div
+                    className="inline-flex items-center gap-1"
+                    title={t("leaderboardLastVoteTitle")}
+                  >
+                    <Clock className="h-2.5 w-2.5 shrink-0" aria-hidden />
+                    <span>
+                      {formatTinyDateTimeCs(
+                        new Date(e.lastVotedAt),
+                        locale,
+                        COLLECTION_TZ,
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
             </li>
           ))}

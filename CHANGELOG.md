@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Hlasování — poměr za období + čas posledního hlasu
+- **Top 10 nejoblíbenějších** (/statistiky): v záložkách „Posledních 12 měsíců"
+  a „Posledních 30 dnů" se u nálezu teď ukazuje **poměr „za období / celkem"**
+  (např. `5 / 42`), takže pořadí podle období dává smysl i u nálezu s nízkým
+  all-time počtem. Počet na hlasovacím tlačítku je vždy **celkový** (neblikne
+  z období na celek po hydrataci). Ve **všech** záložkách přibyl **čas
+  posledního hlasu** (ikona hodin).
+- **Hlavní stránka**, panel „Nejoblíbenější čtyřlístek": vedle „Počet hlasů: X"
+  je v závorce **datum a čas posledního hlasu**.
+- Data: `getTopFindsWithThumbs` nově vrací `totalVoteCount` (cached all-time) a
+  `lastVotedAt` (MAX(voted_at), jeden grouped dotaz). Časy jsou pinnuté na
+  `Europe/Prague`, aby v client komponentě nevznikl hydration mismatch.
+
 ### Patička — AbuseIPDB: počet nahlášených útočných IP
 - Nová položka v patičce „AbuseIPDB · Počet IP reportováno: {N}" s proklikem
   na contributor profil. Oficiální `<img>` badge **nepoužíváme** — načítal by

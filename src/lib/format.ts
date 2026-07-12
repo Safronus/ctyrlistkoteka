@@ -97,6 +97,11 @@ export function formatShortDateTimeCs(
 export function formatTinyDateTimeCs(
   date: Date | null | undefined,
   locale?: string,
+  /** Pin the wall-clock zone (e.g. "Europe/Prague"). Pass this when the
+   *  value is formatted in a Client Component — without it the string is
+   *  rendered in the runtime's local zone, so server (SSR) and browser can
+   *  disagree and React reports a hydration mismatch. */
+  timeZone?: string,
 ): string {
   if (!date) return "—";
   return new Intl.DateTimeFormat(toIntlLocale(locale), {
@@ -105,6 +110,7 @@ export function formatTinyDateTimeCs(
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    ...(timeZone ? { timeZone } : {}),
   }).format(date);
 }
 

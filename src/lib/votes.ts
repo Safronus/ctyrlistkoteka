@@ -281,7 +281,17 @@ export async function getTopFinds(args: {
 
 export interface TopFindRich {
   findId: number;
+  /** Votes that count for THIS list: the window count for a windowed query,
+   *  the all-time count otherwise. Drives the ranking. */
   voteCount: number;
+  /** All-time vote count regardless of window — so a windowed leaderboard can
+   *  show "N of M votes" and the ranking reads sensibly. Equals voteCount for
+   *  the all-time list. */
+  totalVoteCount: number;
+  /** ISO timestamp of the find's most recent vote (across all time), or null
+   *  if — impossibly for a top entry — it has none. Vote timing doesn't leak
+   *  the location, so it's kept even for anonymized finds. */
+  lastVotedAt: string | null;
   isAnonymized: boolean;
   /** Thumbnail URL — the CROP close-up when the find has one, else the
    *  primary original. Anonymized finds may still surface a thumbnail
@@ -322,13 +332,16 @@ export async function getTopFindsWithThumbs(args: {
   const findIds = top.map((t) => t.findId);
   // Pull every primary image for the top set in a single query, then
   // join in memory. `is_primary = true` filter keeps the result small.
-  const [findRows, imageRows, donatedRows] = await Promise.all([
+  const [findRows, imageRows, donatedRows, lastVoteRows] = await Promise.all([
     prisma.find.findMany({
       where: { id: { in: findIds } },
       select: {
         id: true,
         isAnonymized: true,
         foundAt: true,
+        // Cached all-time count — used as totalVoteCount so a windowed list
+        // can render "window / all-time".
+        voteCount: true,
         location: {
           select: { id: true, code: true, displayName: true },
         },
@@ -358,7 +371,16 @@ export async function getTopFindsWithThumbs(args: {
       where: { findId: { in: findIds }, state: "DONATED" },
       select: { findId: true },
     }),
+    // Most-recent vote per find (all-time), one grouped query for the set.
+    prisma.findVote.groupBy({
+      by: ["findId"],
+      where: { findId: { in: findIds } },
+      _max: { votedAt: true },
+    }),
   ]);
+  const lastVoteById = new Map(
+    lastVoteRows.map((r) => [r.findId, r._max.votedAt]),
+  );
   const findById = new Map(findRows.map((r) => [r.id, r]));
   // Two lookups so the crop can win over the primary original per find.
   const cropThumbById = new Map<number, string>();
@@ -374,9 +396,12 @@ export async function getTopFindsWithThumbs(args: {
   return top.map((t) => {
     const f = findById.get(t.findId);
     const isAnonymized = f?.isAnonymized ?? false;
+    const lastVotedAt = lastVoteById.get(t.findId);
     return {
       findId: t.findId,
       voteCount: t.voteCount,
+      totalVoteCount: f?.voteCount ?? t.voteCount,
+      lastVotedAt: lastVotedAt ? lastVotedAt.toISOString() : null,
       isAnonymized,
       thumbUrl:
         cropThumbById.get(t.findId) ?? primaryThumbById.get(t.findId) ?? null,
