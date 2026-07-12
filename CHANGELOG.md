@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — import balíčku: podrobný přehled + oprava prázdných sekcí
+- **Přehled po analýze je teď podrobný**, aby šlo ověřit, co se z balíčku
+  přečetlo: u originálů i výřezů **konkrétní seznamy ID** (nové vs.
+  přepisované), u lokačních map **seznam položek** (MAP_ID, kód lokality,
+  popis, nová/přepis) a u metadat **stejný per-sekční diff jako v JSON
+  editoru** — dry-run merge proti živému souboru (anonymizace/stavy/
+  poznámky/lokace: „Beze změny" nebo „Nové klíče / Přidaných ID"). Merge
+  logika se vytáhla do sdíleného `src/lib/admin/lspMerge.ts`
+  (`computeWholeFileMerge`), takže náhled importu a editor počítají identicky.
+- **Oprava:** balíček s prázdnou sekcí `"anonymizace": {}` (co exportér
+  posílá, když není co anonymizovat) padal na validaci — teď se prázdná
+  sekce bere jako vynechaná. Prázdné `poznamky`/`stavy` už procházely.
+- Dočasný ZIP se maže dřív: nejen po commitu a při zrušení v přehledu, ale
+  i při **zrušení během nahrávání** a při **chybě** — místo se uvolní hned.
+
 ### Admin — import „balíčku pro web" (ZIP) jedním nahráním
 - Nová sekce `/admin/import`: nahraj jeden **ZIP** s `finds/` (originály),
   `crops/` (výřezy), `maps/` (mapy lokalit) a

@@ -8,7 +8,12 @@ import { ADMIN_ROOTS, safeBaseName, safeJoin, type AdminRootKey } from "./paths"
 import {
   LOKACE_STAVY_POZNAMKY_FILENAME,
   lokaceStavyPoznamkyMergeInputSchema,
+  type LokaceStavyPoznamkyMergeInput,
 } from "./jsonSchema";
+import {
+  computeWholeFileMerge,
+  type WholeFileMergeSections,
+} from "./lspMerge";
 
 /**
  * Streaming reader + read-only analyzer for a "web package" ZIP. yauzl opens
@@ -32,10 +37,41 @@ export interface ImportEntry {
   uncompressedSize: number;
 }
 
+/** Per-scope tally for finds / crops, with the actual id lists so the review
+ *  UI can show exactly which finds are new vs. overwritten. */
+export interface ImportScopeStat {
+  total: number;
+  add: number;
+  replace: number;
+  /** find ids with no existing file on disk (brand new). */
+  addIds: number[];
+  /** find ids that overwrite an existing file. */
+  replaceIds: number[];
+}
+
+/** One location-map entry in the package, with the details parsed from its
+ *  filename so the operator can verify each map was read correctly. */
+export interface ImportMapEntry {
+  /** MAP_ID — last `+` segment (5 digits). */
+  mapId: string;
+  /** location code — first `+` segment. */
+  locationCode: string;
+  /** description — second `+` segment (null when the name has none). */
+  description: string | null;
+  action: "add" | "replace";
+  fileName: string;
+}
+
 export interface ImportPlan {
-  finds: { total: number; add: number; replace: number };
-  crops: { total: number; add: number; replace: number };
-  maps: { total: number; add: number; replace: number };
+  finds: ImportScopeStat;
+  crops: ImportScopeStat;
+  maps: {
+    total: number;
+    add: number;
+    replace: number;
+    /** every parseable map in the package (sorted by MAP_ID). */
+    entries: ImportMapEntry[];
+  };
   /** find ids present in only one of finds/ or crops/. */
   incompletePairs: Array<{ findId: number; has: "orig" | "crop" }>;
   /** zip entry names that couldn't be parsed to an id / map id. */
@@ -46,6 +82,10 @@ export interface ImportPlan {
     /** find ids whose incoming poznámka text differs from the current file —
      *  the whole-file merge ABORTS on these, so surface them before commit. */
     poznamkyConflicts: number[];
+    /** per-section merge preview (dry-run against the live LSP file) — same
+     *  diff the JSON editor shows after a whole-file merge. Present only when
+     *  the package's LSP parsed. */
+    sections?: WholeFileMergeSections;
   };
   warnings: string[];
 }
@@ -67,6 +107,16 @@ export function mapIdOf(name: string): string | null {
   const segs = stem.split("+");
   const last = segs.at(-1);
   return last && /^\d{5}$/.test(last) ? last : null;
+}
+
+/** location code (first `+` segment) + description (second segment, or null)
+ *  from a map filename — for the import review's per-map detail. */
+export function mapMetaOf(name: string): {
+  locationCode: string;
+  description: string | null;
+} {
+  const segs = name.replace(/\.[^.]+$/, "").split("+");
+  return { locationCode: segs[0] ?? "", description: segs[1] ?? null };
 }
 
 function categorize(zipPath: string): ImportCategory {
@@ -178,31 +228,51 @@ async function existingMapIds(root: string): Promise<Set<string>> {
   return out;
 }
 
-async function readCurrentPoznamky(): Promise<Record<string, string>> {
+/** Reads + leniently parses the live LokaceStavyPoznamky.json for the merge
+ *  dry-run. Returns an empty shape when the file is missing or unparseable
+ *  (fresh install / hand-broken file) — the preview then shows everything as
+ *  new rather than failing. */
+async function readCurrentLsp(): Promise<LokaceStavyPoznamkyMergeInput> {
   try {
     const raw = await fs.readFile(lspPath, "utf8");
-    const parsed = JSON.parse(raw) as { poznamky?: Record<string, string> };
-    return parsed.poznamky && typeof parsed.poznamky === "object"
-      ? parsed.poznamky
-      : {};
+    const parsed = lokaceStavyPoznamkyMergeInputSchema.safeParse(
+      JSON.parse(raw),
+    );
+    return parsed.success ? parsed.data : {};
   } catch {
     return {};
   }
 }
 
-/** Read-only pass: categorize + count new vs replace, incomplete pairs,
- *  invalid names, and the LSP merge preview. Writes nothing. */
+function emptyScopeStat(): ImportScopeStat {
+  return { total: 0, add: 0, replace: 0, addIds: [], replaceIds: [] };
+}
+
+/** find id → conflicting keys parsed out of computeWholeFileMerge conflicts
+ *  (paths look like `poznamky["12345"]`). */
+function conflictFindIds(paths: readonly string[]): number[] {
+  const ids: number[] = [];
+  for (const p of paths) {
+    const m = /"(\d+)"/.exec(p);
+    if (m?.[1]) ids.push(Number(m[1]));
+  }
+  return [...new Set(ids)].sort((a, b) => a - b);
+}
+
+/** Read-only pass: categorize + count new vs replace (with id lists), map
+ *  details, incomplete pairs, invalid names, and a full LSP merge dry-run.
+ *  Writes nothing. */
 export async function analyzeImportZip(zipPath: string): Promise<ImportPlan> {
-  const [existFinds, existCrops, existMaps, currentPoznamky] = await Promise.all([
+  const [existFinds, existCrops, existMaps, currentLsp] = await Promise.all([
     existingFindIds(ADMIN_ROOTS.findOriginals),
     existingFindIds(ADMIN_ROOTS.findCrops),
     existingMapIds(ADMIN_ROOTS.locationMaps),
-    readCurrentPoznamky(),
+    readCurrentLsp(),
   ]);
 
-  const finds = { total: 0, add: 0, replace: 0 };
-  const crops = { total: 0, add: 0, replace: 0 };
-  const maps = { total: 0, add: 0, replace: 0 };
+  const finds = emptyScopeStat();
+  const crops = emptyScopeStat();
+  const mapEntries: ImportMapEntry[] = [];
   const findIdsInZip = new Set<number>();
   const cropIdsInZip = new Set<number>();
   const invalidNames: string[] = [];
@@ -216,8 +286,13 @@ export async function analyzeImportZip(zipPath: string): Promise<ImportPlan> {
         if (entry.findId === null) invalidNames.push(entry.zipPath);
         else {
           findIdsInZip.add(entry.findId);
-          if (existFinds.has(entry.findId)) finds.replace++;
-          else finds.add++;
+          if (existFinds.has(entry.findId)) {
+            finds.replace++;
+            finds.replaceIds.push(entry.findId);
+          } else {
+            finds.add++;
+            finds.addIds.push(entry.findId);
+          }
         }
         break;
       case "crops":
@@ -225,15 +300,27 @@ export async function analyzeImportZip(zipPath: string): Promise<ImportPlan> {
         if (entry.findId === null) invalidNames.push(entry.zipPath);
         else {
           cropIdsInZip.add(entry.findId);
-          if (existCrops.has(entry.findId)) crops.replace++;
-          else crops.add++;
+          if (existCrops.has(entry.findId)) {
+            crops.replace++;
+            crops.replaceIds.push(entry.findId);
+          } else {
+            crops.add++;
+            crops.addIds.push(entry.findId);
+          }
         }
         break;
       case "maps":
-        maps.total++;
         if (entry.mapId === null) invalidNames.push(entry.zipPath);
-        else if (existMaps.has(entry.mapId)) maps.replace++;
-        else maps.add++;
+        else {
+          const { locationCode, description } = mapMetaOf(entry.name);
+          mapEntries.push({
+            mapId: entry.mapId,
+            locationCode,
+            description,
+            action: existMaps.has(entry.mapId) ? "replace" : "add",
+            fileName: entry.name,
+          });
+        }
         break;
       case "meta":
         if (entry.name === LOKACE_STAVY_POZNAMKY_FILENAME) {
@@ -246,6 +333,18 @@ export async function analyzeImportZip(zipPath: string): Promise<ImportPlan> {
     }
   });
 
+  for (const s of [finds, crops]) {
+    s.addIds.sort((a, b) => a - b);
+    s.replaceIds.sort((a, b) => a - b);
+  }
+  mapEntries.sort((a, b) => a.mapId.localeCompare(b.mapId));
+  const maps = {
+    total: mapEntries.length,
+    add: mapEntries.filter((m) => m.action === "add").length,
+    replace: mapEntries.filter((m) => m.action === "replace").length,
+    entries: mapEntries,
+  };
+
   // Incomplete pairs — a find with only an original or only a crop.
   const incompletePairs: Array<{ findId: number; has: "orig" | "crop" }> = [];
   for (const id of findIdsInZip)
@@ -254,37 +353,34 @@ export async function analyzeImportZip(zipPath: string): Promise<ImportPlan> {
     if (!findIdsInZip.has(id)) incompletePairs.push({ findId: id, has: "crop" });
   incompletePairs.sort((a, b) => a.findId - b.findId);
 
-  // LSP preview.
+  // LSP dry-run — same per-section diff the JSON editor shows after a merge.
   const lsp: ImportPlan["lsp"] = {
     present: lspBuf !== null,
     counts: { lokace: 0, stavy: 0, poznamky: 0, anon: 0 },
     poznamkyConflicts: [],
   };
   if (lspBuf !== null) {
-    try {
-      const parsed = lokaceStavyPoznamkyMergeInputSchema.parse(
-        JSON.parse((lspBuf as Buffer).toString("utf8")),
-      );
+    const parsed = lokaceStavyPoznamkyMergeInputSchema.safeParse(
+      JSON.parse((lspBuf as Buffer).toString("utf8")),
+    );
+    if (parsed.success) {
       lsp.counts = {
-        lokace: Object.keys(parsed.lokace ?? {}).length,
-        stavy: Object.keys(parsed.stavy ?? {}).length,
-        poznamky: Object.keys(parsed.poznamky ?? {}).length,
-        anon: (parsed.anonymizace?.ANONYMIZOVANE ?? []).length,
+        lokace: Object.keys(parsed.data.lokace ?? {}).length,
+        stavy: Object.keys(parsed.data.stavy ?? {}).length,
+        poznamky: Object.keys(parsed.data.poznamky ?? {}).length,
+        anon: (parsed.data.anonymizace?.ANONYMIZOVANE ?? []).length,
       };
-      // Whole-file merge aborts if an incoming poznámka key already exists
-      // with a different text — flag those now so the operator isn't
-      // surprised at commit.
-      for (const [k, v] of Object.entries(parsed.poznamky ?? {})) {
-        const cur = currentPoznamky[k];
-        if (cur !== undefined && cur !== v) {
-          const id = Number(k);
-          if (Number.isInteger(id)) lsp.poznamkyConflicts.push(id);
-        }
-      }
-      lsp.poznamkyConflicts.sort((a, b) => a - b);
-    } catch (err) {
+      const merge = computeWholeFileMerge(parsed.data, currentLsp);
+      lsp.sections = merge.sections;
+      lsp.poznamkyConflicts = conflictFindIds(
+        merge.conflicts.map((c) => c.path),
+      );
+    } else {
       warnings.push(
-        `meta/${LOKACE_STAVY_POZNAMKY_FILENAME} je nevalidní: ${(err as Error).message}`,
+        `meta/${LOKACE_STAVY_POZNAMKY_FILENAME} je nevalidní: ${parsed.error.issues
+          .slice(0, 3)
+          .map((i) => `${i.path.join(".")}: ${i.message}`)
+          .join("; ")}`,
       );
       lsp.present = false;
     }

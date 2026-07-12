@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findIdOf, mapIdOf } from "./importZip";
+import { findIdOf, mapIdOf, mapMetaOf } from "./importZip";
 
 describe("findIdOf", () => {
   it("takes the first + token of the full find/crop name", () => {
@@ -33,5 +33,20 @@ describe("mapIdOf", () => {
     expect(mapIdOf("BRNO001+desc+123456.png")).toBeNull(); // 6 digits
     expect(mapIdOf("BRNO001.png")).toBeNull(); // no + segments
     expect(mapIdOf("BRNO001+desc+abcde.png")).toBeNull(); // not digits
+  });
+});
+
+describe("mapMetaOf", () => {
+  it("takes location code (1st segment) + description (2nd segment)", () => {
+    expect(
+      mapMetaOf("BRNO_HERČÍKOVA001+Nepamatuji+GPS49.23034S+16.58445V+Z19+00072.png"),
+    ).toEqual({ locationCode: "BRNO_HERČÍKOVA001", description: "Nepamatuji" });
+  });
+
+  it("returns null description when there's no second segment", () => {
+    expect(mapMetaOf("BRNO001.png")).toEqual({
+      locationCode: "BRNO001",
+      description: null,
+    });
   });
 });

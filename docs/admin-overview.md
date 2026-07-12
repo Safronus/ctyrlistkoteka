@@ -110,11 +110,19 @@ ZIP má v rootu `finds/` (JPG originály), `crops/` (JPG výřezy), `maps/`
    — obchází ~10 MB truncation cap, stovky MB se poskládají na disku bez
    držení v paměti. `offset=0` soubor vytvoří/zkrátí.
 2. **Analyze** (`analyze` → `analyzeImportZip`): **read-only** streaming
-   průchod (yauzl, `lazyEntries`). Napočítá finds/crops/maps `{total, +nové,
-   ↻přepis}` (přepis = ID/MAP_ID už na disku existuje), nekompletní páry
-   (jen originál / jen výřez), nerozpoznané názvy a náhled LSP (počty +
-   **konflikty poznámek** — stejné ID, jiný text, na kterých by se merge
-   přerušil). Nic nezapisuje.
+   průchod (yauzl, `lazyEntries`). Vrací **podrobný přehled**, aby operátor
+   viděl, co se z balíčku přečetlo:
+   - finds/crops: `{total, +nové, ↻přepis}` **+ konkrétní seznamy ID**
+     (které jsou nové vs. přepis; přepis = ID už na disku existuje),
+   - mapy: seznam položek `{MAP_ID, kód lokality, popis, nová/přepis,
+     soubor}` (parsováno z názvu mapy),
+   - nekompletní páry (jen originál / jen výřez), nerozpoznané názvy,
+   - LSP: **dry-run merge** proti živému souboru přes sdílený
+     `computeWholeFileMerge` (`src/lib/admin/lspMerge.ts`) → **stejný
+     per-sekční diff jako JSON editor** (anonymizace/stavy/poznámky/lokace:
+     „Beze změny" nebo „Nové klíče / Přidaných ID") + **konflikty poznámek**
+     (stejné ID, jiný text, na kterých by se merge přerušil).
+   Nic nezapisuje.
 3. **Confirm/Cancel** (UI): uživatel vidí přehled. Cancel → `cancel` smaže
    temp ZIP hned (jinak ho po 1 dni sklidí `import-tmp` cron).
 4. **Commit** (`commit` → `commitImportFiles`): streaming zápis každého

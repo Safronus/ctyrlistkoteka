@@ -27,7 +27,7 @@ import {
   isAuthenticated,
   touchSession,
 } from "@/lib/admin/session";
-import { mergeRanges } from "./merge-ranges";
+import { mergeRanges, type MergeConflict } from "@/lib/admin/lspMerge";
 
 const META_TARGET_PATH = path.join(
   ADMIN_ROOTS.meta,
@@ -86,13 +86,6 @@ function getMergeInputSchema(section: SectionKey) {
     case "lokace":
       return lokaceSchema;
   }
-}
-
-export interface MergeConflict {
-  /** Human-readable JSON pointer ("poznamky[12345]") */
-  path: string;
-  existing: string;
-  incoming: string;
 }
 
 export interface MergeSectionResult {

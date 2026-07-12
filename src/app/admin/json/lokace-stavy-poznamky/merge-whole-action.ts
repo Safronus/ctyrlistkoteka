@@ -10,9 +10,12 @@ import {
   LOKACE_STAVY_POZNAMKY_FILENAME,
   lokaceStavyPoznamkyMergeInputSchema,
   lokaceStavyPoznamkySchema,
-  STAVY_KEYS,
-  type LokaceStavyPoznamky,
 } from "@/lib/admin/jsonSchema";
+import {
+  computeWholeFileMerge,
+  type MergeConflict,
+  type WholeFileMergeSections,
+} from "@/lib/admin/lspMerge";
 import { createBackup } from "@/lib/admin/lspBackups";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
 import {
@@ -21,43 +24,21 @@ import {
   isAuthenticated,
   touchSession,
 } from "@/lib/admin/session";
-import type { MergeConflict } from "./merge-action";
-import { mergeRanges } from "./merge-ranges";
 
 const META_TARGET_PATH = path.join(
   ADMIN_ROOTS.meta,
   LOKACE_STAVY_POZNAMKY_FILENAME,
 );
 
-/** Per-section diff after a whole-file merge. Each section's slot is
- *  populated independently so the UI can render four small "rolled-
- *  up" cards instead of one giant flat list. */
-export interface WholeFileMergeSectionDiff {
-  /** IDs newly added to this section's range fields. For poznamky
-   *  this stays empty — poznamky uses key-level additions which
-   *  go into `addedKeys`. */
-  addedIds: number[];
-  /** IDs that were already present in this section's existing
-   *  ranges (no-op). */
-  alreadyPresentIds: number[];
-  /** Keys newly added — relevant for `poznamky` (find id keys) and
-   *  `lokace` (map number keys). */
-  addedKeys: string[];
-  /** Keys already present with the same value. */
-  alreadyPresentKeys: string[];
-}
-
+// The per-section diff shapes (WholeFileMergeSectionDiff /
+// WholeFileMergeSections) live in @/lib/admin/lspMerge, shared with the
+// package-import analyze step.
 export interface WholeFileMergeResult {
   ok: boolean;
   /** Per-section breakdown when ok = true. Conflicts (poznamky with
    *  diverging text) abort the whole merge before reaching this
    *  state. */
-  sections?: {
-    anonymizace: WholeFileMergeSectionDiff;
-    stavy: WholeFileMergeSectionDiff;
-    poznamky: WholeFileMergeSectionDiff;
-    lokace: WholeFileMergeSectionDiff;
-  };
+  sections?: WholeFileMergeSections;
   /** True when the input was valid but didn't add anything new
    *  anywhere. */
   noChanges?: boolean;
@@ -170,86 +151,11 @@ export async function mergeWholeFile(
   }
   const existing = existingResult.data;
 
-  const merged: LokaceStavyPoznamky = {
-    anonymizace: {
-      ANONYMIZOVANE: [...(existing.anonymizace?.ANONYMIZOVANE ?? [])],
-    },
-    stavy: { ...(existing.stavy ?? {}) } as LokaceStavyPoznamky["stavy"],
-    poznamky: { ...(existing.poznamky ?? {}) },
-    lokace: { ...(existing.lokace ?? {}) },
-  };
-
-  const sections: WholeFileMergeResult["sections"] = {
-    anonymizace: emptyDiff(),
-    stavy: emptyDiff(),
-    poznamky: emptyDiff(),
-    lokace: emptyDiff(),
-  };
-
-  // ── anonymizace ────────────────────────────────────────────────
-  {
-    const r = mergeRanges(
-      merged.anonymizace.ANONYMIZOVANE,
-      incoming.anonymizace?.ANONYMIZOVANE ?? [],
-    );
-    merged.anonymizace = { ANONYMIZOVANE: r.merged };
-    sections.anonymizace.addedIds = r.added;
-    sections.anonymizace.alreadyPresentIds = r.alreadyPresent;
-  }
-
-  // ── stavy.<KEY> per key ─────────────────────────────────────────
-  const incomingStavy = incoming.stavy as
-    | Record<string, string[] | undefined>
-    | undefined;
-  for (const key of STAVY_KEYS) {
-    const incomingArr = incomingStavy?.[key];
-    if (!incomingArr || incomingArr.length === 0) continue;
-    const existingArr =
-      (merged.stavy[key as keyof typeof merged.stavy] as string[] | undefined) ??
-      [];
-    const r = mergeRanges(existingArr, incomingArr);
-    (merged.stavy as Record<string, string[]>)[key] = r.merged;
-    sections.stavy.addedIds.push(...r.added);
-    sections.stavy.alreadyPresentIds.push(...r.alreadyPresent);
-  }
-  sections.stavy.addedIds = uniqueSortAsc(sections.stavy.addedIds);
-  sections.stavy.alreadyPresentIds = uniqueSortAsc(
-    sections.stavy.alreadyPresentIds,
-  );
-
-  // ── poznamky ───────────────────────────────────────────────────
-  const conflicts: MergeConflict[] = [];
-  for (const [key, value] of Object.entries(incoming.poznamky ?? {})) {
-    if (key in merged.poznamky) {
-      const current = merged.poznamky[key]!;
-      if (current === value) {
-        sections.poznamky.alreadyPresentKeys.push(key);
-      } else {
-        conflicts.push({
-          path: `poznamky["${key}"]`,
-          existing: current,
-          incoming: value,
-        });
-      }
-    } else {
-      merged.poznamky[key] = value;
-      sections.poznamky.addedKeys.push(key);
-    }
-  }
-
-  // ── lokace.<CODE> per code ─────────────────────────────────────
-  for (const [code, ranges] of Object.entries(incoming.lokace ?? {})) {
-    const isNewCode = !(code in merged.lokace);
-    const existingArr = merged.lokace[code] ?? [];
-    const r = mergeRanges(existingArr, ranges);
-    merged.lokace[code] = r.merged;
-    sections.lokace.addedIds.push(...r.added);
-    sections.lokace.alreadyPresentIds.push(...r.alreadyPresent);
-    if (isNewCode) sections.lokace.addedKeys.push(code);
-  }
-  sections.lokace.addedIds = uniqueSortAsc(sections.lokace.addedIds);
-  sections.lokace.alreadyPresentIds = uniqueSortAsc(
-    sections.lokace.alreadyPresentIds,
+  // Pure additive union of all four sections (shared with the package-import
+  // analyze dry-run) — no I/O, returns the merged object + per-section diff.
+  const { merged, sections, conflicts, totalChanges } = computeWholeFileMerge(
+    incoming,
+    existing,
   );
 
   if (conflicts.length > 0) {
@@ -262,12 +168,6 @@ export async function mergeWholeFile(
     };
   }
 
-  const totalChanges =
-    sections.anonymizace.addedIds.length +
-    sections.stavy.addedIds.length +
-    sections.poznamky.addedKeys.length +
-    sections.lokace.addedIds.length +
-    sections.lokace.addedKeys.length;
   if (totalChanges === 0) {
     return { ok: true, sections, noChanges: true };
   }
@@ -328,17 +228,4 @@ export async function mergeWholeFile(
   );
 
   return { ok: true, sections, noChanges: false };
-}
-
-function emptyDiff(): WholeFileMergeSectionDiff {
-  return {
-    addedIds: [],
-    alreadyPresentIds: [],
-    addedKeys: [],
-    alreadyPresentKeys: [],
-  };
-}
-
-function uniqueSortAsc(arr: number[]): number[] {
-  return [...new Set(arr)].sort((a, b) => a - b);
 }

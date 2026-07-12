@@ -16,7 +16,15 @@ import {
 } from "lucide-react";
 // Type-only import — erased at compile time, so the server-only module
 // (node:fs, yauzl) it lives in never reaches the client bundle.
-import type { ImportFileSummary, ImportPlan } from "@/lib/admin/importZip";
+import type {
+  ImportFileSummary,
+  ImportMapEntry,
+  ImportPlan,
+  ImportScopeStat,
+} from "@/lib/admin/importZip";
+// lspMerge is a pure lib (no node/"use server"), so importing its diff type
+// is safe for the client bundle.
+import type { WholeFileMergeSectionDiff } from "@/lib/admin/lspMerge";
 
 /** Structural subset of the server's WholeFileMergeResult. Declared locally
  *  rather than imported because that type lives in a "use server" module,
@@ -363,24 +371,36 @@ function ReviewCard({
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <CategoryCard title="Originály" scope={plan.finds} />
-        <CategoryCard title="Výřezy" scope={plan.crops} />
-        <CategoryCard title="Mapy" scope={plan.maps} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <ScopeCard title="Originály nálezů" scope={plan.finds} />
+        <ScopeCard title="Výřezy nálezů" scope={plan.crops} />
       </div>
 
-      {/* LSP metadata */}
+      {/* Location maps — the actual list so the operator can verify each one */}
+      <MapsSection maps={plan.maps} />
+
+      {/* LSP metadata — same per-section diff the JSON editor shows */}
       <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
         <h3 className="text-xs font-semibold text-gray-800">
           Metadata (LokaceStavyPoznamky.json)
         </h3>
         {plan.lsp.present ? (
-          <p className="mt-1 text-xs text-gray-600">
-            Lokace <strong>{plan.lsp.counts.lokace}</strong> · stavy{" "}
-            <strong>{plan.lsp.counts.stavy}</strong> · poznámky{" "}
-            <strong>{plan.lsp.counts.poznamky}</strong> · anonymizace{" "}
-            <strong>{plan.lsp.counts.anon}</strong>
-          </p>
+          <>
+            <p className="mt-1 text-xs text-gray-500">
+              V balíčku: lokace <strong>{plan.lsp.counts.lokace}</strong> · stavy{" "}
+              <strong>{plan.lsp.counts.stavy}</strong> · poznámky{" "}
+              <strong>{plan.lsp.counts.poznamky}</strong> · anonymizace{" "}
+              <strong>{plan.lsp.counts.anon}</strong>
+            </p>
+            {plan.lsp.sections ? (
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <LspSectionCard label="anonymizace" diff={plan.lsp.sections.anonymizace} />
+                <LspSectionCard label="stavy" diff={plan.lsp.sections.stavy} />
+                <LspSectionCard label="poznámky" diff={plan.lsp.sections.poznamky} kind="keys" />
+                <LspSectionCard label="lokace" diff={plan.lsp.sections.lokace} kind="both" />
+              </div>
+            ) : null}
+          </>
         ) : (
           <p className="mt-1 text-xs text-gray-500">
             Balíček neobsahuje metadata — sloučí se jen soubory.
@@ -391,13 +411,9 @@ function ReviewCard({
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
             <span>
               <strong>{plan.lsp.poznamkyConflicts.length}</strong>{" "}
-              {conflictWord(plan.lsp.poznamkyConflicts.length)} v
-              poznámkách (jiný text u stejného ID) — sloučení metadat se pak
-              přeruší. ID:{" "}
-              <span className="font-mono">
-                {plan.lsp.poznamkyConflicts.slice(0, 20).join(", ")}
-                {plan.lsp.poznamkyConflicts.length > 20 ? " …" : ""}
-              </span>
+              {conflictWord(plan.lsp.poznamkyConflicts.length)} v poznámkách
+              (jiný text u stejného ID) — sloučení metadat se pak přeruší. ID:{" "}
+              <IdList ids={plan.lsp.poznamkyConflicts} />
             </span>
           </p>
         )}
@@ -462,26 +478,171 @@ function ReviewCard({
   );
 }
 
-function CategoryCard({
-  title,
-  scope,
-}: {
-  title: string;
-  scope: { total: number; add: number; replace: number };
-}) {
+/** Compact monospace id list: "27273, 27274, 27275 … (+153)". */
+function IdList({ ids, max = 20 }: { ids: number[]; max?: number }) {
+  if (ids.length === 0) return null;
+  const rest = ids.length - Math.min(ids.length, max);
+  return (
+    <span className="font-mono break-words">
+      {ids.slice(0, max).join(", ")}
+      {rest > 0 ? ` … (+${rest})` : ""}
+    </span>
+  );
+}
+
+/** finds / crops card with the actual new + overwritten id lists so the
+ *  operator can verify what the ZIP was read as. */
+function ScopeCard({ title, scope }: { title: string; scope: ImportScopeStat }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-3">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-        {title}
-      </h3>
-      <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">
-        {scope.total}
-      </p>
-      <p className="mt-0.5 text-xs text-gray-600">
-        <span className="text-emerald-700">+{scope.add} nových</span>
-        {" · "}
-        <span className="text-amber-700">↻ {scope.replace} přepis</span>
-      </p>
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          {title}
+        </h3>
+        <span className="text-sm font-bold tabular-nums text-gray-900">
+          {scope.total}
+        </span>
+      </div>
+      {scope.total === 0 ? (
+        <p className="mt-1 text-xs text-gray-400">Nic v balíčku.</p>
+      ) : (
+        <dl className="mt-1.5 space-y-1 text-xs">
+          {scope.addIds.length > 0 && (
+            <div>
+              <dt className="text-emerald-700">+{scope.add} nových:</dt>
+              <dd className="text-gray-600">
+                <IdList ids={scope.addIds} />
+              </dd>
+            </div>
+          )}
+          {scope.replaceIds.length > 0 && (
+            <div>
+              <dt className="text-amber-700">↻ {scope.replace} přepis:</dt>
+              <dd className="text-gray-600">
+                <IdList ids={scope.replaceIds} />
+              </dd>
+            </div>
+          )}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+/** Max map rows rendered before collapsing to a "+N dalších" note — keeps
+ *  the DOM bounded on a pathologically large import. */
+const MAP_ROWS_SHOWN = 100;
+
+/** Location-maps detail — count summary + a per-map row list (MAP_ID, code,
+ *  description, new/replace). */
+function MapsSection({ maps }: { maps: ImportPlan["maps"] }) {
+  const shown = maps.entries.slice(0, MAP_ROWS_SHOWN);
+  const rest = maps.entries.length - shown.length;
+  return (
+    <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Lokační mapy
+        </h3>
+        <span className="text-xs text-gray-600">
+          {maps.total === 0 ? (
+            "žádné"
+          ) : (
+            <>
+              <span className="text-emerald-700">+{maps.add} nových</span>
+              {maps.replace > 0 && (
+                <>
+                  {" · "}
+                  <span className="text-amber-700">↻ {maps.replace} přepis</span>
+                </>
+              )}
+            </>
+          )}
+        </span>
+      </div>
+      {shown.length > 0 && (
+        <ul className="mt-2 divide-y divide-gray-100 overflow-hidden rounded-md border border-gray-100 text-xs">
+          {shown.map((m) => (
+            <MapRow key={`${m.mapId}+${m.fileName}`} entry={m} />
+          ))}
+        </ul>
+      )}
+      {rest > 0 && (
+        <p className="mt-1 text-xs text-gray-400">…a {rest} dalších map</p>
+      )}
+    </div>
+  );
+}
+
+function MapRow({ entry }: { entry: ImportMapEntry }) {
+  return (
+    <li className="flex items-center gap-2 px-2 py-1">
+      <span className="font-mono tabular-nums text-gray-500">{entry.mapId}</span>
+      <span
+        className="min-w-0 flex-1 truncate text-gray-900"
+        title={entry.fileName}
+      >
+        <span className="font-medium">{entry.locationCode}</span>
+        {entry.description ? (
+          <span className="text-gray-500"> — {entry.description}</span>
+        ) : null}
+      </span>
+      <span
+        className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+          entry.action === "add"
+            ? "bg-emerald-100 text-emerald-800"
+            : "bg-amber-100 text-amber-900"
+        }`}
+      >
+        {entry.action === "add" ? "nová" : "přepis"}
+      </span>
+    </li>
+  );
+}
+
+/** One LSP section's diff, mirroring the JSON editor's post-merge card:
+ *  "Beze změny", or "Nové klíče: N (…)" / "Přidaných ID: N (…)". */
+function LspSectionCard({
+  label,
+  diff,
+  kind = "ids",
+}: {
+  label: string;
+  diff: WholeFileMergeSectionDiff;
+  /** which additions matter for this section: "ids" = range ids
+   *  (anonymizace/stavy), "keys" = key additions (poznámky), "both" =
+   *  new keys + ids (lokace). */
+  kind?: "ids" | "keys" | "both";
+}) {
+  const showKeys = kind === "keys" || kind === "both";
+  const showIds = kind === "ids" || kind === "both";
+  const keyCount = diff.addedKeys.length;
+  const idCount = diff.addedIds.length;
+  const nothing = (!showKeys || keyCount === 0) && (!showIds || idCount === 0);
+  return (
+    <div className="rounded-md border border-gray-200 bg-white p-2">
+      <p className="text-xs font-semibold text-gray-800">{label}</p>
+      {nothing ? (
+        <p className="mt-0.5 text-xs text-gray-400">Beze změny</p>
+      ) : (
+        <div className="mt-0.5 space-y-0.5 text-xs text-gray-600">
+          {showKeys && keyCount > 0 && (
+            <p>
+              <span className="text-emerald-700">Nové klíče: {keyCount}</span>{" "}
+              <span className="font-mono break-words">
+                {diff.addedKeys.slice(0, 20).join(", ")}
+                {keyCount > 20 ? ` … (+${keyCount - 20})` : ""}
+              </span>
+            </p>
+          )}
+          {showIds && idCount > 0 && (
+            <p>
+              <span className="text-emerald-700">Přidaných ID: {idCount}</span>{" "}
+              <IdList ids={diff.addedIds} />
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
