@@ -44,9 +44,10 @@ export function parseReportedCount(svg: string): number | null {
 async function fetchReportedCount(): Promise<number | null> {
   try {
     const res = await fetch(BADGE_SVG_URL, {
-      // unstable_cache owns the caching; keep the raw request uncached so the
-      // timeout applies fresh on each revalidation.
-      cache: "no-store",
+      // NB: no `cache: "no-store"` here — Next throws on a no-store fetch
+      // inside unstable_cache, which our catch would swallow into a null
+      // (that's exactly why the count came back empty). unstable_cache owns
+      // the result caching; the signal just bounds a slow request.
       signal: AbortSignal.timeout(8000),
       headers: {
         // abuseipdb.com is behind Cloudflare, which challenges bot-shaped
