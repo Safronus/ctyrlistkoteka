@@ -35,6 +35,8 @@
     "githubAria": "Source code on GitHub",
     "githubTitle": "Source code on GitHub",
     "commitCountTitle": "Build number (commit count)",
+    "abuseipdbCount": "IPs reported: {count, number}",
+    "abuseipdbTitle": "Attacking IPs from our logs reported to the AbuseIPDB database",
     "claudeTitle": "Claude by Anthropic",
     "claudeCodeTitle": "Claude Code",
     "withAssistance": "with assistance from",

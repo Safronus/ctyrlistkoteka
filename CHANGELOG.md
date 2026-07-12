@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Patička — AbuseIPDB: počet nahlášených útočných IP
+- Nová položka v patičce „AbuseIPDB · Počet IP reportováno: {N}" s proklikem
+  na contributor profil. Oficiální `<img>` badge **nepoužíváme** — načítal by
+  se z abuseipdb.com v prohlížeči každého návštěvníka (únik jeho IP) a stejně
+  ho blokuje naše CSP `img-src`. Místo toho si **server** 1× za ~6 h stáhne
+  badge SVG, vyparsuje z něj číslo a vykreslí ho lokálně jako text (ikona
+  štítu z lucide, žádný externí asset). **Žádná IP návštěvníka nikam
+  neodchází.** Fetch je v `<Suspense>`, takže externí request nikdy neblokuje
+  render (patička ukáže odkaz hned, číslo dorazí zvlášť); při výpadku se číslo
+  jen vynechá. Contributor ID přes `ABUSEIPDB_CONTRIBUTOR_ID` (default 254988).
+
 ### /statistiky — Minutová heatmapa: zoom + scroll, kříž při hoveru, výchozí 1 min
 - Nad heatmapou je **posuvník přiblížení** (1×–8×). Při přiblížení se plátno
   zvětší a v obalu se objeví **scrollbary do obou směrů** — jde tak najet na
