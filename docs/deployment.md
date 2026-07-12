@@ -173,6 +173,10 @@ Přidej:
 # na přiřazení (donation dedup). Po přiřazení zůstávají pro případný re-assign
 # jiného anon-stavu; po 7 dnech je smaž (dá se znovu nahrát). Malé soubory.
 20 3 * * * find /var/ctyrlistkoteka/data/.admin/donation-staging -type f -mtime +7 -delete 2>/dev/null
+# Auto-prune nedokončené ZIP importy (Balíček pro web): temp archivy opuštěné
+# před dokončením analýzy/importu. Úspěšný import je maže sám; tohle uklidí
+# přerušené. Po 1 dni.
+25 3 * * * find /var/ctyrlistkoteka/data/.admin/import-tmp -mindepth 1 -mtime +1 -exec rm -rf {} + 2>/dev/null
 ```
 
 > **Pozn.:** appka `.trash` ani staging sama nemaže (time-based cleanup patří
