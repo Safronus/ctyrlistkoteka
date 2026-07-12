@@ -318,3 +318,28 @@ pořádku.
   po ~10 min a mnoha requestech pořád starý HTML → teprve tehdy koukej na build/PM2).
 - Nejjistější marker pro ověření je něco, co je **v JS bundlu** (className,
   struktura) — to se nemůže lišit „daty", jen buildem; když je starý, je to build/ISR.
+
+## 10. `<Suspense>` stream-reveal se pod naším přísným CSP nedokončí
+
+**Co:** async Server Component obalený v `<Suspense>` (footer AbuseIPDB badge)
+se **nikdy nezobrazil** — v raw HTML odpovědi číslo bylo, ale v živém DOMu
+zůstal viset **fallback** (viditelný) a **resolved obsah** byl v DOMu, ale
+`display:none` / `offsetParent === null` (skrytý). Vypadalo to jako selhaný
+fetch, i když fetch + parse fungovaly (ověřeno debug markerem: `count=8925`).
+
+**Příčina:** Next streamuje Suspense hranici jako fallback + později
+`<template>` s resolved obsahem + inline „reveal" skript (`$RC(...)`), který
+fallback schová a resolved odkryje. Náš middleware nastavuje **striktní
+nonce-CSP** a ten reveal skript se **nespustí/nedokončí** → resolved obsah
+zůstane skrytý. (Bootstrap/hydratace běží, takže se to netýká celé stránky —
+jen streamovaného odkrytí Suspense hranice.)
+
+**Jak aplikovat:**
+- V **globálním layoutu / patičce nepoužívej `<Suspense>`** pro async data.
+  Renderuj async Server Component **synchronně** (prostě ho `await`ni bez
+  hranice) — obsah je pak v iniciálním HTML a žádný reveal skript netřeba.
+- Pomalý zdroj drž **cachovaný** (`unstable_cache` / `fetch next.revalidate`)
+  a s **krátkým timeoutem**, ať blokující render path netrpí. Graceful null
+  = prvek se prostě vynechá.
+- Ověřuj v **živém DOMu** (`offsetParent`, `innerText`), ne jen v raw HTML —
+  raw HTML může obsah mít v `<template>`, který se nikdy neodkryl.
