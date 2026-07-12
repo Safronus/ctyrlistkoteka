@@ -94,6 +94,18 @@ jobs:
           rm -rf .next/cache
           pnpm build
 
+          # TEMP DIAGNOSTIC: can this VPS reach the AbuseIPDB badge SVG, or is
+          # Cloudflare blocking the datacenter IP? Never fails the deploy.
+          echo "=== abuseipdb badge reachability (temp) ==="
+          curl -sS -o /tmp/abuse-badge.svg \
+            -w "HTTP=%{http_code} type=%{content_type} size=%{size_download}\n" \
+            --max-time 8 \
+            -H 'user-agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36' \
+            -H 'accept: image/svg+xml,image/*,*/*;q=0.8' \
+            'https://www.abuseipdb.com/contributor/254988.svg' || echo "curl rc=$?"
+          echo "--- first 240 bytes ---"; head -c 240 /tmp/abuse-badge.svg | tr '\n' ' '; echo
+          echo "=== end diagnostic ==="
+
           # --- Build integrity gate ---------------------------------------
           # A build can exit 0 yet leave 0-byte manifests (observed
           # 2026-07-08: required-server-files.json, prerender-manifest.json
