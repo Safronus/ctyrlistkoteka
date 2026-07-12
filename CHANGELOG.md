@@ -14,11 +14,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   na contributor profil. Oficiální `<img>` badge **nepoužíváme** — načítal by
   se z abuseipdb.com v prohlížeči každého návštěvníka (únik jeho IP) a stejně
   ho blokuje naše CSP `img-src`. Místo toho si **server** 1× za ~6 h stáhne
-  badge SVG, vyparsuje z něj číslo a vykreslí ho lokálně jako text (ikona
-  štítu z lucide, žádný externí asset). **Žádná IP návštěvníka nikam
-  neodchází.** Fetch je v `<Suspense>`, takže externí request nikdy neblokuje
-  render (patička ukáže odkaz hned, číslo dorazí zvlášť); při výpadku se číslo
-  jen vynechá. Contributor ID přes `ABUSEIPDB_CONTRIBUTOR_ID` (default 254988).
+  badge SVG (cache 6 h přes `unstable_cache`), vyparsuje z něj číslo a vykreslí
+  ho lokálně jako text (ikona štítu z lucide, žádný externí asset). **Žádná IP
+  návštěvníka nikam neodchází** — v prohlížeči se nedělá jediný request na
+  abuseipdb.com. Renderuje se synchronně (Suspense stream-reveal se pod přísným
+  CSP nedokončí), fetch je díky cache sub-sekundový a při výpadku se číslo jen
+  vynechá. Contributor ID přes `ABUSEIPDB_CONTRIBUTOR_ID` (default 254988).
 
 ### /statistiky — Minutová heatmapa: zoom + scroll, kříž při hoveru, výchozí 1 min
 - Nad heatmapou je **posuvník přiblížení** (1×–8×). Při přiblížení se plátno
