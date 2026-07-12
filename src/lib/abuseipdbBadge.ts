@@ -47,8 +47,17 @@ async function fetchReportedCount(): Promise<number | null> {
       // unstable_cache owns the caching; keep the raw request uncached so the
       // timeout applies fresh on each revalidation.
       cache: "no-store",
-      signal: AbortSignal.timeout(4000),
-      headers: { "user-agent": "ctyrlistkoteka.cz footer badge" },
+      signal: AbortSignal.timeout(8000),
+      headers: {
+        // abuseipdb.com is behind Cloudflare, which challenges bot-shaped
+        // requests from datacenter IPs (our OVH VPS). The badge is meant to
+        // be fetched by end-user browsers (it's embedded via <img>), so we
+        // present a browser Accept + UA to pass the same way a browser would.
+        accept: "image/svg+xml,image/*,*/*;q=0.8",
+        "accept-language": "en;q=0.8",
+        "user-agent":
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+      },
     });
     if (!res.ok) return null;
     return parseReportedCount(await res.text());
