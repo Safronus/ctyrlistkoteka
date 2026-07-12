@@ -621,6 +621,7 @@
     "minuteHeatmapHeading": "Minutová heatmapa",
     "minuteHeatmapSubtitle": "Počty nálezů podle dne v roce (svisle, 1. ledna nahoře) a podle minuty v rámci dne (vodorovně, 0:00 vlevo). Agregát napříč všemi roky. Sytost zelené odpovídá počtu nálezů v dané buňce.",
     "minuteHeatmapBinLabel": "Velikost buňky:",
+    "minuteHeatmapZoomLabel": "Přiblížení:",
     "minuteHeatmapBin1": "1 minuta",
     "minuteHeatmapBin5": "5 minut",
     "minuteHeatmapBin15": "15 minut",

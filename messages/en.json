@@ -622,6 +622,7 @@
     "minuteHeatmapHeading": "Minute heatmap",
     "minuteHeatmapSubtitle": "Find counts by day of year (vertical, Jan 1 at top) and by minute of day (horizontal, 0:00 on the left). Aggregated across all years. Green saturation reflects the find count in each cell.",
     "minuteHeatmapBinLabel": "Cell size:",
+    "minuteHeatmapZoomLabel": "Zoom:",
     "minuteHeatmapBin1": "1 minute",
     "minuteHeatmapBin5": "5 minutes",
     "minuteHeatmapBin15": "15 minutes",

@@ -115,9 +115,17 @@ interface Props {
   initialBin?: BinMinutes;
 }
 
-export function MinuteHeatmap({ cells, initialBin = 5 }: Props) {
+/** Zoom bounds for the slider. 1 = fit the panel width (overview); higher
+ *  scales the canvas up inside a scroll container so individual cells become
+ *  legible. */
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 8;
+const ZOOM_STEP = 0.5;
+
+export function MinuteHeatmap({ cells, initialBin = 1 }: Props) {
   const t = useTranslations("Statistiky");
   const [bin, setBin] = useState<BinMinutes>(initialBin);
+  const [zoom, setZoom] = useState(1);
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -147,8 +155,8 @@ export function MinuteHeatmap({ cells, initialBin = 5 }: Props) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.floor(TOTAL_WIDTH_PX * dpr);
     canvas.height = Math.floor(TOTAL_HEIGHT_PX * dpr);
-    canvas.style.width = `${TOTAL_WIDTH_PX}px`;
-    canvas.style.height = `${TOTAL_HEIGHT_PX}px`;
+    // Display size (CSS width/height) is driven by React below — the zoom
+    // wrapper sets the width and `h-auto` keeps the buffer's aspect ratio.
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -218,6 +226,22 @@ export function MinuteHeatmap({ cells, initialBin = 5 }: Props) {
             ))}
           </select>
         </label>
+        <label className="inline-flex items-center gap-2 text-xs text-gray-600">
+          <span>{t("minuteHeatmapZoomLabel")}</span>
+          <input
+            type="range"
+            min={ZOOM_MIN}
+            max={ZOOM_MAX}
+            step={ZOOM_STEP}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            aria-label={t("minuteHeatmapZoomLabel")}
+            className="h-1 w-28 cursor-pointer accent-brand-600"
+          />
+          <span className="w-8 tabular-nums text-gray-500">
+            {zoom.toFixed(1)}×
+          </span>
+        </label>
         <span className="text-[11px] text-gray-500">
           {t("minuteHeatmapLegendMax")}: <strong>{maxCount}</strong> ·{" "}
           {t("minuteHeatmapLegendTotal")}: <strong>{total}</strong>
@@ -225,30 +249,43 @@ export function MinuteHeatmap({ cells, initialBin = 5 }: Props) {
         <LegendStrip maxCount={maxCount} />
       </div>
 
-      <div className="relative">
-        <canvas
-          ref={canvasRef}
-          onMouseMove={handleMove}
-          onMouseLeave={handleLeave}
-          // display:block avoids the inline-image baseline gap that
-          // would put a stray pixel under the canvas and break the
-          // bottom border alignment.
-          //
-          // max-w-full + h-auto keeps the canvas fitting the parent's
-          // width on narrow viewports — CSS shrinks the logical 1440×732
-          // grid proportionally. Hover math uses getBoundingClientRect,
-          // so tooltips track correctly after the CSS-scale.
-          className="block h-auto w-full max-w-full border border-gray-200 bg-white"
-          aria-label={t("minuteHeatmapAriaLabel")}
-        />
-        {hover && (
-          <HoverTooltip
-            hover={hover}
-            bin={bin}
-            canvasWidth={TOTAL_WIDTH_PX}
-            canvasHeight={TOTAL_HEIGHT_PX}
+      {/* Scroll container — at zoom 1 the wrapper is 100 % wide so the whole
+          heatmap fits (no scrollbars); zooming makes the wrapper wider/taller
+          than this box, so overflow:auto exposes scrollbars in both axes. */}
+      <div className="max-h-[75vh] overflow-auto rounded border border-gray-200 bg-white">
+        {/* Sizing + positioning context. Width = zoom×container; the canvas
+            fills it (h-auto keeps aspect), and the tooltip/crosshair position
+            as a % of this wrapper, which exactly matches the canvas. */}
+        <div className="relative" style={{ width: `${zoom * 100}%` }}>
+          <canvas
+            ref={canvasRef}
+            onMouseMove={handleMove}
+            onMouseLeave={handleLeave}
+            // display:block avoids the inline-image baseline gap. w-full +
+            // h-auto scale the logical 1440×732 grid to the wrapper while
+            // keeping aspect. Hover math uses getBoundingClientRect, so
+            // tooltips track correctly at any zoom / CSS-scale. pixelated
+            // keeps cell edges crisp once zoomed past 1:1.
+            style={{ imageRendering: zoom > 1 ? "pixelated" : "auto" }}
+            className="block h-auto w-full"
+            aria-label={t("minuteHeatmapAriaLabel")}
           />
-        )}
+          {hover && (
+            <Crosshair
+              hover={hover}
+              canvasWidth={TOTAL_WIDTH_PX}
+              canvasHeight={TOTAL_HEIGHT_PX}
+            />
+          )}
+          {hover && (
+            <HoverTooltip
+              hover={hover}
+              bin={bin}
+              canvasWidth={TOTAL_WIDTH_PX}
+              canvasHeight={TOTAL_HEIGHT_PX}
+            />
+          )}
+        </div>
       </div>
 
       <p className="text-[11px] text-gray-500">
@@ -282,6 +319,35 @@ function LegendStrip({ maxCount }: { maxCount: number }) {
       ))}
       <span>{maxCount}</span>
     </div>
+  );
+}
+
+/** Full-width/height guide lines through the hovered cell, so the eye can
+ *  trace it to the time axis (horizontal) and the date axis (vertical) that
+ *  the tooltip spells out. Positioned as a % of the wrapper, which matches
+ *  the canvas at any zoom. */
+function Crosshair({
+  hover,
+  canvasWidth,
+  canvasHeight,
+}: {
+  hover: HoverInfo;
+  canvasWidth: number;
+  canvasHeight: number;
+}) {
+  return (
+    <>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute bottom-0 top-0 w-px bg-gray-900/40"
+        style={{ left: `${(hover.pxX / canvasWidth) * 100}%` }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-0 right-0 h-px bg-gray-900/40"
+        style={{ top: `${(hover.pxY / canvasHeight) * 100}%` }}
+      />
+    </>
   );
 }
 

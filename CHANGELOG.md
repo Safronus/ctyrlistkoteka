@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /statistiky — Minutová heatmapa: zoom + scroll, kříž při hoveru, výchozí 1 min
+- Nad heatmapou je **posuvník přiblížení** (1×–8×). Při přiblížení se plátno
+  zvětší a v obalu se objeví **scrollbary do obou směrů** — jde tak najet na
+  konkrétní část. Buňky zůstávají po přiblížení ostré (`pixelated`).
+- Při hoveru se kromě tooltipu zobrazí **nitkový kříž** (svislá + vodorovná
+  čára), takže je vidět zarovnání buňky s časovou (vodorovnou) a datovou
+  (svislou) osou.
+- **Výchozí velikost buňky je teď 1 minuta** (dřív 5 minut).
+
 ### Admin — import balíčku: intervaly ID, volba u kolizí; home „Top lokalita" ve dnech
 - **Intervalové zobrazení ID** místo výčtu: `27273, 27274, … (+153)` →
   `27273-27445`. Souvislé řady se složí do jednoho úseku (u originálů, výřezů
