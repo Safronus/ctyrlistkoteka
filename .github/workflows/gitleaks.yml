@@ -19,9 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      # NOTE: gitleaks-action@v2 still runs on Node 20 (GitHub auto-forces it
+      # to Node 24 for now, with a deprecation warning). Silencing that needs
+      # the v3.0.0 major bump, which changes gitleaks' licensing/config — do
+      # that deliberately, not as a drive-by.
       - name: gitleaks
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
