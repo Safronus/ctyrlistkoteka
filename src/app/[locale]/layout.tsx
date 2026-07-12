@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
@@ -17,10 +16,7 @@ import { hasLocale, NextIntlClientProvider } from "next-intl";
 export const dynamic = "force-dynamic";
 import Image from "next/image";
 import { Github, Linkedin, Sparkles } from "lucide-react";
-import {
-  AbuseIpdbBadge,
-  AbuseIpdbBadgeFallback,
-} from "@/components/abuseipdb-badge";
+import { AbuseIpdbBadge } from "@/components/abuseipdb-badge";
 import { AnniversaryOverlay } from "@/components/anniversary/anniversary-overlay";
 import { MainNav } from "@/components/main-nav";
 import { GoatCounterScript } from "@/components/visits/goatcounter-script";
@@ -162,11 +158,10 @@ export default async function PublicLayout({
             )}
           </span>
           <span aria-hidden>·</span>
-          {/* 4 — AbuseIPDB contribution (server-fetched count, no visitor
-              data leaves; Suspense so the external fetch never blocks render) */}
-          <Suspense fallback={<AbuseIpdbBadgeFallback />}>
-            <AbuseIpdbBadge />
-          </Suspense>
+          {/* 4 — AbuseIPDB contribution: server-fetched count (cached, no
+              visitor data leaves), rendered synchronously — a Suspense
+              boundary here doesn't reveal under the strict CSP. */}
+          <AbuseIpdbBadge />
           <span aria-hidden>·</span>
           {/* 5 — visit counter */}
           <VisitCounter />

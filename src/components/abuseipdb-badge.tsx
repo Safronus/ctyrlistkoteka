@@ -5,10 +5,21 @@ import {
   getAbuseReportCount,
 } from "@/lib/abuseipdbBadge";
 
-/** Shared shield icon + "AbuseIPDB" link. The count is optional so the same
- *  markup serves the Suspense fallback (link only) and the resolved badge. */
-async function BadgeShell({ children }: { children?: React.ReactNode }) {
-  const t = await getTranslations("Footer");
+/**
+ * Footer item crediting the site's AbuseIPDB contributions:
+ * "AbuseIPDB · Počet IP reportováno: {N}", linking the contributor profile.
+ *
+ * Rendered SYNCHRONOUSLY (no Suspense): the site's strict nonce-CSP stops
+ * Next's streaming Suspense-reveal from completing, so a boundary here would
+ * leave the count stuck hidden. The count is cached (unstable_cache, 6 h) and
+ * the fetch is fast, so awaiting it inline just adds ~a few hundred ms to the
+ * first cold render; on failure it degrades to the link with no number.
+ */
+export async function AbuseIpdbBadge() {
+  const [t, count] = await Promise.all([
+    getTranslations("Footer"),
+    getAbuseReportCount(),
+  ]);
   return (
     <span className="inline-flex items-center gap-1.5">
       <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden />
@@ -21,23 +32,6 @@ async function BadgeShell({ children }: { children?: React.ReactNode }) {
       >
         AbuseIPDB
       </a>
-      {children}
-    </span>
-  );
-}
-
-/** Footer badge crediting the site's AbuseIPDB contributions. Fetches the
- *  reported-IP count server-side (cached, no visitor data leaves) and shows it
- *  as local text. Wrap in <Suspense fallback={<AbuseIpdbBadgeFallback />}> so
- *  a cold/slow fetch never blocks page render — the link shows immediately and
- *  the number streams in. */
-export async function AbuseIpdbBadge() {
-  const [t, count] = await Promise.all([
-    getTranslations("Footer"),
-    getAbuseReportCount(),
-  ]);
-  return (
-    <BadgeShell>
       {count !== null && (
         <>
           <span aria-hidden>·</span>
@@ -46,11 +40,6 @@ export async function AbuseIpdbBadge() {
           </span>
         </>
       )}
-    </BadgeShell>
+    </span>
   );
-}
-
-/** Link-only placeholder shown while the count resolves. */
-export function AbuseIpdbBadgeFallback() {
-  return <BadgeShell />;
 }

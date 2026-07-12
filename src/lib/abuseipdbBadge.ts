@@ -47,8 +47,9 @@ async function fetchReportedCount(): Promise<number | null> {
       // NB: do NOT add `cache: "no-store"` here — Next throws on a no-store
       // fetch inside unstable_cache, and our catch would swallow it into a
       // null (that was the original empty-count bug). unstable_cache owns the
-      // result caching; the signal just bounds a slow request.
-      signal: AbortSignal.timeout(8000),
+      // result caching. The badge renders in the (blocking) footer render
+      // path, so bound a slow request tightly — normal latency is sub-second.
+      signal: AbortSignal.timeout(3500),
       headers: {
         // abuseipdb.com is behind Cloudflare; the badge is normally fetched
         // by browsers (it's embedded via <img>), so present a browser-shaped
