@@ -394,10 +394,22 @@ export async function analyzeImportZip(zipPath: string): Promise<ImportPlan> {
 
 // ─── Commit ────────────────────────────────────────────────────────────────
 
+/** What to do when an incoming file's id / MAP_ID already exists on disk:
+ *  overwrite it (old → .trash, then write) or skip it (keep the on-disk
+ *  version, don't import). New ids import regardless. */
+export type CollisionMode = "overwrite" | "skip";
+
+interface ScopeFileResult {
+  written: number;
+  replaced: number;
+  skipped: number;
+  errors: number;
+}
+
 export interface ImportFileSummary {
-  finds: { written: number; replaced: number; errors: number };
-  crops: { written: number; replaced: number; errors: number };
-  maps: { written: number; replaced: number; errors: number };
+  finds: ScopeFileResult;
+  crops: ScopeFileResult;
+  maps: ScopeFileResult;
   errors: string[];
   /** raw LSP JSON found in the package (for the route to whole-file merge). */
   lspContent: string | null;
@@ -469,9 +481,10 @@ async function streamEntryToFile(
   }
 }
 
-/** Places one entry into its target root, first moving any existing file(s)
- *  for the same id/map-id into .trash (recoverable replace). Returns whether
- *  it replaced something. */
+/** Places one entry into its target root. On an id/map-id collision: in
+ *  "overwrite" mode the existing file(s) go to .trash and the new one is
+ *  written; in "skip" mode the on-disk file is kept and nothing is written.
+ *  A brand-new id is always written. Returns which happened. */
 async function placeFile<K extends string | number>(
   zip: ZipFile,
   raw: Entry,
@@ -481,26 +494,33 @@ async function placeFile<K extends string | number>(
   ts: string,
   existing: Map<K, string[]>,
   key: K,
-): Promise<boolean> {
+  onCollision: CollisionMode,
+): Promise<"written" | "replaced" | "skipped"> {
+  const olds = existing.get(key) ?? [];
+  const collides = olds.length > 0;
+
+  if (collides && onCollision === "skip") {
+    // Keep the on-disk version; don't import this file. Leave `existing`
+    // untouched so any further entry for the same id also skips.
+    return "skipped";
+  }
+
   const name = safeBaseName(entry.name); // rejects separators / dotfiles
   const destPath = safeJoin(rootKey, name);
 
-  const olds = existing.get(key) ?? [];
-  let replaced = false;
-  if (olds.length > 0) {
+  if (collides) {
     const trashDir = path.join(ADMIN_ROOTS.trash, ts, scope);
     await ensureDir(trashDir);
     for (const oldName of olds) {
       await fs
         .rename(safeJoin(rootKey, oldName), path.join(trashDir, oldName))
         .catch(() => undefined); // vanished / already moved — ignore
-      replaced = true;
     }
     existing.set(key, []); // another entry sharing this key won't re-trash
   }
 
   await streamEntryToFile(zip, raw, destPath);
-  return replaced;
+  return collides ? "replaced" : "written";
 }
 
 /**
@@ -511,6 +531,7 @@ async function placeFile<K extends string | number>(
  */
 export async function commitImportFiles(
   zipPath: string,
+  onCollision: CollisionMode = "overwrite",
 ): Promise<ImportFileSummary> {
   const [findsMap, cropsMap, mapsMap] = await Promise.all([
     existingByFindId(ADMIN_ROOTS.findOriginals),
@@ -519,9 +540,9 @@ export async function commitImportFiles(
   ]);
   const ts = trashTimestamp();
   const summary: ImportFileSummary = {
-    finds: { written: 0, replaced: 0, errors: 0 },
-    crops: { written: 0, replaced: 0, errors: 0 },
-    maps: { written: 0, replaced: 0, errors: 0 },
+    finds: { written: 0, replaced: 0, skipped: 0, errors: 0 },
+    crops: { written: 0, replaced: 0, skipped: 0, errors: 0 },
+    maps: { written: 0, replaced: 0, skipped: 0, errors: 0 },
     errors: [],
     lspContent: null,
   };
@@ -529,14 +550,14 @@ export async function commitImportFiles(
   await iterateZip(zipPath, async (entry, zip, raw) => {
     try {
       if (entry.category === "finds" && entry.findId !== null) {
-        const r = await placeFile(zip, raw, entry, "findOriginals", "finds", ts, findsMap, entry.findId);
-        summary.finds[r ? "replaced" : "written"]++;
+        const r = await placeFile(zip, raw, entry, "findOriginals", "finds", ts, findsMap, entry.findId, onCollision);
+        summary.finds[r]++;
       } else if (entry.category === "crops" && entry.findId !== null) {
-        const r = await placeFile(zip, raw, entry, "findCrops", "crops", ts, cropsMap, entry.findId);
-        summary.crops[r ? "replaced" : "written"]++;
+        const r = await placeFile(zip, raw, entry, "findCrops", "crops", ts, cropsMap, entry.findId, onCollision);
+        summary.crops[r]++;
       } else if (entry.category === "maps" && entry.mapId !== null) {
-        const r = await placeFile(zip, raw, entry, "locationMaps", "maps", ts, mapsMap, entry.mapId);
-        summary.maps[r ? "replaced" : "written"]++;
+        const r = await placeFile(zip, raw, entry, "locationMaps", "maps", ts, mapsMap, entry.mapId, onCollision);
+        summary.maps[r]++;
       } else if (
         entry.category === "meta" &&
         entry.name === LOKACE_STAVY_POZNAMKY_FILENAME

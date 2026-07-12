@@ -125,10 +125,12 @@ ZIP má v rootu `finds/` (JPG originály), `crops/` (JPG výřezy), `maps/`
    Nic nezapisuje.
 3. **Confirm/Cancel** (UI): uživatel vidí přehled. Cancel → `cancel` smaže
    temp ZIP hned (jinak ho po 1 dni sklidí `import-tmp` cron).
-4. **Commit** (`commit` → `commitImportFiles`): streaming zápis každého
-   souboru do `data/{finds,crops,maps}`. Přepis je **podle ID / MAP_ID**,
-   ne podle názvu → existující soubor(y) pro to ID jdou nejdřív do
-   `.trash/<ts>/<scope>/`, pak se atomicky zapíše nový (tmp → rename).
+4. **Commit** (`commit` → `commitImportFiles(zipPath, onCollision)`):
+   streaming zápis každého souboru do `data/{finds,crops,maps}`. Klíčování je
+   **podle ID / MAP_ID**, ne podle názvu. Kolize (ID už na disku) řeší volba
+   z přehledu: **`overwrite`** (default) přesune starý soubor do
+   `.trash/<ts>/<scope>/` a zapíše nový (atomicky, tmp → rename), **`skip`**
+   ponechá verzi na disku a nový neimportuje. Nová ID se zapíšou vždy.
    Syrové názvy z disku se drží kvůli NFC/NFD renamu; parsuje se na NFC.
    LSP se pak sloučí přes `mergeWholeFile` (aditivně, s abort na konflikt,
    snapshot do `.trash` + rotující záloha). **Nezapisuje DB.** Temp ZIP se

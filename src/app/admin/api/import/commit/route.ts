@@ -13,7 +13,11 @@ import {
   importZipPath,
   isValidUploadId,
 } from "@/lib/admin/importPackage";
-import { commitImportFiles, type ImportFileSummary } from "@/lib/admin/importZip";
+import {
+  commitImportFiles,
+  type CollisionMode,
+  type ImportFileSummary,
+} from "@/lib/admin/importZip";
 import {
   mergeWholeFile,
   type WholeFileMergeResult,
@@ -45,9 +49,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const ip = await getRequestIp();
   await touchSession();
 
-  let body: { uploadId?: string };
+  let body: { uploadId?: string; onCollision?: string };
   try {
-    body = (await request.json()) as { uploadId?: string };
+    body = (await request.json()) as { uploadId?: string; onCollision?: string };
   } catch {
     return json({ ok: false, error: "Neplatné tělo požadavku." }, 400);
   }
@@ -55,6 +59,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!isValidUploadId(uploadId)) {
     return json({ ok: false, error: "Neplatné upload id." }, 400);
   }
+  // Default to overwrite (the historical behaviour); only "skip" opts out.
+  const onCollision: CollisionMode = body.onCollision === "skip" ? "skip" : "overwrite";
 
   const zipPath = importZipPath(uploadId);
   try {
@@ -67,8 +73,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    // 1) stage photos + maps (id/map-id replace).
-    const summary = await commitImportFiles(zipPath);
+    // 1) stage photos + maps (id/map-id replace or skip on collision).
+    const summary = await commitImportFiles(zipPath, onCollision);
 
     // 2) whole-file-merge the bundled LSP JSON (reuses the editor's merge —
     //    additive, conflict-aborting, snapshots to .trash + a rotating backup).
@@ -85,6 +91,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       credentialLabel,
       details: {
         scope: "import-package",
+        onCollision,
         finds: summary.finds,
         crops: summary.crops,
         maps: summary.maps,

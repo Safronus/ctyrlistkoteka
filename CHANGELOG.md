@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin — import balíčku: intervaly ID, volba u kolizí; home „Top lokalita" ve dnech
+- **Intervalové zobrazení ID** místo výčtu: `27273, 27274, … (+153)` →
+  `27273-27445`. Souvislé řady se složí do jednoho úseku (u originálů, výřezů
+  i v LSP diffu). Přehlednější rozpis LSP sekcí — počet a seznam se už
+  neslévají: `Nové klíče (1): 201`, `Přidaná ID (173): 27273-27445`.
+- **Volba u kolizí**: když balíček obsahuje ID/MAP_ID, které už na serveru
+  jsou, přehled nabídne **Přepsat** (stará verze do koše, nahradit) nebo
+  **Přeskočit** (ponechat verzi na serveru). Nová ID se importují vždy.
+  Sumář ukazuje i počet přeskočených. Default zůstává přepsat.
+- **Home „Top lokalita"**: čas sbírání se dřív hromadil v hodinách
+  (`123 h 18 min`) — teď se rolí do dnů (`5 dní 3 h 18 min`) přes sdílený
+  `formatLongDuration`, stejně jako na /statistiky.
+
 ### Admin — import balíčku: podrobný přehled + oprava prázdných sekcí
 - **Přehled po analýze je teď podrobný**, aby šlo ověřit, co se z balíčku
   přečetlo: u originálů i výřezů **konkrétní seznamy ID** (nové vs.

@@ -25,6 +25,7 @@ import type {
 // lspMerge is a pure lib (no node/"use server"), so importing its diff type
 // is safe for the client bundle.
 import type { WholeFileMergeSectionDiff } from "@/lib/admin/lspMerge";
+import { compactToRanges } from "@/lib/parseRanges";
 
 /** Structural subset of the server's WholeFileMergeResult. Declared locally
  *  rather than imported because that type lives in a "use server" module,
@@ -86,9 +87,15 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   return parsed;
 }
 
+/** Client mirror of the server's CollisionMode. */
+type CollisionChoice = "overwrite" | "skip";
+
 export function ImportPanel() {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [dragActive, setDragActive] = useState(false);
+  // What to do with finds/crops/maps whose id already exists on the server.
+  // Overwrite is the historical default; per-package, reset on each upload.
+  const [collision, setCollision] = useState<CollisionChoice>("overwrite");
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   // Id of the upload whose (partial or full) temp ZIP is still on disk.
@@ -134,6 +141,7 @@ export function ImportPanel() {
       return;
     }
 
+    setCollision("overwrite"); // fresh package → default choice
     const uploadId = crypto.randomUUID();
     uploadIdRef.current = uploadId; // temp ZIP now (partially) on disk
     const controller = new AbortController();
@@ -184,24 +192,27 @@ export function ImportPanel() {
     }
   }, [discardUpload]);
 
-  const confirm = useCallback(async (uploadId: string, fileName: string) => {
-    setPhase({ kind: "committing", fileName });
-    try {
-      const { summary, lsp } = await postJson<{
-        ok: true;
-        summary: ImportFileSummary;
-        lsp: LspMergeResult | null;
-      }>("/admin/api/import/commit", { uploadId });
-      uploadIdRef.current = null; // commit's finally already deleted the ZIP
-      setPhase({ kind: "done", fileName, summary, lsp: lsp ?? null });
-    } catch (err) {
-      uploadIdRef.current = null; // ...deleted on failure too (idempotent retry)
-      setPhase({
-        kind: "error",
-        message: err instanceof Error ? err.message : "Import selhal.",
-      });
-    }
-  }, []);
+  const confirm = useCallback(
+    async (uploadId: string, fileName: string, onCollision: CollisionChoice) => {
+      setPhase({ kind: "committing", fileName });
+      try {
+        const { summary, lsp } = await postJson<{
+          ok: true;
+          summary: ImportFileSummary;
+          lsp: LspMergeResult | null;
+        }>("/admin/api/import/commit", { uploadId, onCollision });
+        uploadIdRef.current = null; // commit's finally already deleted the ZIP
+        setPhase({ kind: "done", fileName, summary, lsp: lsp ?? null });
+      } catch (err) {
+        uploadIdRef.current = null; // ...deleted on failure too (idempotent retry)
+        setPhase({
+          kind: "error",
+          message: err instanceof Error ? err.message : "Import selhal.",
+        });
+      }
+    },
+    [],
+  );
 
   const onPick = (files: FileList | null) => {
     if (files && files.length > 0) void start(files[0]!);
@@ -256,7 +267,11 @@ export function ImportPanel() {
       <ReviewCard
         plan={phase.plan}
         fileName={phase.fileName}
-        onConfirm={() => void confirm(phase.uploadId, phase.fileName)}
+        collision={collision}
+        onCollisionChange={setCollision}
+        onConfirm={() =>
+          void confirm(phase.uploadId, phase.fileName, collision)
+        }
         onCancel={reset}
       />
     );
@@ -345,11 +360,15 @@ export function ImportPanel() {
 function ReviewCard({
   plan,
   fileName,
+  collision,
+  onCollisionChange,
   onConfirm,
   onCancel,
 }: {
   plan: ImportPlan;
   fileName: string;
+  collision: CollisionChoice;
+  onCollisionChange: (c: CollisionChoice) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -358,6 +377,8 @@ function ReviewCard({
     plan.crops.total === 0 &&
     plan.maps.total === 0 &&
     !plan.lsp.present;
+  const replaceCount =
+    plan.finds.replace + plan.crops.replace + plan.maps.replace;
 
   return (
     <Card>
@@ -413,7 +434,7 @@ function ReviewCard({
               <strong>{plan.lsp.poznamkyConflicts.length}</strong>{" "}
               {conflictWord(plan.lsp.poznamkyConflicts.length)} v poznámkách
               (jiný text u stejného ID) — sloučení metadat se pak přeruší. ID:{" "}
-              <IdList ids={plan.lsp.poznamkyConflicts} />
+              <IdRanges ids={plan.lsp.poznamkyConflicts} />
             </span>
           </p>
         )}
@@ -455,6 +476,38 @@ function ReviewCard({
         </Note>
       ))}
 
+      {/* Collision handling — only relevant when something already on the
+          server would be touched. */}
+      {replaceCount > 0 && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <p className="text-xs font-semibold text-amber-900">
+            Kolidující ID ({replaceCount} už na serveru)
+          </p>
+          <p className="mt-0.5 text-xs text-amber-800">
+            Co s položkami, jejichž ID / MAP_ID už na serveru existuje? Nové se
+            naimportují tak jako tak.
+          </p>
+          <div
+            role="radiogroup"
+            aria-label="Kolidující ID"
+            className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:gap-4"
+          >
+            <CollisionOption
+              checked={collision === "overwrite"}
+              onSelect={() => onCollisionChange("overwrite")}
+              title="Přepsat"
+              desc="starou verzi zálohovat do koše a nahrát novou"
+            />
+            <CollisionOption
+              checked={collision === "skip"}
+              onSelect={() => onCollisionChange("skip")}
+              title="Přeskočit"
+              desc="ponechat verzi na serveru, novou neimportovat"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="mt-4 flex items-center justify-end gap-2">
         <button
           type="button"
@@ -478,14 +531,50 @@ function ReviewCard({
   );
 }
 
-/** Compact monospace id list: "27273, 27274, 27275 … (+153)". */
-function IdList({ ids, max = 20 }: { ids: number[]; max?: number }) {
+function CollisionOption({
+  checked,
+  onSelect,
+  title,
+  desc,
+}: {
+  checked: boolean;
+  onSelect: () => void;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <label
+      className={`flex flex-1 cursor-pointer flex-col gap-0.5 rounded-md border px-2.5 py-1.5 text-xs transition ${
+        checked
+          ? "border-amber-400 bg-white"
+          : "border-amber-200 bg-amber-50/50 hover:border-amber-300"
+      }`}
+    >
+      <span className="flex items-center gap-2 font-medium text-amber-900">
+        <input
+          type="radio"
+          checked={checked}
+          onChange={onSelect}
+          className="accent-amber-600"
+        />
+        {title}
+      </span>
+      <span className="pl-6 text-amber-800">{desc}</span>
+    </label>
+  );
+}
+
+/** Compact monospace id list collapsed into ranges: "27273-27455, 27500".
+ *  Contiguous runs become a single a-b span, so a package of 173 consecutive
+ *  finds reads as one interval instead of 173 numbers. */
+function IdRanges({ ids, maxRanges = 40 }: { ids: number[]; maxRanges?: number }) {
   if (ids.length === 0) return null;
-  const rest = ids.length - Math.min(ids.length, max);
+  const ranges = compactToRanges(ids);
+  const rest = ranges.length - Math.min(ranges.length, maxRanges);
   return (
     <span className="font-mono break-words">
-      {ids.slice(0, max).join(", ")}
-      {rest > 0 ? ` … (+${rest})` : ""}
+      {ranges.slice(0, maxRanges).join(", ")}
+      {rest > 0 ? ` … (+${rest} ${rest === 1 ? "úsek" : "úseků"})` : ""}
     </span>
   );
 }
@@ -511,7 +600,7 @@ function ScopeCard({ title, scope }: { title: string; scope: ImportScopeStat }) 
             <div>
               <dt className="text-emerald-700">+{scope.add} nových:</dt>
               <dd className="text-gray-600">
-                <IdList ids={scope.addIds} />
+                <IdRanges ids={scope.addIds} />
               </dd>
             </div>
           )}
@@ -519,7 +608,7 @@ function ScopeCard({ title, scope }: { title: string; scope: ImportScopeStat }) 
             <div>
               <dt className="text-amber-700">↻ {scope.replace} přepis:</dt>
               <dd className="text-gray-600">
-                <IdList ids={scope.replaceIds} />
+                <IdRanges ids={scope.replaceIds} />
               </dd>
             </div>
           )}
@@ -625,20 +714,24 @@ function LspSectionCard({
       {nothing ? (
         <p className="mt-0.5 text-xs text-gray-400">Beze změny</p>
       ) : (
-        <div className="mt-0.5 space-y-0.5 text-xs text-gray-600">
+        <div className="mt-1 space-y-1 text-xs text-gray-600">
           {showKeys && keyCount > 0 && (
             <p>
-              <span className="text-emerald-700">Nové klíče: {keyCount}</span>{" "}
+              <span className="font-medium text-emerald-700">
+                Nové klíče ({keyCount}):
+              </span>{" "}
               <span className="font-mono break-words">
-                {diff.addedKeys.slice(0, 20).join(", ")}
-                {keyCount > 20 ? ` … (+${keyCount - 20})` : ""}
+                {diff.addedKeys.slice(0, 30).join(", ")}
+                {keyCount > 30 ? ` … (+${keyCount - 30})` : ""}
               </span>
             </p>
           )}
           {showIds && idCount > 0 && (
             <p>
-              <span className="text-emerald-700">Přidaných ID: {idCount}</span>{" "}
-              <IdList ids={diff.addedIds} />
+              <span className="font-medium text-emerald-700">
+                Přidaná ID ({idCount}):
+              </span>{" "}
+              <IdRanges ids={diff.addedIds} />
             </p>
           )}
         </div>
@@ -749,7 +842,7 @@ function ResultCard({
   res,
 }: {
   title: string;
-  res: { written: number; replaced: number; errors: number };
+  res: { written: number; replaced: number; skipped: number; errors: number };
 }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-3">
@@ -760,6 +853,12 @@ function ResultCard({
         <span className="text-emerald-700">{res.written} nových</span>
         {" · "}
         <span className="text-amber-700">{res.replaced} přepsáno</span>
+        {res.skipped > 0 && (
+          <>
+            {" · "}
+            <span className="text-gray-500">{res.skipped} přeskočeno</span>
+          </>
+        )}
         {res.errors > 0 && (
           <>
             {" · "}

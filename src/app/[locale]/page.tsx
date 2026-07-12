@@ -27,6 +27,7 @@ import { getWatermarkMeta } from "@/lib/queries/watermark";
 import {
   formatDateCs,
   formatDateTimeCs,
+  formatLongDuration,
   formatShortDateCs,
   locationDetailHref,
 } from "@/lib/format";
@@ -564,7 +565,7 @@ function HighlightsSection({
           <HighlightCard label={t("peakDayLabel")} value="—" hint={null} />
         )}
         {top ? (
-          <TopLocationCard location={top} t={t} nf={nf} />
+          <TopLocationCard location={top} t={t} locale={locale} nf={nf} />
         ) : (
           <HighlightCard label={t("topLocationLabel")} value="—" hint={null} />
         )}
@@ -577,13 +578,15 @@ function HighlightsSection({
 function TopLocationCard({
   location,
   t,
+  locale,
   nf,
 }: {
   location: NonNullable<HomePageData["highlights"]["topLocation"]>;
   t: HomeT;
+  locale: string;
   nf: Intl.NumberFormat;
 }) {
-  const netLabel = formatDurationMinutes(location.netMinutes);
+  const netLabel = formatDurationMinutes(location.netMinutes, locale);
   return (
     <div className="relative flex flex-col rounded-xl border border-gray-200 bg-white p-3 text-center">
       <Link
@@ -681,8 +684,8 @@ function PeakDayCard({
     0,
     Math.round((lastAt.getTime() - firstAt.getTime()) / 60_000),
   );
-  const durationLabel = formatDurationMinutes(durationMin);
-  const netLabel = formatDurationMinutes(peakDay.netMinutes);
+  const durationLabel = formatDurationMinutes(durationMin, locale);
+  const netLabel = formatDurationMinutes(peakDay.netMinutes, locale);
   return (
     <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3 text-center">
       <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
@@ -740,13 +743,13 @@ function PeakDayCard({
   );
 }
 
-function formatDurationMinutes(total: number): string | null {
+/** Picking-time label for the highlight cards. Delegates to the shared
+ *  formatter so long durations roll up into days ("5 dní 3 h 18 min")
+ *  instead of piling up hours ("123 h 18 min"). Returns null (not "—") for
+ *  non-positive input so the caller can hide the hint entirely. */
+function formatDurationMinutes(total: number, locale: string): string | null {
   if (total <= 0) return null;
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h === 0) return `${m} min`;
-  if (m === 0) return `${h} h`;
-  return `${h} h ${m} min`;
+  return formatLongDuration(total, locale);
 }
 
 function HighlightCard({
