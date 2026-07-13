@@ -77,10 +77,14 @@ export async function PopularFindWidget({
             block floats top-right over it); on mobile the second column
             is just the vote block next to the image and the info drops
             below at full width. */}
-        <div className="grid grid-cols-[auto_1fr] items-start gap-4 sm:items-center">
+        <div className="grid grid-cols-[auto_1fr] items-start gap-4 sm:items-stretch">
+          {/* Desktop: aspect-auto + h-full makes the photo stretch to the
+              info column's height (items-stretch) instead of sitting as a
+              fixed square with empty space beside it. object-cover crops the
+              taller frame. Mobile keeps the compact square. */}
           <Link
             href={`/sbirka/${winner.findId}`}
-            className="group relative block aspect-square w-28 shrink-0 overflow-hidden rounded-xl border border-brand-200 bg-white sm:w-40"
+            className="group relative block aspect-square w-28 shrink-0 overflow-hidden rounded-xl border border-brand-200 bg-white sm:aspect-auto sm:h-full sm:w-44"
             aria-label={t("openFind")}
           >
             {winner.thumbUrl ? (
