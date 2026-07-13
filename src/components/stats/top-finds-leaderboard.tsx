@@ -176,18 +176,16 @@ export function TopFindsLeaderboard({ allTime, yearly, monthly }: Props) {
                   </div>
                 )}
                 {e.lastVotedAt && (
-                  <div
-                    className="inline-flex items-center gap-1"
-                    title={t("leaderboardLastVoteTitle")}
-                  >
-                    <Clock className="h-2.5 w-2.5 shrink-0" aria-hidden />
-                    <span>
-                      {formatTinyDateTimeCs(
-                        new Date(e.lastVotedAt),
-                        locale,
-                        COLLECTION_TZ,
-                      )}
-                    </span>
+                  <div title={t("leaderboardLastVoteTitle")}>
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="h-2.5 w-2.5 shrink-0" aria-hidden />
+                      {t("leaderboardLastVoteTitle")}:
+                    </span>{" "}
+                    {formatTinyDateTimeCs(
+                      new Date(e.lastVotedAt),
+                      locale,
+                      COLLECTION_TZ,
+                    )}
                   </div>
                 )}
               </div>

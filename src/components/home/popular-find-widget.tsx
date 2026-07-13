@@ -301,12 +301,15 @@ function WinnerInfo({
           <dd className="font-mono tabular-nums font-semibold text-brand-700">
             {t("voteCount", { count: winner.voteCount })}
           </dd>
-          {lastVoteLine && (
-            <dd className="text-gray-500" title={t("leaderboardLastVoteTitle")}>
-              ({lastVoteLine})
-            </dd>
-          )}
         </div>
+        {lastVoteLine && (
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <dt className="text-gray-500">{t("homepageLastVoteLabel")}</dt>
+            <dd className="font-mono tabular-nums text-gray-700">
+              {lastVoteLine}
+            </dd>
+          </div>
+        )}
       </dl>
     </div>
   );

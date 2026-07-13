@@ -111,6 +111,7 @@
     "homepageDateLabel": "Nalezen:",
     "homepageLocationLabel": "Lokalita:",
     "homepageVotesLabel": "Počet hlasů:",
+    "homepageLastVoteLabel": "Poslední hlas:",
     "leaderboardHeading": "Top 10 nejoblíbenějších",
     "leaderboardSubtitle": "Žebříček podle počtu hlasů od návštěvníků.",
     "leaderboardEmpty": "Pro toto období zatím nebyly žádné hlasy.",

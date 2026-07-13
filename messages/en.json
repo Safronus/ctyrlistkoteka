@@ -112,6 +112,7 @@
     "homepageDateLabel": "Found:",
     "homepageLocationLabel": "Location:",
     "homepageVotesLabel": "Votes:",
+    "homepageLastVoteLabel": "Last vote:",
     "leaderboardHeading": "Top 10 most-loved",
     "leaderboardSubtitle": "Ranking by visitor votes.",
     "leaderboardEmpty": "No votes in this period yet.",
