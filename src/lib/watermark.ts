@@ -33,17 +33,29 @@ export interface WatermarkOptions {
    *  bounding box still anchors to the bottom-right corner with the
    *  configured margin. */
   rotation: number;
+  /** Ink colour the doodle is recoloured to (sRGB 0–255). The source
+   *  PNG's darkness still drives the alpha *shape*; only the RGB is
+   *  replaced. Omit to keep the doodle's own colour (black). The site
+   *  bakes the mark in its pale clover-green so it reads as part of the
+   *  green theme rather than a hard black stamp. */
+  color?: { r: number; g: number; b: number };
 }
 
 export const DEFAULT_WATERMARK_OPTIONS: WatermarkOptions = {
   widthRatio: 0.1,
-  opacity: 0.4,
+  // A light mark reads by lightening the (mostly dark, foliage-heavy)
+  // bottom-right corner, so it needs more punch than the old dark ink's
+  // 0.4 to stay visible — 0.55 lands "present but not loud".
+  opacity: 0.55,
   // 0.5% of width — tight to the corner. The post-rotation .trim() pass
   // (see compositeWatermarkOnto) removes the transparent padding the
   // rotation adds, so this margin applies to the doodle's actual visible
   // bounding box rather than to a much larger transparent rectangle.
   marginRatio: 0.005,
   rotation: 45,
+  // Pale clover-green (oklch 0.965 0.038 145 → sRGB), i.e. the page
+  // background — so the smiley reads as part of the green theme.
+  color: { r: 228, g: 251, b: 228 },
 };
 
 /** Cached pre-processed watermark (luminance-masked + opacity-baked).
@@ -53,7 +65,8 @@ export const DEFAULT_WATERMARK_OPTIONS: WatermarkOptions = {
 const watermarkCache = new Map<string, Buffer>();
 
 function cacheKey(path: string, opts: WatermarkOptions): string {
-  return `${path}|${opts.opacity}`;
+  const c = opts.color ? `${opts.color.r},${opts.color.g},${opts.color.b}` : "ink";
+  return `${path}|${opts.opacity}|${c}`;
 }
 
 /**
@@ -67,8 +80,9 @@ function cacheKey(path: string, opts: WatermarkOptions): string {
  */
 async function loadAndMaskWatermark(
   path: string,
-  opacity: number,
+  opts: WatermarkOptions,
 ): Promise<Buffer> {
+  const { opacity, color } = opts;
   const sharp = require("sharp") as typeof import("sharp");
   const wm = sharp(path).ensureAlpha();
   const { data, info } = await wm
@@ -98,6 +112,14 @@ async function loadAndMaskWatermark(
     // Multiply original alpha (0..255) by ink density (0..255) by
     // opacity (0..1), divide by 255 once to keep the result in 0..255.
     data[i + 3] = Math.round((a * inkDensity * opacity) / 255);
+    // Recolour the ink: the darkness above already became the alpha
+    // shape, so overwrite RGB with the target colour. Pixels that ended
+    // up fully transparent keep whatever RGB — it's never composited.
+    if (color) {
+      data[i] = color.r;
+      data[i + 1] = color.g;
+      data[i + 2] = color.b;
+    }
   }
 
   return await sharp(data, {
@@ -117,7 +139,7 @@ export async function getWatermarkBuffer(
   // Validate the file exists upfront so the error message points to the
   // configured path rather than failing inside sharp's decoder.
   await readFile(path); // throws ENOENT with full path
-  const buf = await loadAndMaskWatermark(path, opts.opacity);
+  const buf = await loadAndMaskWatermark(path, opts);
   watermarkCache.set(key, buf);
   return buf;
 }

@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Vodoznak — zelený smajlík místo černého
+- Rohový vodoznak (smajlík) se teď zapéká ve **světlé klidové zelené webu**
+  (`rgb(228,251,228)`, oklch 0.965 0.038 145 — barva pozadí stránky), aby
+  ladil se zeleným tématem místo tvrdého černého razítka. `WatermarkOptions`
+  dostaly volitelné `color` (přebarví „inkoust" doodle, tvar/alfa zůstává z
+  původního PNG); `DEFAULT_WATERMARK_OPTIONS` má tuto zelenou + **sílu 0,55**
+  (světlý vodoznak čte tak, že projasní tmavý roh fotky, proto víc než
+  původních 0,4). Odstín ověřen složením na reálné fotky.
+- **Projeví se až po přegenerování** — běžný `pnpm sync` existující WebP
+  nepřewatermarkuje (fast-path je přeskočí). Na všechny stávající fotky:
+  `pnpm watermark --all --regenerate --reset`. Nové importy dostanou zelený
+  vodoznak automaticky.
+
 ### Hlasování — poměr za období + čas posledního hlasu
 - **Top 10 nejoblíbenějších** (/statistiky): v záložkách „Posledních 12 měsíců"
   a „Posledních 30 dnů" se u nálezu teď ukazuje **poměr „za období / celkem"**
