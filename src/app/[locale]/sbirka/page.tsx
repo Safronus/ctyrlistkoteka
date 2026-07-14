@@ -555,7 +555,12 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
           country: filters.country ?? "",
           states: filters.states ?? [],
           year: filters.year ? String(filters.year) : "",
-          hasDate: !!(filters.foundAtFrom || filters.foundAtTo),
+          hasDate: !!(
+            filters.dateFrom ||
+            filters.dateTo ||
+            filters.foundAtFrom ||
+            filters.foundAtTo
+          ),
         }}
       />
 
