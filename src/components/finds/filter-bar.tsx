@@ -67,6 +67,12 @@ export function FilterBar({
     country: string;
     states: FindState[];
     year: string;
+    /** Whether a found-date range is active. The range picker lives in a
+     *  separate toolbar (params from/to/fromTs/toTs), so the bar can't read
+     *  it off its own fields — but `clearAll` clears it, so it must count
+     *  toward `hasAny` or the "Zrušit filtry" button vanishes on a date-only
+     *  filter (e.g. the homepage "Nejlepší den" deep-link). */
+    hasDate: boolean;
   };
 }) {
   const t = useTranslations("FilterBar");
@@ -251,7 +257,8 @@ export function FilterBar({
     current.city ||
     current.country ||
     current.states.length ||
-    current.year;
+    current.year ||
+    current.hasDate;
 
   return (
     <div

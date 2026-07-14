@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — „Zrušit filtry" se ukáže i u čistě datumové filtrace
+- Tlačítko „Zrušit filtry" ve filtru se řídilo výčtem, který **neobsahoval
+  datumový rozsah** (ten žije v jiném prvku, parametry `from/to/fromTs/toTs`).
+  Takže po prokliku na /sbirka jen s datumovým filtrem (homepage „Nejlepší
+  den") tlačítko chybělo, i když by filtr uměl zrušit. Přidán příznak
+  `hasDate` do `hasAny` — tlačítko se teď ukáže i pro datumovou filtraci.
+
 ### /sbirka — ikona „sbírka se postupně doplňuje" i na filtrovaném pohledu
 - Info ikonka o neúplnosti sbírky (vedle počtu v hlavičce) se schovávala,
   jakmile byl aktivní jakýkoli filtr — takže po prokliku na /sbirka s
