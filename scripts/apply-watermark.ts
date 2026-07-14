@@ -208,7 +208,7 @@ async function regenerateFromSource(
   expectedSha1: string,
   searchRoots: ReadonlyArray<string>,
   generatedDir: string,
-): Promise<void> {
+): Promise<{ width: number; height: number }> {
   const src = await findSourceFile(searchRoots, filename);
   if (!src) {
     throw new Error(
@@ -217,13 +217,17 @@ async function regenerateFromSource(
   }
   // Pass expected sha1 to avoid re-hashing — we trust the DB row.
   // forceRegen overrides the "fast path" cache so the existing (possibly
-  // corrupted) WebP gets overwritten cleanly.
-  await generateWebPVariants({
+  // corrupted) WebP gets overwritten cleanly. Return the encoded dimensions:
+  // generateWebPVariants may re-orient landscape → portrait, so the caller
+  // must write the new width/height back to the DB (the display's
+  // rotate/aspect logic reads them from there).
+  const out = await generateWebPVariants({
     sourcePath: src,
     generatedDir,
     forceRegen: true,
     sha1: expectedSha1,
   });
+  return { width: out.width, height: out.height };
 }
 
 async function applyWatermarkInPlace(
@@ -366,12 +370,21 @@ async function main(): Promise<void> {
               img.imageType === ImageType.CROP
                 ? join(dataDir, "crops")
                 : join(dataDir, "finds");
-            await regenerateFromSource(
+            const dims = await regenerateFromSource(
               img.originalFilename,
               img.originalSha1,
               [sourceRoot],
               generatedDir,
             );
+            // Regeneration may re-orient landscape → portrait, changing the
+            // stored dimensions. Write them back so the display's rotate /
+            // aspect logic (photoDisplay reads width/height off the DB row)
+            // matches the file — otherwise a now-portrait image with stale
+            // landscape dims would be rotated again on the detail page.
+            await prisma.findImage.update({
+              where: { id: img.id },
+              data: dims,
+            });
           }
           if (args.regenOnly) {
             console.log(

@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Fotky nálezů — sjednocené na výšku (vodoznak vždy vpravo dole)
+- Generování WebP teď po EXIF-narovnání **otočí landscape fotky na výšku**
+  (90° CW — přesně rotace, kterou dřív dělal detail v CSS, jen zapečená).
+  Čtyřlístky jsou focené shora, takže nemají „správně nahoře", a díky tomu
+  je **vodoznak zapečený vpravo dole napravo dole ve všech pohledech** —
+  detail už fotku neotáčí, takže se roh vodoznaku neposouvá. Homepage
+  „Náhodný čtyřlístek" si rotaci (portrait→landscape kvůli šířce) nechává.
+- Rotace mění rozměry, takže se **width/height píšou zpět do DB**: sync to
+  dělá nativně (`image.width/height`), a `apply-watermark --regenerate` teď
+  po přegenerování řádek `find_images` aktualizuje — jinak by detail otočil
+  už otočenou fotku (`photoDisplay` čte rozměry z DB).
+- Projeví se po přegenerování: `pnpm watermark --all --regenerate --reset`
+  (nebo `pnpm sync --force-regen`).
+
 ### /sbirka — „Zrušit filtry" se ukáže i u čistě datumové filtrace
 - Tlačítko „Zrušit filtry" ve filtru se řídilo výčtem, který **neobsahoval
   datumový rozsah** (ten žije v jiném prvku, parametry `from/to/fromTs/toTs`).

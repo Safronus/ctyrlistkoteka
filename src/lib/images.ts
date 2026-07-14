@@ -172,10 +172,26 @@ export async function generateWebPVariants(params: {
   }
 
   const sharp = require("sharp") as typeof import("sharp");
+  // Post-EXIF-auto-orient display dimensions: orientations 5–8 carry a 90°
+  // rotation, so width/height are swapped for display. We look at metadata
+  // (cheap, no full decode) rather than resolving the pipeline.
+  const meta = await sharp(pixelBuffer, { failOn: "none" }).metadata();
+  const swapWH = (meta.orientation ?? 1) >= 5;
+  const displayW = swapWH ? (meta.height ?? 0) : (meta.width ?? 0);
+  const displayH = swapWH ? (meta.width ?? 0) : (meta.height ?? 0);
+
   // Strip EXIF for privacy: GPS/date/camera info should never leak into
   // publicly-served derived images. They're extracted earlier and stored in
   // the DB; nothing in the WebP needs them.
-  const pipeline = sharp(pixelBuffer, { failOn: "none" }).rotate(); // auto-orient via EXIF before strip
+  //
+  // Unify orientation to PORTRAIT: after EXIF auto-orient, a landscape photo
+  // is rotated 90° CW (the same rotation the detail page used to apply in
+  // CSS, now baked in). Clover shots are top-down so there's no "up" to get
+  // wrong, and baking it means the watermark's bottom-right corner stays
+  // bottom-right in every view instead of moving when the detail rotated the
+  // display. sharp allows the no-arg EXIF orient PLUS one explicit rotation.
+  let pipeline = sharp(pixelBuffer, { failOn: "none" }).rotate();
+  if (displayW > displayH) pipeline = pipeline.rotate(90);
 
   const webBuf = await encodeVariant(
     pipeline,
