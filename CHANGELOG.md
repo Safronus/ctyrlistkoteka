@@ -9,18 +9,28 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
-### Vodoznak — zelený smajlík místo černého
-- Rohový vodoznak (smajlík) se teď zapéká ve **světlé klidové zelené webu**
-  (`rgb(228,251,228)`, oklch 0.965 0.038 145 — barva pozadí stránky), aby
-  ladil se zeleným tématem místo tvrdého černého razítka. `WatermarkOptions`
-  dostaly volitelné `color` (přebarví „inkoust" doodle, tvar/alfa zůstává z
-  původního PNG); `DEFAULT_WATERMARK_OPTIONS` má tuto zelenou + **sílu 0,55**
-  (světlý vodoznak čte tak, že projasní tmavý roh fotky, proto víc než
-  původních 0,4). Odstín ověřen složením na reálné fotky.
+### /sbirka — 5místné ID nálezu se vejde do hlavičky dlaždice (mobil)
+- V mřížce dlaždic se na úzkém mobilu 5místné číslo ořezávalo („#277…").
+  Číslo je teď na mobilu `text-xs` (na `sm+` zůstává `text-sm`) a hlavička
+  má těsnější mezery/odsazení, takže se celé ID vejde; `truncate` zůstává
+  jako záchrana pro extrémně úzké displeje.
+
+### Vodoznak — zelený smajlík místo černého, adaptivní kontrast
+- Rohový vodoznak (smajlík) se teď zapéká **zeleně** místo tvrdého černého
+  razítka a **přizpůsobuje se rohu**, na který dopadá: na obvyklý tmavý
+  (listnatý) roh světlá klidová zelená pozadí stránky (`rgb(228,251,228)`,
+  oklch 0.965 0.038 145); na vzácný **světlý** roh, kde by světlá zmizela,
+  tmavá klidová zelená (`rgb(0,73,6)`, brand-800). Composite si k tomu změří
+  střední jas rohu (práh 150).
+- `WatermarkOptions` dostaly `color` (barva pro tmavý roh), `colorOnLight`
+  (barva pro světlý roh) a `lightThreshold`. Síla **0,64** — světlý vodoznak
+  projasňuje tmavý roh, proto víc než původních 0,4. Odstíny, síla i práh
+  ověřeny složením na 30 reálných fotek.
 - **Projeví se až po přegenerování** — běžný `pnpm sync` existující WebP
-  nepřewatermarkuje (fast-path je přeskočí). Na všechny stávající fotky:
-  `pnpm watermark --all --regenerate --reset`. Nové importy dostanou zelený
-  vodoznak automaticky.
+  nepřewatermarkuje (fast-path je přeskočí, proto některé starší nálezy
+  vodoznak nemají). Na všechny stávající fotky:
+  `pnpm watermark --all --regenerate --reset`. Nové importy dostanou vodoznak
+  automaticky.
 
 ### Hlasování — poměr za období + čas posledního hlasu
 - **Top 10 nejoblíbenějších** (/statistiky): v záložkách „Posledních 12 měsíců"

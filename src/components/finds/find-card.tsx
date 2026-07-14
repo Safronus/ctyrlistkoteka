@@ -44,7 +44,7 @@ export async function FindCard({
           stays valid and each control keeps its own click target. When a
           side control is absent, a same-size spacer holds the number
           roughly centred. */}
-      <div className="flex items-center justify-between gap-1 px-2 py-1.5">
+      <div className="flex items-center justify-between gap-0.5 px-1.5 py-1.5">
         {/* Left — map-pin deep-link to /mapa (or spacer). */}
         {showMapLink ? (
           <Link
@@ -62,9 +62,9 @@ export async function FindCard({
         {/* Centre — the find number links to the detail page. */}
         <Link
           href={`/sbirka/${find.id}`}
-          className="flex min-w-0 flex-1 items-center justify-center gap-1.5"
+          className="flex min-w-0 flex-1 items-center justify-center gap-1"
         >
-          <span className="truncate text-sm font-semibold text-gray-900 group-hover:text-brand-700">
+          <span className="truncate text-xs font-semibold text-gray-900 group-hover:text-brand-700 sm:text-sm">
             🍀 #{find.id}
           </span>
           {find.isRecord && (

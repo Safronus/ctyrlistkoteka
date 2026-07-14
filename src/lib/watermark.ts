@@ -39,14 +39,23 @@ export interface WatermarkOptions {
    *  bakes the mark in its pale clover-green so it reads as part of the
    *  green theme rather than a hard black stamp. */
   color?: { r: number; g: number; b: number };
+  /** Adaptive contrast: colour to use instead of `color` when the corner
+   *  the mark lands on is *light* (a pale mark would vanish there). The
+   *  composite samples that corner's mean luminance and swaps to this
+   *  darker green when it exceeds `lightThreshold`. Omit to always use
+   *  `color`. */
+  colorOnLight?: { r: number; g: number; b: number };
+  /** Mean-luminance (0–255) above which the corner counts as "light" and
+   *  `colorOnLight` is used. Default 150. */
+  lightThreshold?: number;
 }
 
 export const DEFAULT_WATERMARK_OPTIONS: WatermarkOptions = {
   widthRatio: 0.1,
-  // A light mark reads by lightening the (mostly dark, foliage-heavy)
-  // bottom-right corner, so it needs more punch than the old dark ink's
-  // 0.4 to stay visible — 0.55 lands "present but not loud".
-  opacity: 0.55,
+  // A light mark reads by lightening the corner it sits on; on the mostly
+  // dark, foliage-heavy bottom-right it needs more punch than the old dark
+  // ink's 0.4. 0.64 lands "present but not loud" (picked on real photos).
+  opacity: 0.64,
   // 0.5% of width — tight to the corner. The post-rotation .trim() pass
   // (see compositeWatermarkOnto) removes the transparent padding the
   // rotation adds, so this margin applies to the doodle's actual visible
@@ -54,8 +63,14 @@ export const DEFAULT_WATERMARK_OPTIONS: WatermarkOptions = {
   marginRatio: 0.005,
   rotation: 45,
   // Pale clover-green (oklch 0.965 0.038 145 → sRGB), i.e. the page
-  // background — so the smiley reads as part of the green theme.
+  // background — so the smiley reads as part of the green theme on the
+  // (usual) dark foliage corner.
   color: { r: 228, g: 251, b: 228 },
+  // Dark clover-green (brand-800) for the rare bright corner where the
+  // pale mark would disappear — dark-on-light instead of light-on-dark,
+  // still on-theme.
+  colorOnLight: { r: 0, g: 73, b: 6 },
+  lightThreshold: 150,
 };
 
 /** Cached pre-processed watermark (luminance-masked + opacity-baked).
@@ -196,7 +211,58 @@ export async function compositeWatermarkOnto(
   const left = Math.max(0, width - resized.info.width - margin);
   const top = Math.max(0, height - resized.info.height - margin);
 
-  return pipeline.composite([
-    { input: resized.data, left, top, blend: "over" },
-  ]);
+  // Adaptive contrast: if the exact rectangle the mark lands on is *light*,
+  // the pale mark would disappear — swap it for the dark green. Sample that
+  // rectangle's mean luminance from a clone of the (already-resized) photo
+  // pipeline; the clone shares the re-readable input so the real composite
+  // below is unaffected.
+  let markData = resized.data;
+  if (opts.colorOnLight) {
+    const sw = Math.max(1, Math.min(resized.info.width, width - left));
+    const sh = Math.max(1, Math.min(resized.info.height, height - top));
+    let mean = 0;
+    try {
+      const stats = await pipeline
+        .clone()
+        .extract({ left, top, width: sw, height: sh })
+        .stats();
+      const [rc, gc, bc] = stats.channels;
+      mean =
+        0.299 * (rc?.mean ?? 0) +
+        0.587 * (gc?.mean ?? 0) +
+        0.114 * (bc?.mean ?? 0);
+    } catch {
+      // Degenerate region / unreadable clone — keep the pale mark
+      // (mean stays 0, i.e. treated as a dark corner).
+    }
+    if (mean > (opts.lightThreshold ?? 150)) {
+      markData = await recolorShape(resized.data, opts.colorOnLight);
+    }
+  }
+
+  return pipeline.composite([{ input: markData, left, top, blend: "over" }]);
+}
+
+/** Overwrites a masked watermark PNG's RGB with `color` while keeping its
+ *  alpha *shape* — used to swap the pale mark for the dark one on a light
+ *  corner. */
+async function recolorShape(
+  pngBuffer: Buffer,
+  color: { r: number; g: number; b: number },
+): Promise<Buffer> {
+  const sharp = require("sharp") as typeof import("sharp");
+  const { data, info } = await sharp(pngBuffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = color.r;
+    data[i + 1] = color.g;
+    data[i + 2] = color.b;
+  }
+  return sharp(data, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .toBuffer();
 }
