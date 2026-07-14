@@ -31,6 +31,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   vodoznak nemají). Na všechny stávající fotky:
   `pnpm watermark --all --regenerate --reset`. Nové importy dostanou vodoznak
   automaticky.
+- Skript `apply-watermark` teď zpracovává obrázky **paralelně** (worker pool,
+  výchozí = počet jader, `sharp.concurrency(1)` na task; přepínač
+  `--concurrency N`) + průběžné ETA. Full-regen ~17k nálezů tak spadne z
+  desítek hodin na jednotky. Sentinel se ukládá po dávkách, takže běh jde
+  přerušit a navázat bez `--reset`.
 
 ### Hlasování — poměr za období + čas posledního hlasu
 - **Top 10 nejoblíbenějších** (/statistiky): v záložkách „Posledních 12 měsíců"

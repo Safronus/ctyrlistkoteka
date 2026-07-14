@@ -12,6 +12,7 @@
  *   pnpm watermark --watermark /path/to/custom.png --find-id 42
  *   pnpm watermark --all --skip-thumbs    # web only
  *   pnpm watermark --all --reset          # ignore sentinel, redo everything
+ *   pnpm watermark --all --regenerate --concurrency 6   # N images in parallel (default = CPU count)
  *   pnpm watermark --find-id 1 --regenerate   # re-encode WebP from source first
  *   pnpm watermark --find-id 1 --regen-only   # regen without applying the mark
  *
@@ -31,6 +32,8 @@
 
 import { readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { cpus } from "node:os";
+import sharp from "sharp";
 import { ImageType, PrismaClient } from "@prisma/client";
 import { WEB_QUALITY, THUMB_QUALITY } from "../src/lib/constants";
 import { generateWebPVariants } from "../src/lib/images";
@@ -53,6 +56,10 @@ interface Args {
   regenOnly: boolean;
   webQuality: number;
   thumbQuality: number;
+  /** How many images to process concurrently. Defaults to the CPU count.
+   *  Each task runs sharp single-threaded (sharp.concurrency(1)), so the
+   *  pool — not libvips — provides the parallelism. */
+  concurrency: number;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -69,6 +76,7 @@ function parseArgs(argv: string[]): Args {
     regenOnly: false,
     webQuality: WEB_QUALITY,
     thumbQuality: THUMB_QUALITY,
+    concurrency: Math.max(1, cpus().length),
   };
   const cur = { i: 0 };
   const need = (flag: string): string => {
@@ -91,6 +99,8 @@ function parseArgs(argv: string[]): Args {
       args.options.marginRatio = Number.parseFloat(need(a));
     else if (a === "--rotation")
       args.options.rotation = Number.parseFloat(need(a));
+    else if (a === "--concurrency")
+      args.concurrency = Math.max(1, Number.parseInt(need(a), 10));
     else if (a === "--skip-thumbs") args.skipThumbs = true;
     else if (a === "--reset") args.reset = true;
     else if (a === "--dry-run") args.dryRun = true;
@@ -307,18 +317,27 @@ async function main(): Promise<void> {
     let done = 0;
     let skipped = 0;
     let failed = 0;
+    let lastPersist = 0;
     const startedAt = Date.now();
     const isAllRun = args.findId === null;
+    const total = images.length;
 
-    for (const img of images) {
-      const tag =
-        img.imageType === ImageType.CROP ? "CROP" : "ORIG";
+    // Each task runs sharp single-threaded; the worker pool below — not
+    // libvips per-op threading — provides the parallelism, so N cores stay
+    // busy on N different images (WebP encode is single-threaded in libvips,
+    // which is exactly what left cores idle in the old serial sweep).
+    if (!args.dryRun) sharp.concurrency(1);
+    const workers = Math.max(1, Math.min(args.concurrency, total));
+    console.log(`workers   : ${workers} (sharp single-threaded per task)`);
+
+    async function processImage(img: (typeof images)[number]): Promise<void> {
+      const tag = img.imageType === ImageType.CROP ? "CROP" : "ORIG";
       // For --all, honor the sentinel. For --find-id we always reprocess
       // (it's the manual verification path) — but still write to the
       // sentinel so a later --all skips it.
       if (isAllRun && processed.has(img.originalSha1)) {
         skipped += 1;
-        continue;
+        return;
       }
       const webFs = webUrlToFsPath(img.webPath, generatedDir);
       const thumbFs = webUrlToFsPath(img.thumbPath, generatedDir);
@@ -393,12 +412,35 @@ async function main(): Promise<void> {
         );
       }
 
-      // Persist sentinel periodically so crash mid-sweep doesn't lose
-      // progress. Cheap: ~17k entries, JSON < 1 MB.
-      if (!args.dryRun && done > 0 && done % 50 === 0) {
+      // Persist the sentinel + print an ETA every ~200 completions. The
+      // check-and-set of `lastPersist` is synchronous, so exactly one task
+      // crosses each threshold — no overlapping writes.
+      if (!args.dryRun && done - lastPersist >= 200) {
+        lastPersist = done;
         await writeSentinel(sentinelPath, processed);
+        const el = (Date.now() - startedAt) / 1000;
+        const rate = el > 0 ? done / el : 0;
+        const remaining = Math.max(0, total - done - skipped);
+        const etaMin = rate > 0 ? remaining / rate / 60 : 0;
+        console.log(
+          `  … ${done + skipped}/${total} · ${rate.toFixed(1)} img/s · ` +
+            `ETA ~${etaMin.toFixed(0)} min · failed ${failed}`,
+        );
       }
     }
+
+    // Worker pool: `workers` tasks each pull the next image off a shared
+    // cursor until the list is exhausted. Safe because JS is single-threaded
+    // — the cursor increment and the counter/`processed` mutations never
+    // interleave mid-statement.
+    let cursor = 0;
+    async function worker(): Promise<void> {
+      while (cursor < images.length) {
+        const img = images[cursor++];
+        if (img) await processImage(img);
+      }
+    }
+    await Promise.all(Array.from({ length: workers }, () => worker()));
 
     if (!args.dryRun) {
       await writeSentinel(sentinelPath, processed);
