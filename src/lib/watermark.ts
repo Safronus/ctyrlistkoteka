@@ -40,14 +40,18 @@ export interface WatermarkOptions {
    *  green theme rather than a hard black stamp. */
   color?: { r: number; g: number; b: number };
   /** Adaptive contrast: colour to use instead of `color` when the corner
-   *  the mark lands on is *light* (a pale mark would vanish there). The
-   *  composite samples that corner's mean luminance and swaps to this
-   *  darker green when it exceeds `lightThreshold`. Omit to always use
-   *  `color`. */
-  colorOnLight?: { r: number; g: number; b: number };
-  /** Mean-luminance (0–255) above which the corner counts as "light" and
-   *  `colorOnLight` is used. Default 150. */
-  lightThreshold?: number;
+   *  the mark lands on is *dark* (a dark mark would vanish there). The
+   *  composite samples that corner's mean luminance and swaps to this paler
+   *  green when it falls below `darkThreshold`. Omit to always use `color`.
+   *
+   *  The collection is green foliage: a *pale* mark shares the hue and
+   *  washes out on most (bright-to-medium green) corners, so the dark green
+   *  is the primary `color` and the pale one is the exception for genuinely
+   *  dark / shadow corners. */
+  colorOnDark?: { r: number; g: number; b: number };
+  /** Mean-luminance (0–255) below which the corner counts as "dark" and
+   *  `colorOnDark` is used. Default 95. */
+  darkThreshold?: number;
 }
 
 export const DEFAULT_WATERMARK_OPTIONS: WatermarkOptions = {
@@ -62,15 +66,14 @@ export const DEFAULT_WATERMARK_OPTIONS: WatermarkOptions = {
   // bounding box rather than to a much larger transparent rectangle.
   marginRatio: 0.005,
   rotation: 45,
-  // Pale clover-green (oklch 0.965 0.038 145 → sRGB), i.e. the page
-  // background — so the smiley reads as part of the green theme on the
-  // (usual) dark foliage corner.
-  color: { r: 228, g: 251, b: 228 },
-  // Dark clover-green (brand-800) for the rare bright corner where the
-  // pale mark would disappear — dark-on-light instead of light-on-dark,
-  // still on-theme.
-  colorOnLight: { r: 0, g: 73, b: 6 },
-  lightThreshold: 150,
+  // Dark clover-green (brand-800) as the PRIMARY ink. The collection is
+  // green foliage, where a pale mark shares the hue and washes out even at
+  // moderate brightness; a dark mark contrasts reliably on leaves + grass.
+  color: { r: 0, g: 73, b: 6 },
+  // Pale page-background green (oklch 0.965 0.038 145 → sRGB) for the rare
+  // genuinely dark / shadow corner where the dark mark would disappear.
+  colorOnDark: { r: 228, g: 251, b: 228 },
+  darkThreshold: 95,
 };
 
 /** Cached pre-processed watermark (luminance-masked + opacity-baked).
@@ -211,16 +214,16 @@ export async function compositeWatermarkOnto(
   const left = Math.max(0, width - resized.info.width - margin);
   const top = Math.max(0, height - resized.info.height - margin);
 
-  // Adaptive contrast: if the exact rectangle the mark lands on is *light*,
-  // the pale mark would disappear — swap it for the dark green. Sample that
-  // rectangle's mean luminance from a clone of the (already-resized) photo
-  // pipeline; the clone shares the re-readable input so the real composite
-  // below is unaffected.
+  // Adaptive contrast: if the exact rectangle the mark lands on is *dark*,
+  // the dark primary mark would disappear — swap it for the pale green.
+  // Sample that rectangle's mean luminance from a clone of the (already-
+  // resized) photo pipeline; the clone shares the re-readable input so the
+  // real composite below is unaffected.
   let markData = resized.data;
-  if (opts.colorOnLight) {
+  if (opts.colorOnDark) {
     const sw = Math.max(1, Math.min(resized.info.width, width - left));
     const sh = Math.max(1, Math.min(resized.info.height, height - top));
-    let mean = 0;
+    let mean = 255; // unreadable clone → keep the dark primary
     try {
       const stats = await pipeline
         .clone()
@@ -232,11 +235,11 @@ export async function compositeWatermarkOnto(
         0.587 * (gc?.mean ?? 0) +
         0.114 * (bc?.mean ?? 0);
     } catch {
-      // Degenerate region / unreadable clone — keep the pale mark
-      // (mean stays 0, i.e. treated as a dark corner).
+      // Degenerate region / unreadable clone — keep the dark primary
+      // (mean stays 255, i.e. treated as a bright corner).
     }
-    if (mean > (opts.lightThreshold ?? 150)) {
-      markData = await recolorShape(resized.data, opts.colorOnLight);
+    if (mean < (opts.darkThreshold ?? 95)) {
+      markData = await recolorShape(resized.data, opts.colorOnDark);
     }
   }
 

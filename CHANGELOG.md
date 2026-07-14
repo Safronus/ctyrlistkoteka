@@ -17,15 +17,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ### Vodoznak — zelený smajlík místo černého, adaptivní kontrast
 - Rohový vodoznak (smajlík) se teď zapéká **zeleně** místo tvrdého černého
-  razítka a **přizpůsobuje se rohu**, na který dopadá: na obvyklý tmavý
-  (listnatý) roh světlá klidová zelená pozadí stránky (`rgb(228,251,228)`,
-  oklch 0.965 0.038 145); na vzácný **světlý** roh, kde by světlá zmizela,
-  tmavá klidová zelená (`rgb(0,73,6)`, brand-800). Composite si k tomu změří
-  střední jas rohu (práh 150).
-- `WatermarkOptions` dostaly `color` (barva pro tmavý roh), `colorOnLight`
-  (barva pro světlý roh) a `lightThreshold`. Síla **0,64** — světlý vodoznak
-  projasňuje tmavý roh, proto víc než původních 0,4. Odstíny, síla i práh
-  ověřeny složením na 30 reálných fotek.
+  razítka a **přizpůsobuje se rohu**, na který dopadá. Protože je sbírka
+  skoro celá zelené listí (kde světlá zelená stejného odstínu splývá), je
+  primární **tmavá klidová zelená** (`rgb(0,73,6)`, brand-800), která na
+  listí spolehlivě drží; na vzácný **opravdu tmavý / stinný** roh, kde by
+  tmavá zmizela, se přepne světlá zelená pozadí stránky (`rgb(228,251,228)`,
+  oklch 0.965 0.038 145). Composite si k tomu změří střední jas rohu (práh
+  jasu 95 — pod ním světlá).
+- `WatermarkOptions` dostaly `color` (primární), `colorOnDark` (pro tmavé
+  rohy) a `darkThreshold`. Síla **0,64**. Odstíny, práh i síla ověřeny
+  složením na reálné fotky (mj. nález #4).
 - **Projeví se až po přegenerování** — běžný `pnpm sync` existující WebP
   nepřewatermarkuje (fast-path je přeskočí, proto některé starší nálezy
   vodoznak nemají). Na všechny stávající fotky:
