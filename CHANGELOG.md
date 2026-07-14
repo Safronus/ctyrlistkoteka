@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — ikona „sbírka se postupně doplňuje" i na filtrovaném pohledu
+- Info ikonka o neúplnosti sbírky (vedle počtu v hlavičce) se schovávala,
+  jakmile byl aktivní jakýkoli filtr — takže po prokliku na /sbirka s
+  filtrací (z detailu lokality „Ukázat nálezy" nebo z homepage „Nejlepší
+  den") zmizela a vrátila se až po zrušení filtru. Data za ní
+  (`getCollectionProgress`) jsou ale **nezávislá na filtru** (celá sbírka),
+  takže se ikona teď ukazuje vždy, když sbírka má mezeru — bez ohledu na
+  filtr.
+
 ### /sbirka — 5místné ID nálezu se vejde do hlavičky dlaždice (mobil)
 - V mřížce dlaždic se na úzkém mobilu 5místné číslo ořezávalo („#277…").
   Číslo je teď na mobilu `text-xs` (na `sm+` zůstává `text-sm`) a hlavička

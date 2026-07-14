@@ -304,10 +304,13 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   );
 
   // The completeness notice ("Sbírka se postupně doplňuje") is a collapsed
-  // disclosure next to the total count. Decide here whether it has anything
-  // to reveal — the same guard the banner applies internally — so the
-  // toggle only shows up when there's a leading gap or internal holes and
-  // no filter is narrowing the view.
+  // disclosure next to the total count. `progress` is filter-INDEPENDENT
+  // (getCollectionProgress() sees the whole collection), so the leading-gap
+  // / internal-hole facts it describes are the same however the visitor
+  // arrived — show the toggle whenever there's a real gap, even on a
+  // filtered view (deep-link from a location's "Ukázat nálezy" or the
+  // homepage "Nejlepší den"). It used to be hidden under any filter, which
+  // made the icon flicker away on those deep-links for no real reason.
   const progressLeadingGap =
     progress.minFindId !== null ? Math.max(0, progress.minFindId - 1) : 0;
   const progressInternalGaps =
@@ -315,7 +318,6 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
       ? progress.maxFindId - progress.minFindId + 1 - progress.count
       : 0;
   const showProgressNotice =
-    !hasFilters &&
     progress.count > 0 &&
     (progressLeadingGap > 0 || progressInternalGaps > 0);
 
