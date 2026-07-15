@@ -46,6 +46,15 @@ export function CloverTextsEditor({
   const [translations, setTranslations] = useState<
     Record<string, CloverEnEntry>
   >(() => ({ ...initialTranslations }));
+  // Last-saved baseline. It starts at the server-provided initial data and
+  // advances on every successful save. `dirty` compares against THIS, not the
+  // immutable `initial*` props — otherwise a saved edit reads as "unsaved"
+  // forever (the props never change), so the save never visibly confirms and
+  // looks like it didn't happen.
+  const [baselineTexts, setBaselineTexts] = useState<CloverText[]>(initialTexts);
+  const [baselineTranslations, setBaselineTranslations] = useState<
+    Record<string, CloverEnEntry>
+  >(() => ({ ...initialTranslations }));
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   // Filter state
@@ -66,10 +75,10 @@ export function CloverTextsEditor({
 
   const dirty = useMemo(() => {
     return (
-      JSON.stringify(texts) !== JSON.stringify(initialTexts) ||
-      JSON.stringify(translations) !== JSON.stringify(initialTranslations)
+      JSON.stringify(texts) !== JSON.stringify(baselineTexts) ||
+      JSON.stringify(translations) !== JSON.stringify(baselineTranslations)
     );
-  }, [texts, initialTexts, translations, initialTranslations]);
+  }, [texts, baselineTexts, translations, baselineTranslations]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -136,46 +145,46 @@ export function CloverTextsEditor({
       (t, i) => t.id === next.id && i !== originalIdx,
     );
     if (dupIdx >= 0) {
-      // Returning false from commit signals the modal to surface the
-      // error inline rather than closing.
+      // Non-null return signals the modal to surface the error inline
+      // rather than closing.
       return `ID ${next.id} už existuje (řádek ${dupIdx + 1})`;
     }
-    setTexts((prev) => {
-      const copy = [...prev];
-      if (originalIdx === null || originalIdx === NEW_ENTRY) {
-        copy.push(next);
-      } else {
-        copy[originalIdx] = next;
-      }
-      return copy;
-    });
-    setTranslations((prev) => {
-      const copy = { ...prev };
-      const key = String(next.id);
-      if (enEntry.title.trim() === "" && enEntry.text.trim() === "") {
-        // Empty EN form ⇒ remove translation (homepage will fall back
-        // to CZ for that id).
-        delete copy[key];
-      } else {
-        copy[key] = {
-          title: enEntry.title.trim(),
-          text: enEntry.text.trim(),
-          ...(enEntry.kind.trim() ? { kind: enEntry.kind.trim() } : {}),
-        };
-      }
-      // If the id changed (edit case), drop the old translation key.
-      if (
-        originalIdx !== null &&
-        originalIdx !== NEW_ENTRY &&
-        texts[originalIdx] &&
-        texts[originalIdx]!.id !== next.id
-      ) {
-        delete copy[String(texts[originalIdx]!.id)];
-      }
-      return copy;
-    });
-    setSavedAt(null);
+    // Compute the next arrays explicitly (rather than via functional
+    // setState) so the same values can be persisted right away — see below.
+    const nextTexts = [...texts];
+    if (originalIdx === null || originalIdx === NEW_ENTRY) {
+      nextTexts.push(next);
+    } else {
+      nextTexts[originalIdx] = next;
+    }
+    const nextTranslations = { ...translations };
+    const key = String(next.id);
+    if (enEntry.title.trim() === "" && enEntry.text.trim() === "") {
+      // Empty EN form ⇒ remove translation (homepage falls back to CZ).
+      delete nextTranslations[key];
+    } else {
+      nextTranslations[key] = {
+        title: enEntry.title.trim(),
+        text: enEntry.text.trim(),
+        ...(enEntry.kind.trim() ? { kind: enEntry.kind.trim() } : {}),
+      };
+    }
+    // If the id changed (edit case), drop the old translation key.
+    if (
+      originalIdx !== null &&
+      originalIdx !== NEW_ENTRY &&
+      texts[originalIdx] &&
+      texts[originalIdx]!.id !== next.id
+    ) {
+      delete nextTranslations[String(texts[originalIdx]!.id)];
+    }
+    setTexts(nextTexts);
+    setTranslations(nextTranslations);
     setEditingIndex(null);
+    // "Potvrdit" now persists straight away. The old flow only staged the
+    // change locally, so it looked like nothing saved until the separate
+    // bottom "Uložit" was found and clicked.
+    persist(nextTexts, nextTranslations);
     return null;
   }
 
@@ -195,28 +204,40 @@ export function CloverTextsEditor({
   }
 
   function reset() {
-    setTexts(initialTexts);
-    setTranslations({ ...initialTranslations });
+    // Discard unsaved edits back to the last-saved baseline (not the
+    // original props — a save may have advanced the baseline since load).
+    setTexts(baselineTexts);
+    setTranslations({ ...baselineTranslations });
     setSavedAt(null);
     setServerError(null);
     setServerIssues([]);
   }
 
-  function save() {
+  function persist(
+    nextTexts: CloverText[],
+    nextTranslations: Record<string, CloverEnEntry>,
+  ) {
     const fd = new FormData();
-    fd.set("textsCs", JSON.stringify({ texts }));
-    fd.set("translationsEn", JSON.stringify({ translations }));
+    fd.set("textsCs", JSON.stringify({ texts: nextTexts }));
+    fd.set("translationsEn", JSON.stringify({ translations: nextTranslations }));
     setServerError(null);
     setServerIssues([]);
     startTransition(async () => {
       const result: SaveResult = await saveCloverTexts(fd);
       if (result.ok) {
         setSavedAt(result.savedAt ?? new Date().toISOString());
+        // Advance the baseline so `dirty` clears and the save confirms.
+        setBaselineTexts(nextTexts);
+        setBaselineTranslations(nextTranslations);
         return;
       }
       if (result.error) setServerError(result.error);
       if (result.issues) setServerIssues(result.issues);
     });
+  }
+
+  function save() {
+    persist(texts, translations);
   }
 
   const editingEntry =
@@ -559,14 +580,11 @@ function EntryModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    // No backdrop click-to-close: an accidental click outside must NOT discard
+    // an in-progress edit. Dismiss is deliberate only — Esc, the ✕, "Zrušit"
+    // or "Potvrdit".
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white shadow-2xl">
         <header className="sticky top-0 flex items-center justify-between border-b border-gray-200 bg-white px-5 py-3">
           <h2 className="text-base font-semibold text-gray-900">
             {mode === "new" ? "Nový lísteček" : `Upravit lísteček #${entry?.id}`}

@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /admin/clover-texts — oprava ukládání a nechtěného zavření dialogu
+- **Ukládání teď viditelně potvrdí.** `dirty` se porovnával vůči neměnnému
+  propu `initialTexts`, který se po uložení nikdy nezměnil → i po úspěšném
+  uložení UI dál hlásilo „Neuložené změny" a nezobrazilo čas uložení, takže to
+  vypadalo, že se nic neuložilo. Nově se drží **baseline stav**, který se po
+  každém úspěšném uložení posune → `dirty` spadne, ukáže se „Uloženo v HH:MM".
+- **„Potvrdit" rovnou ukládá na disk** (dřív jen odložilo změnu do lokálního
+  stavu a čekalo na samostatné spodní „Uložit", což se snadno přehlédlo).
+- **Dialog úprav už nezmizí kliknutím mimo** — zavření je jen záměrné (Esc, ✕,
+  „Zrušit", „Potvrdit"), aby se rozdělaná úprava neztratila.
+
 ### /sbirka — placeholder „Hledat podle čísla" jako denní easter-egg
 - Číslo v placeholderu se řídí dnem v měsíci (Praha): **liché dny 111, sudé
   666** (majitelovy dva speciální nálezy — nebeský a pekelný). Počítá se
