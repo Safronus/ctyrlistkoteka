@@ -242,6 +242,7 @@ async function TotalsSection() {
     <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <TotalCard
         tone="brand"
+        inlineLabel
         label={t("labelTotalFinds")}
         value={
           totals.maxFindId !== null
@@ -508,9 +509,12 @@ function TotalCard({
   cornerRight,
   subStats = [],
   tone = "default",
+  inlineLabel = false,
 }: {
   label: string;
   value: string;
+  /** Forwarded to MainNumber — render the label after the number. */
+  inlineLabel?: boolean;
   /** Optional small line of muted text rendered immediately under the
    *  main label — mirrors the `hint` prop on the home page's StatCard.
    *  Used on the finds tile to surface "<count> nahraných" beneath
@@ -537,7 +541,12 @@ function TotalCard({
           ) : (
             <div />
           )}
-          <MainNumber value={value} label={label} hint={valueHint} />
+          <MainNumber
+            value={value}
+            label={label}
+            hint={valueHint}
+            inlineLabel={inlineLabel}
+          />
           {cornerRight ? (
             <CornerStat stat={cornerRight} align="right" />
           ) : (
@@ -546,7 +555,12 @@ function TotalCard({
         </div>
       ) : (
         <div className="flex flex-col items-center">
-          <MainNumber value={value} label={label} hint={valueHint} />
+          <MainNumber
+            value={value}
+            label={label}
+            hint={valueHint}
+            inlineLabel={inlineLabel}
+          />
         </div>
       )}
       {subStats.length > 0 && (
@@ -729,9 +743,9 @@ function BestSessionsCard({
                   >
                     <span className="font-mono text-lg font-semibold tabular-nums text-gray-900">
                       {s.count}
-                    </span>
-                    <span className="text-[11px] text-gray-500">
-                      {t("labelFinds", { count: s.count })}
+                      <span className="ml-1 text-[11px] font-normal text-gray-500">
+                        {t("labelFinds", { count: s.count })}
+                      </span>
                     </span>
                     <span className="mt-1 text-[10px] leading-tight text-gray-600">
                       {dayFmt.format(new Date(s.firstAt))}
@@ -1094,11 +1108,27 @@ function MainNumber({
   value,
   label,
   hint,
+  inlineLabel = false,
 }: {
   value: string;
   label: string;
   hint?: string;
+  /** Render the label right after the number (e.g. "27 872 🍀") instead of on
+   *  its own line below. Used for the finds tile, whose label is the short 🍀
+   *  icon — the word-label tiles (lokalit) keep the caption-below layout. */
+  inlineLabel?: boolean;
 }) {
+  if (inlineLabel) {
+    return (
+      <div className="flex flex-col items-center">
+        <p className="text-4xl font-bold text-brand-700">
+          {value}
+          <span className="ml-2 align-middle text-2xl">{label}</span>
+        </p>
+        {hint && <p className="mt-1 text-sm text-gray-600">({hint})</p>}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-center">
       <p className="text-4xl font-bold text-brand-700">{value}</p>

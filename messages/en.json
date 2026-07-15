@@ -624,7 +624,7 @@
     "heatmapHeading": "Calendar heatmap",
     "heatmapSubtitle": "🍀 counts by day of year across all years. Green saturation reflects the share against the busiest day ({max}).",
     "heatmapTabsAriaLabel": "Heatmap view switcher",
-    "streakHeading": "Longest streak of days with a 🍀",
+    "streakHeading": "Longest streak of days with a found 🍀",
     "streakDays": "{count, plural, one {# day} other {# days}} in a row",
     "heatmapTabDays": "Days",
     "heatmapTabMinutes": "Minutes",

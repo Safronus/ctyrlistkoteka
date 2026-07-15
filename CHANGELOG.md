@@ -9,6 +9,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /statistiky — 🍀 hned za číslo + „zátah" → „sbírání" + korekce série
+- Hero panel s počtem čtyřlístků má teď **🍀 na stejném řádku hned za číslem**
+  („27 872 🍀", nápověda „(… nahraných)" zůstává pod), stejně tak dlaždice v
+  **„Další velká sbírání"** (dřív ikonka pod číslem).
+- V sekci nejlepších sběrů **„zátah" → „sbírání"**: „Nejvíce čtyřlístků na
+  jedno sbírání", „Další velká sbírání", „Zobrazit 🍀 z tohoto sbírání".
+- „Nejdelší série dnů s 🍀" → **„Nejdelší série dnů s nalezeným 🍀"**.
+
 ### /admin/clover-texts — oprava ukládání a nechtěného zavření dialogu
 - **Ukládání teď viditelně potvrdí.** `dirty` se porovnával vůči neměnnému
   propu `initialTexts`, který se po uložení nikdy nezměnil → i po úspěšném
