@@ -166,6 +166,8 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const hideDominant = pickString(sp.hideTop) === "1";
   const filters: FindFilters = {
     q: pickString(sp.q) ?? undefined,
+    // Dedicated exact find-number box (`?id=140`) — matches #140 only.
+    exactId: parsePositiveInt(pickString(sp.id)),
     locationId: parsePositiveInt(pickString(sp.loc)),
     // Normalize the URL value to the canonical city (strip
     // NEEXISTUJE-). The query layer expands it back to match both
@@ -290,6 +292,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
 
   const hasFilters = !!(
     filters.q ||
+    filters.exactId ||
     filters.locationId ||
     filters.cadastralArea ||
     filters.country ||
@@ -428,6 +431,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const composeHref = (p: number, s: number) => {
     const params = new URLSearchParams();
     if (filters.q) params.set("q", filters.q);
+    if (filters.exactId) params.set("id", String(filters.exactId));
     if (filters.locationId) params.set("loc", String(filters.locationId));
     if (filters.cadastralArea) params.set("city", filters.cadastralArea);
     if (filters.country) params.set("country", filters.country);
@@ -550,6 +554,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
         facets={facets}
         current={{
           q: filters.q ?? "",
+          idQuery: filters.exactId ? String(filters.exactId) : "",
           locationId: filters.locationId ? String(filters.locationId) : "",
           city: filters.cadastralArea ?? "",
           country: filters.country ?? "",

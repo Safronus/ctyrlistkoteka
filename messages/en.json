@@ -81,6 +81,7 @@
     "headingCounts": "{locations, plural, one {# location} other {# locations}} · {finds, plural, one {# find} other {# finds}}"
   },
   "FilterSummary": {
+    "exactId": "number #{id}",
     "search": "search “{q}”",
     "location": "location {label}",
     "city": "town {name}",
@@ -132,6 +133,8 @@
     "topFindsLink": "Full leaderboard"
   },
   "FilterBar": {
+    "searchById": "Search by number 🍀",
+    "searchByIdPlaceholder": "e.g. 140 (exact)",
     "search": "Search",
     "searchPlaceholder": "Notes or location…",
     "country": "Country",

@@ -132,6 +132,10 @@ export interface PublicFind {
 
 export interface FindFilters {
   q?: string;
+  /** Exact find-ID lookup (the dedicated "Hledat podle čísla" box). Matches
+   *  `finds.id` EXACTLY — 140 finds only #140, never #1140 / #10140 — unlike
+   *  `q`, whose numeric branch also does padded-substring matching. */
+  exactId?: number;
   locationId?: number;
   /** Cadastral area name as it appears in `locations.cadastral_area`.
    *  Filters finds whose location is registered in that municipality. */
@@ -197,6 +201,10 @@ export type FindSort = "desc" | "asc" | "dist-asc" | "dist-desc" | "votes-desc";
 async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
   const where: Prisma.FindWhereInput = {};
   const and: Prisma.FindWhereInput[] = [];
+
+  // Exact find-ID box: matches one find by primary key. ANDs with any other
+  // active filters (so it still respects a location/state narrowing).
+  if (f.exactId) and.push({ id: f.exactId });
 
   if (f.locationId) {
     // When the requested location is a parent (has children declared via

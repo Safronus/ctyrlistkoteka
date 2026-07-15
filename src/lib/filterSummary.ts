@@ -33,6 +33,7 @@ export function buildFilterSummary(
   r: FilterSummaryResolvers,
 ): string {
   const parts: string[] = [];
+  if (f.exactId != null) parts.push(r.t("exactId", { id: f.exactId }));
   if (f.q?.trim()) parts.push(r.t("search", { q: f.q.trim() }));
   if (f.locationId != null) {
     parts.push(r.t("location", { label: r.locationLabel(f.locationId) }));

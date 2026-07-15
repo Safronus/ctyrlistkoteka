@@ -9,6 +9,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — hledání rozděleno na „podle čísla" + „poznámka/lokalita"
+- Pole „Hledat" je teď **rozdělené na dvě** (ve stejné šířce, bez dalšího
+  řádku filtrů): vlevo **„Hledat podle čísla 🍀"** (přesné ID nálezu — `140`
+  najde jen #140, ne #1140/#10140; nový param `?id=`), vpravo dosavadní
+  **„Hledat"** (poznámka/lokalita, beze změny). Placeholdery popisují rozdíl.
+- Přesné ID (`FindFilters.exactId`) se ANDuje s ostatními filtry, drží se přes
+  stránkování a je v souhrnu „Filtr je aktivní".
+
 ### Vodoznak — světlý jako primární (max. kontrast) + drobnosti v detailu
 - Po kontrastní studii (zelený vodoznak na zelené má nízký kontrast, jednolitá
   barva nefunguje všude) je teď **primární světlý** vodoznak při **opacity 1**.

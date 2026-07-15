@@ -62,6 +62,8 @@ export function FilterBar({
   facets: FacetCounts;
   current: {
     q: string;
+    /** Exact find-number box value (the `?id=` param). */
+    idQuery: string;
     locationId: string;
     city: string;
     country: string;
@@ -111,15 +113,28 @@ export function FilterBar({
     setQInput(current.q);
     lastPushedRef.current = current.q;
   }, [current.q]);
+  // The exact-number box gets the same in-flight-preserving treatment as `q`
+  // (see the long note above): its own state, debounce and last-pushed ref so
+  // a fast typist's digits don't get wiped by our own URL round-trip.
+  const [idInput, setIdInput] = useState(current.idQuery);
+  const idDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPushedIdRef = useRef<string>(current.idQuery);
+  useEffect(() => {
+    if (current.idQuery === lastPushedIdRef.current) return;
+    setIdInput(current.idQuery);
+    lastPushedIdRef.current = current.idQuery;
+  }, [current.idQuery]);
   useEffect(
     () => () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (idDebounceRef.current) clearTimeout(idDebounceRef.current);
     },
     [],
   );
 
   const update = (key: string, value: string) => {
     if (key === "q") lastPushedRef.current = value;
+    if (key === "id") lastPushedIdRef.current = value;
     updateMany({ [key]: value });
   };
 
@@ -253,6 +268,7 @@ export function FilterBar({
 
   const hasAny =
     current.q ||
+    current.idQuery ||
     current.locationId ||
     current.city ||
     current.country ||
@@ -267,23 +283,47 @@ export function FilterBar({
       }`}
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="sm:col-span-2 lg:col-span-2">
-          <span className="mb-1 block text-xs font-medium text-gray-700">
-            {t("search")}
-          </span>
-          <input
-            type="search"
-            value={qInput}
-            placeholder={t("searchPlaceholder")}
-            className={`${INPUT_CLS} w-full`}
-            onChange={(e) => {
-              const v = e.currentTarget.value;
-              setQInput(v);
-              if (debounceRef.current) clearTimeout(debounceRef.current);
-              debounceRef.current = setTimeout(() => update("q", v), 250);
-            }}
-          />
-        </label>
+        {/* The old single "Hledat" field, split into two within the same
+            2-column slot (no extra filter row): an EXACT find-number box on
+            the left + the note/location search on the right. */}
+        <div className="flex gap-3 sm:col-span-2 lg:col-span-2">
+          <label className="w-[42%] shrink-0 sm:w-40">
+            <span className="mb-1 block truncate text-xs font-medium text-gray-700">
+              {t("searchById")}
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={idInput}
+              placeholder={t("searchByIdPlaceholder")}
+              className={`${INPUT_CLS} w-full`}
+              onChange={(e) => {
+                // Digits only — the box is an exact find-ID lookup.
+                const v = e.currentTarget.value.replace(/[^\d]/g, "");
+                setIdInput(v);
+                if (idDebounceRef.current) clearTimeout(idDebounceRef.current);
+                idDebounceRef.current = setTimeout(() => update("id", v), 250);
+              }}
+            />
+          </label>
+          <label className="min-w-0 flex-1">
+            <span className="mb-1 block text-xs font-medium text-gray-700">
+              {t("search")}
+            </span>
+            <input
+              type="search"
+              value={qInput}
+              placeholder={t("searchPlaceholder")}
+              className={`${INPUT_CLS} w-full`}
+              onChange={(e) => {
+                const v = e.currentTarget.value;
+                setQInput(v);
+                if (debounceRef.current) clearTimeout(debounceRef.current);
+                debounceRef.current = setTimeout(() => update("q", v), 250);
+              }}
+            />
+          </label>
+        </div>
 
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">

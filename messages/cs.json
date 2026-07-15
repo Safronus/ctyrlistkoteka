@@ -80,6 +80,7 @@
     "headingCounts": "{locations, plural, one {# lokalita} few {# lokality} other {# lokalit}} · {finds, plural, one {# nález} few {# nálezy} other {# nálezů}}"
   },
   "FilterSummary": {
+    "exactId": "číslo #{id}",
     "search": "hledání „{q}“",
     "location": "lokalita {label}",
     "city": "město {name}",
@@ -131,6 +132,8 @@
     "topFindsLink": "Celý žebříček"
   },
   "FilterBar": {
+    "searchById": "Hledat podle čísla 🍀",
+    "searchByIdPlaceholder": "Např. 140 (přesně)",
     "search": "Hledat",
     "searchPlaceholder": "Poznámka nebo lokalita…",
     "country": "Stát",
