@@ -12,6 +12,8 @@ const SELECT_CLS = `${INPUT_CLS} cursor-pointer appearance-none pr-10`;
 export function LocationsFilterBar({
   cities,
   countries,
+  countryCounts,
+  cityCounts,
   current,
   hasFilters,
 }: {
@@ -20,6 +22,10 @@ export function LocationsFilterBar({
    *  the city list narrows). */
   cities: ReadonlyArray<{ name: string; country: string }>;
   countries: ReadonlyArray<{ code: string; name: string }>;
+  /** Number of locations under each country (by ISO code) / city (by name),
+   *  shown in parentheses after the option label. */
+  countryCounts: Readonly<Record<string, number>>;
+  cityCounts: Readonly<Record<string, number>>;
   current: { q: string; city: string; country: string };
   /** True when ANY filter (incl. the toolbar toggles) is active — drives
    *  the "Zrušit filtry" button, kept here to match /sbirka's placement
@@ -74,6 +80,10 @@ export function LocationsFilterBar({
     [cities, effectiveCountry],
   );
 
+  /** "Zlín" + 12 → "Zlín (12)"; count omitted when undefined. */
+  const withCount = (label: string, count: number | undefined): string =>
+    count == null ? label : `${label} (${count})`;
+
   return (
     <div
       className={`rounded-xl border border-gray-200 bg-white p-4 transition-opacity ${
@@ -126,7 +136,7 @@ export function LocationsFilterBar({
               <option value="">{tCommon("all")}</option>
               {countries.map((c) => (
                 <option key={c.code} value={c.code}>
-                  {c.name}
+                  {withCount(c.name, countryCounts[c.code])}
                 </option>
               ))}
             </select>
@@ -161,7 +171,7 @@ export function LocationsFilterBar({
               <option value="">{tCommon("allAlt")}</option>
               {visibleCities.map((c) => (
                 <option key={c.name} value={c.name}>
-                  {c.name}
+                  {withCount(c.name, cityCounts[c.name])}
                 </option>
               ))}
             </select>

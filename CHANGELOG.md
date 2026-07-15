@@ -9,6 +9,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /lokality — počty lokalit ve filtrech Stát/Město
+- Comboboxy „Stát" a „Město" teď u každé volby ukazují **počet lokalit**, které
+  pod ni spadají („Zlín (12)"). Počítá se ve stránce z už načteného seznamu
+  lokalit (každá nese stát + město), takže žádný dotaz navíc.
+
 ### /statistiky — přeřazení spodních sekcí + zrušený podtitulek
 - Spodní sekce jsou teď v pořadí **Kalendářní statistiky → 🍀 podle
   vzdálenosti → Odchýlené 🍀** (Odchýlené šly na úplný konec, Kalendář a

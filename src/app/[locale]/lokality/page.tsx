@@ -129,6 +129,19 @@ export default async function LokalityPage({ searchParams }: PageProps) {
       a.name.localeCompare(b.name, locale === "en" ? "en" : "cs"),
     );
 
+  // How many locations fall under each country / city — shown in the filter
+  // dropdowns. Derived from the full location set the shared options already
+  // carry (each row has its city + country), so no extra query.
+  const countryLocationCounts: Record<string, number> = {};
+  const cityLocationCounts: Record<string, number> = {};
+  for (const l of filterOptions.locations) {
+    if (l.country)
+      countryLocationCounts[l.country] =
+        (countryLocationCounts[l.country] ?? 0) + 1;
+    if (l.city)
+      cityLocationCounts[l.city] = (cityLocationCounts[l.city] ?? 0) + 1;
+  }
+
   // Any real FILTER (not sort — sort is presentation, matching /sbirka)
   // drives both the "Filtr je aktivní" notice and the "Zrušit filtry"
   // button. Sort is deliberately excluded so merely re-sorting doesn't
@@ -225,6 +238,8 @@ export default async function LokalityPage({ searchParams }: PageProps) {
       <LocationsFilterBar
         cities={cities}
         countries={countries}
+        countryCounts={countryLocationCounts}
+        cityCounts={cityLocationCounts}
         current={{ q, city, country }}
         hasFilters={filterActive}
       />
