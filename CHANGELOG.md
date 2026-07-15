@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Homepage — „nález" → 🍀 + rate „🍀 za minutu"
+- Viditelné výskyty „nález" na hlavní stránce jsou teď **🍀** (Home namespace +
+  „🍀:" v panelu Nejoblíbenější). `aria`/`alt` a sloveso „find" v en si slovo
+  nechávají (přístupnost + gramatika).
+- V panelech **„Nejlepší den"** a **„Top lokalita"** je rychlost sběru teď
+  **„X 🍀 za minutu"** (dřív „X čtyřlístku/min"), cs i en.
+
 ### /statistiky — 🍀 hned za číslo + „zátah" → „sbírání" + korekce série
 - Hero panel s počtem čtyřlístků má teď **🍀 na stejném řádku hned za číslem**
   („27 872 🍀", nápověda „(… nahraných)" zůstává pod), stejně tak dlaždice v
