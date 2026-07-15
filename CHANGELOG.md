@@ -9,6 +9,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — placeholder „Hledat podle čísla" jako denní easter-egg
+- Číslo v placeholderu se řídí dnem v měsíci (Praha): **liché dny 111, sudé
+  666** (majitelovy dva speciální nálezy — nebeský a pekelný). Počítá se
+  server-side (stránka je force-dynamic), takže žádný hydratační mismatch.
+
 ### /statistiky — slovo „nález" nahrazeno ikonkou 🍀
 - Všechny viditelné výskyty slova „nález" (ve všech pádech) na /statistiky jsou
   teď **🍀** — titulky sekcí, počty, popisky panelů, tlačítka i delší texty.

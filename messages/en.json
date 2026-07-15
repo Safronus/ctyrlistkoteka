@@ -134,7 +134,7 @@
   },
   "FilterBar": {
     "searchById": "Search by number 🍀",
-    "searchByIdPlaceholder": "e.g. 140 (exact)",
+    "searchByIdPlaceholder": "e.g. {n} (exact)",
     "search": "Search",
     "searchPlaceholder": "Notes or location…",
     "country": "Country",

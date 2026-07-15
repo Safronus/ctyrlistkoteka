@@ -133,7 +133,7 @@
   },
   "FilterBar": {
     "searchById": "Hledat podle čísla 🍀",
-    "searchByIdPlaceholder": "Např. 140 (přesně)",
+    "searchByIdPlaceholder": "Např. {n} (přesně)",
     "search": "Hledat",
     "searchPlaceholder": "Poznámka nebo lokalita…",
     "country": "Stát",

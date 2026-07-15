@@ -200,6 +200,18 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const defaultView: FindView = "grid";
   const view: FindView = explicitView ?? cookieView ?? defaultView;
 
+  // Easter egg: the "Hledat podle čísla" placeholder cycles the owner's two
+  // special finds by day-of-month parity — 111 (heavenly) on odd days, 666
+  // (hellish) on even. Prague-local day; this page is force-dynamic, so it
+  // updates per request without a hydration mismatch (server-computed prop).
+  const pragueDay = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Prague",
+      day: "numeric",
+    }).format(new Date()),
+  );
+  const idPlaceholderExample = pragueDay % 2 === 1 ? 111 : 666;
+
   const locale = await getLocale();
   // `?debug=timing` renders a hidden per-phase timing block (curl-readable /
   // view-source-able) for profiling this force-dynamic page. Zero overhead
@@ -552,6 +564,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
       <FilterBar
         options={options}
         facets={facets}
+        idPlaceholderExample={idPlaceholderExample}
         current={{
           q: filters.q ?? "",
           idQuery: filters.exactId ? String(filters.exactId) : "",

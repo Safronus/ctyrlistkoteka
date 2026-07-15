@@ -54,8 +54,14 @@ export function FilterBar({
   options,
   facets,
   current,
+  idPlaceholderExample,
 }: {
   options: FilterOptions;
+  /** Example number shown in the "Hledat podle čísla" placeholder. A little
+   *  easter egg: the owner's two special finds by day-of-month parity —
+   *  111 (heavenly) on odd days, 666 (hellish) on even ones. Computed
+   *  server-side so there's no hydration mismatch. */
+  idPlaceholderExample: number;
   /** Per-option match counts that react to the OTHER active filters.
    *  Each option shows its count and drops out of the list when zero
    *  (unless it's the current selection, which always stays visible). */
@@ -295,7 +301,9 @@ export function FilterBar({
               type="text"
               inputMode="numeric"
               value={idInput}
-              placeholder={t("searchByIdPlaceholder")}
+              placeholder={t("searchByIdPlaceholder", {
+                n: idPlaceholderExample,
+              })}
               className={`${INPUT_CLS} w-full`}
               onChange={(e) => {
                 // Digits only — the box is an exact find-ID lookup.
