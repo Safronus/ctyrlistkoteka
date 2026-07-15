@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /statistiky — slovo „nález" nahrazeno ikonkou 🍀
+- Všechny viditelné výskyty slova „nález" (ve všech pádech) na /statistiky jsou
+  teď **🍀** — titulky sekcí, počty, popisky panelů, tlačítka i delší texty.
+  Slovo „nález" působilo strojově; ikonka drží gramatický pád okolních slov
+  („První 🍀", „Odchýlené 🍀", „1 🍀 každých …"). Krátká ikonka se vejde za
+  čísla, takže nic nemusí odřádkovat.
+- **`aria` popisky pro čtečky si slovo nechávají** (přístupnost) a **SEO
+  meta** je beze změny. Provedeno v cs i en (namespace Statistiky) + natvrdo
+  v grafech. `labelFinds` je sdílený, takže 🍀 je i v počtech na /mapa
+  (konzistentní).
+
 ### /sbirka — hledání rozděleno na „podle čísla" + „poznámka/lokalita"
 - Pole „Hledat" je teď **rozdělené na dvě** (ve stejné šířce, bez dalšího
   řádku filtrů): vlevo **„Hledat podle čísla 🍀"** (přesné ID nálezu — `140`

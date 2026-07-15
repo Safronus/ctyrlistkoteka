@@ -45,7 +45,7 @@ export function TopLocationsChart({
           interval={0}
         />
         <Tooltip
-          formatter={(v) => [v as number, "Nálezů"]}
+          formatter={(v) => [v as number, "🍀"]}
           contentStyle={{
             borderRadius: 8,
             border: "1px solid #e5e7eb",

@@ -31,7 +31,7 @@ export function YearlyBarChart({ data }: { data: readonly YearlyPoint[] }) {
         />
         <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} allowDecimals={false} />
         <Tooltip
-          formatter={(v) => [v as number, "Nálezů"]}
+          formatter={(v) => [v as number, "🍀"]}
           contentStyle={{
             borderRadius: 8,
             border: "1px solid #e5e7eb",

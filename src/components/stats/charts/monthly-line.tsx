@@ -39,7 +39,7 @@ export function MonthlyLineChart({ data }: { data: readonly MonthlyPoint[] }) {
   if (data.length === 0) {
     return (
       <p className="flex h-full items-center justify-center text-sm text-gray-400">
-        Žádná data s datem nálezu.
+        Žádná data s datem 🍀.
       </p>
     );
   }
@@ -56,7 +56,7 @@ export function MonthlyLineChart({ data }: { data: readonly MonthlyPoint[] }) {
         <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} allowDecimals={false} />
         <Tooltip
           labelFormatter={(v) => formatMonth(String(v))}
-          formatter={(v) => [v as number, "Nálezů"]}
+          formatter={(v) => [v as number, "🍀"]}
           contentStyle={{
             borderRadius: 8,
             border: "1px solid #e5e7eb",
