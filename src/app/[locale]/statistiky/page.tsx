@@ -2232,13 +2232,15 @@ function PeakFastestCard({
             </div>
             {pace && (
               <div className="flex w-1/2 shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center">
-                <p className="text-xl font-bold tabular-nums text-brand-700">
-                  {new Intl.NumberFormat(intlLocale, {
-                    maximumFractionDigits: pace.rate.value < 10 ? 1 : 0,
-                  }).format(pace.rate.value)}
-                </p>
-                <p className="text-[11px] leading-tight text-gray-600">
-                  {t(pace.rate.unitKey)}
+                <p className="whitespace-nowrap">
+                  <span className="text-xl font-bold tabular-nums text-brand-700">
+                    {new Intl.NumberFormat(intlLocale, {
+                      maximumFractionDigits: pace.rate.value < 10 ? 1 : 0,
+                    }).format(pace.rate.value)}
+                  </span>{" "}
+                  <span className="text-[11px] leading-tight text-gray-600">
+                    {t(pace.rate.unitKey)}
+                  </span>
                 </p>
                 <p className="mt-1 text-[11px] leading-tight text-gray-600">
                   {t("fastestEvery", { interval: pace.every })}
