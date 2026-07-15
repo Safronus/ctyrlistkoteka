@@ -54,15 +54,18 @@ export function TimePaceSummary({
           {data.locationCount > 0 && (
             <> {t("timePaceSummaryAt", { count: data.locationCount })}</>
           )}
-          {data.findsPerSession > 0 && (
-            <>
-              {" "}
-              {t("timePaceAvgPerSession", {
-                avg: fmtPace.format(data.findsPerSession),
-              })}
-            </>
-          )}{" "}
-          {t("timePaceBaseline")}
+          {/* The "(Ø … 🍀 / hledání) + baseline" qualifier moves onto its own
+              line so the sentence doesn't run long. */}
+          <span className="block">
+            {data.findsPerSession > 0 && (
+              <>
+                {t("timePaceAvgPerSession", {
+                  avg: fmtPace.format(data.findsPerSession),
+                })}{" "}
+              </>
+            )}
+            {t("timePaceBaseline")}
+          </span>
         </p>
       </div>
 

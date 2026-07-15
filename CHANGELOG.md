@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /statistiky — kosmetika doby sbírání a „Nejrychlejších N"
+- Panel „Odhadovaná doba sbírání": „(Ø … 🍀 / hledání) + baseline" je teď na
+  **samostatném řádku** pod hlavní větou.
+- „Nejrychlejších N" interval: **vypadává vedoucí „0 min"** — „1 🍀 každých
+  0 min 15 s" → „1 🍀 každých 15 s" (obecně dropuje nulové vedoucí jednotky).
+- „Nejrychlejších N" tempo: **jeden řádek** místo dvou — číslo + „Počet 🍀 za
+  minutu" (10/100) resp. „Počet 🍀 za hodinu" (1000); zrušen popisek „Průměrné
+  tempo" a nepoužitý klíč `fastestRateLabel`.
+
 ### 🍀 drobnosti — homepage dlaždice, /sbirka titulek + stránkování
 - Homepage dlaždice s počtem 🍀 má teď **🍀 hned za číslem** („27 872 🍀",
   nápověda „(… nahraných)" pod), stejně jako hero na /statistiky (StatCard

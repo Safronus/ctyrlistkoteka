@@ -2154,15 +2154,14 @@ function fastestRate(
 function fastestEvery(size: number, seconds: number): string {
   const total = Math.max(0, Math.round(seconds / size));
   if (size <= 10) return `${total} s`;
-  if (size <= 100) {
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${m} min ${s} s`;
-  }
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  return h > 0 ? `${h} h ${m} min ${s} s` : `${m} min ${s} s`;
+  // Drop leading zero units: "0 min 15 s" reads better as "15 s".
+  if (size <= 100) return m > 0 ? `${m} min ${s} s` : `${s} s`;
+  if (h > 0) return `${h} h ${m} min ${s} s`;
+  if (m > 0) return `${m} min ${s} s`;
+  return `${s} s`;
 }
 
 /** "Fastest N consecutive finds" record card, laid out in three bands:
@@ -2233,9 +2232,6 @@ function PeakFastestCard({
             </div>
             {pace && (
               <div className="flex w-1/2 shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center">
-                <p className="text-[10px] font-medium uppercase tracking-wide text-gray-600">
-                  {t("fastestRateLabel")}
-                </p>
                 <p className="text-xl font-bold tabular-nums text-brand-700">
                   {new Intl.NumberFormat(intlLocale, {
                     maximumFractionDigits: pace.rate.value < 10 ? 1 : 0,
