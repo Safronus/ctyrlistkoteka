@@ -457,3 +457,14 @@ body {
   @apply bg-white text-gray-900 antialiased;
   font-family: var(--font-sans);
 }
+
+/* A phone held landscape is a short, wide window; the find-detail portrait
+   photo, capped at 70vh, then shrinks to a tiny screenshot-like sliver. In
+   that narrow case only, relax the height cap (photoBox.ts reads
+   `--photo-max-vh`) so the photo uses more of the short viewport. Everywhere
+   else the property is unset and the default cap applies unchanged. */
+@media (orientation: landscape) and (max-height: 540px) {
+  .photo-figure {
+    --photo-max-vh: 90vh;
+  }
+}

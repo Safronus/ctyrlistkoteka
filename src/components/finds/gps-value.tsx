@@ -15,9 +15,13 @@ export function GpsValue({
   lat,
   lng,
   tone = "default",
+  compact = false,
 }: {
   lat: number;
   lng: number;
+  /** Smaller type + tighter button, so the pill matches the `text-xs` date
+   *  pill it sits under in the find-detail photo overlay. */
+  compact?: boolean;
   /** "default" — green "GPS" label (matching every other uppercase
    *  section eyebrow site-wide) with a neutral gray coordinate value;
    *  used in /lokality and the regular find-detail header. "dark" —
@@ -56,13 +60,15 @@ export function GpsValue({
         : "font-mono text-gray-800";
   const btnCls =
     tone === "dark"
-      ? "rounded p-1 text-red-300/70 transition hover:bg-red-900/40 hover:text-red-100"
+      ? "rounded text-red-300/70 transition hover:bg-red-900/40 hover:text-red-100"
       : tone === "brand"
-        ? "rounded p-1 text-brand-600 transition hover:bg-brand-50 hover:text-brand-800"
-        : "rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-brand-700";
+        ? "rounded text-brand-600 transition hover:bg-brand-50 hover:text-brand-800"
+        : "rounded text-gray-400 transition hover:bg-gray-100 hover:text-brand-700";
 
   return (
-    <div className="flex items-center gap-2 text-sm">
+    <div
+      className={`flex items-center ${compact ? "gap-1.5 text-xs" : "gap-2 text-sm"}`}
+    >
       <span className={labelCls}>{t("label")}</span>
       <span className={valueCls}>{text}</span>
       <button
@@ -70,9 +76,9 @@ export function GpsValue({
         onClick={cycle}
         aria-label={t("toggleFormat")}
         title={t("toggleFormat")}
-        className={btnCls}
+        className={`${btnCls} ${compact ? "p-0.5" : "p-1"}`}
       >
-        <RefreshCw className="h-3.5 w-3.5" />
+        <RefreshCw className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
       </button>
     </div>
   );

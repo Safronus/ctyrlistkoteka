@@ -18,17 +18,16 @@
  *   pnpm watermark --all --relight-below 120 --opacity 1 --dry-run  # preview
  *   pnpm watermark --all --relight-below 120 --opacity 1            # apply
  *
- * Relight (`--relight-below N`): the watermark is dark-green by default and
- * only swaps to the PALE variant where the bottom-right corner it lands on is
- * darker than `darkThreshold` (95). On this bright-foliage collection that is
- * rare, so pale seldom appears. `--relight-below N` re-encodes ONLY the photos
- * whose corner luminance is < N (giving them the pale mark) and skips the rest
- * WITHOUT the expensive source regen — it samples each corner cheaply from the
- * already-generated web WebP. Run with `--dry-run` first: it prints the corner-
- * luminance histogram across the whole collection so you can pick N from real
- * data. NOTE: relight rewrites files at their existing sha1 URLs, so bump
- * FIND_PHOTO_ASSET_VERSION afterwards (see src/lib/constants.ts) or browsers
- * keep the cached copy.
+ * Relight (`--relight-below N`): re-encodes ONLY the photos whose bottom-right
+ * corner luminance is < N and skips the rest WITHOUT the expensive source
+ * regen — it samples each corner cheaply from the already-generated web WebP.
+ * The re-encode applies the CURRENT adaptive colour (pale primary, dark on
+ * bright highlights — see `DEFAULT_WATERMARK_OPTIONS`), so this is a way to
+ * re-touch just a corner-luminance-selected subset. Run with `--dry-run`
+ * first: it prints the corner-luminance histogram across the whole collection
+ * so you can pick N from real data. NOTE: relight rewrites files at their
+ * existing sha1 URLs, so bump FIND_PHOTO_ASSET_VERSION afterwards (see
+ * src/lib/constants.ts) or browsers keep the cached copy.
  *
  * Idempotence: a sentinel file `$GENERATED_DIR/.watermarked.json` tracks
  * the SHA-1s already processed during a `--all` run. Re-running skips
@@ -71,11 +70,10 @@ interface Args {
   webQuality: number;
   thumbQuality: number;
   /** Targeted "relight" mode: re-encode ONLY photos whose bottom-right corner
-   *  is darker than this luminance (0–255), so they qualify for the pale
-   *  watermark. Bright-corner photos (where the dark mark reads fine) are
-   *  skipped WITHOUT the expensive regen. Also sets `options.darkThreshold` to
-   *  this value so the re-encoded photos actually get the pale mark. Null = the
-   *  normal (non-relight) sweep. See `sampleCornerLuma`. */
+   *  luminance is < this value (0–255); brighter-corner photos are skipped
+   *  WITHOUT the expensive regen. The re-encode applies the current adaptive
+   *  colour (see `DEFAULT_WATERMARK_OPTIONS`). Null = the normal (non-relight)
+   *  sweep. See `sampleCornerLuma`. */
   relightBelow: number | null;
   /** How many images to process concurrently. Defaults to the CPU count.
    *  Each task runs sharp single-threaded (sharp.concurrency(1)), so the
@@ -125,8 +123,8 @@ function parseArgs(argv: string[]): Args {
       args.concurrency = Math.max(1, Number.parseInt(need(a), 10));
     else if (a === "--relight-below") {
       // Targeted re-light: only re-encode photos with a dark bottom-right
-      // corner. Forces regenerate (must re-encode from source to change the
-      // baked mark) and raises darkThreshold so those photos get the pale one.
+      // corner. Forces regenerate (must re-encode from source to rebake the
+      // mark with the current adaptive colour).
       args.relightBelow = Number.parseInt(need(a), 10);
       args.regenerate = true;
     }
@@ -152,12 +150,12 @@ function parseArgs(argv: string[]): Args {
           "                 Use this when iterating on watermark parameters or after a\n" +
           "                 botched run baked artifacts in.\n" +
           "  --regen-only   Same regen, but skip the watermark step (recovery only).\n" +
-          "  --relight-below N  Targeted re-light: re-encode ONLY photos whose bottom-\n" +
-          "                 right corner luminance is < N (0–255), so they get the pale\n" +
-          "                 mark; brighter-corner photos are skipped without a regen.\n" +
-          "                 Implies --regenerate and sets darkThreshold=N. Pair with\n" +
-          "                 --dry-run first to see the corner-luminance histogram and\n" +
-          "                 how many photos each threshold would touch.",
+          "  --relight-below N  Targeted re-touch: re-encode ONLY photos whose bottom-\n" +
+          "                 right corner luminance is < N (0–255) with the current\n" +
+          "                 adaptive colour; brighter-corner photos are skipped without\n" +
+          "                 a regen. Implies --regenerate. Pair with --dry-run first to\n" +
+          "                 see the corner-luminance histogram and how many photos each\n" +
+          "                 threshold would touch.",
       );
       process.exit(0);
     } else {
@@ -182,9 +180,6 @@ function parseArgs(argv: string[]): Args {
       console.error("--relight-below must be a luminance in 1–255.");
       process.exit(2);
     }
-    // Photos re-encoded by relight qualify for the pale mark iff their corner
-    // is below the SAME threshold we selected them by.
-    args.options.darkThreshold = args.relightBelow;
   }
   return args;
 }

@@ -265,7 +265,7 @@ export function ImageGallery({
 
   return (
     <figure
-      className={`mx-auto overflow-hidden rounded-xl bg-gray-100 ${borderCls}`}
+      className={`photo-figure mx-auto overflow-hidden rounded-xl bg-gray-100 ${borderCls}`}
       style={disp ? { width: disp.widthCss, maxWidth: "100%" } : undefined}
     >
       {topBanner}
@@ -330,14 +330,26 @@ export function ImageGallery({
             {statesSlot}
           </div>
         )}
-        {/* Bottom overlays: date/time on top, GPS below — stacked in the
-            bottom-left corner. Always stacked (not split into corners on
-            desktop) because the height-capped photo can be narrow enough
-            that a left date + centred GPS would still collide. */}
+        {/* Bottom overlays. Narrow photo → date/time over GPS, stacked in the
+            bottom-left. Wide enough (container ≥ 50rem, i.e. the two pills can
+            coexist without touching) → date/time centred on the photo's bottom
+            edge with the GPS pinned bottom-left, on one row. The @container
+            query keys off the photo width, not the viewport, so a narrow
+            portrait on a wide screen still stacks. */}
         {(dateSlot || gpsSlot) && (
-          <div className="absolute inset-x-3 bottom-3 z-10 flex flex-col items-start gap-1">
-            {dateSlot && <div className="pointer-events-none">{dateSlot}</div>}
-            {gpsSlot && <div>{gpsSlot}</div>}
+          <div className="@container absolute inset-x-3 bottom-3 z-10">
+            <div className="relative flex flex-col items-start gap-1 @min-[50rem]:block @min-[50rem]:h-7">
+              {dateSlot && (
+                <div className="pointer-events-none @min-[50rem]:absolute @min-[50rem]:inset-x-0 @min-[50rem]:bottom-0 @min-[50rem]:flex @min-[50rem]:justify-center">
+                  {dateSlot}
+                </div>
+              )}
+              {gpsSlot && (
+                <div className="@min-[50rem]:absolute @min-[50rem]:bottom-0 @min-[50rem]:left-0">
+                  {gpsSlot}
+                </div>
+              )}
+            </div>
           </div>
         )}
         {/* Top-RIGHT control cluster: the vote button sits to the LEFT of

@@ -118,10 +118,15 @@ export function photoDisplay(
   // Native displayed width: native px, height-capped to `maxVh` of the
   // viewport. This drives the PHOTO + map + facts — wide photos unchanged,
   // narrow photos left as-is (never upscaled).
+  // The height cap goes through a `--photo-max-vh` custom property (defaulting
+  // to `maxVh`vh) so a short-but-wide viewport — a phone held landscape — can
+  // relax it via one media query (see globals.css) instead of leaving the
+  // portrait photo squeezed into 70vh of a 390px-tall window. Untouched
+  // everywhere the property isn't overridden.
   const naturalWidth =
     maxVh == null
       ? `${displayWidth}px`
-      : `min(${displayWidth}px, calc(${maxVh}vh * ${displayWidth} / ${displayHeight}))`;
+      : `min(${displayWidth}px, calc(var(--photo-max-vh, ${maxVh}vh) * ${displayWidth} / ${displayHeight}))`;
   const widthCss = fill ? "100%" : `min(100%, ${naturalWidth})`;
   // Nav-bar width: floored at `minWidthPx` so the back link clears the prev/
   // next even when the photo is narrow. The nav has no image, so — unlike the

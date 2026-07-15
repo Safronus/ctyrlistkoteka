@@ -39,41 +39,39 @@ export interface WatermarkOptions {
    *  bakes the mark in its pale clover-green so it reads as part of the
    *  green theme rather than a hard black stamp. */
   color?: { r: number; g: number; b: number };
-  /** Adaptive contrast: colour to use instead of `color` when the corner
-   *  the mark lands on is *dark* (a dark mark would vanish there). The
-   *  composite samples that corner's mean luminance and swaps to this paler
-   *  green when it falls below `darkThreshold`. Omit to always use `color`.
+  /** Adaptive contrast fallback. When set, the composite samples the corner
+   *  the mark lands on and picks whichever of `color` / `colorAlt` sits
+   *  *further* from that corner's mean luminance — i.e. whichever reads with
+   *  more contrast. Omit to always use `color`.
    *
-   *  The collection is green foliage: a *pale* mark shares the hue and
-   *  washes out on most (bright-to-medium green) corners, so the dark green
-   *  is the primary `color` and the pale one is the exception for genuinely
-   *  dark / shadow corners. */
-  colorOnDark?: { r: number; g: number; b: number };
-  /** Mean-luminance (0–255) below which the corner counts as "dark" and
-   *  `colorOnDark` is used. Default 95. */
-  darkThreshold?: number;
+   *  The collection is green foliage, so `color` is the pale page-green
+   *  (reads on the medium-green corners that dominate) and `colorAlt` is the
+   *  dark brand-green, auto-chosen only where the corner is bright enough
+   *  (highlights) that the pale mark would wash out. */
+  colorAlt?: { r: number; g: number; b: number };
 }
 
 export const DEFAULT_WATERMARK_OPTIONS: WatermarkOptions = {
   widthRatio: 0.1,
-  // A light mark reads by lightening the corner it sits on; on the mostly
-  // dark, foliage-heavy bottom-right it needs more punch than the old dark
-  // ink's 0.4. 0.64 lands "present but not loud" (picked on real photos).
-  opacity: 0.64,
+  // Full opacity: a pale mark reads by *lightening* the corner, and at less
+  // than full strength it washed into the busy green foliage. Solid is the
+  // look the owner picked on real photos.
+  opacity: 1,
   // 0.5% of width — tight to the corner. The post-rotation .trim() pass
   // (see compositeWatermarkOnto) removes the transparent padding the
   // rotation adds, so this margin applies to the doodle's actual visible
   // bounding box rather than to a much larger transparent rectangle.
   marginRatio: 0.005,
   rotation: 45,
-  // Dark clover-green (brand-800) as the PRIMARY ink. The collection is
-  // green foliage, where a pale mark shares the hue and washes out even at
-  // moderate brightness; a dark mark contrasts reliably on leaves + grass.
-  color: { r: 0, g: 73, b: 6 },
-  // Pale page-background green (oklch 0.965 0.038 145 → sRGB) for the rare
-  // genuinely dark / shadow corner where the dark mark would disappear.
-  colorOnDark: { r: 228, g: 251, b: 228 },
-  darkThreshold: 95,
+  // Pale page-background green (oklch 0.965 0.038 145 → sRGB) as the PRIMARY
+  // ink. The collection is green foliage whose corners are mostly
+  // medium-bright green; a solid pale mark reads there, while a dark green
+  // mark shares the hue and disappears. See the contrast study 2026-07-15.
+  color: { r: 228, g: 251, b: 228 },
+  // Dark clover-green (brand-800) as the contrast fallback, auto-chosen by
+  // compositeWatermarkOnto only where the corner is bright enough (a sunlit
+  // highlight) that the pale mark would wash out.
+  colorAlt: { r: 0, g: 73, b: 6 },
 };
 
 /** Cached pre-processed watermark (luminance-masked + opacity-baked).
@@ -214,32 +212,36 @@ export async function compositeWatermarkOnto(
   const left = Math.max(0, width - resized.info.width - margin);
   const top = Math.max(0, height - resized.info.height - margin);
 
-  // Adaptive contrast: if the exact rectangle the mark lands on is *dark*,
-  // the dark primary mark would disappear — swap it for the pale green.
-  // Sample that rectangle's mean luminance from a clone of the (already-
-  // resized) photo pipeline; the clone shares the re-readable input so the
-  // real composite below is unaffected.
+  // Adaptive contrast: sample the mean luminance of the exact rectangle the
+  // mark lands on and pick whichever ink — the primary `color` (already baked
+  // into `resized.data`) or `colorAlt` — sits FURTHER from that luminance, so
+  // the mark reads with the most contrast. The pale primary wins on the
+  // medium-green corners that dominate the collection; the dark fallback wins
+  // only on bright highlights where pale would wash out. The clone shares the
+  // re-readable input, so the real composite below is unaffected; an
+  // unreadable region keeps the primary ink.
   let markData = resized.data;
-  if (opts.colorOnDark) {
+  if (opts.colorAlt) {
     const sw = Math.max(1, Math.min(resized.info.width, width - left));
     const sh = Math.max(1, Math.min(resized.info.height, height - top));
-    let mean = 255; // unreadable clone → keep the dark primary
+    const lum = (c: { r: number; g: number; b: number }): number =>
+      0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
     try {
       const stats = await pipeline
         .clone()
         .extract({ left, top, width: sw, height: sh })
         .stats();
       const [rc, gc, bc] = stats.channels;
-      mean =
+      const mean =
         0.299 * (rc?.mean ?? 0) +
         0.587 * (gc?.mean ?? 0) +
         0.114 * (bc?.mean ?? 0);
+      const primaryLum = opts.color ? lum(opts.color) : 0;
+      if (Math.abs(mean - lum(opts.colorAlt)) > Math.abs(mean - primaryLum)) {
+        markData = await recolorShape(resized.data, opts.colorAlt);
+      }
     } catch {
-      // Degenerate region / unreadable clone — keep the dark primary
-      // (mean stays 255, i.e. treated as a bright corner).
-    }
-    if (mean < (opts.darkThreshold ?? 95)) {
-      markData = await recolorShape(resized.data, opts.colorOnDark);
+      // Degenerate / unreadable region — keep the primary ink.
     }
   }
 

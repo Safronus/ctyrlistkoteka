@@ -273,25 +273,31 @@ export default async function FindDetailPage({ params }: PageProps) {
   // showcase and doesn't depend on the server's timezone. GPS keeps its
   // format toggle; it's hidden for anonymized finds, and shows a
   // question-mark placeholder for NO_GPS finds that have a photo.
+  // Both photo overlays share one pill shape + fixed height so the GPS panel
+  // is exactly as tall as the date/time one (compact GpsValue keeps its
+  // button from bloating the row).
+  const overlayPillCls =
+    "inline-flex h-7 items-center rounded-md bg-white/90 px-2 shadow-md ring-1 ring-black/5 backdrop-blur";
   const dateSlot = (
-    <span className="rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur">
+    <span className={`${overlayPillCls} text-xs font-medium text-brand-700`}>
       {formatDateTimeCs(find.foundAt, locale, "Europe/Prague")}
     </span>
   );
   const gpsSlot =
     !find.isAnonymized && find.coordinates ? (
-      <div className="inline-flex rounded-md bg-white/90 px-2 py-1 shadow-md ring-1 ring-black/5 backdrop-blur">
+      <div className={overlayPillCls}>
         <GpsValue
           lat={find.coordinates.lat}
           lng={find.coordinates.lng}
           tone="brand"
+          compact
         />
       </div>
     ) : !find.isAnonymized &&
       !find.coordinates &&
       find.states.includes(FindState.NO_GPS) ? (
-      <div className="inline-flex items-center gap-2 rounded-md bg-white/90 px-2 py-1 text-sm shadow-md ring-1 ring-black/5 backdrop-blur">
-        <span className="text-xs font-medium uppercase tracking-wide text-brand-700">
+      <div className={`${overlayPillCls} gap-1.5 text-xs`}>
+        <span className="font-medium uppercase tracking-wide text-brand-700">
           GPS
         </span>
         <span className="font-mono text-brand-600">{t("gpsUnknownValue")}</span>
@@ -455,7 +461,7 @@ export default async function FindDetailPage({ params }: PageProps) {
               hellish ? "text-red-100" : "text-gray-900"
             }`}
           >
-            <span aria-hidden>🍀 #{find.id}</span>
+            <span aria-hidden>🍀#{find.id}</span>
           </h1>
           <CloverNavLink
             direction="next"
@@ -1284,7 +1290,7 @@ function CloverNavLink({
       {direction === "prev" && (
         <ChevronLeft className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
       )}
-      <span>🍀 #{id}</span>
+      <span>🍀#{id}</span>
       {direction === "next" && (
         <ChevronRight className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
       )}

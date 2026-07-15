@@ -9,6 +9,26 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Vodoznak — světlý jako primární (max. kontrast) + drobnosti v detailu
+- Po kontrastní studii (zelený vodoznak na zelené má nízký kontrast, jednolitá
+  barva nefunguje všude) je teď **primární světlý** vodoznak při **opacity 1**.
+  Rozhodování je „max. kontrast": composite změří jas rohu a zvolí tu z barev
+  (`color` světlá / `colorAlt` tmavá), která je od jasu rohu dál — světlý
+  vyhrává na středně zelených rozích (většina), tmavý se nasadí sám jen na
+  jasných odlescích. Nahrazuje prahovou logiku (`darkThreshold` zrušen,
+  `colorOnDark` → `colorAlt`). **Projeví se až po plném re-syncu** (mění se
+  skoro všechny fotky) — potom bump `FIND_PHOTO_ASSET_VERSION`.
+- Detail nálezu:
+  - **GPS panel je stejně vysoký jako panel s datem** (sdílený tvar + `h-7`,
+    `GpsValue` má `compact` variantu).
+  - Kde se fotka vejde (širší než ~50rem), **datum je na střed spodní hrany a
+    GPS vlevo**; na užší (běžný portrét) zůstávají stohované jako dřív
+    (container query dle šířky fotky).
+  - **Mobilní landscape** (telefon na šířku = nízké široké okno): portrétní
+    fotka už není stlačená do 70vh — v tomhle krajním případě se strop uvolní
+    na 90vh (`--photo-max-vh`, jinde beze změny).
+  - Navigace/titulek: `🍀 #123` → **`🍀#123`** (bez mezery).
+
 ### Vodoznak — cílený „relight" jen pro tmavé rohy (`--relight-below`)
 - Vodoznak je primárně tmavě zelený a na **světlý** se přepne jen tam, kde je
   roh vpravo dole tmavší než `darkThreshold` (95). U sbírky světlé zeleně je
