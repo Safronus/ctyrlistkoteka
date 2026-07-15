@@ -1,6 +1,6 @@
 /**
  * GPS → country resolver using point-in-polygon against the bundled
- * Natural Earth 110m dataset (see `world-countries.ts`).
+ * Natural Earth 50m dataset (see `world-countries-hires.ts`).
  *
  * Earlier versions used a hand-rolled bbox + nearest-centroid heuristic;
  * it produced wrong answers in border regions (Zlín — solidly in CZ —
@@ -8,25 +8,29 @@
  * was 0.13° closer, so it got tagged Slovakia). Polygon containment is
  * the only honest way to fix that.
  *
+ * Resolution matters at river borders: 110m smooths the Danube enough that
+ * Štúrovo (SK, north bank) fell inside Hungary's polygon. 50m places it in
+ * Slovakia. We use 50m here (server-only) while the client choropleth keeps
+ * 110m — see `world-countries-hires.ts` for why they're split.
+ *
  * Polygons in this dataset are ordered (lng, lat). Ray casting walks the
  * outer ring and toggles "inside" whenever an edge crosses a horizontal
  * line through the test point. Holes (subsequent rings of a polygon) are
- * ignored because Natural Earth at 110m resolution doesn't include any
- * country with a hole that's relevant for our data — and even if it did,
- * a wrong "inside" result for a tiny enclave wouldn't materially affect
- * a stats table.
+ * ignored: at 50m the only holes are tiny enclaves (Lesotho, Vatican, …)
+ * with no finds, so a wrong "inside" there can't materially affect a stats
+ * table.
  *
- * Near-coast fallback: the 110m simplification drops small islands and
- * smooths coastlines, so points like Naoshima (a small island in
- * Japan's Seto Inland Sea) fall in the gap between Honshu and Shikoku
- * polygons. When no polygon contains the point we pick the nearest
- * country by minimum vertex distance, but only if it's within
- * NEAR_FALLBACK_KM — far enough to absorb 110m's coastal noise + small
- * islands, tight enough that mid-ocean points stay "Jinde".
+ * Near-coast fallback: the simplification still drops small islands and
+ * smooths coastlines, so points like Naoshima (a small island in Japan's
+ * Seto Inland Sea) can fall in the gap between the Honshu and Shikoku
+ * polygons. When no polygon contains the point we pick the nearest country
+ * by minimum vertex distance, but only if it's within NEAR_FALLBACK_KM — far
+ * enough to absorb the polygon's coastal noise + small islands, tight enough
+ * that mid-ocean points stay "Jinde".
  */
 
 import type { Geometry, Position } from "geojson";
-import { getWorldCountries } from "@/lib/world-countries";
+import { getWorldCountriesHiRes } from "@/lib/world-countries-hires";
 
 export interface CountryRef {
   /** ISO 3166-1 numeric code as a string ("203" = Česko). Doubles as
@@ -45,11 +49,11 @@ export interface CountryRef {
 const UNKNOWN: CountryRef = { code: "??", name: "Elsewhere" };
 
 /** Snap-to-coast threshold for points that aren't inside any polygon.
- *  Sized so that Naoshima (~10 km offshore in 110m simplification) and
- *  comparable small islands resolve to their parent country, while
- *  points hundreds of km out at sea stay unresolved.
+ *  Sized so that a small island dropped by the simplified outline resolves
+ *  to its parent country, while points hundreds of km out at sea stay
+ *  unresolved.
  *
- *  100 km also comfortably covers 110m polygon noise along otherwise
+ *  100 km also comfortably covers 50m polygon noise along otherwise
  *  unambiguous coastlines (e.g. tidal flats, ria coasts). */
 const NEAR_FALLBACK_KM = 100;
 
@@ -59,7 +63,7 @@ const NEAR_FALLBACK_KM = 100;
  * waters more than NEAR_FALLBACK_KM from any country's polygon.
  */
 export function countryFromCoords(lat: number, lng: number): CountryRef {
-  const fc = getWorldCountries();
+  const fc = getWorldCountriesHiRes();
   let nearest: { props: { id: string; name: string }; distKm: number } | null =
     null;
   for (const f of fc.features) {
@@ -86,7 +90,7 @@ export function countryFromCoords(lat: number, lng: number): CountryRef {
 
 /** Smallest haversine distance (km) from a point to any vertex of a
  *  geometry. Returns null for unsupported geometry types. We compare
- *  vertex distance rather than edge distance — at 110m resolution
+ *  vertex distance rather than edge distance — at 50m resolution
  *  vertices are dense enough (every few km) that the simpler vertex
  *  test produces nearly identical results, and a horizontal-bbox
  *  pre-filter would be more code than it saves at our call volume

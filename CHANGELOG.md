@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Fix: GPS → země přesnější na hranicích (Natural Earth 50m)
+- Point-in-polygon pro zařazení lokality do státu jel na **Natural Earth 110m**
+  (nejhrubší). U říčních hranic to mýlilo — Štúrovo (SK, severní břeh Dunaje)
+  padalo do **Maďarska**. Server teď používá **50m** (ověřeno: 110m → Hungary,
+  50m → Slovakia), takže Štúrovo #00180/#00181 i další příhraniční lokality
+  sedí správně. Země se odvozuje za běhu (žádný re-sync netřeba).
+- 50m je jen server-side (`world-countries-hires.ts`, importuje ho pouze
+  `geo.ts`); klientský choropleth zůstává na malém 110m, aby se ~750 KB dat
+  nedostalo do prohlížeče.
+
 ### /lokality — počty lokalit ve filtrech Stát/Město
 - Comboboxy „Stát" a „Město" teď u každé volby ukazují **počet lokalit**, které
   pod ni spadají („Zlín (12)"). Počítá se ve stránce z už načteného seznamu
