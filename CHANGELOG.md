@@ -9,6 +9,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### 🍀 drobnosti — homepage dlaždice, /sbirka titulek + stránkování
+- Homepage dlaždice s počtem 🍀 má teď **🍀 hned za číslem** („27 872 🍀",
+  nápověda „(… nahraných)" pod), stejně jako hero na /statistiky (StatCard
+  dostal `inlineLabel`).
+- /sbirka titulek vpravo: **„X nálezů" → „X 🍀"** (`Sbirka.headingCounts`).
+- /sbirka stránkování: **„Záznamů na stránku:" → „🍀 na stránku:"** (aria si
+  slovní popis nechává).
+
 ### Homepage — „nález" → 🍀 + rate „🍀 za minutu"
 - Viditelné výskyty „nález" na hlavní stránce jsou teď **🍀** (Home namespace +
   „🍀:" v panelu Nejoblíbenější). `aria`/`alt` a sloveso „find" v en si slovo

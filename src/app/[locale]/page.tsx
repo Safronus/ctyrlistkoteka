@@ -262,15 +262,16 @@ export default async function HomePage() {
           value={
             totals.maxFindId !== null ? NF.format(totals.maxFindId) : "—"
           }
-          // Two lines: the big find count, then "nálezů" with the uploaded
-          // count in parentheses. The parenthetical only shows when there's
-          // a backfill gap (maxFindId ≠ uploaded) — when they match it would
-          // just repeat the headline number.
-          label={
+          // "<big find count> 🍀" on one line; the uploaded count rides below
+          // in parentheses only when there's a backfill gap (maxFindId ≠
+          // uploaded) — when they match it would just repeat the headline.
+          label={t("statFinds", { count: totals.maxFindId ?? totals.finds })}
+          hint={
             totals.maxFindId !== null && totals.maxFindId !== totals.finds
-              ? `${t("statFinds", { count: totals.maxFindId })} (${t("statFindsUploadedHint", { count: totals.finds })})`
-              : t("statFinds", { count: totals.maxFindId ?? totals.finds })
+              ? `(${t("statFindsUploadedHint", { count: totals.finds })})`
+              : undefined
           }
+          inlineLabel
           icon={Clover}
         />
         <StatCard
@@ -336,9 +337,13 @@ function StatCard({
   label,
   icon: Icon,
   hint,
+  inlineLabel = false,
 }: {
   value: string;
   label: string;
+  /** Render the label right after the number ("27 872 🍀") instead of on the
+   *  line below — used by the finds tile, whose label is the short 🍀 icon. */
+  inlineLabel?: boolean;
   /** Lucide icon pinned to the top-right, matching the NavCard
    *  pattern above. Color sits at brand-500 — readable against the
    *  brand-50 background but muted enough that the big numeric
@@ -358,8 +363,17 @@ function StatCard({
         className="absolute right-3 top-3 h-4 w-4 text-brand-500"
         aria-hidden
       />
-      <p className="text-2xl font-bold text-brand-700 sm:text-3xl">{value}</p>
-      <p className="mt-1 text-xs text-gray-600 sm:text-sm">{label}</p>
+      {inlineLabel ? (
+        <p className="text-2xl font-bold text-brand-700 sm:text-3xl">
+          {value}
+          <span className="ml-1.5 align-middle text-xl sm:text-2xl">{label}</span>
+        </p>
+      ) : (
+        <>
+          <p className="text-2xl font-bold text-brand-700 sm:text-3xl">{value}</p>
+          <p className="mt-1 text-xs text-gray-600 sm:text-sm">{label}</p>
+        </>
+      )}
       {hint && (
         <p className="mt-0.5 text-[11px] text-gray-700">{hint}</p>
       )}

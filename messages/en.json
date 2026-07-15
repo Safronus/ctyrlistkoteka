@@ -78,7 +78,7 @@
     "showOnMap": "Show on map",
     "noFindsMatch": "No finds match the filters.",
     "progressToggle": "Show collection completeness note",
-    "headingCounts": "{locations, plural, one {# location} other {# locations}} · {finds, plural, one {# find} other {# finds}}"
+    "headingCounts": "{locations, plural, one {# location} other {# locations}} · {finds, plural, one {# 🍀} other {# 🍀}}"
   },
   "FilterSummary": {
     "exactId": "number #{id}",
@@ -237,7 +237,7 @@
     "prev": "← Previous",
     "next": "Next →",
     "pageAria": "Page {page}",
-    "pageSizeLabel": "Items per page",
+    "pageSizeLabel": "🍀 per page",
     "pageSizeAria": "Number of items per page"
   },
   "BackLink": {

@@ -77,7 +77,7 @@
     "showOnMap": "Zobrazit na mapě",
     "noFindsMatch": "Žádné nálezy neodpovídají filtrům.",
     "progressToggle": "Zobrazit stav doplňování sbírky",
-    "headingCounts": "{locations, plural, one {# lokalita} few {# lokality} other {# lokalit}} · {finds, plural, one {# nález} few {# nálezy} other {# nálezů}}"
+    "headingCounts": "{locations, plural, one {# lokalita} few {# lokality} other {# lokalit}} · {finds, plural, one {# 🍀} few {# 🍀} other {# 🍀}}"
   },
   "FilterSummary": {
     "exactId": "číslo #{id}",
@@ -236,7 +236,7 @@
     "prev": "← Předchozí",
     "next": "Další →",
     "pageAria": "Strana {page}",
-    "pageSizeLabel": "Záznamů na stránku",
+    "pageSizeLabel": "🍀 na stránku",
     "pageSizeAria": "Počet záznamů na stránku"
   },
   "BackLink": {
