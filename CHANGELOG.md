@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Vodoznak — cílený „relight" jen pro tmavé rohy (`--relight-below`)
+- Vodoznak je primárně tmavě zelený a na **světlý** se přepne jen tam, kde je
+  roh vpravo dole tmavší než `darkThreshold` (95). U sbírky světlé zeleně je
+  to vzácné (~12 % fotek), takže světlý padne zřídka — což působilo, že „světlý
+  není nikde". Není to bug (ověřeno: nálezy #27836, #27851 světlý mají).
+- Nový režim `pnpm watermark --all --relight-below N`: **přegeneruje jen fotky
+  s rohovým jasem pod N** (dá jim světlý), zbytek přeskočí **bez** drahého
+  dekódování originálu — roh měří levně z už hotového web WebP (posunutý box,
+  aby minul zapečený vodoznak). S `--dry-run` napřed vypíše **histogram jasu
+  rohů přes celou sbírku** + kolik fotek by se dotklo při jakém prahu, ať práh
+  zvolíš z reálných dat. Neběží tak celý re-sync znovu.
+- Pozn.: relight přepisuje soubory na stejných sha1 URL → potom **bumpni
+  `FIND_PHOTO_ASSET_VERSION`** (jinak si prohlížeče drží cache — viz níže).
+
 ### Fotky nálezů — verzované URL kvůli `immutable` cache
 - Regenerované WebP (vodoznak, rotace, kvalita, re-crop) se zapisují „na
   místě" na **stejnou sha1 URL** (sha1 je hash *originálu*, ne zakódovaného

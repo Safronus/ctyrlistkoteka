@@ -15,6 +15,20 @@
  *   pnpm watermark --all --regenerate --concurrency 6   # N images in parallel (default = CPU count)
  *   pnpm watermark --find-id 1 --regenerate   # re-encode WebP from source first
  *   pnpm watermark --find-id 1 --regen-only   # regen without applying the mark
+ *   pnpm watermark --all --relight-below 120 --opacity 1 --dry-run  # preview
+ *   pnpm watermark --all --relight-below 120 --opacity 1            # apply
+ *
+ * Relight (`--relight-below N`): the watermark is dark-green by default and
+ * only swaps to the PALE variant where the bottom-right corner it lands on is
+ * darker than `darkThreshold` (95). On this bright-foliage collection that is
+ * rare, so pale seldom appears. `--relight-below N` re-encodes ONLY the photos
+ * whose corner luminance is < N (giving them the pale mark) and skips the rest
+ * WITHOUT the expensive source regen — it samples each corner cheaply from the
+ * already-generated web WebP. Run with `--dry-run` first: it prints the corner-
+ * luminance histogram across the whole collection so you can pick N from real
+ * data. NOTE: relight rewrites files at their existing sha1 URLs, so bump
+ * FIND_PHOTO_ASSET_VERSION afterwards (see src/lib/constants.ts) or browsers
+ * keep the cached copy.
  *
  * Idempotence: a sentinel file `$GENERATED_DIR/.watermarked.json` tracks
  * the SHA-1s already processed during a `--all` run. Re-running skips
@@ -56,6 +70,13 @@ interface Args {
   regenOnly: boolean;
   webQuality: number;
   thumbQuality: number;
+  /** Targeted "relight" mode: re-encode ONLY photos whose bottom-right corner
+   *  is darker than this luminance (0–255), so they qualify for the pale
+   *  watermark. Bright-corner photos (where the dark mark reads fine) are
+   *  skipped WITHOUT the expensive regen. Also sets `options.darkThreshold` to
+   *  this value so the re-encoded photos actually get the pale mark. Null = the
+   *  normal (non-relight) sweep. See `sampleCornerLuma`. */
+  relightBelow: number | null;
   /** How many images to process concurrently. Defaults to the CPU count.
    *  Each task runs sharp single-threaded (sharp.concurrency(1)), so the
    *  pool — not libvips — provides the parallelism. */
@@ -77,6 +98,7 @@ function parseArgs(argv: string[]): Args {
     webQuality: WEB_QUALITY,
     thumbQuality: THUMB_QUALITY,
     concurrency: Math.max(1, cpus().length),
+    relightBelow: null,
   };
   const cur = { i: 0 };
   const need = (flag: string): string => {
@@ -101,6 +123,13 @@ function parseArgs(argv: string[]): Args {
       args.options.rotation = Number.parseFloat(need(a));
     else if (a === "--concurrency")
       args.concurrency = Math.max(1, Number.parseInt(need(a), 10));
+    else if (a === "--relight-below") {
+      // Targeted re-light: only re-encode photos with a dark bottom-right
+      // corner. Forces regenerate (must re-encode from source to change the
+      // baked mark) and raises darkThreshold so those photos get the pale one.
+      args.relightBelow = Number.parseInt(need(a), 10);
+      args.regenerate = true;
+    }
     else if (a === "--skip-thumbs") args.skipThumbs = true;
     else if (a === "--reset") args.reset = true;
     else if (a === "--dry-run") args.dryRun = true;
@@ -118,11 +147,17 @@ function parseArgs(argv: string[]): Args {
           "                     [--rotation 45]    (degrees, CCW positive)\n" +
           "                     [--skip-thumbs] [--reset] [--dry-run]\n" +
           "                     [--regenerate | --regen-only]\n" +
-          "                     [--web-quality 85] [--thumb-quality 80]\n\n" +
+          "                     [--relight-below 120] [--web-quality 85] [--thumb-quality 80]\n\n" +
           "  --regenerate   Re-encode WebP from the original file before watermarking.\n" +
           "                 Use this when iterating on watermark parameters or after a\n" +
           "                 botched run baked artifacts in.\n" +
-          "  --regen-only   Same regen, but skip the watermark step (recovery only).",
+          "  --regen-only   Same regen, but skip the watermark step (recovery only).\n" +
+          "  --relight-below N  Targeted re-light: re-encode ONLY photos whose bottom-\n" +
+          "                 right corner luminance is < N (0–255), so they get the pale\n" +
+          "                 mark; brighter-corner photos are skipped without a regen.\n" +
+          "                 Implies --regenerate and sets darkThreshold=N. Pair with\n" +
+          "                 --dry-run first to see the corner-luminance histogram and\n" +
+          "                 how many photos each threshold would touch.",
       );
       process.exit(0);
     } else {
@@ -137,6 +172,19 @@ function parseArgs(argv: string[]): Args {
   if (args.findId !== null && (Number.isNaN(args.findId) || args.findId <= 0)) {
     console.error("--find-id must be a positive integer.");
     process.exit(2);
+  }
+  if (args.relightBelow !== null) {
+    if (
+      Number.isNaN(args.relightBelow) ||
+      args.relightBelow <= 0 ||
+      args.relightBelow > 255
+    ) {
+      console.error("--relight-below must be a luminance in 1–255.");
+      process.exit(2);
+    }
+    // Photos re-encoded by relight qualify for the pale mark iff their corner
+    // is below the SAME threshold we selected them by.
+    args.options.darkThreshold = args.relightBelow;
   }
   return args;
 }
@@ -259,6 +307,55 @@ async function applyWatermarkInPlace(
   return { width: W, height: H };
 }
 
+/** Mean luminance (Rec.601, 0–255) of a proxy of the bottom-right corner,
+ *  read from the CURRENT web WebP. The box is a 15%-of-dimension square in the
+ *  bottom-right region, shifted up-left so its far corner sits at ~83% of the
+ *  width/height — adjacent to, but clear of, the baked watermark (which sits in
+ *  the innermost ~12% corner). The clean photo brightness here tracks the exact
+ *  rectangle the adaptive composite samples, without the mark contaminating it,
+ *  so relight can decide whether a photo is dark enough for the pale mark
+ *  WITHOUT decoding the (much larger, possibly HEIC) original. */
+async function sampleCornerLuma(webFs: string): Promise<number> {
+  const sharp = require("sharp") as typeof import("sharp");
+  const buf = await readFile(webFs);
+  const meta = await sharp(buf, { failOn: "none" }).metadata();
+  const W = meta.width ?? 0;
+  const H = meta.height ?? 0;
+  if (!W || !H) throw new Error(`unreadable image: ${webFs}`);
+  const bw = Math.max(1, Math.round(W * 0.15));
+  const bh = Math.max(1, Math.round(H * 0.15));
+  const left = Math.max(0, Math.round(W * 0.83) - bw);
+  const top = Math.max(0, Math.round(H * 0.83) - bh);
+  const st = await sharp(buf, { failOn: "none" })
+    .extract({ left, top, width: bw, height: bh })
+    .stats();
+  const [r, g, b] = st.channels;
+  return 0.299 * (r?.mean ?? 0) + 0.587 * (g?.mean ?? 0) + 0.114 * (b?.mean ?? 0);
+}
+
+/** Prints the corner-luminance distribution collected during a relight run so
+ *  the operator can pick a threshold from the real collection, not a guess. */
+function printRelightHistogram(lumas: number[], chosen: number): void {
+  if (lumas.length === 0) return;
+  const lu = [...lumas].sort((a, b) => a - b);
+  const q = (p: number): number => lu[Math.floor(p * (lu.length - 1))] ?? 0;
+  const r = (x: number): number => Math.round(x);
+  console.log(
+    `\nCorner luminance across ${lu.length} images (bottom-right proxy):`,
+  );
+  console.log(
+    `  min=${r(lu[0] ?? 0)} p10=${r(q(0.1))} p25=${r(q(0.25))} ` +
+      `median=${r(q(0.5))} p75=${r(q(0.75))} max=${r(lu[lu.length - 1] ?? 0)}`,
+  );
+  for (const t of [95, 110, 120, 130, 140, 150]) {
+    const n = lu.filter((x) => x < t).length;
+    const pct = ((100 * n) / lu.length).toFixed(0);
+    console.log(
+      `  corner < ${t}: ${n} (${pct}%)${t === chosen ? "   ← this run" : ""}`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const generatedDir =
@@ -284,6 +381,12 @@ async function main(): Promise<void> {
   console.log(
     `targets   : ${args.skipThumbs ? "web only" : "web + thumb"}`,
   );
+  if (args.relightBelow !== null) {
+    console.log(
+      `relight   : re-encode photos with bottom-right corner luma < ${args.relightBelow} ` +
+        `→ pale mark (brighter corners skipped)`,
+    );
+  }
 
   const watermarkBuf = await getWatermarkBuffer(
     args.watermarkPath,
@@ -325,26 +428,64 @@ async function main(): Promise<void> {
     const startedAt = Date.now();
     const isAllRun = args.findId === null;
     const total = images.length;
+    // Corner luminances gathered in relight mode (for the summary histogram).
+    const relightLumas: number[] = [];
 
     // Each task runs sharp single-threaded; the worker pool below — not
     // libvips per-op threading — provides the parallelism, so N cores stay
     // busy on N different images (WebP encode is single-threaded in libvips,
     // which is exactly what left cores idle in the old serial sweep).
-    if (!args.dryRun) sharp.concurrency(1);
+    // Single-threaded sharp per task + the worker pool below = clean N-core
+    // parallelism. Relight's dry-run still samples every file, so it wants the
+    // pool too; only a plain (non-relight) dry-run does no image work.
+    if (!args.dryRun || args.relightBelow !== null) sharp.concurrency(1);
     const workers = Math.max(1, Math.min(args.concurrency, total));
     console.log(`workers   : ${workers} (sharp single-threaded per task)`);
 
     async function processImage(img: (typeof images)[number]): Promise<void> {
       const tag = img.imageType === ImageType.CROP ? "CROP" : "ORIG";
-      // For --all, honor the sentinel. For --find-id we always reprocess
-      // (it's the manual verification path) — but still write to the
-      // sentinel so a later --all skips it.
-      if (isAllRun && processed.has(img.originalSha1)) {
+      const webFs = webUrlToFsPath(img.webPath, generatedDir);
+      const thumbFs = webUrlToFsPath(img.thumbPath, generatedDir);
+
+      if (args.relightBelow !== null) {
+        // Relight: sample the CLEAN corner of the current web file and only
+        // proceed for photos dark enough to now qualify for the pale mark.
+        // Sampled for EVERY image (cheap: small WebP, tiny crop) so bright-
+        // corner photos are skipped without the expensive source regen.
+        // Bypasses the sentinel — a relight is a deliberate re-do of a subset.
+        let luma: number;
+        try {
+          luma = await sampleCornerLuma(webFs);
+        } catch (err) {
+          failed += 1;
+          console.error(
+            `✗ find ${img.findId} (${tag}) corner sample ${webFs}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+          return;
+        }
+        relightLumas.push(luma);
+        if (luma >= args.relightBelow) {
+          skipped += 1;
+          return;
+        }
+        if (args.dryRun) {
+          console.log(
+            `[dry] find ${String(img.findId).padStart(5, "0")} ${tag} relight ` +
+              `(corner ${Math.round(luma)} < ${args.relightBelow})`,
+          );
+          done += 1;
+          return;
+        }
+        // Dark enough → fall through to the regen + rewatermark below.
+      } else if (isAllRun && processed.has(img.originalSha1)) {
+        // For --all, honor the sentinel. For --find-id we always reprocess
+        // (it's the manual verification path) — but still write to the
+        // sentinel so a later --all skips it.
         skipped += 1;
         return;
       }
-      const webFs = webUrlToFsPath(img.webPath, generatedDir);
-      const thumbFs = webUrlToFsPath(img.thumbPath, generatedDir);
 
       try {
         if (args.dryRun) {
@@ -462,6 +603,9 @@ async function main(): Promise<void> {
     console.log(
       `\nDone in ${elapsed}s — processed ${done}, skipped ${skipped}, failed ${failed}.`,
     );
+    if (args.relightBelow !== null) {
+      printRelightHistogram(relightLumas, args.relightBelow);
+    }
     if (!args.dryRun) {
       console.log(`Sentinel: ${sentinelPath}`);
     }
