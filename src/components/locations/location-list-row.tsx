@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { LocationListItem } from "@/lib/queries/locations";
+import { versionedPhotoUrl } from "@/lib/assetVersion";
 import { GpsValue } from "@/components/finds/gps-value";
 import { DeviationCounts } from "@/components/finds/deviation-counts";
 import { STATE_BADGE } from "@/lib/stateLabels";
@@ -566,7 +567,7 @@ function FindCard({
         {cropUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={cropUrl}
+            src={versionedPhotoUrl(cropUrl)}
             alt=""
             aria-hidden
             loading="lazy"

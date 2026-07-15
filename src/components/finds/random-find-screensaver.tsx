@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { RandomFindShowcase } from "@/lib/queries/random-find";
+import { versionedPhotoUrl } from "@/lib/assetVersion";
 
 /**
  * Full-screen "screensaver" overlay launched from the random-find
@@ -216,7 +217,7 @@ export function RandomFindScreensaver({
         // Served by Nginx; the Next image optimizer isn't in play here.
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={find.primaryImage.webPath}
+          src={versionedPhotoUrl(find.primaryImage.webPath)}
           alt=""
           aria-hidden
           className="max-h-full max-w-full object-contain"

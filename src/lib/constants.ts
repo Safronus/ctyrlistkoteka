@@ -7,6 +7,24 @@ export const THUMB_SIZE = 400;
 export const WEB_SIZE = 1600;
 export const THUMB_QUALITY = 80;
 export const WEB_QUALITY = 85;
+
+/**
+ * Cache-busting version for regenerated FIND-PHOTO WebPs (web + thumb + crop).
+ *
+ * These files are content-addressed by the ORIGINAL source bytes (sha1), NOT
+ * the encoded output — so re-encoding them in place (watermark, rotation,
+ * quality, re-crop) changes the bytes served at a STABLE URL. Nginx serves
+ * `/generated/*` with `Cache-Control: public, immutable`, so a browser that
+ * cached the pre-regen copy pins it for up to a year and never revalidates —
+ * not even on a normal reload (that is what `immutable` means). Appending
+ * `?v=<this>` to the rendered `<img src>` (via `versionedPhotoUrl`) gives every
+ * URL a fresh identity whenever we bump this, busting every cache at once while
+ * keeping `immutable`'s efficiency within a version. Bump on ANY in-place
+ * find-photo regeneration. Location maps are NOT versioned — they aren't
+ * regenerated, so their URLs stay stable and indefinitely cacheable.
+ *   1 = pre-watermark · 2 = watermark + portrait unification (2026-07-15)
+ */
+export const FIND_PHOTO_ASSET_VERSION = 2;
 // Location-map thumbnail: the full map (~800 px) is served for ~80–200 px
 // list/sidebar thumbnails — a ~4× overdraw PageSpeed flagged (~0.5 MB on
 // /lokality). This small variant (`{sha}-thumb.webp`) covers those; the

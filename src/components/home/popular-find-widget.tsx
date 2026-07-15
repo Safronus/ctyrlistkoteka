@@ -5,6 +5,7 @@ import { CloverThumbIcon } from "@/components/icons/clover-thumb-icon";
 import { VoteButton } from "@/components/finds/vote-button";
 import { formatShortDateTimeCs, formatTinyDateTimeCs } from "@/lib/format";
 import type { TopFindRich } from "@/lib/votes";
+import { versionedPhotoUrl } from "@/lib/assetVersion";
 
 type PopularT = Awaited<ReturnType<typeof getTranslations<"Popular">>>;
 type FindRowT = Awaited<ReturnType<typeof getTranslations<"FindRow">>>;
@@ -90,7 +91,7 @@ export async function PopularFindWidget({
             {winner.thumbUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={winner.thumbUrl}
+                src={versionedPhotoUrl(winner.thumbUrl)}
                 alt=""
                 aria-hidden
                 loading="lazy"

@@ -343,3 +343,35 @@ jen streamovaného odkrytí Suspense hranice.)
   = prvek se prostě vynechá.
 - Ověřuj v **živém DOMu** (`offsetParent`, `innerText`), ne jen v raw HTML —
   raw HTML může obsah mít v `<template>`, který se nikdy neodkryl.
+
+## 11. `immutable` cache + regenerace fotky „na místě" = stará fotka až rok
+
+**Co:** po přegenerování fotek nálezů (vodoznak, rotace, kvalita, re-crop)
+ukazoval web **starou verzi** — a nepomohl ani běžný reload. Tvrdý reload
+opravil jen aktuální načtení stránky; při **klientské navigaci mezi nálezy**
+na /sbirka (Next soft-nav) se obrázky nestahovaly znovu a zůstávaly staré.
+
+**Příčina:** URL fotky je `/generated/web/<sha1>.webp`, kde **sha1 je hash
+ORIGINÁLU**, ne zakódovaného výstupu. Přegenerování přepíše soubor „na místě"
+na **stejné URL** s novým obsahem. Jenže Nginx servíruje `/generated/*` s
+`Cache-Control: public, immutable, max-age=31536000`. `immutable` = prohlížeč
+se **záměrně nikdy nezeptá serveru** (neposílá `If-None-Match`/`If-Modified-
+Since`) ani při reloadu — drží kopii až do vypršení `max-age` (rok). Takže
+sha1 tu vlastně `immutable` **nesplňuje** — obsah na té URL se měnit může.
+
+**Jak aplikovat:**
+- K render URL fotky nálezu přidávej **verzi** přes `versionedPhotoUrl()`
+  (`?v=FIND_PHOTO_ASSET_VERSION`, `src/lib/constants.ts`). Bump konstanty →
+  nová URL → všechny cache (i `immutable`) se protrhnou naráz. `immutable`
+  si necháváme kvůli efektivitě v rámci verze — je to standardní „versioned
+  immutable asset" vzor (jako webpack `[contenthash]`, jen bumpovaný ručně).
+- **Bumpni `FIND_PHOTO_ASSET_VERSION` při každém in-place přegenerování fotek.**
+  Změna Nginx hlavičky (drop `immutable`) by **neprotrhla už uložené** cache
+  — ty si `immutable` nesou s sebou; jediné, co protrhne existující cache, je
+  **změna URL**. Proto verzování, ne úprava hlavičky.
+- **Mapy lokalit neverzuj** — nepřegenerovávají se, URL zůstávají stabilní a
+  smí být cachované donekonečna. `versionedPhotoUrl()` posílej jen na fotky
+  nálezů (web/thumb/ořez).
+- Lokální „refresh všeho" v prohlížeči (než se nová verze nasadí): DevTools →
+  Application → Storage → *Clear site data*, nebo *Empty Cache and Hard
+  Reload*. Po nasazení bumpu stačí jeden běžný reload — URL jsou nové.

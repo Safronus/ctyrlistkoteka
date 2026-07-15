@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Fotky nálezů — verzované URL kvůli `immutable` cache
+- Regenerované WebP (vodoznak, rotace, kvalita, re-crop) se zapisují „na
+  místě" na **stejnou sha1 URL** (sha1 je hash *originálu*, ne zakódovaného
+  výstupu). Nginx je ale servíruje s `Cache-Control: public, immutable`, což
+  prohlížeči říká „nikdy nerevaliduj" — takže po přegenerování drží starou
+  kopii až rok a nezmění ji ani běžný reload. Klientská navigace mezi nálezy
+  na /sbirka pak ukazovala staré fotky, dokud člověk nedal tvrdý reload.
+- Řešení: nová konstanta `FIND_PHOTO_ASSET_VERSION` + helper
+  `versionedPhotoUrl()`, který k render URL fotky nálezu přidá `?v=N`. Bump
+  konstanty dá všem URL novou identitu → všechny cache se protrhnou naráz,
+  a `immutable` si dál drží efektivitu v rámci verze. **Bumpni při každém
+  in-place přegenerování fotek.** Zapojeno na všech veřejných render místech
+  fotek (mřížka, detail originál+ořez, homepage showcase i „Nejoblíbenější",
+  ořezy u lokalit) + OG/JSON-LD. Mapy lokalit se neverzují (nepřegenerovávají
+  se). Viz gotcha #11.
+
 ### Fotky nálezů — sjednocené na výšku (vodoznak vždy vpravo dole)
 - Generování WebP teď po EXIF-narovnání **otočí landscape fotky na výšku**
   (90° CW — přesně rotace, kterou dřív dělal detail v CSS, jen zapečená).

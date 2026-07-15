@@ -7,6 +7,7 @@ import type { PublicImage } from "@/lib/queries/finds";
 import type { FindPhotoEntry } from "@/lib/findPhotos";
 import type { FindFreePhotoEntry } from "@/lib/findFreePhotos";
 import { photoDisplay, type PhotoDisplay, type TallRotate } from "@/lib/photoBox";
+import { versionedPhotoUrl } from "@/lib/assetVersion";
 import { DonationPhotosButton } from "./donation-photos-button";
 import { FreePhotosButton } from "./free-photos-button";
 
@@ -285,7 +286,7 @@ export function ImageGallery({
         {/* Served by Nginx; Next Image optimizer not needed. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={image.webPath}
+          src={versionedPhotoUrl(image.webPath)}
           alt={altBase}
           width={image.width}
           height={image.height}
@@ -303,7 +304,7 @@ export function ImageGallery({
         {cropImage && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={cropImage.webPath}
+            src={versionedPhotoUrl(cropImage.webPath)}
             alt={t("cropAlt", { base: altBase })}
             aria-hidden={!showCrop}
             className={

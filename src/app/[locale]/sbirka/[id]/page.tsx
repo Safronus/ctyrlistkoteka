@@ -31,6 +31,7 @@ import {
   locationDetailHref,
 } from "@/lib/format";
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import { versionedPhotoUrl } from "@/lib/assetVersion";
 import { photoDisplay } from "@/lib/photoBox";
 import { getFindNoteOverride } from "@/lib/findNoteOverrides";
 import {
@@ -117,7 +118,14 @@ export async function generateMetadata({
   // null for NO_PHOTO finds → we simply omit it and the card stays text.
   const img = find.primaryImage;
   const ogImages = img
-    ? [{ url: img.webPath, width: img.width, height: img.height, alt: title }]
+    ? [
+        {
+          url: versionedPhotoUrl(img.webPath),
+          width: img.width,
+          height: img.height,
+          alt: title,
+        },
+      ]
     : undefined;
   return {
     title,
@@ -132,7 +140,12 @@ export async function generateMetadata({
       ...(ogImages ? { images: ogImages } : {}),
     },
     ...(ogImages
-      ? { twitter: { card: "summary_large_image", images: [img!.webPath] } }
+      ? {
+          twitter: {
+            card: "summary_large_image",
+            images: [versionedPhotoUrl(img!.webPath)],
+          },
+        }
       : {}),
   };
 }
@@ -726,8 +739,12 @@ export default async function FindDetailPage({ params }: PageProps) {
           description: t("metaDescription", {
             locationName: findLocationName ?? t("fallbackLocation"),
           }),
-          contentUrl: find.primaryImage?.webPath ?? null,
-          thumbnailUrl: find.primaryImage?.thumbPath ?? null,
+          contentUrl: find.primaryImage
+            ? versionedPhotoUrl(find.primaryImage.webPath)
+            : null,
+          thumbnailUrl: find.primaryImage
+            ? versionedPhotoUrl(find.primaryImage.thumbPath)
+            : null,
           foundAt: find.foundAt ? find.foundAt.toISOString() : null,
           locationName: findLocationName,
           coordinates: find.coordinates,

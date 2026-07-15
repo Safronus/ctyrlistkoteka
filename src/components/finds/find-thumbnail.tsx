@@ -1,6 +1,7 @@
 import { ImageType } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 import type { PublicImage } from "@/lib/queries/finds";
+import { versionedPhotoUrl } from "@/lib/assetVersion";
 
 /**
  * Renders one image for a find. Falls back to a CSS placeholder when no
@@ -59,7 +60,9 @@ export async function FindThumbnail({
     );
   }
 
-  const src = sizeHint === "web" ? image.webPath : image.thumbPath;
+  const src = versionedPhotoUrl(
+    sizeHint === "web" ? image.webPath : image.thumbPath,
+  );
 
   return (
     <div className={baseClasses}>
