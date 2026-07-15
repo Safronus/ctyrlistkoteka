@@ -487,7 +487,6 @@
     "metaTitle": "Statistics",
     "metaDescription": "The four-leaf clover collection at a glance.",
     "h1": "Statistics",
-    "subtitle": "Collection overview.",
     "labelFinds": "{count, plural, one {🍀} other {🍀}}",
     "labelLocations": "{count, plural, one {location} other {locations}}",
     "labelCountries": "{count, plural, one {country} other {countries}}",

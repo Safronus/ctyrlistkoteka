@@ -131,7 +131,6 @@ export default async function StatistikyPage() {
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <header>
         <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
-        <p className="mt-2 text-gray-600">{t("subtitle")}</p>
       </header>
 
       <Suspense fallback={<TotalsSkeleton />}>
@@ -149,9 +148,6 @@ export default async function StatistikyPage() {
       <Suspense fallback={<JubileesSkeleton />}>
         <JubileesSection />
       </Suspense>
-      <Suspense fallback={<DeviationsSkeleton />}>
-        <DeviationsSection />
-      </Suspense>
       {/* Top 10 most-voted finds sits right above Top 10 lokalit —
        *  both are "leaderboard" sections, so they read better grouped
        *  than scattered with the calendar histograms at the bottom. */}
@@ -164,11 +160,15 @@ export default async function StatistikyPage() {
       <Suspense fallback={<GeoSkeleton />}>
         <GeoSection />
       </Suspense>
+      {/* Calendar → distance → deviations at the bottom (owner's ordering). */}
+      <Suspense fallback={<CalendarSkeleton />}>
+        <CalendarSection />
+      </Suspense>
       <Suspense fallback={<DistanceSkeleton />}>
         <DistanceSection />
       </Suspense>
-      <Suspense fallback={<CalendarSkeleton />}>
-        <CalendarSection />
+      <Suspense fallback={<DeviationsSkeleton />}>
+        <DeviationsSection />
       </Suspense>
     </div>
   );

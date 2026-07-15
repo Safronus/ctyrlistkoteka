@@ -486,7 +486,6 @@
     "metaTitle": "Statistiky",
     "metaDescription": "Přehled sbírky čtyřlístků v číslech.",
     "h1": "Statistiky",
-    "subtitle": "Souhrn sbírky.",
     "labelFinds": "{count, plural, one {🍀} few {🍀} other {🍀}}",
     "labelLocations": "{count, plural, one {lokalita} few {lokality} other {lokalit}}",
     "labelCountries": "{count, plural, one {stát} few {státy} other {států}}",

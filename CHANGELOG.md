@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /statistiky — přeřazení spodních sekcí + zrušený podtitulek
+- Spodní sekce jsou teď v pořadí **Kalendářní statistiky → 🍀 podle
+  vzdálenosti → Odchýlené 🍀** (Odchýlené šly na úplný konec, Kalendář a
+  Vzdálenost se prohodily).
+- Odstraněn podtitulek **„Souhrn sbírky."** pod nadpisem (+ nepoužitý klíč
+  `subtitle`).
+
 ### /statistiky — kosmetika doby sbírání a „Nejrychlejších N"
 - Panel „Odhadovaná doba sbírání": „(Ø … 🍀 / hledání) + baseline" je teď na
   **samostatném řádku** pod hlavní větou.
