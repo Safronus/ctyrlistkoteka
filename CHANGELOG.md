@@ -9,6 +9,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Cache-bust: `FIND_PHOTO_ASSET_VERSION` 2 → 3
+- Po nočním re-syncu vodoznaku (světlý primární + max. kontrast) bumpnuta verze
+  → všechny `<img src>` fotek nálezů mají `?v=3`, takže prohlížeče stáhnou nové
+  světlé vodoznaky místo starých tmavých z `immutable` cache.
+
 ### Fix: GPS → země přesnější na hranicích (Natural Earth 50m)
 - Point-in-polygon pro zařazení lokality do státu jel na **Natural Earth 110m**
   (nejhrubší). U říčních hranic to mýlilo — Štúrovo (SK, severní břeh Dunaje)

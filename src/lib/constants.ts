@@ -22,9 +22,10 @@ export const WEB_QUALITY = 85;
  * keeping `immutable`'s efficiency within a version. Bump on ANY in-place
  * find-photo regeneration. Location maps are NOT versioned — they aren't
  * regenerated, so their URLs stay stable and indefinitely cacheable.
- *   1 = pre-watermark · 2 = watermark + portrait unification (2026-07-15)
+ *   1 = pre-watermark · 2 = watermark + portrait unification (2026-07-15) ·
+ *   3 = pale-primary max-contrast watermark re-sync (2026-07-16)
  */
-export const FIND_PHOTO_ASSET_VERSION = 2;
+export const FIND_PHOTO_ASSET_VERSION = 3;
 // Location-map thumbnail: the full map (~800 px) is served for ~80–200 px
 // list/sidebar thumbnails — a ~4× overdraw PageSpeed flagged (~0.5 MB on
 // /lokality). This small variant (`{sha}-thumb.webp`) covers those; the
