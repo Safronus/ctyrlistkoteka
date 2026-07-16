@@ -418,6 +418,7 @@ export function FilterBar({
               country/city (visibleLocations). */}
           <LocationCombobox
             locations={visibleLocations}
+            countries={options.countries}
             selectedLabel={selectedLocation?.label ?? null}
             facets={facets.locations}
             onSelect={(l) =>

@@ -31,6 +31,7 @@ function fold(s: string): string {
 
 export function LocationCombobox({
   locations,
+  countries,
   selectedLabel,
   facets,
   onSelect,
@@ -44,6 +45,9 @@ export function LocationCombobox({
   /** Cascade-narrowed list to search (already limited to the picked
    *  country/city, if any). */
   locations: ReadonlyArray<ComboLocation>;
+  /** Localized `{ code, name }`, ordered — drives the country group headers
+   *  (restoring the old `<optgroup>` grouping) and their order. */
+  countries: ReadonlyArray<{ code: string; name: string }>;
   /** Label of the currently selected location, or null when none is set —
    *  resolved by the parent so it shows even if the cascade would hide it. */
   selectedLabel: string | null;
@@ -93,6 +97,34 @@ export function LocationCombobox({
     return list.slice(0, 200);
   }, [locations, query]);
 
+  // Group the filtered list by country, ordered by the `countries` list —
+  // restoring the old <optgroup> grouping. Stray codes (incl. "" = no
+  // country) are appended after the known ones.
+  const grouped = useMemo(() => {
+    const byCode = new Map<string, ComboLocation[]>();
+    for (const l of filtered) {
+      const arr = byCode.get(l.country);
+      if (arr) arr.push(l);
+      else byCode.set(l.country, [l]);
+    }
+    const order = countries.map((c) => c.code).filter((c) => byCode.has(c));
+    for (const code of byCode.keys()) if (!order.includes(code)) order.push(code);
+    const nameOf = new Map(countries.map((c) => [c.code, c.name]));
+    return order.map((code) => ({
+      code,
+      name: nameOf.get(code) ?? "",
+      items: byCode.get(code) ?? [],
+    }));
+  }, [filtered, countries]);
+
+  // Grouped-flattened item order drives keyboard nav + each row's data-idx.
+  const flatOrder = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);
+  const idxById = useMemo(() => {
+    const m = new Map<number, number>();
+    flatOrder.forEach((l, i) => m.set(l.id, i));
+    return m;
+  }, [flatOrder]);
+
   useEffect(() => setActiveIdx(0), [query]);
 
   const choose = (l: ComboLocation) => {
@@ -113,13 +145,13 @@ export function LocationCombobox({
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIdx((i) => Math.min(i + 1, filtered.length - 1));
+      setActiveIdx((i) => Math.min(i + 1, flatOrder.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIdx((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const l = filtered[activeIdx];
+      const l = flatOrder[activeIdx];
       if (l) choose(l);
     }
   };
@@ -173,7 +205,10 @@ export function LocationCombobox({
               </button>
             )}
           </div>
-          <ul ref={listRef} className="max-h-64 overflow-auto py-1 text-sm">
+          <ul
+            ref={listRef}
+            className="max-h-64 overflow-auto overscroll-contain py-1 text-sm"
+          >
             <li>
               <button
                 type="button"
@@ -183,27 +218,41 @@ export function LocationCombobox({
                 {allLabel}
               </button>
             </li>
-            {filtered.map((l, i) => (
-              <li key={l.id}>
-                <button
-                  type="button"
-                  data-idx={i}
-                  onClick={() => choose(l)}
-                  onMouseEnter={() => setActiveIdx(i)}
-                  className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left ${
-                    i === activeIdx ? "bg-brand-50" : ""
-                  }`}
-                >
-                  <span className="min-w-0 break-words text-gray-900">
-                    {l.label}
-                  </span>
-                  <span className="shrink-0 text-xs text-gray-400">
-                    {formatCount(facets[l.id] ?? 0)}
-                  </span>
-                </button>
+            {grouped.map((g) => (
+              <li key={g.code || "_none"}>
+                {grouped.length > 1 && g.name && (
+                  <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                    {g.name}
+                  </div>
+                )}
+                <ul>
+                  {g.items.map((l) => {
+                    const i = idxById.get(l.id) ?? 0;
+                    return (
+                      <li key={l.id}>
+                        <button
+                          type="button"
+                          data-idx={i}
+                          onClick={() => choose(l)}
+                          onMouseEnter={() => setActiveIdx(i)}
+                          className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left ${
+                            i === activeIdx ? "bg-brand-50" : ""
+                          }`}
+                        >
+                          <span className="min-w-0 break-words text-gray-900">
+                            {l.label}
+                          </span>
+                          <span className="shrink-0 text-xs text-gray-400">
+                            {formatCount(facets[l.id] ?? 0)}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
               </li>
             ))}
-            {filtered.length === 0 && (
+            {flatOrder.length === 0 && (
               <li className="px-3 py-2 text-gray-400">{emptyLabel}</li>
             )}
           </ul>

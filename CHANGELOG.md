@@ -16,7 +16,9 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   (`fold()`: NFD + strip diakritiky + jen `[a-z0-9]`), a matchuje se i **číslo
   lokality** (syrové i doplněné nulami). Klávesnice (šipky/Enter/Esc), počty
   nálezů u položek, výběr pořád pinuje město + stát. Nepoužitý `locationGroups`
-  odstraněn.
+  odstraněn. Panel se roztáhne podle obsahu (dlouhé názvy se vejdou), seznam
+  je **seskupený podle států** (jako dřív `<optgroup>`) a má `overscroll-contain`
+  (doscrollování konce už neposune celou stránku).
 
 ### Perf: filtry Stát/Město zpět rychlé (cache location→country)
 - Po přechodu geo resolveru na 50m (přesnější hranice) zpomalily filtry podle
