@@ -17,6 +17,9 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   `listLocations`. Obojí teď **znovupoužívá cachované rozlišení** (getFilterOptions,
   resp. nová `getLocationCountryCodes`, oboje 5 min) → geo se spočítá 1× za
   okno, filtr je jen `Array.filter`. Přesnost 50m zůstává.
+- Navíc `countryFromCoords` dostal **bbox pre-filtr**: bod mimo bounding-box
+  země přeskočí drahý ray-cast (177 testů → hrstka), ~4× rychleji. Zlevňuje i
+  ten studený přepočet za oknem. Ověřeno, že klasifikace se nemění.
 
 ### /admin — proklik na WebP verzi v detailu originálu/ořezu
 - Detail souboru (`/admin/files/finds|crops/<jméno>`) má teď pod náhledem

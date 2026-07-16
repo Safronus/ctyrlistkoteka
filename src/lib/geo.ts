@@ -31,6 +31,7 @@
 
 import type { Geometry, Position } from "geojson";
 import { getWorldCountriesHiRes } from "@/lib/world-countries-hires";
+import type { CountriesFC } from "@/lib/world-countries";
 
 export interface CountryRef {
   /** ISO 3166-1 numeric code as a string ("203" = Česko). Doubles as
@@ -57,6 +58,46 @@ const UNKNOWN: CountryRef = { code: "??", name: "Elsewhere" };
  *  unambiguous coastlines (e.g. tidal flats, ria coasts). */
 const NEAR_FALLBACK_KM = 100;
 
+/** Per-feature bounding boxes `[minLng, minLat, maxLng, maxLat]`, memoized
+ *  against the FeatureCollection instance (getWorldCountriesHiRes returns a
+ *  stable cached one). A point outside a country's bbox is definitely outside
+ *  its polygon, so we skip its (50m, high-vertex) ray-cast — most points fall
+ *  inside only 1–3 country bboxes, turning ~177 polygon tests into a handful.
+ *  This is what keeps the 50m resolver cheap enough for the per-window scans. */
+let bboxFc: CountriesFC | null = null;
+let bboxes: Array<[number, number, number, number]> = [];
+
+function bboxesFor(fc: CountriesFC): Array<[number, number, number, number]> {
+  if (bboxFc === fc) return bboxes;
+  bboxes = fc.features.map((f) => geometryBbox(f.geometry));
+  bboxFc = fc;
+  return bboxes;
+}
+
+function geometryBbox(geom: Geometry): [number, number, number, number] {
+  let minLng = Infinity;
+  let minLat = Infinity;
+  let maxLng = -Infinity;
+  let maxLat = -Infinity;
+  const scan = (rings: Position[][]): void => {
+    for (const ring of rings) {
+      for (const v of ring) {
+        const lng = v[0];
+        const lat = v[1];
+        if (lng === undefined || lat === undefined) continue;
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+      }
+    }
+  };
+  if (geom.type === "Polygon") scan(geom.coordinates);
+  else if (geom.type === "MultiPolygon")
+    for (const poly of geom.coordinates) scan(poly);
+  return [minLng, minLat, maxLng, maxLat];
+}
+
 /**
  * Returns the most likely country for the given lat/lng. Falls back to
  * `{ code: "??", name: "Elsewhere" }` for points in international
@@ -64,16 +105,27 @@ const NEAR_FALLBACK_KM = 100;
  */
 export function countryFromCoords(lat: number, lng: number): CountryRef {
   const fc = getWorldCountriesHiRes();
+  const boxes = bboxesFor(fc);
+  // Pass 1 — containment, bbox-filtered. A point on land returns here after
+  // ray-casting only the handful of countries whose bbox actually covers it.
+  for (let i = 0; i < fc.features.length; i++) {
+    const b = boxes[i]!;
+    if (lng < b[0] || lng > b[2] || lat < b[1] || lat > b[3]) continue;
+    const f = fc.features[i]!;
+    if (geometryContains(f.geometry, lng, lat)) {
+      return {
+        code: f.properties.id || "??",
+        name: f.properties.name || UNKNOWN.name,
+      };
+    }
+  }
+  // Pass 2 — near-coast fallback: nearest country by vertex distance, capped at
+  // NEAR_FALLBACK_KM. Only reached for points inside NO polygon (small islands
+  // dropped by the simplification, coastal noise), so this full O(vertices)
+  // scan — which can't bbox-skip — stays off the hot path.
   let nearest: { props: { id: string; name: string }; distKm: number } | null =
     null;
   for (const f of fc.features) {
-    if (geometryContains(f.geometry, lng, lat)) {
-      const props = f.properties;
-      return {
-        code: props.id || "??",
-        name: props.name || UNKNOWN.name,
-      };
-    }
     const d = minVertexDistanceKm(f.geometry, lat, lng);
     if (d !== null && (!nearest || d < nearest.distKm)) {
       nearest = { props: f.properties, distKm: d };
