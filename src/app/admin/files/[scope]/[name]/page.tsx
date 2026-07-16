@@ -34,7 +34,7 @@ import {
   type SectionKey,
 } from "@/lib/admin/jsonSchema";
 import { parseFindFilename } from "@/lib/parseFilename";
-import { FindState } from "@prisma/client";
+import { FindState, ImageType } from "@prisma/client";
 import { DeleteCropButton } from "../../crops/delete-button";
 import { renameCrop } from "../../crops/rename-action";
 import { renameFindOriginal } from "../../finds/rename-action";
@@ -62,6 +62,7 @@ import { MapMetadataPreview } from "../../maps/metadata-preview";
 import { MapRealPhotoCard } from "../../maps/real-photo-card";
 import { MapReplaceDropzone } from "../../maps/replace-dropzone";
 import { prisma } from "@/lib/db";
+import { versionedPhotoUrl } from "@/lib/assetVersion";
 import { getFindPhotos } from "@/lib/findPhotos";
 import { getFindFreePhotos } from "@/lib/findFreePhotos";
 import { resolveLocationMapPhoto } from "@/lib/locationPhotos";
@@ -256,6 +257,23 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
     scope.slug === "finds" && findParsed?.ok
       ? await getFindFreePhotos(findParsed.value.findId)
       : [];
+
+  // Generated WebP variant for this source original / crop — lets the detail
+  // link straight to what the site actually serves (watermark, portrait
+  // orientation, quality). `info.name` is the DB-stored originalFilename;
+  // scope disambiguates ORIGINAL vs CROP (they can share a basename across
+  // data/finds and data/crops).
+  const generatedWebp =
+    scope.slug === "finds" || scope.slug === "crops"
+      ? await prisma.findImage.findFirst({
+          where: {
+            originalFilename: info.name,
+            imageType:
+              scope.slug === "crops" ? ImageType.CROP : ImageType.ORIGINAL,
+          },
+          select: { webPath: true, thumbPath: true },
+        })
+      : null;
 
   // For photo-detail pages (donation + free), resolve the find ID
   // embedded in the photo filename back to the matching original on
@@ -666,6 +684,34 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
             className="mx-auto block max-h-[60vh] w-auto rounded"
           />
         </figure>
+      )}
+
+      {/* Click-through to the generated WebP variant the site actually serves
+          (watermark, portrait orientation, quality) — handy for eyeballing the
+          derived output, and the only preview for HEIC sources the browser
+          can't render. `?v=` cache-busts to the current asset version. */}
+      {generatedWebp?.webPath && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-gray-500">Vygenerovaná WebP verze:</span>
+          <a
+            href={versionedPhotoUrl(generatedWebp.webPath)}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 font-medium text-brand-700 transition hover:bg-brand-100"
+          >
+            web →
+          </a>
+          {generatedWebp.thumbPath && (
+            <a
+              href={versionedPhotoUrl(generatedWebp.thumbPath)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 font-medium text-gray-700 transition hover:bg-gray-100"
+            >
+              thumb →
+            </a>
+          )}
+        </div>
       )}
 
       {/* Per-find unlock code editor — donation-photos detail only.

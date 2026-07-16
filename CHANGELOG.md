@@ -9,6 +9,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /admin — proklik na WebP verzi v detailu originálu/ořezu
+- Detail souboru (`/admin/files/finds|crops/<jméno>`) má teď pod náhledem
+  odkaz **„Vygenerovaná WebP verze: web → / thumb →"** — otevře skutečně
+  servírovanou WebP variantu (vodoznak, orientace, kvalita), s `?v=` proti
+  cache. Funguje i u HEIC originálů, které prohlížeč nenáhleduje.
+
 ### Cache-bust: `FIND_PHOTO_ASSET_VERSION` 2 → 3
 - Po nočním re-syncu vodoznaku (světlý primární + max. kontrast) bumpnuta verze
   → všechny `<img src>` fotek nálezů mají `?v=3`, takže prohlížeče stáhnou nové
