@@ -140,6 +140,8 @@
     "country": "Country",
     "city": "City",
     "location": "Location",
+    "locationSearchPlaceholder": "Search location (code or number)…",
+    "locationSearchEmpty": "Nothing found",
     "state": "State",
     "year": "Year",
     "clearAll": "Clear filters",

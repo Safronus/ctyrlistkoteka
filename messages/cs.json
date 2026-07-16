@@ -139,6 +139,8 @@
     "country": "Stát",
     "city": "Město",
     "location": "Lokalita",
+    "locationSearchPlaceholder": "Hledat lokalitu (kód nebo číslo)…",
+    "locationSearchEmpty": "Nic nenalezeno",
     "state": "Stav",
     "year": "Rok",
     "clearAll": "Zrušit filtry",

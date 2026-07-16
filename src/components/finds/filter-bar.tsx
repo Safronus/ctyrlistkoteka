@@ -8,6 +8,7 @@ import type { FacetCounts, FilterOptions } from "@/lib/queries/finds";
 import type { FindState } from "@prisma/client";
 import { RETIRED_STATES } from "@/lib/stateLabels";
 import { StateMultiSelect } from "./state-multi-select";
+import { LocationCombobox } from "./location-combobox";
 
 const INPUT_CLS =
   "h-10 rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
@@ -250,20 +251,6 @@ export function FilterBar({
       ),
     [visibleCities, facets.cities, effectiveCity, options.countries],
   );
-  const locationGroups = useMemo(
-    () =>
-      groupByCountry(
-        visibleLocations.filter(
-          (l) =>
-            (facets.locations[l.id] ?? 0) > 0 ||
-            String(l.id) === current.locationId,
-        ),
-        (l) => l.country,
-        options.countries,
-      ),
-    [visibleLocations, facets.locations, current.locationId, options.countries],
-  );
-
   const nf = useMemo(
     () => new Intl.NumberFormat(locale === "en" ? "en-GB" : "cs-CZ"),
     [locale],
@@ -421,57 +408,33 @@ export function FilterBar({
           </div>
         </label>
 
-        <label className="sm:col-span-2 lg:col-span-2">
+        <div className="sm:col-span-2 lg:col-span-2">
           <span className="mb-1 block text-xs font-medium text-gray-700">
             {t("location")}
           </span>
-          <div className="relative">
-            <select
-              value={current.locationId}
-              onChange={(e) => {
-                const loc = e.currentTarget.value;
-                const location = options.locations.find(
-                  (l) => String(l.id) === loc,
-                );
-                // Picking a location pins its city + country too, so the
-                // three selects stay mutually consistent.
-                if (location) {
-                  updateMany({
-                    loc,
-                    city: location.city,
-                    country: location.country,
-                  });
-                } else {
-                  updateMany({ loc });
-                }
-              }}
-              className={`${SELECT_CLS} w-full`}
-            >
-              <option value="">{tCommon("all")}</option>
-              {locationGroups.length > 1
-                ? locationGroups.map((g) => (
-                    <optgroup key={g.code} label={g.name}>
-                      {g.items.map((l) => (
-                        <option key={l.id} value={String(l.id)}>
-                          {withCount(l.label, facets.locations[l.id])}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))
-                : locationGroups
-                    .flatMap((g) => g.items)
-                    .map((l) => (
-                      <option key={l.id} value={String(l.id)}>
-                        {withCount(l.label, facets.locations[l.id])}
-                      </option>
-                    ))}
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-              aria-hidden
-            />
-          </div>
-        </label>
+          {/* Searchable typeahead — 200+ locations are unusable in a native
+              <select>. Picking one pins its city + country so the three stay
+              consistent; the list is already narrowed by any picked
+              country/city (visibleLocations). */}
+          <LocationCombobox
+            locations={visibleLocations}
+            selectedLabel={selectedLocation?.label ?? null}
+            facets={facets.locations}
+            onSelect={(l) =>
+              updateMany({
+                loc: String(l.id),
+                city: l.city,
+                country: l.country,
+              })
+            }
+            onClear={() => update("loc", "")}
+            buttonCls={`${INPUT_CLS} w-full`}
+            allLabel={tCommon("all")}
+            searchPlaceholder={t("locationSearchPlaceholder")}
+            emptyLabel={t("locationSearchEmpty")}
+            formatCount={(n) => nf.format(n)}
+          />
+        </div>
 
         <div>
           <span className="mb-1 block text-xs font-medium text-gray-700">

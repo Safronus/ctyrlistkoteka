@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /sbirka — filtr Lokalita jako našeptávač
+- Nativní `<select>` s 200+ lokalitami nahrazen **searchable comboboxem**
+  (`LocationCombobox`): tlačítko → panel s hledáním. Hledá se **kdekoli v
+  řetězci**, **bez ohledu na velikost písmen, diakritiku i interpunkci**
+  (`fold()`: NFD + strip diakritiky + jen `[a-z0-9]`), a matchuje se i **číslo
+  lokality** (syrové i doplněné nulami). Klávesnice (šipky/Enter/Esc), počty
+  nálezů u položek, výběr pořád pinuje město + stát. Nepoužitý `locationGroups`
+  odstraněn.
+
 ### Perf: filtry Stát/Město zpět rychlé (cache location→country)
 - Po přechodu geo resolveru na 50m (přesnější hranice) zpomalily filtry podle
   státu/města na /sbirka i /lokality na 2–4 s: `countryFromCoords` (teď ~7×
