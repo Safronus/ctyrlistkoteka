@@ -1617,28 +1617,24 @@ export async function getHighlightFind(
  *  the main find query. The locations table is small (~128 rows), so
  *  this scan is cheap. */
 /**
- * Location ids whose centre falls in `country`. Resolving the country of a
- * point is a JS polygon test (`countryFromCoords`) run over every location,
- * so this is ~O(locations) geometry per call — and getFacetCounts + listFinds
- * call it 6–7× per /sbirka render (once per facet's `whereFor` + listFinds).
- * Wrapping it in React `cache()` de-dupes all those calls within a single
- * request to ONE execution — the dominant cost of a country/location-filtered
- * page (measured: ~1.75 s → collapses to ~0.25 s under `?country=CZ`).
+ * Location ids whose centre falls in `country`. Resolving a point's country is
+ * a JS polygon test (`countryFromCoords`) over every location — ~O(locations)
+ * geometry — and getFacetCounts + listFinds ask for it 6–7× per /sbirka render.
+ *
+ * We DON'T run that scan here: `getFilterOptions()` already resolves every
+ * location's country and is `unstable_cache`d for 5 min, so we reuse its map
+ * and this collapses to a plain array filter. Re-scanning per request was the
+ * bulk of a country/city-filtered page's time, and it got ~7× heavier when the
+ * resolver moved to the 50m dataset (higher-vertex polygons) — reusing the
+ * cached resolution takes that cost out of the request path entirely. The
+ * React `cache()` still de-dupes the 6–7 same-country calls within a request.
  */
 const locationIdsInCountry = cache(
   async (country: string): Promise<number[]> => {
-    const rows = await prisma.$queryRaw<
-      Array<{ id: number; lat: number; lng: number }>
-    >`
-      SELECT id,
-             ST_Y(center_point)::float8 AS lat,
-             ST_X(center_point)::float8 AS lng
-      FROM "locations"
-      WHERE center_point IS NOT NULL
-    `;
-    return rows
-      .filter((r) => countryFromCoords(r.lat, r.lng).code === country)
-      .map((r) => r.id);
+    const { locations } = await getFilterOptions();
+    return locations
+      .filter((l) => l.country === country)
+      .map((l) => l.id);
   },
 );
 

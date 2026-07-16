@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Perf: filtry Stát/Město zpět rychlé (cache location→country)
+- Po přechodu geo resolveru na 50m (přesnější hranice) zpomalily filtry podle
+  státu/města na /sbirka i /lokality na 2–4 s: `countryFromCoords` (teď ~7×
+  víc vrcholů) běžel **per-request přes všechny lokality** — na /sbirka v
+  `locationIdsInCountry` (jen React-cache, ne napříč requesty), na /lokality v
+  `listLocations`. Obojí teď **znovupoužívá cachované rozlišení** (getFilterOptions,
+  resp. nová `getLocationCountryCodes`, oboje 5 min) → geo se spočítá 1× za
+  okno, filtr je jen `Array.filter`. Přesnost 50m zůstává.
+
 ### /admin — proklik na WebP verzi v detailu originálu/ořezu
 - Detail souboru (`/admin/files/finds|crops/<jméno>`) má teď pod náhledem
   odkaz **„Vygenerovaná WebP verze: web → / thumb →"** — otevře skutečně

@@ -8,6 +8,7 @@
  */
 
 import { FindState, ImageType, Prisma } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import {
   DEFAULT_LOCATION_ID,
@@ -302,6 +303,33 @@ export async function listCountries(): Promise<
     .map(([code, name]) => ({ code, name }))
     .sort((a, b) => a.name.localeCompare(b.name, "cs"));
 }
+
+/**
+ * Location id → ISO country code, resolved via the point-in-polygon test ONCE
+ * per cache window. `listLocations` reuses this to filter by country instead of
+ * running `countryFromCoords` over every row on every request — that per-
+ * request scan was cheap at 110m but got ~7× heavier at 50m (higher-vertex
+ * polygons), which showed up as multi-second country/city filters. Locations
+ * change only on `sync`, so a 5-minute revalidate is plenty.
+ */
+const getLocationCountryCodes = unstable_cache(
+  async (): Promise<Record<number, string>> => {
+    const rows = await prisma.$queryRaw<
+      Array<{ id: number; lat: number; lng: number }>
+    >`
+      SELECT id,
+             ST_Y(center_point)::float8 AS lat,
+             ST_X(center_point)::float8 AS lng
+      FROM "locations"
+      WHERE center_point IS NOT NULL
+    `;
+    const map: Record<number, string> = {};
+    for (const r of rows) map[r.id] = countryFromCoords(r.lat, r.lng).code;
+    return map;
+  },
+  ["location-country-codes"],
+  { revalidate: 300 },
+);
 
 const EMPTY_STATS: LocationStats = {
   total: 0,
@@ -792,13 +820,14 @@ export async function listLocations(
   // the row outcomes. Locations without public coordinates (anonymized
   // or center missing) drop out — they can't be confirmed to belong.
   if (filter.country) {
-    items = items.filter((it) => {
-      if (!it.coordinates) return false;
-      return (
-        countryFromCoords(it.coordinates.lat, it.coordinates.lng).code ===
-        filter.country
-      );
-    });
+    // Reuse the cached id → country map instead of re-running the (50m,
+    // higher-vertex) point-in-polygon per row on every request. `!it.coordinates`
+    // still drops anonymized / centre-missing rows (they can't be confirmed to
+    // belong) — matching the previous behaviour.
+    const codes = await getLocationCountryCodes();
+    items = items.filter(
+      (it) => !!it.coordinates && codes[it.id] === filter.country,
+    );
   }
 
   // ------------------------------------------------------------ hierarchy aggregates
