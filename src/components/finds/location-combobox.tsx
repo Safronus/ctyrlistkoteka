@@ -147,7 +147,7 @@ export function LocationCombobox({
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 z-20 mt-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+        <div className="absolute left-0 z-20 mt-1 w-max min-w-full max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
           <div className="flex items-center gap-2 border-b border-gray-100 px-2.5">
             <Search className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
             <input
@@ -194,7 +194,9 @@ export function LocationCombobox({
                     i === activeIdx ? "bg-brand-50" : ""
                   }`}
                 >
-                  <span className="truncate text-gray-900">{l.label}</span>
+                  <span className="min-w-0 break-words text-gray-900">
+                    {l.label}
+                  </span>
                   <span className="shrink-0 text-xs text-gray-400">
                     {formatCount(facets[l.id] ?? 0)}
                   </span>
