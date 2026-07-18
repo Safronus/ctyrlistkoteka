@@ -12,7 +12,7 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 ### /mapa — méně citlivý zoom kolečkem
 - Zoom kolečkem byl přecitlivělý (Apple Magic Mouse posílá dávku momentum
   eventů, takže drobný pohyb naskočil o 4–5 úrovní). `wheelPxPerZoomLevel`
-  zvýšen z výchozích 60 na **200** — jemný pohyb ≈ jedna úroveň, a přitom to
+  zvýšen z výchozích 60 na **250** — jemný pohyb ≈ jedna úroveň, a přitom to
   není líné pro klasické kolečko.
 
 ### /sbirka — filtr Lokalita jako našeptávač
