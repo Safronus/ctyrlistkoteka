@@ -9,6 +9,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /mapa — méně citlivý zoom kolečkem
+- Zoom kolečkem byl přecitlivělý (Apple Magic Mouse posílá dávku momentum
+  eventů, takže drobný pohyb naskočil o 4–5 úrovní). `wheelPxPerZoomLevel`
+  zvýšen z výchozích 60 na **200** — jemný pohyb ≈ jedna úroveň, a přitom to
+  není líné pro klasické kolečko.
+
 ### /sbirka — filtr Lokalita jako našeptávač
 - Nativní `<select>` s 200+ lokalitami nahrazen **searchable comboboxem**
   (`LocationCombobox`): tlačítko → panel s hledáním. Hledá se **kdekoli v

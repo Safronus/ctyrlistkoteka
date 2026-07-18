@@ -193,6 +193,12 @@ export function MapView({
       center={CZ_CENTER}
       zoom={CZ_ZOOM}
       scrollWheelZoom
+      // Tame wheel-zoom sensitivity: Leaflet's default is 60 px of accumulated
+      // wheel delta per zoom level, and an Apple Magic Mouse fires a burst of
+      // high-delta momentum events, so a small flick jumped 4–5 levels at once.
+      // ~3× the threshold makes a nudge ≈ one level without feeling sluggish
+      // for a regular click-wheel.
+      wheelPxPerZoomLevel={200}
       style={{ width: "100%", height: "100%" }}
       aria-label={t("mapAria")}
     >
