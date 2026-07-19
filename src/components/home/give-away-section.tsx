@@ -208,8 +208,8 @@ export function GiveAwaySection({ count, lastDonated, t, nf, field }: Props) {
       </div>
 
       {/* 1 · Offer + LinkedIn (the flood shows through behind it). */}
-      <div className="relative mx-auto flex min-h-[15rem] max-w-md items-center justify-center px-4 py-4">
-        <div className="mx-auto max-w-md">
+      <div className="relative mx-auto flex min-h-[15rem] max-w-2xl items-center justify-center px-4 py-4">
+        <div className="mx-auto max-w-2xl">
           <div className="text-3xl" aria-hidden>
             🍀💌
           </div>
