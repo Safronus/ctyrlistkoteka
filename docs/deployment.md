@@ -204,6 +204,92 @@ Přidej:
 > do cronu, ne do request-flow). Když crontab tyhle řádky nemá, adresáře
 > rostou donekonečna — `crontab -l` ověří, jestli tam už jsou.
 
+### Off-site zálohy na UNAS (od 07/2026)
+
+Denní `pg_dump` chrání jen proti chybě v datech — leží na tom samém stroji.
+Druhá kopie je doma na **UniFi UNAS Pro** (Debian userland, `rsync` + `cron`,
+73 TB pole).
+
+**Směr je PULL, ne push.** UNAS si data stahuje sám; VPS o NASu neví, nemá
+k němu cestu ani přihlašovací údaje. Kdo ovládne server, na zálohy nedosáhne
+— při push modelu by je smazal spolu se vším ostatním.
+
+```
+VPS                                    UNAS (doma)
+─────────────────────────────────      ──────────────────────────────
+backup.sh          03:00  →  DB dump
+offsite-stage.sh   03:10  →  .offsite/ ←── unas-pull.sh  04:30
+                                             │  rsync + hardlink snapshoty
+offsite-freshness  06:40  ←── .last-pull ────┘  (ping druhým klíčem)
+```
+
+| Skript | Kde běží | Co dělá |
+| --- | --- | --- |
+| `deploy/backup.sh` | VPS 03:00 | ověřený `pg_dump` |
+| `deploy/offsite-stage.sh` | VPS 03:10 | posbírá DB dump (hardlink), zašifruje `.env`, uloží crontab + nginx conf, zapíše manifest |
+| `deploy/unas-pull.sh` | UNAS 04:30 | `rsync` celého `/var/ctyrlistkoteka` → datované snapshoty |
+| `deploy/offsite-freshness.sh` | VPS 06:40 | křikne, když se UNAS 3 dny neozval |
+
+**SSH klíče na VPS** (`/home/app/.ssh/authorized_keys`) — dva, oba
+s vynuceným příkazem, takže ani jeden nedá shell:
+
+```
+command="rrsync -ro /var/ctyrlistkoteka",restrict ssh-ed25519 … unas-pull-ro
+command="touch /var/ctyrlistkoteka/.offsite/.last-pull",restrict ssh-ed25519 … unas-pull-ping
+```
+
+Klíč na data umí jen číst přes `rrsync` a jen uvnitř `/var/ctyrlistkoteka`
+— absolutní cesty odmítne. Ping klíč neumí nic než ten jeden `touch`.
+
+**Snapshoty přes hardlinky:** `rsync --link-dest` na předchozí den, takže
+30 denních kopií 27GB stromu zabere ~27 GB, ne 810 GB. Nezměněné soubory
+sdílí inode.
+
+> ⚠️ **Po každém firmware updatu UNASu zkontroluj cron.** UniFi drží `/` na
+> overlayfs a update ho resetuje — skript v `/persistent` přežije, ale
+> `/etc/cron.d/ctyrlistkoteka-backup` **ne**. Právě proto existuje
+> `offsite-freshness.sh`: jinak by se zálohy zastavily tiše a zjistilo by se
+> to až při obnově. Obnovení entry:
+> ```bash
+> printf '30 4 * * * root /persistent/ctyrlistkoteka/unas-pull.sh >> /persistent/ctyrlistkoteka/pull.log 2>&1\n' \
+>   > /etc/cron.d/ctyrlistkoteka-backup
+> ```
+
+**Šifrovaný `.env`:** passphrase je v `/etc/ctyrlistkoteka/offsite.pass`
+(mode 600) **a ve správci hesel majitele**. Bez ní je `env.enc`
+nepoužitelný. Rozšifrování:
+
+```bash
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+  -in env.enc -out env.recovered -pass file:/cesta/k/passphrase
+```
+
+### Obnova ze zálohy
+
+Databáze ze snapshotu na UNASu (cesta `…/CtyrlistkotekaBackups/.data/snapshots/<datum>/`):
+
+```bash
+# 1. na čistý server / do kontejneru
+createdb -U ctyrlist ctyrlistkoteka
+psql -U ctyrlist -d ctyrlistkoteka -c 'CREATE EXTENSION IF NOT EXISTS postgis;'
+
+# 2. dump je custom format → pg_restore, klidně paralelně
+pg_restore -U ctyrlist -d ctyrlistkoteka --no-owner --no-privileges -j4 \
+  .offsite/ctyrlistkoteka-<datum>.dump
+
+# 3. kontrola
+psql -U ctyrlist -d ctyrlistkoteka -tAc \
+  "select 'finds='||(select count(*) from finds)||' locations='||(select count(*) from locations);"
+```
+
+Fotky se obnoví prostým zkopírováním `data/` a `generated/` ze snapshotu na
+místo. `generated/` je odvozené — v nouzi se dá přegenerovat ze `sync`u, ale
+je to na desítky hodin, proto se zálohuje taky.
+
+> **Testuj obnovu, ne existenci souborů.** Ověřeno naposledy 2026-07-20:
+> dump z produkce nahrán do čistého PG17 + PostGIS, appka nad ním naběhla
+> a čísla na `/statistiky` i `/lokality` seděla na produkci.
+
 ---
 
 ## 5. Filesystem rozložení
