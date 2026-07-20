@@ -95,6 +95,13 @@ export function parseMapPackageManifest(
     m.popis = m.popis.normalize("NFC");
     if (m.geo_adresa) m.geo_adresa = m.geo_adresa.normalize("NFC");
     m.mesto = m.mesto.normalize("NFC");
+    // File paths carry diacritics too (…/Ratiboř/…) and must match the NFC
+    // form both the zip iterator and the on-disk (Linux VPS) files use —
+    // otherwise sync's join(mapsDir, soubory) misses the staged file.
+    m.soubory["Nosné mapy"] = m.soubory["Nosné mapy"].normalize("NFC");
+    if (m.soubory["Rendered mapy"]) {
+      m.soubory["Rendered mapy"] = m.soubory["Rendered mapy"].normalize("NFC");
+    }
   }
   return { ok: true, value: parsed.data };
 }

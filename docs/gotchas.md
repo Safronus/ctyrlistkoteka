@@ -517,3 +517,26 @@ pro Prisma **CLI** (`migrate`/`generate`). Ale samostatné `tsx` skripty
   kde je `.env` už načtený a extra dotenv side-effect je zbytečný.
 - `dotenv` **nepřepisuje** už existující proměnné, takže je bezpečné i tam,
   kde je prostředí naplněné jinak (systemd `EnvironmentFile`, PM2 env).
+
+---
+
+## 17. ZIP + diakritika: yauzl bez UTF-8 flagu dekóduje názvy jako mojibake
+
+**Příznak:** import v2 balíčku map (samá diakritika v cestách,
+`Nosné mapy/CZ/Ratiboř/…`) najde 0 souborů, nebo je uloží pod rozbitými
+názvy (`Ratibo┼Ö`), takže je pak `sync` nenajde.
+
+**Proč:** yauzl UTF-8-dekóduje názvy jen když entry nastaví
+language-encoding flag (bit 11). macOS `ditto` i `zip -r` často zapisují
+UTF-8 **bajty bez toho flagu**, takže yauzl (default `decodeStrings: true`)
+spadne na CP437 → mojibake. NFC normalizace to nespraví — vstup je už
+rozbitý.
+
+**Jak aplikovat:**
+- Pro balíčky s diakritikou otevírej zip s `decodeStrings: false` a dekóduj
+  název sám: `raw.fileName /* Buffer */ .toString("utf8").normalize("NFC")`.
+  Viz `iterateZipUtf8` v `src/lib/admin/mapPackageImport.ts`.
+- Nespoléhej na to, čím uživatel zabalí (Finder / ditto / `zip`) — dekóduj
+  UTF-8 vždy.
+- Ověřuj přes yauzl (náš kód), NE přes `unzip -l` v terminálu — ten zobrazí
+  `??` kvůli locale, i když jsou bajty v pořádku, což mate diagnostiku.
