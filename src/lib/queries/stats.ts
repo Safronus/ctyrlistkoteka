@@ -1417,11 +1417,17 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
         -- NOTE: the ::float8 casts below are load-bearing — see the comment
         -- above this query.
         SELECT id,
-               CASE
-                 WHEN polygon IS NOT NULL
-                   THEN ST_Area(polygon::geography)::float8
-                 ELSE pi() * (${FIND_DEVIATION_RADIUS_M}::float8 * ${FIND_DEVIATION_RADIUS_M}::float8)
-               END AS area_m2
+               COALESCE(
+                 -- v2: precomputed area (polygon → real AOI, circle → π·r²).
+                 -- A v2 dot has NULL here and falls through — like a v1
+                 -- polygon-less location — to the 5 m circle below.
+                 aoi_area_m2,
+                 CASE
+                   WHEN polygon IS NOT NULL
+                     THEN ST_Area(polygon::geography)::float8
+                   ELSE pi() * (${FIND_DEVIATION_RADIUS_M}::float8 * ${FIND_DEVIATION_RADIUS_M}::float8)
+                 END
+               ) AS area_m2
         FROM locations
       )
       SELECT l.id,
@@ -1461,11 +1467,17 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
       ),
       areas AS (
         SELECT id,
-               CASE
-                 WHEN polygon IS NOT NULL
-                   THEN ST_Area(polygon::geography)::float8
-                 ELSE pi() * (${FIND_DEVIATION_RADIUS_M}::float8 * ${FIND_DEVIATION_RADIUS_M}::float8)
-               END AS area_m2
+               COALESCE(
+                 -- v2: precomputed area (polygon → real AOI, circle → π·r²).
+                 -- A v2 dot has NULL here and falls through — like a v1
+                 -- polygon-less location — to the 5 m circle below.
+                 aoi_area_m2,
+                 CASE
+                   WHEN polygon IS NOT NULL
+                     THEN ST_Area(polygon::geography)::float8
+                   ELSE pi() * (${FIND_DEVIATION_RADIUS_M}::float8 * ${FIND_DEVIATION_RADIUS_M}::float8)
+                 END
+               ) AS area_m2
         FROM locations
       )
       SELECT
