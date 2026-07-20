@@ -286,9 +286,21 @@ Fotky se obnoví prostým zkopírováním `data/` a `generated/` ze snapshotu na
 místo. `generated/` je odvozené — v nouzi se dá přegenerovat ze `sync`u, ale
 je to na desítky hodin, proto se zálohuje taky.
 
-> **Testuj obnovu, ne existenci souborů.** Ověřeno naposledy 2026-07-20:
-> dump z produkce nahrán do čistého PG17 + PostGIS, appka nad ním naběhla
-> a čísla na `/statistiky` i `/lokality` seděla na produkci.
+> **Testuj obnovu, ne existenci souborů.** Poslední cvičná obnova
+> **2026-07-20**, a to ze **snapshotu na UNASu** — ne z originálu na VPS,
+> aby se ověřil celý řetězec produkce → dump → staging → rsync → obnova:
+>
+> | Kontrola | Výsledek |
+> | --- | --- |
+> | `pg_restore --list` | archiv čitelný |
+> | `pg_restore -j4` do čistého PG17 + PostGIS | bez chyb |
+> | `finds` | 18 532 = shodné s živou produkcí |
+> | `locations` / `find_images` / `location_maps` | 207 / 37 064 / 207 |
+> | PostGIS geometrie | 104 polygonů, součet ploch 186 036 m² |
+> | `env.enc` rozšifrován passphrasí ze správce hesel | 45 řádků, 15 proměnných |
+>
+> Ten poslední řádek je stejně důležitý jako databáze: ověřuje, že uložená
+> passphrase je opravdu ta, která k záloze patří.
 
 ---
 
