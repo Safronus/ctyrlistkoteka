@@ -153,17 +153,38 @@ psql 'postgresql://ctyrlist:HESLO@localhost:5432/ctyrlistkoteka' -c 'SELECT post
 
 ### Denní zálohy
 
-```bash
-sudo mkdir -p /var/backups/postgres
-sudo chown app:app /var/backups/postgres
+> ⚠️ **Nepoužívej holý `pg_dump` v cronu.** Do 07/2026 tu stál jednořádkový
+> `pg_dump ctyrlistkoteka | gzip > …`, který běžel jako `app` přes unixový
+> socket. Uživatel `app` ale **nemá roli v Postgresu**, takže příkaz každou
+> noc selhal — jenže shell přesměrování soubor stejně vytvořilo a gzip do něj
+> zapsal pár bajtů hlavičky. Výsledek: celý adresář záloh měl **68 kB**
+> místo ~35 MB a nikdo si toho rok nevšiml. Používej `deploy/backup.sh`,
+> který se připojuje přes TCP a dump ověřuje.
 
-# crontab pro uživatele app
+Nejdřív přístup k databázi — `app` nemá roli, takže se chodí přes TCP
+jako `ctyrlist` s heslem v `~/.pgpass`:
+
+```bash
+sudo mkdir -p /var/backups/postgres && sudo chown app:app /var/backups/postgres
+sudo touch /var/log/ctyr-backup.log && sudo chown app:app /var/log/ctyr-backup.log
+
+# heslo vezmi z DATABASE_URL v .env
+echo '127.0.0.1:5432:ctyrlistkoteka:ctyrlist:HESLO' > ~/.pgpass
+chmod 600 ~/.pgpass
+
+# ověř, že to projde bez interaktivního dotazu na heslo:
+/var/www/ctyrlistkoteka/deploy/backup.sh
+```
+
+Skript musí vypsat `OK … (N B)` s N v jednotkách MB. Teprve pak do cronu:
+
+```bash
 crontab -e
 ```
 
 Přidej:
 ```
-0 3 * * * pg_dump ctyrlistkoteka | gzip > /var/backups/postgres/ctyrlistkoteka-$(date +\%F).sql.gz && find /var/backups/postgres -mtime +14 -delete
+0 3 * * * /var/www/ctyrlistkoteka/deploy/backup.sh >> /var/log/ctyr-backup.log 2>&1
 # Auto-prune admin koše (CLAUDE.md §9c): smaž trash-buckety starší 30 dní.
 # -mindepth/-maxdepth 1 + -type d cílí jen na časové adresáře data/.trash/<ts>/,
 # nikdy na .trash samotný ani na nic jiného. Buckety se po vytvoření nemění,
