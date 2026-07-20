@@ -28,6 +28,15 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # @types/node musí odpovídat Node, který skutečně běží — a to je
+      # aktivní LTS (24 „Krypton"), protože CI i VPS jedou na `lts/*`.
+      # Dependabot jinak nabízí nejnovější řadu (26 = current), což by
+      # dovolilo typecheckem propustit API, které na produkci neexistuje.
+      # Major bumpni ručně až ve chvíli, kdy se přechází na nový LTS.
+      - dependency-name: "@types/node"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: "github-actions"
     directory: "/"
