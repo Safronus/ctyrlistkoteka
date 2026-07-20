@@ -76,6 +76,38 @@ model Location {
   // regardless). See docs/admin-overview.md.
   showOnMapByDefault Boolean @default(false) @map("show_on_map_by_default")
 
+  // --- Location-map v2 fields (nullable; back-filled from the map package
+  // manifest, see docs/filename-convention.md + project migration). All
+  // nullable so v1 rows keep working until a location is re-synced from a
+  // v2 package. Read paths fall back to the v1 source when these are null. ---
+  //
+  // Which data generation this location was last synced from: 1 = v1
+  // (code/GPS/zoom parsed from the map filename), 2 = v2 (from manifest.json).
+  // Lets read paths pick the v2 source only where it actually exists.
+  schemaVersion Int? @map("schema_version") @db.SmallInt
+  // ISO-3166 alpha-2 country code (CZ, SK, JP…) straight from the manifest.
+  // Replaces the run-time countryFromCoords() point-in-polygon on center_point
+  // — faster and exact at borders (the Štúrovo case). Fallback stays for nulls.
+  countryCode String? @map("country_code") @db.VarChar(2)
+  // Human-readable reverse-geocoded address ("Svěrákova 161"), used as a nicer
+  // display name when the map's popis is the empty "BezPoznámky" marker.
+  geoAddress String? @map("geo_address") @db.VarChar(255)
+  // Location indicator kind: "dot" (point, no radius), "circle" (point with
+  // radius_m) or "polygon" (AOI). Drives which shape the map/stats draw and
+  // how area is computed. Mutually exclusive — see the map generator.
+  indicator String? @db.VarChar(16)
+  // Circle radius in metres; set only for indicator = "circle" (null for dot
+  // and polygon). Area of a circle location = π·radius². A dot has no area.
+  radiusM Float? @map("radius_m")
+  // Precomputed area in m²: polygon → real AOI area, circle → π·radius².
+  // From the manifest so we don't recompute ST_Area at run time, and so
+  // circle locations (no polygon) still contribute an area to density stats.
+  aoiAreaM2 Float? @map("aoi_area_m2")
+  // Cancelled/defunct location flag from v2 metadata. Replaces the v1
+  // convention of a "NEEXISTUJE-" prefix on the code; read path switches to
+  // this in phase D, keeping the prefix check as a fallback while both exist.
+  isCancelled Boolean @default(false) @map("is_cancelled")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -102,6 +134,11 @@ model LocationMap {
   centerLat    Float   @map("center_lat") // GPS střed z názvu
   centerLng    Float   @map("center_lng")
   zoom         Int     @db.SmallInt // OSM zoom level
+  // v2: the image is rendered at render_zoom (≥ zoom), so image_bounds must be
+  // computed from render_zoom + output dimensions, not zoom (which would put
+  // the overlay at the wrong scale). Nullable — null means a v1 map whose
+  // bounds came from `zoom`. See docs/filename-convention.md.
+  renderZoom   Int?    @map("render_zoom") @db.SmallInt
 
   imagePath   String @map("image_path") @db.VarChar(500) // cesta k souboru na disku
   imageBounds Json?  @map("image_bounds") // [[swLat, swLng], [neLat, neLng]]
@@ -197,7 +234,11 @@ model FindVote {
   userAgent   String?   @map("user_agent") @db.VarChar(500)                   // audit-only
 
   @@id([findId, voterUuid])
-  @@unique([findId, fingerprint], name: "find_votes_fingerprint_unique")
+  // `map:` pins the DB index name to what migration 20260523 actually
+  // created. Prisma 6's `name:` also drove the DB name; Prisma 7 splits them
+  // (name = Client API, map = DB), so without map: v7 wants to rename the
+  // live index to its default — an unrelated churn we don't want.
+  @@unique([findId, fingerprint], name: "find_votes_fingerprint_unique", map: "find_votes_fingerprint_unique")
   @@index([votedAt(sort: Desc)])
   @@index([fingerprint])
   @@index([voterUuid])
