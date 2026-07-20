@@ -477,19 +477,38 @@ Co se **NE**auto-updatuje (blacklist v configu):
 > Po každém major upgradu Postgresu ověř:
 > `sudo unattended-upgrade --dry-run --debug 2>&1 | grep -i blacklist`
 
-Reboots se auto-neprovádí (`Unattended-Upgrade::Automatic-Reboot "false";`)
-— kernel update tě upozorní přes `/var/run/reboot-required` a v MOTD,
-ale reboot plánuje vlastník ručně (kvůli PM2 + Postgres state).
+Reboot se **provádí automaticky v nočním okně** (od 07/2026):
 
-> ⚠️ **Mailová notifikace o pending rebootu nefunguje.** Config má
+```
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "02:30";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "false";
+```
+
+`WithUsers "false"` znamená, že když je někdo přihlášený přes SSH, reboot
+se odloží na další cyklus — neodstřelí ti to sezení.
+
+> ⚠️ **Čas je v UTC.** Server běží v UTC (ověř `timedatectl`), takže
+> `02:30` = **04:30 pražského letního času**, v zimě 03:30. Kdyby se
+> časová zóna serveru někdy změnila, hodnotu je nutné přepočítat.
+
+> ⚠️ **Mailová notifikace nefunguje.** Config má
 > `Unattended-Upgrade::Mail "root"`, ale na serveru není žádný MTA —
 > unattended-upgrades proto jen denně loguje
 > `ERROR: No /usr/bin/mail or /usr/sbin/sendmail` a mail nikam nedojde.
-> Jediná reálná notifikace je tak MOTD při SSH loginu, což se snadno
-> přehlédne (v 07/2026 takhle visel kernel reboot 12 dní).
-> Zprovoznění: `sudo apt install mailutils` + v `/etc/aliases` řádek
-> `root: safronus@gmail.com` a `sudo newaliases`. Alternativa je zapnout
-> `Automatic-Reboot` s nočním oknem — viz komentář v configu.
+> Právě proto se přešlo na automatický reboot: dokud byl vypnutý,
+> jedinou notifikací bylo MOTD při SSH loginu a v 07/2026 takhle visel
+> kernel reboot 12 dní. Kdybys mail chtěl zprovoznit:
+> `sudo apt install mailutils` + v `/etc/aliases` řádek
+> `root: safronus@gmail.com` a `sudo newaliases`.
+
+Předpokladem automatického rebootu je, že se aplikace sama vrátí. Ověř
+(mělo by být 4× `enabled`):
+
+```bash
+systemctl is-enabled pm2-app nginx postgresql docker
+source /home/app/.nvm/nvm.sh && pm2 save   # snapshot pro resurrect
+```
 
 #### Pravidelný update nginx — jak to konkrétně funguje
 
