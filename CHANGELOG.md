@@ -26,6 +26,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **@types/node 22 → 24, ne 26**: typy mají odpovídat běžícímu Node, a to
   je aktivní LTS 24 „Krypton" (CI i VPS jedou `lts/*`). Doplněno
   dependabot `ignore` pravidlo, ať to nechodí každý týden znovu.
+- **Vitest 3.2 → 4.1**: prošlo bez úprav konfigurace i testů. Při tom
+  odstraněn `@vitejs/plugin-react` — byl deklarovaný, ale nikde
+  neimportovaný (vitest běží v `node` prostředí a testuje jen `.ts`).
+- **lucide-react 0.511 → 1.x**: verze 1.0 odstranila **všechny brand
+  ikony**, takže `Github` a `Linkedin` přestaly existovat. Nahrazeny
+  lokálními inline SVG v `src/components/ui/brand-icons.tsx` — bez nové
+  závislosti a bez CDN. Pozor: SVG bez atributů `width`/`height` dostane
+  ve flexboxu `flex-basis: 0` a nechá se zmáčknout (ikona v CTA tlačítku
+  vyšla 8×16 místo 16×16), proto komponenty nesou 24×24 + `shrink-0`.
 - **sharp 0.35 rozbil typování**: nově má ESM typy, kde je volatelná
   funkce až v `default` exportu — vzor `require("sharp") as typeof
   import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
