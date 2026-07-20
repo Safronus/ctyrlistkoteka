@@ -19,7 +19,8 @@
 import { createWriteStream, type WriteStream } from "node:fs";
 import { mkdir, readFile, readdir, stat, unlink } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { FindState, ImageType, PrismaClient } from "@/generated/prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client";
+import { FindState, ImageType } from "@/generated/prisma/enums";
 import { createPrismaClient } from "@/lib/prismaClient";
 import { z } from "zod";
 import {

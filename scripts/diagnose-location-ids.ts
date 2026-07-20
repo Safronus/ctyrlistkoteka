@@ -34,7 +34,6 @@
 
 import { join } from "node:path";
 import { readdir } from "node:fs/promises";
-import { PrismaClient } from "@/generated/prisma/client";
 import { createPrismaClient } from "@/lib/prismaClient";
 import { parseMapFilename } from "../src/lib/parseFilename";
 import {

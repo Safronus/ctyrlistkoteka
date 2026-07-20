@@ -47,7 +47,7 @@ import { readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { cpus } from "node:os";
 import sharp from "sharp";
-import { ImageType, PrismaClient } from "@/generated/prisma/client";
+import { ImageType } from "@/generated/prisma/enums";
 import { createPrismaClient } from "@/lib/prismaClient";
 import { WEB_QUALITY, THUMB_QUALITY } from "../src/lib/constants";
 import { generateWebPVariants } from "../src/lib/images";

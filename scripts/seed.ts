@@ -5,7 +5,7 @@
  * Run with: pnpm db:seed
  */
 
-import { PrismaClient, FindState, ImageType } from "@/generated/prisma/client";
+import { FindState, ImageType } from "@/generated/prisma/enums";
 import { createPrismaClient } from "@/lib/prismaClient";
 
 const prisma = createPrismaClient();
