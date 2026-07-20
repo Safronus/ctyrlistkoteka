@@ -17,6 +17,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   `@simplewebauthn/server` 13.3.2 ([GHSA-6hxq-p678-4hr2][webauthn-adv]),
   `sharp` 0.34→0.35, `tailwindcss` 4.2→4.3, `react` 19.2.7,
   `next-intl` 4.13, `recharts` 3.9, `zod` 4.4.
+- **TypeScript 5.9 → 6.0**: prošlo bez zásahu do kódu. Jediná potřebná
+  úprava je `src/types/css.d.ts` — TS 6 překlopil
+  `noUncheckedSideEffectImports` na `true`, takže `import "./globals.css"`
+  a `import "leaflet/dist/leaflet.css"` nově potřebují deklaraci modulu.
+  Vypnutí té volby by bylo pohodlnější, ale přišli bychom o odhalení
+  překlepů v ostatních side-effect importech.
+- **@types/node 22 → 24, ne 26**: typy mají odpovídat běžícímu Node, a to
+  je aktivní LTS 24 „Krypton" (CI i VPS jedou `lts/*`). Doplněno
+  dependabot `ignore` pravidlo, ať to nechodí každý týden znovu.
 - **sharp 0.35 rozbil typování**: nově má ESM typy, kde je volatelná
   funkce až v `default` exportu — vzor `require("sharp") as typeof
   import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
