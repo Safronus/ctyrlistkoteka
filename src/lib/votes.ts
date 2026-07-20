@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { ImageType } from "@prisma/client";
+import { ImageType } from "@/generated/prisma/enums";
 import { cookies, headers } from "next/headers";
 import { clientIpFromHeaders } from "@/lib/clientIp";
 import { prisma } from "@/lib/db";

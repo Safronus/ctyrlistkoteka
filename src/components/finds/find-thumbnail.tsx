@@ -1,4 +1,4 @@
-import { ImageType } from "@prisma/client";
+import { ImageType } from "@/generated/prisma/enums";
 import { getTranslations } from "next-intl/server";
 import type { PublicImage } from "@/lib/queries/finds";
 import { versionedPhotoUrl } from "@/lib/assetVersion";

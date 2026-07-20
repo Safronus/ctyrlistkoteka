@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
 import { prisma } from "@/lib/db";
 import { donatedBoardSchema, DONATED_BOARD_MIN_FIND_ID } from "./donatedBoard";

@@ -34,14 +34,15 @@
 
 import { join } from "node:path";
 import { readdir } from "node:fs/promises";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/generated/prisma/client";
+import { createPrismaClient } from "@/lib/prismaClient";
 import { parseMapFilename } from "../src/lib/parseFilename";
 import {
   planLocationRenumber,
   type PlannedMove,
 } from "../src/lib/admin/locationIdReconcile";
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 async function listMapFiles(dir: string): Promise<string[]> {
   try {

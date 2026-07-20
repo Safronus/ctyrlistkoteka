@@ -7,7 +7,7 @@
 
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { FindState, Prisma, type ImageType } from "@prisma/client";
+import { FindState, Prisma, type ImageType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { anonymize } from "@/lib/anonymize";
 import { DEFAULT_LOCATION_ID, DOMINANT_LOCATION_ID } from "@/lib/constants";

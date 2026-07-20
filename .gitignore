@@ -60,6 +60,7 @@ actions-runner/
 
 # Prisma generated
 prisma/generated/
+src/generated/
 
 # Next.js typy (auto-generated)
 next-env.d.ts

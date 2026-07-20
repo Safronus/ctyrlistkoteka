@@ -6,7 +6,7 @@
  * private fields per CLAUDE.md §6.
  */
 
-import type { FindState } from "@prisma/client";
+import type { FindState } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import type { PublicImage } from "./finds";
 

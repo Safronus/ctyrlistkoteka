@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, ChevronDown } from "lucide-react";
-import type { FindState } from "@prisma/client";
+import type { FindState } from "@/generated/prisma/enums";
 
 /**
  * Multi-select for the /sbirka "Stav" filter. Native <select multiple> is

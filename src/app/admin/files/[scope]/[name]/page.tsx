@@ -34,7 +34,7 @@ import {
   type SectionKey,
 } from "@/lib/admin/jsonSchema";
 import { parseFindFilename } from "@/lib/parseFilename";
-import { FindState, ImageType } from "@prisma/client";
+import { FindState, ImageType } from "@/generated/prisma/enums";
 import { DeleteCropButton } from "../../crops/delete-button";
 import { renameCrop } from "../../crops/rename-action";
 import { renameFindOriginal } from "../../finds/rename-action";

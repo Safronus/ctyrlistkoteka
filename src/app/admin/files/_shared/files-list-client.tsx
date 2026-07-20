@@ -14,7 +14,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { parseFindFilename } from "@/lib/parseFilename";
 import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
 import { NoteOverrideButton } from "./note-override-button";

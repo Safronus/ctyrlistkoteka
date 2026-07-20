@@ -9,6 +9,32 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Prisma 6 → 7
+Migrace, ne bump — v7 zrušila Rust query engine, takže se mění způsob
+připojení k databázi.
+
+- **Driver adaptér je povinný.** `PrismaPg` (balík `@prisma/adapter-pg`)
+  obaluje `pg` pool. Velikost poolu je nově **naše starost** — pod PM2
+  cluster mode je počet spojení `max` × workerů, takže je pinnutá
+  explicitně (`max: 5` pro web, `max: 1` pro CLI skripty). Dřív to řešil
+  engine.
+- **Generátor** `prisma-client-js` → `prisma-client` s povinným `output`
+  (`src/generated/prisma`, gitignorováno). Importy se přesunuly
+  z `@prisma/client` na vygenerovanou cestu (37 souborů).
+- **`prisma.config.ts` je povinný** a Prisma už sama nenačítá `.env` —
+  proto v něm `import "dotenv/config"`, jinak by `prisma migrate deploy`
+  v deployi neviděl `DATABASE_URL`. `url` zmizel z `datasource` bloku
+  ve schématu.
+- **Dvě reálné pasti**, obě zdokumentované v `docs/gotchas.md` (#14, #15):
+  raw dotaz s aritmetikou nad interpolovanou hodnotou spadne na
+  `operator is not unique` (netypované parametry), a import enumů
+  z `…/client` tahá serverový runtime do klientského bundlu.
+
+Ověřeno proti **kopii produkční databáze** (18 532 nálezů, 207 lokalit):
+hlavní agregáty, 176 ploch a hustot z PostGISu, 359 počtů na lokalitu
+i top hustoty vycházejí **identicky** jako na produkci pod Prismou 6,
+při nule chyb v logu.
+
 ### Next.js 15 → 16
 Velký framework upgrade. Co bylo potřeba změnit:
 

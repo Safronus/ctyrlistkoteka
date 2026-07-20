@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { atomicWrite, ensureDir } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import {

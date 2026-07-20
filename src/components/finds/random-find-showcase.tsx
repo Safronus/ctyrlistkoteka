@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { Link } from "@/i18n/navigation";
 import { Maximize, MapPin, RefreshCw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";

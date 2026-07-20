@@ -7,7 +7,7 @@
  * straight from the server payload — no extra fetch on click.
  */
 
-import { FindState, ImageType, Prisma } from "@prisma/client";
+import { FindState, ImageType, Prisma } from "@/generated/prisma/client";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import {

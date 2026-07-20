@@ -1,4 +1,4 @@
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import {
   getFindNoteOverride,

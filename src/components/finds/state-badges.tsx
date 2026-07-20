@@ -1,6 +1,6 @@
 "use client";
 
-import type { FindState } from "@prisma/client";
+import type { FindState } from "@/generated/prisma/enums";
 import { useTranslations } from "next-intl";
 import { RETIRED_STATES, STATE_BADGE } from "@/lib/stateLabels";
 

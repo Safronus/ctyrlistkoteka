@@ -1,4 +1,4 @@
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 
 /**
  * Retired states — no longer assigned by sync and hidden from the public

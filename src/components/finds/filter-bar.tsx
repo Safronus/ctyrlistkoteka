@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 import type { FacetCounts, FilterOptions } from "@/lib/queries/finds";
-import type { FindState } from "@prisma/client";
+import type { FindState } from "@/generated/prisma/enums";
 import { RETIRED_STATES } from "@/lib/stateLabels";
 import { StateMultiSelect } from "./state-multi-select";
 import { LocationCombobox } from "./location-combobox";

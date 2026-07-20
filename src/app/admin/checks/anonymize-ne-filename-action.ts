@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ImageType } from "@prisma/client";
+import { ImageType } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import { appendAudit } from "@/lib/admin/audit";
 import { setFindsAnonymized } from "@/lib/admin/findAnonymize";

@@ -19,7 +19,8 @@
 import { createWriteStream, type WriteStream } from "node:fs";
 import { mkdir, readFile, readdir, stat, unlink } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { FindState, ImageType, PrismaClient } from "@prisma/client";
+import { FindState, ImageType, PrismaClient } from "@/generated/prisma/client";
+import { createPrismaClient } from "@/lib/prismaClient";
 import { z } from "zod";
 import {
   parseFindFilename,
@@ -1927,7 +1928,7 @@ async function main() {
     }
   }
 
-  const prisma = new PrismaClient();
+  const prisma = createPrismaClient();
   const ctx: Context = {
     opts,
     prisma,

@@ -10,7 +10,7 @@
  * sync script can log it to sync-failures.jsonl. Parsing never throws.
  */
 
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { FILENAME_STATE_MAP } from "./stateMapping";
 
 export type ParseResult<T> =

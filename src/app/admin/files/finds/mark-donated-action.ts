@@ -3,7 +3,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { atomicWrite, ensureDir, trashTimestamp } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";

@@ -9,7 +9,7 @@ import {
   MapPin,
   Trophy,
 } from "lucide-react";
-import { FindState, ImageType } from "@prisma/client";
+import { FindState, ImageType } from "@/generated/prisma/enums";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { DetailVibeOverlay } from "@/components/finds/detail-vibe-overlay";

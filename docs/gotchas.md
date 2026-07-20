@@ -442,3 +442,54 @@ nativně flat — importuj je přímo a rozbal spreadem.)
   desítky `"sonarjs/…": "off"` fungovaly bez `files` a rozbilo se to až
   ve chvíli, kdy jsem přidal `"react-hooks/purity": "warn"`.
 - Když měníš glob u jednoho bloku, změň ho u obou — jsou svázané.
+
+---
+
+## 14. Prisma 7: raw dotaz s aritmetikou nad parametrem spadne na „operator is not unique"
+
+**Příznak:** po upgradu na Prismu 7 začne `$queryRaw` házet
+`Raw query failed. Code: 42725. Message: operator is not unique: unknown *
+unknown` (Prisma to zabalí do `P2010` / `DriverAdapterError`). Typecheck
+i build projdou — pozná se to až za běhu.
+
+**Proč:** v tagged template `$queryRaw` se **každá interpolace stane
+vázaným parametrem**, ne textem. Takže
+
+```ts
+prisma.$queryRaw`SELECT pi() * (${RADIUS} * ${RADIUS})`
+```
+
+pošle do Postgresu doslova `pi() * ($1 * $2)`. Prisma 6 měla Rust engine,
+který parametrům posílal explicitní typy, takže Postgres operátor vyřešil.
+Prisma 7 engine zrušila a `pg` driver adapter posílá parametry
+**netypované** — Postgres pak u `unknown * unknown` nedokáže vybrat, který
+z přetížených operátorů `*` použít, a skončí chybou 42725.
+
+**Jak aplikovat:**
+- Když v raw SQL děláš **aritmetiku nad interpolovanou hodnotou**, přetypuj
+  ji: `${RADIUS}::float8 * ${RADIUS}::float8`. Viz `getStatsTopLocationsImpl`
+  v `src/lib/queries/stats.ts`.
+- Týká se to i porovnání a funkcí, kde je typ nejednoznačný — ne jen `*`.
+  Samotné `WHERE id = ${id}` problém nemá, protože typ určí druhá strana.
+- **Build to nechytí.** Jediná spolehlivá kontrola je appku spustit proti
+  reálným datům a projít stránky se sledováním logu na `prisma:error`.
+
+## 15. Prisma 7: import enumů z klienta tahá serverový runtime do prohlížeče
+
+**Příznak:** `pnpm build` spadne na
+`Code generation for chunk item errored … [app-client]` u souboru, který
+z Prismy importuje jen enum (u nás `src/lib/stateLabels.ts` a `FindState`).
+
+**Proč:** nový generátor `prisma-client` vytváří víc vstupních bodů.
+`…/client` obsahuje `PrismaClient` včetně runtime, takže jakýkoli soubor,
+který z něj importuje a zároveň skončí v klientském bundlu, si runtime
+přitáhne s sebou. Pod `prisma-client-js` se enumy tahaly z `@prisma/client`
+bez následků.
+
+**Jak aplikovat:**
+- Enumy (`FindState`, `ImageType`) importuj z **`@/generated/prisma/enums`** —
+  je to čistá data bez runtime. V repu je takhle přesměrováno 30 souborů.
+- Z `@/generated/prisma/client` importuj jen tam, kde je opravdu potřeba
+  `PrismaClient` nebo namespace `Prisma` (u nás 9 serverových souborů).
+- Pravidlo: **importuje to klientská komponenta nebo něco, co do ní vede?
+  Pak `/enums`.**

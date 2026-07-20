@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { parseFindFilename, parseMapFilename } from "./parseFilename";
 import { splitLocationCode, toAsciiCode } from "./locationCode";
 

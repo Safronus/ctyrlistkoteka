@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { ImageType } from "@prisma/client";
+import { ImageType } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import { atomicWrite, ensureDir, trashTimestamp } from "@/lib/admin/atomic";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";

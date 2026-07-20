@@ -1,4 +1,4 @@
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 
 /**
  * Mapping from the STATE field of a find-photo filename to the DB enum.

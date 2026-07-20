@@ -17,7 +17,7 @@
 
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_LOCATION_ID, FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
@@ -1381,6 +1381,15 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
     // their code/name is nulled here so the public payload never
     // carries identifying text. The polygon column lives on
     // `locations`, not on `location_maps` — see prisma/schema.prisma.
+    //
+    // The ::float8 casts on FIND_DEVIATION_RADIUS_M are load-bearing. In a
+    // $queryRaw tagged template every interpolation becomes a bound
+    // parameter, so the fallback branch reads as `pi() * ($1 * $2)`. Prisma
+    // 7's pg driver adapter sends parameters untyped, so Postgres cannot
+    // resolve `unknown * unknown` and fails with 42725 "operator is not
+    // unique". Prisma 6's Rust engine sent typed parameters, which is why
+    // this only broke on the v7 upgrade. Any raw query doing arithmetic on
+    // an interpolated value needs the same treatment.
     prisma.$queryRaw<
       Array<{
         id: number;
@@ -1405,11 +1414,13 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
         -- Polygon locations use their real AOI area; polygon-less ones
         -- fall back to a 5 m-radius circle (π·r²) so they can take part
         -- in the density ranking too.
+        -- NOTE: the ::float8 casts below are load-bearing — see the comment
+        -- above this query.
         SELECT id,
                CASE
                  WHEN polygon IS NOT NULL
                    THEN ST_Area(polygon::geography)::float8
-                 ELSE pi() * (${FIND_DEVIATION_RADIUS_M} * ${FIND_DEVIATION_RADIUS_M})
+                 ELSE pi() * (${FIND_DEVIATION_RADIUS_M}::float8 * ${FIND_DEVIATION_RADIUS_M}::float8)
                END AS area_m2
         FROM locations
       )
@@ -1453,7 +1464,7 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
                CASE
                  WHEN polygon IS NOT NULL
                    THEN ST_Area(polygon::geography)::float8
-                 ELSE pi() * (${FIND_DEVIATION_RADIUS_M} * ${FIND_DEVIATION_RADIUS_M})
+                 ELSE pi() * (${FIND_DEVIATION_RADIUS_M}::float8 * ${FIND_DEVIATION_RADIUS_M}::float8)
                END AS area_m2
         FROM locations
       )

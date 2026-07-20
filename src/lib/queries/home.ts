@@ -6,7 +6,7 @@
  * CLAUDE.md §6 — no raw notes or precise GPS leave the server.
  */
 
-import type { FindState } from "@prisma/client";
+import type { FindState } from "@/generated/prisma/enums";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import {

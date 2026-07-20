@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import type { FindDonationActionState } from "@/lib/actions/findDonationTypes";
 

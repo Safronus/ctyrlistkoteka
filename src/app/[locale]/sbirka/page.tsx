@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Map as MapIcon } from "lucide-react";
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizedCountryName } from "@/lib/world-countries";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";

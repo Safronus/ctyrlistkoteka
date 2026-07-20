@@ -29,7 +29,7 @@ import {
   locationDetailHref,
   mapThumbUrl,
 } from "@/lib/format";
-import type { FindState } from "@prisma/client";
+import type { FindState } from "@/generated/prisma/enums";
 
 type RowT = ReturnType<typeof useTranslations<"LocationRow">>;
 

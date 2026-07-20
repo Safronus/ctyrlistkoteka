@@ -1,5 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { Camera, Images, MapPin, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import type { PublicFind } from "@/lib/queries/finds";

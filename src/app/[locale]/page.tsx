@@ -13,7 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Metadata } from "next";
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/json-ld";

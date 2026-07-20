@@ -5,9 +5,10 @@
  * Run with: pnpm db:seed
  */
 
-import { PrismaClient, FindState, ImageType } from "@prisma/client";
+import { PrismaClient, FindState, ImageType } from "@/generated/prisma/client";
+import { createPrismaClient } from "@/lib/prismaClient";
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 type LocationSeed = {
   id: number;

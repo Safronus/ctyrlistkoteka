@@ -134,6 +134,7 @@ const eslintConfig = [
 
   {
     ignores: [
+      "src/generated/**",
       ".next/**",
       "node_modules/**",
       "prisma/migrations/**",

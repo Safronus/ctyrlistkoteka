@@ -1,6 +1,6 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
-import { FindState } from "@prisma/client";
+import { FindState } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import { collectNotesToTranslate } from "@/lib/noteTranslations";
 import { readCheckAckSet } from "./checkAcks";

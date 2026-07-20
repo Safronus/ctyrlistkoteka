@@ -47,7 +47,8 @@ import { readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { cpus } from "node:os";
 import sharp from "sharp";
-import { ImageType, PrismaClient } from "@prisma/client";
+import { ImageType, PrismaClient } from "@/generated/prisma/client";
+import { createPrismaClient } from "@/lib/prismaClient";
 import { WEB_QUALITY, THUMB_QUALITY } from "../src/lib/constants";
 import { generateWebPVariants } from "../src/lib/images";
 import {
@@ -388,7 +389,7 @@ async function main(): Promise<void> {
     args.options,
   );
 
-  const prisma = new PrismaClient();
+  const prisma = createPrismaClient();
   try {
     const where = args.findId !== null ? { findId: args.findId } : {};
     const images = await prisma.findImage.findMany({
