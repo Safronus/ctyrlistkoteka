@@ -15,7 +15,8 @@ import { hasLocale, NextIntlClientProvider } from "next-intl";
  */
 export const dynamic = "force-dynamic";
 import Image from "next/image";
-import { Github, Linkedin, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
+import { Github, Linkedin } from "@/components/ui/brand-icons";
 import { AbuseIpdbBadge } from "@/components/abuseipdb-badge";
 import { AnniversaryOverlay } from "@/components/anniversary/anniversary-overlay";
 import { MainNav } from "@/components/main-nav";

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
-import { Linkedin } from "lucide-react";
+import { Linkedin } from "@/components/ui/brand-icons";
 import { Link } from "@/i18n/navigation";
 import { DonatedSearchCatcher } from "./donated-search-catcher";
 import { DonatedFieldReveal } from "./donated-field-reveal";
