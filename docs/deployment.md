@@ -448,8 +448,9 @@ sudo chmod 644 /etc/apt/apt.conf.d/52ctyrlistkoteka-unattended.conf
 # Aktivace timeru (na Ubuntu už default).
 sudo systemctl enable --now apt-daily.timer apt-daily-upgrade.timer
 
-# Suchý běh — co by se updatovalo příště.
-sudo unattended-upgrades --dry-run -d 2>&1 | tail -30
+# Suchý běh — co by se updatovalo příště. Pozor: binárka je
+# `unattended-upgrade` (jednotné číslo), balíček má množné.
+sudo unattended-upgrade --dry-run --debug 2>&1 | tail -30
 ```
 
 Co se auto-updatuje:
@@ -457,25 +458,52 @@ Co se auto-updatuje:
 - `${distro_id}:${distro_codename}-security` — všechny security patche
   (nginx, openssl, kernel, …)
 - `${distro_id}:${distro_codename}-updates` — Ubuntu backporty (kde Canonical
-  bere upstream patche a vrací je do 1.24)
+  bere upstream patche a vrací je do aktuální řady)
 
 Co se **NE**auto-updatuje (blacklist v configu):
 
-- `postgresql-17`, `postgis` — major upgrade by mohl porušit DB
+- `postgresql-` — prefix, chytá `postgresql-17`, `postgresql-client-17`
+  i `postgresql-17-postgis-3` a přežije budoucí majory
+- `postgis` — standalone balíčky, které prefix výše nechytí
 - `nodejs` — máme přes nvm, ne přes apt
+
+> ⚠️ **Blacklist se matchuje jako PREFIX, ne jako přesný název.**
+> Interně jde o `re.match(vzor, nazev_balicku)`, takže bez `$` na konci
+> je to prefixový match. Do 2026-07 tu stálo `"postgresql-16"` a
+> `"postgis"` — jenže běží Postgres **17** a PostGIS balíček se jmenuje
+> `postgresql-17-postgis-3`, takže **ani jeden vzor nematchoval nic**
+> a DB se celou dobu aktualizovala automaticky, přestože config
+> tvrdil opak. Proto verzově agnostický prefix `"postgresql-"`.
+> Po každém major upgradu Postgresu ověř:
+> `sudo unattended-upgrade --dry-run --debug 2>&1 | grep -i blacklist`
 
 Reboots se auto-neprovádí (`Unattended-Upgrade::Automatic-Reboot "false";`)
 — kernel update tě upozorní přes `/var/run/reboot-required` a v MOTD,
 ale reboot plánuje vlastník ručně (kvůli PM2 + Postgres state).
 
+> ⚠️ **Mailová notifikace o pending rebootu nefunguje.** Config má
+> `Unattended-Upgrade::Mail "root"`, ale na serveru není žádný MTA —
+> unattended-upgrades proto jen denně loguje
+> `ERROR: No /usr/bin/mail or /usr/sbin/sendmail` a mail nikam nedojde.
+> Jediná reálná notifikace je tak MOTD při SSH loginu, což se snadno
+> přehlédne (v 07/2026 takhle visel kernel reboot 12 dní).
+> Zprovoznění: `sudo apt install mailutils` + v `/etc/aliases` řádek
+> `root: safronus@gmail.com` a `sudo newaliases`. Alternativa je zapnout
+> `Automatic-Reboot` s nočním oknem — viz komentář v configu.
+
 #### Pravidelný update nginx — jak to konkrétně funguje
+
+Aktuální stav (2026-07): **nginx 1.28.0-6ubuntu1.8** na **Ubuntu 25.10
+„questing"**. Pozor, questing je *interim* vydání s podporou jen do
+července 2026 — po EOL přestanou chodit i bezpečnostní záplaty, takže
+release upgrade není volitelný.
 
 | Co | Kde | Jak často |
 | --- | --- | --- |
-| Security patche pro 1.24 (CVE backporty od Canonical) | `…-security` pocket | Auto — apt-daily-upgrade.timer (default 6:00 + 6:00 + 0:00 UTC) |
-| Drobné fíčurní updaty 1.24.x | `…-updates` pocket | Auto — stejný timer |
-| Major version bump (1.24 → 1.26) | Jen při Ubuntu LTS upgrade | Manuálně (24.04 → 26.04) |
-| Upstream mainline (1.28+) | nginx.org repo | Nedělej — držíme se Ubuntu repa |
+| Security patche pro 1.28 (CVE backporty od Canonical) | `…-security` pocket | Auto — apt-daily-upgrade.timer (default 6:00 + 6:00 + 0:00 UTC) |
+| Drobné fíčurní updaty 1.28.x | `…-updates` pocket | Auto — stejný timer |
+| Major version bump (1.28 → 1.30) | Jen při upgradu Ubuntu | Manuálně (release upgrade) |
+| Upstream mainline | nginx.org repo | Nedělej — držíme se Ubuntu repa |
 
 **Doporučený měsíční checkpoint** (v Termiusu):
 
