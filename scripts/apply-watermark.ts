@@ -279,7 +279,7 @@ async function applyWatermarkInPlace(
   opts: WatermarkOptions,
   webpQuality: number,
 ): Promise<{ width: number; height: number }> {
-  const sharp = require("sharp") as typeof import("sharp");
+  const sharp = require("sharp") as typeof import("sharp").default;
   // Decode the existing WebP. We read the file fully so the file handle
   // is closed before we overwrite — sharp().toFile(samePath) would race.
   const buf = await readFile(filePath);
@@ -311,7 +311,7 @@ async function applyWatermarkInPlace(
  *  so relight can decide whether a photo is dark enough for the pale mark
  *  WITHOUT decoding the (much larger, possibly HEIC) original. */
 async function sampleCornerLuma(webFs: string): Promise<number> {
-  const sharp = require("sharp") as typeof import("sharp");
+  const sharp = require("sharp") as typeof import("sharp").default;
   const buf = await readFile(webFs);
   const meta = await sharp(buf, { failOn: "none" }).metadata();
   const W = meta.width ?? 0;

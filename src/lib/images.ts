@@ -131,7 +131,7 @@ export async function generateWebPVariants(params: {
 
   // Fast path: both outputs already present.
   if (!forceRegen && (await exists(webFs)) && (await exists(thumbFs))) {
-    const sharp = require("sharp") as typeof import("sharp");
+    const sharp = require("sharp") as typeof import("sharp").default;
     const meta = await sharp(webFs).metadata();
     return {
       sha1,
@@ -171,7 +171,7 @@ export async function generateWebPVariants(params: {
     pixelBuffer = raw;
   }
 
-  const sharp = require("sharp") as typeof import("sharp");
+  const sharp = require("sharp") as typeof import("sharp").default;
   // Post-EXIF-auto-orient display dimensions: orientations 5–8 carry a 90°
   // rotation, so width/height are swapped for display. We look at metadata
   // (cheap, no full decode) rather than resolving the pipeline.
@@ -267,7 +267,7 @@ export async function normalizeToWebp(original: Buffer): Promise<NormalizedPhoto
     pixelBuffer = original;
   }
 
-  const sharp = require("sharp") as typeof import("sharp");
+  const sharp = require("sharp") as typeof import("sharp").default;
   const pipeline = sharp(pixelBuffer, { failOn: "none" }).rotate();
   const web = await pipeline
     .clone()
@@ -326,7 +326,7 @@ async function encodeVariant(
       .webp({ quality })
       .toBuffer({ resolveWithObject: true });
   }
-  const sharp = require("sharp") as typeof import("sharp");
+  const sharp = require("sharp") as typeof import("sharp").default;
   const resized = await resizePipeline.toBuffer({ resolveWithObject: true });
   const composited = await compositeWatermarkOnto(
     sharp(resized.data),
@@ -371,7 +371,7 @@ export async function generateMapWebP(params: {
   // big there). Kept next to the full map as `{sha}-thumb.webp`; the URL is
   // derived by convention on the read side, so no DB column is needed.
   const writeMapThumb = async (source: Buffer | string): Promise<void> => {
-    const sharp = require("sharp") as typeof import("sharp");
+    const sharp = require("sharp") as typeof import("sharp").default;
     const thumb = await sharp(source, { failOn: "none" })
       .resize({
         width: MAP_THUMB_SIZE,
@@ -386,7 +386,7 @@ export async function generateMapWebP(params: {
   };
 
   if (!forceRegen && (await exists(mapFs))) {
-    const sharp = require("sharp") as typeof import("sharp");
+    const sharp = require("sharp") as typeof import("sharp").default;
     const meta = await sharp(mapFs).metadata();
     // Backfill the thumbnail for maps generated before thumbs existed, so a
     // plain (non-forced) sync fills them in incrementally.
@@ -404,7 +404,7 @@ export async function generateMapWebP(params: {
 
   // Maps are PNG/JPEG — sharp handles both. They contain text labels so
   // quality matters more than file size; aim higher than the default.
-  const sharp = require("sharp") as typeof import("sharp");
+  const sharp = require("sharp") as typeof import("sharp").default;
   const raw = await readFile(sourcePath);
   const format = detectFormat(raw);
   const out = await sharp(raw, { failOn: "none" })

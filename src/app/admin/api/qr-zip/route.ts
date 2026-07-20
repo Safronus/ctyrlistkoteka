@@ -108,7 +108,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   // external list (auto-detected as image processor), so we don't
   // need a config flag for it.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const sharp = require("sharp") as typeof import("sharp");
+  const sharp = require("sharp") as typeof import("sharp").default;
 
   const zip = new JSZip();
   for (const findId of findIds) {

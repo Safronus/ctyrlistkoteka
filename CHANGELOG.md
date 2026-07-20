@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Závislosti — průběžná aktualizace
+- **GitHub Actions**: `checkout` v5→v7, `setup-node` v5→v6,
+  `gitleaks-action` v2→v3. Poslední jmenovaná není volitelná — GitHub
+  16. 9. 2026 odstraní Node 20 z runnerů a v2 přestane fungovat.
+- **minor/patch skupina** (14 balíčků): mj. bezpečnostní oprava
+  `@simplewebauthn/server` 13.3.2 ([GHSA-6hxq-p678-4hr2][webauthn-adv]),
+  `sharp` 0.34→0.35, `tailwindcss` 4.2→4.3, `react` 19.2.7,
+  `next-intl` 4.13, `recharts` 3.9, `zod` 4.4.
+- **sharp 0.35 rozbil typování**: nově má ESM typy, kde je volatelná
+  funkce až v `default` exportu — vzor `require("sharp") as typeof
+  import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
+  (`require` míří na CJS), šlo čistě o typy. Viz `docs/gotchas.md`.
+
+[webauthn-adv]: https://github.com/MasterKale/SimpleWebAuthn/security/advisories/GHSA-6hxq-p678-4hr2
+
 ### /mapa — méně citlivý zoom kolečkem
 - Zoom kolečkem byl přecitlivělý (Apple Magic Mouse posílá dávku momentum
   eventů, takže drobný pohyb naskočil o 4–5 úrovní). `wheelPxPerZoomLevel`

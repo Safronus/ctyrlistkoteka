@@ -99,7 +99,7 @@ async function loadAndMaskWatermark(
   opts: WatermarkOptions,
 ): Promise<Buffer> {
   const { opacity, color } = opts;
-  const sharp = require("sharp") as typeof import("sharp");
+  const sharp = require("sharp") as typeof import("sharp").default;
   const wm = sharp(path).ensureAlpha();
   const { data, info } = await wm
     .raw()
@@ -172,7 +172,7 @@ export async function compositeWatermarkOnto(
   watermarkSourceBuffer: Buffer,
   opts: WatermarkOptions = DEFAULT_WATERMARK_OPTIONS,
 ): Promise<import("sharp").Sharp> {
-  const sharp = require("sharp") as typeof import("sharp");
+  const sharp = require("sharp") as typeof import("sharp").default;
   const targetW = Math.max(1, Math.round(width * opts.widthRatio));
   const margin = Math.max(0, Math.round(width * opts.marginRatio));
 
@@ -220,7 +220,10 @@ export async function compositeWatermarkOnto(
   // only on bright highlights where pale would wash out. The clone shares the
   // re-readable input, so the real composite below is unaffected; an
   // unreadable region keeps the primary ink.
-  let markData = resized.data;
+  // Explicitly widened: sharp ≥0.35 types toBuffer() as Buffer<ArrayBuffer>,
+  // but recolorShape() returns a plain Buffer<ArrayBufferLike>. composite()
+  // takes the wide type, so widen here instead of narrowing recolorShape.
+  let markData: Buffer = resized.data;
   if (opts.colorAlt) {
     const sw = Math.max(1, Math.min(resized.info.width, width - left));
     const sh = Math.max(1, Math.min(resized.info.height, height - top));
@@ -255,7 +258,7 @@ async function recolorShape(
   pngBuffer: Buffer,
   color: { r: number; g: number; b: number },
 ): Promise<Buffer> {
-  const sharp = require("sharp") as typeof import("sharp");
+  const sharp = require("sharp") as typeof import("sharp").default;
   const { data, info } = await sharp(pngBuffer)
     .ensureAlpha()
     .raw()

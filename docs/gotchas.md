@@ -375,3 +375,37 @@ sha1 tu vlastně `immutable` **nesplňuje** — obsah na té URL se měnit můž
 - Lokální „refresh všeho" v prohlížeči (než se nová verze nasadí): DevTools →
   Application → Storage → *Clear site data*, nebo *Empty Cache and Hard
   Reload*. Po nasazení bumpu stačí jeden běžný reload — URL jsou nové.
+
+---
+
+## 12. `require("sharp") as typeof import("sharp")` přestal být volatelný v 0.35
+
+**Příznak:** po bumpu sharp 0.34 → 0.35 spadne `pnpm typecheck` na 17 chyb
+typu `TS2349: This expression is not callable. Type 'typeof
+import(".../sharp/dist/index")' has no call signatures.` Runtime přitom
+funguje bez problému.
+
+**Proč:** sharp 0.35 přidal do `package.json` podmíněné exporty s ESM
+typy. Dřív měl balíček jen CJS deklarace končící `export = sharp`, takže
+`typeof import("sharp")` **byl** ten volatelný konstruktor. Nově se pod
+`moduleResolution: "bundler"` vybere `import` větev (`dist/index.d.mts`),
+kde je namespace s pojmenovanými exporty a volatelná funkce až v
+`export default sharp`. Typ namespace tím pádem call signature nemá.
+
+Runtime zůstal v pořádku, protože `require("sharp")` vybírá `require`
+větev (`dist/index.cjs`), a ta pořád exportuje přímo funkci. Rozešly se
+tedy jen typy s realitou.
+
+**Jak aplikovat:**
+- Vzor je `const sharp = require("sharp") as typeof import("sharp").default;`
+  — s `.default` na konci. Bez něj to neprojde typecheckem.
+- **Pojmenované typy měň NE**: `import("sharp").Sharp` a
+  `import("sharp").OutputInfo` fungují dál, protože to jsou pojmenované
+  exporty i v ESM deklaracích. Přepsat je na `.default.Sharp` by je rozbilo.
+- `toBuffer()` nově vrací `Buffer<ArrayBuffer>` místo obecného `Buffer`.
+  Když do stejné proměnné přiřazuješ i výsledek vlastní funkce vracející
+  `Buffer`, anotuj proměnnou explicitně `: Buffer` (viz `markData`
+  v `src/lib/watermark.ts`) — `composite()` široký typ přijímá.
+- `require("sharp/package.json")` už nefunguje vůbec (`ERR_PACKAGE_PATH_
+  NOT_EXPORTED`) — exports mapa pouští jen kořen. Verzi zjistíš jinudy,
+  runtime info je v `sharp.versions`.
