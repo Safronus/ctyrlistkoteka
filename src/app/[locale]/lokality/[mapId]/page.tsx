@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
-  ArrowLeft,
   CornerDownRight,
   ExternalLink,
   HelpCircle,
@@ -37,6 +36,7 @@ import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { breadcrumbSchema, placeSchema } from "@/lib/schema";
 import { JsonLd } from "@/components/seo/json-ld";
 import { RealPhotoButton } from "@/components/locations/real-photo-button";
+import { BackToLokalityLink } from "@/components/locations/lokality-back-link";
 
 type DetailT = Awaited<ReturnType<typeof getTranslations<"LocationDetail">>>;
 type RowT = Awaited<ReturnType<typeof getTranslations<"LocationRow">>>;
@@ -245,13 +245,7 @@ export default async function LocationDetailPage({ params }: PageProps) {
         aria-label={t("backToList")}
         className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500"
       >
-        <Link
-          href="/lokality"
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-gray-700 transition hover:bg-gray-100 hover:text-brand-700"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden />
-          <span>{t("backToList")}</span>
-        </Link>
+        <BackToLokalityLink label={t("backToList")} />
       </nav>
 
       {base.isAnonymized ? (

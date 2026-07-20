@@ -7,6 +7,7 @@ import { FilterablePageHeader } from "@/components/filterable-page-header";
 import { FilterActiveNotice } from "@/components/filter-active-notice";
 import { LocationsFilterBar } from "@/components/locations/locations-filter-bar";
 import { LocationsToolbar } from "@/components/locations/locations-toolbar";
+import { RememberLokalitySearch } from "@/components/locations/lokality-back-link";
 import { LocationListRow } from "@/components/locations/location-list-row";
 import {
   countAnonymizedAndFormerLocations,
@@ -235,6 +236,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
           />
       </FilterablePageHeader>
 
+      <RememberLokalitySearch />
       <LocationsFilterBar
         cities={cities}
         countries={countries}

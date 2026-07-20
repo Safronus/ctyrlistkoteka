@@ -9,6 +9,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /lokality — filtry přežijí návrat z detailu
+Po vyfiltrování lokalit, otevření detailu a kliknutí „Zpět na seznam lokalit"
+se filtry ztrácely (odkaz vedl na holé `/lokality`). Nově se pamatují —
+stejný vzor jako `/sbirka`: seznam si ukládá aktuální filtr do `sessionStorage`
+(per-tab) a odkaz zpět z detailu se vrací na stejný vyfiltrovaný pohled.
+
 ### Lokační mapy v2 — začátek migrace (fáze A + B)
 Web se připravuje na „mapy v2" (nový formát z desktop generátoru: strukturované
 id_lokace, GPS/zoom v metadatech, polygon v GPS, stát/město/indikátor/plocha).
