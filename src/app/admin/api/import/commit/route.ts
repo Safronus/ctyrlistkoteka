@@ -19,6 +19,11 @@ import {
   type ImportFileSummary,
 } from "@/lib/admin/importZip";
 import {
+  isMapPackageZip,
+  commitMapPackage,
+  type MapPackageImportSummary,
+} from "@/lib/admin/mapPackageImport";
+import {
   mergeWholeFile,
   type WholeFileMergeResult,
 } from "@/app/admin/json/lokace-stavy-poznamky/merge-whole-action";
@@ -29,7 +34,9 @@ export const dynamic = "force-dynamic";
 interface CommitResponse {
   ok: boolean;
   error?: string;
+  packageType?: "v1" | "v2";
   summary?: ImportFileSummary;
+  mapSummary?: MapPackageImportSummary;
   /** Result of the LSP whole-file merge, or null when the package had none. */
   lsp?: WholeFileMergeResult | null;
 }
@@ -73,6 +80,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
+    // A v2 map package stages the manifest + Nosné/Rendered trees into
+    // data/maps/ and writes no DB; the operator runs /admin/sync after.
+    if (await isMapPackageZip(zipPath)) {
+      const mapSummary = await commitMapPackage(zipPath);
+      await appendAudit({
+        action: "file.replace",
+        ip,
+        credentialLabel,
+        details: {
+          scope: "import-map-package",
+          staged: mapSummary.staged,
+          manifestStaged: mapSummary.manifestStaged,
+          errorCount: mapSummary.errors.length,
+        },
+      });
+      revalidatePath("/admin/sync");
+      return json({ ok: true, packageType: "v2", mapSummary });
+    }
+
     // 1) stage photos + maps (id/map-id replace or skip on collision).
     const summary = await commitImportFiles(zipPath, onCollision);
 
@@ -103,7 +129,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     revalidatePath("/admin/files/finds", "layout");
     revalidatePath("/admin/sync");
 
-    return json({ ok: true, summary, lsp });
+    return json({ ok: true, packageType: "v1", summary, lsp });
   } catch (err) {
     console.error("[admin/import/commit] failed", {
       uploadId,

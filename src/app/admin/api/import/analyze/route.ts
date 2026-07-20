@@ -10,13 +10,21 @@ import {
   isValidUploadId,
 } from "@/lib/admin/importPackage";
 import { analyzeImportZip, type ImportPlan } from "@/lib/admin/importZip";
+import {
+  isMapPackageZip,
+  analyzeMapPackageZip,
+  type MapPackageImportPlan,
+} from "@/lib/admin/mapPackageImport";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 interface AnalyzeResponse {
   ok: boolean;
+  /** "v1" = flat finds/crops/maps/meta package; "v2" = location-map package. */
+  packageType?: "v1" | "v2";
   plan?: ImportPlan;
+  mapPlan?: MapPackageImportPlan;
   error?: string;
 }
 
@@ -52,8 +60,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
+    // A v2 map package (manifest.json at the zip root) takes the map-package
+    // analyzer; anything else is a classic v1 flat package.
+    if (await isMapPackageZip(zipPath)) {
+      const mapPlan = await analyzeMapPackageZip(zipPath);
+      if ("error" in mapPlan) {
+        return json({ ok: false, error: mapPlan.error }, 400);
+      }
+      return json({ ok: true, packageType: "v2", mapPlan });
+    }
     const plan = await analyzeImportZip(zipPath);
-    return json({ ok: true, plan });
+    return json({ ok: true, packageType: "v1", plan });
   } catch (err) {
     console.error("[admin/import/analyze] failed", {
       uploadId,

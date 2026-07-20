@@ -21,6 +21,12 @@ Zero-downtime, po fázích — web mezitím jede beze změny na v1.
   v2 balíčku) + `phaseMapsV2` v sync skriptu. Sync detekuje manifest → v2 import,
   jinak v1 (netknutá). v2 je idempotentní upsert dle čísla lokace → umí přidat
   i přepsat mapu (opakovatelný update). Ověřeno na reálných balíčcích.
+- **Fáze C (/admin import):** `/admin/import` nově přijímá i **v2 balíček map**
+  (ZIP: `manifest.json` + `Nosné mapy/` + `Rendered mapy/`) — detekuje se podle
+  manifestu, jinak jede v1 balíček nálezů. Nahraje mapy na disk (do `data/maps/`),
+  databázi vytvoří následný sync. Idempotentní (přidá i přepíše mapu dle čísla),
+  určeno pro **průběžné updaty map**. Řeší i UTF-8 diakritiku v ZIP názvech bez
+  ohledu na balicí nástroj (viz gotchas #17).
 
 ### Oprava: `pnpm sync` a další CLI skripty po Prisma 7
 Prisma 7 přestala automaticky načítat `.env`, takže samostatné `tsx` skripty

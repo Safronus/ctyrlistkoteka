@@ -22,6 +22,10 @@ import type {
   ImportPlan,
   ImportScopeStat,
 } from "@/lib/admin/importZip";
+import type {
+  MapPackageImportPlan,
+  MapPackageImportSummary,
+} from "@/lib/admin/mapPackageImport";
 // lspMerge is a pure lib (no node/"use server"), so importing its diff type
 // is safe for the client bundle.
 import type { WholeFileMergeSectionDiff } from "@/lib/admin/lspMerge";
@@ -50,13 +54,33 @@ type Phase =
   | { kind: "idle" }
   | { kind: "uploading"; fileName: string; total: number; sent: number }
   | { kind: "analyzing"; fileName: string }
-  | { kind: "review"; uploadId: string; fileName: string; plan: ImportPlan }
+  | {
+      kind: "review";
+      uploadId: string;
+      fileName: string;
+      packageType: "v1";
+      plan: ImportPlan;
+    }
+  | {
+      kind: "review";
+      uploadId: string;
+      fileName: string;
+      packageType: "v2";
+      mapPlan: MapPackageImportPlan;
+    }
   | { kind: "committing"; fileName: string }
   | {
       kind: "done";
       fileName: string;
+      packageType: "v1";
       summary: ImportFileSummary;
       lsp: LspMergeResult | null;
+    }
+  | {
+      kind: "done";
+      fileName: string;
+      packageType: "v2";
+      mapSummary: MapPackageImportSummary;
     }
   | { kind: "error"; message: string };
 
@@ -167,14 +191,35 @@ export function ImportPanel() {
         setPhase({ kind: "uploading", fileName: file.name, total: file.size, sent: end });
       }
 
-      // 2) Read-only analysis.
+      // 2) Read-only analysis. The package may be a v1 flat bundle or a v2
+      //    location-map package — the server tells us which.
       setPhase({ kind: "analyzing", fileName: file.name });
-      const { plan } = await postJson<{ ok: true; plan: ImportPlan }>(
-        "/admin/api/import/analyze",
-        { uploadId },
-      );
+      const res = await postJson<{
+        ok: true;
+        packageType: "v1" | "v2";
+        plan?: ImportPlan;
+        mapPlan?: MapPackageImportPlan;
+      }>("/admin/api/import/analyze", { uploadId });
       abortRef.current = null;
-      setPhase({ kind: "review", uploadId, fileName: file.name, plan });
+      if (res.packageType === "v2" && res.mapPlan) {
+        setPhase({
+          kind: "review",
+          uploadId,
+          fileName: file.name,
+          packageType: "v2",
+          mapPlan: res.mapPlan,
+        });
+      } else if (res.plan) {
+        setPhase({
+          kind: "review",
+          uploadId,
+          fileName: file.name,
+          packageType: "v1",
+          plan: res.plan,
+        });
+      } else {
+        throw new Error("Server vrátil neúplnou analýzu.");
+      }
     } catch (err) {
       abortRef.current = null;
       if (controller.signal.aborted) {
@@ -196,13 +241,21 @@ export function ImportPanel() {
     async (uploadId: string, fileName: string, onCollision: CollisionChoice) => {
       setPhase({ kind: "committing", fileName });
       try {
-        const { summary, lsp } = await postJson<{
+        const res = await postJson<{
           ok: true;
-          summary: ImportFileSummary;
-          lsp: LspMergeResult | null;
+          packageType: "v1" | "v2";
+          summary?: ImportFileSummary;
+          mapSummary?: MapPackageImportSummary;
+          lsp?: LspMergeResult | null;
         }>("/admin/api/import/commit", { uploadId, onCollision });
         uploadIdRef.current = null; // commit's finally already deleted the ZIP
-        setPhase({ kind: "done", fileName, summary, lsp: lsp ?? null });
+        if (res.packageType === "v2" && res.mapSummary) {
+          setPhase({ kind: "done", fileName, packageType: "v2", mapSummary: res.mapSummary });
+        } else if (res.summary) {
+          setPhase({ kind: "done", fileName, packageType: "v1", summary: res.summary, lsp: res.lsp ?? null });
+        } else {
+          throw new Error("Server vrátil neúplný výsledek importu.");
+        }
       } catch (err) {
         uploadIdRef.current = null; // ...deleted on failure too (idempotent retry)
         setPhase({
@@ -263,6 +316,18 @@ export function ImportPanel() {
   }
 
   if (phase.kind === "review") {
+    if (phase.packageType === "v2") {
+      return (
+        <MapReviewCard
+          mapPlan={phase.mapPlan}
+          fileName={phase.fileName}
+          onConfirm={() =>
+            void confirm(phase.uploadId, phase.fileName, collision)
+          }
+          onCancel={reset}
+        />
+      );
+    }
     return (
       <ReviewCard
         plan={phase.plan}
@@ -291,6 +356,9 @@ export function ImportPanel() {
   }
 
   if (phase.kind === "done") {
+    if (phase.packageType === "v2") {
+      return <MapDoneCard mapSummary={phase.mapSummary} onReset={reset} />;
+    }
     return <DoneCard summary={phase.summary} lsp={phase.lsp} onReset={reset} />;
   }
 
@@ -335,10 +403,15 @@ export function ImportPanel() {
           </button>
         </p>
         <p className="text-xs text-gray-500">
-          Očekávaná struktura: <code className="font-mono">finds/</code>{" "}
+          Balíček nálezů: <code className="font-mono">finds/</code>{" "}
           <code className="font-mono">crops/</code>{" "}
           <code className="font-mono">maps/</code>{" "}
           <code className="font-mono">meta/LokaceStavyPoznamky.json</code>
+        </p>
+        <p className="text-xs text-gray-500">
+          Balíček map v2: <code className="font-mono">manifest.json</code>{" "}
+          <code className="font-mono">Nosné mapy/</code>{" "}
+          <code className="font-mono">Rendered mapy/</code>
         </p>
         <input
           ref={inputRef}
@@ -741,6 +814,160 @@ function LspSectionCard({
 }
 
 // ── Done ─────────────────────────────────────────────────────────────────
+
+// ── v2 map package: review + done ────────────────────────────────────────
+
+function MapReviewCard({
+  mapPlan,
+  fileName,
+  onConfirm,
+  onCancel,
+}: {
+  mapPlan: MapPackageImportPlan;
+  fileName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Card>
+      <header className="mb-3 flex items-center gap-2">
+        <PackageOpen className="h-5 w-5 text-brand-600" aria-hidden />
+        <h2 className="text-sm font-semibold text-gray-900">
+          Balíček map v2 — kontrola
+        </h2>
+      </header>
+      <p className="mb-3 text-xs text-gray-500">
+        {fileName} — <strong>{mapPlan.total}</strong> map (
+        <span className="text-emerald-700">{mapPlan.add} nových</span> ·{" "}
+        <span className="text-amber-700">{mapPlan.replace} přepsáno</span>)
+        {mapPlan.hasRendered ? " · obsahuje Nosné i Rendered varianty" : " · pouze Nosné mapy"}
+      </p>
+
+      {mapPlan.warnings.length > 0 && (
+        <Note tone="amber">
+          {mapPlan.warnings.length} upozornění:
+          <span className="mt-1 block font-mono text-[11px]">
+            {mapPlan.warnings.slice(0, 5).join(" · ")}
+            {mapPlan.warnings.length > 5 ? " …" : ""}
+          </span>
+        </Note>
+      )}
+
+      <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-gray-200">
+        <table className="w-full text-left text-xs">
+          <thead className="sticky top-0 bg-gray-50 text-gray-500">
+            <tr>
+              <th className="px-2 py-1.5 font-semibold">Číslo</th>
+              <th className="px-2 py-1.5 font-semibold">ID lokace</th>
+              <th className="px-2 py-1.5 font-semibold">Město</th>
+              <th className="px-2 py-1.5 font-semibold">Akce</th>
+            </tr>
+          </thead>
+          <tbody>
+            {mapPlan.entries.map((e) => (
+              <tr key={e.cislo} className="border-t border-gray-100">
+                <td className="px-2 py-1 font-mono text-gray-700">{e.cislo}</td>
+                <td className="px-2 py-1 font-mono text-gray-900">{e.idLokace}</td>
+                <td className="px-2 py-1 text-gray-600">{e.mesto}</td>
+                <td className="px-2 py-1">
+                  {e.action === "add" ? (
+                    <span className="text-emerald-700">nová</span>
+                  ) : (
+                    <span className="text-amber-700">přepsat</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="mt-3 text-xs text-gray-500">
+        Soubory se jen připraví na disk; databázi a náhledy vytvoří až sync.
+        Import je idempotentní — přepis se pozná podle čísla lokace.
+      </p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={mapPlan.total === 0}
+          className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
+        >
+          <PackageOpen className="h-4 w-4" aria-hidden />
+          Nahrát balíček
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <X className="h-4 w-4" aria-hidden />
+          Zrušit
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+function MapDoneCard({
+  mapSummary,
+  onReset,
+}: {
+  mapSummary: MapPackageImportSummary;
+  onReset: () => void;
+}) {
+  return (
+    <Card>
+      <header className="mb-3 flex items-center gap-2">
+        <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden />
+        <h2 className="text-sm font-semibold text-gray-900">
+          Balíček map nahrán
+        </h2>
+      </header>
+
+      <p className="text-xs text-gray-700">
+        Připraveno na disk: <strong>{mapSummary.staged}</strong> souborů map
+        {mapSummary.manifestStaged ? " + manifest" : ""}.
+      </p>
+
+      {mapSummary.errors.length > 0 && (
+        <Note tone="red">
+          {mapSummary.errors.length} položek se nepodařilo uložit.
+          <span className="mt-1 block font-mono text-[11px]">
+            {mapSummary.errors.slice(0, 5).join(" · ")}
+            {mapSummary.errors.length > 5 ? " …" : ""}
+          </span>
+        </Note>
+      )}
+
+      <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50/50 p-3">
+        <p className="text-xs text-gray-700">
+          Mapy jsou na disku. Do databáze je zapíše až <strong>sync</strong> —
+          spusť ho teď.
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/sync"
+            className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
+          >
+            <Database className="h-4 w-4" aria-hidden />
+            Přejít na Sync
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+          <button
+            type="button"
+            onClick={onReset}
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden />
+            Nahrát další balíček
+          </button>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 function DoneCard({
   summary,
