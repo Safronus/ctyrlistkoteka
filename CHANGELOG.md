@@ -9,6 +9,25 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Lokační mapy v2 — začátek migrace (fáze A + B)
+Web se připravuje na „mapy v2" (nový formát z desktop generátoru: strukturované
+id_lokace, GPS/zoom v metadatech, polygon v GPS, stát/město/indikátor/plocha).
+Zero-downtime, po fázích — web mezitím jede beze změny na v1.
+
+- **Fáze A (schéma):** aditivní nullable v2 sloupce (`locations`: schema_version,
+  country_code, geo_address, indicator, radius_m, aoi_area_m2, is_cancelled;
+  `location_maps`: render_zoom). Nic se nemaže, v1 řádky nedotčeny.
+- **Fáze B (sync):** nový `src/lib/mapPackage.ts` (čte + validuje `manifest.json`
+  v2 balíčku) + `phaseMapsV2` v sync skriptu. Sync detekuje manifest → v2 import,
+  jinak v1 (netknutá). v2 je idempotentní upsert dle čísla lokace → umí přidat
+  i přepsat mapu (opakovatelný update). Ověřeno na reálných balíčcích.
+
+### Oprava: `pnpm sync` a další CLI skripty po Prisma 7
+Prisma 7 přestala automaticky načítat `.env`, takže samostatné `tsx` skripty
+(sync, seed, watermark, diagnose) padaly na `SASL: client password must be a
+string`. Přidán `import "dotenv/config"` do každého. Web ani admin-UI sync se
+netýkalo (ty mají env z Next). Viz `docs/gotchas.md` #16.
+
 ### Prisma 6 → 7
 Migrace, ne bump — v7 zrušila Rust query engine, takže se mění způsob
 připojení k databázi.
