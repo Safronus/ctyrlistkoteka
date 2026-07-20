@@ -32,6 +32,10 @@
  *      maps and child parent_id along.
  */
 
+// Prisma 7 no longer auto-loads .env; CLI scripts must load it themselves
+// (the web gets env from Next). Must run before any DATABASE_URL use.
+import "dotenv/config";
+
 import { join } from "node:path";
 import { readdir } from "node:fs/promises";
 import { createPrismaClient } from "@/lib/prismaClient";

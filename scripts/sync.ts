@@ -16,9 +16,13 @@
  *   - LokaceStavyPoznamky.json: přiřazení find→lokace, stavy, poznámky, anonymizace
  */
 
+// Prisma 7 no longer auto-loads .env; CLI scripts must load it themselves
+// (the web gets env from Next). Must run before any DATABASE_URL use.
+import "dotenv/config";
+
 import { createWriteStream, type WriteStream } from "node:fs";
 import { mkdir, readFile, readdir, stat, unlink } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { basename, extname, join } from "node:path";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { FindState, ImageType } from "@/generated/prisma/enums";
 import { createPrismaClient } from "@/lib/prismaClient";
@@ -35,6 +39,12 @@ import {
   planLocationRenumber,
 } from "../src/lib/admin/locationIdReconcile";
 import { splitLocationCode, toAsciiCode } from "../src/lib/locationCode";
+import {
+  parseMapPackageManifest,
+  entryNumber,
+  displayNameFor,
+  polygonWkt,
+} from "../src/lib/mapPackage";
 import { parseRanges } from "../src/lib/parseRanges";
 import { JSON_STATE_MAP } from "../src/lib/stateMapping";
 import { findUrl, pingIndexNow } from "../src/lib/indexnow";
@@ -341,6 +351,189 @@ interface MapFileInfo {
   filename: string;
   path: string;
   parsed: ParsedMapFilename;
+}
+
+/** Path to a v2 map package manifest inside the maps dir, if present. */
+function mapPackageManifestPath(ctx: Context): string {
+  return join(ctx.dataDir, "maps", "manifest.json");
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  return stat(path)
+    .then(() => true)
+    .catch(() => false);
+}
+
+/**
+ * Map-import phase for a **v2 package** (manifest.json + Nosné mapy/…).
+ *
+ * Deliberately separate from `phaseMaps` (v1): v2 is far simpler because the
+ * číslo (= location id = map id) is a stable primary key, so there is no
+ * rename/fork dance — a plain upsert by id both creates new maps and rewrites
+ * existing ones (which is exactly the repeatable-update behaviour the admin
+ * package flow needs). All the parsing/normalizing lives in mapPackage.ts.
+ *
+ * Everything the read side needs is written straight from the manifest:
+ * code = id_lokace, GPS, image_bounds from render_zoom, polygon from
+ * aoi_polygon_gps, plus the phase-A v2 columns (country, indicator, radius,
+ * area, is_cancelled, geo_address, schema_version). Parent/child linking is
+ * intentionally NOT done here — it's resolved in phase D together with the
+ * switch of the hierarchy source, to avoid racing phaseHierarchy (JSON).
+ *
+ * v1 `phaseMaps` is left completely untouched, so nothing here can regress
+ * the existing flat-file import.
+ */
+async function phaseMapsV2(
+  ctx: Context,
+  manifestPath: string,
+): Promise<{ maps: MapFileInfo[]; mapToLocation: Map<number, number> }> {
+  const raw = await readFile(manifestPath, "utf8");
+  const parsed = parseMapPackageManifest(raw);
+  if (!parsed.ok) {
+    ctx.log.failure({
+      file: "maps/manifest.json",
+      reason: "manifest_invalid",
+      details: parsed.error,
+    });
+    throw new Error(`Invalid map package manifest: ${parsed.error}`);
+  }
+  const manifest = parsed.value;
+  const mapToLocation = new Map<number, number>();
+
+  ctx.log.log({
+    event: "maps.scan",
+    level: "info",
+    dir: join(ctx.dataDir, "maps"),
+    variant: "v2",
+    count: manifest.mapy.length,
+  });
+
+  if (ctx.opts.dryRun) {
+    ctx.log.log({
+      event: "maps.plan",
+      level: "info",
+      variant: "v2",
+      would_upsert_maps: manifest.mapy.length,
+    });
+    for (const m of manifest.mapy) {
+      const id = entryNumber(m);
+      mapToLocation.set(id, id);
+    }
+    return { maps: [], mapToLocation };
+  }
+
+  const { generateMapWebP, computeMapBounds, sha1File } = await import(
+    "../src/lib/images"
+  );
+  const mapsDir = join(ctx.dataDir, "maps");
+  const progress = makeProgressTicker(
+    "maps.upsert",
+    manifest.mapy.length,
+    ctx.log,
+  );
+
+  for (const m of manifest.mapy) {
+    const id = entryNumber(m);
+    const nosnaRel = m.soubory["Nosné mapy"];
+    const nosnaPath = join(mapsDir, nosnaRel);
+    if (!(await fileExists(nosnaPath))) {
+      ctx.log.failure({
+        file: `maps/${nosnaRel}`,
+        reason: "map_file_missing",
+        details: `manifest references ${nosnaRel} but it isn't in the package`,
+      });
+      continue;
+    }
+
+    const sha1 = await sha1File(nosnaPath);
+    const mapImg = await generateMapWebP({
+      sourcePath: nosnaPath,
+      generatedDir: ctx.generatedDir,
+      forceRegen: ctx.opts.forceRegen,
+      sha1,
+    });
+    // Bounds from render_zoom + the manifest's native output dimensions (the
+    // PNG is rendered at render_zoom; using zoom would misplace the overlay).
+    const bounds = computeMapBounds({
+      centerLat: m.gps_lat,
+      centerLng: m.gps_lon,
+      zoom: m.render_zoom,
+      width: m.output_w_px,
+      height: m.output_h_px,
+    });
+
+    const locationData = {
+      code: m.id_lokace,
+      codeTransliterated: toAsciiCode(m.id_lokace),
+      cadastralArea: m.mesto, // v2: city straight from the manifest
+      locationType: null,
+      number: null,
+      subpart: null,
+      displayName: displayNameFor(m),
+      // phase-A v2 columns
+      schemaVersion: 2,
+      countryCode: m.stat,
+      geoAddress: m.geo_adresa ?? null,
+      indicator: m.indikator,
+      radiusM: m.radius_m,
+      aoiAreaM2: m.aoi_area_m2,
+      isCancelled: m.zrusena,
+    };
+    await ctx.prisma.location.upsert({
+      where: { id },
+      create: { id, ...locationData },
+      update: locationData,
+    });
+    mapToLocation.set(id, id);
+
+    await ctx.prisma
+      .$executeRaw`UPDATE locations SET center_point = ST_SetSRID(ST_MakePoint(${m.gps_lon}, ${m.gps_lat}), 4326) WHERE id = ${id}`;
+
+    // Always set the polygon — to the AOI when present, else NULL, so a map
+    // that changed from polygon to dot/circle drops its stale polygon.
+    const wkt = polygonWkt(m);
+    if (wkt) {
+      await ctx.prisma.$executeRaw`
+        UPDATE locations SET polygon = ST_GeomFromText(${wkt}, 4326) WHERE id = ${id}`;
+    } else {
+      await ctx.prisma
+        .$executeRaw`UPDATE locations SET polygon = NULL WHERE id = ${id}`;
+    }
+
+    const mapData = {
+      locationId: id,
+      locationCode: m.id_lokace,
+      description: m.popis,
+      centerLat: m.gps_lat,
+      centerLng: m.gps_lon,
+      zoom: m.zoom,
+      renderZoom: m.render_zoom,
+      imagePath: mapImg.imageUrl,
+      imageBounds: bounds,
+      imageWidth: mapImg.width,
+      imageHeight: mapImg.height,
+      hasPolygon: wkt !== null,
+      isAnonymized: m.anonymizovana,
+      originalFilename: basename(nosnaRel),
+    };
+    await ctx.prisma.locationMap.upsert({
+      where: { id },
+      create: { id, ...mapData },
+      update: mapData,
+    });
+
+    progress.tick();
+  }
+
+  ctx.log.log({
+    event: "maps.done",
+    level: "info",
+    variant: "v2",
+    upserted_maps: manifest.mapy.length,
+    upserted_locations: new Set(mapToLocation.values()).size,
+  });
+
+  return { maps: [], mapToLocation };
 }
 
 async function phaseMaps(
@@ -2017,7 +2210,13 @@ async function main() {
 
     let mapToLocation = new Map<number, number>();
     if (runMaps) {
-      const r = await phaseMaps(ctx);
+      // A v2 package (manifest.json in the maps dir) takes the v2 path;
+      // otherwise the classic flat-file v1 scan. During the transition both
+      // are supported so the switch is a data change, not a code change.
+      const manifestPath = mapPackageManifestPath(ctx);
+      const r = (await fileExists(manifestPath))
+        ? await phaseMapsV2(ctx, manifestPath)
+        : await phaseMaps(ctx);
       mapToLocation = r.mapToLocation;
     } else {
       // Reuse DB state when skipping maps — read existing location_maps.

@@ -493,3 +493,27 @@ bez následků.
   `PrismaClient` nebo namespace `Prisma` (u nás 9 serverových souborů).
 - Pravidlo: **importuje to klientská komponenta nebo něco, co do ní vede?
   Pak `/enums`.**
+
+---
+
+## 16. Prisma 7: CLI skripty (sync/seed/…) nenačtou `.env` samy
+
+**Příznak:** po upgradu na Prismu 7 spadne `pnpm sync` (i seed,
+apply-watermark, diagnose) na `SASL: SCRAM-SERVER-FIRST-MESSAGE: client
+password must be a string`. Web funguje, admin sync funguje, jen CLI ne.
+
+**Proč:** Prisma 6 načítala `.env` automaticky pro cokoli, co importovalo
+klienta. Prisma 7 to **zrušila** — `.env` si musí načíst aplikace sama.
+Web ho dostává od Next.js; `prisma.config.ts` má `import "dotenv/config"`
+pro Prisma **CLI** (`migrate`/`generate`). Ale samostatné `tsx` skripty
+(`scripts/*.ts`) nemají ani jedno → `process.env.DATABASE_URL` je
+`undefined` → adaptér `pg` dostane heslo `undefined` → SASL chyba.
+
+**Jak aplikovat:**
+- Každý CLI skript, který sahá na DB, má na začátku
+  `import "dotenv/config";` **před** jakýmkoli použitím `DATABASE_URL`
+  (v repu: sync, seed, apply-watermark, diagnose-location-ids).
+- Nedávej to do sdíleného `src/lib/prismaClient.ts` — ten jede i ve webu,
+  kde je `.env` už načtený a extra dotenv side-effect je zbytečný.
+- `dotenv` **nepřepisuje** už existující proměnné, takže je bezpečné i tam,
+  kde je prostředí naplněné jinak (systemd `EnvironmentFile`, PM2 env).

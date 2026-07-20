@@ -5,6 +5,10 @@
  * Run with: pnpm db:seed
  */
 
+// Prisma 7 no longer auto-loads .env; CLI scripts must load it themselves
+// (the web gets env from Next). Must run before any DATABASE_URL use.
+import "dotenv/config";
+
 import { FindState, ImageType } from "@/generated/prisma/enums";
 import { createPrismaClient } from "@/lib/prismaClient";
 
