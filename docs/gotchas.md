@@ -409,3 +409,36 @@ tedy jen typy s realitou.
 - `require("sharp/package.json")` už nefunguje vůbec (`ERR_PACKAGE_PATH_
   NOT_EXPORTED`) — exports mapa pouští jen kořen. Verzi zjistíš jinudy,
   runtime info je v `sharp.versions`.
+
+---
+
+## 13. Flat config: pravidlo `warn` potřebuje plugin ve stejném scope, `off` ne
+
+**Příznak:** po přechodu na `eslint-config-next` 16 spadne `pnpm lint` na
+`A configuration object specifies rule "jsx-a11y/alt-text", but could not
+find plugin "jsx-a11y"` — a když plugin doregistruješ, spadne to na
+`Cannot redefine plugin "jsx-a11y"`. Chyceni mezi dvěma protichůdnými
+chybami.
+
+**Proč:** ve flat configu jsou pluginy **scopované per config objekt** a
+zdědí je jen objekty pokrývající stejné soubory. `eslint-config-next` 16
+registruje `jsx-a11y`, `react-hooks` a spol. v objektu s
+`files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"]`. Náš blok s doplňkovými
+pravidly `files` neměl, takže platil i na soubory mimo ten glob — a tam
+plugin neexistuje (první chyba). Doregistrování pluginu zase koliduje
+uvnitř globu, kde ho Next už zaregistroval (druhá chyba).
+
+Do verze 15 tenhle problém nebyl, protože se presety tahaly přes
+`FlatCompat.extends()` jako legacy `.eslintrc` — ten mechanismus scoping
+řešil jinak. (Pod 16 `FlatCompat` na tyhle presety navíc padá rovnou na
+`TypeError: Converting circular structure to JSON`, protože už jsou
+nativně flat — importuj je přímo a rozbal spreadem.)
+
+**Jak aplikovat:**
+- Blok, který **zapíná** pravidlo cizího pluginu (`warn`/`error`), musí mít
+  `files` se stejným globem, jaký používá ten, kdo plugin registruje.
+  Plugin **nedoregistrovávej**.
+- Pravidlo nastavené na `"off"` scope nepotřebuje — proto v našem configu
+  desítky `"sonarjs/…": "off"` fungovaly bez `files` a rozbilo se to až
+  ve chvíli, kdy jsem přidal `"react-hooks/purity": "warn"`.
+- Když měníš glob u jednoho bloku, změň ho u obou — jsou svázané.

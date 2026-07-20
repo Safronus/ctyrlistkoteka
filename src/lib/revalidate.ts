@@ -24,7 +24,14 @@ import { revalidatePath, revalidateTag } from "next/cache";
  * instead (which calls this).
  */
 export function revalidatePublicSurfaces(): void {
-  revalidateTag("stats");
+  // The cacheLife profile (2nd arg) is required as of Next.js 16 — the
+  // single-argument form is a type error. "max" expires the entry as far as
+  // the profile allows while keeping stale-while-revalidate semantics, which
+  // is what we want: a visitor mid-sync gets the previous numbers rather than
+  // a blocking recompute over ~17k finds. `updateTag` (read-your-writes) is
+  // the alternative, but it's Server-Actions-only and this runs from a route
+  // handler.
+  revalidateTag("stats", "max");
   for (const p of ["/", "/sbirka", "/statistiky", "/lokality", "/mapa"]) {
     revalidatePath(p);
   }

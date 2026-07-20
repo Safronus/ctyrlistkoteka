@@ -9,6 +9,37 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Next.js 15 → 16
+Velký framework upgrade. Co bylo potřeba změnit:
+
+- **`next lint` byl v 16 odstraněn.** Skript `pnpm lint` teď volá přímo
+  `eslint .`. Pozor, tím se rozšířil záběr — `next lint` kontroloval jen
+  vybrané adresáře, `eslint .` jede přes celý repozitář.
+- **`eslint-config-next` 16 je nativní flat config.** `FlatCompat.extends()`
+  na něj padá na `Converting circular structure to JSON`; presety se nově
+  importují přímo a rozbalují spreadem. Doprovodná past se scopováním
+  pluginů je popsaná v `docs/gotchas.md` #13.
+- **`revalidateTag` vyžaduje druhý argument** (cacheLife profil). Jediné
+  volání (`"stats"`) je teď `revalidateTag("stats", "max")` — zachovává
+  stale-while-revalidate, takže návštěvník během syncu dostane předchozí
+  čísla místo blokujícího přepočtu nad ~17 tisíci nálezy.
+- **React Compiler pravidla** přišla jako `error` a vyhodila 41 nálezů na
+  kódu, který byl pod 15 čistý. Přeřazena na `warn` (stejná „audit vrstvy
+  jsou advisory" logika jako u zbytku configu). `react-hooks/purity` jsou
+  u nás false positives — `Date.now()` a `Math.random()` v *Server*
+  komponentách. `react-hooks/set-state-in-effect` (16×) je ale reálný
+  backlog k pročištění, ne šum.
+- **Turbopack je nově výchozí** pro `build` i `dev`. Custom webpack config
+  nemáme, takže přechod byl bez zásahu; ověřeno, že build integrity gate
+  v deployi má pořád všech pět manifestů.
+- **`middleware` je deprecated ve prospěch `proxy`** (Next už ho tak
+  označuje ve výstupu buildu). Přejmenování zatím **neuděláno** — funguje
+  dál a chtělo by to ověřit s next-intl zvlášť.
+
+Ověřeno: lint, typecheck, 147 testů, produkční build a smoke test
+běžícího serveru — všechny veřejné cesty v obou jazycích, CSP nonce
+z middleware, sitemap, robots i OG obrázek.
+
 ### Závislosti — průběžná aktualizace
 - **GitHub Actions**: `checkout` v5→v7, `setup-node` v5→v6,
   `gitleaks-action` v2→v3. Poslední jmenovaná není volitelná — GitHub
