@@ -978,6 +978,7 @@ function LocationMapsGallery({
                     width={m.imageWidth}
                     height={m.imageHeight}
                     showCenterPin={false}
+                    showScale
                     idSuffix={String(m.id)}
                   />
                 )}

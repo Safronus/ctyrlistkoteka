@@ -1,5 +1,20 @@
 import type { MapOverlayGeometry } from "@/lib/mapOverlay";
 
+/** Largest "nice" length (1 / 2 / 5 × 10ⁿ) not exceeding `target` metres —
+ *  the scale-bar snapping the desktop app uses. */
+function niceLength(target: number): number {
+  if (target <= 0) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(target)));
+  for (const m of [5, 2, 1]) if (m * pow <= target) return m * pow;
+  return pow;
+}
+
+function formatScaleLabel(m: number): string {
+  return m >= 1000
+    ? `${(m / 1000).toLocaleString("cs-CZ")} km`
+    : `${m.toLocaleString("cs-CZ")} m`;
+}
+
 /** Indicator red — matches the desktop app's baked overlays (#D62822). */
 const RED = "#D62822";
 /** Rose for former/gone places — matches /mapa's gone treatment. */
@@ -25,6 +40,7 @@ export function MapOverlay({
   width,
   height,
   showCenterPin = true,
+  showScale = false,
   idSuffix,
 }: {
   geometry: MapOverlayGeometry;
@@ -34,6 +50,9 @@ export function MapOverlay({
   /** Draw the centre pin for radius/dot maps. Off e.g. on the find detail,
    *  where the find's own GPS pin already marks the spot. */
   showCenterPin?: boolean;
+  /** Draw a true-scale ruler (bottom-left). Detail pages only — omitted on
+   *  thumbnails where it'd be unreadable. */
+  showScale?: boolean;
   /** Disambiguates the SVG `<defs>` ids when several overlays share a page
    *  (e.g. a location with multiple maps). */
   idSuffix?: string;
@@ -110,6 +129,28 @@ export function MapOverlay({
           />
         </span>
       )}
+
+      {showScale &&
+        geometry.imageWidthMeters > 0 &&
+        (() => {
+          // Bar ≈ 22 % of the map width, snapped to a nice 1/2/5 length. The
+          // wrapper's own width IS the scale length (a % of the container =
+          // a % of the image), so the bar reads true metres at any zoom.
+          const nice = niceLength(0.22 * geometry.imageWidthMeters);
+          const barPct = (nice / geometry.imageWidthMeters) * 100;
+          return (
+            <div
+              className="pointer-events-none absolute bottom-2 left-2 z-10"
+              style={{ width: `${barPct}%` }}
+              aria-hidden
+            >
+              <div className="mb-0.5 w-fit rounded bg-white/85 px-1 text-[10px] font-medium leading-tight text-gray-800 shadow-sm">
+                {formatScaleLabel(nice)}
+              </div>
+              <div className="h-1.5 border-x-2 border-b-2 border-gray-800 bg-white/30" />
+            </div>
+          );
+        })()}
     </>
   );
 }

@@ -34,6 +34,9 @@ export interface MapOverlayGeometry {
   /** Former/gone location — the client paints the indicator in the "gone"
    *  (rose + hatch) treatment instead of the normal red/green. */
   isGone: boolean;
+  /** Real-world width the full image spans, in metres — lets the client draw
+   *  a true-scale ruler (detail pages only). Derived from the bounds. */
+  imageWidthMeters: number;
 }
 
 const METERS_PER_DEG_LAT = 111_320;
@@ -130,6 +133,11 @@ export function computeMapOverlayGeometry(
   const { imageBounds: bounds } = input;
   if (!isFiniteBounds(bounds)) return null;
 
+  const [[swLatB, swLngB], [neLatB, neLngB]] = bounds;
+  const midLatRad = (((swLatB + neLatB) / 2) * Math.PI) / 180;
+  const imageWidthMeters =
+    (neLngB - swLngB) * METERS_PER_DEG_LAT * Math.cos(midLatRad);
+
   const center =
     input.centerLat !== null && input.centerLng !== null
       ? latLngToFrac(input.centerLat, input.centerLng, bounds)
@@ -140,14 +148,14 @@ export function computeMapOverlayGeometry(
     const polygon = input.polygonLngLat.map(([lng, lat]) =>
       latLngToFrac(lat, lng, bounds),
     );
-    return { indicator: "polygon", center, polygon, radius: null, isGone: input.isGone };
+    return { indicator: "polygon", center, polygon, radius: null, isGone: input.isGone, imageWidthMeters };
   }
 
   if (input.indicator === "radius") {
     if (center === null || input.radiusM === null || input.radiusM <= 0) {
       // No radius to draw — fall back to a bare dot so the centre is still
       // marked rather than showing nothing.
-      return { indicator: "dot", center, polygon: null, radius: null, isGone: input.isGone };
+      return { indicator: "dot", center, polygon: null, radius: null, isGone: input.isGone, imageWidthMeters };
     }
     const [[swLat, swLng], [neLat, neLng]] = bounds;
     const centerLatRad = ((input.centerLat ?? 0) * Math.PI) / 180;
@@ -157,9 +165,9 @@ export function computeMapOverlayGeometry(
       widthM > 0 && heightM > 0
         ? { rx: input.radiusM / widthM, ry: input.radiusM / heightM }
         : null;
-    return { indicator: "radius", center, polygon: null, radius, isGone: input.isGone };
+    return { indicator: "radius", center, polygon: null, radius, isGone: input.isGone, imageWidthMeters };
   }
 
   // dot
-  return { indicator: "dot", center, polygon: null, radius: null, isGone: input.isGone };
+  return { indicator: "dot", center, polygon: null, radius: null, isGone: input.isGone, imageWidthMeters };
 }

@@ -418,6 +418,7 @@ async function FullDetail({
                       geometry={m.overlay}
                       width={m.imageWidth}
                       height={m.imageHeight}
+                      showScale
                       idSuffix={String(m.id)}
                     />
                   ) : (
