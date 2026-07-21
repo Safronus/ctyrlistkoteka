@@ -1417,17 +1417,18 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
         -- NOTE: the ::float8 casts below are load-bearing — see the comment
         -- above this query.
         SELECT id,
-               COALESCE(
-                 -- v2: precomputed area (polygon → real AOI, circle → π·r²).
-                 -- A v2 dot has NULL here and falls through — like a v1
-                 -- polygon-less location — to the 5 m circle below.
-                 aoi_area_m2,
-                 CASE
-                   WHEN polygon IS NOT NULL
-                     THEN ST_Area(polygon::geography)::float8
-                   ELSE pi() * (${FIND_DEVIATION_RADIUS_M}::float8 * ${FIND_DEVIATION_RADIUS_M}::float8)
-                 END
-               ) AS area_m2
+               CASE
+                 -- v2: use the precomputed area. polygon → real AOI area,
+                 -- radius → π·r². A v2 dot has aoi_area_m2 = NULL (a bare
+                 -- point has no area) → area_m2 NULL → excluded from the
+                 -- ranking by the area_m2 > 0 guard below.
+                 WHEN schema_version = 2 THEN aoi_area_m2
+                 -- v1 fallback: real polygon area, else a 5 m circle so
+                 -- polygon-less v1 locations still rank.
+                 WHEN polygon IS NOT NULL
+                   THEN ST_Area(polygon::geography)::float8
+                 ELSE pi() * (${FIND_DEVIATION_RADIUS_M}::float8 * ${FIND_DEVIATION_RADIUS_M}::float8)
+               END AS area_m2
         FROM locations
       )
       SELECT l.id,
@@ -1467,17 +1468,18 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
       ),
       areas AS (
         SELECT id,
-               COALESCE(
-                 -- v2: precomputed area (polygon → real AOI, circle → π·r²).
-                 -- A v2 dot has NULL here and falls through — like a v1
-                 -- polygon-less location — to the 5 m circle below.
-                 aoi_area_m2,
-                 CASE
-                   WHEN polygon IS NOT NULL
-                     THEN ST_Area(polygon::geography)::float8
-                   ELSE pi() * (${FIND_DEVIATION_RADIUS_M}::float8 * ${FIND_DEVIATION_RADIUS_M}::float8)
-                 END
-               ) AS area_m2
+               CASE
+                 -- v2: use the precomputed area. polygon → real AOI area,
+                 -- radius → π·r². A v2 dot has aoi_area_m2 = NULL (a bare
+                 -- point has no area) → area_m2 NULL → excluded from the
+                 -- ranking by the area_m2 > 0 guard below.
+                 WHEN schema_version = 2 THEN aoi_area_m2
+                 -- v1 fallback: real polygon area, else a 5 m circle so
+                 -- polygon-less v1 locations still rank.
+                 WHEN polygon IS NOT NULL
+                   THEN ST_Area(polygon::geography)::float8
+                 ELSE pi() * (${FIND_DEVIATION_RADIUS_M}::float8 * ${FIND_DEVIATION_RADIUS_M}::float8)
+               END AS area_m2
         FROM locations
       )
       SELECT
