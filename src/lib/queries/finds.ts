@@ -36,6 +36,7 @@ import {
   indicatorFrom,
   parseImageBounds,
   ringFromGeoJson,
+  type ImageBounds,
   type MapOverlayGeometry,
 } from "@/lib/mapOverlay";
 import { listCountries } from "@/lib/queries/locations";
@@ -81,6 +82,12 @@ export interface PublicFind {
    *  rows. `null` when the find has no location, the location has no
    *  available maps, or the find itself is anonymized. */
   locationThumbUrl: string | null;
+  /** Vector overlay for the list thumbnail (v2 only) — the location's polygon
+   *  / radius projected into the thumb map, drawn cropped (cover). Null for
+   *  v1, anonymized finds, or missing bounds. */
+  locationThumbOverlay: MapOverlayGeometry | null;
+  locationThumbWidth: number | null;
+  locationThumbHeight: number | null;
   /** Great-circle distance in metres from the default LocationMap
    *  (id = DEFAULT_LOCATION_ID). Null when the find is anonymized,
    *  has no GPS, or MAP 00001 isn't on disk. We deliberately set it
@@ -656,6 +663,9 @@ async function hydrate(
       // attachLocationThumbs. Keeping it on the base shape avoids a second
       // PublicFind type just for list rows.
       locationThumbUrl: null as string | null,
+      locationThumbOverlay: null as MapOverlayGeometry | null,
+      locationThumbWidth: null as number | null,
+      locationThumbHeight: null as number | null,
       // SQL CASE already returns NULL for anonymized rows, so we never
       // surface a distance that could be used to back-derive the
       // anonymized find's position.
@@ -1171,25 +1181,86 @@ async function attachLocationThumbs(finds: PublicFind[]): Promise<void> {
     : locationIds;
   if (queryIds.length === 0) return;
 
-  const maps = await prisma.locationMap.findMany({
-    where: { locationId: { in: queryIds }, isAnonymized: false },
-    select: { locationId: true, imagePath: true },
-    orderBy: [{ locationId: "asc" }, { id: "asc" }],
-  });
-  const firstByLoc = new Map<number, string>();
+  const [maps, geomRows] = await Promise.all([
+    prisma.locationMap.findMany({
+      where: { locationId: { in: queryIds }, isAnonymized: false },
+      select: {
+        locationId: true,
+        imagePath: true,
+        imageBounds: true,
+        imageWidth: true,
+        imageHeight: true,
+      },
+      orderBy: [{ locationId: "asc" }, { id: "asc" }],
+    }),
+    // Per-location overlay source (v2-gated below). The ::float8 cast is
+    // required — a bare param is typeless and breaks COALESCE (gotcha #18).
+    prisma.$queryRaw<
+      Array<{
+        id: number;
+        is_v2: boolean;
+        eff_radius_m: number | null;
+        is_cancelled: boolean;
+        code: string;
+        polygon_geojson: string | null;
+        center_lat: number | null;
+        center_lng: number | null;
+      }>
+    >`
+      SELECT l.id, (l.schema_version = 2) AS is_v2,
+        COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END) AS eff_radius_m,
+        l.is_cancelled, l.code,
+        ST_AsGeoJSON(l.polygon, 6) AS polygon_geojson,
+        ROUND(ST_Y(l.center_point)::numeric, 6)::float8 AS center_lat,
+        ROUND(ST_X(l.center_point)::numeric, 6)::float8 AS center_lng
+      FROM locations l WHERE l.id IN (${Prisma.join(queryIds)})
+    `,
+  ]);
+  const firstByLoc = new Map<
+    number,
+    {
+      imagePath: string;
+      bounds: ImageBounds | null;
+      width: number | null;
+      height: number | null;
+    }
+  >();
   for (const m of maps) {
     if (!firstByLoc.has(m.locationId)) {
-      firstByLoc.set(m.locationId, m.imagePath);
+      firstByLoc.set(m.locationId, {
+        imagePath: m.imagePath,
+        bounds: parseImageBounds(m.imageBounds),
+        width: m.imageWidth,
+        height: m.imageHeight,
+      });
     }
   }
-  const placeholderThumb = firstByLoc.get(DEFAULT_LOCATION_ID) ?? null;
+  const geomByLoc = new Map(geomRows.map((g) => [g.id, g]));
+  const placeholderThumb = firstByLoc.get(DEFAULT_LOCATION_ID)?.imagePath ?? null;
   for (const f of finds) {
     if (f.isAnonymized) {
+      // Placeholder map — no overlay (its shape isn't the find's real one).
       f.locationThumbUrl = placeholderThumb;
       continue;
     }
     if (!f.location) continue;
-    f.locationThumbUrl = firstByLoc.get(f.location.id) ?? null;
+    const thumb = firstByLoc.get(f.location.id);
+    f.locationThumbUrl = thumb?.imagePath ?? null;
+    const g = geomByLoc.get(f.location.id);
+    if (thumb?.bounds && g?.is_v2) {
+      const ring = ringFromGeoJson(g.polygon_geojson);
+      f.locationThumbOverlay = computeMapOverlayGeometry({
+        indicator: indicatorFrom(ring, g.eff_radius_m),
+        imageBounds: thumb.bounds,
+        centerLat: g.center_lat,
+        centerLng: g.center_lng,
+        radiusM: g.eff_radius_m,
+        polygonLngLat: ring,
+        isGone: isLocationGone(g.code, g.is_cancelled),
+      });
+      f.locationThumbWidth = thumb.width;
+      f.locationThumbHeight = thumb.height;
+    }
   }
 }
 

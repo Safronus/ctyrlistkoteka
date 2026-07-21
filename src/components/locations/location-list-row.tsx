@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { LocationListItem } from "@/lib/queries/locations";
+import { MapOverlay } from "@/components/map/map-overlay";
 import { versionedPhotoUrl } from "@/lib/assetVersion";
 import { GpsValue } from "@/components/finds/gps-value";
 import { DeviationCounts } from "@/components/finds/deviation-counts";
@@ -204,15 +205,28 @@ function RowThumb({
   }
   if (location.thumbnailUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={mapThumbUrl(location.thumbnailUrl)}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        decoding="async"
-        className="h-20 w-20 shrink-0 rounded-md border border-gray-200 object-cover sm:h-24 sm:w-24"
-      />
+      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md border border-gray-200 sm:h-24 sm:w-24">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={mapThumbUrl(location.thumbnailUrl)}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+        />
+        {location.thumbnailOverlay &&
+          location.thumbnailWidth &&
+          location.thumbnailHeight && (
+            <MapOverlay
+              geometry={location.thumbnailOverlay}
+              width={location.thumbnailWidth}
+              height={location.thumbnailHeight}
+              objectFit="cover"
+              idSuffix={`loc-${location.id}`}
+            />
+          )}
+      </div>
     );
   }
   return (

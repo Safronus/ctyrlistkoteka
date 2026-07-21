@@ -18,7 +18,9 @@ import {
 import { countryFromCoords } from "@/lib/geo";
 import {
   computeMapOverlayGeometry,
-  type MapIndicator,
+  indicatorFrom,
+  ringFromGeoJson,
+  type ImageBounds,
   type MapOverlayGeometry,
 } from "@/lib/mapOverlay";
 import { getLocationMapPhotoUrl } from "@/lib/locationPhotos";
@@ -74,6 +76,13 @@ export interface LocationListItem {
   cadastralArea: string;
   locationType: string | null;
   thumbnailUrl: string | null;
+  /** Vector overlay for the thumbnail map (v2 only) — the location's polygon
+   *  / radius projected into the thumb map's bounds, drawn cropped (cover)
+   *  over the square thumb. Null for v1 (baked PNG) and anonymized rows. */
+  thumbnailOverlay: MapOverlayGeometry | null;
+  /** Natural pixel dims of the thumbnail map — the overlay SVG viewBox. */
+  thumbnailWidth: number | null;
+  thumbnailHeight: number | null;
   /** True when every location-map row for this Location is anonymized
    *  (and at least one exists). Identifying fields are then hidden in
    *  the UI just like for anonymized finds. */
@@ -533,10 +542,19 @@ export async function listLocations(
       // after this exact string + suffix, never against `imagePath`
       // (which is sha1-hashed for cache busting).
       originalFilename: true,
+      // For the thumbnail's vector overlay: the picked thumb map's bounds +
+      // dimensions, so the polygon/radius projects onto the same PNG.
+      imageBounds: true,
+      imageWidth: true,
+      imageHeight: true,
     },
     orderBy: [{ locationId: "asc" }, { id: "asc" }],
   });
   const thumbByLoc = new Map<number, string>();
+  const thumbMetaByLoc = new Map<
+    number,
+    { bounds: ImageBounds | null; width: number | null; height: number | null }
+  >();
   const hasAnonymizedMap = new Set<number>();
   // Build the real-photo set in the same pass so list rendering doesn't
   // need a second DB round-trip. Each lookup hits the TTL-cached photo
@@ -549,6 +567,11 @@ export async function listLocations(
     }
     if (!thumbByLoc.has(m.locationId)) {
       thumbByLoc.set(m.locationId, m.imagePath);
+      thumbMetaByLoc.set(m.locationId, {
+        bounds: parseImageBounds(m.imageBounds),
+        width: m.imageWidth,
+        height: m.imageHeight,
+      });
     }
     if (!realPhotoLocs.has(m.locationId)) {
       const url = await getLocationMapPhotoUrl({
@@ -570,6 +593,8 @@ export async function listLocations(
       polygon_area_m2: number | null;
       aoi_area_m2: number | null;
       is_v2: boolean;
+      polygon_geojson: string | null;
+      eff_radius_m: number | null;
       center_lat: number | null;
       center_lng: number | null;
       dist_m: number | null;
@@ -588,6 +613,9 @@ export async function listLocations(
            END AS polygon_area_m2,
            aoi_area_m2,
            (schema_version = 2) AS is_v2,
+           -- Overlay geometry source for the thumbnail (v2 only, gated below).
+           ST_AsGeoJSON(polygon, 6) AS polygon_geojson,
+           COALESCE(radius_m, CASE WHEN schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END) AS eff_radius_m,
            ROUND(ST_Y(center_point)::numeric, 6)::float8 AS center_lat,
            ROUND(ST_X(center_point)::numeric, 6)::float8 AS center_lng,
            CASE WHEN center_point IS NOT NULL
@@ -600,6 +628,15 @@ export async function listLocations(
   const polyAreaByLoc = new Map<number, number>();
   const aoiAreaByLoc = new Map<number, number>();
   const v2Locs = new Set<number>();
+  const overlaySrcByLoc = new Map<
+    number,
+    {
+      ring: Array<readonly [number, number]> | null;
+      effRadius: number | null;
+      centerLat: number | null;
+      centerLng: number | null;
+    }
+  >();
   const coordsByLoc = new Map<number, { lat: number; lng: number }>();
   const distByLoc = new Map<number, number>();
   for (const r of geoRows) {
@@ -610,6 +647,12 @@ export async function listLocations(
       aoiAreaByLoc.set(r.id, r.aoi_area_m2);
     }
     if (r.is_v2) v2Locs.add(r.id);
+    overlaySrcByLoc.set(r.id, {
+      ring: ringFromGeoJson(r.polygon_geojson),
+      effRadius: r.eff_radius_m,
+      centerLat: r.center_lat,
+      centerLng: r.center_lng,
+    });
     if (
       r.center_lat !== null &&
       r.center_lng !== null &&
@@ -765,6 +808,9 @@ export async function listLocations(
         cadastralArea: "",
         locationType: null,
         thumbnailUrl: null,
+        thumbnailOverlay: null,
+        thumbnailWidth: null,
+        thumbnailHeight: null,
         isAnonymized: true,
         isGone: gone,
         polygonAreaM2: null,
@@ -811,6 +857,22 @@ export async function listLocations(
       effectiveAreaM2 !== null && effectiveAreaM2 > 0 && stats.total > 0
         ? (stats.total / effectiveAreaM2) * 100
         : null;
+    // Thumbnail overlay (v2 only, same gating as the detail): project the
+    // location's polygon/radius into its picked thumb map's bounds.
+    const thumbMeta = thumbMetaByLoc.get(l.id);
+    const overlaySrc = overlaySrcByLoc.get(l.id);
+    const overlay =
+      v2Locs.has(l.id) && thumbMeta?.bounds && overlaySrc
+        ? computeMapOverlayGeometry({
+            indicator: indicatorFrom(overlaySrc.ring, overlaySrc.effRadius),
+            imageBounds: thumbMeta.bounds,
+            centerLat: overlaySrc.centerLat,
+            centerLng: overlaySrc.centerLng,
+            radiusM: overlaySrc.effRadius,
+            polygonLngLat: overlaySrc.ring,
+            isGone: gone,
+          })
+        : null;
     return {
       id: l.id,
       code: l.code,
@@ -818,6 +880,9 @@ export async function listLocations(
       cadastralArea: l.cadastralArea,
       locationType: l.locationType,
       thumbnailUrl: thumbByLoc.get(l.id) ?? null,
+      thumbnailOverlay: overlay,
+      thumbnailWidth: thumbMeta?.width ?? null,
+      thumbnailHeight: thumbMeta?.height ?? null,
       isAnonymized: false,
       isGone: gone,
       polygonAreaM2,
@@ -1559,28 +1624,11 @@ export async function getLocationDetailById(
   // we must NOT draw a second outline on them — gate the overlay on v2.
   const overlayIsV2 = geomRow?.is_v2 === true;
 
-  let overlayRing: Array<readonly [number, number]> | null = null;
-  if (geomRow?.polygon_geojson) {
-    try {
-      const gj = JSON.parse(geomRow.polygon_geojson) as GeoJSON.Polygon;
-      const ring = gj.coordinates?.[0];
-      if (Array.isArray(ring) && ring.length >= 3) {
-        overlayRing = ring
-          .map((pt) => [Number(pt[0]), Number(pt[1])] as const)
-          .filter(
-            (pt): pt is readonly [number, number] =>
-              Number.isFinite(pt[0]) && Number.isFinite(pt[1]),
-          );
-      }
-    } catch {
-      overlayRing = null;
-    }
-  }
-  const overlayIndicator: MapIndicator = overlayRing
-    ? "polygon"
-    : geomRow?.eff_radius_m
-      ? "radius"
-      : "dot";
+  const overlayRing = ringFromGeoJson(geomRow?.polygon_geojson);
+  const overlayIndicator = indicatorFrom(
+    overlayRing,
+    geomRow?.eff_radius_m ?? null,
+  );
 
   return {
     base,

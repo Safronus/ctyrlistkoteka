@@ -15,6 +15,7 @@ import {
   mapThumbUrl,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
+import { MapOverlay } from "@/components/map/map-overlay";
 
 type RowT = Awaited<ReturnType<typeof getTranslations<"FindRow">>>;
 type OffsetT = Awaited<ReturnType<typeof getTranslations<"LocationOffset">>>;
@@ -359,6 +360,20 @@ function FindListRow({
               decoding="async"
               className="h-24 w-24 rounded-md border border-gray-200 object-cover sm:h-28 sm:w-28"
             />
+            {/* Location polygon/radius, cropped to match the object-cover
+                thumb (v2 only; suppressed for the anon placeholder below). */}
+            {!find.isAnonymized &&
+              find.locationThumbOverlay &&
+              find.locationThumbWidth &&
+              find.locationThumbHeight && (
+                <MapOverlay
+                  geometry={find.locationThumbOverlay}
+                  width={find.locationThumbWidth}
+                  height={find.locationThumbHeight}
+                  objectFit="cover"
+                  idSuffix={`f-${find.id}`}
+                />
+              )}
             {/* Anonymized finds show the generic placeholder map under a
                 blurred "?" curtain — the same "location hidden" treatment
                 as the detail page, scaled to the thumbnail. */}

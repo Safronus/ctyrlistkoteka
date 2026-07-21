@@ -41,6 +41,7 @@ export function MapOverlay({
   height,
   showCenterPin = true,
   showScale = false,
+  objectFit = "contain",
   idSuffix,
 }: {
   geometry: MapOverlayGeometry;
@@ -53,6 +54,12 @@ export function MapOverlay({
   /** Draw a true-scale ruler (bottom-left). Detail pages only — omitted on
    *  thumbnails where it'd be unreadable. */
   showScale?: boolean;
+  /** How the underlying `<img>` fits its box. "contain" (detail pages): the
+   *  full map shows, container matches the image aspect → the SVG stretches
+   *  1:1 and the pin is a fixed-size HTML dot. "cover" (list thumbnails):
+   *  the square thumb crops the map, so the SVG slices to match and the
+   *  marker is an SVG dot that crops + scales with it (no HTML pin/scale). */
+  objectFit?: "contain" | "cover";
   /** Disambiguates the SVG `<defs>` ids when several overlays share a page
    *  (e.g. a location with multiple maps). */
   idSuffix?: string;
@@ -61,12 +68,14 @@ export function MapOverlay({
   const stroke = isGone ? GONE : RED;
   const gradId = `ovr-radius-${idSuffix ?? "0"}`;
   const hatchId = `ovr-hatch-${idSuffix ?? "0"}`;
+  const isCover = objectFit === "cover";
+  const markerR = Math.max(width, height) * 0.035;
 
   return (
     <>
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="none"
+        preserveAspectRatio={isCover ? "xMidYMid slice" : "none"}
         className="pointer-events-none absolute inset-0 h-full w-full"
         aria-hidden
       >
@@ -111,9 +120,23 @@ export function MapOverlay({
             fill={`url(#${gradId})`}
           />
         )}
+
+        {/* Cover mode (thumbnails): the marker is an SVG dot so it crops +
+            scales with the sliced map and stays round. */}
+        {isCover && center && indicator !== "polygon" && (
+          <circle
+            cx={center.x * width}
+            cy={center.y * height}
+            r={markerR}
+            fill={isGone ? GONE : RED}
+            stroke="#fff"
+            strokeWidth={markerR * 0.5}
+          />
+        )}
       </svg>
 
-      {showCenterPin && center && indicator !== "polygon" && (
+      {/* Contain mode (detail): fixed-size HTML pin, always round + visible. */}
+      {!isCover && showCenterPin && center && indicator !== "polygon" && (
         <span
           className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
           style={{ left: `${center.x * 100}%`, top: `${center.y * 100}%` }}
@@ -130,7 +153,8 @@ export function MapOverlay({
         </span>
       )}
 
-      {showScale &&
+      {!isCover &&
+        showScale &&
         geometry.imageWidthMeters > 0 &&
         (() => {
           // Bar ≈ 22 % of the map width, snapped to a nice 1/2/5 length. The
