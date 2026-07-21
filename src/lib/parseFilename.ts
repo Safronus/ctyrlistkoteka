@@ -109,6 +109,37 @@ export function parseFindFilename(
   });
 }
 
+/**
+ * Returns `filename` with its LOCATION_CODE segment (index 2) swapped for
+ * `newCode`, or **null** when nothing should change — i.e. the name isn't a
+ * full-form coded photo (short-form crops like `<id>.jpg` carry no code), or
+ * the code already matches. Everything else — FIND_ID, the 5-digit
+ * MAP_NUMBER, STATE, ANON_FLAG, the (possibly `+`-containing) note, and the
+ * extension — is preserved verbatim. Both the input and `newCode` are
+ * NFC-normalised so a rename never flips diacritic forms.
+ *
+ * This is the sync's Phase-E rename primitive: when a map package changes a
+ * location's id_lokace, its find photos get the new code token here. The
+ * join is by MAP_NUMBER, so this is purely cosmetic filename hygiene — but
+ * it keeps disk / DB / JSON telling the same story.
+ */
+export function withNewLocationCode(
+  filename: string,
+  newCode: string,
+): string | null {
+  const nfc = filename.normalize("NFC");
+  const dot = nfc.lastIndexOf(".");
+  if (dot === -1) return null;
+  const name = nfc.slice(0, dot);
+  const ext = nfc.slice(dot); // includes the leading dot
+  const parts = name.split("+");
+  if (parts.length < 5) return null; // short-form / not a coded photo
+  const next = newCode.normalize("NFC");
+  if (parts[2] === next) return null; // already current — no rename
+  parts[2] = next;
+  return parts.join("+") + ext;
+}
+
 export function parseMapFilename(
   filename: string,
 ): ParseResult<ParsedMapFilename> {

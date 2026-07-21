@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { FindState } from "@/generated/prisma/enums";
-import { parseFindFilename, parseMapFilename } from "./parseFilename";
+import {
+  parseFindFilename,
+  parseMapFilename,
+  withNewLocationCode,
+} from "./parseFilename";
 import { splitLocationCode, toAsciiCode } from "./locationCode";
 
 describe("parseFindFilename — real format (+ separators, diacritics)", () => {
@@ -142,6 +146,48 @@ describe("parseFindFilename — real format (+ separators, diacritics)", () => {
       "1+00001+RATIBOŘ_POLE001a+NORMÁLNÍ+MAYBE+BezPoznámky.HEIC",
     );
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("withNewLocationCode — Phase-E rename primitive", () => {
+  it("swaps only the LOCATION_CODE segment, keeping everything else", () => {
+    expect(
+      withNewLocationCode(
+        "16230+00042+CZ_ZLÍN_OLD_001+NORMÁLNÍ+NE+BezPoznámky.webp",
+        "CZ_ZLÍN_NEW_001",
+      ),
+    ).toBe("16230+00042+CZ_ZLÍN_NEW_001+NORMÁLNÍ+NE+BezPoznámky.webp");
+  });
+
+  it("preserves a note that itself contains '+'", () => {
+    expect(
+      withNewLocationCode(
+        "5+00007+OLD+NORMÁLNÍ+NE+u lavičky + koš.webp",
+        "NEW",
+      ),
+    ).toBe("5+00007+NEW+NORMÁLNÍ+NE+u lavičky + koš.webp");
+  });
+
+  it("returns null for a short-form crop (no code segment)", () => {
+    expect(withNewLocationCode("16230.jpg", "NEW")).toBeNull();
+  });
+
+  it("returns null when the code is already current (no rename needed)", () => {
+    expect(
+      withNewLocationCode("5+00007+SAME+NORMÁLNÍ+NE+BezPoznámky.webp", "SAME"),
+    ).toBeNull();
+  });
+
+  it("returns null when there's no extension", () => {
+    expect(withNewLocationCode("5+00007+OLD+NORMÁLNÍ+NE", "NEW")).toBeNull();
+  });
+
+  it("normalises both sides to NFC before comparing / writing", () => {
+    // Input in NFD (Á = A + combining acute), new code in NFC.
+    const nfd = "5+00007+CZ_ZLÍN_OLD+NORMÁLNÍ+NE+x.webp";
+    const out = withNewLocationCode(nfd, "CZ_ZLÍN_NEW");
+    expect(out).toBe("5+00007+CZ_ZLÍN_NEW+NORMÁLNÍ+NE+x.webp");
+    expect(out).toBe(out!.normalize("NFC"));
   });
 });
 
