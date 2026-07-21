@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { FindState } from "@/generated/prisma/enums";
 import {
+  findPhotoMapNumber,
   parseFindFilename,
   parseMapFilename,
+  planFindPhotoRenames,
   withNewLocationCode,
 } from "./parseFilename";
 import { splitLocationCode, toAsciiCode } from "./locationCode";
@@ -188,6 +190,48 @@ describe("withNewLocationCode — Phase-E rename primitive", () => {
     const out = withNewLocationCode(nfd, "CZ_ZLÍN_NEW");
     expect(out).toBe("5+00007+CZ_ZLÍN_NEW+NORMÁLNÍ+NE+x.webp");
     expect(out).toBe(out!.normalize("NFC"));
+  });
+});
+
+describe("findPhotoMapNumber", () => {
+  it("reads the 5-digit MAP_NUMBER from a full-form name", () => {
+    expect(
+      findPhotoMapNumber("16230+00042+CODE+NORMÁLNÍ+NE+x.webp"),
+    ).toBe(42);
+  });
+  it("is null for a short-form crop and a name without extension", () => {
+    expect(findPhotoMapNumber("16230.jpg")).toBeNull();
+    expect(findPhotoMapNumber("16230+00042+CODE+NORMÁLNÍ+NE")).toBeNull();
+  });
+});
+
+describe("planFindPhotoRenames", () => {
+  const files = [
+    "1+00007+CZ_OLD+NORMÁLNÍ+NE+a.webp", // changed → rename
+    "2+00007+CZ_OLD+DAROVANÝ+NE+b.webp", // changed → rename (same location)
+    "3+00007+CZ_NEW+NORMÁLNÍ+NE+c.webp", // already the new code → skip
+    "4+00099+CZ_OTHER+NORMÁLNÍ+NE+d.webp", // location not in the map → skip
+    "5.jpg", // short-form crop → skip
+  ];
+
+  it("plans only files whose location changed and aren't already current", () => {
+    const plan = planFindPhotoRenames(files, new Map([[7, "CZ_NEW"]]));
+    expect(plan).toEqual([
+      { oldName: files[0], newName: "1+00007+CZ_NEW+NORMÁLNÍ+NE+a.webp" },
+      { oldName: files[1], newName: "2+00007+CZ_NEW+DAROVANÝ+NE+b.webp" },
+    ]);
+  });
+
+  it("returns nothing when no listed number changed", () => {
+    expect(planFindPhotoRenames(files, new Map([[123, "X"]]))).toEqual([]);
+  });
+
+  it("skips a code that would introduce a path separator", () => {
+    const plan = planFindPhotoRenames(
+      ["1+00007+CZ_OLD+NORMÁLNÍ+NE+a.webp"],
+      new Map([[7, "CZ/EVIL"]]),
+    );
+    expect(plan).toEqual([]);
   });
 });
 

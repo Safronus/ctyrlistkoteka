@@ -140,6 +140,45 @@ export function withNewLocationCode(
   return parts.join("+") + ext;
 }
 
+/** The 5-digit MAP_NUMBER (the location's stable číslo) of a full-form
+ *  find/crop photo filename, or null for short-form crops (`<id>.jpg`) and
+ *  non-coded names. This is the key the rename planner matches on. */
+export function findPhotoMapNumber(filename: string): number | null {
+  const nfc = filename.normalize("NFC");
+  const dot = nfc.lastIndexOf(".");
+  if (dot === -1) return null;
+  const parts = nfc.slice(0, dot).split("+");
+  if (parts.length < 5) return null;
+  const seg = parts[1]!;
+  return /^\d{5}$/.test(seg) ? Number(seg) : null;
+}
+
+/**
+ * Plans which of `files` need their LOCATION_CODE token rewritten, given a
+ * `číslo → newCode` map (the locations whose id_lokace changed this sync).
+ * Pure — the caller performs the actual on-disk rename. Skips: files whose
+ * MAP_NUMBER isn't in the map, names that already carry the new code,
+ * short-form crops, and any result that would gain a path separator (a code
+ * with `/` — belt-and-suspenders against a bad manifest).
+ */
+export function planFindPhotoRenames(
+  files: readonly string[],
+  newCodeByNumber: ReadonlyMap<number, string>,
+): Array<{ oldName: string; newName: string }> {
+  const out: Array<{ oldName: string; newName: string }> = [];
+  for (const oldName of files) {
+    const num = findPhotoMapNumber(oldName);
+    if (num === null) continue;
+    const newCode = newCodeByNumber.get(num);
+    if (newCode === undefined) continue;
+    const newName = withNewLocationCode(oldName, newCode);
+    if (newName === null) continue;
+    if (newName.includes("/") || newName.includes("\\")) continue;
+    out.push({ oldName, newName });
+  }
+  return out;
+}
+
 export function parseMapFilename(
   filename: string,
 ): ParseResult<ParsedMapFilename> {

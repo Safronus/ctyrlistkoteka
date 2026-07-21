@@ -30,10 +30,13 @@ import { z } from "zod";
 import {
   parseFindFilename,
   parseMapFilename,
+  planFindPhotoRenames,
   type ParsedFindFilename,
   type ParsedMapFilename,
 } from "../src/lib/parseFilename";
 import { readExifSafe } from "../src/lib/admin/exif";
+import { ADMIN_ROOTS, safeJoin } from "../src/lib/admin/paths";
+import { ensureDir, trashTimestamp } from "../src/lib/admin/atomic";
 import {
   computeLocationDrift,
   planLocationRenumber,
@@ -354,6 +357,23 @@ async function phaseMapsV2(
     count: manifest.mapy.length,
   });
 
+  // Detect location code changes (id_lokace edited in this package) so the
+  // find photos can be renamed to match — the join is by číslo, so it's
+  // cosmetic filename hygiene, but keeps disk/DB consistent. Read the CURRENT
+  // codes BEFORE the upserts below overwrite them; keyed by číslo (= id).
+  const oldCodeRows = await ctx.prisma.location.findMany({
+    where: { id: { in: manifest.mapy.map((m) => entryNumber(m)) } },
+    select: { id: true, code: true },
+  });
+  const oldCodeById = new Map(oldCodeRows.map((r) => [r.id, r.code]));
+  const renamedCodeByNumber = new Map<number, string>();
+  for (const m of manifest.mapy) {
+    const oldCode = oldCodeById.get(entryNumber(m));
+    if (oldCode !== undefined && oldCode !== m.id_lokace) {
+      renamedCodeByNumber.set(entryNumber(m), m.id_lokace);
+    }
+  }
+
   if (ctx.opts.dryRun) {
     ctx.log.log({
       event: "maps.plan",
@@ -361,6 +381,8 @@ async function phaseMapsV2(
       variant: "v2",
       would_upsert_maps: manifest.mapy.length,
     });
+    // Report (never execute) the photo renames this package would trigger.
+    await renameFindPhotos(ctx, renamedCodeByNumber);
     for (const m of manifest.mapy) {
       const id = entryNumber(m);
       mapToLocation.set(id, id);
@@ -526,6 +548,12 @@ async function phaseMapsV2(
     childrenLinked++;
   }
 
+  // Rename find/crop photos whose location's id_lokace changed, so the
+  // filename code token stays consistent. Runs BEFORE phaseFinds, which then
+  // re-links the renamed files (skip set is keyed by filename) and updates
+  // find_images.original_filename — no separate DB write needed here.
+  await renameFindPhotos(ctx, renamedCodeByNumber);
+
   ctx.log.log({
     event: "maps.done",
     level: "info",
@@ -537,6 +565,91 @@ async function phaseMapsV2(
   });
 
   return { maps: [], mapToLocation };
+}
+
+/**
+ * Renames find + crop photos whose location's id_lokace changed this sync, so
+ * the LOCATION_CODE token in the filename tracks the current code. Purely
+ * cosmetic (finds join by číslo), so it's careful, not load-bearing:
+ *  - honours dry-run — reports the plan, touches nothing;
+ *  - snapshots each source into `data/.trash/<ts>/{finds,crops}/` first
+ *    (CLAUDE.md §9), then renames atomically (same-dir POSIX rename);
+ *  - never overwrites — a rename whose target already exists is skipped;
+ *  - resolves every path through safeJoin so nothing can escape `data/`.
+ * The on-disk rename is all this does; phaseFinds (next) re-links the DB
+ * (its skip set is keyed by filename, so a renamed file is reprocessed and
+ * its find_images.original_filename updated).
+ */
+async function renameFindPhotos(
+  ctx: Context,
+  newCodeByNumber: ReadonlyMap<number, string>,
+): Promise<void> {
+  if (newCodeByNumber.size === 0) return;
+  const { readdir, copyFile, rename, access } = await import(
+    "node:fs/promises"
+  );
+  const roots = [
+    { key: "finds", rootKey: "findOriginals", dir: ADMIN_ROOTS.findOriginals },
+    { key: "crops", rootKey: "findCrops", dir: ADMIN_ROOTS.findCrops },
+  ] as const;
+  const ts = trashTimestamp();
+  let planned = 0;
+  let renamed = 0;
+  let skippedCollision = 0;
+  for (const root of roots) {
+    let files: string[];
+    try {
+      files = await readdir(root.dir);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw err;
+    }
+    const plan = planFindPhotoRenames(files, newCodeByNumber);
+    planned += plan.length;
+    for (const { oldName, newName } of plan) {
+      if (ctx.opts.dryRun) {
+        ctx.log.log({
+          event: "finds.rename_plan",
+          level: "info",
+          root: root.key,
+          from: oldName,
+          to: newName,
+        });
+        continue;
+      }
+      const oldPath = safeJoin(root.rootKey, oldName);
+      const newPath = safeJoin(root.rootKey, newName);
+      let targetExists = false;
+      try {
+        await access(newPath);
+        targetExists = true;
+      } catch {
+        // ENOENT — target free, good.
+      }
+      if (targetExists) {
+        skippedCollision++;
+        ctx.log.failure({
+          file: `${root.key}/${oldName}`,
+          reason: "rename_target_exists",
+          details: `target ${newName} already exists — skipped`,
+        });
+        continue;
+      }
+      const trashDir = join(ADMIN_ROOTS.trash, ts, root.key);
+      await ensureDir(trashDir);
+      await copyFile(oldPath, join(trashDir, oldName));
+      await rename(oldPath, newPath);
+      renamed++;
+    }
+  }
+  ctx.log.log({
+    event: ctx.opts.dryRun ? "finds.rename_plan_done" : "finds.rename_done",
+    level: "info",
+    locations_changed: newCodeByNumber.size,
+    planned,
+    renamed,
+    skipped_collision: skippedCollision,
+  });
 }
 
 async function phaseMaps(
