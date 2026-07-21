@@ -9,6 +9,30 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Mapy v2 — web dokresluje překryvy + úklid syncu (fáze D/E)
+Produkce běží na v2 (čistá „Nosná" mapa), takže web teď kreslí indikátor
+lokality **sám, vektorově** — místo aby spoléhal na vpálený „Rendered" PNG.
+
+- **Vektorové překryvy** na čisté mapě: AOI polygon (červená #D62822), rádius
+  (zelený gradient na skutečné metry) a středový pin (vždy viditelný). Na
+  **detailu lokality i nálezu** + volitelné **měřítko** (jen detaily), a na
+  **náhledech** `/lokality` a `/sbirka` (list view) v „cover" ořezu. Sdílená
+  komponenta `MapOverlay` + `computeMapOverlayGeometry` (projekce do
+  `image_bounds` jako zlomky). Kreslí se jen pro v2 lokality (v1 by zdvojilo
+  vpálený obrys).
+- **Plocha/hustota z metadat:** `/lokality` i detail nálezu braly pro
+  bezpolygonové lokality 5m odhad i u v2 „radius" (které mají skutečnou
+  `aoi_area_m2 = π·r²`). Nově čtou metadata; label je třícestný
+  (polygon / rádius / v1 odhad). Tečka nemá plochu → mimo hustotu.
+- **/statistiky „Podle států a měst":** do počtů **měst** se teď zahrnují i
+  anonymizované a zaniklé lokality (přes katastr; jejich GPS zůstává mimo
+  mapu států/krajů). Popisek o `NEEXISTUJE-` prefixu pryč.
+- **Úklid syncu:** stavy `BEZLOKACE` / `LOKACE-NEEXISTUJE` už nehlásí
+  `unknown_state_key` (rozpoznané jako vyřazené). **`LokaceHierarchie.json`
+  + `phaseHierarchy` odstraněny** — hierarchie rodič/potomek jde teď výhradně
+  z v2 manifestu (`phaseMapsV2`). Sync tím přestal hlásit `parent_missing`
+  na v1 kódech.
+
 ### /lokality — filtry přežijí návrat z detailu
 Po vyfiltrování lokalit, otevření detailu a kliknutí „Zpět na seznam lokalit"
 se filtry ztrácely (odkaz vedl na holé `/lokality`). Nově se pamatují —
