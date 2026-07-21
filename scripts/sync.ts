@@ -44,6 +44,8 @@ import {
   entryNumber,
   displayNameFor,
   polygonWkt,
+  resolveParentNumber,
+  buildIdToNumber,
 } from "../src/lib/mapPackage";
 import { parseRanges } from "../src/lib/parseRanges";
 import { JSON_STATE_MAP } from "../src/lib/stateMapping";
@@ -525,12 +527,67 @@ async function phaseMapsV2(
     progress.tick();
   }
 
+  // Parent/child hierarchy, straight from the manifest — v2 no longer needs
+  // LokaceHierarchie.json (a child carries its parent's id_lokace in
+  // `potomek`). Every location in this package was upserted above, so a
+  // parent inside the package resolves via the manifest's id→číslo map; a
+  // parent that lives in an earlier package resolves from the DB by code.
+  const idToNumber = buildIdToNumber(manifest);
+  const externalParents = [
+    ...new Set(
+      manifest.mapy
+        .filter((m) => m.potomek && !idToNumber.has(m.potomek))
+        .map((m) => m.potomek as string),
+    ),
+  ];
+  const dbParentRows = externalParents.length
+    ? await ctx.prisma.location.findMany({
+        where: { code: { in: externalParents } },
+        select: { id: true, code: true },
+      })
+    : [];
+  const dbParentByCode = new Map(dbParentRows.map((r) => [r.code, r.id]));
+  const dbFallback = (code: string) => dbParentByCode.get(code) ?? null;
+
+  // Clear parent_id on every location in this package first, then (re)link
+  // the children — keeps re-sync idempotent when the hierarchy shrinks (a
+  // child that dropped its `potomek` since the last package gets unlinked).
+  const pkgIds = manifest.mapy.map((m) => entryNumber(m));
+  await ctx.prisma.location.updateMany({
+    where: { id: { in: pkgIds } },
+    data: { parentId: null },
+  });
+  let childrenLinked = 0;
+  let parentsUnresolved = 0;
+  for (const m of manifest.mapy) {
+    if (!m.potomek) continue;
+    const childId = entryNumber(m);
+    const parentNum = resolveParentNumber(m, idToNumber, dbFallback);
+    if (parentNum === null) {
+      parentsUnresolved++;
+      ctx.log.failure({
+        file: `maps/${m.soubory["Nosné mapy"]}`,
+        reason: "parent_unresolved",
+        details: `child ${m.cislo} (${m.id_lokace}) → parent id_lokace "${m.potomek}" not found in package or DB`,
+      });
+      continue;
+    }
+    if (parentNum === childId) continue; // guard against a self-parent loop
+    await ctx.prisma.location.update({
+      where: { id: childId },
+      data: { parentId: parentNum },
+    });
+    childrenLinked++;
+  }
+
   ctx.log.log({
     event: "maps.done",
     level: "info",
     variant: "v2",
     upserted_maps: manifest.mapy.length,
     upserted_locations: new Set(mapToLocation.values()).size,
+    children_linked: childrenLinked,
+    parents_unresolved: parentsUnresolved,
   });
 
   return { maps: [], mapToLocation };
