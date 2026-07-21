@@ -1538,6 +1538,7 @@ export async function getLocationDetailById(
   // required — a bare ${…} param is typeless and breaks COALESCE (gotcha #18).
   const [geomRow] = await prisma.$queryRaw<
     Array<{
+      is_v2: boolean;
       eff_radius_m: number | null;
       polygon_geojson: string | null;
       center_lat: number | null;
@@ -1545,12 +1546,18 @@ export async function getLocationDetailById(
     }>
   >`
     SELECT
+      (l.schema_version = 2) AS is_v2,
       COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END) AS eff_radius_m,
       ST_AsGeoJSON(l.polygon, 6) AS polygon_geojson,
       ROUND(ST_Y(l.center_point)::numeric, 6)::float8 AS center_lat,
       ROUND(ST_X(l.center_point)::numeric, 6)::float8 AS center_lng
     FROM locations l WHERE l.id = ${id}
   `;
+  // Overlays are a v2 feature: v2 ships the clean "Nosná" map for the web to
+  // annotate. v1 maps keep their existing rendering (their AOI is baked into
+  // the PNG, and polygon-less v1 spots still use the CenterDotHalo below), so
+  // we must NOT draw a second outline on them — gate the overlay on v2.
+  const overlayIsV2 = geomRow?.is_v2 === true;
 
   let overlayRing: Array<readonly [number, number]> | null = null;
   if (geomRow?.polygon_geojson) {
@@ -1593,17 +1600,18 @@ export async function getLocationDetailById(
         centerLat: m.centerLat,
         centerLng: m.centerLng,
         imageBounds,
-        overlay: imageBounds
-          ? computeMapOverlayGeometry({
-              indicator: overlayIndicator,
-              imageBounds,
-              centerLat: geomRow?.center_lat ?? null,
-              centerLng: geomRow?.center_lng ?? null,
-              radiusM: geomRow?.eff_radius_m ?? null,
-              polygonLngLat: overlayRing,
-              isGone: base.isGone,
-            })
-          : null,
+        overlay:
+          imageBounds && overlayIsV2
+            ? computeMapOverlayGeometry({
+                indicator: overlayIndicator,
+                imageBounds,
+                centerLat: geomRow?.center_lat ?? null,
+                centerLng: geomRow?.center_lng ?? null,
+                radiusM: geomRow?.eff_radius_m ?? null,
+                polygonLngLat: overlayRing,
+                isGone: base.isGone,
+              })
+            : null,
       };
     }),
     parent,

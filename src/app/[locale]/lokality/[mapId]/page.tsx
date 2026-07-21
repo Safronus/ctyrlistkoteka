@@ -55,6 +55,54 @@ function parseMapId(value: string): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+/** 5 m halo radius for polygon-less v1 locations. v2 maps use MapOverlay
+ *  (radius_m / dot); this only runs for the legacy v1 render path. */
+const POLYGON_FREE_HALO_RADIUS_M = 5;
+const METERS_PER_LAT_DEGREE = 111_320;
+
+/** Legacy v1-only halo for a polygon-less location on the detail map: a soft
+ *  emerald radial gradient at the 5 m mark, positioned from image_bounds.
+ *  v2 locations render the vector {@link MapOverlay} instead. */
+function CenterDotHalo({
+  centerLat,
+  centerLng,
+  imageBounds,
+}: {
+  centerLat: number;
+  centerLng: number;
+  imageBounds: [[number, number], [number, number]] | null;
+}) {
+  if (!imageBounds) return null;
+  const [[swLat, swLng], [neLat, neLng]] = imageBounds;
+  const latSpan = neLat - swLat;
+  const lngSpan = neLng - swLng;
+  if (latSpan <= 0 || lngSpan <= 0) return null;
+  const xFrac = (centerLng - swLng) / lngSpan;
+  const yFrac = (neLat - centerLat) / latSpan;
+  if (xFrac < 0 || xFrac > 1 || yFrac < 0 || yFrac > 1) return null;
+  const mapHeightMeters = latSpan * METERS_PER_LAT_DEGREE;
+  if (mapHeightMeters <= 0) return null;
+  const rFrac = Math.min(POLYGON_FREE_HALO_RADIUS_M / mapHeightMeters, 0.25);
+  const gradId = `loc-halo-${Math.round(xFrac * 10_000)}-${Math.round(yFrac * 10_000)}`;
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 1 1"
+      preserveAspectRatio="none"
+      className="pointer-events-none absolute inset-0 h-full w-full"
+    >
+      <defs>
+        <radialGradient id={gradId} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#10b981" stopOpacity="0.55" />
+          <stop offset="55%" stopColor="#10b981" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <ellipse cx={xFrac} cy={yFrac} rx={rFrac} ry={rFrac} fill={`url(#${gradId})`} />
+    </svg>
+  );
+}
+
 
 export async function generateStaticParams() {
   const ids = await getAllLocationIds();
@@ -361,17 +409,25 @@ async function FullDetail({
                     decoding="async"
                     className="block h-auto w-full"
                   />
-                  {/* Vector overlay drawn on the clean Nosná PNG: the AOI
-                   *  polygon, the per-location radius circle, or a centre
-                   *  pin — whatever the indicator is. Replaces the baked
-                   *  outline the old "Rendered" PNG used to carry. */}
-                  {m.overlay && m.imageWidth && m.imageHeight && (
+                  {/* v2: vector overlay on the clean Nosná PNG (AOI polygon /
+                   *  radius / centre pin). v1 (overlay null): the AOI is baked
+                   *  into the PNG, so we only add the legacy 5 m halo for
+                   *  polygon-less spots. */}
+                  {m.overlay && m.imageWidth && m.imageHeight ? (
                     <MapOverlay
                       geometry={m.overlay}
                       width={m.imageWidth}
                       height={m.imageHeight}
                       idSuffix={String(m.id)}
                     />
+                  ) : (
+                    base.polygonAreaM2 === null && (
+                      <CenterDotHalo
+                        centerLat={m.centerLat}
+                        centerLng={m.centerLng}
+                        imageBounds={m.imageBounds}
+                      />
+                    )
                   )}
                 </div>
                 {(() => {

@@ -1455,6 +1455,7 @@ async function fetchLocationMaps(
     // required on the fallback (typeless param breaks COALESCE, gotcha #18).
     prisma.$queryRaw<
       Array<{
+        is_v2: boolean;
         eff_radius_m: number | null;
         is_cancelled: boolean;
         code: string;
@@ -1464,6 +1465,7 @@ async function fetchLocationMaps(
       }>
     >`
       SELECT
+        (l.schema_version = 2) AS is_v2,
         COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END) AS eff_radius_m,
         l.is_cancelled,
         l.code,
@@ -1477,6 +1479,9 @@ async function fetchLocationMaps(
   const ring = ringFromGeoJson(geom?.polygon_geojson);
   const indicator = indicatorFrom(ring, geom?.eff_radius_m ?? null);
   const isGone = isLocationGone(geom?.code, geom?.is_cancelled);
+  // v2-only: v1 maps carry their AOI baked into the PNG (see fetchLocationMaps
+  // note in locations.ts) — drawing a web overlay too would double it.
+  const overlayIsV2 = geom?.is_v2 === true;
   return maps.map((m) => {
     const imageBounds = parseImageBounds(m.imageBounds);
     return {
@@ -1485,8 +1490,9 @@ async function fetchLocationMaps(
       imageWidth: m.imageWidth,
       imageHeight: m.imageHeight,
       description: m.description,
-      overlay: imageBounds
-        ? computeMapOverlayGeometry({
+      overlay:
+        imageBounds && overlayIsV2
+          ? computeMapOverlayGeometry({
             indicator,
             imageBounds,
             centerLat: geom?.center_lat ?? null,
