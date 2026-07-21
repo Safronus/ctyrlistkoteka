@@ -38,7 +38,11 @@ export const MapPackageEntrySchema = z.object({
   output_w_px: z.number().int().positive(),
   output_h_px: z.number().int().positive(),
   output_dpi: z.number().int().positive().nullable().optional(),
-  indikator: z.enum(["dot", "circle", "polygon"]),
+  // Desktop generator's indicator, priority polygon > radius > dot:
+  //   "polygon" — has an AOI polygon (rádius ignored)
+  //   "radius"  — point with radius_m (area = π·r²)   [was mislabelled "circle"]
+  //   "dot"     — bare point, no radius, no area
+  indikator: z.enum(["dot", "radius", "polygon"]),
   radius_m: z.number().nullable(),
   // GPS ring as [lat, lon] pairs, or null for non-polygon indicators.
   aoi_polygon_gps: z.array(z.tuple([z.number(), z.number()])).nullable(),
