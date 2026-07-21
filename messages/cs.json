@@ -464,6 +464,7 @@
     "kvCenterGps": "GPS středu",
     "kvDistanceFromDefault": "Vzdálenost od mapy #00001",
     "kvPolygonArea": "Plocha polygonu",
+    "kvRadiusArea": "Plocha (rádius)",
     "kvAreaEstimate": "Plocha lokality (odhad)",
     "kvAreaEstimateNote": "odhad z poloměru 5 m",
     "kvDensity": "Hustota nálezů",

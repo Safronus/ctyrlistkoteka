@@ -465,6 +465,7 @@
     "kvCenterGps": "Centre GPS",
     "kvDistanceFromDefault": "Distance from map #00001",
     "kvPolygonArea": "Polygon area",
+    "kvRadiusArea": "Area (radius)",
     "kvAreaEstimate": "Location area (estimate)",
     "kvAreaEstimateNote": "estimated from 5 m radius",
     "kvDensity": "Find density",

@@ -16,6 +16,11 @@ import {
   POLYGON_FREE_AREA_M2,
 } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
+import {
+  computeMapOverlayGeometry,
+  type MapIndicator,
+  type MapOverlayGeometry,
+} from "@/lib/mapOverlay";
 import { getLocationMapPhotoUrl } from "@/lib/locationPhotos";
 import {
   cityFromCadastralArea,
@@ -1288,6 +1293,10 @@ export interface LocationDetailMap {
    *  bounds row was not yet backfilled — overlays then skip render
    *  rather than guess. Shape: `[[swLat, swLng], [neLat, neLng]]`. */
   imageBounds: [[number, number], [number, number]] | null;
+  /** Vector overlay geometry (polygon / radius / centre pin) as image
+   *  fractions, projected into THIS map's bounds — the web draws it on the
+   *  clean Nosná PNG. Null when there are no usable bounds. */
+  overlay: MapOverlayGeometry | null;
 }
 
 /** Compact handle for a related location (parent / sibling / child).
@@ -1523,24 +1532,80 @@ export async function getLocationDetailById(
     ),
   );
 
+  // Overlay geometry source: the location's own polygon / effective radius
+  // (v2 radius_m, v1 5 m, v2 dot NULL) + centre, fetched once and projected
+  // into each map's bounds below. The ::float8 cast on the fallback is
+  // required — a bare ${…} param is typeless and breaks COALESCE (gotcha #18).
+  const [geomRow] = await prisma.$queryRaw<
+    Array<{
+      eff_radius_m: number | null;
+      polygon_geojson: string | null;
+      center_lat: number | null;
+      center_lng: number | null;
+    }>
+  >`
+    SELECT
+      COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END) AS eff_radius_m,
+      ST_AsGeoJSON(l.polygon, 6) AS polygon_geojson,
+      ROUND(ST_Y(l.center_point)::numeric, 6)::float8 AS center_lat,
+      ROUND(ST_X(l.center_point)::numeric, 6)::float8 AS center_lng
+    FROM locations l WHERE l.id = ${id}
+  `;
+
+  let overlayRing: Array<readonly [number, number]> | null = null;
+  if (geomRow?.polygon_geojson) {
+    try {
+      const gj = JSON.parse(geomRow.polygon_geojson) as GeoJSON.Polygon;
+      const ring = gj.coordinates?.[0];
+      if (Array.isArray(ring) && ring.length >= 3) {
+        overlayRing = ring
+          .map((pt) => [Number(pt[0]), Number(pt[1])] as const)
+          .filter(
+            (pt): pt is readonly [number, number] =>
+              Number.isFinite(pt[0]) && Number.isFinite(pt[1]),
+          );
+      }
+    } catch {
+      overlayRing = null;
+    }
+  }
+  const overlayIndicator: MapIndicator = overlayRing
+    ? "polygon"
+    : geomRow?.eff_radius_m
+      ? "radius"
+      : "dot";
+
   return {
     base,
-    maps: mapRows.map((m, i) => ({
-      id: m.id,
-      imageUrl: m.imagePath,
-      imageWidth: m.imageWidth,
-      imageHeight: m.imageHeight,
-      description: m.description,
-      realPhotoUrl: photoUrls[i] ?? null,
-      centerLat: m.centerLat,
-      centerLng: m.centerLng,
+    maps: mapRows.map((m, i) => {
       // imageBounds in DB is a Prisma `Json?` — narrow it here so the
-      // overlay can rely on a typed `[[number, number], [number,
-      // number]]`. The shape is set by sync.ts as exactly that 2x2
-      // tuple, but bad rows from older schema versions could surface
-      // as anything; tolerate them by returning null.
-      imageBounds: parseImageBounds(m.imageBounds),
-    })),
+      // overlay can rely on a typed `[[swLat, swLng], [neLat, neLng]]`.
+      // Bad rows from older schema versions could surface as anything;
+      // tolerate them by returning null.
+      const imageBounds = parseImageBounds(m.imageBounds);
+      return {
+        id: m.id,
+        imageUrl: m.imagePath,
+        imageWidth: m.imageWidth,
+        imageHeight: m.imageHeight,
+        description: m.description,
+        realPhotoUrl: photoUrls[i] ?? null,
+        centerLat: m.centerLat,
+        centerLng: m.centerLng,
+        imageBounds,
+        overlay: imageBounds
+          ? computeMapOverlayGeometry({
+              indicator: overlayIndicator,
+              imageBounds,
+              centerLat: geomRow?.center_lat ?? null,
+              centerLng: geomRow?.center_lng ?? null,
+              radiusM: geomRow?.eff_radius_m ?? null,
+              polygonLngLat: overlayRing,
+              isGone: base.isGone,
+            })
+          : null,
+      };
+    }),
     parent,
     siblings,
     children,
