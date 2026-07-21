@@ -540,3 +540,31 @@ rozbitý.
   UTF-8 vždy.
 - Ověřuj přes yauzl (náš kód), NE přes `unzip -l` v terminálu — ten zobrazí
   `??` kvůli locale, i když jsou bajty v pořádku, což mate diagnostiku.
+
+---
+
+## 18. Prisma 7: `${číslo}` v raw SQL je **beztypový parametr** → `COALESCE`/`CASE` s `float8` spadne
+
+**Příznak:** `prisma.$queryRaw` s `COALESCE(l.radius_m /* float8 */, CASE
+WHEN … THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END)` projde `typecheck`
+i `pnpm test`, ale **build padne** při prerenderu (`/sitemap.xml`) —
+`Raw query failed. Code: 42804. Message: COALESCE types double precision
+and text cannot be matched`. A `psql` se stejným SQL, kde je konstanta
+napsaná ručně (`ELSE 5`), přitom projde bez chyby.
+
+**Proč:** v `$queryRaw` template literálu se `${x}` NEinterpoluje jako
+text — stane se z něj **placeholder `$1`** poslaný zvlášť. PostgreSQL pak
+nezná jeho typ a defaultuje na `text`. `COALESCE(float8, …text)` /
+`CASE … ELSE $1::text` je typový konflikt (42804). Ruční `psql` test to
+NEODHALÍ, protože tam píšeš literál `5` (numeric), ne beztypový parametr —
+tohle je přesně ta past, proč „na DB to funguje, na webu ne".
+
+**Jak aplikovat:**
+- Každý číselný `${…}` v raw SQL, který se potkává s konkrétním typem
+  sloupce (aritmetika, `COALESCE`, `CASE`, porovnání), **explicitně
+  přetypuj**: `${FIND_DEVIATION_RADIUS_M}::float8`. U `CASE … THEN NULL
+  ELSE ${x}::float8 END` zdědí `NULL` typ z `ELSE`, takže celý `CASE` je
+  `float8`.
+- Testuj raw SQL buď přes skutečné Prisma volání (ne `psql` s literálem),
+  nebo aspoň prožeň `pnpm build` (prerender veřejných stránek raw dotazy
+  spustí) — `typecheck` + `test` tuhle třídu chyb nezachytí.

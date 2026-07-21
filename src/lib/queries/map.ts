@@ -123,7 +123,7 @@ export async function getMapData(): Promise<MapData> {
              -- locations (they draw their real outline) and v2 dots (a bare
              -- point with no area → no halo).
              CASE WHEN l.polygon IS NULL
-                  THEN COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END)
+                  THEN COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END)
              END AS effective_radius_m,
              ROUND(ST_Y(l.center_point)::numeric, 6)::float8 AS center_lat,
              ROUND(ST_X(l.center_point)::numeric, 6)::float8 AS center_lng,
@@ -174,12 +174,12 @@ export async function getMapData(): Promise<MapData> {
                                    f.coordinates::geography))
                  OR (l.polygon IS NULL AND l.center_point IS NOT NULL
                      AND ST_DistanceSphere(f.coordinates, l.center_point)
-                           <= COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END))
+                           <= COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END))
                  -- No area expectation → green: no polygon and either no
                  -- centre, or a v2 dot (radius_m NULL → effective radius NULL).
                  OR (l.polygon IS NULL
                      AND (l.center_point IS NULL
-                          OR COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END) IS NULL))
+                          OR COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END) IS NULL))
                  THEN 0
                WHEN EXISTS (
                      SELECT 1

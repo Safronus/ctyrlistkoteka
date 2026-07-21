@@ -364,10 +364,10 @@ const TONE_CASE_SQL = Prisma.sql`
           AND ST_Covers(l.polygon::geography, f.coordinates::geography))
       OR (l.polygon IS NULL AND l.center_point IS NOT NULL
           AND ST_DistanceSphere(f.coordinates, l.center_point)
-                <= COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END))
+                <= COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END))
       OR (l.polygon IS NULL
           AND (l.center_point IS NULL
-               OR COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END) IS NULL))
+               OR COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END) IS NULL))
       THEN 0
     WHEN EXISTS (
           SELECT 1 FROM location_maps lm

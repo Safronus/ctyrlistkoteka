@@ -491,9 +491,9 @@ async function hydrate(
                   WHEN l.polygon IS NOT NULL
                     THEN ST_Covers(l.polygon::geography, f.coordinates::geography)
                   WHEN l.center_point IS NOT NULL THEN
-                    COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END) IS NULL
+                    COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END) IS NULL
                     OR ST_DistanceSphere(f.coordinates, l.center_point)
-                         <= COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END)
+                         <= COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END)
                   ELSE NULL
                 END
            END AS loc_offset_inside,
@@ -544,7 +544,7 @@ async function hydrate(
            -- polygon locations and v2 dots (no radius threshold applies).
            CASE WHEN f.is_anonymized = false
                      AND l.polygon IS NULL AND l.center_point IS NOT NULL
-                THEN COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END)
+                THEN COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END)
            END AS loc_offset_radius_m
     FROM finds f
     LEFT JOIN locations l ON l.id = f.location_id
@@ -1633,9 +1633,9 @@ export async function getHighlightFind(
              WHEN l.polygon IS NOT NULL
                THEN ST_Covers(l.polygon::geography, f.coordinates::geography)
              WHEN l.center_point IS NOT NULL THEN
-               COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END) IS NULL
+               COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END) IS NULL
                OR ST_DistanceSphere(f.coordinates, l.center_point)
-                    <= COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END)
+                    <= COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END)
              ELSE NULL
            END AS loc_offset_inside
     FROM finds f

@@ -1917,7 +1917,7 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
             AND NOT ST_Covers(l.polygon::geography, f.coordinates::geography))
           OR (l.polygon IS NULL
             AND l.center_point IS NOT NULL
-            AND ST_DistanceSphere(f.coordinates, l.center_point) > COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END))
+            AND ST_DistanceSphere(f.coordinates, l.center_point) > COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END))
         )
       ORDER BY offset_m DESC NULLS LAST
     `,
@@ -1941,7 +1941,7 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
                        AND NOT ST_Covers(l.polygon::geography, f.coordinates::geography))
                   OR (l.polygon IS NULL
                        AND l.center_point IS NOT NULL
-                       AND ST_DistanceSphere(f.coordinates, l.center_point) > COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END))
+                       AND ST_DistanceSphere(f.coordinates, l.center_point) > COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END))
              )::bigint AS deviated
       FROM finds f
       JOIN locations l ON l.id = f.location_id
@@ -1959,7 +1959,7 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
                        AND NOT ST_Covers(l.polygon::geography, f.coordinates::geography))
                   OR (l.polygon IS NULL
                        AND l.center_point IS NOT NULL
-                       AND ST_DistanceSphere(f.coordinates, l.center_point) > COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END))
+                       AND ST_DistanceSphere(f.coordinates, l.center_point) > COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END))
              ) > 0
       ORDER BY
         (COUNT(*) FILTER (
@@ -1967,7 +1967,7 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
                   AND NOT ST_Covers(l.polygon::geography, f.coordinates::geography))
              OR (l.polygon IS NULL
                   AND l.center_point IS NOT NULL
-                  AND ST_DistanceSphere(f.coordinates, l.center_point) > COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END))
+                  AND ST_DistanceSphere(f.coordinates, l.center_point) > COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END))
         ))::float8 / COUNT(*) DESC,
         deviated DESC
       LIMIT 1
