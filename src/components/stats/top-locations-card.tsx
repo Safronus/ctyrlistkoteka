@@ -335,13 +335,14 @@ function Row({
             </p>
           )}
         </div>
-        {!isAnonymized && (
-          <div className="flex shrink-0 items-start gap-1">
-            <DetailButton id={id} t={t} />
-            <FindsButton id={id} t={t} />
-            <MapButton id={id} t={t} />
-          </div>
-        )}
+        <div className="flex shrink-0 items-start gap-1">
+          {/* Anon locations get only the "Ukázat 🍀" finds link — the finds
+              self-anonymize on /sbirka. Detail + map would expose the hidden
+              GPS / polygon, so they stay non-anon only. */}
+          {!isAnonymized && <DetailButton id={id} t={t} />}
+          <FindsButton id={id} t={t} />
+          {!isAnonymized && <MapButton id={id} t={t} />}
+        </div>
       </div>
       <Bar
         value={value}
@@ -372,27 +373,23 @@ function Identity({
   isAnonymized: boolean;
   t: StatsT;
 }) {
-  if (isAnonymized) {
-    return (
-      <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className="font-mono text-xs text-gray-500">
-          {formatLocationId(id)}
-        </span>
-        <span className="inline-flex items-center gap-1 text-sm font-semibold text-purple-700">
-          <EyeOff className="h-3 w-3" aria-hidden />
-          {t("anonymizedLocation")}
-        </span>
-      </div>
-    );
-  }
   return (
     <div className="flex flex-wrap items-baseline gap-x-2">
       <span className="font-mono text-xs text-gray-500">
         {formatLocationId(id)}
       </span>
+      {/* The code is public even for anon locations (owner's call); only the
+          map-derived name is withheld. Anon rows keep the eye-off badge so
+          it's clear the spot is otherwise private. */}
       <span className="truncate text-sm font-semibold text-gray-900">
         {code ?? ""}
       </span>
+      {isAnonymized && (
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-700">
+          <EyeOff className="h-3 w-3" aria-hidden />
+          {t("anonymizedLocation")}
+        </span>
+      )}
     </div>
   );
 }

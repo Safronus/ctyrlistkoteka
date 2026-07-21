@@ -1441,8 +1441,10 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
         FROM locations
       )
       SELECT l.id,
-             CASE WHEN l.id IN (SELECT location_id FROM anon)
-                  THEN NULL ELSE l.code END AS code,
+             -- The code stays even for anon locations — it's already public
+             -- (owner's call, CLAUDE.md §6). Only the map-derived name is
+             -- redacted; the client shows the code + a "Ukázat 🍀" link.
+             l.code AS code,
              CASE WHEN l.id IN (SELECT location_id FROM anon)
                   THEN NULL ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
              END AS name,
