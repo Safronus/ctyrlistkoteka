@@ -64,3 +64,17 @@ export const JSON_STATE_MAP: Readonly<Record<string, FindState>> = {
   GIGANT: FindState.GIGANT,
   ZTRACENY: FindState.LOST,
 };
+
+/**
+ * Retired JSON "stavy" keys — known, but intentionally no longer applied
+ * (see the note above). The LSP JSON in the field still carries them, so
+ * sync recognises them as *deprecated* and skips them silently, instead of
+ * flagging them as `unknown_state_key` (which should mean a real typo). Any
+ * existing DB assignment for the mapped enum is still swept by the sync
+ * convergence pass (DEPRECATED_STATES in scripts/sync.ts).
+ */
+export const DEPRECATED_JSON_STATE_KEYS: ReadonlySet<string> = new Set([
+  "BEZLOKACE", // was LOCATION_MISSING — a poor duplicate of BEZGPS
+  "LOKACE-NEEXISTUJE", // was LOCATION_GONE — now the location's own flag
+  "NEUTRZEN", // was NOT_PICKED
+]);

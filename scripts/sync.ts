@@ -48,7 +48,10 @@ import {
   buildIdToNumber,
 } from "../src/lib/mapPackage";
 import { parseRanges } from "../src/lib/parseRanges";
-import { JSON_STATE_MAP } from "../src/lib/stateMapping";
+import {
+  JSON_STATE_MAP,
+  DEPRECATED_JSON_STATE_KEYS,
+} from "../src/lib/stateMapping";
 import { findUrl, pingIndexNow } from "../src/lib/indexnow";
 import { pingRevalidate } from "../src/lib/revalidatePing";
 import type { WatermarkSpec } from "../src/lib/images";
@@ -1468,11 +1471,16 @@ async function phaseMeta(ctx: Context, meta: Meta) {
   for (const [key, specs] of Object.entries(meta.stavy)) {
     const state = JSON_STATE_MAP[key];
     if (!state) {
-      ctx.log.log({
-        event: "meta.unknown_state_key",
-        level: "warn",
-        key,
-      });
+      // Known-but-retired keys (BEZLOKACE, LOKACE-NEEXISTUJE, NEUTRZEN) are
+      // still present in field LSP JSONs; skip them silently — only a truly
+      // unrecognised key (a typo) is worth a warning.
+      if (!DEPRECATED_JSON_STATE_KEYS.has(key)) {
+        ctx.log.log({
+          event: "meta.unknown_state_key",
+          level: "warn",
+          key,
+        });
+      }
       continue;
     }
     const ids = parseRanges(specs);
