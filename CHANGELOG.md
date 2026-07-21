@@ -32,11 +32,13 @@ lokality **sám, vektorově** — místo aby spoléhal na vpálený „Rendered"
   + `phaseHierarchy` odstraněny** — hierarchie rodič/potomek jde teď výhradně
   z v2 manifestu (`phaseMapsV2`). Sync tím přestal hlásit `parent_missing`
   na v1 kódech.
-- **Auto-přejmenování fotek při syncu (fáze E):** když balíček mapek změní
-  `id_lokace`, sync přepíše token kódu v názvech fotek/výřezů té lokality
-  (párování přes neměnné číslo). Atomicky, se zálohou do `data/.trash/`, nikdy
-  nepřepíše existující cíl; `phaseFinds` pak dorovná `original_filename` v DB,
-  WebP (sha1) zůstávají. Kosmetika (nález se joinuje přes číslo, ne kód).
+- **Auto-přejmenování fotek při syncu (fáze E):** sync srovná token kódu v
+  názvech fotek/výřezů na *aktuální* kód jejich lokace (párování přes neměnné
+  číslo) — přepíše jen ty, co se liší. Doháníí tím i staré v1 fotky, které
+  zůstaly s původním kódem z doby před v2 přepnutím. Atomicky, se zálohou do
+  `data/.trash/`, nikdy nepřepíše existující cíl; `phaseFinds` pak dorovná
+  `original_filename` v DB, WebP (sha1) zůstávají. Idempotentní (ustálený stav
+  = 0 přejmenování). Kosmetika (nález se joinuje přes číslo, ne kód).
 - **Úklid v1:** odstraněno obsoletní `/admin` UI „Hierarchie lokalit"
   (editor `LokaceHierarchie.json`, který sync už ignoruje) + jeho Zod schéma;
   sjednocen `parseImageBounds`; komentáře „circle" → „radius".

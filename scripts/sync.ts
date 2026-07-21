@@ -357,22 +357,14 @@ async function phaseMapsV2(
     count: manifest.mapy.length,
   });
 
-  // Detect location code changes (id_lokace edited in this package) so the
-  // find photos can be renamed to match — the join is by číslo, so it's
-  // cosmetic filename hygiene, but keeps disk/DB consistent. Read the CURRENT
-  // codes BEFORE the upserts below overwrite them; keyed by číslo (= id).
-  const oldCodeRows = await ctx.prisma.location.findMany({
-    where: { id: { in: manifest.mapy.map((m) => entryNumber(m)) } },
-    select: { id: true, code: true },
-  });
-  const oldCodeById = new Map(oldCodeRows.map((r) => [r.id, r.code]));
-  const renamedCodeByNumber = new Map<number, string>();
-  for (const m of manifest.mapy) {
-    const oldCode = oldCodeById.get(entryNumber(m));
-    if (oldCode !== undefined && oldCode !== m.id_lokace) {
-      renamedCodeByNumber.set(entryNumber(m), m.id_lokace);
-    }
-  }
+  // Target code for every location in this package — its id_lokace from the
+  // manifest (the source of truth). Find photos get RECONCILED to it below:
+  // any photo whose LOCATION_CODE token differs is renamed. This catches an
+  // id_lokace edited this sync AND photos left with an old code by an earlier
+  // sync (e.g. the v1→v2 switch, before this feature existed). Keyed by číslo.
+  const codeByNumber = new Map(
+    manifest.mapy.map((m) => [entryNumber(m), m.id_lokace]),
+  );
 
   if (ctx.opts.dryRun) {
     ctx.log.log({
@@ -382,7 +374,7 @@ async function phaseMapsV2(
       would_upsert_maps: manifest.mapy.length,
     });
     // Report (never execute) the photo renames this package would trigger.
-    await renameFindPhotos(ctx, renamedCodeByNumber);
+    await renameFindPhotos(ctx, codeByNumber);
     for (const m of manifest.mapy) {
       const id = entryNumber(m);
       mapToLocation.set(id, id);
@@ -548,11 +540,11 @@ async function phaseMapsV2(
     childrenLinked++;
   }
 
-  // Rename find/crop photos whose location's id_lokace changed, so the
-  // filename code token stays consistent. Runs BEFORE phaseFinds, which then
-  // re-links the renamed files (skip set is keyed by filename) and updates
-  // find_images.original_filename — no separate DB write needed here.
-  await renameFindPhotos(ctx, renamedCodeByNumber);
+  // Reconcile find/crop photo filenames to each location's current code.
+  // Runs BEFORE phaseFinds, which then re-links the renamed files (skip set
+  // is keyed by filename) and updates find_images.original_filename — no
+  // separate DB write needed here.
+  await renameFindPhotos(ctx, codeByNumber);
 
   ctx.log.log({
     event: "maps.done",
@@ -568,9 +560,12 @@ async function phaseMapsV2(
 }
 
 /**
- * Renames find + crop photos whose location's id_lokace changed this sync, so
- * the LOCATION_CODE token in the filename tracks the current code. Purely
- * cosmetic (finds join by číslo), so it's careful, not load-bearing:
+ * Reconciles find + crop photo filenames to each location's current code: a
+ * photo whose LOCATION_CODE token differs from `codeByNumber[MAP_NUMBER]` is
+ * renamed to it. Purely cosmetic (finds join by číslo), so it's careful, not
+ * load-bearing:
+ *  - a photo already on the right code is left alone (withNewLocationCode →
+ *    null), so a steady-state sync renames nothing;
  *  - honours dry-run — reports the plan, touches nothing;
  *  - snapshots each source into `data/.trash/<ts>/{finds,crops}/` first
  *    (CLAUDE.md §9), then renames atomically (same-dir POSIX rename);
@@ -582,9 +577,9 @@ async function phaseMapsV2(
  */
 async function renameFindPhotos(
   ctx: Context,
-  newCodeByNumber: ReadonlyMap<number, string>,
+  codeByNumber: ReadonlyMap<number, string>,
 ): Promise<void> {
-  if (newCodeByNumber.size === 0) return;
+  if (codeByNumber.size === 0) return;
   const { readdir, copyFile, rename, access } = await import(
     "node:fs/promises"
   );
@@ -604,7 +599,7 @@ async function renameFindPhotos(
       if ((err as NodeJS.ErrnoException).code === "ENOENT") continue;
       throw err;
     }
-    const plan = planFindPhotoRenames(files, newCodeByNumber);
+    const plan = planFindPhotoRenames(files, codeByNumber);
     planned += plan.length;
     for (const { oldName, newName } of plan) {
       if (ctx.opts.dryRun) {
@@ -645,7 +640,7 @@ async function renameFindPhotos(
   ctx.log.log({
     event: ctx.opts.dryRun ? "finds.rename_plan_done" : "finds.rename_done",
     level: "info",
-    locations_changed: newCodeByNumber.size,
+    locations_checked: codeByNumber.size,
     planned,
     renamed,
     skipped_collision: skippedCollision,
