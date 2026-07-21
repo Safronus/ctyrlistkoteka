@@ -21,6 +21,7 @@ import {
   indicatorFrom,
   ringFromGeoJson,
   type ImageBounds,
+  type MapIndicator,
   type MapOverlayGeometry,
 } from "@/lib/mapOverlay";
 import { getLocationMapPhotoUrl } from "@/lib/locationPhotos";
@@ -75,6 +76,10 @@ export interface LocationListItem {
   displayName: string;
   cadastralArea: string;
   locationType: string | null;
+  /** Indicator kind — `polygon` (has an AOI), `radius` (a point with a
+   *  radius), or `dot` (a bare point). Drives the type badge in the list.
+   *  Derived from the presence of a polygon / effective radius. */
+  indicator: MapIndicator;
   thumbnailUrl: string | null;
   /** Vector overlay for the thumbnail map (v2 only) — the location's polygon
    *  / radius projected into the thumb map's bounds, drawn cropped (cover)
@@ -807,6 +812,9 @@ export async function listLocations(
         displayName: "",
         cadastralArea: "",
         locationType: null,
+        // Neutral — the indicator (polygon vs radius) is map-derived, so we
+        // don't reveal it for anon locations (the badge isn't rendered anyway).
+        indicator: "dot",
         thumbnailUrl: null,
         thumbnailOverlay: null,
         thumbnailWidth: null,
@@ -879,6 +887,10 @@ export async function listLocations(
       displayName: l.displayName,
       cadastralArea: l.cadastralArea,
       locationType: l.locationType,
+      indicator: indicatorFrom(
+        overlaySrc?.ring ?? null,
+        overlaySrc?.effRadius ?? null,
+      ),
       thumbnailUrl: thumbByLoc.get(l.id) ?? null,
       thumbnailOverlay: overlay,
       thumbnailWidth: thumbMeta?.width ?? null,

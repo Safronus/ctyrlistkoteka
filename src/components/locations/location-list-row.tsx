@@ -9,12 +9,15 @@ import {
   CornerDownRight,
   ExternalLink,
   HelpCircle,
+  Hexagon,
   Images,
   Layers,
+  LocateFixed,
   MapPin,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { LocationListItem } from "@/lib/queries/locations";
+import type { MapIndicator } from "@/lib/mapOverlay";
 import { MapOverlay } from "@/components/map/map-overlay";
 import { versionedPhotoUrl } from "@/lib/assetVersion";
 import { GpsValue } from "@/components/finds/gps-value";
@@ -282,6 +285,9 @@ function RowTitle({
           {t("partsBadge", { count: location.childCount })}
         </span>
       )}
+      {!location.isAnonymized && (
+        <IndicatorBadge indicator={location.indicator} t={t} />
+      )}
       {location.isAnonymized && (
         <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800">
           {t("anonymizedBadge")}
@@ -302,6 +308,33 @@ function RowTitle({
         </span>
       )}
     </div>
+  );
+}
+
+/** Small chip showing the location's map indicator: an AOI polygon, a point
+ *  with a radius, or a bare marker. Lets visitors tell the shape apart at a
+ *  glance in the list without opening each detail. */
+function IndicatorBadge({
+  indicator,
+  t,
+}: {
+  indicator: MapIndicator;
+  t: RowT;
+}) {
+  const { Icon, label } =
+    indicator === "polygon"
+      ? { Icon: Hexagon, label: t("indicatorPolygon") }
+      : indicator === "radius"
+        ? { Icon: LocateFixed, label: t("indicatorRadius") }
+        : { Icon: MapPin, label: t("indicatorDot") };
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600"
+      title={label}
+    >
+      <Icon className="h-3 w-3" aria-hidden />
+      {label}
+    </span>
   );
 }
 
