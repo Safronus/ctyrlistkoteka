@@ -1,5 +1,3 @@
-import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
-
 /**
  * `/generated/maps/{sha}.webp` → `{sha}-thumb.webp` — the small (~256 px)
  * map variant generated alongside the full overlay (see images.ts). Use it
@@ -424,9 +422,11 @@ export function formatDistance(meters: number, locale?: string): string {
 
 /** Tailwind color class for a find's offset — three-band signal:
  *
- *    green  → find is "at the location"
+ *    green  → find is "at the location" (`offset.inside`)
  *      polygon mode: GPS inside the AOI polygon
- *      centre mode:  GPS within `FIND_DEVIATION_RADIUS_M` of centre
+ *      centre mode:  GPS within the location's effective radius
+ *        (v2 radius_m, v1 FIND_DEVIATION_RADIUS_M) — or a v2 dot, which
+ *        has no area expectation and is always "inside"
  *
  *    amber  → find is off-target but still inside one of the
  *      location's location-map image bounding boxes (i.e. it would
@@ -439,20 +439,16 @@ export function formatDistance(meters: number, locale?: string): string {
  *      likely wrong or the wrong location is linked. Same band the
  *      /mapa "Skrýt odchýlené nálezy" toggle hides (yellow + red).
  *
- *  Polygon-mode `inside` and centre-mode `≤ FIND_DEVIATION_RADIUS_M`
- *  share the same green semantic; the threshold lives in constants.ts
- *  so future tweaks ripple through every render. */
+ *  `inside` is computed authoritatively in SQL (queries/finds.ts) for
+ *  both modes, so the per-location radius rule lives in one place and
+ *  every render agrees. */
 export function locationOffsetToneClass(offset: {
   meters: number;
   mode: "polygon" | "center";
   inside: boolean;
   withinMap: boolean;
 }): string {
-  const isGreen =
-    offset.mode === "polygon"
-      ? offset.inside
-      : offset.meters <= FIND_DEVIATION_RADIUS_M;
-  if (isGreen) return "text-emerald-700 font-medium";
+  if (offset.inside) return "text-emerald-700 font-medium";
   if (offset.withinMap) return "text-amber-700";
   return "text-rose-600";
 }
@@ -460,7 +456,7 @@ export function locationOffsetToneClass(offset: {
 /** Background-colour class for the small location-offset indicator dot
  *  (used on the /sbirka grid cards instead of the full text label).
  *  Same graduated logic as `locationOffsetToneClass`: green = inside the
- *  AOI / within the deviation radius, amber = off but still within a
+ *  AOI / within the effective radius, amber = off but still within a
  *  location map, rose = outside every map. */
 export function locationOffsetDotClass(offset: {
   meters: number;
@@ -468,11 +464,7 @@ export function locationOffsetDotClass(offset: {
   inside: boolean;
   withinMap: boolean;
 }): string {
-  const isGreen =
-    offset.mode === "polygon"
-      ? offset.inside
-      : offset.meters <= FIND_DEVIATION_RADIUS_M;
-  if (isGreen) return "bg-emerald-500";
+  if (offset.inside) return "bg-emerald-500";
   if (offset.withinMap) return "bg-amber-500";
   return "bg-rose-500";
 }

@@ -856,14 +856,11 @@ function classifyMapStatus(
   if (!marker || marker.kind === "no-gps") return "no_gps";
   if (marker.kind === "outside") return "outside_map";
   if (offset) {
-    // Polygon mode: inside flag drives green/red directly.
-    // Centre mode (no polygon): apply the same FIND_DEVIATION_RADIUS_M
-    // threshold the /sbirka tone class and the /mapa "Skrýt
-    // odchýlené" toggle use, so all three surfaces agree.
-    if (offset.mode === "polygon" && offset.inside === false) {
-      return "outside_polygon";
-    }
-    if (offset.mode === "center" && offset.meters > FIND_DEVIATION_RADIUS_M) {
+    // `inside` is authoritative for both modes (computed in SQL): polygon
+    // coverage, or within the location's effective radius (v2 radius_m /
+    // v1 5 m); a v2 dot has no area expectation and reads as inside. All
+    // three surfaces (/sbirka tone, /mapa toggle, this page) agree.
+    if (offset.inside === false) {
       return "outside_polygon";
     }
   }
@@ -890,6 +887,7 @@ function LocationMapsGallery({
     meters: number;
     mode: "polygon" | "center";
     inside: boolean;
+    effectiveRadiusM: number | null;
   } | null;
   /** Anonymized finds get a `?` overlay on the placeholder map so a
    *  visitor can't mistake the substituted default location for the
@@ -1053,6 +1051,7 @@ function statusLabel(
     meters: number;
     mode: "polygon" | "center";
     inside: boolean;
+    effectiveRadiusM: number | null;
   } | null,
   locale: string,
   t: FindDetailT,
@@ -1071,12 +1070,13 @@ function statusLabel(
       : t("mapStatusOutsideMapFromPolygon", { distance });
   }
   if (status === "outside_polygon" && offset) {
-    // Center mode has no polygon — the threshold is the FIND_DEVIATION_
-    // RADIUS_M circle around the map centre, so word it as a radius, not
-    // a polygon edge (which doesn't exist for these locations).
+    // Center mode has no polygon — the threshold is the effective radius
+    // circle around the map centre (the location's own radius_m for v2, or
+    // FIND_DEVIATION_RADIUS_M for v1), so word it as a radius, not a polygon
+    // edge (which doesn't exist for these locations).
     if (offset.mode === "center") {
       return t("mapStatusOutsideRadius", {
-        radius: FIND_DEVIATION_RADIUS_M,
+        radius: offset.effectiveRadiusM ?? FIND_DEVIATION_RADIUS_M,
         distance: formatDistance(offset.meters, locale),
       });
     }

@@ -10,7 +10,11 @@ import { unstable_cache } from "next/cache";
 import { FindState, Prisma, type ImageType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { anonymize } from "@/lib/anonymize";
-import { DEFAULT_LOCATION_ID, DOMINANT_LOCATION_ID } from "@/lib/constants";
+import {
+  DEFAULT_LOCATION_ID,
+  DOMINANT_LOCATION_ID,
+  FIND_DEVIATION_RADIUS_M,
+} from "@/lib/constants";
 import {
   getFindIdsWithRealPhotos,
   getFindPhotos,
@@ -131,6 +135,12 @@ export interface PublicFind {
      *  the find sits. `null` when the location has no map with a
      *  recorded bbox. */
     metersOutsideMap: number | null;
+    /** Centre-mode "at the location" radius in metres — the threshold
+     *  `meters` is compared against for the green band: the location's own
+     *  `radius_m` (v2 radius), or `FIND_DEVIATION_RADIUS_M` (v1). The detail
+     *  page surfaces it in the "> N m od středu" wording. `null` for polygon
+     *  locations and v2 dots (no radius threshold). */
+    effectiveRadiusM: number | null;
   } | null;
 }
 
@@ -439,6 +449,7 @@ async function hydrate(
       loc_offset_inside: boolean | null;
       loc_offset_within_map: boolean | null;
       loc_offset_map_edge_m: number | null;
+      loc_offset_radius_m: number | null;
     }>
   >`
     WITH ref AS (
@@ -468,8 +479,23 @@ async function hydrate(
                   ELSE NULL
                 END
            END AS loc_offset_mode,
-           CASE WHEN f.is_anonymized = false AND l.polygon IS NOT NULL
-                THEN ST_Covers(l.polygon::geography, f.coordinates::geography)
+           -- Authoritative "at the location" flag for BOTH modes, so the
+           -- 5 m / radius_m threshold lives here (with radius_m + schema in
+           -- scope) instead of being re-derived in TS:
+           --   polygon → GPS inside the AOI
+           --   v2 radius → within radius_m of centre
+           --   v2 dot  → no radius, no area expectation → always inside
+           --   v1 centre → within FIND_DEVIATION_RADIUS_M of centre
+           CASE WHEN f.is_anonymized = false THEN
+                CASE
+                  WHEN l.polygon IS NOT NULL
+                    THEN ST_Covers(l.polygon::geography, f.coordinates::geography)
+                  WHEN l.center_point IS NOT NULL THEN
+                    COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END) IS NULL
+                    OR ST_DistanceSphere(f.coordinates, l.center_point)
+                         <= COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END)
+                  ELSE NULL
+                END
            END AS loc_offset_inside,
            -- True when the GPS sits inside ANY of the location's
            -- maps' image bounding boxes. Drives the yellow-vs-red
@@ -511,7 +537,15 @@ async function hydrate(
                   WHERE lm.location_id = f.location_id
                     AND lm.image_bounds IS NOT NULL
                 )
-           END AS loc_offset_map_edge_m
+           END AS loc_offset_map_edge_m,
+           -- Effective "at the location" radius for centre-mode locations,
+           -- so the detail page can word the deviation as "> N m od středu"
+           -- with the location's own N (v2 radius_m, else 5 m v1). NULL for
+           -- polygon locations and v2 dots (no radius threshold applies).
+           CASE WHEN f.is_anonymized = false
+                     AND l.polygon IS NULL AND l.center_point IS NOT NULL
+                THEN COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END)
+           END AS loc_offset_radius_m
     FROM finds f
     LEFT JOIN locations l ON l.id = f.location_id
     WHERE f.id IN (${Prisma.join(ids)}) AND f.coordinates IS NOT NULL
@@ -535,6 +569,7 @@ async function hydrate(
       inside: boolean;
       withinMap: boolean;
       metersOutsideMap: number | null;
+      effectiveRadiusM: number | null;
     }
   >();
   for (const c of coordRows) {
@@ -548,11 +583,13 @@ async function hydrate(
       offsetMap.set(c.id, {
         meters: c.loc_offset_m,
         mode: c.loc_offset_mode,
-        // `inside` is only meaningful in polygon mode; coalesce to false
-        // for center mode so consumers don't have to guard on `mode`.
+        // `inside` is authoritative for both modes (SQL computes polygon
+        // coverage or within-effective-radius / v2-dot), so consumers read
+        // it directly without guarding on `mode`.
         inside: c.loc_offset_inside === true,
         withinMap: c.loc_offset_within_map === true,
         metersOutsideMap: c.loc_offset_map_edge_m,
+        effectiveRadiusM: c.loc_offset_radius_m,
       });
     }
   }
@@ -1590,8 +1627,16 @@ export async function getHighlightFind(
              WHEN l.center_point IS NOT NULL THEN 'center'
              ELSE NULL
            END AS loc_offset_mode,
-           CASE WHEN l.polygon IS NOT NULL
-                THEN ST_Covers(l.polygon::geography, f.coordinates::geography)
+           -- Authoritative "at the location" flag for BOTH modes (see the
+           -- list query above for the per-mode rationale).
+           CASE
+             WHEN l.polygon IS NOT NULL
+               THEN ST_Covers(l.polygon::geography, f.coordinates::geography)
+             WHEN l.center_point IS NOT NULL THEN
+               COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END) IS NULL
+               OR ST_DistanceSphere(f.coordinates, l.center_point)
+                    <= COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END)
+             ELSE NULL
            END AS loc_offset_inside
     FROM finds f
     LEFT JOIN locations l ON l.id = f.location_id
