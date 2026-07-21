@@ -13,6 +13,7 @@ import { FindState, ImageType } from "@/generated/prisma/enums";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { DetailVibeOverlay } from "@/components/finds/detail-vibe-overlay";
+import { MapOverlay } from "@/components/map/map-overlay";
 import { GpsValue } from "@/components/finds/gps-value";
 import { ImageGallery } from "@/components/finds/image-gallery";
 import { FindKeyNav } from "@/components/finds/find-key-nav";
@@ -965,6 +966,21 @@ function LocationMapsGallery({
                 decoding="async"
                 className="block h-auto w-full"
               />
+              {/* Location context (AOI polygon / radius) under the find pin.
+                  Suppressed for anonymized finds — the map is a placeholder
+                  and its overlay would leak the default location's shape. */}
+              {!isAnonymized &&
+                m.overlay &&
+                m.imageWidth &&
+                m.imageHeight && (
+                  <MapOverlay
+                    geometry={m.overlay}
+                    width={m.imageWidth}
+                    height={m.imageHeight}
+                    showCenterPin={false}
+                    idSuffix={String(m.id)}
+                  />
+                )}
               {!isAnonymized && m.marker?.kind === "inside" && style && (
                 <FindLocationMarker
                   xFrac={m.marker.xFrac}

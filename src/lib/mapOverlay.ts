@@ -76,6 +76,38 @@ export function parseImageBounds(raw: unknown): ImageBounds | null {
   return isFiniteBounds(b) ? b : null;
 }
 
+/** First ring of a `ST_AsGeoJSON(polygon)` string as [lng, lat] pairs, or
+ *  null when absent/degenerate. Shared by the detail + find-detail queries. */
+export function ringFromGeoJson(
+  polygonGeoJson: string | null | undefined,
+): Array<readonly [number, number]> | null {
+  if (!polygonGeoJson) return null;
+  try {
+    const gj = JSON.parse(polygonGeoJson) as GeoJSON.Polygon;
+    const ring = gj.coordinates?.[0];
+    if (!Array.isArray(ring) || ring.length < 3) return null;
+    const pts = ring
+      .map((pt) => [Number(pt[0]), Number(pt[1])] as const)
+      .filter(
+        (pt): pt is readonly [number, number] =>
+          Number.isFinite(pt[0]) && Number.isFinite(pt[1]),
+      );
+    return pts.length >= 3 ? pts : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Indicator kind from the presence of a polygon ring / effective radius,
+ *  matching the desktop generator's priority polygon > radius > dot. */
+export function indicatorFrom(
+  ring: ReadonlyArray<unknown> | null,
+  effRadiusM: number | null,
+): MapIndicator {
+  if (ring && ring.length >= 3) return "polygon";
+  return effRadiusM && effRadiusM > 0 ? "radius" : "dot";
+}
+
 export interface OverlayInput {
   indicator: MapIndicator;
   imageBounds: ImageBounds;

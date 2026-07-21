@@ -26,7 +26,18 @@ import {
   type FindFreePhotoEntry,
 } from "@/lib/findFreePhotos";
 import { countryFromCoords } from "@/lib/geo";
-import { cityFromCadastralArea, NEEXISTUJE_PREFIX } from "@/lib/locationCode";
+import {
+  cityFromCadastralArea,
+  isLocationGone,
+  NEEXISTUJE_PREFIX,
+} from "@/lib/locationCode";
+import {
+  computeMapOverlayGeometry,
+  indicatorFrom,
+  parseImageBounds,
+  ringFromGeoJson,
+  type MapOverlayGeometry,
+} from "@/lib/mapOverlay";
 import { listCountries } from "@/lib/queries/locations";
 import { parseIdQuery } from "@/lib/search";
 import { effectForFind } from "@/lib/specialFinds";
@@ -1195,6 +1206,11 @@ export interface PublicLocationMap {
    *  - `no-gps` → the find has no GPS recorded — note instead of marker
    *  - `null`  → marker logic doesn't apply (anonymized find, or the
    *     map row predates `imageBounds` and we can't place the pin) */
+  /** The location's own vector overlay (polygon / radius) projected into
+   *  this map's bounds — drawn under the find's GPS pin for context. The
+   *  centre pin is suppressed here (the find pin already marks the spot).
+   *  Null when the map has no usable bounds. */
+  overlay: MapOverlayGeometry | null;
   marker:
     | { kind: "inside"; xFrac: number; yFrac: number }
     | { kind: "outside" }
@@ -1421,26 +1437,68 @@ async function fetchLocationMaps(
    *    caller is responsible for not passing real coordinates here). */
   coordinates: { lat: number; lng: number } | null,
 ): Promise<PublicLocationMap[]> {
-  const maps = await prisma.locationMap.findMany({
-    where: { locationId, isAnonymized: false },
-    select: {
-      id: true,
-      imagePath: true,
-      imageWidth: true,
-      imageHeight: true,
-      description: true,
-      imageBounds: true,
-    },
-    orderBy: { id: "asc" },
+  const [maps, geomRows] = await Promise.all([
+    prisma.locationMap.findMany({
+      where: { locationId, isAnonymized: false },
+      select: {
+        id: true,
+        imagePath: true,
+        imageWidth: true,
+        imageHeight: true,
+        description: true,
+        imageBounds: true,
+      },
+      orderBy: { id: "asc" },
+    }),
+    // The location's overlay source: polygon ring, effective radius (v2
+    // radius_m, v1 5 m, v2 dot NULL) + centre. The ::float8 cast is
+    // required on the fallback (typeless param breaks COALESCE, gotcha #18).
+    prisma.$queryRaw<
+      Array<{
+        eff_radius_m: number | null;
+        is_cancelled: boolean;
+        code: string;
+        polygon_geojson: string | null;
+        center_lat: number | null;
+        center_lng: number | null;
+      }>
+    >`
+      SELECT
+        COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END) AS eff_radius_m,
+        l.is_cancelled,
+        l.code,
+        ST_AsGeoJSON(l.polygon, 6) AS polygon_geojson,
+        ROUND(ST_Y(l.center_point)::numeric, 6)::float8 AS center_lat,
+        ROUND(ST_X(l.center_point)::numeric, 6)::float8 AS center_lng
+      FROM locations l WHERE l.id = ${locationId}
+    `,
+  ]);
+  const geom = geomRows[0];
+  const ring = ringFromGeoJson(geom?.polygon_geojson);
+  const indicator = indicatorFrom(ring, geom?.eff_radius_m ?? null);
+  const isGone = isLocationGone(geom?.code, geom?.is_cancelled);
+  return maps.map((m) => {
+    const imageBounds = parseImageBounds(m.imageBounds);
+    return {
+      id: m.id,
+      imageUrl: m.imagePath,
+      imageWidth: m.imageWidth,
+      imageHeight: m.imageHeight,
+      description: m.description,
+      overlay: imageBounds
+        ? computeMapOverlayGeometry({
+            indicator,
+            imageBounds,
+            centerLat: geom?.center_lat ?? null,
+            centerLng: geom?.center_lng ?? null,
+            radiusM: geom?.eff_radius_m ?? null,
+            polygonLngLat: ring,
+            isGone,
+          })
+        : null,
+      marker: computeMarker(coordinates, m.imageBounds),
+    };
   });
-  return maps.map((m) => ({
-    id: m.id,
-    imageUrl: m.imagePath,
-    imageWidth: m.imageWidth,
-    imageHeight: m.imageHeight,
-    description: m.description,
-    marker: computeMarker(coordinates, m.imageBounds),
-  }));
 }
 
 /** Linear interpolation of (lat, lng) into the map's image rectangle.
