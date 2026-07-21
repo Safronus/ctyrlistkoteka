@@ -3,12 +3,11 @@
 import { useMemo } from "react";
 import { Marker, Pane, SVGOverlay } from "react-leaflet";
 import L from "leaflet";
-import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { cloverSpriteDataUrl } from "./find-dots-canvas";
 import type { MapLocation } from "@/lib/queries/map";
 
 /** `[lat, lng, locationId, findId, tone]` — same packed tuple the find-dots
- *  canvas consumes. tone: 0 green (≤5 m / on-location), 1 amber (deviated but
+ *  canvas consumes. tone: 0 green (on-location), 1 amber (deviated but
  *  inside a location-map bbox), 2 rose (deviated, outside every map). */
 type FindCoord = readonly [number, number, number, number, number];
 
@@ -19,9 +18,11 @@ const PULSE_BOX = 24;
 /**
  * Decorations for the currently-selected POLYGON-LESS location, so a place
  * that's only a centre point stays legible under a dense find cluster:
- *   • a green radial-gradient circle at the 5 m deviation radius (under the
- *     finds) — the boundary where on-location (green, ≤5 m) tips over to
- *     deviated; it "hugs" the tight on-location cluster;
+ *   • a green radial-gradient circle at the location's on-location radius
+ *     (v2 radius_m / v1 5 m; under the finds) — the boundary where
+ *     on-location (green) tips over to deviated; it "hugs" the tight
+ *     on-location cluster. A v2 dot has no radius (bare point, no area), so
+ *     no circle is drawn — only the finds pulse;
  *   • the location's finds gently PULSE (clover icons matching the canvas
  *     dots) as a highlight. Which tiers pulse is visitor-toggleable: the
  *     deviated (amber+rose) outliers by default — they're the scattered ones
@@ -38,7 +39,7 @@ export function SelectedLocationDecor({
   findCoords: ReadonlyArray<FindCoord>;
   /** Pulse the deviated finds (amber+rose, tone ≥ 1). */
   pulseDeviated: boolean;
-  /** Also pulse the on-location finds (green, ≤5 m, tone 0) — they already
+  /** Also pulse the on-location finds (green, tone 0) — they already
    *  sit inside the circle, so this is mostly a look/testing aid. */
   pulseOnLocation: boolean;
 }) {
@@ -81,30 +82,36 @@ export function SelectedLocationDecor({
   const lat = active.centerLat as number;
   const lng = active.centerLng as number;
   // Square geographic bbox 2×radius across, centred on the point — the SVG
-  // circle inscribed in it is exactly the 5 m radius and scales with zoom.
-  const circleBounds = L.latLng(lat, lng).toBounds(2 * FIND_DEVIATION_RADIUS_M);
+  // circle inscribed in it is exactly the on-location radius and scales with
+  // zoom. A v2 dot has no radius (null) → no circle, just the pulsing finds.
+  const circleBounds =
+    active.effectiveRadiusM !== null
+      ? L.latLng(lat, lng).toBounds(2 * active.effectiveRadiusM)
+      : null;
 
   return (
     <>
       {/* z-index 450: BELOW the find-dots canvas (550) so the circle is a soft
           backdrop under the clover icons. */}
-      <Pane name="loc-decor-under" style={{ zIndex: 450 }}>
-        <SVGOverlay
-          bounds={circleBounds}
-          pane="loc-decor-under"
-          attributes={{ viewBox: "0 0 100 100", preserveAspectRatio: "none" }}
-          interactive={false}
-        >
-          <defs>
-            <radialGradient id="loc-decor-grad">
-              <stop offset="0%" stopColor="#16a34a" stopOpacity="0.5" />
-              <stop offset="60%" stopColor="#16a34a" stopOpacity="0.28" />
-              <stop offset="100%" stopColor="#16a34a" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          <circle cx="50" cy="50" r="50" fill="url(#loc-decor-grad)" />
-        </SVGOverlay>
-      </Pane>
+      {circleBounds && (
+        <Pane name="loc-decor-under" style={{ zIndex: 450 }}>
+          <SVGOverlay
+            bounds={circleBounds}
+            pane="loc-decor-under"
+            attributes={{ viewBox: "0 0 100 100", preserveAspectRatio: "none" }}
+            interactive={false}
+          >
+            <defs>
+              <radialGradient id="loc-decor-grad">
+                <stop offset="0%" stopColor="#16a34a" stopOpacity="0.5" />
+                <stop offset="60%" stopColor="#16a34a" stopOpacity="0.28" />
+                <stop offset="100%" stopColor="#16a34a" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <circle cx="50" cy="50" r="50" fill="url(#loc-decor-grad)" />
+          </SVGOverlay>
+        </Pane>
+      )}
       {/* Pulsing finds ride the default markerPane (600), above the finds. */}
       {icons &&
         pulsing.map((f, i) => (

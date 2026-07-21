@@ -37,6 +37,11 @@ export interface MapLocation {
   centerLat: number | null;
   centerLng: number | null;
   polygon: GeoJSON.Polygon | null;
+  /** On-location radius in metres for a polygon-less location — the
+   *  location's own radius_m (v2 radius) or 5 m (v1 centre). The /mapa
+   *  selected-location halo draws at this radius. `null` for polygon
+   *  locations and v2 dots (bare point, no area → no halo). */
+  effectiveRadiusM: number | null;
   findCount: number;
 }
 
@@ -97,6 +102,7 @@ export async function getMapData(): Promise<MapData> {
     parent_id: number | null;
     show_on_map_by_default: boolean;
     is_cancelled: boolean;
+    effective_radius_m: number | null;
     center_lat: number | null;
     center_lng: number | null;
     polygon_geojson: string | null;
@@ -111,6 +117,14 @@ export async function getMapData(): Promise<MapData> {
              l.parent_id,
              l.show_on_map_by_default,
              l.is_cancelled,
+             -- Effective on-location radius for polygon-less locations, so the
+             -- /mapa centre-dot halo uses the location's own radius_m (v2
+             -- radius) / 5 m (v1) instead of a hardcoded 5 m. NULL for polygon
+             -- locations (they draw their real outline) and v2 dots (a bare
+             -- point with no area → no halo).
+             CASE WHEN l.polygon IS NULL
+                  THEN COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M} END)
+             END AS effective_radius_m,
              ROUND(ST_Y(l.center_point)::numeric, 6)::float8 AS center_lat,
              ROUND(ST_X(l.center_point)::numeric, 6)::float8 AS center_lng,
              -- 6 decimals ≈ 0.11 m — far finer than any map zoom shows, so
@@ -227,6 +241,7 @@ export async function getMapData(): Promise<MapData> {
       centerLat: r.center_lat,
       centerLng: r.center_lng,
       polygon,
+      effectiveRadiusM: r.effective_radius_m,
       findCount,
     };
   });
