@@ -33,6 +33,33 @@ Zero-downtime, po fázích — web mezitím jede beze změny na v1.
   databázi vytvoří následný sync. Idempotentní (přidá i přepíše mapu dle čísla),
   určeno pro **průběžné updaty map**. Řeší i UTF-8 diakritiku v ZIP názvech bez
   ohledu na balicí nástroj (viz gotchas #17).
+- **Fáze D1 (přepnutí zdrojů na v2):** všechny odvozené hodnoty webu čtou nová
+  v2 pole, s v1 fallbackem — na produkci (samé v1) je to no-op, aktivuje se až po
+  přepnutí na v2 data. Ověřeno na testovacím dumpu produkce + import 212 map (7
+  zemí, 118 polygonů, 94 rádiusů):
+  - **Rádius per-lokace.** Práh „u lokality" (zelená) i odchylka nálezu už není
+    natvrdo 5 m — pro v2 „radius" lokaci se bere její vlastní `radius_m`, pro v1
+    zůstává 5 m. Rozhodnutí „uvnitř" se přesunulo celé do SQL (`loc_offset_inside`),
+    TS ho jen čte — jeden zdroj pravdy pro `/sbirka` tón, detail nálezu, `/mapa`
+    tečky, `/lokality` počty odchylek. **Pozor:** `radius_m` z generátoru je 1 m,
+    takže u rádiusových lokalit teď spadne většina nálezů (>1 m od bodu) do
+    „odchýlené" — je to záměr (rádius = bod s malou tolerancí), ne chyba.
+  - **Plocha / hustota z v2.** Hustota se počítá z `aoi_area_m2` (reálná plocha
+    polygonu, u „radius" π·r²). **Tečka („dot") = bod bez plochy** → NULL plocha,
+    úplně mimo hustotu i odchylky (nález u tečky nemá „očekávanou oblast", takže
+    je vždy zelený / neodchýlený). `/mapa` halo se kreslí na vlastní rádius, u
+    tečky se nekreslí vůbec.
+  - **Zaniklost.** Nová `isLocationGone(code, is_cancelled)` — v1 pozná zánik dle
+    prefixu `NEEXISTUJE-`, v2 dle sloupce `is_cancelled` (z manifestu, nový formát
+    kódu prefix nemá). ORují se, funguje napříč migrací.
+  - **Hierarchie z manifestu.** Rodič–potomek se bere z `potomek` v manifestu
+    (id_lokace rodiče), ne z `LokaceHierarchie.json` — sync je nastaví přímo. Starý
+    JSON zůstává jako no-op (jeho páry se hledají podle v1 kódů, které v2 lokace
+    nemají), maže se ve fázi E.
+  - **Stát:** ověřeno, že `countryFromCoords(GPS)` (numerické ISO, kterým web
+    filtruje a barví choropleth) souhlasí s `country_code` z manifestu (alpha-2)
+    u všech 212 map — web zůstává na výpočtu z GPS, `country_code` je uložený pro
+    audit. Přepínat web na alpha-2 by zbytečně rozbilo filtry/URL/mapy.
 
 ### Oprava: `pnpm sync` a další CLI skripty po Prisma 7
 Prisma 7 přestala automaticky načítat `.env`, takže samostatné `tsx` skripty
