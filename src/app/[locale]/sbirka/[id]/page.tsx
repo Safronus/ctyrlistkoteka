@@ -44,7 +44,7 @@ import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { breadcrumbSchema, findImageSchema } from "@/lib/schema";
 import { JsonLd } from "@/components/seo/json-ld";
-import { isFormerLocation } from "@/lib/locationCode";
+import { isLocationGone } from "@/lib/locationCode";
 import {
   getAdjacentFindIds,
   getAllFindIds,
@@ -579,7 +579,7 @@ export default async function FindDetailPage({ params }: PageProps) {
               </p>
             ) : (
               <>
-                {isFormerLocation(find.location?.code) && (
+                {isLocationGone(find.location?.code, find.location?.isCancelled) && (
                   <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
                     {t("formerLocationNotice")}
                   </p>

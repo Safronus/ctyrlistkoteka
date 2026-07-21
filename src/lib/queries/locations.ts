@@ -19,7 +19,7 @@ import { countryFromCoords } from "@/lib/geo";
 import { getLocationMapPhotoUrl } from "@/lib/locationPhotos";
 import {
   cityFromCadastralArea,
-  isFormerLocation,
+  isLocationGone,
   NEEXISTUJE_PREFIX,
 } from "@/lib/locationCode";
 import { paddedIdMatches, parseIdQuery } from "@/lib/search";
@@ -477,6 +477,7 @@ export async function listLocations(
       cadastralArea: true,
       locationType: true,
       parentId: true,
+      isCancelled: true,
     },
     orderBy: { id: "asc" },
   });
@@ -683,7 +684,7 @@ export async function listLocations(
   // map thumbnail, and every aggregated stat are stripped server-side
   // so a frontend bug can never accidentally render them.
   let items: LocationListItem[] = locations.map((l) => {
-    const gone = isFormerLocation(l.code);
+    const gone = isLocationGone(l.code, l.isCancelled);
     if (isAnonymizedLoc(l.id)) {
       // Anonymized locations don't expose their parent link either —
       // surfacing it would reveal which sub-parts belong to a hidden
@@ -1340,9 +1341,10 @@ export async function getLocationDetailById(
               id: true,
               code: true,
               displayName: true,
-              // `isGone` derives from `code` via isFormerLocation() at
-              // assembly time; findCount is summed below from the
-              // batched groupBy.
+              isCancelled: true,
+              // `isGone` derives from `code` (v1 NEEXISTUJE- prefix) OR
+              // `isCancelled` (v2) via isLocationGone() at assembly time;
+              // findCount is summed below from the batched groupBy.
             },
           })
         : Promise.resolve(null),
@@ -1352,6 +1354,7 @@ export async function getLocationDetailById(
           id: true,
           code: true,
           displayName: true,
+          isCancelled: true,
         },
         orderBy: { id: "asc" },
       }),
@@ -1367,6 +1370,7 @@ export async function getLocationDetailById(
               id: true,
               code: true,
               displayName: true,
+              isCancelled: true,
             },
             orderBy: { id: "asc" },
           })
@@ -1374,6 +1378,7 @@ export async function getLocationDetailById(
             id: number;
             code: string;
             displayName: string;
+            isCancelled: boolean;
           }>),
     ]);
 
@@ -1418,7 +1423,7 @@ export async function getLocationDetailById(
             (sum, c) => sum + (devCounts.get(c.id)?.rose ?? 0),
             0,
           ),
-        isGone: isFormerLocation(parentRow.code),
+        isGone: isLocationGone(parentRow.code, parentRow.isCancelled),
       }
     : null;
 
@@ -1431,7 +1436,7 @@ export async function getLocationDetailById(
       findCount: findCounts.get(c.id) ?? 0,
       amber: devCounts.get(c.id)?.amber ?? 0,
       rose: devCounts.get(c.id)?.rose ?? 0,
-      isGone: isFormerLocation(c.code),
+      isGone: isLocationGone(c.code, c.isCancelled),
     }));
 
   const children: LocationHandle[] = childRows.map((c) => ({
@@ -1441,7 +1446,7 @@ export async function getLocationDetailById(
     findCount: findCounts.get(c.id) ?? 0,
     amber: devCounts.get(c.id)?.amber ?? 0,
     rose: devCounts.get(c.id)?.rose ?? 0,
-    isGone: isFormerLocation(c.code),
+    isGone: isLocationGone(c.code, c.isCancelled),
   }));
 
   // Resolve the real-photo URL (if any) per map in parallel — each

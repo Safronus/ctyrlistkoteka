@@ -15,7 +15,7 @@ import {
   STATS_REVALIDATE,
 } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
-import { isFormerLocation } from "@/lib/locationCode";
+import { isLocationGone } from "@/lib/locationCode";
 import type { PublicImage } from "./finds";
 
 export interface CollectionFreshness {
@@ -493,12 +493,14 @@ export async function getHomePageData(): Promise<HomePageData> {
       Array<{
         code: string;
         cadastral: string;
+        is_cancelled: boolean;
         lat: number | null;
         lng: number | null;
       }>
     >`
       SELECT l.code,
              l.cadastral_area AS cadastral,
+             l.is_cancelled,
              CASE WHEN l.center_point IS NOT NULL
                   THEN ST_Y(l.center_point)::float8 END AS lat,
              CASE WHEN l.center_point IS NOT NULL
@@ -554,7 +556,7 @@ export async function getHomePageData(): Promise<HomePageData> {
   const cityKeys = new Set<string>();
   const countryKeys = new Set<string>();
   for (const r of geoLocRows) {
-    if (!isFormerLocation(r.code)) {
+    if (!isLocationGone(r.code, r.is_cancelled)) {
       cityKeys.add(r.cadastral || r.code);
     }
     if (r.lat !== null && r.lng !== null) {

@@ -46,6 +46,10 @@ export interface PublicLocation {
   cadastralArea: string;
   /** May be null for codes without a TYPE segment (e.g. HOŠŤÁLKOVÁ001). */
   locationType: string | null;
+  /** True when the place is former/gone — v1 NEEXISTUJE- code prefix OR the
+   *  v2 is_cancelled flag. The find detail surfaces a "former location"
+   *  notice from this (not privacy-sensitive: the code is already public). */
+  isCancelled: boolean;
 }
 
 export interface PublicFind {
@@ -382,6 +386,7 @@ async function hydrate(
       displayName: string;
       cadastralArea: string;
       locationType: string | null;
+      isCancelled: boolean;
     } | null;
     states: Array<{ state: FindState }>;
     images: Array<{
@@ -583,6 +588,10 @@ async function hydrate(
             displayName: "",
             cadastralArea: "",
             locationType: null,
+            // Not privacy-sensitive: the code (public on /lokality) already
+            // reveals a NEEXISTUJE- prefix, and "gone" is a property of the
+            // place, not of the person — keep it so the notice still shows.
+            isCancelled: r.location.isCancelled,
           }
         : r.location;
     return {
@@ -653,6 +662,7 @@ const LIST_INCLUDE = {
       displayName: true,
       cadastralArea: true,
       locationType: true,
+      isCancelled: true,
     },
   },
   states: { select: { state: true } },
@@ -1360,6 +1370,7 @@ async function fetchPublicLocation(
       displayName: true,
       cadastralArea: true,
       locationType: true,
+      isCancelled: true,
     },
   });
   return row ?? null;

@@ -12,7 +12,7 @@
 
 import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { prisma } from "@/lib/db";
-import { isFormerLocation } from "@/lib/locationCode";
+import { isLocationGone } from "@/lib/locationCode";
 
 export interface MapLocation {
   id: number;
@@ -96,6 +96,7 @@ export async function getMapData(): Promise<MapData> {
     display_name: string;
     parent_id: number | null;
     show_on_map_by_default: boolean;
+    is_cancelled: boolean;
     center_lat: number | null;
     center_lng: number | null;
     polygon_geojson: string | null;
@@ -109,6 +110,7 @@ export async function getMapData(): Promise<MapData> {
              l.display_name,
              l.parent_id,
              l.show_on_map_by_default,
+             l.is_cancelled,
              ROUND(ST_Y(l.center_point)::numeric, 6)::float8 AS center_lat,
              ROUND(ST_X(l.center_point)::numeric, 6)::float8 AS center_lng,
              -- 6 decimals ≈ 0.11 m — far finer than any map zoom shows, so
@@ -217,7 +219,7 @@ export async function getMapData(): Promise<MapData> {
       displayName: r.display_name,
       parentId: r.parent_id,
       showOnMapByDefault: r.show_on_map_by_default,
-      isGone: isFormerLocation(r.code),
+      isGone: isLocationGone(r.code, r.is_cancelled),
       centerLat: r.center_lat,
       centerLng: r.center_lng,
       polygon,

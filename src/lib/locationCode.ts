@@ -126,6 +126,22 @@ export function isFormerLocation(
   return typeof code === "string" && code.startsWith(NEEXISTUJE_PREFIX);
 }
 
+/**
+ * True when a location is former / no-longer-existing, across the v1→v2 map
+ * migration. Two independent signals, ORed:
+ *  - v1: the code carries the `NEEXISTUJE-` prefix (isFormerLocation).
+ *  - v2: the manifest's `zrusena` lands in locations.is_cancelled; the new
+ *    v2 code format has no NEEXISTUJE- prefix, so the flag is the only signal.
+ * Prefer this over a bare isFormerLocation() anywhere the value feeds an
+ * "is this place gone" decision on data that may already be v2.
+ */
+export function isLocationGone(
+  code: string | null | undefined,
+  isCancelled: boolean | null | undefined,
+): boolean {
+  return isCancelled === true || isFormerLocation(code);
+}
+
 /** Canonical "city" value derived from a cadastralArea string. The
  *  `NEEXISTUJE-` prefix exists solely to mark a location as gone — it
  *  must NOT split the city into two filter buckets ("ZLÍN" vs
