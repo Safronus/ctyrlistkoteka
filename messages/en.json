@@ -605,7 +605,7 @@
     "yearAvgPerSession": "avg. {avg} 🍀 / session",
     "yearAvgPerSessionTitle": "Average 🍀 per session in this year.",
     "geoHeading": "By country and city",
-    "geoSubtitle": "Country is determined from the GPS centre of the location (point-in-polygon against Natural Earth borders), city from the cadastral area. Anonymized locations and entries prefixed with <code>NEEXISTUJE-</code> are excluded from the city overview.",
+    "geoSubtitle": "Country is determined from the GPS centre of the location (point-in-polygon against Natural Earth borders), city from the cadastral area. The city overview also counts anonymized and former locations; the country/region map plots only locations with public GPS.",
     "geoTopCountries": "By country",
     "geoTopCities": "TOP 10 cities",
     "geoMapHeading": "🍀 map",

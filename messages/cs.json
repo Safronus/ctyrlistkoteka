@@ -604,7 +604,7 @@
     "yearAvgPerSession": "Ø {avg} 🍀 / hledání",
     "yearAvgPerSessionTitle": "Průměrný počet 🍀 na jedno hledání v tomto roce.",
     "geoHeading": "Podle států a měst",
-    "geoSubtitle": "Stát se určuje z GPS středu lokality (point-in-polygon proti hranicím Natural Earth), město z katastrálního území. Anonymizované lokality a místa s prefixem <code>NEEXISTUJE-</code> jsou z přehledu měst vyloučené.",
+    "geoSubtitle": "Stát se určuje z GPS středu lokality (point-in-polygon proti hranicím Natural Earth), město z katastrálního území. Přehled měst zahrnuje i anonymizované a zaniklé lokality; mapa států/krajů kreslí jen lokality s veřejným GPS.",
     "geoTopCountries": "Podle států",
     "geoTopCities": "TOP 10 měst",
     "geoMapHeading": "Mapa 🍀",

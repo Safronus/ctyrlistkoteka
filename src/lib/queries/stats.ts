@@ -587,27 +587,36 @@ const fetchTotalsRow = cache(async (): Promise<TotalsRow | undefined> => {
 });
 
 const fetchGeoLocRows = cache(async (): Promise<GeoLocRow[]> => {
-  // Per-location aggregates with GPS — feeds the country/city tables
-  // and the world bubble map, plus the cityCount/countryCount fields
-  // on the totals card. Anonymized locations are filtered out (their
-  // precise coordinates are private per CLAUDE.md §6).
+  // Per-location aggregates feeding the country/city tables + choropleths
+  // and the cityCount/countryCount cards. ALL locations are included so
+  // anonymized + cancelled places still count toward their CITY total
+  // (bucketed by cadastral_area — coarse, and the owner's call, matching
+  // the already-public location code). Anonymized locations' precise GPS
+  // is NULLed right here, so it never reaches the client and never feeds
+  // the GPS-derived country/kraj classification — they contribute only to
+  // the city breakdown via cadastral_area, per CLAUDE.md §6.
   return prisma.$queryRaw<GeoLocRow[]>`
     SELECT
       l.id,
       l.code,
       l.cadastral_area AS cadastral,
       CASE WHEN l.center_point IS NOT NULL
+                AND NOT EXISTS (
+                  SELECT 1 FROM location_maps lm
+                  WHERE lm.location_id = l.id AND lm.is_anonymized = true
+                )
            THEN ST_Y(l.center_point)::float8
       END AS lat,
       CASE WHEN l.center_point IS NOT NULL
+                AND NOT EXISTS (
+                  SELECT 1 FROM location_maps lm
+                  WHERE lm.location_id = l.id AND lm.is_anonymized = true
+                )
            THEN ST_X(l.center_point)::float8
       END AS lng,
       COUNT(f.id) AS count
     FROM locations l
     LEFT JOIN finds f ON f.location_id = l.id
-    WHERE l.id NOT IN (
-      SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
-    )
     GROUP BY l.id, l.code, l.cadastral_area, l.center_point
   `;
 });
