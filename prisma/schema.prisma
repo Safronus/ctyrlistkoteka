@@ -92,16 +92,16 @@ model Location {
   // Human-readable reverse-geocoded address ("Svěrákova 161"), used as a nicer
   // display name when the map's popis is the empty "BezPoznámky" marker.
   geoAddress String? @map("geo_address") @db.VarChar(255)
-  // Location indicator kind: "dot" (point, no radius), "circle" (point with
+  // Location indicator kind: "dot" (point, no radius), "radius" (point with
   // radius_m) or "polygon" (AOI). Drives which shape the map/stats draw and
   // how area is computed. Mutually exclusive — see the map generator.
   indicator String? @db.VarChar(16)
-  // Circle radius in metres; set only for indicator = "circle" (null for dot
-  // and polygon). Area of a circle location = π·radius². A dot has no area.
+  // Radius in metres; set only for indicator = "radius" (null for dot and
+  // polygon). Area of a radius location = π·radius². A dot has no area.
   radiusM Float? @map("radius_m")
-  // Precomputed area in m²: polygon → real AOI area, circle → π·radius².
+  // Precomputed area in m²: polygon → real AOI area, radius → π·radius².
   // From the manifest so we don't recompute ST_Area at run time, and so
-  // circle locations (no polygon) still contribute an area to density stats.
+  // radius locations (no polygon) still contribute an area to density stats.
   aoiAreaM2 Float? @map("aoi_area_m2")
   // Cancelled/defunct location flag from v2 metadata. Replaces the v1
   // convention of a "NEEXISTUJE-" prefix on the code; read path switches to

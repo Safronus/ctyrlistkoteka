@@ -18,7 +18,6 @@ import {
   MapPinned,
   Map as MapIcon,
   Megaphone,
-  Network,
   PackageOpen,
   Gift,
   ShieldCheck,
@@ -271,17 +270,6 @@ export default async function AdminHomePage() {
           lines={[
             "Náhled + statistiky + lookup",
             "Z náhledu krok do editoru",
-          ]}
-        />
-        <FeatureCard
-          icon={Network}
-          title="Hierarchie lokalit"
-          status="ok"
-          syncNeeded={metaNeedSync}
-          href="/admin/json/lokace-hierarchie"
-          lines={[
-            "data/meta/LokaceHierarchie.json",
-            "Rodič / dítě, max. hloubka 2",
           ]}
         />
         <FeatureCard

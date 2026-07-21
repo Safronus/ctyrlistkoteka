@@ -251,10 +251,11 @@ export function MapaShell({
     Set<number>
   >(() => {
     const set = new Set<number>();
-    // Operator-flagged children: those carrying `showOnMapByDefault`
-    // (the `{ "code": ..., "map": true }` form in LokaceHierarchie.json)
-    // overlay their parent's polygon on first paint without any sidebar
-    // opt-in. Every other child stays hidden until toggled.
+    // Children carrying `showOnMapByDefault` overlay their parent's polygon
+    // on first paint without any sidebar opt-in; every other child stays
+    // hidden until toggled. The v1 `{ "code": ..., "map": true }` flag that
+    // used to set this is retired (mapy v2), so in practice every v2 child is
+    // hidden by default — the mechanism stays in case it's revived.
     for (const loc of mapData.locations) {
       if (loc.parentId !== null && loc.showOnMapByDefault) set.add(loc.id);
     }

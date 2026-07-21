@@ -19,6 +19,7 @@ import { countryFromCoords } from "@/lib/geo";
 import {
   computeMapOverlayGeometry,
   indicatorFrom,
+  parseImageBounds,
   ringFromGeoJson,
   type ImageBounds,
   type MapIndicator,
@@ -1186,33 +1187,6 @@ export async function getLocationFindCountRank(
   const r = rows[0];
   if (!r) return null;
   return { rank: Number(r.rank), total: Number(r.total), count: Number(r.count) };
-}
-
-/** Narrows the Prisma `Json` value for `location_maps.image_bounds`
- *  to the `[[swLat, swLng], [neLat, neLng]]` shape sync.ts writes.
- *  Returns null on anything unexpected — the overlay then gracefully
- *  skips drawing instead of misplacing the halo. */
-function parseImageBounds(
-  raw: unknown,
-): [[number, number], [number, number]] | null {
-  if (!Array.isArray(raw) || raw.length !== 2) return null;
-  const [a, b] = raw;
-  if (!Array.isArray(a) || a.length !== 2) return null;
-  if (!Array.isArray(b) || b.length !== 2) return null;
-  const [swLat, swLng] = a;
-  const [neLat, neLng] = b;
-  if (
-    typeof swLat !== "number" ||
-    typeof swLng !== "number" ||
-    typeof neLat !== "number" ||
-    typeof neLng !== "number"
-  ) {
-    return null;
-  }
-  return [
-    [swLat, swLng],
-    [neLat, neLng],
-  ];
 }
 
 /** Mutates `into` to absorb `from`'s totals, year range, first/last find
