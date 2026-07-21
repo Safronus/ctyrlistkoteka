@@ -590,7 +590,7 @@ export default async function FindDetailPage({ params }: PageProps) {
                       repeated here — the code is the top-left map overlay
                       and the description sits as the caption under the map. */}
                     <dl className="space-y-2">
-                      {areaDensity && (
+                      {areaDensity && areaDensity.effectiveAreaM2 !== null && (
                         <>
                           <KeyValue
                             label={

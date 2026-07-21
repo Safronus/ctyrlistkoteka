@@ -385,6 +385,29 @@ const TONE_CASE_SQL = Prisma.sql`
   END`;
 
 /**
+ * Effective area (m²) for display + density, across the v1→v2 area model.
+ * Returns null when the location has no area at all — a v2 "dot" (a bare
+ * point), which is excluded from density like an anonymized location.
+ *  - v2 polygon / radius → its metadata area (aoi_area_m2; radius = π·r²).
+ *  - v1 polygon          → the geometric ST_Area passed in as polygonAreaM2.
+ *  - v1 polygon-free      → the 5 m-circle {@link POLYGON_FREE_AREA_M2}
+ *                           estimate (areaIsEstimate = true).
+ */
+function deriveEffectiveArea(input: {
+  polygonAreaM2: number | null;
+  aoiAreaM2: number | null;
+  isV2: boolean;
+}): { effectiveAreaM2: number | null; areaIsEstimate: boolean } {
+  const realArea = input.isV2 ? input.aoiAreaM2 : input.polygonAreaM2;
+  if (realArea !== null && Number.isFinite(realArea)) {
+    return { effectiveAreaM2: realArea, areaIsEstimate: false };
+  }
+  // v2 with no area = dot (no area expectation); v1 polygon-free = estimate.
+  if (input.isV2) return { effectiveAreaM2: null, areaIsEstimate: false };
+  return { effectiveAreaM2: POLYGON_FREE_AREA_M2, areaIsEstimate: true };
+}
+
+/**
  * Per-location deviated-find counts (amber = tone 1, rose = tone 2),
  * keyed by location id. Locations with no deviated finds are absent from
  * the map. Non-anon, GPS-ed finds only — mirrors {@link TONE_CASE_SQL}.
@@ -539,7 +562,9 @@ export async function listLocations(
   const geoRows = await prisma.$queryRaw<
     Array<{
       id: number;
-      area_m2: number | null;
+      polygon_area_m2: number | null;
+      aoi_area_m2: number | null;
+      is_v2: boolean;
       center_lat: number | null;
       center_lng: number | null;
       dist_m: number | null;
@@ -550,10 +575,14 @@ export async function listLocations(
       FROM "location_maps" WHERE id = ${DEFAULT_LOCATION_ID}
     )
     SELECT id,
+           -- Real polygon area (for the "plocha polygonu" field); NULL for
+           -- polygon-free spots. Density uses aoi_area_m2 for v2 (see below).
            CASE WHEN polygon IS NOT NULL
-                THEN ST_Area(polygon::geography)
+                THEN ST_Area(polygon::geography)::float8
                 ELSE NULL
-           END AS area_m2,
+           END AS polygon_area_m2,
+           aoi_area_m2,
+           (schema_version = 2) AS is_v2,
            ROUND(ST_Y(center_point)::numeric, 6)::float8 AS center_lat,
            ROUND(ST_X(center_point)::numeric, 6)::float8 AS center_lng,
            CASE WHEN center_point IS NOT NULL
@@ -563,13 +592,19 @@ export async function listLocations(
     FROM "locations"
     WHERE id IN (${Prisma.join(ids)})
   `;
-  const areaByLoc = new Map<number, number>();
+  const polyAreaByLoc = new Map<number, number>();
+  const aoiAreaByLoc = new Map<number, number>();
+  const v2Locs = new Set<number>();
   const coordsByLoc = new Map<number, { lat: number; lng: number }>();
   const distByLoc = new Map<number, number>();
   for (const r of geoRows) {
-    if (r.area_m2 !== null && Number.isFinite(r.area_m2)) {
-      areaByLoc.set(r.id, r.area_m2);
+    if (r.polygon_area_m2 !== null && Number.isFinite(r.polygon_area_m2)) {
+      polyAreaByLoc.set(r.id, r.polygon_area_m2);
     }
+    if (r.aoi_area_m2 !== null && Number.isFinite(r.aoi_area_m2)) {
+      aoiAreaByLoc.set(r.id, r.aoi_area_m2);
+    }
+    if (r.is_v2) v2Locs.add(r.id);
     if (
       r.center_lat !== null &&
       r.center_lng !== null &&
@@ -758,13 +793,17 @@ export async function listLocations(
       states: [...stats.states],
       yearly: [...stats.yearly],
     };
-    const polygonAreaM2 = areaByLoc.get(l.id) ?? null;
-    // Polygon-free locations fall back to the 5 m-circle estimate so they
-    // still get an (estimated) area + density; `areaIsEstimate` flags it.
-    const effectiveAreaM2 = polygonAreaM2 ?? POLYGON_FREE_AREA_M2;
-    const areaIsEstimate = polygonAreaM2 === null;
+    const polygonAreaM2 = polyAreaByLoc.get(l.id) ?? null;
+    // Effective area (display + density): v2 metadata area (polygon/radius),
+    // v1 polygon geometry, or the 5 m estimate for v1 polygon-free spots. A
+    // v2 dot has no area → null → dropped from density (like anonymized).
+    const { effectiveAreaM2, areaIsEstimate } = deriveEffectiveArea({
+      polygonAreaM2,
+      aoiAreaM2: aoiAreaByLoc.get(l.id) ?? null,
+      isV2: v2Locs.has(l.id),
+    });
     const densityPer100m2 =
-      effectiveAreaM2 > 0 && stats.total > 0
+      effectiveAreaM2 !== null && effectiveAreaM2 > 0 && stats.total > 0
         ? (stats.total / effectiveAreaM2) * 100
         : null;
     return {
@@ -937,13 +976,16 @@ export async function listLocations(
 }
 
 export interface LocationAreaDensity {
-  /** Polygon area (m²) when one is recorded, otherwise the
-   *  {@link POLYGON_FREE_AREA_M2} 5 m-circle estimate. */
-  effectiveAreaM2: number;
+  /** Effective area (m²): v2 metadata area (polygon/radius aoi_area_m2), v1
+   *  polygon geometry, or the {@link POLYGON_FREE_AREA_M2} 5 m-circle
+   *  estimate for v1 polygon-free spots. `null` for a v2 dot — a bare point
+   *  has no area, so the detail panel hides the area + density rows. */
+  effectiveAreaM2: number | null;
   /** True when `effectiveAreaM2` is the polygon-free estimate. */
   areaIsEstimate: boolean;
   /** Clovers per 100 m² over `effectiveAreaM2`, or null when the location
-   *  has no finds. Base unit per 100 m²; format with formatDensity(). */
+   *  has no finds (or no area). Base unit per 100 m²; format with
+   *  formatDensity(). */
   densityPer100m2: number | null;
 }
 
@@ -959,28 +1001,44 @@ export async function getLocationAreaDensity(
   locationId: number,
 ): Promise<LocationAreaDensity | null> {
   const rows = await prisma.$queryRaw<
-    Array<{ area_m2: number | null; total: bigint }>
+    Array<{
+      polygon_area_m2: number | null;
+      aoi_area_m2: number | null;
+      is_v2: boolean;
+      total: bigint;
+    }>
   >`
     SELECT
       CASE WHEN l.polygon IS NOT NULL
            THEN ST_Area(l.polygon::geography)::float8
            ELSE NULL
-      END AS area_m2,
+      END AS polygon_area_m2,
+      l.aoi_area_m2,
+      (l.schema_version = 2) AS is_v2,
       COUNT(f.id) AS total
     FROM "locations" l
     LEFT JOIN "finds" f ON f.location_id = l.id
     WHERE l.id = ${locationId}
-    GROUP BY l.id, l.polygon
+    GROUP BY l.id, l.polygon, l.aoi_area_m2, l.schema_version
   `;
   const r = rows[0];
   if (!r) return null;
-  const polygonAreaM2 =
-    r.area_m2 !== null && Number.isFinite(r.area_m2) ? r.area_m2 : null;
-  const effectiveAreaM2 = polygonAreaM2 ?? POLYGON_FREE_AREA_M2;
-  const areaIsEstimate = polygonAreaM2 === null;
+  const { effectiveAreaM2, areaIsEstimate } = deriveEffectiveArea({
+    polygonAreaM2:
+      r.polygon_area_m2 !== null && Number.isFinite(r.polygon_area_m2)
+        ? r.polygon_area_m2
+        : null,
+    aoiAreaM2:
+      r.aoi_area_m2 !== null && Number.isFinite(r.aoi_area_m2)
+        ? r.aoi_area_m2
+        : null,
+    isV2: r.is_v2,
+  });
   const total = Number(r.total);
   const densityPer100m2 =
-    effectiveAreaM2 > 0 && total > 0 ? (total / effectiveAreaM2) * 100 : null;
+    effectiveAreaM2 !== null && effectiveAreaM2 > 0 && total > 0
+      ? (total / effectiveAreaM2) * 100
+      : null;
   return { effectiveAreaM2, areaIsEstimate, densityPer100m2 };
 }
 
