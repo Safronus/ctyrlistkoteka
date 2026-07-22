@@ -465,6 +465,74 @@ async function fetchDeviationCountsByLocation(
   return out;
 }
 
+/**
+ * OR clauses matching a fuzzy `q` against a location's public identifiers +
+ * numeric id forms. Shared by `listLocations` and the geo-facet counter so
+ * both search identically.
+ *
+ * Privacy guard for displayName: the on-disk filename (which becomes
+ * displayName) frequently embeds a free-text note — e.g.
+ * `VELÍKOVÁ001+Magďul & Pali za barákem…+00123.png`. For anonymized locations
+ * that note is exactly what we promise to hide, so displayName is searchable
+ * only when the location has NO anonymized map; `code` + `cadastralArea` stay
+ * searchable across the board (public info).
+ *
+ * Numeric input ("1", "0001", "#00001") also matches the display id — both as
+ * an exact integer and as a substring of the zero-padded form, so "0001"
+ * finds #00001 *and* #00010–#00019.
+ */
+async function buildLocationSearchOr(
+  q: string,
+): Promise<Prisma.LocationWhereInput[]> {
+  const or: Prisma.LocationWhereInput[] = [
+    { code: { contains: q, mode: "insensitive" } },
+    { cadastralArea: { contains: q, mode: "insensitive" } },
+    {
+      AND: [
+        { displayName: { contains: q, mode: "insensitive" } },
+        { maps: { none: { isAnonymized: true } } },
+      ],
+    },
+  ];
+  const idQuery = parseIdQuery(q);
+  if (idQuery !== null) {
+    or.push({ id: idQuery.exactId });
+    const idRows = await prisma.location.findMany({ select: { id: true } });
+    const padded = idRows
+      .map((r) => r.id)
+      .filter((id) => paddedIdMatches(id, idQuery.digits));
+    if (padded.length > 0) or.push({ id: { in: padded } });
+  }
+  return or;
+}
+
+/**
+ * IDs of the locations matching just the free-text filters — the exact number
+ * box (`num`) and/or the fuzzy `q`. Used to compute the Stát / Město facet
+ * counts on /lokality: the dropdowns must react to what the text search left,
+ * so a number-filtered page offers only the country/city that actually
+ * remain (and their real counts) rather than the whole world. Returns null
+ * when neither text filter is active (caller then counts across all
+ * locations). Country/city selections are deliberately NOT applied — those
+ * are the dimensions being faceted.
+ */
+export async function getLocationIdsMatchingText(filter: {
+  num?: string;
+  q?: string;
+}): Promise<Set<number> | null> {
+  const hasNum = !!filter.num?.trim();
+  const hasQ = !!filter.q?.trim();
+  if (!hasNum && !hasQ) return null;
+  const where: Prisma.LocationWhereInput = {};
+  if (hasNum) {
+    const n = Number.parseInt(filter.num!.trim(), 10);
+    where.id = Number.isInteger(n) && n > 0 ? n : -1;
+  }
+  if (hasQ) where.OR = await buildLocationSearchOr(filter.q!.trim());
+  const rows = await prisma.location.findMany({ where, select: { id: true } });
+  return new Set(rows.map((r) => r.id));
+}
+
 export async function listLocations(
   filter: LocationFilter,
 ): Promise<LocationListItem[]> {
@@ -489,41 +557,7 @@ export async function listLocations(
     where.cadastralArea = { in: [city, `${NEEXISTUJE_PREFIX}${city}`] };
   }
   if (filter.q && filter.q.trim()) {
-    const q = filter.q.trim();
-    // Privacy guard for the displayName match: the on-disk filename
-    // (which becomes displayName) frequently embeds a free-text
-    // note between the structured "+" segments — e.g.
-    // `VELÍKOVÁ001+Magďul & Pali za barákem…+00123.png`. For
-    // anonymized locations that note is exactly the thing we promise
-    // to hide. So displayName is only searchable when the location
-    // has NO anonymized map; `code` (structured location identifier)
-    // and `cadastralArea` (village/town) stay searchable across the
-    // board because they're public info already.
-    const or: Prisma.LocationWhereInput[] = [
-      { code: { contains: q, mode: "insensitive" } },
-      { cadastralArea: { contains: q, mode: "insensitive" } },
-      {
-        AND: [
-          { displayName: { contains: q, mode: "insensitive" } },
-          { maps: { none: { isAnonymized: true } } },
-        ],
-      },
-    ];
-    // Numeric input (e.g. "1", "0001", "#00001") additionally matches the
-    // location's display ID — both as an exact integer and as a substring
-    // of the zero-padded form, so "0001" finds #00001 *and* #00010-#00019.
-    // Padded-substring lookup costs one extra small query against the
-    // ~128-row locations table; cheap, and consistent with the find search.
-    const idQuery = parseIdQuery(q);
-    if (idQuery !== null) {
-      or.push({ id: idQuery.exactId });
-      const idRows = await prisma.location.findMany({ select: { id: true } });
-      const padded = idRows
-        .map((r) => r.id)
-        .filter((id) => paddedIdMatches(id, idQuery.digits));
-      if (padded.length > 0) or.push({ id: { in: padded } });
-    }
-    where.OR = or;
+    where.OR = await buildLocationSearchOr(filter.q.trim());
   }
 
   const locations = await prisma.location.findMany({

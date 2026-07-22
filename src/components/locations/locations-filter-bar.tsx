@@ -159,11 +159,17 @@ export function LocationsFilterBar({
               className={`${SELECT_CLS} w-full disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400`}
             >
               <option value="">{tCommon("all")}</option>
-              {countries.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {withCount(c.name, countryCounts[c.code])}
-                </option>
-              ))}
+              {countries
+                .filter(
+                  (c) =>
+                    (countryCounts[c.code] ?? 0) > 0 ||
+                    c.code === effectiveCountry,
+                )
+                .map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {withCount(c.name, countryCounts[c.code])}
+                  </option>
+                ))}
             </select>
             <ChevronDown
               className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
@@ -194,11 +200,16 @@ export function LocationsFilterBar({
               className={`${SELECT_CLS} w-full`}
             >
               <option value="">{tCommon("allAlt")}</option>
-              {visibleCities.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {withCount(c.name, cityCounts[c.name])}
-                </option>
-              ))}
+              {visibleCities
+                .filter(
+                  (c) =>
+                    (cityCounts[c.name] ?? 0) > 0 || c.name === current.city,
+                )
+                .map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {withCount(c.name, cityCounts[c.name])}
+                  </option>
+                ))}
             </select>
             <ChevronDown
               className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"

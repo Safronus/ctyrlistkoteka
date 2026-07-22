@@ -142,6 +142,7 @@
     "locationSearchPlaceholder": "Hledat lokalitu (kód nebo číslo)…",
     "locationSearchEmpty": "Nic nenalezeno",
     "state": "Stav",
+    "noState": "Bez stavu",
     "year": "Rok",
     "clearAll": "Zrušit filtry",
     "statesSelected": "{count} vybráno"
@@ -381,7 +382,7 @@
   "LocationsFilterBar": {
     "search": "Hledat",
     "searchByNumber": "Hledat podle čísla",
-    "searchByNumberPlaceholder": "26 / 00026",
+    "searchByNumberPlaceholder": "111 / 00666",
     "searchPlaceholder": "Kód, popis nebo katastr…",
     "country": "Stát",
     "city": "Město",

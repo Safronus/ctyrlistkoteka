@@ -75,6 +75,8 @@ export function FilterBar({
     city: string;
     country: string;
     states: FindState[];
+    /** "Bez stavu" toggle — finds with no state at all. */
+    noState: boolean;
     year: string;
     /** Whether a found-date range is active. The range picker lives in a
      *  separate toolbar (params from/to/fromTs/toTs), so the bar can't read
@@ -230,9 +232,19 @@ export function FilterBar({
       options.locations.filter(
         (l) =>
           (!effectiveCountry || l.country === effectiveCountry) &&
-          (!effectiveCity || l.city === effectiveCity),
+          (!effectiveCity || l.city === effectiveCity) &&
+          // Drop locations that would yield nothing under the other active
+          // filters (0 finds) — but always keep the current selection visible.
+          ((facets.locations[l.id] ?? 0) > 0 ||
+            String(l.id) === current.locationId),
       ),
-    [options.locations, effectiveCountry, effectiveCity],
+    [
+      options.locations,
+      effectiveCountry,
+      effectiveCity,
+      facets.locations,
+      current.locationId,
+    ],
   );
 
   // Group the visible cities + locations by country so each flat list (when
@@ -266,6 +278,7 @@ export function FilterBar({
     current.city ||
     current.country ||
     current.states.length ||
+    current.noState ||
     current.year ||
     current.hasDate;
 
@@ -449,6 +462,13 @@ export function FilterBar({
             onChange={updateStates}
             selectCls={`${SELECT_CLS} w-full`}
             allLabel={tCommon("all")}
+            noState={{
+              label: t("noState"),
+              count: facets.noState,
+              selected: current.noState,
+              onToggle: () =>
+                updateMany({ nostate: current.noState ? "" : "1" }),
+            }}
           />
         </div>
 

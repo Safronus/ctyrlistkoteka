@@ -11,6 +11,7 @@ import { RememberLokalitySearch } from "@/components/locations/lokality-back-lin
 import { LocationListRow } from "@/components/locations/location-list-row";
 import {
   countAnonymizedAndFormerLocations,
+  getLocationIdsMatchingText,
   getLocationIdsWithRealPhotos,
   listLocations,
   type LocationSort,
@@ -100,8 +101,14 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   );
 
   const locale = await getLocale();
-  const [filterOptions, locations, toggleCounts, realPhotoIds, progress] =
-    await Promise.all([
+  const [
+    filterOptions,
+    locations,
+    toggleCounts,
+    realPhotoIds,
+    progress,
+    textFilteredIds,
+  ] = await Promise.all([
       // Shared with /sbirka — its `cities` carry the country each sits in,
       // which the filter bar needs to cascade Stát → Město the same way.
       getFilterOptions(),
@@ -121,6 +128,13 @@ export default async function LokalityPage({ searchParams }: PageProps) {
       getLocationIdsWithRealPhotos(),
       // Total find count for the filter-independent heading counts.
       getCollectionProgress(),
+      // IDs matching just the text filters (num / q). Drives the Stát / Město
+      // facet counts below so the dropdowns react to the search (null when no
+      // text filter is active → count across all locations).
+      getLocationIdsMatchingText({
+        num: num || undefined,
+        q: q || undefined,
+      }),
     ]);
   const totalFinds = progress.count;
 
@@ -135,11 +149,17 @@ export default async function LokalityPage({ searchParams }: PageProps) {
     );
 
   // How many locations fall under each country / city — shown in the filter
-  // dropdowns. Derived from the full location set the shared options already
-  // carry (each row has its city + country), so no extra query.
+  // dropdowns. When a text filter (num / q) is active, count only the
+  // locations it left, so Stát / Město offer exactly what remains (and their
+  // real counts) instead of the whole world — otherwise picking e.g. Japonsko
+  // for a Zlín-only number would say "12" yet return nothing. Each row of the
+  // shared options already carries its city + country, so it's just a filter.
+  const facetLocations = textFilteredIds
+    ? filterOptions.locations.filter((l) => textFilteredIds.has(l.id))
+    : filterOptions.locations;
   const countryLocationCounts: Record<string, number> = {};
   const cityLocationCounts: Record<string, number> = {};
-  for (const l of filterOptions.locations) {
+  for (const l of facetLocations) {
     if (l.country)
       countryLocationCounts[l.country] =
         (countryLocationCounts[l.country] ?? 0) + 1;

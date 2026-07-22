@@ -177,6 +177,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     cadastralArea: cityFromCadastralArea(pickString(sp.city)) || undefined,
     country: pickString(sp.country) || undefined,
     states: parseStates(sp.state),
+    noState: pickString(sp.nostate) === "1" ? true : undefined,
     year: parsePositiveInt(pickString(sp.year)),
     dateFrom: parseDateOnly(pickString(sp.from)),
     dateTo: parseDateOnly(pickString(sp.to)),
@@ -309,6 +310,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     filters.cadastralArea ||
     filters.country ||
     filters.states?.length ||
+    filters.noState ||
     filters.year ||
     filters.dateFrom ||
     filters.dateTo ||
@@ -426,6 +428,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     if (f.cadastralArea) params.set("city", f.cadastralArea);
     if (f.country) params.set("country", f.country);
     if (f.states) for (const s of f.states) params.append("state", s);
+    if (f.noState) params.set("nostate", "1");
     if (f.year) params.set("year", String(f.year));
     if (f.dateFrom) params.set("from", dateToString(f.dateFrom));
     if (f.dateTo) params.set("to", dateToString(f.dateTo));
@@ -448,6 +451,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     if (filters.cadastralArea) params.set("city", filters.cadastralArea);
     if (filters.country) params.set("country", filters.country);
     if (filters.states) for (const s of filters.states) params.append("state", s);
+    if (filters.noState) params.set("nostate", "1");
     if (filters.year) params.set("year", String(filters.year));
     if (filters.dateFrom) params.set("from", dateToString(filters.dateFrom));
     if (filters.dateTo) params.set("to", dateToString(filters.dateTo));
@@ -572,6 +576,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
           city: filters.cadastralArea ?? "",
           country: filters.country ?? "",
           states: filters.states ?? [],
+          noState: !!filters.noState,
           year: filters.year ? String(filters.year) : "",
           hasDate: !!(
             filters.dateFrom ||

@@ -180,6 +180,11 @@ export interface FindFilters {
    *  in the list (e.g. `[LOST, ANONYMIZED]` → finds that are both lost and
    *  anonymized). Empty / undefined means no state filter. */
   states?: FindState[];
+  /** "Bez stavu" — keep only finds that carry NO state assignment at all.
+   *  Offered as an extra option in the Stav dropdown. Mutually exclusive with
+   *  `states` (a find can't both have every picked state and none), so
+   *  combining them yields nothing — which is the honest answer. */
+  noState?: boolean;
   year?: number;
   /** Inclusive lower bound on `foundAt`. Day-resolution; the parser
    *  pins this to UTC midnight. */
@@ -310,6 +315,8 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
   if (f.states?.length) {
     for (const s of f.states) and.push({ states: { some: { state: s } } });
   }
+  // "Bez stavu" — finds with no state assignment at all.
+  if (f.noState) and.push({ states: { none: {} } });
   if (f.year) {
     const from = new Date(Date.UTC(f.year, 0, 1));
     const to = new Date(Date.UTC(f.year + 1, 0, 1));
@@ -823,6 +830,8 @@ export async function getFilteredLocationSpan(
 export interface FacetCounts {
   /** Count per state under every OTHER active filter. */
   states: Partial<Record<FindState, number>>;
+  /** Finds with no state at all, under the other filters ("Bez stavu"). */
+  noState: number;
   /** Count per location id. */
   locations: Record<number, number>;
   /** Count per city (cadastral-area → city name, matching FilterOptions). */
@@ -907,6 +916,7 @@ export async function getFacetCounts(
 
   const [
     stateRows,
+    noStateCount,
     locForLocation,
     locForCity,
     locForCountry,
@@ -927,6 +937,18 @@ export async function getFacetCounts(
           by: ["state"],
           where: { find: where },
           _count: { findId: true },
+        }),
+      ),
+    ),
+    // "Bez stavu" co-occurrence count — finds with no state at all under the
+    // full where (incl. any picked states). If a real state is picked this is
+    // 0 (a find can't be both stateless and stated) so the option hides —
+    // exactly the AND-multiselect rule the neighbouring states follow.
+    tap(
+      "facet.noState",
+      whereFor([]).then((where) =>
+        prisma.find.count({
+          where: { AND: [where, { states: { none: {} } }] },
         }),
       ),
     ),
@@ -1027,7 +1049,16 @@ export async function getFacetCounts(
     }
   }
 
-  return { states, locations, cities, countries, years, hasPhoto, hideDominant };
+  return {
+    states,
+    noState: noStateCount,
+    locations,
+    cities,
+    countries,
+    years,
+    hasPhoto,
+    hideDominant,
+  };
 }
 
 /** Mixes the `?hasPhoto=1` filter into the existing WHERE by AND-ing

@@ -143,6 +143,7 @@
     "locationSearchPlaceholder": "Search location (code or number)…",
     "locationSearchEmpty": "Nothing found",
     "state": "State",
+    "noState": "No state",
     "year": "Year",
     "clearAll": "Clear filters",
     "statesSelected": "{count} selected"
@@ -382,7 +383,7 @@
   "LocationsFilterBar": {
     "search": "Search",
     "searchByNumber": "Search by number",
-    "searchByNumberPlaceholder": "26 / 00026",
+    "searchByNumberPlaceholder": "111 / 00666",
     "searchPlaceholder": "Code, description or cadastre…",
     "country": "Country",
     "city": "City",

@@ -24,6 +24,7 @@ export function StateMultiSelect({
   onChange,
   selectCls,
   allLabel,
+  noState,
 }: {
   available: readonly FindState[];
   selected: readonly FindState[];
@@ -32,6 +33,14 @@ export function StateMultiSelect({
   onChange: (next: FindState[]) => void;
   selectCls: string;
   allLabel: string;
+  /** Synthetic "Bez stavu" option (finds with no state). Rendered as an extra
+   *  item below the real states; omit to hide it entirely. */
+  noState?: {
+    label: string;
+    count: number | undefined;
+    selected: boolean;
+    onToggle: () => void;
+  };
 }) {
   const tStates = useTranslations("States");
   const tFilter = useTranslations("FilterBar");
@@ -75,12 +84,18 @@ export function StateMultiSelect({
     return c == null ? tStates(s) : `${tStates(s)} (${formatCount(c)})`;
   };
 
+  const noStateOn = noState?.selected ?? false;
+  const noStateVisible =
+    !!noState && ((noState.count ?? 0) > 0 || noState.selected);
+  const totalSelected = selected.length + (noStateOn ? 1 : 0);
   const buttonLabel =
-    selected.length === 0
+    totalSelected === 0
       ? allLabel
-      : selected.length === 1
-        ? tStates(selected[0]!)
-        : tFilter("statesSelected", { count: selected.length });
+      : totalSelected === 1
+        ? selected.length === 1
+          ? tStates(selected[0]!)
+          : noState!.label
+        : tFilter("statesSelected", { count: totalSelected });
 
   return (
     <div className="relative" ref={ref}>
@@ -92,7 +107,7 @@ export function StateMultiSelect({
         className={`${selectCls} flex w-full items-center text-left`}
       >
         <span
-          className={`truncate ${selected.length === 0 ? "text-gray-500" : ""}`}
+          className={`truncate ${totalSelected === 0 ? "text-gray-500" : ""}`}
         >
           {buttonLabel}
         </span>
@@ -135,6 +150,34 @@ export function StateMultiSelect({
               </button>
             );
           })}
+          {noStateVisible && (
+            <button
+              type="button"
+              role="option"
+              aria-selected={noStateOn}
+              onClick={() => noState!.onToggle()}
+              className={`mt-1 flex w-full items-center gap-2 rounded-md border-t border-gray-100 px-2 py-1.5 pt-2 text-left text-sm transition ${
+                noStateOn
+                  ? "bg-brand-50 text-brand-800"
+                  : "text-gray-800 hover:bg-gray-100"
+              }`}
+            >
+              <span
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                  noStateOn
+                    ? "border-brand-600 bg-brand-600 text-white"
+                    : "border-gray-300 bg-white"
+                }`}
+              >
+                {noStateOn && <Check className="h-3 w-3" aria-hidden />}
+              </span>
+              <span className="truncate">
+                {noState!.count == null
+                  ? noState!.label
+                  : `${noState!.label} (${formatCount(noState!.count)})`}
+              </span>
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Provázanost filtrů + „Bez stavu"
+- **/lokality** — filtry „Stát"/„Město" teď reagují na hledání: po vyfiltrování
+  podle čísla/popisu nabízejí jen státy/města, které ve výsledku zůstaly (a
+  správné počty) — dřív šlo vybrat např. Japonsko u zlínské lokality a dostat
+  „nenalezeno". Placeholder čísla → „111 / 00666".
+- **/sbirka** — filtr „Lokalita" už neukazuje lokality s 0 nálezy (po zúžení
+  jinými filtry). „Stav" má nově volbu **„Bez stavu"** — nálezy bez jakéhokoli
+  stavu (s vlastním počtem, mizí když nedává smysl).
+
 ### Drobná UI vylepšení (filtry, ikony, mobil)
 - **/lokality** — hledání rozděleno na dvě pole jako na /sbirka: malý „Hledat
   podle čísla" (📍, jen číslo lokace — přesně, „26" i „00026") + klasické
