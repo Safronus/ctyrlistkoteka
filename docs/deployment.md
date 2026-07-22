@@ -741,8 +741,8 @@ Pro v1 ale stačí `app` účet.
 Viz `docs/sync-workflow.md`.
 
 ```bash
-# Z lokálu
-rsync -av --progress ./ctyrlistkoteka-archive/ app@ctyrlistkoteka.cz:/var/ctyrlistkoteka/data/
+# Z lokálu (--exclude='.DS_Store' nutné, jinak macOS zanese smetí do data/)
+rsync -av --progress --exclude='.DS_Store' ./ctyrlistkoteka-archive/ app@ctyrlistkoteka.cz:/var/ctyrlistkoteka/data/
 
 # Na VPS
 cd /var/www/ctyrlistkoteka

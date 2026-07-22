@@ -18,6 +18,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   autoritativní inventář. Ověřeno na test DB (orphan lokace partial sync přežije).
 
 
+### `crop-gps.sh` (přenos GPS z originálů na výřezy) + `.DS_Store` hygiena
+- Přidán `scripts/crop-gps.sh` — na VPS přenese GPS + datum z originálů
+  (`data/finds/`) na odpovídající výřezy (`data/crops/`) přes číslo nálezu.
+  Bez argumentu dry-run, `run` zapisuje (exiftool, `-P` zachová mtime → WebP
+  se nepřegeneruje). Přeskakuje dotfiles.
+- Rozřešena nesrovnalost „na disku o 1 fotku víc než na webu": byl to
+  `.DS_Store` z macOS, co `rsync` bez `--exclude` zanesl do `data/`. Aplikace
+  ho nikdy nevidí (sync filtruje dotfiles), jen nafoukl `find … | wc -l`.
+  rsync příklady v `docs/sync-workflow.md` + `docs/deployment.md` doplněny
+  o `--exclude='.DS_Store'`; nový gotcha #19.
+
 ### Statistiky → hustota: kuriozity + férovější žebříček
 - **Mikrolokality pod 1 m² už neválcují žebříček „Podle hustoty".** Lokalita
   s poloměrem 15 cm (plocha ≈ 0,07 m²) dosáhne hustoty v tisících 🍀/100 m² a

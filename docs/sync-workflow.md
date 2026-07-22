@@ -198,8 +198,12 @@ nahrání nových dat.
 
 1. Uživatel nahraje data přes rsync:
    ```bash
-   rsync -av --progress ./local-archive/ user@vps:/var/ctyrlistkoteka/data/
+   rsync -av --progress --exclude='.DS_Store' ./local-archive/ user@vps:/var/ctyrlistkoteka/data/
    ```
+   > `--exclude='.DS_Store'` je povinné — bez něj macOS doručí `.DS_Store` do
+   > `data/finds/`, `data/crops/` i vnořených `data/maps/`. Sync je sice
+   > ignoruje (`sync.ts` filtruje dotfiles), ale nafouknou počty souborů na
+   > disku a matou `find -type f | wc -l`.
 2. SSH na VPS přes Termius.
 3. `cd /var/www/ctyrlistkoteka && pnpm sync --dry-run` — ověř parsing.
 4. Prohlédni `logs/sync-failures-*.jsonl`. Pokud jsou kritické, zastav a dolaď

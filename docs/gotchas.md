@@ -568,3 +568,33 @@ tohle je přesně ta past, proč „na DB to funguje, na webu ne".
 - Testuj raw SQL buď přes skutečné Prisma volání (ne `psql` s literálem),
   nebo aspoň prožeň `pnpm build` (prerender veřejných stránek raw dotazy
   spustí) — `typecheck` + `test` tuhle třídu chyb nezachytí.
+
+---
+
+## 19. `.DS_Store` na disku → fantomový +1 v `find … | wc -l` (ne v DB)
+
+**Příznak:** ruční počítání souborů na VPS nesedí s webem o přesně 1 —
+např. `find data/finds -type f | wc -l` = 18643, ale web ukazuje 18642
+originálů. Vypadá to, že „jeden nález chybí", ale v DB je vše správně.
+Helper skript (`crop-gps.sh`) navíc plive `Warning: Unknown file type —
+…/data/finds/.DS_Store`.
+
+**Proč:** macOS zaseje `.DS_Store` (Finder metadata) do každé složky, kterou
+otevřeš, a `rsync` bez `--exclude='.DS_Store'` ho doručí do `data/finds/`,
+`data/crops/` i vnořených `data/maps/`. `find … -type f` ho počítá jako
+normální soubor → +1 v každé složce. **Aplikace ho ale nikdy nevidí:**
+`sync.ts` listuje s `!e.name.startsWith(".")` (ř. ~193) a rename fáze ho
+zahodí přes `findPhotoMapNumber(".DS_Store") === null`. Proto DB drží
+správný počet a rozdíl je čistě artefakt syrového `find`.
+
+**Jak aplikovat:**
+- Při „chybí mi 1 nález / mapa" typu nesrovnalosti **nejdřív vylučte
+  dotfiles**: `find … -type f ! -name '.*' | wc -l`, nebo rovnou
+  `find $DATA -name .DS_Store -type f` — teprve pak hledejte skutečnou
+  příčinu.
+- rsync z Macu **vždy** s `--exclude='.DS_Store'` (README i
+  `docs/sync-workflow.md` / `deployment.md` už to mají).
+- Úklid existujících: `find /var/ctyrlistkoteka/data -name .DS_Store -type f
+  -delete` (bezpečné — maže jen ten smetík, nic jiného).
+- Vlastní skripty nad `data/` filtrujte dotfiles (`! -name '.*'`) —
+  `scripts/crop-gps.sh` je referenční.
