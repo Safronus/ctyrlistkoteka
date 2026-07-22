@@ -3,14 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { appendAudit } from "@/lib/admin/audit";
 import { safeBaseName } from "@/lib/admin/paths";
-import { resolveDiskPath } from "@/lib/admin/scopes";
+import { extractMapId, resolveDiskPath } from "@/lib/admin/scopes";
+import { resolveV2MapFileByName } from "@/lib/admin/mapsV2";
 import {
   getAdminSession,
   getRequestIp,
   isAuthenticated,
   touchSession,
 } from "@/lib/admin/session";
-import { parseMapFilename } from "@/lib/parseFilename";
 import { writeMapNoteOverride } from "@/lib/mapNoteOverrides";
 
 export interface SetMapNoteOverrideResult {
@@ -52,14 +52,22 @@ export async function setMapNoteOverride(
     return { ok: false, error: (err as Error).message };
   }
 
-  const resolved = await resolveDiskPath("locationMaps", baseName);
+  // Flat resolve first (v1 / stray files), then the v2 manifest fallback
+  // (v2 maps live nested under Nosné mapy/). The MAP_ID comes from the
+  // trailing 5-digit číslo in the basename — `extractMapId` reads both the
+  // v1 (…+00025.png) and v2 (…+00025.png) forms, so no filename parse.
+  const resolved =
+    (await resolveDiskPath("locationMaps", baseName)) ??
+    (await resolveV2MapFileByName(baseName));
   if (!resolved) return { ok: false, error: "Soubor neexistuje" };
 
-  const parsed = parseMapFilename(resolved.name);
-  if (!parsed.ok) {
-    return { ok: false, error: `Název nelze rozparsovat: ${parsed.error}` };
+  const mapId = extractMapId(resolved.name);
+  if (mapId === null) {
+    return {
+      ok: false,
+      error: `Z názvu „${resolved.name}" nelze získat číslo mapy`,
+    };
   }
-  const mapId = parsed.value.mapId;
 
   try {
     await writeMapNoteOverride(mapId, { cs, en });

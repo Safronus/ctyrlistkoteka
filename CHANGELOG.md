@@ -26,8 +26,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   `manifest.json` → `NEEXISTUJE-manifest.json` a rozbilo sync. Mapy verze 2
   se spravují jako celek přes `/admin/import`. (`src/lib/admin/mapsV2.ts` +
   6 testů; upload byl už dřív bezpečný — `parseMapFilename`/přípona/signatura.)
-- Zbývá (4c): note-override editor + reálné fotky + metadata na detailu z
-  manifestu a vyřazení v1 filename-akcí (ty jsou zatím jen skryté z UI).
+- **Detail v2 mapy z manifestu + vyřazené v1 UI.** Detail (`/admin/files/maps/<soubor>`)
+  teď u map z manifestu ukazuje `MapV2Detail` — číslo, kód, název, popis,
+  město/stát, indikátor + plocha, GPS střed, adresu, rodiče (potomek) a
+  odznaky — vše z manifestu, ne z `parseMapFilename` (ta na 3-segmentovém v2
+  názvu padala). V1 mutační tlačítka (přejmenovat / smazat / „označit
+  zaniklé" / anonymizovat / editor popisu / nahradit) se u v2 map **skryjí**
+  (zůstávají jen pro zbylé ploché v1 PNG). Anonymizace se čte z manifestu, ne
+  z PNG tEXt.
+- **Webový popisek mapy (note-override) opraven pro v2.** `setMapNoteOverride`
+  bral číslo z `parseMapFilename` (v2 padalo) — nově přes `extractMapId`
+  (funguje pro v1 i v2, číslo z koncovky `+00025`) + v2 nested resolve.
+  Ověřeno: pro všech 212 map `extractMapId(nosná) === číslo`. Editor je na
+  detailu v2 mapy.
 
 ### 🛑 KRITICKÉ: sync auto-prune footgun opraven
 - Sync auto-mazal DB řádky map + lokalit na KAŽDÉM běhu (bez `--prune`), zatímco

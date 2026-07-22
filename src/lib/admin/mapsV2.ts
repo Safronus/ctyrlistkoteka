@@ -68,16 +68,25 @@ export interface MapInventoryEntry {
   code: string;
   /** popis → geo_adresa → id_lokace fallback (never the empty marker). */
   displayName: string;
+  /** Raw popis from the manifest (may be empty or the "BezPoznámky"
+   *  marker) — seeds the web-caption note editor. */
+  popis: string;
   mesto: string;
   stat: string;
   indikator: "dot" | "radius" | "polygon";
   /** π·r² or polygon area in m², or null for a bare dot. */
   areaM2: number | null;
   radiusM: number | null;
+  gpsLat: number;
+  gpsLon: number;
+  /** Reverse-geocoded address from the manifest, or null. */
+  geoAddress: string | null;
   anonymized: boolean;
   /** manifest `zrusena` — the v2 replacement for the v1 NEEXISTUJE- prefix. */
   cancelled: boolean;
   isChild: boolean;
+  /** Parent location's id_lokace (potomek), or null when not a child. */
+  parentCode: string | null;
   /** Path of the Nosná PNG relative to data/maps/ (e.g.
    *  "Nosné mapy/CZ/Brno/…+00025.png"). */
   nosnaRel: string;
@@ -131,14 +140,19 @@ export async function readMapInventory(): Promise<MapInventoryEntry[] | null> {
         cislo: entryNumber(m),
         code: m.id_lokace,
         displayName: displayNameFor(m),
+        popis: m.popis,
         mesto: m.mesto,
         stat: m.stat,
         indikator: m.indikator,
         areaM2: m.aoi_area_m2,
         radiusM: m.radius_m,
+        gpsLat: m.gps_lat,
+        gpsLon: m.gps_lon,
+        geoAddress: m.geo_adresa ?? null,
         anonymized: m.anonymizovana,
         cancelled: m.zrusena,
         isChild: m.potomek !== null,
+        parentCode: m.potomek,
         nosnaRel,
         nosnaName: path.basename(nosnaRel),
         size,
