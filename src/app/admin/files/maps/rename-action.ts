@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { appendAudit } from "@/lib/admin/audit";
 import { safeBaseName, safeJoin } from "@/lib/admin/paths";
+import { assertMutableMapFile, isV2ReservedMapName } from "@/lib/admin/mapsV2";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
   getAdminSession,
@@ -118,6 +119,13 @@ export async function renameMapFile(
   }
   if (oldBase === newBase) {
     return { ok: false, error: "Nový název je stejný jako starý." };
+  }
+  if (isV2ReservedMapName(oldBase) || isV2ReservedMapName(newBase)) {
+    return {
+      ok: false,
+      error:
+        "Soubor patří k balíčku map verze 2 (manifest.json / Nosné mapy / Rendered mapy) — spravuje se přes /admin/import.",
+    };
   }
 
   // The map parser is lazy-imported here so the action doesn't pay
@@ -243,6 +251,14 @@ export async function renameMapDescription(
       error: (err as Error).message,
     };
   }
+  if (isV2ReservedMapName(baseName)) {
+    return {
+      ok: false,
+      filename: baseName,
+      error:
+        "Soubor patří k balíčku map verze 2 — popisky se v2 upravují přes /admin/import.",
+    };
+  }
   const resolved = await resolveDiskPath("locationMaps", baseName);
   if (!resolved) {
     return { ok: false, filename: baseName, error: "Soubor neexistuje" };
@@ -344,6 +360,7 @@ export async function markMapNonexistent(formData: FormData): Promise<void> {
     throw new Error("Missing name");
   }
   const baseName = safeBaseName(rawName);
+  assertMutableMapFile(baseName);
   if (baseName.startsWith(NONEXISTENT_PREFIX)) {
     throw new Error("Soubor už má prefix NEEXISTUJE-");
   }
@@ -408,6 +425,7 @@ export async function markMapsNonexistentBulk(
     }
     try {
       const baseName = safeBaseName(raw);
+      assertMutableMapFile(baseName);
       if (baseName.startsWith(NONEXISTENT_PREFIX)) {
         results.push({
           filename: baseName,

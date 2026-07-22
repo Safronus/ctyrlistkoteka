@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { atomicWrite, ensureDir, trashTimestamp } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { ADMIN_ROOTS, safeBaseName } from "@/lib/admin/paths";
+import { isV2ReservedMapName } from "@/lib/admin/mapsV2";
 import { setPngTextTag } from "@/lib/admin/pngTextEdit";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import { cascadeMapAnon, type AnonCascadeResult } from "@/lib/admin/anonCascade";
@@ -78,6 +79,14 @@ export async function setMapAnonymized(
       ok: false,
       filename: rawName,
       error: (err as Error).message,
+    };
+  }
+  if (isV2ReservedMapName(baseName)) {
+    return {
+      ok: false,
+      filename: baseName,
+      error:
+        "Soubor patří k balíčku map verze 2 — anonymizace se řídí manifestem (/admin/import).",
     };
   }
 

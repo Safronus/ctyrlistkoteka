@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { ensureDir, trashTimestamp } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { ADMIN_ROOTS, safeBaseName } from "@/lib/admin/paths";
+import { assertMutableMapFile } from "@/lib/admin/mapsV2";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
   getAdminSession,
@@ -36,6 +37,7 @@ export async function deleteMap(formData: FormData): Promise<void> {
     throw new Error("Missing name");
   }
   const baseName = safeBaseName(rawName);
+  assertMutableMapFile(baseName);
   const resolved = await resolveDiskPath("locationMaps", baseName);
   if (!resolved) {
     throw new Error("Soubor neexistuje");
@@ -113,6 +115,7 @@ export async function deleteMapsBulk(
     }
     try {
       const baseName = safeBaseName(raw);
+      assertMutableMapFile(baseName);
       const resolved = await resolveDiskPath("locationMaps", baseName);
       if (!resolved) {
         results.push({

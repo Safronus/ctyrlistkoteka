@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { atomicWrite, ensureDir, trashTimestamp } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { ADMIN_ROOTS, safeBaseName } from "@/lib/admin/paths";
+import { isV2ReservedMapName } from "@/lib/admin/mapsV2";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
   getAdminSession,
@@ -69,6 +70,14 @@ export async function replaceMap(formData: FormData): Promise<ReplaceResult> {
       ok: false,
       filename: rawTarget,
       error: (err as Error).message,
+    };
+  }
+  if (isV2ReservedMapName(baseName)) {
+    return {
+      ok: false,
+      filename: baseName,
+      error:
+        "Soubor patří k balíčku map verze 2 — nahrazuje se přes /admin/import, ne zde.",
     };
   }
 

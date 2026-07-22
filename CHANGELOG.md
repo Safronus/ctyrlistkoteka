@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Admin `/admin/files/maps` → mapy v2 (probíhá)
+- **Pojistka proti poškození v2 balíčku:** všechny mutující akce nad
+  `data/maps/` (smazat / přejmenovat / „označit zaniklé" / nahradit /
+  anonymizovat) teď odmítnou `manifest.json` a adresáře `Nosné mapy` /
+  `Rendered mapy`. Bez ní by např. „označit zaniklé" přejmenovalo
+  `manifest.json` → `NEEXISTUJE-manifest.json` a rozbilo sync. Mapy verze 2
+  se spravují jako celek přes `/admin/import`. (`src/lib/admin/mapsV2.ts` +
+  6 testů; upload byl už dřív bezpečný — `parseMapFilename`/přípona/signatura.)
+
 ### 🛑 KRITICKÉ: sync auto-prune footgun opraven
 - Sync auto-mazal DB řádky map + lokalit na KAŽDÉM běhu (bez `--prune`), zatímco
   nálezy měly gate. Partial upload map (18 map) tak tiše smazal 194 lokalit a
