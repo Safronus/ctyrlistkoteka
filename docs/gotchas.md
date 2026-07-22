@@ -598,3 +598,36 @@ správný počet a rozdíl je čistě artefakt syrového `find`.
   -delete` (bezpečné — maže jen ten smetík, nic jiného).
 - Vlastní skripty nad `data/` filtrujte dotfiles (`! -name '.*'`) —
   `scripts/crop-gps.sh` je referenční.
+
+---
+
+## 20. Next 16 (Turbopack) zabalí knihovnu s runtime detekcí prostředí → tiše přestane fungovat
+
+**Příznak:** `/admin/files/{finds,crops}` hlásily u KAŽDÉ nahrané fotky
+„Chybí EXIF DateTimeOriginal", i když ji fotka prokazatelně měla. Audit log
+ukazoval `exifDateTaken: null` u souborů, jejichž velikost bajt na bajt
+seděla s lokálním originálem, který `exiftool` i `readExifSafe` lokálně
+přečetly správně. **Sync přitom EXIF četl dobře** — `Find.foundAt` v DB
+bylo celou dobu správně.
+
+**Proč:** `exifr` ships UMD build, který si **za běhu detekuje prostředí**,
+aby věděl, jestli smí sáhnout na `fs`. Dokud Next 15 bundloval webpackem,
+detekce přežila. Next 16 přepnul na Turbopack, ten ji rozbil →
+`exifr.parse(<cesta>)` hodí výjimku. A `readExifSafe` měl holý `catch {}`,
+který vrátil samé `null` — takže selhání bylo **systematické i tiché**
+zároveň. Ohraničeno auditem: poslední správné čtení 2026-07-13, upgrade
+Next 15→16 dne 2026-07-20 (`e245fa1`), první chybné 2026-07-22.
+
+**Jak aplikovat:**
+- Každou knihovnu, která si **detekuje prostředí** nebo dělá **dynamické
+  `require`** (unzip, EXIF, image, archivace), dej do
+  `serverExternalPackages` v `next.config.ts`. Už tam z týchž důvodů je
+  `yauzl` (a před ním padal `archiver`) — teď i `exifr`.
+- **Nikdy nepiš holý `catch {}` kolem volání třetí strany, které vrací
+  „prázdný" fallback.** Aspoň `console.warn` — jinak se rozbité parsování
+  tváří jako „soubor prostě nemá data" a nikdo si toho měsíce nevšimne.
+- Kde to jde, přidej fallback nezávislý na prostředí (u EXIF: při selhání
+  cesty parsuj z `Bufferu`, který si načteš sám).
+- Po každém major upgradu frameworku **projdi cesty, které jen „vrací
+  prázdno"** — build i testy projdou, protože ta chyba není výjimka
+  navenek.
