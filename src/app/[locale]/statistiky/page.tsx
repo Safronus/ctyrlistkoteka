@@ -434,6 +434,7 @@ async function TopLocationsSection() {
   const {
     topLocations,
     topLocationsByDensity,
+    densityCuriosities,
     topLocationsBySessions,
     avgFindsPerLocation,
     avgDensityPer100m2,
@@ -444,6 +445,7 @@ async function TopLocationsSection() {
     <TopLocationsCard
       byCount={topLocations}
       byDensity={topLocationsByDensity}
+      densityCuriosities={densityCuriosities}
       bySessions={topLocationsBySessions}
       avgCount={avgFindsPerLocation}
       avgDensity={avgDensityPer100m2}

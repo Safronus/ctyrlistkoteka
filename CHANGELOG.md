@@ -18,6 +18,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   autoritativní inventář. Ověřeno na test DB (orphan lokace partial sync přežije).
 
 
+### Statistiky → hustota: kuriozity + férovější žebříček
+- **Mikrolokality pod 1 m² už neválcují žebříček „Podle hustoty".** Lokalita
+  s poloměrem 15 cm (plocha ≈ 0,07 m²) dosáhne hustoty v tisících 🍀/100 m² a
+  smrskla by všechny ostatní sloupce na nitku. Nově jsou lokality s plochou
+  **< 1 m²** z hlavního žebříčku vyňaty a zobrazí se pod ním jako samostatná
+  **„Kuriozita"** (bez sloupce — je to hříčka, ne pořadí). Práh 1 m² odpovídá
+  poloměru ≈ 0,56 m; defaultní 1m lokality (π·1² ≈ 3,14 m²) zůstávají v žebříčku.
+- Popisky sekce „Top 10 lokalit" upřesněny: „Podle počtu" → „Místa s největším
+  počtem nalezených 🍀"; „Podle hustoty" doplněn o pravidlo poloměru u lokalit
+  bez polygonu.
+
 ### Odstraněné nápovědy
 - Pryč nápověda (❓ dialog) u titulků `/sbirka` a `/lokality` a v „Vrstvy" na
   `/mapa` — komponenta, kód i CS/EN texty (namespaces `SbirkaHelp`,

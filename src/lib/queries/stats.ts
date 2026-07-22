@@ -452,6 +452,10 @@ export interface StatsJubileesResult {
 export interface StatsTopLocationsResult {
   topLocations: LocationPoint[];
   topLocationsByDensity: LocationDensityPoint[];
+  /** Micro-locations (sub-1m² area, e.g. a 15 cm radius) whose density is so
+   *  extreme they'd flatten the density ranking. Excluded from
+   *  `topLocationsByDensity` and surfaced separately as a "curiosity". */
+  densityCuriosities: LocationDensityPoint[];
   /** Top 10 locations by number of collecting sessions (visits). */
   topLocationsBySessions: LocationSessionPoint[];
   /** Mean finds per location across every location = located finds /
@@ -1345,8 +1349,14 @@ async function getStatsJubileesImpl(): Promise<StatsJubileesResult> {
 }
 
 async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
-  const [topLocRows, topDensityRows, avgRows, sessionRows, locNameRows] =
-    await Promise.all([
+  const [
+    topLocRows,
+    topDensityRows,
+    curiosityRows,
+    avgRows,
+    sessionRows,
+    locNameRows,
+  ] = await Promise.all([
     // Top 10 locations by find count.
     // - Anonymized locations are dropped (their code/name/findCount can't
     //   be exposed publicly per CLAUDE.md §6).
@@ -1456,9 +1466,65 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
       JOIN areas a ON a.id = l.id
       JOIN counts c ON c.location_id = l.id
       WHERE c.cnt >= 10
-        AND a.area_m2 > 0
+        -- ≥ 1 m² keeps the ranking fair: a sub-1m² micro-location (e.g. a
+        -- 15 cm radius → ~0.07 m²) reaches a density in the thousands and
+        -- would flatten every other bar to a sliver. Those are surfaced
+        -- separately as a "curiosity" below.
+        AND a.area_m2 >= 1
       ORDER BY density DESC, l.id
       LIMIT 10
+    `,
+    // Density curiosities: the micro-locations excluded above (sub-1m² area,
+    // e.g. a 15 cm radius). Their density is off the chart, so they get their
+    // own callout instead of dominating the ranking. Same anon handling as
+    // the ranking (code kept, name redacted). One find is enough to qualify.
+    prisma.$queryRaw<
+      Array<{
+        id: number;
+        code: string | null;
+        name: string | null;
+        count: bigint;
+        area_m2: number;
+        density: number;
+        is_anonymized: boolean;
+      }>
+    >`
+      WITH anon AS (
+        SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
+      ),
+      counts AS (
+        SELECT location_id, COUNT(*) AS cnt
+        FROM finds
+        WHERE location_id IS NOT NULL
+        GROUP BY location_id
+      ),
+      areas AS (
+        SELECT id,
+               CASE
+                 WHEN schema_version = 2 THEN aoi_area_m2
+                 WHEN polygon IS NOT NULL
+                   THEN ST_Area(polygon::geography)::float8
+                 ELSE pi() * (${FIND_DEVIATION_RADIUS_M}::float8 * ${FIND_DEVIATION_RADIUS_M}::float8)
+               END AS area_m2
+        FROM locations
+      )
+      SELECT l.id,
+             l.code AS code,
+             CASE WHEN l.id IN (SELECT location_id FROM anon)
+                  THEN NULL ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+             END AS name,
+             c.cnt AS count,
+             a.area_m2 AS area_m2,
+             (c.cnt::float8 / a.area_m2 * 100) AS density,
+             (l.id IN (SELECT location_id FROM anon)) AS is_anonymized
+      FROM locations l
+      JOIN areas a ON a.id = l.id
+      JOIN counts c ON c.location_id = l.id
+      WHERE c.cnt >= 1
+        AND a.area_m2 > 0
+        AND a.area_m2 < 1
+      ORDER BY density DESC, l.id
+      LIMIT 3
     `,
     // Baselines beside the toggle: mean finds per location (all located
     // finds / all locations) and mean density across locations that have
@@ -1596,6 +1662,15 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
       count: Number(r.count),
     })),
     topLocationsByDensity: topDensityRows.map((r) => ({
+      id: r.id,
+      code: r.code,
+      name: r.name,
+      count: Number(r.count),
+      areaM2: Number(r.area_m2),
+      densityPer100m2: Number(r.density),
+      isAnonymized: r.is_anonymized,
+    })),
+    densityCuriosities: curiosityRows.map((r) => ({
       id: r.id,
       code: r.code,
       name: r.name,

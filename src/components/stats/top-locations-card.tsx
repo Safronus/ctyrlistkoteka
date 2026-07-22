@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, EyeOff, ListIcon, MapPin } from "lucide-react";
+import { ExternalLink, EyeOff, ListIcon, MapPin, Sparkles } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import {
@@ -28,6 +28,7 @@ function toIntlLocale(locale: string): string {
 export function TopLocationsCard({
   byCount,
   byDensity,
+  densityCuriosities,
   bySessions,
   avgCount,
   avgDensity,
@@ -35,6 +36,9 @@ export function TopLocationsCard({
 }: {
   byCount: readonly LocationPoint[];
   byDensity: readonly LocationDensityPoint[];
+  /** Sub-1m² micro-locations shown as a "curiosity" below the density
+   *  ranking (excluded from it so they don't flatten the bars). */
+  densityCuriosities: readonly LocationDensityPoint[];
   bySessions: readonly LocationSessionPoint[];
   /** Mean finds per location, shown beside the "by count" toggle. */
   avgCount: number;
@@ -110,7 +114,16 @@ export function TopLocationsCard({
       {activeMode === "count" ? (
         <CountList rows={byCount} numFmt={numFmt} t={t} />
       ) : activeMode === "density" ? (
-        <DensityList rows={byDensity} numFmt={numFmt} t={t} />
+        <>
+          <DensityList rows={byDensity} numFmt={numFmt} t={t} />
+          {densityCuriosities.length > 0 && (
+            <DensityCuriosities
+              rows={densityCuriosities}
+              numFmt={numFmt}
+              t={t}
+            />
+          )}
+        </>
       ) : (
         <SessionsList rows={bySessions} numFmt={numFmt} avgFmt={avgFmt} t={t} />
       )}
@@ -251,6 +264,65 @@ function DensityList({
         />
       ))}
     </ol>
+  );
+}
+
+/**
+ * "Kuriozita" callout below the density ranking: sub-1m² micro-locations
+ * (e.g. a 15 cm radius spot) whose per-100m² density is so extreme it would
+ * flatten every bar in the ranking. Shown without a bar — it's a fun fact,
+ * not a rank — leading with the real curiosity ("N 🍀 on 0,07 m²") and the
+ * absurd extrapolation in tow. Anon rows keep the same button policy as the
+ * ranking (finds link only; detail/map would expose hidden GPS).
+ */
+function DensityCuriosities({
+  rows,
+  numFmt,
+  t,
+}: {
+  rows: readonly LocationDensityPoint[];
+  numFmt: Intl.NumberFormat;
+  t: StatsT;
+}) {
+  return (
+    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+      <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-amber-700">
+        <Sparkles className="h-3.5 w-3.5" aria-hidden />
+        {t("densityCuriosityHeading")}
+      </p>
+      <p className="mt-1 text-xs text-amber-900/70">
+        {t("densityCuriosityIntro")}
+      </p>
+      <ul className="mt-2.5 space-y-2">
+        {rows.map((r) => (
+          <li
+            key={r.id}
+            className="flex items-start gap-3 rounded-md border border-amber-100 bg-white/70 p-2.5"
+          >
+            <div className="min-w-0 flex-1">
+              <Identity
+                id={r.id}
+                code={r.code}
+                isAnonymized={r.isAnonymized}
+                t={t}
+              />
+              <p className="mt-0.5 text-xs text-gray-600">
+                {t("densityCuriosityValue", {
+                  count: numFmt.format(r.count),
+                  area: formatAreaM2(r.areaM2),
+                  density: formatDensity(r.densityPer100m2),
+                })}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-start gap-1">
+              {!r.isAnonymized && <DetailButton id={r.id} t={t} />}
+              <FindsButton id={r.id} t={t} />
+              {!r.isAnonymized && <MapButton id={r.id} t={t} />}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
