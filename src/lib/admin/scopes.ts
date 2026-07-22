@@ -107,7 +107,8 @@ export const SCOPES: readonly ScopeDef[] = [
     slug: "maps",
     rootKey: "locationMaps",
     label: "Lokační mapy",
-    description: "data/maps/ — PNG mapy lokalit (z Map Marker apod.).",
+    description:
+      "data/maps/ — mapy lokalit verze 2 (manifest.json + Nosné mapy/). Přehled; spravují se přes /admin/import.",
     writable: true,
   },
   {
