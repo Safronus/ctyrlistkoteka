@@ -13,8 +13,8 @@ import { HelpCircle, X } from "lucide-react";
  *
  * Content shape: a flat list of sections, each with a heading + a list
  * of bullet strings. Pages assemble it from their own translation
- * namespace (e.g. `SbirkaHelp`, `LokalityHelp`, `MapaHelp`) so the
- * copy ships in cs.json / en.json with everything else.
+ * namespace (e.g. the `Statistiky` namespace's help keys) so the copy
+ * ships in cs.json / en.json with everything else.
  *
  * MAINTENANCE NOTE: Whenever a public-page feature changes (new
  * filter, new layer, new sort option, removed control, changed

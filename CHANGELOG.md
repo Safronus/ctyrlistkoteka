@@ -9,6 +9,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Odstraněné nápovědy
+- Pryč nápověda (❓ dialog) u titulků `/sbirka` a `/lokality` a v „Vrstvy" na
+  `/mapa` — komponenta, kód i CS/EN texty (namespaces `SbirkaHelp`,
+  `LokalityHelp`, `MapaHelp`). Nápověda na `/statistiky` zůstává.
+
 ### Malé plochy (rádius < 1 m)
 - `formatAreaM2` u pod-1m² ploch (např. 15cm rádius → π·0,15² ≈ 0,07 m²) už
   neukazuje matoucí „0 m²" — zobrazí 2 desetinná místa („0,07 m²"), s prahem

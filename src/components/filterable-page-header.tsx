@@ -5,10 +5,10 @@ import { Hourglass } from "lucide-react";
 
 /**
  * Shared header for the filterable list pages (/sbirka, /lokality): the h1
- * (+ help dialog) on the left, and a filter-INDEPENDENT counts line pinned
- * to the right edge, on the same row as the title. The per-filter count now
- * lives in the "Filtr je aktivní …" strip below the filters, so this line
- * stays the stable "how big is the whole thing" summary.
+ * on the left, and a filter-INDEPENDENT counts line pinned to the right edge,
+ * on the same row as the title. The per-filter count now lives in the "Filtr
+ * je aktivní …" strip below the filters, so this line stays the stable "how
+ * big is the whole thing" summary.
  *
  * `notice` (+ `progressToggleLabel`) is optional: /sbirka passes its
  * "Sbírka se postupně doplňuje" banner behind a small hourglass toggle next
@@ -20,7 +20,7 @@ export function FilterablePageHeader({
   progressToggleLabel,
   notice,
 }: {
-  /** The h1 and (optionally) the HelpDialog — laid out on the left. */
+  /** The page's h1 — laid out on the left. */
   children: ReactNode;
   /** Filter-independent counts, right-aligned on the title row. */
   counts: ReactNode;

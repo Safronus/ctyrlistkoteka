@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Archive, X } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { HelpDialog } from "@/components/help/help-dialog";
 import { FilterablePageHeader } from "@/components/filterable-page-header";
 import { FilterActiveNotice } from "@/components/filter-active-notice";
 import { LocationsFilterBar } from "@/components/locations/locations-filter-bar";
@@ -71,7 +70,6 @@ function parseSort(v: string | undefined): LocationSort {
 export default async function LokalityPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const t = await getTranslations("Lokality");
-  const tHelp = await getTranslations("LokalityHelp");
   const q = pickString(sp.q) ?? "";
   // Exact location-number box (digits only; "26" == "00026"). Kept separate
   // from `q` so the small "Hledat podle čísla" field filters by číslo alone.
@@ -221,44 +219,6 @@ export default async function LokalityPage({ searchParams }: PageProps) {
         })}
       >
         <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
-        {/* Help dialog button. MAINTENANCE: when you change the
-            filters, sort options or anything else listed in the dialog,
-            update the matching LokalityHelp.* keys in cs.json / en.json. */}
-        <HelpDialog
-            title={tHelp("modalTitle")}
-            buttonTitle={tHelp("buttonTitle")}
-            buttonAriaLabel={tHelp("buttonAria")}
-            intro={tHelp("intro")}
-            sections={[
-              {
-                heading: tHelp("sectionFiltersTitle"),
-                items: [
-                  tHelp("sectionFilters1"),
-                  tHelp("sectionFilters2"),
-                  tHelp("sectionFilters3"),
-                ],
-              },
-              {
-                heading: tHelp("sectionSortTitle"),
-                items: [tHelp("sectionSort1")],
-              },
-              {
-                heading: tHelp("sectionAnonGoneTitle"),
-                items: [
-                  tHelp("sectionAnonGone1"),
-                  tHelp("sectionAnonGone2"),
-                ],
-              },
-              {
-                heading: tHelp("sectionExpandTitle"),
-                items: [tHelp("sectionExpand1")],
-              },
-              {
-                heading: tHelp("sectionDetailTitle"),
-                items: [tHelp("sectionDetail1")],
-              },
-            ]}
-          />
       </FilterablePageHeader>
 
       <RememberLokalitySearch />

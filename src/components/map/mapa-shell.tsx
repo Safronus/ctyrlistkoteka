@@ -6,7 +6,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { MapLoader } from "./map-loader";
 import { MapSidebar } from "./map-sidebar";
 import { LocationTopSheet } from "./location-top-sheet";
-import { HelpDialog } from "@/components/help/help-dialog";
 import {
   AUTHOR_LOCATION_ID,
   MAP_FIND_ICON_BASE_PX,
@@ -891,14 +890,10 @@ function LayerToggleCard({
   onToggleExpanded: () => void;
 }) {
   const t = useTranslations("Mapa");
-  const tHelp = useTranslations("MapaHelp");
   const locale = useLocale();
   const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
   return (
     <div className="rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm shadow-md">
-      {/* The toggle button and the help button sit side-by-side; the
-          help button is OUTSIDE the toggle so clicking it doesn't also
-          collapse the Vrstvy panel. */}
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
@@ -917,48 +912,6 @@ function LayerToggleCard({
             aria-hidden
           />
         </button>
-        {/* Help dialog. MAINTENANCE: any change to layer behavior,
-            deep-link params, zoom controls etc. needs the matching
-            MapaHelp.* keys updated in cs.json / en.json so visible
-            help doesn't drift from actual UI. */}
-        <HelpDialog
-          title={tHelp("modalTitle")}
-          buttonTitle={tHelp("buttonTitle")}
-          buttonAriaLabel={tHelp("buttonAria")}
-          intro={tHelp("intro")}
-          buttonClassName="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-          sections={[
-            {
-              heading: tHelp("sectionLayersTitle"),
-              items: [
-                tHelp("sectionLayers1"),
-                tHelp("sectionLayers2"),
-                tHelp("sectionLayers3"),
-                tHelp("sectionLayers4"),
-                tHelp("sectionLayers5"),
-                tHelp("sectionLayers6"),
-              ],
-            },
-            {
-              heading: tHelp("sectionNavigationTitle"),
-              items: [
-                tHelp("sectionNavigation1"),
-                tHelp("sectionNavigation2"),
-              ],
-            },
-            {
-              heading: tHelp("sectionSidebarTitle"),
-              items: [tHelp("sectionSidebar1")],
-            },
-            {
-              heading: tHelp("sectionDeepLinksTitle"),
-              items: [
-                tHelp("sectionDeepLinks1"),
-                tHelp("sectionDeepLinks2"),
-              ],
-            },
-          ]}
-        />
       </div>
       {expanded && (
         <div className="mt-1 space-y-0.5">
