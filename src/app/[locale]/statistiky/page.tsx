@@ -72,7 +72,6 @@ import { localizedCountryName } from "@/lib/world-countries";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { prisma } from "@/lib/db";
 import { getTopFindsWithThumbs } from "@/lib/votes";
-import { HelpDialog, type HelpSection } from "@/components/help/help-dialog";
 import { CollapsibleSection } from "@/components/stats/collapsible-section";
 import { DeviationCompass } from "@/components/stats/deviation-compass";
 import { CalendarHeatmapTabs } from "@/components/stats/calendar-heatmap-tabs";
@@ -772,38 +771,6 @@ function TimeAndPaceSkeleton() {
   );
 }
 
-/** Builds the help-dialog content for the deviation tile from the
- *  Statistiky namespace, threading in the deviation radius constant. */
-function deviationHelpSections(t: StatsT): HelpSection[] {
-  const radius = FIND_DEVIATION_RADIUS_M;
-  return [
-    {
-      heading: t("deviationHelpRuleHeading"),
-      items: [
-        t("deviationHelpRule1"),
-        t("deviationHelpRule2", { radius }),
-        t("deviationHelpRule3"),
-      ],
-    },
-    {
-      heading: t("deviationHelpMeasureHeading"),
-      items: [
-        t("deviationHelpMeasure1"),
-        t("deviationHelpMeasure2"),
-        t("deviationHelpMeasure3"),
-      ],
-    },
-    {
-      heading: t("deviationHelpProbHeading"),
-      items: [
-        t("deviationHelpProb1"),
-        t("deviationHelpProb2"),
-        t("deviationHelpProb3"),
-      ],
-    },
-  ];
-}
-
 function DeviationStatsCard({
   data,
   t,
@@ -847,13 +814,6 @@ function DeviationStatsCard({
           <h2 className="text-lg font-semibold text-gray-900">
             {t("deviationHeading")}
           </h2>
-          <HelpDialog
-            title={t("deviationHelpTitle")}
-            buttonAriaLabel={t("deviationHelpButtonAria")}
-            buttonTitle={t("deviationHelpButtonTitle")}
-            intro={t("deviationHelpIntro")}
-            sections={deviationHelpSections(t)}
-          />
         </div>
       }
       subtitle={t("deviationHeadline", {

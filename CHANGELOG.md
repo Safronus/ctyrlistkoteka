@@ -30,9 +30,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bez polygonu.
 
 ### Odstraněné nápovědy
-- Pryč nápověda (❓ dialog) u titulků `/sbirka` a `/lokality` a v „Vrstvy" na
-  `/mapa` — komponenta, kód i CS/EN texty (namespaces `SbirkaHelp`,
-  `LokalityHelp`, `MapaHelp`). Nápověda na `/statistiky` zůstává.
+- Pryč nápověda (❓ dialog) u titulků `/sbirka` a `/lokality`, v „Vrstvy" na
+  `/mapa` a nově i u karty „Odchylky" na `/statistiky` — na webu stejně
+  nebyla vidět. S posledním použitím padla celá komponenta `HelpDialog`
+  (`src/components/help/`) i všechny CS/EN texty (`SbirkaHelp`, `LokalityHelp`,
+  `MapaHelp` a `deviationHelp*` v namespace `Statistiky`).
 
 ### Malé plochy (rádius < 1 m)
 - `formatAreaM2` u pod-1m² ploch (např. 15cm rádius → π·0,15² ≈ 0,07 m²) už
