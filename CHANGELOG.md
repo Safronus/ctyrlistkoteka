@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### 🛑 KRITICKÉ: sync auto-prune footgun opraven
+- Sync auto-mazal DB řádky map + lokalit na KAŽDÉM běhu (bez `--prune`), zatímco
+  nálezy měly gate. Partial upload map (18 map) tak tiše smazal 194 lokalit a
+  odpojil jejich nálezy. Navíc to bylo v rozporu s hlavičkou skriptu, která
+  `--prune` uvádí jako přepínač pro mazání osiřelých lokalit. **Nově se BEZ**
+  **`--prune` nemaže vůbec nic** — balíček map je aditivní upsert set, ne
+  autoritativní inventář. Ověřeno na test DB (orphan lokace partial sync přežije).
+
+
 ### Odstraněné nápovědy
 - Pryč nápověda (❓ dialog) u titulků `/sbirka` a `/lokality` a v „Vrstvy" na
   `/mapa` — komponenta, kód i CS/EN texty (namespaces `SbirkaHelp`,

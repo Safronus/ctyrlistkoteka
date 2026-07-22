@@ -1823,50 +1823,33 @@ async function phasePrune(
     orphan_maps: orphanMaps.length,
   });
 
-  // Auto-prune for maps + locations on every sync (no --prune flag
-  // required). Renaming a map file in admin must reflect 1:1 in DB:
-  // the old code disappears, the new one shows up. Same for hand
-  // deletions on disk. Find rows + generated/ WebPs stay behind
-  // --prune — those are riskier (a missing find file could be a
-  // temporary rsync glitch, not a deliberate delete).
-  if (ctx.opts.dryRun) {
-    ctx.log.log({
-      event: "prune.dryrun_auto",
-      level: "info",
-      note: "auto-prune of orphan maps+locations skipped (--dry-run)",
-      would_delete_maps: orphanMaps.length,
-      would_delete_locations: orphanLocations.length,
-    });
-  } else {
-    if (orphanMaps.length > 0) {
-      await ctx.prisma.locationMap.deleteMany({
-        where: { id: { in: orphanMaps } },
-      });
-      ctx.log.log({
-        event: "prune.auto_maps",
-        level: "info",
-        deleted: orphanMaps.length,
-      });
-    }
-    if (orphanLocations.length > 0) {
-      await ctx.prisma.location.deleteMany({
-        where: { id: { in: orphanLocations } },
-      });
-      ctx.log.log({
-        event: "prune.auto_locations",
-        level: "info",
-        deleted: orphanLocations.length,
-      });
-    }
-  }
-
+  // NOTHING is deleted without --prune. A map package is treated as an
+  // additive UPSERT set, never the authoritative-complete inventory: a
+  // PARTIAL upload (e.g. adding one new location, or the desktop app
+  // exporting a subset) must never delete the maps + locations it simply
+  // didn't include. Renames / edits are handled by the upsert already
+  // (id = číslo is stable, only the code/geometry updates), so only a
+  // GENUINE removal needs pruning — and the operator opts into that
+  // explicitly with --prune, having uploaded the full set.
+  //
+  // This used to auto-prune maps + locations on EVERY sync, which silently
+  // wiped 194 locations (and NULLed their finds' location_id) the moment an
+  // 18-map package was uploaded. It also contradicted the script header,
+  // which already documents --prune as the switch that removes orphan
+  // locations. Now all three orphan kinds share the one gate.
   if (!ctx.opts.prune) {
-    if (orphanFinds.length > 0) {
+    if (
+      orphanFinds.length > 0 ||
+      orphanMaps.length > 0 ||
+      orphanLocations.length > 0
+    ) {
       ctx.log.log({
-        event: "prune.skipped_finds",
+        event: "prune.skipped",
         level: "info",
-        note: "pass --prune to delete orphan finds + free generated/",
+        note: "pass --prune to delete DB rows for finds/maps/locations no longer on disk (+ free generated/)",
         orphan_finds: orphanFinds.length,
+        orphan_maps: orphanMaps.length,
+        orphan_locations: orphanLocations.length,
       });
     }
     return;
@@ -1876,18 +1859,46 @@ async function phasePrune(
     ctx.log.log({
       event: "prune.dryrun",
       level: "info",
-      note: "no find deletions performed (--dry-run)",
+      note: "no deletions performed (--dry-run)",
       would_delete_finds: orphanFinds.length,
+      would_delete_maps: orphanMaps.length,
+      would_delete_locations: orphanLocations.length,
     });
     // Still scan generated/ so the user sees what would be freed.
     await pruneGeneratedFiles(ctx);
     return;
   }
 
-  // Find delete cascades to FindImage rows. Maps + locations were
-  // already cleaned above.
+  // Maps + locations first (both are onDelete: SetNull on referencing finds,
+  // so this just nulls map_id / location_id), then finds (cascades to
+  // FindImage rows).
+  if (orphanMaps.length > 0) {
+    await ctx.prisma.locationMap.deleteMany({
+      where: { id: { in: orphanMaps } },
+    });
+    ctx.log.log({
+      event: "prune.maps",
+      level: "info",
+      deleted: orphanMaps.length,
+    });
+  }
+  if (orphanLocations.length > 0) {
+    await ctx.prisma.location.deleteMany({
+      where: { id: { in: orphanLocations } },
+    });
+    ctx.log.log({
+      event: "prune.locations",
+      level: "info",
+      deleted: orphanLocations.length,
+    });
+  }
   if (orphanFinds.length > 0) {
     await ctx.prisma.find.deleteMany({ where: { id: { in: orphanFinds } } });
+    ctx.log.log({
+      event: "prune.finds",
+      level: "info",
+      deleted: orphanFinds.length,
+    });
   }
 
   // After DB is consistent with disk, drop generated/ files no DB row
