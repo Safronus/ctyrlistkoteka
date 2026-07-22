@@ -72,6 +72,9 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   const t = await getTranslations("Lokality");
   const tHelp = await getTranslations("LokalityHelp");
   const q = pickString(sp.q) ?? "";
+  // Exact location-number box (digits only; "26" == "00026"). Kept separate
+  // from `q` so the small "Hledat podle čísla" field filters by číslo alone.
+  const num = pickString(sp.num) ?? "";
   // Normalize via cityFromCadastralArea so a stale URL with
   // `?city=NEEXISTUJE-ZLÍN` is treated as `?city=ZLÍN` — both the
   // dropdown selection and the query layer agree on the canonical
@@ -104,6 +107,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
       getFilterOptions(),
       listLocations({
         q: q || undefined,
+        num: num || undefined,
         cadastralArea: city || undefined,
         country: country || undefined,
         sort,
@@ -149,6 +153,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   // read as "filtered"; `clearAll` in the filter bar still keeps sort.
   const filterActive =
     !!q ||
+    !!num ||
     !!city ||
     !!country ||
     showAnonymized ||
@@ -242,7 +247,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
         countries={countries}
         countryCounts={countryLocationCounts}
         cityCounts={cityLocationCounts}
-        current={{ q, city, country }}
+        current={{ q, num, city, country }}
         hasFilters={filterActive}
       />
 
@@ -281,6 +286,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
             href={(() => {
               const params = new URLSearchParams();
               if (q) params.set("q", q);
+              if (num) params.set("num", num);
               if (city) params.set("city", city);
               if (country) params.set("country", country);
               if (sort !== "finds") params.set("sort", sort);

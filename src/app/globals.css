@@ -437,6 +437,12 @@ body:has([data-map-fullscreen]) > footer {
 
 html {
   height: 100%;
+  /* Viewport-level horizontal-overflow guard (mirrors the `overflow-x-clip`
+     utility in RootLayout). Reinforced on <body> below because some mobile
+     browsers don't reliably clip at the root <html>. `clip` (not `hidden`)
+     keeps the sticky header + vertical scroll working — it doesn't create a
+     scroll container. */
+  overflow-x: clip;
 }
 
 /* NOTE: body intentionally does NOT have `height: 100%`. Body uses
@@ -456,6 +462,23 @@ body {
      clover, near-black in dark. */
   @apply bg-white text-gray-900 antialiased;
   font-family: var(--font-sans);
+  /* Reinforce the html-level horizontal-overflow guard here — a stray
+     off-canvas descendant (decorative swaying clovers, a wide embed) was
+     letting the page pan sideways on mobile where the root-level clip alone
+     didn't hold. */
+  overflow-x: clip;
+}
+
+/* Safari < 16 doesn't support `overflow: clip`; there the clip declarations
+   above are dropped and the page could pan sideways again. Fall back to
+   `hidden`, which is universally supported. It makes the root a scroll
+   container (very slightly less ideal for sticky), but only on those older
+   browsers. */
+@supports not (overflow: clip) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
 }
 
 /* A phone held landscape is a short, wide window; the find-detail portrait

@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useTransition } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, MapPin } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 const INPUT_CLS =
@@ -26,7 +26,7 @@ export function LocationsFilterBar({
    *  shown in parentheses after the option label. */
   countryCounts: Readonly<Record<string, number>>;
   cityCounts: Readonly<Record<string, number>>;
-  current: { q: string; city: string; country: string };
+  current: { q: string; num: string; city: string; country: string };
   /** True when ANY filter (incl. the toolbar toggles) is active — drives
    *  the "Zrušit filtry" button, kept here to match /sbirka's placement
    *  (bottom of the filter card, not out in the toolbar). */
@@ -91,32 +91,57 @@ export function LocationsFilterBar({
       }`}
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="sm:col-span-2 lg:col-span-2">
-          <span className="mb-1 block text-xs font-medium text-gray-700">
-            {t("search")}
-          </span>
-          <input
-            type="search"
-            defaultValue={current.q}
-            placeholder={t("searchPlaceholder")}
-            className={`${INPUT_CLS} w-full`}
-            onChange={(e) => {
-              const v = e.currentTarget.value;
-              window.clearTimeout(
-                (
-                  e.currentTarget as HTMLInputElement & {
-                    _t?: ReturnType<typeof setTimeout>;
-                  }
-                )._t,
-              );
-              (
-                e.currentTarget as HTMLInputElement & {
+        {/* The old single "Hledat" field split into two within the same
+            2-column slot: an EXACT location-number box (číslo, digits only)
+            on the left + the classic text search on the right. Mirrors
+            /sbirka's find-number / note split. */}
+        <div className="flex gap-3 sm:col-span-2 lg:col-span-2">
+          <label className="w-[44%] shrink-0 sm:w-48">
+            <span className="mb-1 flex items-center gap-1 truncate text-xs font-medium text-gray-700">
+              {t("searchByNumber")}
+              <MapPin
+                className="h-3.5 w-3.5 shrink-0 text-gray-400"
+                aria-hidden
+              />
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              defaultValue={current.num}
+              placeholder={t("searchByNumberPlaceholder")}
+              className={`${INPUT_CLS} w-full`}
+              onChange={(e) => {
+                // Digits only — an exact location-number (číslo) lookup.
+                const el = e.currentTarget as HTMLInputElement & {
                   _t?: ReturnType<typeof setTimeout>;
-                }
-              )._t = setTimeout(() => update("q", v), 250);
-            }}
-          />
-        </label>
+                };
+                const v = el.value.replace(/[^\d]/g, "");
+                if (el.value !== v) el.value = v;
+                window.clearTimeout(el._t);
+                el._t = setTimeout(() => update("num", v), 250);
+              }}
+            />
+          </label>
+          <label className="min-w-0 flex-1">
+            <span className="mb-1 block text-xs font-medium text-gray-700">
+              {t("search")}
+            </span>
+            <input
+              type="search"
+              defaultValue={current.q}
+              placeholder={t("searchPlaceholder")}
+              className={`${INPUT_CLS} w-full`}
+              onChange={(e) => {
+                const el = e.currentTarget as HTMLInputElement & {
+                  _t?: ReturnType<typeof setTimeout>;
+                };
+                const v = el.value;
+                window.clearTimeout(el._t);
+                el._t = setTimeout(() => update("q", v), 250);
+              }}
+            />
+          </label>
+        </div>
 
         <label>
           <span className="mb-1 block text-xs font-medium text-gray-700">

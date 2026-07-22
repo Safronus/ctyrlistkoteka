@@ -170,6 +170,11 @@ export interface LocationListItem {
 
 export interface LocationFilter {
   q?: string;
+  /** Exact location-number box (the /lokality "Hledat podle čísla" field).
+   *  Matches the location's id (its 5-digit číslo) exactly — the digits with
+   *  or without leading zeros, so "26" and "00026" both find #00026. Unlike
+   *  `q`'s fuzzy numeric mode, this never does substring matching. */
+  num?: string;
   cadastralArea?: string;
   /** ISO 3166-1 numeric code (string), as produced by `countryFromCoords`.
    *  Filters the result to locations whose center point falls inside that
@@ -468,6 +473,13 @@ export async function listLocations(
   if (filter.id !== undefined) where.id = filter.id;
   else if (filter.idIn && filter.idIn.length > 0)
     where.id = { in: [...filter.idIn] };
+  // Exact location-number box (list view only — the detail page uses `id`).
+  // "26" or "00026" → id 26. Combined with any `q`/city/country as a plain
+  // AND. Zero / garbage → an impossible id so the result is simply empty.
+  else if (filter.num && filter.num.trim()) {
+    const n = Number.parseInt(filter.num.trim(), 10);
+    where.id = Number.isInteger(n) && n > 0 ? n : -1;
+  }
   if (filter.cadastralArea) {
     // The dropdown bucket "ZLÍN" must match BOTH `cadastralArea =
     // 'ZLÍN'` and `cadastralArea = 'NEEXISTUJE-ZLÍN'` rows — see

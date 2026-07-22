@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Drobná UI vylepšení (filtry, ikony, mobil)
+- **/lokality** — hledání rozděleno na dvě pole jako na /sbirka: malý „Hledat
+  podle čísla" (📍, jen číslo lokace — přesně, „26" i „00026") + klasické
+  textové „Hledat" (kód/popis/katastr). Nový `num` filtr = přesná shoda na id.
+- **Detail nálezu (dar)** — ikona reálných fotek daru předělaná ze „šišatého"
+  amber blobu na čistý solidní brand pip s Gift ikonou. Prohlížeč fotek daru
+  má výšku vázanou na `dvh` (portrét se vejde celý, žádné svislé scrollování).
+- **Detail nálezu — sekce Lokalita** — slova „Nález/Nálezů" nahrazena 🍀
+  (banner odchylky nad mapkou, hustota, pořadí na lokalitě).
+- **Mobil** — zpevněný guard proti vodorovnému „plavání": `overflow-x: clip`
+  i na `<body>` (root-`<html>` clip byl na mobilu nespolehlivý) + `hidden`
+  fallback pro Safari < 16.
+
 ### Mapy v2 — web dokresluje překryvy + úklid syncu (fáze D/E)
 Produkce běží na v2 (čistá „Nosná" mapa), takže web teď kreslí indikátor
 lokality **sám, vektorově** — místo aby spoléhal na vpálený „Rendered" PNG.

@@ -85,18 +85,20 @@ export function DonationPhotosButton({
         aria-label={t("openAria", { total })}
         // The Camera sits at full size with a small Gift badge anchored
         // to the lower-right corner — combo cue that this gallery is
-        // specifically for donation photos (vs the plain `Images`
-        // button below for the generic free-photo gallery). The ring +
-        // brand-tinted background on the Gift lifts it off the camera
-        // outline so the two icons read as distinct shapes.
+        // specifically for donation photos (vs the plain `Images` button
+        // below for the generic free-photo gallery). The Gift is a solid
+        // brand-red pip with a white ring — a crisp notification-style
+        // badge that reads as a distinct shape against the camera outline.
         className="absolute right-3 top-16 rounded-full bg-white/90 p-2 text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur transition hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
       >
         <span className="relative inline-flex">
           <Camera className="h-5 w-5" aria-hidden />
-          <Gift
+          <span
             aria-hidden
-            className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-amber-100 p-0.5 text-amber-700 ring-1 ring-white"
-          />
+            className="absolute -bottom-1.5 -right-1.5 inline-flex items-center justify-center rounded-full bg-brand-600 p-[3px] text-white shadow-sm ring-2 ring-white"
+          >
+            <Gift className="h-2.5 w-2.5" />
+          </span>
         </span>
       </button>
 
@@ -126,11 +128,15 @@ export function DonationPhotosButton({
           </button>
         </div>
 
-        <div className="relative max-h-[calc(100vh-12rem)] overflow-auto bg-gray-50 p-2">
+        <div className="relative max-h-[calc(100dvh-11rem)] overflow-auto bg-gray-50 p-2">
           {current && (
             <div className="relative">
               {displaySrc ? (
-                /* Public photo or unlocked ANON — render the image. */
+                /* Public photo or unlocked ANON — render the image. Bounded
+                   by the viewport HEIGHT (not width) so a tall portrait
+                   donation photo fits fully on screen instead of overflowing
+                   into a scroll. dvh tracks the real height under mobile
+                   browser chrome. */
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={displaySrc}
@@ -138,7 +144,7 @@ export function DonationPhotosButton({
                     findId,
                     slot: current.slot.toUpperCase(),
                   })}
-                  className="mx-auto block h-auto w-full max-w-full rounded-md"
+                  className="mx-auto block h-auto max-h-[calc(100dvh-13rem)] w-auto max-w-full rounded-md"
                 />
               ) : (
                 <AnonymizedPlaceholder slot={current.slot} />
@@ -252,7 +258,7 @@ function AnonymizedPlaceholder({ slot }: { slot: string }) {
     <div
       role="img"
       aria-label={t("placeholderAria")}
-      className="flex aspect-[3/4] w-full items-center justify-center rounded-md bg-gradient-to-br from-purple-100 to-purple-200"
+      className="mx-auto flex aspect-[3/4] max-h-[calc(100dvh-13rem)] w-full max-w-[22rem] items-center justify-center rounded-md bg-gradient-to-br from-purple-100 to-purple-200"
     >
       <div className="flex flex-col items-center gap-3 text-center">
         <span
