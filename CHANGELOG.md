@@ -10,6 +10,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 ## 2026-07
 
 ### Admin `/admin/files/maps` → mapy v2 (probíhá)
+- **Listing nově čte `manifest.json`, ne plochý `readdir`.** Dřív `/admin/files/maps`
+  ukazoval `manifest.json` + adresáře `Nosné mapy`/`Rendered mapy` + staré
+  ploché v1 PNG, protože skenoval `data/maps/` naplocho — v2 mapy jsou přitom
+  vnořené. Nový dedikovaný přehled (`MapsScopeView`) čte autoritativní manifest:
+  číslo, kód, název, město/stát, indikátor + plocha, odznaky
+  anonymizovaná / zaniklá / potomek / chybí PNG, hledání a filtry. Detailní
+  obrázek se servíruje z vnořené cesty (`statScopeFile` v2 fallback). Read-only
+  — mapy v2 se přidávají/ruší jako celek přes `/admin/import`. Ověřeno proti
+  reálnému 212-map manifestu.
 - **Pojistka proti poškození v2 balíčku:** všechny mutující akce nad
   `data/maps/` (smazat / přejmenovat / „označit zaniklé" / nahradit /
   anonymizovat) teď odmítnou `manifest.json` a adresáře `Nosné mapy` /
@@ -17,6 +26,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   `manifest.json` → `NEEXISTUJE-manifest.json` a rozbilo sync. Mapy verze 2
   se spravují jako celek přes `/admin/import`. (`src/lib/admin/mapsV2.ts` +
   6 testů; upload byl už dřív bezpečný — `parseMapFilename`/přípona/signatura.)
+- Zbývá (4c): note-override editor + reálné fotky + metadata na detailu z
+  manifestu a vyřazení v1 filename-akcí (ty jsou zatím jen skryté z UI).
 
 ### 🛑 KRITICKÉ: sync auto-prune footgun opraven
 - Sync auto-mazal DB řádky map + lokalit na KAŽDÉM běhu (bez `--prune`), zatímco

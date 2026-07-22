@@ -9,23 +9,18 @@ import {
   Image as ImageIcon,
   Search,
 } from "lucide-react";
-import path from "node:path";
 import {
   getFindIdsWithExifProblems,
   getFindIdsWithoutGps,
 } from "@/lib/admin/checks";
 import { ensureAdminAuth } from "@/lib/admin/guard";
-import { readMapAnonFlags } from "@/lib/admin/mapAnon";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { prisma } from "@/lib/db";
 import { readFindNoteOverrides } from "@/lib/findNoteOverrides";
-import { readMapNoteOverrides } from "@/lib/mapNoteOverrides";
-import { getRealPhotoMapKeys } from "@/lib/locationPhotos";
 import { checkSyncNeeded, type SyncScope } from "@/lib/admin/syncNeeded";
 import {
   analyzeIdRange,
   extractFindId,
-  extractMapId,
   getScope,
   getScopeDiskBytes,
   getScopeDiskFreeBytes,
@@ -47,31 +42,20 @@ import { deleteFindsBulk } from "../finds/delete-action";
 import { FindsUploadForm } from "../finds/upload-form";
 import { deleteLocationPhotosBulk } from "../location-photos/delete-action";
 import { LocationPhotosUploadForm } from "../location-photos/upload-form";
-import { deleteMapsBulk } from "../maps/delete-action";
-import { markMapsNonexistentBulk } from "../maps/rename-action";
-import { MapsUploadForm } from "../maps/upload-form";
+import { MapsScopeView } from "../maps/maps-scope-view";
 
 /** Allowed `?size=` values. Capped at 500 because each entry incurs
  *  one `fs.stat` call in listScope; on finds (17k+ files) a larger
- *  page would noticeably slow the listing render. For maps (~130
- *  entries) any value at or above 200 effectively shows everything. */
+ *  page would noticeably slow the listing render. */
 const PAGE_SIZE_OPTIONS = [50, 100, 200, 500] as const;
 const DEFAULT_PAGE_SIZE = 100;
-/** Maps fit in one page at 500 (~130 entries today, growing slowly).
- *  Default to that for the scope so the user doesn't paginate over
- *  what's effectively a flat config list. Other scopes keep the
- *  conservative 100. */
-const SCOPE_DEFAULT_PAGE_SIZE: Record<string, number> = {
-  maps: 500,
-};
 
-function pickPageSize(v: string | undefined, scopeSlug: string): number {
-  const scopeDefault = SCOPE_DEFAULT_PAGE_SIZE[scopeSlug] ?? DEFAULT_PAGE_SIZE;
-  if (!v) return scopeDefault;
+function pickPageSize(v: string | undefined): number {
+  if (!v) return DEFAULT_PAGE_SIZE;
   const n = Number.parseInt(v, 10);
   return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n)
     ? n
-    : scopeDefault;
+    : DEFAULT_PAGE_SIZE;
 }
 
 interface PageProps {
@@ -144,11 +128,18 @@ export default async function AdminScopeListPage({
   const scope = getScope(scopeSlug);
   if (!scope) notFound();
 
+  // v2 maps are authoritative in data/maps/manifest.json and live nested
+  // under Nosné mapy/ — the flat-file machinery below (listScope readdir,
+  // extractMapId from the filename, PNG-tEXt anon flags, per-file delete/
+  // rename) can't see them. Render the dedicated manifest-driven inventory.
+  if (scope.slug === "maps") {
+    return <MapsScopeView sp={sp} />;
+  }
+
   const query = pickString(sp.q) ?? "";
   const page = pickInt(pickString(sp.page), 1);
-  const pageSize = pickPageSize(pickString(sp.size), scope.slug);
-  const defaultPageSize =
-    SCOPE_DEFAULT_PAGE_SIZE[scope.slug] ?? DEFAULT_PAGE_SIZE;
+  const pageSize = pickPageSize(pickString(sp.size));
+  const defaultPageSize = DEFAULT_PAGE_SIZE;
   const duplicatesOnly = pickString(sp.dups) === "1";
   const idDuplicatesOnly = pickString(sp.id_dups) === "1";
   const uncoveredOnly = pickString(sp.uncovered) === "1";
@@ -169,13 +160,6 @@ export default async function AdminScopeListPage({
   // "S poznámkou" filter (finds scope): keep only finds that carry a note
   // — either an LSP-JSON note (Find.notes) or a web-display override.
   const noteOnly = scope.slug === "finds" && pickString(sp.note) === "1";
-  // Maps-only filters: surface zaniklé / anonymizované entries on
-  // demand. Both default off so the listing matches the rest of the
-  // admin (no cluttered initial view).
-  const onlyNonexistent =
-    scope.slug === "maps" && pickString(sp.nonexistent) === "1";
-  const onlyAnonymized =
-    scope.slug === "maps" && pickString(sp.anonymized) === "1";
   const offset = (page - 1) * pageSize;
 
   // Cross-scope coverage: finds ↔ crops share only the leading find
@@ -215,22 +199,17 @@ export default async function AdminScopeListPage({
     }
   }
 
-  // ID-range analysis: finds + crops use the leading find ID, maps
-  // use the trailing 5-digit map ID. Other scopes have no range
-  // concept, so the banner stays hidden.
+  // ID-range analysis: finds + crops use the leading find ID. Other
+  // scopes have no range concept, so the banner stays hidden. (Maps use
+  // their own manifest-driven view — see MapsScopeView.)
   let range: RangeAnalysis | null = null;
   let rangeLabel: string | null = null;
-  let rangePad = 1;
+  const rangePad = 1;
   let idExtractor: ((filename: string) => number | null) | null = null;
   if (scope.slug === "finds" || scope.slug === "crops") {
     idExtractor = extractFindId;
     range = await analyzeIdRange(scope, idExtractor);
     rangeLabel = "Find ID";
-  } else if (scope.slug === "maps") {
-    idExtractor = extractMapId;
-    range = await analyzeIdRange(scope, idExtractor);
-    rangeLabel = "Map ID";
-    rangePad = 5;
   }
   // Duplicate-ID filter: when active, listScope keeps only the files
   // whose extracted ID appears more than once in the dir. That's
@@ -242,15 +221,6 @@ export default async function AdminScopeListPage({
     idDuplicatesOnly && range && range.duplicateIds.length > 0
       ? new Set(range.duplicateIds)
       : null;
-
-  // Maps anonymization scan: only run on the maps scope, costs one
-  // 64KB read per file. Cached in-memory by mtime so the next render
-  // is free. Scoped before listScope so it can drive the keepName
-  // filter when "Jen anonymizované" is on.
-  let anonymizedNamesNFC: Set<string> | undefined;
-  if (scope.slug === "maps") {
-    anonymizedNamesNFC = await readMapAnonFlags();
-  }
 
   // EXIF-bad + GPS-bad find IDs — both DB queries, cheap (single
   // index scan + a few dozen rows in the worst case). Fetched on
@@ -291,40 +261,17 @@ export default async function AdminScopeListPage({
     ]);
   }
 
-  // Web-display caption overrides for location maps + the raw filename
-  // description per MAP_ID — drives the per-row "pozn." editor on the maps
-  // scope. Mirror of the finds block above, keyed by MAP_ID.
-  let mapNoteOverrides:
-    | Record<number, { cs?: string; en?: string }>
-    | undefined;
-  let mapNoteRaw: Record<number, string> | undefined;
-  if (scope.slug === "maps") {
-    const [ovMap, describedRows] = await Promise.all([
-      readMapNoteOverrides(),
-      prisma.locationMap.findMany({
-        where: { description: { not: null } },
-        select: { id: true, description: true },
-      }),
-    ]);
-    mapNoteOverrides = {};
-    for (const [k, v] of ovMap) mapNoteOverrides[k] = v;
-    mapNoteRaw = {};
-    for (const r of describedRows) {
-      if (r.description) mapNoteRaw[r.id] = r.description;
-    }
-  }
-
-  // Sync-needed banner. Computed for finds/crops/maps because
-  // sync.ts reads those dirs; meta is checked on the file detail
-  // page (JSON náhled) instead of here. donation/location photos
-  // skip — they live in generated/ and bypass sync entirely.
+  // Sync-needed banner. Computed for finds/crops because sync.ts reads
+  // those dirs; meta is checked on the file detail page (JSON náhled)
+  // instead of here. donation/location photos skip — they live in
+  // generated/ and bypass sync entirely. (Maps have their own banner in
+  // MapsScopeView.)
   const SYNC_BANNER_CONFIG: Record<
     string,
     { preset: SyncScope; label: string }
   > = {
     finds: { preset: "finds", label: "Originály nálezů" },
     crops: { preset: "finds", label: "Výřezy nálezů" },
-    maps: { preset: "maps", label: "Lokační mapy" },
   };
   const syncBannerCfg = SYNC_BANNER_CONFIG[scope.slug];
   const syncBannerProps = syncBannerCfg
@@ -336,17 +283,8 @@ export default async function AdminScopeListPage({
     : null;
 
   const keepName: ((name: string) => boolean) | undefined =
-    onlyNonexistent ||
-    onlyAnonymized ||
-    duplicateIdSet ||
-    exifBrokenOnly ||
-    gpsBrokenOnly ||
-    noteOnly
+    duplicateIdSet || exifBrokenOnly || gpsBrokenOnly || noteOnly
       ? (name) => {
-          if (onlyNonexistent && !name.startsWith("NEEXISTUJE-")) return false;
-          if (onlyAnonymized && !(anonymizedNamesNFC?.has(name) ?? false)) {
-            return false;
-          }
           if (duplicateIdSet) {
             const id = idExtractor?.(name);
             if (id === null || id === undefined || !duplicateIdSet.has(id)) {
@@ -393,25 +331,6 @@ export default async function AdminScopeListPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  // Maps-only: which of the current page's entries already have a
-  // real-life photo in generated/location-photos/. The set is keyed
-  // by the raw entry name (no NFC by caller) so the client check is
-  // a plain `.has(e.name)`. Built only for the maps scope — for
-  // other scopes the prop stays undefined and the badge is skipped.
-  let mapsWithRealPhoto: Set<string> | undefined;
-  if (scope.slug === "maps") {
-    const photoKeys = await getRealPhotoMapKeys();
-    mapsWithRealPhoto = new Set();
-    for (const e of entries) {
-      const ext = path.extname(e.name);
-      const key = e.name
-        .slice(0, e.name.length - ext.length)
-        .normalize("NFC")
-        .toLowerCase();
-      if (photoKeys.has(key)) mapsWithRealPhoto.add(e.name);
-    }
-  }
-
   // Finds-only: which of the page's rows belong to a find that has at
   // least one donation photo on disk. `getFindIdsWithRealPhotos`
   // returns the whole set in one dirCache read; we pass it through
@@ -440,8 +359,6 @@ export default async function AdminScopeListPage({
       dups: boolean;
       id_dups: boolean;
       uncovered: boolean;
-      nonexistent: boolean;
-      anonymized: boolean;
       exif_broken: boolean;
       gps_broken: boolean;
       note: boolean;
@@ -454,8 +371,6 @@ export default async function AdminScopeListPage({
       dups: duplicatesOnly,
       id_dups: idDuplicatesOnly,
       uncovered: uncoveredOnly,
-      nonexistent: onlyNonexistent,
-      anonymized: onlyAnonymized,
       exif_broken: exifBrokenOnly,
       gps_broken: gpsBrokenOnly,
       note: noteOnly,
@@ -468,8 +383,6 @@ export default async function AdminScopeListPage({
     if (merged.dups) usp.set("dups", "1");
     if (merged.id_dups) usp.set("id_dups", "1");
     if (merged.uncovered) usp.set("uncovered", "1");
-    if (merged.nonexistent) usp.set("nonexistent", "1");
-    if (merged.anonymized) usp.set("anonymized", "1");
     if (merged.exif_broken) usp.set("exif_broken", "1");
     if (merged.gps_broken) usp.set("gps_broken", "1");
     if (merged.note) usp.set("note", "1");
@@ -540,7 +453,6 @@ export default async function AdminScopeListPage({
 
       {scope.slug === "finds" && <FindsUploadForm />}
       {scope.slug === "crops" && <CropsUploadForm />}
-      {scope.slug === "maps" && <MapsUploadForm />}
       {scope.slug === "donation-photos" && <DonationPhotosUploadForm />}
       {scope.slug === "donation-photos" && <DonationPhotosBulkAssignForm />}
       {scope.slug === "location-photos" && <LocationPhotosUploadForm />}
@@ -649,10 +561,6 @@ export default async function AdminScopeListPage({
         {duplicatesOnly && <input type="hidden" name="dups" value="1" />}
         {idDuplicatesOnly && <input type="hidden" name="id_dups" value="1" />}
         {uncoveredOnly && <input type="hidden" name="uncovered" value="1" />}
-        {onlyNonexistent && (
-          <input type="hidden" name="nonexistent" value="1" />
-        )}
-        {onlyAnonymized && <input type="hidden" name="anonymized" value="1" />}
         {exifBrokenOnly && <input type="hidden" name="exif_broken" value="1" />}
         {gpsBrokenOnly && <input type="hidden" name="gps_broken" value="1" />}
         <button
@@ -780,40 +688,6 @@ export default async function AdminScopeListPage({
                 Filtr: s poznámkou ({findIdsWithNotes.size})
               </Link>
             ))}
-          {scope.slug === "maps" &&
-            (onlyNonexistent ? (
-              <Link
-                href={buildHref({ nonexistent: false, page: 1 })}
-                className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 font-medium text-amber-900 hover:bg-amber-100"
-              >
-                <span aria-hidden>×</span>
-                Zrušit „jen zaniklé&ldquo;
-              </Link>
-            ) : (
-              <Link
-                href={buildHref({ nonexistent: true, page: 1 })}
-                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
-              >
-                Filtr: jen zaniklé
-              </Link>
-            ))}
-          {scope.slug === "maps" &&
-            (onlyAnonymized ? (
-              <Link
-                href={buildHref({ anonymized: false, page: 1 })}
-                className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 py-0.5 font-medium text-violet-900 hover:bg-violet-100"
-              >
-                <span aria-hidden>×</span>
-                Zrušit „jen anonymizované&ldquo;
-              </Link>
-            ) : (
-              <Link
-                href={buildHref({ anonymized: true, page: 1 })}
-                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
-              >
-                Filtr: jen anonymizované
-              </Link>
-            ))}
         </div>
         {total > PAGE_SIZE_OPTIONS[0] && (
           <div className="flex items-center gap-1">
@@ -864,22 +738,6 @@ export default async function AdminScopeListPage({
           missingCoverageLabel={counterpartLabel}
           exifProblemIds={exifProblemIds}
           gpsProblemIds={gpsProblemIds}
-        />
-      ) : scope.slug === "maps" ? (
-        <FilesListClient
-          entries={entries}
-          scopeSlug={scope.slug}
-          bulkDelete={deleteMapsBulk}
-          bulkRename={{
-            label: "Označit jako zaniklé",
-            confirmTemplate: "Přejmenovat {n} položek s prefixem NEEXISTUJE-?",
-            action: markMapsNonexistentBulk,
-          }}
-          anonymizedNames={anonymizedNamesNFC}
-          mapsWithRealPhoto={mapsWithRealPhoto}
-          showNonexistentBadge
-          mapNoteOverrides={mapNoteOverrides}
-          mapNoteRaw={mapNoteRaw}
         />
       ) : scope.slug === "donation-photos" ? (
         <FilesListClient

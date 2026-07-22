@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ADMIN_ROOTS, type AdminRootKey, safeJoin } from "./paths";
+import { resolveV2MapFileByName } from "./mapsV2";
 
 /** Resolves a requested filename to its actual on-disk basename
  *  inside the given root, accounting for Unicode normalization drift
@@ -631,7 +632,14 @@ export async function statScopeFile(
   scope: ScopeDef,
   filename: string,
 ): Promise<FileInfo | null> {
-  const resolved = await resolveDiskPath(scope.rootKey, filename);
+  let resolved = await resolveDiskPath(scope.rootKey, filename);
+  // v2 maps live nested under `Nosné mapy/…` — the flat resolveDiskPath
+  // (which only scans data/maps/ directly) misses them. Fall back to the
+  // manifest, matching the Nosná basename, so detail pages + the file
+  // endpoint can serve v2 map images.
+  if (!resolved && scope.slug === "maps") {
+    resolved = await resolveV2MapFileByName(filename);
+  }
   if (!resolved) return null;
   let stat;
   try {
