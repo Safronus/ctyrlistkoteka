@@ -35,10 +35,17 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_COMMIT_COUNT: gitCommitCount(),
   },
-  // yauzl (streaming unzip for the /admin package import) is required at
-  // runtime; keep it + its CJS deps out of the webpack server bundle so the
-  // interop stays intact (archiver broke exactly this way — see qr-zip).
-  serverExternalPackages: ["yauzl"],
+  // Packages that must stay OUT of the server bundle and be required from
+  // node_modules at runtime:
+  //  - yauzl (streaming unzip for the /admin package import) — bundling breaks
+  //    its CJS interop (archiver broke exactly this way — see qr-zip).
+  //  - exifr — ships a UMD build that sniffs the environment at runtime to pick
+  //    its Node file reader. Bundled, that detection breaks and
+  //    `exifr.parse(<path>)` throws, so readExifSafe silently returned nulls
+  //    and EVERY admin upload reported "chybí EXIF DateTimeOriginal" even for
+  //    photos that have it. (scripts/sync.ts was unaffected — it runs under
+  //    tsx, unbundled — so foundAt in the DB was always correct.)
+  serverExternalPackages: ["yauzl", "exifr"],
   experimental: {
     serverActions: {
       // Admin upload of find photos: each JPEG after prepare-upload is

@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### 🛑 Falešné „chybí EXIF" u KAŽDÉHO admin uploadu
+- `/admin/files/{finds,crops}` hlásily u každé nahrané fotky **„Chybí EXIF
+  DateTimeOriginal"**, i když ji fotka měla. Příčina: `exifr` nebyl
+  v `serverExternalPackages`, takže si ho Next zabalil do server bundlu — jeho
+  UMD build ale za běhu detekuje prostředí, aby věděl, jestli smí sáhnout na
+  `fs`. Zabalený tu detekci ztratí, `exifr.parse(<cesta>)` hodí výjimku a
+  `readExifSafe` ji **tiše spolkl** (`catch {}` → samé `null`).
+- **Data nebyla nijak poškozena.** `scripts/sync.ts` běží pod `tsx` mimo
+  bundle, takže EXIF četl správně — `Find.foundAt` v DB je celou dobu v pořádku.
+  Šlo čistě o falešné varování v adminu.
+- Oprava: `exifr` přidán do `serverExternalPackages`; `readExifSafe` navíc
+  loguje (místo tichého spolknutí) a při selhání cesty zkusí parse z `Bufferu`,
+  takže je odolný i kdyby se ta konfigurace někdy ztratila.
+- Není to regrese z map v2 — `exif.ts` se od svého zavedení nezměnil a `exifr`
+  v externals nikdy nebyl.
+
 ### Admin `/admin/files/maps` → mapy v2 (probíhá)
 - **Listing nově čte `manifest.json`, ne plochý `readdir`.** Dřív `/admin/files/maps`
   ukazoval `manifest.json` + adresáře `Nosné mapy`/`Rendered mapy` + staré

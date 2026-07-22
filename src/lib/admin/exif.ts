@@ -32,31 +32,68 @@ export interface ExifSummary {
   lng: number | null;
 }
 
+const EMPTY: ExifSummary = {
+  dateTaken: null,
+  dateTakenHasClock: false,
+  lat: null,
+  lng: null,
+};
+
+interface RawExif {
+  DateTimeOriginal?: Date | string;
+  DateTimeDigitized?: Date | string;
+  CreateDate?: Date | string;
+  ModifyDate?: Date | string;
+  latitude?: number;
+  longitude?: number;
+  GPSLatitude?: number | number[];
+  GPSLongitude?: number | number[];
+  GPSLatitudeRef?: string;
+  GPSLongitudeRef?: string;
+}
+
+/**
+ * Runs exifr against a path, falling back to an explicit Buffer read.
+ *
+ * exifr ships a UMD build that sniffs the environment at runtime to decide
+ * whether it may touch `fs`. A bundler (Next's server webpack) can mangle
+ * that detection, after which passing a *path* throws and every caller
+ * silently sees "no EXIF" — which is exactly what made every admin upload
+ * report a missing DateTimeOriginal for photos that had one. `exifr` is now
+ * in `serverExternalPackages` so the detection stays intact, and this
+ * fallback keeps the reader correct even if that config is ever lost.
+ *
+ * The fallback only runs on the error path, so sync's 17k-photo run keeps
+ * exifr's cheap chunked head-read instead of loading each file whole.
+ */
+async function parseExif(path: string): Promise<RawExif | undefined> {
+  const mod = await import("exifr");
+  // `.default` is undefined under some CJS/ESM interop shapes — fall back to
+  // the namespace object itself rather than throwing on `.parse`.
+  const exifr = (mod.default ?? mod) as {
+    parse: (input: string | Buffer) => Promise<RawExif | undefined>;
+  };
+  try {
+    return await exifr.parse(path);
+  } catch (err) {
+    const { readFile } = await import("node:fs/promises");
+    console.warn("[exif] path read failed, retrying via Buffer", {
+      path,
+      message: (err as Error).message,
+    });
+    return await exifr.parse(await readFile(path));
+  }
+}
+
 export async function readExifSafe(path: string): Promise<ExifSummary> {
   try {
-    const exifr = (await import("exifr")).default;
     // Default options give us EXIF + GPS with auto-unwrapping into top-level
     // `latitude` / `longitude`. `pick` was previously used here together
     // with `gps: true` and that combination filters output keys BEFORE the
     // GPS unwrap step — leaving us with empty results. Always read the full
     // default set; we filter to just the keys we need below.
-    const exif = (await exifr.parse(path)) as
-      | {
-          DateTimeOriginal?: Date | string;
-          DateTimeDigitized?: Date | string;
-          CreateDate?: Date | string;
-          ModifyDate?: Date | string;
-          latitude?: number;
-          longitude?: number;
-          GPSLatitude?: number | number[];
-          GPSLongitude?: number | number[];
-          GPSLatitudeRef?: string;
-          GPSLongitudeRef?: string;
-        }
-      | undefined;
-    if (!exif) {
-      return { dateTaken: null, dateTakenHasClock: false, lat: null, lng: null };
-    }
+    const exif = await parseExif(path);
+    if (!exif) return EMPTY;
 
     // Try every plausible EXIF date field, then prefer the first candidate
     // that actually carries a clock component — some pipelines (older
@@ -90,8 +127,16 @@ export async function readExifSafe(path: string): Promise<ExifSummary> {
       lat: lat !== null && Number.isFinite(lat) ? lat : null,
       lng: lng !== null && Number.isFinite(lng) ? lng : null,
     };
-  } catch {
-    return { dateTaken: null, dateTakenHasClock: false, lat: null, lng: null };
+  } catch (err) {
+    // Never throw — a malformed EXIF block must not abort a sync run mid-batch
+    // or reject an otherwise valid upload. But DO log it: a silent null here
+    // hid a systematic reader failure that made every admin upload claim the
+    // photo had no DateTimeOriginal.
+    console.warn("[exif] unreadable", {
+      path,
+      message: (err as Error).message,
+    });
+    return EMPTY;
   }
 }
 
