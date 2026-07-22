@@ -9,6 +9,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Kalendářní heatmapa — širší sloupce
+- Čtyřmístné součty (1084, 1107, 1191…) se do 28px sloupce při 11px fontu
+  nevešly. Denní sloupce 28 → 32 px, sloupec Σ 40 → 48 px. Tabulka tak zabírá
+  ~1074 px z ~1176 px dostupných v sekci — pořád bez vodorovného posuvníku.
+
 ### 🛑 Falešné „chybí EXIF" u KAŽDÉHO admin uploadu
 - `/admin/files/{finds,crops}` hlásily u každé nahrané fotky **„Chybí EXIF
   DateTimeOriginal"**, i když ji fotka měla. Příčina: `exifr` nebyl

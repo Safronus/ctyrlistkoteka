@@ -1625,12 +1625,12 @@ function MonthDayHeatmap({
               {days.map((d) => (
                 <th
                   key={d}
-                  className="w-7 p-0.5 text-center font-medium text-gray-500"
+                  className="w-8 p-0.5 text-center font-medium text-gray-500"
                 >
                   {d}
                 </th>
               ))}
-              <th className="w-10 p-0.5 text-center font-semibold text-gray-700">
+              <th className="w-12 p-0.5 text-center font-semibold text-gray-700">
                 Σ
               </th>
             </tr>
@@ -1648,7 +1648,7 @@ function MonthDayHeatmap({
                       return (
                         <td
                           key={d}
-                          className="w-7 border text-center"
+                          className="w-8 border text-center"
                           style={{
                             backgroundColor: HEATMAP_EMPTY_BG,
                             color: HEATMAP_X_TEXT,
@@ -1668,7 +1668,7 @@ function MonthDayHeatmap({
                     return (
                       <td
                         key={d}
-                        className="w-7 border text-center"
+                        className="w-8 border text-center"
                         style={{
                           backgroundColor: `oklch(${L} ${C} 145)`,
                           color: fg,
@@ -1680,7 +1680,7 @@ function MonthDayHeatmap({
                       </td>
                     );
                   })}
-                  <td className="w-10 border border-gray-100 bg-gray-50 text-center font-semibold text-gray-700">
+                  <td className="w-12 border border-gray-100 bg-gray-50 text-center font-semibold text-gray-700">
                     {monthTotals.get(m) ?? 0}
                   </td>
                 </tr>
@@ -1695,12 +1695,12 @@ function MonthDayHeatmap({
               {days.map((d) => (
                 <td
                   key={d}
-                  className="w-7 border border-gray-100 bg-gray-50 text-center font-medium text-gray-700"
+                  className="w-8 border border-gray-100 bg-gray-50 text-center font-medium text-gray-700"
                 >
                   {dayTotals.get(d) ?? 0}
                 </td>
               ))}
-              <td className="w-10 border border-gray-100 bg-brand-50 text-center font-bold text-brand-700">
+              <td className="w-12 border border-gray-100 bg-brand-50 text-center font-bold text-brand-700">
                 {grandTotal}
               </td>
             </tr>
