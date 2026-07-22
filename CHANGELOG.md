@@ -9,6 +9,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Home „lísteček" se nepřetáčí při změně jazyka
+- Rotující karta čtyřlístkových faktů na hlavní stránce se řídí **hodinami**
+  (slot = `floor(now / interval)`, deterministický výběr faktu i odpočtu) místo
+  náhodného výběru na každý mount. Přepnutí jazyka (= plná navigace) tak jen
+  přeloží *tentýž* fakt se *stejným* odpočtem, místo aby se přetočil (a dřív
+  dokonce dvakrát: seed → plná sada). Ruční „zamíchat" zůstává (efemérní).
+- Detail nálezu → „Pořadí lokality" nota „dle počtu nálezů" → „dle počtu 🍀".
+
 ### Provázanost filtrů + „Bez stavu"
 - **/lokality** — filtry „Stát"/„Město" teď reagují na hledání: po vyfiltrování
   podle čísla/popisu nabízejí jen státy/města, které ve výsledku zůstaly (a

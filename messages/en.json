@@ -839,7 +839,7 @@
     "orderAtLocationValue": "🍀 {rank, number} of {total, number}",
     "kvLocationRank": "Location rank",
     "locationRankValue": "{rank, number} of {total, number}",
-    "locationRankNote": "by find count",
+    "locationRankNote": "by 🍀 count",
     "locationRankLink": "Top locations",
     "prevAtLocation": "Previous at location",
     "nextAtLocation": "Next at location",

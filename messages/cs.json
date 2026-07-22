@@ -838,7 +838,7 @@
     "orderAtLocationValue": "{rank, number}. 🍀 z {total, number}",
     "kvLocationRank": "Pořadí lokality",
     "locationRankValue": "{rank, number}. z {total, number}",
-    "locationRankNote": "dle počtu nálezů",
+    "locationRankNote": "dle počtu 🍀",
     "locationRankLink": "Top lokalit",
     "prevAtLocation": "Předchozí na lokalitě",
     "nextAtLocation": "Další na lokalitě",

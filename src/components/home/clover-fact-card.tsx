@@ -14,6 +14,7 @@ import {
   cloverCategoryKey,
   cloverKindKey,
 } from "@/lib/cloverFactsLabels";
+import { rotationSlot, slotFactIndex } from "@/lib/cloverRotation";
 
 const DEFAULT_ROTATION_MS = 120_000;
 const TICK_MS = 1_000;
@@ -131,9 +132,11 @@ function vibeKeyFor(text: CloverText): VibeKey {
  *    blend for the poem at #111, "demonic" dark/red treatment for the
  *    clickable #666 entry that links to the matching find detail.
  *
- * SSR renders `texts[0]` as a stable fallback; client-side `useEffect`
- * picks a random starting index then advances by one every 2 minutes.
- * Each visit/reload picks a new random start.
+ * SSR renders `texts[0]` as a fallback; on mount the client snaps to the
+ * fact the wall clock dictates (see `syncToSlot` / cloverRotation) and
+ * advances by slot. Because the pick is time-derived — not per-mount random —
+ * a language switch (a full page navigation → a fresh mount) re-renders the
+ * SAME fact in the other language with the SAME countdown instead of rotating.
  *
  * Texts + translations are loaded server-side by the parent page so
  * runtime edits via /admin/clover-texts/ show up without a rebuild.
@@ -188,17 +191,36 @@ export function CloverFactCard({
   const [index, setIndex] = useState(0);
   const [remainingMs, setRemainingMs] = useState(rotationMs);
   // `nextAt` lives in a ref so both the auto-rotation tick AND the
-  // external advance event handler can reset it without one stomping
-  // the other's closure. Keeping it as state would force a re-render on
-  // every second, defeating the point of the steady visible countdown.
+  // shuffle handler can reset it without one stomping the other's
+  // closure. Keeping it as state would force a re-render every second,
+  // defeating the point of the steady visible countdown.
   const nextAtRef = useRef<number>(Date.now() + rotationMs);
 
-  // Random advance — pick any index OTHER than the current one, so two
-  // consecutive rotations never land on the same text. Uniform across
-  // the remaining N-1 entries by sampling an offset in [1, N-1] and
-  // adding it modulo N. Shared by the timer expiry and the in-card
-  // shuffle button — both behave identically.
-  const advance = useCallback(() => {
+  // Snap the card to the fact + countdown the wall clock says it should show
+  // right now. Deterministic per (time window, fact set) — see cloverRotation
+  // — so any re-mount at the same moment reproduces the same fact with the
+  // same remaining time. That's what keeps a language switch (a full page
+  // navigation → a fresh mount) from re-rotating: both locales compute the
+  // same slot from the same clock + the same facts. Picking on an id-sorted
+  // view keeps server and every client agreeing regardless of array order.
+  const syncToSlot = useCallback(() => {
+    const n = allTexts.length;
+    if (n === 0) return;
+    const now = Date.now();
+    const slot = rotationSlot(now, rotationMs);
+    const sorted = [...allTexts].sort((a, b) => a.id - b.id);
+    const pick = sorted[slotFactIndex(slot, n)]!;
+    const idx = allTexts.findIndex((tx) => tx.id === pick.id);
+    setIndex(idx >= 0 ? idx : 0);
+    nextAtRef.current = (slot + 1) * rotationMs;
+    setRemainingMs(nextAtRef.current - now);
+  }, [allTexts, rotationMs]);
+
+  // In-card shuffle button: jump to a random OTHER fact now and start a fresh
+  // countdown. Deliberately ephemeral — the next auto-advance (or any
+  // re-mount) snaps back to the wall-clock slot, so it never desyncs the
+  // language-stable rotation.
+  const shuffle = useCallback(() => {
     const n = allTexts.length;
     nextAtRef.current = Date.now() + rotationMs;
     setRemainingMs(rotationMs);
@@ -209,29 +231,20 @@ export function CloverFactCard({
     });
   }, [allTexts, rotationMs]);
 
-  // Single 1 s interval drives both the visible countdown and the
-  // rotation flip. Using a wall-clock target (`nextAt`) instead of a
-  // tick counter means the timer stays correct after the tab was
-  // backgrounded — `setInterval` is throttled while hidden, but on
-  // resume we just observe a smaller `remaining` and either advance
-  // straight to the next text or keep counting down from there.
+  // Single 1 s interval drives both the visible countdown and the flip to the
+  // next slot. Wall-clock target (`nextAt`) instead of a tick counter keeps
+  // the timer correct after the tab was backgrounded (setInterval throttles
+  // while hidden — on resume we just observe that `nextAt` has passed and
+  // re-sync).
   useEffect(() => {
-    const n = allTexts.length;
-    if (n === 0) return;
-    setIndex(Math.floor(Math.random() * n));
-    nextAtRef.current = Date.now() + rotationMs;
-    setRemainingMs(rotationMs);
-
+    if (allTexts.length === 0) return;
+    syncToSlot();
     const tick = setInterval(() => {
-      const remaining = nextAtRef.current - Date.now();
-      if (remaining <= 0) advance();
-      else setRemainingMs(remaining);
+      if (Date.now() >= nextAtRef.current) syncToSlot();
+      else setRemainingMs(nextAtRef.current - Date.now());
     }, TICK_MS);
-
-    return () => {
-      clearInterval(tick);
-    };
-  }, [allTexts, rotationMs, advance]);
+    return () => clearInterval(tick);
+  }, [allTexts, rotationMs, syncToSlot]);
 
   const rawText = allTexts[index];
   if (!rawText) return null;
@@ -340,7 +353,7 @@ export function CloverFactCard({
         {!text.link && (
           <button
             type="button"
-            onClick={advance}
+            onClick={shuffle}
             aria-label={t("cardNextButtonAria")}
             title={t("cardNextButtonTitle")}
             className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full opacity-45 transition hover:bg-black/[0.06] hover:opacity-90 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-brand-500 ${styles.idColor}`}
