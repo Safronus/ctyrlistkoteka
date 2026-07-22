@@ -9,6 +9,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Malé plochy (rádius < 1 m)
+- `formatAreaM2` u pod-1m² ploch (např. 15cm rádius → π·0,15² ≈ 0,07 m²) už
+  neukazuje matoucí „0 m²" — zobrazí 2 desetinná místa („0,07 m²"), s prahem
+  „<0,01 m²" pro extrémně malé. Zbytek (≥ 1 m²) drží celá čísla. +4 testy.
+
 ### Home „lísteček" se nepřetáčí při změně jazyka
 - Rotující karta čtyřlístkových faktů na hlavní stránce se řídí **hodinami**
   (slot = `floor(now / interval)`, deterministický výběr faktu i odpočtu) místo

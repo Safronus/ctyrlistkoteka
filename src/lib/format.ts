@@ -482,6 +482,16 @@ export function formatAreaM2(m2: number): string {
       maximumFractionDigits: 2,
     }).format(ha)} ha`;
   }
+  // Sub-square-metre areas — a tiny-radius location, e.g. a 15 cm radius →
+  // π·0.15² ≈ 0.07 m² — would round to a misleading "0 m²". Show up to two
+  // decimals so they read honestly, with a "<0,01" floor for the absurdly
+  // small. (Everything ≥ 1 m² keeps the clean whole-number look.)
+  if (m2 > 0 && m2 < 1) {
+    const s = new Intl.NumberFormat("cs-CZ", {
+      maximumFractionDigits: 2,
+    }).format(m2);
+    return `${s === "0" ? "<0,01" : s} m²`;
+  }
   return `${new Intl.NumberFormat("cs-CZ", {
     maximumFractionDigits: 0,
   }).format(Math.round(m2))} m²`;
