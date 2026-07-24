@@ -28,12 +28,23 @@ const ALLOWED_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 const DIR_CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface DirCache {
-  /** Lower-case basename → exact filename on disk. We compare basenames
-   *  case-insensitively because macOS HFS+ is case-insensitive by
-   *  default and the user uploads from there; storing the exact name
-   *  preserves case for the URL we hand to the browser. */
-  byKey: Map<string, string>;
+  /** Map number (MAP_ID = the trailing 5-digit run of the map's basename)
+   *  → exact filename on disk. Keyed by number rather than full basename
+   *  because the v1→v2 migration RENAMED the map files (v2 nested Nosná
+   *  basenames), which broke the old full-basename match — but the MAP_ID
+   *  at the end of the name is invariant, and both the photo filename and
+   *  the map's `originalFilename` carry it. Storing the exact filename
+   *  preserves case/diacritics for the URL we hand to the browser. */
+  byMapId: Map<number, string>;
   loadedAt: number;
+}
+
+/** MAP_ID from a map/photo basename stem — the trailing 5-digit run
+ *  (…+00025 → 25). Mirror of scopes.ts `extractMapId`, kept local so this
+ *  public-query module doesn't pull the fs-heavy admin scopes in. */
+function extractMapNumber(stem: string): number | null {
+  const m = /(?:^|[^0-9])(\d{5})$/.exec(stem);
+  return m ? Number(m[1]) : null;
 }
 
 let dirCache: DirCache | null = null;
@@ -41,17 +52,6 @@ let dirCache: DirCache | null = null;
 function getPhotosDir(): string {
   const generatedDir = process.env.GENERATED_DIR ?? "./public/generated";
   return path.join(generatedDir, PHOTOS_SUBDIR);
-}
-
-/** Normalize to NFC (canonical composed form) + lowercase. macOS APFS
- *  reports filenames as the user typed them, but rsync between an HFS+
- *  source and a Linux target can produce NFD (decomposed) on the Linux
- *  side. Without this, "REYKJAVÍK" stored NFC in the DB would byte-for-
- *  byte differ from "REYKJAVI<COMBINING ACUTE>K" on disk and the lookup
- *  would silently miss. NFC is also the form Next.js / Node uses
- *  internally, so this is a no-op for already-composed strings. */
-function makeKey(s: string): string {
-  return s.normalize("NFC").toLowerCase();
 }
 
 async function loadDirCache(): Promise<DirCache> {
@@ -63,25 +63,25 @@ async function loadDirCache(): Promise<DirCache> {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
     // Directory doesn't exist yet — treat as empty index, don't crash.
   }
-  const byKey = new Map<string, string>();
+  const byMapId = new Map<number, string>();
   for (const name of entries) {
     const ext = path.extname(name).toLowerCase();
     if (!ALLOWED_EXTS.has(ext)) continue;
-    // Strip extension first, then strip the `_reálné foto*` suffix to
-    // recover the location-map's basename (the join key). The key is
-    // NFC-normalized + lowercased so a Mac → Linux rsync with NFD
-    // decomposition still matches the DB-stored originalFilename.
+    // Strip extension, then the `_reálné foto*` suffix to recover the
+    // location-map's basename, then pull its trailing MAP_ID — the stable
+    // join key (the full basename changed in the v1→v2 rename).
     const noExt = name.slice(0, name.length - ext.length);
     const normalized = noExt.normalize("NFC");
     const idx = normalized.indexOf(PHOTO_SUFFIX_PREFIX);
     if (idx <= 0) continue; // suffix must be present AND not at index 0
-    const baseKey = normalized.slice(0, idx).toLowerCase();
-    // First match wins — if the user accidentally has two photos for one
-    // map, the alphabetically earliest one (readdir's natural order on
-    // most filesystems) is rendered.
-    if (!byKey.has(baseKey)) byKey.set(baseKey, name);
+    const stem = normalized.slice(0, idx);
+    const mapId = extractMapNumber(stem);
+    if (mapId === null) continue; // stem doesn't end in a MAP_ID → skip
+    // First match wins — if two photos share a MAP_ID, the alphabetically
+    // earliest one (readdir's natural order on most filesystems) is rendered.
+    if (!byMapId.has(mapId)) byMapId.set(mapId, name);
   }
-  return { byKey, loadedAt: Date.now() };
+  return { byMapId, loadedAt: Date.now() };
 }
 
 async function getDirCache(): Promise<DirCache> {
@@ -111,12 +111,10 @@ export function invalidateLocationPhotosCache(): void {
  * "photo file exists for this map" even for anonymized maps so the
  * user can spot suppressed-on-public photos.
  */
-export async function getRealPhotoMapKeys(): Promise<ReadonlySet<string>> {
+export async function getRealPhotoMapIds(): Promise<ReadonlySet<number>> {
   const cache = await getDirCache();
-  // The Map's keys are already the NFC-lowercased basenames we need —
-  // no copy, just return a Set view. Wrap in Set so callers get the
-  // ergonomic .has() check without exposing the cache internals.
-  return new Set(cache.byKey.keys());
+  // Keys are MAP_IDs — callers check membership by the map's own číslo.
+  return new Set(cache.byMapId.keys());
 }
 
 /**
@@ -145,19 +143,17 @@ export async function resolveLocationMapPhoto(params: {
   isAnonymized: boolean;
 }): Promise<{ filename: string; url: string } | null> {
   if (params.isAnonymized) return null;
-  // Strip extension from `originalFilename` (e.g. ".HEIC" / ".jpg") so
-  // the key matches the suffix-stripped on-disk basename. NFC + lower
-  // mirrors the on-disk index — see makeKey() comment.
+  // Match by the map's MAP_ID (the trailing 5-digit run of its basename),
+  // not the full basename — the v1→v2 rename changed the basename but not
+  // the číslo, which both the map and its photo file still carry.
   const ext = path.extname(params.originalFilename);
-  const baseKey = makeKey(
-    params.originalFilename.slice(
-      0,
-      params.originalFilename.length - ext.length,
-    ),
-  );
-  if (!baseKey) return null;
+  const stem = params.originalFilename
+    .slice(0, params.originalFilename.length - ext.length)
+    .normalize("NFC");
+  const mapId = extractMapNumber(stem);
+  if (mapId === null) return null;
   const cache = await getDirCache();
-  const filename = cache.byKey.get(baseKey);
+  const filename = cache.byMapId.get(mapId);
   if (!filename) return null;
   // Encode every path segment — the filename can carry diacritics, plus
   // signs, and spaces, all of which need percent-encoding for the URL.

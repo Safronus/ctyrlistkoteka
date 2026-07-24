@@ -19,7 +19,7 @@ import {
   getScopeDiskFreeBytes,
 } from "@/lib/admin/scopes";
 import { checkSyncNeeded } from "@/lib/admin/syncNeeded";
-import { getRealPhotoMapKeys } from "@/lib/locationPhotos";
+import { getRealPhotoMapIds } from "@/lib/locationPhotos";
 import { formatAreaM2 } from "@/lib/format";
 import { SyncNeededBanner } from "../_shared/sync-needed-banner";
 
@@ -67,11 +67,11 @@ export async function MapsScopeView({ sp }: { sp: SP }) {
   const onlyAnon = pickString(sp.anonymized) === "1";
   const onlyCancelled = pickString(sp.nonexistent) === "1";
 
-  const [inventory, diskBytes, diskFreeBytes, photoKeys] = await Promise.all([
+  const [inventory, diskBytes, diskFreeBytes, photoMapIds] = await Promise.all([
     readMapInventory(),
     getScopeDiskBytes(scope),
     getScopeDiskFreeBytes(scope),
-    getRealPhotoMapKeys(),
+    getRealPhotoMapIds(),
   ]);
 
   const crumbs = (
@@ -273,12 +273,7 @@ export async function MapsScopeView({ sp }: { sp: SP }) {
         <ul className="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white">
           {rows.map((e) => {
             const href = `/admin/files/maps/${encodeURIComponent(e.nosnaName)}`;
-            const hasPhoto = photoKeys.has(
-              e.nosnaName
-                .slice(0, e.nosnaName.length - ".png".length)
-                .normalize("NFC")
-                .toLowerCase(),
-            );
+            const hasPhoto = photoMapIds.has(e.cislo);
             return (
               <li
                 key={e.cislo}

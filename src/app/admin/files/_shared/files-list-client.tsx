@@ -67,7 +67,7 @@ interface Props {
    *  `generated/location-photos/<basename>_reálné foto.*`. Set only
    *  for the maps scope; rows here grow a small camera "foto" badge.
    *  The page builds this by intersecting the per-page entries with
-   *  `getRealPhotoMapKeys()` so the props payload stays bounded by
+   *  `getRealPhotoMapIds()` so the props payload stays bounded by
    *  page size. */
   mapsWithRealPhoto?: Set<string>;
   /** Set of find IDs that have at least one donation photo on disk

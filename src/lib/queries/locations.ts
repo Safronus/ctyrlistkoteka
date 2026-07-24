@@ -264,8 +264,9 @@ export async function listCadastralAreas(): Promise<string[]> {
  *   - anonymized: locations with at least one location_map flagged
  *     is_anonymized (matches the listLocations / showAnonymized
  *     gate).
- *   - former: locations whose code carries the NEEXISTUJE- prefix
- *     (matches isFormerLocation). */
+ *   - former: locations that are gone — v1 `NEEXISTUJE-` code prefix OR the
+ *     v2 `is_cancelled` flag (matches isLocationGone; a v2-synced location has
+ *     a clean code + is_cancelled=true, so the prefix check alone misses it). */
 export async function countAnonymizedAndFormerLocations(): Promise<{
   anonymized: number;
   former: number;
@@ -279,7 +280,7 @@ export async function countAnonymizedAndFormerLocations(): Promise<{
     prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*)::bigint AS count
       FROM locations
-      WHERE code LIKE 'NEEXISTUJE-%'
+      WHERE code LIKE 'NEEXISTUJE-%' OR is_cancelled = true
     `,
   ]);
   return {

@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### 🛑 Regrese po přechodu na mapy v2: zaniklé lokality + reálné fotky zmizely
+- **Zaniklé/zrušené lokality se přestaly zobrazovat** (na /lokality i ve
+  statistikách). Dva count dotazy detekovaly „zaniklou" jen přes v1 prefix
+  `code LIKE 'NEEXISTUJE-%'` — jenže v2 sync dává čistý kód + `is_cancelled=true`,
+  takže počet spadl na 0 → toggle „Zaniklé" se tvářil jako prázdný a lokality
+  šly skrýt, ale ne odkrýt. Obě query nově berou i `OR is_cancelled = true`
+  (= `isLocationGone`). (`locations.ts` toggle count, `stats.ts` `gone_locations`.)
+- **Reálné fotky lokalit zmizely** (filtr „S reálnou fotkou" na /lokality i
+  odznak v adminu). Fotky se párovaly přes **celý název** mapy — ten se ale
+  v2 přejmenováním změnil (vnořené Nosné basenames), zatímco soubory fotek na
+  disku mají pořád v1 názvy. Nově se páruje přes **číslo mapy** (koncové 5místné
+  MAP_ID), které je invariantní: fotka s v1 názvem `…+04350_reálné foto.png`
+  se napáruje na v2 mapu s číslem 4350. (`locationPhotos.ts` indexuje podle
+  čísla; `getRealPhotoMapKeys` → `getRealPhotoMapIds`.)
+- Ověřeno na test DB (zaniklá v2 lokalita 0→1) + regex na reálných v1/v2 názvech.
+
 ### Výchozí lokalita „NEZNÁMÁ" (00000) pro nálezy bez lokality (probíhá)
 - Nálezy, u kterých není známá lokalita, se přiřadí na speciální lokalitu
   **NEZNÁMÁ, číslo 00000** (id 0) — importuje se klasicky přes /admin/import.
