@@ -167,11 +167,8 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     // Dedicated exact find-number box (`?id=140`) — matches #140 only.
     exactId: parsePositiveInt(pickString(sp.id)),
     locationId: parsePositiveInt(pickString(sp.loc)),
-    // Normalize the URL value to the canonical city (strip
-    // NEEXISTUJE-). The query layer expands it back to match both
-    // spellings, but keeping the filter object in canonical form
-    // ensures the dropdown's selected value lines up with what the
-    // user sees in the list.
+    // cityFromCadastralArea just coerces to string (v2 cadastralAreas are the
+    // plain city); `|| undefined` drops an empty filter.
     cadastralArea: cityFromCadastralArea(pickString(sp.city)) || undefined,
     country: pickString(sp.country) || undefined,
     states: parseStates(sp.state),

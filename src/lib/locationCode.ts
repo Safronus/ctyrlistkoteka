@@ -13,7 +13,6 @@
  *   RATIBOŘ_DOMA-JALOVEC      → cadastral=RATIBOŘ  type=DOMA-JALOVEC num=null
  *   ZLÍN_JSVAHY-SNP000        → cadastral=ZLÍN     type=JSVAHY-SNP num=0
  *   HLUBOKÁ NAD VLTAVOU_GC001 → spaces inside cadastral
- *   NEEXISTUJE-VSETÍN000      → cadastral=NEEXISTUJE-VSETÍN (prefix kept)
  *   ZLÍN_JSVAHY-UTB-U5-Z001   → type=JSVAHY-UTB-U5-Z (multiple dashes)
  *   BIELSKO-BIALA002          → cadastral=BIELSKO-BIALA (no underscore)
  *   ZLíN_JSVAHY-UTB-U5-001    → inconsistent case — preserved verbatim
@@ -109,54 +108,32 @@ export function toAsciiCode(code: string): string {
     .replace(/[^\x20-\x7E]/g, "_"); // any remaining non-ASCII → _
 }
 
-/** Prefix on location codes (and the cadastralArea derived from them)
- *  that marks the place as former / no-longer-existing. Kept as a
- *  module-level constant so the value is searchable and the city-
- *  stripping helper below stays in sync with `isFormerLocation`. */
-export const NEEXISTUJE_PREFIX = "NEEXISTUJE-";
-
 /**
- * True when the location code marks a former / no-longer-existing place.
- * Convention: location-map filenames for these get the `NEEXISTUJE-`
- * prefix in front of the original cadastral code.
- */
-export function isFormerLocation(
-  code: string | null | undefined,
-): boolean {
-  return typeof code === "string" && code.startsWith(NEEXISTUJE_PREFIX);
-}
-
-/**
- * True when a location is former / no-longer-existing, across the v1→v2 map
- * migration. Two independent signals, ORed:
- *  - v1: the code carries the `NEEXISTUJE-` prefix (isFormerLocation).
- *  - v2: the manifest's `zrusena` lands in locations.is_cancelled; the new
- *    v2 code format has no NEEXISTUJE- prefix, so the flag is the only signal.
- * Prefer this over a bare isFormerLocation() anywhere the value feeds an
- * "is this place gone" decision on data that may already be v2.
+ * True when a location is gone / no-longer-existing. Since the v1→v2 maps
+ * migration this is solely the manifest's `zrusena` → `locations.is_cancelled`.
+ * The old v1 `NEEXISTUJE-` code prefix is retired: sync upserts by číslo, so a
+ * v2 re-import rewrote those codes clean and set `is_cancelled=true`, leaving
+ * no prefix behind. The `code` param is kept for call-site stability (every
+ * caller already has both to hand); the prefix is no longer consulted.
  */
 export function isLocationGone(
   code: string | null | undefined,
   isCancelled: boolean | null | undefined,
 ): boolean {
-  return isCancelled === true || isFormerLocation(code);
+  // `code` is intentionally unused — kept only so the ~10 call sites that
+  // already pass (code, isCancelled) don't need touching. Gone-ness is
+  // purely the v2 is_cancelled flag now.
+  return isCancelled === true;
 }
 
-/** Canonical "city" value derived from a cadastralArea string. The
- *  `NEEXISTUJE-` prefix exists solely to mark a location as gone — it
- *  must NOT split the city into two filter buckets ("ZLÍN" vs
- *  "NEEXISTUJE-ZLÍN"). Strip it everywhere we treat the cadastralArea
- *  as a city/town key (filter dropdowns, dedup, URL params), while
- *  keeping `isFormerLocation` for the actual "is gone" check. Empty
- *  input returns "" so callers can use `|| undefined` to drop the
- *  filter entirely. */
+/** Canonical "city" value derived from a cadastralArea string. v2 cadastral
+ *  areas are the plain city (manifest `mesto`) — no marker prefix — so this
+ *  is now just a coerce-to-string. Empty input returns "" so callers can use
+ *  `|| undefined` to drop the filter entirely. */
 export function cityFromCadastralArea(
   cadastral: string | null | undefined,
 ): string {
-  if (typeof cadastral !== "string") return "";
-  return cadastral.startsWith(NEEXISTUJE_PREFIX)
-    ? cadastral.slice(NEEXISTUJE_PREFIX.length)
-    : cadastral;
+  return typeof cadastral === "string" ? cadastral : "";
 }
 
 function trimTypeTail(t: string): string | null {

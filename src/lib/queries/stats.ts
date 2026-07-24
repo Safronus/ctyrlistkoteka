@@ -78,8 +78,7 @@ export interface StatsTotals {
    *  up with the count of hidden rows on /lokality. */
   anonymizedLocations: number;
   /** Gone locations — places that no longer exist physically (built over,
-   *  ploughed under, etc.). v1 `NEEXISTUJE-` code prefix OR the v2
-   *  `is_cancelled` flag (matches isLocationGone). */
+   *  ploughed under, etc.), i.e. `is_cancelled` (matches isLocationGone). */
   goneLocations: number;
   firstYear: number | null;
   lastYear: number | null;
@@ -584,7 +583,7 @@ const fetchTotalsRow = cache(async (): Promise<TotalsRow | undefined> => {
       (SELECT COUNT(DISTINCT location_id) FROM location_maps
          WHERE is_anonymized = true) AS anonymized_locations,
       (SELECT COUNT(*) FROM locations
-         WHERE code LIKE 'NEEXISTUJE-%' OR is_cancelled = true) AS gone_locations,
+         WHERE is_cancelled = true) AS gone_locations,
       (SELECT EXTRACT(YEAR FROM MIN(found_at))::int FROM finds) AS first_year,
       (SELECT EXTRACT(YEAR FROM MAX(found_at))::int FROM finds) AS last_year
   `;

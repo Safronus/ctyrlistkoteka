@@ -26,11 +26,7 @@ import {
   type MapOverlayGeometry,
 } from "@/lib/mapOverlay";
 import { getLocationMapPhotoUrl } from "@/lib/locationPhotos";
-import {
-  cityFromCadastralArea,
-  isLocationGone,
-  NEEXISTUJE_PREFIX,
-} from "@/lib/locationCode";
+import { cityFromCadastralArea, isLocationGone } from "@/lib/locationCode";
 import { paddedIdMatches, parseIdQuery } from "@/lib/search";
 
 /** Sort key. `dist-asc` / `dist-desc` order locations by great-circle
@@ -93,8 +89,8 @@ export interface LocationListItem {
    *  (and at least one exists). Identifying fields are then hidden in
    *  the UI just like for anonymized finds. */
   isAnonymized: boolean;
-  /** True when the location-map filename starts with "NEEXISTUJE-",
-   *  marking the place as vanished/former. */
+  /** True when the location is cancelled/former (`is_cancelled`) —
+   *  vanished/former place. */
   isGone: boolean;
   /** Polygon area in square meters when a polygon is recorded, otherwise
    *  null. Computed via PostGIS ST_Area on the geography casting so the
@@ -186,10 +182,10 @@ export interface LocationFilter {
   /** When false, locations whose every map is anonymized are dropped from
    *  the result. Default is `false` (hidden). */
   showAnonymized?: boolean;
-  /** When false, locations whose code starts with `NEEXISTUJE-` are
-   *  dropped from the result. Default is `false` (hidden). */
+  /** When false, cancelled/former locations (`is_cancelled`) are dropped
+   *  from the result. Default is `false` (hidden). */
   showGone?: boolean;
-  /** When true, restrict the result to only former (NEEXISTUJE-)
+  /** When true, restrict the result to only cancelled/former (`is_cancelled`)
    *  locations. Different from `showGone`, which controls visibility:
    *  this is "pouze zaniklé" — the deep-link target from /statistiky's
    *  "zaniklých" tile. Implies `showGone: true` server-side; the
@@ -238,11 +234,10 @@ export async function getLocationIdsWithRealPhotos(): Promise<Set<number>> {
 }
 
 /** Returns the alphabetic list of distinct city names for the filter
- *  dropdown. Cadastral areas like `NEEXISTUJE-ZLÍN` collapse onto the
- *  plain `ZLÍN` bucket — the `NEEXISTUJE-` prefix marks the location
- *  as gone, not a separate city — so the same dropdown entry covers
- *  both surviving and former rows. Czech-collated alphabetic sort
- *  (e.g. "Č" between "C" and "D", not after "Z"). */
+ *  dropdown. cadastralArea is the plain city (v2 manifest `mesto`), so a
+ *  gone location shares its city's bucket automatically — gone-ness lives
+ *  in `is_cancelled`, not in the city string. Czech-collated alphabetic
+ *  sort (e.g. "Č" between "C" and "D", not after "Z"). */
 export async function listCadastralAreas(): Promise<string[]> {
   const rows = await prisma.location.findMany({
     distinct: ["cadastralArea"],
@@ -264,9 +259,7 @@ export async function listCadastralAreas(): Promise<string[]> {
  *   - anonymized: locations with at least one location_map flagged
  *     is_anonymized (matches the listLocations / showAnonymized
  *     gate).
- *   - former: locations that are gone — v1 `NEEXISTUJE-` code prefix OR the
- *     v2 `is_cancelled` flag (matches isLocationGone; a v2-synced location has
- *     a clean code + is_cancelled=true, so the prefix check alone misses it). */
+ *   - former: gone locations — `is_cancelled = true` (matches isLocationGone). */
 export async function countAnonymizedAndFormerLocations(): Promise<{
   anonymized: number;
   former: number;
@@ -280,7 +273,7 @@ export async function countAnonymizedAndFormerLocations(): Promise<{
     prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*)::bigint AS count
       FROM locations
-      WHERE code LIKE 'NEEXISTUJE-%' OR is_cancelled = true
+      WHERE is_cancelled = true
     `,
   ]);
   return {
@@ -550,12 +543,9 @@ export async function listLocations(
     where.id = Number.isInteger(n) && n > 0 ? n : -1;
   }
   if (filter.cadastralArea) {
-    // The dropdown bucket "ZLÍN" must match BOTH `cadastralArea =
-    // 'ZLÍN'` and `cadastralArea = 'NEEXISTUJE-ZLÍN'` rows — see
-    // listCadastralAreas() above for why the prefix is stripped on
-    // the way out. Match both spellings here on the way back in.
-    const city = cityFromCadastralArea(filter.cadastralArea);
-    where.cadastralArea = { in: [city, `${NEEXISTUJE_PREFIX}${city}`] };
+    // cadastralArea is the plain city (gone-ness lives in is_cancelled, not
+    // in the city string), so a single exact match covers surviving + gone.
+    where.cadastralArea = cityFromCadastralArea(filter.cadastralArea);
   }
   if (filter.q && filter.q.trim()) {
     where.OR = await buildLocationSearchOr(filter.q.trim());

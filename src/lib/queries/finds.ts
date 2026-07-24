@@ -26,11 +26,7 @@ import {
   type FindFreePhotoEntry,
 } from "@/lib/findFreePhotos";
 import { countryFromCoords } from "@/lib/geo";
-import {
-  cityFromCadastralArea,
-  isLocationGone,
-  NEEXISTUJE_PREFIX,
-} from "@/lib/locationCode";
+import { cityFromCadastralArea, isLocationGone } from "@/lib/locationCode";
 import {
   computeMapOverlayGeometry,
   indicatorFrom,
@@ -283,15 +279,10 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
     });
   }
   if (f.cadastralArea) {
-    // Same NEEXISTUJE- collapse rule as listLocations: a dropdown
-    // pick of "ZLÍN" must also surface finds whose location's
-    // cadastralArea is "NEEXISTUJE-ZLÍN" (former locations in the
-    // same city). See cityFromCadastralArea() for the rationale.
-    const city = cityFromCadastralArea(f.cadastralArea);
+    // cadastralArea is the plain city (gone-ness lives in is_cancelled), so
+    // a single exact match covers surviving + gone locations in that city.
     and.push({
-      location: {
-        cadastralArea: { in: [city, `${NEEXISTUJE_PREFIX}${city}`] },
-      },
+      location: { cadastralArea: cityFromCadastralArea(f.cadastralArea) },
     });
   }
   if (f.country) {

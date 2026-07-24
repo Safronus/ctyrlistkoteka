@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Úklid v1 vestige „NEEXISTUJE-" — zaniklost jen přes `is_cancelled`
+- Po plné migraci na v2 (sync upsertuje podle čísla → přepsal staré
+  `NEEXISTUJE-…` kódy na čisté + `is_cancelled=true`) už žádný kód prefix nemá.
+  Odstraněn celý v1 mechanismus: `isLocationGone` bere jen `is_cancelled`
+  (dřív `|| isFormerLocation(code)`); `isFormerLocation` + `NEEXISTUJE_PREFIX`
+  zrušeny; count dotazy zaniklých (`locations.ts`, `stats.ts`) jen
+  `is_cancelled = true`; `cityFromCadastralArea` už nestripuje prefix a filtry
+  města (`locations.ts`, `finds.ts`) matchují jedno čisté jméno. Testy
+  přepsány na nové chování.
+
 ### 🛑 Regrese po přechodu na mapy v2: zaniklé lokality + reálné fotky zmizely
 - **Zaniklé/zrušené lokality se přestaly zobrazovat** (na /lokality i ve
   statistikách). Dva count dotazy detekovaly „zaniklou" jen přes v1 prefix

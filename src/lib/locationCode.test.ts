@@ -1,49 +1,34 @@
 import { describe, expect, it } from "vitest";
 
-import { isFormerLocation, isLocationGone } from "./locationCode";
+import { cityFromCadastralArea, isLocationGone } from "./locationCode";
 
-describe("isFormerLocation (v1 signal)", () => {
-  it("is true only for the NEEXISTUJE- prefix", () => {
-    expect(isFormerLocation("NEEXISTUJE-ZLÍN_POLE001")).toBe(true);
-    expect(isFormerLocation("ZLÍN_POLE001")).toBe(false);
-  });
-
-  it("is false for null/undefined", () => {
-    expect(isFormerLocation(null)).toBe(false);
-    expect(isFormerLocation(undefined)).toBe(false);
-  });
-});
-
-describe("isLocationGone (v1 + v2 combined)", () => {
-  it("v1: true from the NEEXISTUJE- prefix even when is_cancelled is false", () => {
-    // A v1 location never sets is_cancelled (schema default false); the
-    // prefix is its only "gone" signal and must still win.
-    expect(isLocationGone("NEEXISTUJE-ZLÍN_POLE001", false)).toBe(true);
-  });
-
-  it("v2: true from is_cancelled even without the prefix", () => {
-    // A v2 gone location keeps a normal code (no NEEXISTUJE- prefix) — the
-    // flag is the only signal.
-    expect(isLocationGone("CZ_ZLÍN_JIŽNÍSVAHY_NADSTRÁNĚMI_002", true)).toBe(
-      true,
-    );
-  });
-
-  it("active location: false when neither signal is set", () => {
+describe("isLocationGone (v2: is_cancelled is the sole signal)", () => {
+  it("true only when is_cancelled is true — the code is not consulted", () => {
+    expect(isLocationGone("CZ_ZLÍN_NADSTRÁNĚMI_002", true)).toBe(true);
     expect(isLocationGone("CZ_RATIBOŘ_DOMA", false)).toBe(false);
   });
 
-  it("either signal alone is enough (OR, not AND)", () => {
+  it("ignores the retired v1 NEEXISTUJE- code prefix", () => {
+    // Post-migration no code carries the prefix (sync rewrote them clean +
+    // set is_cancelled). Gone-ness comes only from the flag now.
+    expect(isLocationGone("NEEXISTUJE-FOO", false)).toBe(false);
     expect(isLocationGone("NEEXISTUJE-FOO", true)).toBe(true);
-    expect(isLocationGone("FOO", true)).toBe(true);
-    expect(isLocationGone("NEEXISTUJE-FOO", false)).toBe(true);
-    expect(isLocationGone("FOO", false)).toBe(false);
   });
 
   it("treats null/undefined is_cancelled as not-cancelled", () => {
     expect(isLocationGone("FOO", null)).toBe(false);
     expect(isLocationGone("FOO", undefined)).toBe(false);
-    // …but the prefix still wins regardless of a nullish flag.
-    expect(isLocationGone("NEEXISTUJE-FOO", null)).toBe(true);
+  });
+});
+
+describe("cityFromCadastralArea", () => {
+  it("returns the cadastralArea as-is (v2 = plain city)", () => {
+    expect(cityFromCadastralArea("Zlín")).toBe("Zlín");
+    expect(cityFromCadastralArea("Brno")).toBe("Brno");
+  });
+
+  it("coerces null/undefined to an empty string", () => {
+    expect(cityFromCadastralArea(null)).toBe("");
+    expect(cityFromCadastralArea(undefined)).toBe("");
   });
 });

@@ -74,12 +74,8 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   // Exact location-number box (digits only; "26" == "00026"). Kept separate
   // from `q` so the small "Hledat podle čísla" field filters by číslo alone.
   const num = pickString(sp.num) ?? "";
-  // Normalize via cityFromCadastralArea so a stale URL with
-  // `?city=NEEXISTUJE-ZLÍN` is treated as `?city=ZLÍN` — both the
-  // dropdown selection and the query layer agree on the canonical
-  // form. See cityFromCadastralArea() in lib/locationCode for the
-  // why ("NEEXISTUJE-" marks the location as gone, not a separate
-  // city bucket).
+  // cityFromCadastralArea just coerces to a string now (v2 cadastralAreas
+  // are the plain city; gone-ness lives in is_cancelled, not the city name).
   const city = cityFromCadastralArea(pickString(sp.city));
   const country = pickString(sp.country) ?? "";
   const sort = parseSort(pickString(sp.sort));
