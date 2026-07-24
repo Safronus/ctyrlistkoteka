@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Odchylky: v2 „bod" (bez rádiusu) se do míry odchylky nepočítá
+- v2 lokalita s indikátorem „bod" nemá polygon ani rádius, takže u ní nejde
+  určit, jestli je nález odchýlený. Dřív se její nálezy počítaly do jmenovatele
+  míry odchylky, ale nikdy do čitatele (práh = NULL → nikdy „odchýlený") →
+  tiše táhly míru odchylky k nule. Nově se **bodové lokality z výpočtu odchylky
+  vyřadí úplně** (čitatel i jmenovatel i „lokalita s nejvyšší odchylkou"):
+  „neumíme posoudit → nepočítáme". Plocha a hustota bod už vylučovaly (nemá
+  plochu). Predikát `NOT (COALESCE(schema_version,1)=2 AND polygon IS NULL AND
+  radius_m IS NULL)` — `COALESCE` je nutný, aby v1 lokality (schema_version
+  NULL) nedostaly NULL-porovnání a nevypadly taky.
+
 ### Kalendářní heatmapa — širší sloupce
 - Čtyřmístné součty (1084, 1107, 1191…) se do 28px sloupce při 11px fontu
   nevešly. Denní sloupce 28 → 32 px, sloupec Σ 40 → 48 px. Tabulka tak zabírá

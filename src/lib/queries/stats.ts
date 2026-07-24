@@ -1972,6 +1972,12 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
       WHERE f.is_anonymized = false
         AND f.coordinates IS NOT NULL
         AND (l.polygon IS NOT NULL OR l.center_point IS NOT NULL)
+        -- A v2 "dot" location (no polygon, no radius) has no deviation
+        -- boundary, so we can't judge whether its finds are deviated — and
+        -- therefore don't count them in the rate at all (neither numerator
+        -- nor this denominator). Without this they'd be eligible-but-never-
+        -- deviated and silently drag the rate toward zero.
+        AND NOT (COALESCE(l.schema_version, 1) = 2 AND l.polygon IS NULL AND l.radius_m IS NULL)
     `,
     prisma.$queryRaw<DeviatedRow[]>`
       SELECT f.id,
@@ -1998,6 +2004,9 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
       JOIN locations l ON l.id = f.location_id
       WHERE f.is_anonymized = false
         AND f.coordinates IS NOT NULL
+        -- Skip v2 dots (no boundary → not judgeable). Redundant with the
+        -- NULL threshold below, but explicit + consistent with the rate.
+        AND NOT (COALESCE(l.schema_version, 1) = 2 AND l.polygon IS NULL AND l.radius_m IS NULL)
         AND (
           (l.polygon IS NOT NULL
             AND NOT ST_Covers(l.polygon::geography, f.coordinates::geography))
@@ -2034,6 +2043,8 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
       WHERE f.is_anonymized = false
         AND f.coordinates IS NOT NULL
         AND (l.polygon IS NOT NULL OR l.center_point IS NOT NULL)
+        -- Skip v2 dots — no deviation boundary (see the eligible query).
+        AND NOT (COALESCE(l.schema_version, 1) = 2 AND l.polygon IS NULL AND l.radius_m IS NULL)
         AND NOT EXISTS (
           SELECT 1 FROM location_maps lm
           WHERE lm.location_id = l.id AND lm.is_anonymized = true
