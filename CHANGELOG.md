@@ -42,11 +42,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   statistik o lokalitách; detail bude speciální („Defaultní lokalita…").
 - **Fáze 1 (základ):** konstanta `UNKNOWN_LOCATION_ID = 0` (odlišná od
   `DEFAULT_LOCATION_ID = 1`, což je placeholder pro anonymizované). Stav
-  **BEZLOKACE** (`LOCATION_MISSING`) **oživen** — s novým významem „zaparkováno
-  na NEZNÁMÁ", takže už to není duplikát BEZGPS: z `RETIRED_STATES` i
-  `DEPRECATED_STATES`/`DEPRECATED_JSON_STATE_KEYS` ven, přidán do
-  `JSON_STATE_MAP` (čte se z LSP `stavy.BEZLOKACE`) → filtrovatelný na /sbirka,
-  oranžový odznak „Bez lokality".
+  **BEZLOKACE** (`LOCATION_MISSING`) není retirovaný (zobrazitelný/filtrovatelný,
+  oranžový odznak „Bez lokality").
+- **Manifest 00000 ignoruje stát+město:** entry s číslem `00000` smí mít
+  libovolný `stat`/`mesto` (placeholdery „Defaultní"/„Neznámé") — import ho
+  přijme, ostatní entries drží 2-znakový stát dál. Sync u 00000 zapíše
+  `countryCode = null` (sloupec je `VarChar(2)`). (`mapPackage.ts`, `sync.ts`.)
+- **BEZLOKACE se odvozuje z lokality, ne ze stavu v názvu/LSP:** sync přiřadí
+  `LOCATION_MISSING` každému nálezu s `location_id = 0` (managed jako
+  ANONYMIZED). `stavy.BEZLOKACE` v LSP se ignoruje (zpět v
+  `DEPRECATED_JSON_STATE_KEYS`). Pozn.: nález se na lokalitu 0 dostane přes
+  **číslo mapy `00000` v názvu souboru** (sync `meta.lokace` pro přiřazení
+  nepoužívá).
 
 ### Odchylky: v2 „bod" (bez rádiusu) se do míry odchylky nepočítá
 - v2 lokalita s indikátorem „bod" nemá polygon ani rádius, takže u ní nejde

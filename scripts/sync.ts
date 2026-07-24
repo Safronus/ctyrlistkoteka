@@ -42,6 +42,7 @@ import {
   planLocationRenumber,
 } from "../src/lib/admin/locationIdReconcile";
 import { splitLocationCode, toAsciiCode } from "../src/lib/locationCode";
+import { UNKNOWN_LOCATION_ID } from "../src/lib/constants";
 import {
   parseMapPackageManifest,
   entryNumber,
@@ -422,6 +423,10 @@ async function phaseMapsV2(
       height: m.output_h_px,
     });
 
+    // The special "unknown" location (id/číslo 0) has no real country/city —
+    // its manifest stat/mesto are placeholders ("Defaultní"/"Neznámé"). Don't
+    // write the >2-char stat into countryCode (VarChar(2)); leave it null.
+    const isUnknownLoc = entryNumber(m) === UNKNOWN_LOCATION_ID;
     const locationData = {
       code: m.id_lokace,
       codeTransliterated: toAsciiCode(m.id_lokace),
@@ -432,7 +437,7 @@ async function phaseMapsV2(
       displayName: displayNameFor(m),
       // phase-A v2 columns
       schemaVersion: 2,
-      countryCode: m.stat,
+      countryCode: isUnknownLoc ? null : m.stat,
       geoAddress: m.geo_adresa ?? null,
       indicator: m.indikator,
       radiusM: m.radius_m,
@@ -1580,6 +1585,24 @@ async function phaseMeta(ctx: Context, meta: Meta) {
     }
   }
 
+  // BEZLOKACE (LOCATION_MISSING) — derived from the LSP location link, NOT a
+  // stavy key or filename token: every find parked on the special "unknown"
+  // location (id 0) gets it, so the web can badge + filter "Bez lokality".
+  // Managed like ANONYMIZED above (converged below).
+  const unknownLocFinds = await ctx.prisma.find.findMany({
+    where: { locationId: UNKNOWN_LOCATION_ID },
+    select: { id: true },
+  });
+  for (const f of unknownLocFinds) {
+    await ctx.prisma.findStateAssignment.upsert({
+      where: {
+        findId_state: { findId: f.id, state: FindState.LOCATION_MISSING },
+      },
+      create: { findId: f.id, state: FindState.LOCATION_MISSING },
+      update: {},
+    });
+  }
+
   // ----------------------------------------------------------------
   // Convergence pass — delete state assignments and clear notes that
   // JSON no longer mentions. Without this, the admin "Unmark donated"
@@ -1595,6 +1618,9 @@ async function phaseMeta(ctx: Context, meta: Meta) {
   const MANAGED_STATES: ReadonlySet<FindState> = new Set([
     ...Object.values(JSON_STATE_MAP),
     FindState.ANONYMIZED,
+    // Location-derived, not from JSON_STATE_MAP — managed so the convergence
+    // both adds it to finds on location 0 and clears it from finds that left.
+    FindState.LOCATION_MISSING,
   ]);
 
   // Retired states — no longer assigned (dropped from JSON_STATE_MAP), so
@@ -1602,8 +1628,6 @@ async function phaseMeta(ctx: Context, meta: Meta) {
   // "desired", so listing them here makes the convergence pass below delete
   // every occurrence on the next sync.
   const DEPRECATED_STATES: ReadonlySet<FindState> = new Set([
-    // LOCATION_MISSING (BEZLOKACE) is active again (in JSON_STATE_MAP → a
-    // MANAGED state), so it's no longer swept — see stateMapping.ts.
     FindState.LOCATION_GONE,
     FindState.NOT_PICKED,
   ]);
@@ -1626,6 +1650,9 @@ async function phaseMeta(ctx: Context, meta: Meta) {
   }
   for (const id of anonIdsExisting) {
     addDesired(id, FindState.ANONYMIZED);
+  }
+  for (const f of unknownLocFinds) {
+    addDesired(f.id, FindState.LOCATION_MISSING);
   }
 
   const allAssignments = await ctx.prisma.findStateAssignment.findMany({

@@ -24,13 +24,21 @@ import { z } from "zod";
 /** The "BezPoznámky" marker means "no description" — treat as absent. */
 const NO_DESCRIPTION = "BezPoznámky";
 
+/** Reserved číslo for the special "unknown" location (NEZNÁMÁ, id 0). Its
+ *  stat/mesto are placeholders the web ignores, so it's exempt from the
+ *  strict 2-char stat + non-empty mesto checks that all other entries pass. */
+export const UNKNOWN_LOCATION_CISLO = "00000";
+
 /** One map entry as it appears in manifest.json (v2, schema_metadat = 2). */
 export const MapPackageEntrySchema = z.object({
   cislo: z.string().regex(/^\d{1,5}$/),
   id_lokace: z.string().min(1),
   popis: z.string(),
-  stat: z.string().length(2),
-  mesto: z.string().min(1),
+  // Lenient at the schema level so the special 00000 entry (placeholder
+  // stat/mesto) parses; the strict 2-char stat + non-empty mesto rule is
+  // enforced per-entry (except 00000) in parseMapPackageManifest below.
+  stat: z.string(),
+  mesto: z.string(),
   gps_lat: z.number(),
   gps_lon: z.number(),
   zoom: z.number().int(),
@@ -93,6 +101,21 @@ export function parseMapPackageManifest(
   const parsed = MapPackageManifestSchema.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") };
+  }
+  // Strict per-entry rules Zod can't express conditionally: every entry
+  // EXCEPT the special 00000 (unknown location, placeholder stat/mesto) must
+  // carry a 2-char country code + a non-empty city.
+  for (const m of parsed.data.mapy) {
+    if (m.cislo === UNKNOWN_LOCATION_CISLO) continue;
+    if (m.stat.length !== 2) {
+      return {
+        ok: false,
+        error: `mapy (${m.cislo}): stat musí mít přesně 2 znaky (má ${m.stat.length})`,
+      };
+    }
+    if (m.mesto.trim().length === 0) {
+      return { ok: false, error: `mapy (${m.cislo}): mesto nesmí být prázdné` };
+    }
   }
   for (const m of parsed.data.mapy) {
     m.id_lokace = m.id_lokace.normalize("NFC");
