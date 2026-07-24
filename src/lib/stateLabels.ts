@@ -6,7 +6,8 @@ import { FindState } from "@/generated/prisma/enums";
  * `pnpm sync` sweeps any leftover assignments. See JSON_STATE_MAP.
  */
 export const RETIRED_STATES: ReadonlySet<FindState> = new Set([
-  FindState.LOCATION_MISSING,
+  // LOCATION_MISSING (BEZLOKACE) is active again — it now means "parked on
+  // the NEZNÁMÁ default location" (see stateMapping.ts / UNKNOWN_LOCATION_ID).
   FindState.LOCATION_GONE,
   FindState.NOT_PICKED,
 ]);

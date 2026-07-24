@@ -1602,7 +1602,8 @@ async function phaseMeta(ctx: Context, meta: Meta) {
   // "desired", so listing them here makes the convergence pass below delete
   // every occurrence on the next sync.
   const DEPRECATED_STATES: ReadonlySet<FindState> = new Set([
-    FindState.LOCATION_MISSING,
+    // LOCATION_MISSING (BEZLOKACE) is active again (in JSON_STATE_MAP → a
+    // MANAGED state), so it's no longer swept — see stateMapping.ts.
     FindState.LOCATION_GONE,
     FindState.NOT_PICKED,
   ]);

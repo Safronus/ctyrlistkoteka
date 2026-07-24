@@ -48,18 +48,23 @@ export const FILENAME_STATE_MAP: ReadonlyMap<string, FindState> = new Map([
  * Mapping from JSON "stavy" keys to DB enum (docs/filename-convention.md, D).
  * JSON keys stay ASCII.
  *
- * BEZLOKACE (LOCATION_MISSING), LOKACE-NEEXISTUJE (LOCATION_GONE) and
- * NEUTRZEN (NOT_PICKED) are intentionally NOT mapped — those states are
- * retired: "Bez lokality" was a poor duplicate of "Bez GPS", and a gone
- * location is already conveyed by the `NEEXISTUJE-` location-code prefix
- * plus its own notice (it had no real backing in the LSP JSON). Existing
- * assignments for the three are cleared by the sync convergence pass (see
- * DEPRECATED_STATES in scripts/sync.ts). The enum values + the filename
- * tokens above are kept so historical data still parses.
+ * BEZLOKACE (LOCATION_MISSING) is **active again** — but with a new, precise
+ * meaning: the find's real location is unknown, so it's parked on the special
+ * NEZNÁMÁ default location (id/číslo 0, see UNKNOWN_LOCATION_ID). That is a
+ * genuine state distinct from BEZGPS (a find can lack GPS yet have a known
+ * location, and vice versa), which is why the old "poor duplicate of BEZGPS"
+ * retirement no longer applies.
+ *
+ * LOKACE-NEEXISTUJE (LOCATION_GONE) and NEUTRZEN (NOT_PICKED) stay retired: a
+ * gone location is conveyed by the `NEEXISTUJE-` code prefix / the v2
+ * `is_cancelled` flag, and NOT_PICKED had no real LSP backing. Their leftover
+ * assignments are still swept by the sync convergence pass (DEPRECATED_STATES
+ * in scripts/sync.ts).
  */
 export const JSON_STATE_MAP: Readonly<Record<string, FindState>> = {
   BEZFOTKY: FindState.NO_PHOTO,
   BEZGPS: FindState.NO_GPS,
+  BEZLOKACE: FindState.LOCATION_MISSING,
   DAROVANY: FindState.DONATED,
   GIGANT: FindState.GIGANT,
   ZTRACENY: FindState.LOST,
@@ -74,7 +79,6 @@ export const JSON_STATE_MAP: Readonly<Record<string, FindState>> = {
  * convergence pass (DEPRECATED_STATES in scripts/sync.ts).
  */
 export const DEPRECATED_JSON_STATE_KEYS: ReadonlySet<string> = new Set([
-  "BEZLOKACE", // was LOCATION_MISSING — a poor duplicate of BEZGPS
   "LOKACE-NEEXISTUJE", // was LOCATION_GONE — now the location's own flag
   "NEUTRZEN", // was NOT_PICKED
 ]);

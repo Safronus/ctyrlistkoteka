@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Výchozí lokalita „NEZNÁMÁ" (00000) pro nálezy bez lokality (probíhá)
+- Nálezy, u kterých není známá lokalita, se přiřadí na speciální lokalitu
+  **NEZNÁMÁ, číslo 00000** (id 0) — importuje se klasicky přes /admin/import.
+  Bude skrytá z /lokality, připnutá na konec seznamu na /mapě a vyloučená ze
+  statistik o lokalitách; detail bude speciální („Defaultní lokalita…").
+- **Fáze 1 (základ):** konstanta `UNKNOWN_LOCATION_ID = 0` (odlišná od
+  `DEFAULT_LOCATION_ID = 1`, což je placeholder pro anonymizované). Stav
+  **BEZLOKACE** (`LOCATION_MISSING`) **oživen** — s novým významem „zaparkováno
+  na NEZNÁMÁ", takže už to není duplikát BEZGPS: z `RETIRED_STATES` i
+  `DEPRECATED_STATES`/`DEPRECATED_JSON_STATE_KEYS` ven, přidán do
+  `JSON_STATE_MAP` (čte se z LSP `stavy.BEZLOKACE`) → filtrovatelný na /sbirka,
+  oranžový odznak „Bez lokality".
+
 ### Odchylky: v2 „bod" (bez rádiusu) se do míry odchylky nepočítá
 - v2 lokalita s indikátorem „bod" nemá polygon ani rádius, takže u ní nejde
   určit, jestli je nález odchýlený. Dřív se její nálezy počítaly do jmenovatele

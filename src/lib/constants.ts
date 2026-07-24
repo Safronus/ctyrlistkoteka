@@ -103,6 +103,21 @@ export const STATS_REVALIDATE = 10 * 60; // 10 min
 export const DEFAULT_LOCATION_ID = 1;
 
 /**
+ * The special "unknown location" (NEZNÁMÁ) — id/číslo **0** — that finds with
+ * no known real location get parked on (their filename carries MAP_NUMBER
+ * 00000). Distinct from {@link DEFAULT_LOCATION_ID} (=1), which is the privacy
+ * placeholder shown for *anonymized* finds. This one is a real, importable
+ * location map (via /admin/import) with a generic centre point; it is hidden
+ * from /lokality, pinned last on /mapa, and excluded from location stats.
+ *
+ * id 0 is safe because the codebase compares location ids with `===` / `??`
+ * (0-tolerant), and `formatLocationId(0)` renders "#00000". The find-dot
+ * layer's "no location" sentinel was moved off 0 (see map.ts) so a real
+ * location 0 can't be mistaken for an unlocated find.
+ */
+export const UNKNOWN_LOCATION_ID = 0;
+
+/**
  * The single location that historically holds ~80 % of the collection's
  * finds (and probably always will — it's the user's home patch with a
  * dense cluster of sub-maps). /sbirka exposes a one-click toggle to
