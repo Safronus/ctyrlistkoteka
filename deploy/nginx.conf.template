@@ -192,7 +192,13 @@ server {
         return 404 "<!DOCTYPE html><html><head><title>404</title></head><body><h1>404</h1><p>This page could not be found.</p></body></html>";
     }
 
-    # API rate limit (přísnější — 60 req/min, burst 20)
+    # API rate limit (přísnější — 60 req/min, burst 20).
+    #
+    # POZOR: na produkčním VPS tenhle blok (a zóna api_limit) k 2026-07-26
+    # NENÍ — /api/ tam spadá pod `location /`, tedy 20 r/s. Není to kritické
+    # (hlasování má vlastní aplikační limit, rateLimitVote v lib/votes.ts).
+    # Než ho nasadíš, ověř, že žádná stránka nedělá > 60 API volání/min.
+    # Viz docs/deployment.md §8 „Volitelné zpřísnění".
     location /api/ {
         limit_req zone=api_limit burst=20 nodelay;
         proxy_pass http://127.0.0.1:3000;

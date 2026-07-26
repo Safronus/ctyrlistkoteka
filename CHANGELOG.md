@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Nginx: odstraněny websocket hlavičky + pořádná dokumentace
+- Z `location /` i `location /admin` na produkci zmizely `proxy_set_header
+  Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
+  websockety nepoužívá a `Connection: upgrade` na každém requestu rozbíjelo
+  velké POST uploady do `/admin/api/upload/*` (Safari to hlásilo jako obecné
+  „Load failed"). Diagnostikováno už 2026-06-02 (`19c3a47`), ale Nginx půlka
+  opravy **ležela nenasazená**, protože config CI nenasazuje.
+- `docs/deployment.md` §8 přepsána: varování, že Nginx config je **ruční**
+  krok, v čem se šablona liší od živého souboru, bezpečný postup úpravy
+  s rollbackem, popis všech `location` bloků a tři pasti (dědičnost
+  `add_header`, websocket hlavičky, rate limit vs. prefetch).
+- Nové gotchy #20–22 (429/prefetch, `add_header`, websocket hlavičky).
+- Šablona označuje blok `/api/` jako **na produkci nenasazený** — aby se
+  nezaměňoval za realitu.
+
 ### 429 Too Many Requests při běžném procházení
 - Nginx limit `burst=40` v zóně `ctyr_main` nestačil na to, co dělá jedno
   načtení `/sbirka`: **27** souborů `/_next/static/` + **až 48 RSC prefetchů**

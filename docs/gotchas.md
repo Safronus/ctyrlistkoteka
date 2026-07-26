@@ -631,3 +631,80 @@ Next 15→16 dne 2026-07-20 (`e245fa1`), první chybné 2026-07-22.
 - Po každém major upgradu frameworku **projdi cesty, které jen „vrací
   prázdno"** — build i testy projdou, protože ta chyba není výjimka
   navenek.
+
+---
+
+## 20. Nginx: 429 při běžném procházení (rate limit vs. prefetch Next.js)
+
+**Příznak:** při filtrování na `/sbirka` (a jinde) sype konzole
+`Failed to load resource: … 429 (Too Many Requests)`, typicky u `mapa`,
+`lokality` a detailů nálezů. Web nespadl, jen část requestů neprojde.
+
+**Proč:** Next.js **přednačítá odkazy ve viewportu**. Jedno otevření
+`/sbirka` proto neudělá jeden request, ale ~27 souborů z `/_next/static/`
+**plus až 48 RSC prefetchů** + dokument — přes 70 requestů během vteřiny.
+Nginx zóna `ctyr_main` má `rate=20r/s`, jenže rozhoduje `burst`: s
+`burst=40 nodelay` cokoli nad 40 dostane **okamžitě 429**. Fotky
+(`/generated/`) v tom nejedou, ty mají vlastní `location` bez limitu.
+
+**Jak aplikovat:**
+- Statické buildové assety (`/_next/static/`) drž **mimo** `limit_req` —
+  mají hash v názvu, jsou immutable a nemá smysl, aby ujídaly rozpočet
+  určený stránkám.
+- `burst` dimenzuj podle **nejhustší stránky**, ne podle „kolik requestů
+  dělá člověk za vteřinu". Dnes 200 při `rate=20r/s`; dlouhodobý strop
+  proti scraperům tím zůstává nedotčený.
+- Diagnostika: `sudo grep -c "limiting requests" /var/log/nginx/error.log`.
+- Až se zvýší počet dlaždic na stránku (větší `?size=`), projeví se to tady
+  jako první.
+
+---
+
+## 21. Nginx: `add_header` v `location` zahodí VŠECHNY zděděné hlavičky
+
+**Příznak:** část odpovědí (typicky statika) najednou nemá HSTS / nosniff /
+X-Frame-Options, přestože jsou nastavené v `server {}`. Nic nespadne — jen
+se tiše zhorší bezpečnostní profil, což si všimne až audit.
+
+**Proč:** je to dokumentované chování Nginxu — `add_header` se dědí do
+`location` **jen dokud tam není žádná vlastní** `add_header`. Stačí přidat
+jedinou (např. `Cache-Control` u cachovaných assetů) a všechny zděděné
+zmizí.
+
+**Jak aplikovat:**
+- Když do `location` přidáváš `add_header`, **zopakuj i bezpečnostní
+  hlavičky** ze `server {}`. Referenční implementace: bloky `/generated/`
+  a `/_next/static/` v `deploy/nginx.conf.template`.
+- Netýká se hlaviček, které posílá upstream (Next.js) — u těch se řeší
+  `proxy_hide_header`, aby se nezdvojily.
+- Ověření: `curl -sI https://ctyrlistkoteka.cz/_next/static/... | grep -i strict-transport`.
+
+---
+
+## 22. Nginx: WebSocket `Upgrade` hlavičky rozbíjejí uploady (Safari „Load failed")
+
+**Příznak:** nahrávání většího množství fotek přes `/admin/files/*` občas
+spadne s obecným `Load failed` v Safari — bez HTTP statusu, takže není po
+čem jít.
+
+**Proč:** config měl v `location /` i `location /admin` natvrdo
+
+```nginx
+proxy_set_header Upgrade    $http_upgrade;
+proxy_set_header Connection "upgrade";
+proxy_cache_bypass $http_upgrade;
+```
+
+Tím posílá `Connection: upgrade` na **každém** requestu — i na velkém POST
+uploadu. Next.js v produkci žádné websockety nemá (HMR běží jen v devu na
+localhostu), takže proxované spojení se tím jen poškodí.
+
+**Jak aplikovat:**
+- Do configu tyhle tři řádky **nedávej**. Šablona je nemá záměrně; typicky
+  se tam vrátí copy-pastem z obecného návodu „jak proxovat Node přes Nginx".
+- Kdyby někdy websockety byly opravdu potřeba, nepoužívej natvrdo
+  `"upgrade"`, ale `map $http_upgrade $connection_upgrade { default upgrade; '' close; }`.
+- Historie: diagnostikováno 2026-06-02 (`19c3a47`) spolu s druhou příčinou
+  (auth check před přečtením těla requestu). Kódová část se nasadila hned,
+  **Nginx část ležela nenasazená do 2026-07-26** — viz varování v
+  `docs/deployment.md` §8, že config CI nenasazuje.

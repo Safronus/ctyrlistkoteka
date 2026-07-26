@@ -367,15 +367,136 @@ Otestuj: `curl -I http://127.0.0.1:3000` → měl by vrátit 200.
 
 ## 8. Nginx
 
+> ### ⚠️ Nginx config CI **nenasazuje**
+>
+> GitHub Actions dělá jen aplikaci (install → prisma → build → `pm2 reload`).
+> Soubor `/etc/nginx/sites-available/ctyrlistkoteka` **se na VPS nikdy nezmění
+> sám** — každou úpravu tam musíš dostat ručně.
+>
+> Proč to zdůrazňovat: 2026-06-02 se opravily „Load failed" uploady
+> (commit `19c3a47`). Kódová půlka se nasadila přes Actions hned, Nginx půlka
+> čekala na ruční krok — a **ležela nenasazená skoro dva měsíce**, než se na
+> to přišlo znovu 2026-07-26. Když měníš `deploy/nginx.conf.template`, vždy
+> rovnou napiš, že je potřeba ruční nasazení, a ideálně to udělej hned.
+
+### První instalace
+
 ```bash
 sudo cp /var/www/ctyrlistkoteka/deploy/nginx.conf.template /etc/nginx/sites-available/ctyrlistkoteka
-# Uprav server_name a cesty pokud třeba
+# Uprav server_name, doplň reálné IP do allowlistu /admin
 sudo ln -s /etc/nginx/sites-available/ctyrlistkoteka /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
 Otestuj bez SSL: `curl -I http://ctyrlistkoteka.cz`.
+
+### Šablona ≠ živý config
+
+`deploy/nginx.conf.template` je **výchozí bod pro instalaci**, ne kopie toho,
+co běží. Živý soubor se od něj legitimně liší:
+
+| Živý config navíc / jinak | Proč |
+| --- | --- |
+| `listen 443 ssl` + `ssl_certificate…` | dopsal Certbot při vydání certifikátu |
+| samostatné `server {}` pro `www` a pro port 80 | Certbot + kanonický redirect |
+| reálné IP v `allow` u `/admin` | **do gitu nepatří** (repo je veřejné) |
+| `include snippets/permaban-list.conf` | generuje fail2ban/permaban, viz §10 |
+| `proxy_pass http://localhost:3000` | šablona má `127.0.0.1`; funkčně totéž |
+
+**Živý soubor je autorita.** Než začneš cokoli měnit podle šablony, porovnej:
+
+```bash
+sudo diff -u /var/www/ctyrlistkoteka/deploy/nginx.conf.template /etc/nginx/sites-available/ctyrlistkoteka
+```
+
+Zálohu živého configu bere i off-site záloha (`deploy/offsite-stage.sh`, §7),
+takže historii máš i mimo VPS.
+
+### Bezpečný postup úpravy
+
+```bash
+sudo cp /etc/nginx/sites-available/ctyrlistkoteka /etc/nginx/sites-available/ctyrlistkoteka.bak-$(date +%F-%H%M)
+```
+
+Pak edituj (`sudo nano …`), otestuj a načti:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+`nginx -t` je povinný krok — `reload` s rozbitým configem by shodil web.
+Rollback:
+
+```bash
+sudo cp /etc/nginx/sites-available/ctyrlistkoteka.bak-<datum> /etc/nginx/sites-available/ctyrlistkoteka && sudo nginx -t && sudo systemctl reload nginx
+```
+
+### Co který blok dělá
+
+Nginx vybírá prefix `location` podle **nejdelší shody**, ne podle pořadí
+v souboru — takže `/generated/` a `/_next/static/` vyhrají nad `/` bez ohledu
+na to, kde jsou napsané.
+
+| Blok | Účel |
+| --- | --- |
+| `location ~* /generated/find-photos/…_ANON\.…$` | **404 na anonymizované fotky darů.** Regex má přednost před prefixem, takže uhodnutá URL neobejde `unlockFindPhotos`. Viz CLAUDE.md §6. |
+| `location /generated/` | Fotky servíruje Nginx přímo z disku (`alias`), mimo Node i mimo rate limit. `expires 1y` + `immutable` — soubory mají sha1 v názvu. |
+| `location /_next/static/` | Buildové JS/CSS. **Mimo rate limit** — viz past č. 3 níž. |
+| `location /admin` | IP allowlist → `deny all`, 403 se přepisuje na 404 přes `@admin_notfound` (scanner nezjistí, že `/admin` existuje). `client_max_body_size 200M` musí sedět s `serverActions.bodySizeLimit` v `next.config.ts`. |
+| `location /` | Všechno ostatní na Next.js, s rate limitem `ctyr_main`. |
+| `location @admin_notfound` | `internal` — jen cíl pro `error_page`. |
+
+### Tři pasti, na které jsme už naletěli
+
+**1. `add_header` se v `location` nedědí.** Jakmile blok přidá *jakoukoli*
+vlastní `add_header`, přestane dědit **všechny** ze `server {}`. Proto mají
+`/generated/` i `/_next/static/` bezpečnostní hlavičky (HSTS, nosniff,
+X-Frame-Options, Referrer-Policy) vypsané znovu — bez toho by o ně ty
+odpovědi tiše přišly. Když někam přidáváš `add_header Cache-Control`,
+zkontroluj, co tím shazuješ.
+
+**2. Žádné WebSocket `Upgrade` hlavičky.** Next.js v produkci jede běžné
+HTTP. Natvrdo nastavené
+
+```nginx
+proxy_set_header Upgrade    $http_upgrade;
+proxy_set_header Connection "upgrade";
+proxy_cache_bypass $http_upgrade;
+```
+
+posílá `Connection: upgrade` na **každém** requestu včetně velkých POST
+uploadů do `/admin/api/upload/*`, což proxované spojení rozbije — a Safari to
+schová za obecné „Load failed", takže se to blbě hledá. V šabloně proto
+nejsou; kdyby je někdo vrátil (typicky copy-paste z návodu na websockety),
+uploady začnou náhodně padat.
+
+**3. Rate limit vs. prefetch Next.js.** Zóna `ctyr_main` je `20r/s`, ale
+binding constraint je `burst`. Jedno otevření `/sbirka` udělá ~27 requestů na
+`/_next/static/` **plus až 48 RSC prefetchů** (Next.js přednačítá odkazy ve
+viewportu) — přes 70 requestů během vteřiny. S `burst=40` to při běžném
+filtrování okamžitě vracelo **429**. Řešení bylo dvojí:
+
+- `/_next/static/` dostalo vlastní blok **bez** `limit_req` (immutable soubory
+  s hashem v názvu, nemá smysl, aby ujídaly rozpočet stránek),
+- `burst` 40 → **200** při nezměněném `rate=20r/s`, takže dlouhodobý strop
+  proti scraperům zůstal stejný a toleruje se jen legitimní špička.
+
+Když se v budoucnu zvýší počet dlaždic na stránce (větší `?size=`), tohle je
+první místo, kde se to projeví. Diagnostika:
+
+```bash
+sudo grep -c "limiting requests" /var/log/nginx/error.log
+```
+
+### Volitelné zpřísnění: vlastní limit pro `/api/`
+
+Šablona nese blok `location /api/` s přísnějším `api_limit` (60 r/min,
+burst 20). **Na živém VPS zatím není** — `/api/` spadá pod `location /`, tedy
+20 r/s. Kritické to není (hlasování má vlastní aplikační rate limit,
+`rateLimitVote` v `src/lib/votes.ts`), ale jde o levné zpřísnění, pokud by se
+někdo pokoušel bušit do API. Než ho nasadíš, ověř, že žádná stránka nedělá
+víc než 60 API volání za minutu.
 
 ---
 
