@@ -262,14 +262,31 @@ async function pMap<T>(
   await Promise.all(workers);
 }
 
+/**
+ * Progress ticker. `tick(id)` takes the domain id of the item just finished
+ * (find id / map číslo) and the emitted line carries the id RANGE covered
+ * since the previous line — `done=6270` alone says how many rows are through
+ * but not *which* records, which is the first thing you want when watching a
+ * long run ("is it near the finds I just uploaded?").
+ *
+ * A range, not a single "current id", because the finds phase runs several
+ * workers concurrently: at any instant a handful of ids are in flight, so a
+ * lone number would be arbitrary. The window resets after each emitted line.
+ */
 function makeProgressTicker(label: string, total: number, log: Logger) {
   const startedAt = Date.now();
   let lastLoggedAt = 0;
   let done = 0;
+  let windowMin: number | null = null;
+  let windowMax: number | null = null;
   const stepEvery = Math.max(1, Math.floor(total / 20));
   return {
-    tick(): void {
+    tick(id?: number): void {
       done += 1;
+      if (typeof id === "number" && Number.isFinite(id)) {
+        windowMin = windowMin === null ? id : Math.min(windowMin, id);
+        windowMax = windowMax === null ? id : Math.max(windowMax, id);
+      }
       const now = Date.now();
       const isLast = done === total;
       const dueByTime = now - lastLoggedAt >= 5000;
@@ -288,7 +305,11 @@ function makeProgressTicker(label: string, total: number, log: Logger) {
         pct: Number(((done / total) * 100).toFixed(1)),
         rate_per_s: Number(rate.toFixed(1)),
         eta_s: etaS,
+        ...(windowMin !== null ? { id_from: windowMin } : {}),
+        ...(windowMax !== null ? { id_to: windowMax } : {}),
       });
+      windowMin = null;
+      windowMax = null;
     },
   };
 }
@@ -487,7 +508,7 @@ async function phaseMapsV2(
       update: mapData,
     });
 
-    progress.tick();
+    progress.tick(id);
   }
 
   // Parent/child hierarchy, straight from the manifest — v2 no longer needs
@@ -938,7 +959,7 @@ async function phaseMaps(
       },
     });
 
-    progress.tick();
+    progress.tick(m.parsed.mapId);
   }
 
   ctx.log.log({
@@ -1270,7 +1291,7 @@ async function phaseFinds(
         const st = await stat(f.path);
         if (st.mtimeMs <= known) {
           skipped += 1;
-          progress.tick();
+          progress.tick(f.parsed.findId);
           return;
         }
       }
@@ -1426,7 +1447,7 @@ async function phaseFinds(
       });
     }
 
-    progress.tick();
+    progress.tick(f.parsed.findId);
   }
 
   // Process each find as a unit — its ORIGINAL first (the foundAt source),

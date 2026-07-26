@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { parseSyncProgress } from "@/lib/admin/syncProgress";
+import { SyncProgressBars } from "./sync-progress-bars";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -156,6 +158,11 @@ export function SyncPanel({
     [busy, only],
   );
 
+    // Progress bars are derived from the log we already stream — no extra
+  // endpoint, and they stay correct across a reload because the buffer is
+  // replayed from offset 0 for the current run.
+  const progress = useMemo(() => parseSyncProgress(logBuffer), [logBuffer]);
+
   const isRunning = status?.state === "running";
   const canStart = !busy && !isRunning;
 
@@ -271,6 +278,8 @@ export function SyncPanel({
           </p>
         )}
       </section>
+
+      <SyncProgressBars progress={progress} running={isRunning} />
 
       <section className="rounded-xl border border-gray-200 bg-gray-900 shadow-sm">
         <header className="flex items-center justify-between border-b border-gray-800 bg-gray-900/80 px-4 py-2 text-xs">

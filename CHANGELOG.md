@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /admin/sync: progress bary s reálnými čísly
+- Nad terminálovým logem přibyly **dva progress bary** (Lokační mapy, Nálezy):
+  hotovo / celkem, procenta, kolik zbývá, odhad času a rychlost. Po dokončení
+  fáze zezelená.
+- Sync nově loguje i **rozsah ID** zpracovaných od minulého výpisu
+  (`id_from` / `id_to`), takže panel ukáže „právě nález #2969–#3349". Samotné
+  `done=6270` říká jen kolikátý soubor, ne který nález — což byla přesně ta
+  chybějící informace. Je to rozsah, ne jedno číslo, protože fáze nálezů běží
+  paralelně a v jeden okamžik je jich rozpracovaných víc.
+- Bere se to z logu, který panel už tak streamuje — žádný nový endpoint ani
+  polling. Starší logy bez `id_from`/`id_to` se parsují dál (ID = null).
+- Pozn.: bar u nálezů počítá **soubory** (originály + výřezy), proto je u něj
+  ten rozpad vypsaný — ať se 42 650 nečte jako počet nálezů.
+- +10 testů parseru na reálných řádcích z produkčního logu.
+
+
 ### Zrušena celá v1 mašinérie u lokačních map
 - Po přechodu na v2 zbývalo v `/admin/files/maps` sedm komponent, které
   obsluhovaly už jen „stray" ploché v1 PNG: nahradit soubor, editor popisku,
