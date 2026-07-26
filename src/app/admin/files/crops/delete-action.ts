@@ -66,7 +66,7 @@ export async function deleteCrop(formData: FormData): Promise<void> {
   redirect("/admin/files/crops");
 }
 
-/** Bulk variant — see maps/delete-action.ts for the full rationale.
+/** Bulk variant — same trash-snapshot semantics as the single delete above.
  *  All files in a single bulk land in the same `.trash/<ts>/crops/`
  *  snapshot dir so the bucket equals one user action. */
 export async function deleteCropsBulk(

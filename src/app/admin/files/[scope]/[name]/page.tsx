@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
-import { readMapAnonFlagFor } from "@/lib/admin/mapAnon";
 import { readMapInventory } from "@/lib/admin/mapsV2";
 import { readMapNoteOverrides } from "@/lib/mapNoteOverrides";
 import {
@@ -40,7 +39,6 @@ import { FindState, ImageType } from "@/generated/prisma/enums";
 import { DeleteCropButton } from "../../crops/delete-button";
 import { renameCrop } from "../../crops/rename-action";
 import { renameFindOriginal } from "../../finds/rename-action";
-import { renameMapFile } from "../../maps/rename-action";
 import { RenameButton } from "../../_shared/rename-button";
 import { DonationPhotoAnonymizeToggleButton } from "../../donation-photos/anonymize-toggle-button";
 import { DeleteDonationPhotoButton } from "../../donation-photos/delete-button";
@@ -56,15 +54,9 @@ import { MarkDonatedButton } from "../../finds/mark-donated-button";
 import { UnmarkDonatedButton } from "../../finds/unmark-donated-button";
 import { parseRanges } from "@/lib/parseRanges";
 import { DeleteLocationPhotoButton } from "../../location-photos/delete-button";
-import { MapAnonymizeToggleButton } from "../../maps/anonymize-toggle-button";
-import { DeleteMapButton } from "../../maps/delete-button";
-import { MapDescriptionEditor } from "../../maps/description-editor";
-import { MarkMapNonexistentButton } from "../../maps/mark-nonexistent-button";
-import { MapMetadataPreview } from "../../maps/metadata-preview";
 import { MapV2Detail } from "../../maps/map-v2-detail";
 import { MapImageSwitcher } from "../../maps/map-image-switcher";
 import { MapRealPhotoCard } from "../../maps/real-photo-card";
-import { MapReplaceDropzone } from "../../maps/replace-dropzone";
 import { prisma } from "@/lib/db";
 import { versionedPhotoUrl } from "@/lib/assetVersion";
 import { getFindPhotos } from "@/lib/findPhotos";
@@ -136,11 +128,9 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
   const isMetaJson =
     scope.slug === "meta" && info.name === LOKACE_STAVY_POZNAMKY_FILENAME;
 
-  // Is this map in data/maps/manifest.json? If so it's a v2 map — the
-  // manifest is authoritative for its metadata + anon flag, and the v1
-  // per-file mutation UI (rename / delete / mark-nonexistent / anonymize /
-  // replace / description edit) is hidden. Only stray flat v1 PNGs (not in
-  // the manifest) keep the legacy controls.
+  // The map's manifest entry — authoritative for everything the detail page
+  // shows (metadata, anon flag, Rendered variant). data/maps/ holds only the
+  // v2 package now, so a miss here means the file isn't a known map.
   const mapV2Entry =
     scope.slug === "maps"
       ? ((await readMapInventory())?.find(
@@ -148,15 +138,10 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
         ) ?? null)
       : null;
 
-  // Map detail needs the current anonymisation state. For v2 it comes from
-  // the manifest; for a stray v1 PNG, from the tEXt `Anonymizovaná lokace`
-  // flag (one 64 KB read, cached by mapAnon.ts).
-  const isMapAnonymized =
-    scope.slug === "maps"
-      ? mapV2Entry
-        ? mapV2Entry.anonymized
-        : ((await readMapAnonFlagFor(info.absolutePath, info.name)) ?? false)
-      : false;
+  // Anonymisation comes straight from the manifest. (The old PNG-tEXt read
+  // for flat v1 maps went away with them — data/maps/ holds only the v2
+  // package now.)
+  const isMapAnonymized = mapV2Entry?.anonymized ?? false;
 
   // Current web-caption override for this v2 map (keyed by číslo), pre-filling
   // the note editor on the v2 detail card.
@@ -547,24 +532,6 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
                 <DeleteCropButton filename={info.name} />
               </>
             )}
-            {/* v1 per-file mutation controls — only for stray flat v1 PNGs
-                (not in the manifest). v2 maps are managed as a whole via
-                /admin/import, so they show none of these. */}
-            {scope.slug === "maps" && !mapV2Entry && (
-              <>
-                <MapAnonymizeToggleButton
-                  filename={info.name}
-                  currentlyAnonymized={isMapAnonymized}
-                />
-                <MarkMapNonexistentButton filename={info.name} />
-                <RenameButton
-                  currentName={info.name}
-                  scopeSlug="maps"
-                  action={renameMapFile}
-                />
-                <DeleteMapButton filename={info.name} />
-              </>
-            )}
             {(scope.slug === "donation-photos" ||
               scope.slug === "free-photos") &&
               photoFindId !== null && (
@@ -639,47 +606,12 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
         </div>
       </header>
 
-      {/* Filename-description editor + byte-replace — v1 flat PNGs only.
-          v2 maps carry their description in the manifest and are replaced
-          through /admin/import. */}
-      {scope.slug === "maps" &&
-        !mapV2Entry &&
-        (() => {
-          const dot = info.name.lastIndexOf(".");
-          const stem = dot === -1 ? info.name : info.name.slice(0, dot);
-          // The NEEXISTUJE- prefix sits in front of the canonical
-          // 6-segment basename — strip it before counting so the
-          // editor stays available on zaniklé maps too.
-          const coreStem = stem.startsWith("NEEXISTUJE-")
-            ? stem.slice("NEEXISTUJE-".length)
-            : stem;
-          const segs = coreStem.split("+");
-          if (segs.length !== 6) return null;
-          return (
-            <MapDescriptionEditor
-              filename={info.name}
-              currentDescription={segs[1] ?? ""}
-            />
-          );
-        })()}
-
-      {scope.slug === "maps" &&
-        !mapV2Entry &&
-        !info.name.startsWith("NEEXISTUJE-") && (
-          <MapReplaceDropzone targetName={info.name} />
-        )}
-
-      {/* v2 maps → manifest-driven metadata card + web-caption editor.
-          Stray v1 PNGs → the legacy filename/tEXt metadata preview. */}
-      {scope.slug === "maps" &&
-        (mapV2Entry ? (
-          <MapV2Detail entry={mapV2Entry} noteOverride={mapNoteOverride} />
-        ) : (
-          <MapMetadataPreview
-            filename={info.name}
-            absolutePath={info.absolutePath}
-          />
-        ))}
+      {/* Manifest-driven metadata card + web-caption editor. A map that
+          somehow isn't in the manifest gets no card — everything about a v2
+          map comes from there. */}
+      {mapV2Entry && (
+        <MapV2Detail entry={mapV2Entry} noteOverride={mapNoteOverride} />
+      )}
 
       {scope.slug === "maps" && !isMapAnonymized && (
         <MapRealPhotoCard mapName={info.name} existingPhoto={mapRealPhoto} />

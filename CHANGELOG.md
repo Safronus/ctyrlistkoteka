@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Zrušena celá v1 mašinérie u lokačních map
+- Po přechodu na v2 zbývalo v `/admin/files/maps` sedm komponent, které
+  obsluhovaly už jen „stray" ploché v1 PNG: nahradit soubor, editor popisku,
+  přejmenování, označit/obnovit „zaniklé", anonymizace zápisem do PNG tEXt,
+  mazání a náhled metadat z názvu souboru.
+- Na produkci se ukázalo **207 plochých v1 PNG** (41 MB), které tam ležely od
+  migrace — v2 import je aditivní a staré soubory nemaže, sync je ignoruje
+  (jede manifestem). Ověřeno, že **všech 207 čísel manifest pokrývá** a jejich
+  v2 soubory fyzicky existují; pak přesunuty do `data/.trash/`. Sync po
+  přesunu beze změny: `count=286`, `orphan_maps=0`, `reconcile.clean`.
+- Tím ta mašinérie ztratila poslední důvod existovat → smazáno 10 souborů
+  v `maps/` + osiřelé `lib/admin/{mapAnon,pngTextEdit,anonCascade}.ts`.
+  Detail mapy teď staví výhradně na manifestu.
+
 ### Zrušen upload na /admin/files/{finds,crops,maps}
 - Nahrávání jednotlivých souborů plně nahradil ZIP balíček přes
   `/admin/import` (dvoufázový, s analýzou před zápisem), takže tahle cesta
