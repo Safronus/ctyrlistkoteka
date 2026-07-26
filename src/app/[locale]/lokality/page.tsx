@@ -18,6 +18,7 @@ import {
 import { getCollectionProgress, getFilterOptions } from "@/lib/queries/finds";
 import { buildFilterSummary } from "@/lib/filterSummary";
 import { cityFromCadastralArea } from "@/lib/locationCode";
+import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
 import { localizedCountryName } from "@/lib/world-countries";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 
@@ -209,7 +210,12 @@ export default async function LokalityPage({ searchParams }: PageProps) {
         // Filter-independent totals pinned to the right of the title; the
         // per-filter count lives in the "Filtr je aktivní" strip below.
         counts={t("headingCounts", {
-          locations: filterOptions.locations.length,
+          // NEZNÁMÁ (00000) isn't a place and isn't listed below, so it must
+          // not inflate the heading total either. The shared filterOptions
+          // list keeps it — /sbirka's location filter needs it.
+          locations: filterOptions.locations.filter(
+            (l) => l.id !== UNKNOWN_LOCATION_ID,
+          ).length,
           anon: toggleCounts.anonymized,
           finds: totalFinds,
         })}

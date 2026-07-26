@@ -86,6 +86,10 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   (hledání podle čísla, `?open=`, a hlavně `parseMapId` na detailu, který by
   `/lokality/00000` poslal na 404). Sentinel „nález bez lokality" ve vrstvě
   bodů `/mapa` posunut z `0` na `-1`, aby nekolidoval s reálnou lokalitou 0.
+- **NEZNÁMÁ se nepočítá do počtů lokalit** — hlavní panel na `/statistiky`,
+  panel na domovské stránce a titulkový součet na `/lokality`. Vyloučená je i
+  ze jmenovatele „⌀ 🍀 na lokalitu" (a s ní i její nálezy z čitatele), aby
+  průměr nekřivil bucket bez skutečného místa.
 - **Fáze 6–7 (dokončení):** na `/sbirka` je NEZNÁMÁ normálně ve filtru lokalit
   (jakmile má nálezy) a nálezy nesou odznak „Bez lokality"; detail nálezu má
   vysvětlivku, že místo není známé (CS + EN). Zdokumentováno v

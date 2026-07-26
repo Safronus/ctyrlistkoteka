@@ -13,6 +13,7 @@ import {
   MISSING_CLOVER_ID_MAX,
   MISSING_CLOVER_ID_MIN,
   STATS_REVALIDATE,
+  UNKNOWN_LOCATION_ID,
 } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import { isLocationGone } from "@/lib/locationCode";
@@ -297,7 +298,10 @@ export async function getHomePageData(): Promise<HomePageData> {
       SELECT
         (SELECT COUNT(*) FROM finds) AS finds,
         (SELECT MAX(id) FROM finds) AS max_find_id,
-        (SELECT COUNT(*) FROM locations) AS locations,
+        -- NEZNÁMÁ (00000) is a bucket for finds with no known place, not a
+        -- location the collection has visited — keep it out of the headline.
+        (SELECT COUNT(*) FROM locations
+           WHERE id <> ${UNKNOWN_LOCATION_ID}::int) AS locations,
         (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
            WHERE state = 'DONATED') AS donated,
         -- Find date+time (EXIF found_at) of the most-recently-found DONATED

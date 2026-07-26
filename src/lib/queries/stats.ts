@@ -573,7 +573,10 @@ const fetchTotalsRow = cache(async (): Promise<TotalsRow | undefined> => {
     SELECT
       (SELECT COUNT(*) FROM finds) AS finds,
       (SELECT MAX(id) FROM finds)::int AS max_find_id,
-      (SELECT COUNT(*) FROM locations) AS locations,
+      -- NEZNÁMÁ (00000) is a bucket, not a place — it must never be counted
+      -- as a location the collection has visited.
+      (SELECT COUNT(*) FROM locations
+         WHERE id <> ${UNKNOWN_LOCATION_ID}::int) AS locations,
       (SELECT COUNT(DISTINCT find_id) FROM find_images) AS photographed,
       (SELECT COUNT(*) FROM finds WHERE is_anonymized = true) AS anonymized,
       (SELECT COUNT(DISTINCT find_id) FROM find_state_assignments
@@ -1571,9 +1574,14 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
         FROM locations
       )
       SELECT
-        (SELECT COUNT(*) FROM finds WHERE location_id IS NOT NULL)::float8
+        -- Both sides exclude NEZNÁMÁ (00000): its finds have no real place, so
+        -- counting them (or it) would skew "average finds per location".
+        (SELECT COUNT(*) FROM finds
+           WHERE location_id IS NOT NULL
+             AND location_id <> ${UNKNOWN_LOCATION_ID}::int)::float8
           AS total_located,
-        (SELECT COUNT(*) FROM locations)::float8 AS loc_count,
+        (SELECT COUNT(*) FROM locations
+           WHERE id <> ${UNKNOWN_LOCATION_ID}::int)::float8 AS loc_count,
         (SELECT AVG(c.cnt / a.area_m2 * 100)
            FROM counts c
            JOIN areas a ON a.id = c.location_id
