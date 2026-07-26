@@ -65,7 +65,6 @@ import {
   type StatsTimeAndPaceResult,
   type YearlyPoint,
 } from "@/lib/queries/stats";
-import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { getLocationIdsWithRealPhotos } from "@/lib/queries/locations";
 import { localizedCountryName } from "@/lib/world-countries";
@@ -828,7 +827,7 @@ function DeviationStatsCard({
       ) : (
         <>
           <p className="text-xs text-gray-500">
-            {t("deviationSubtitle", { radius: FIND_DEVIATION_RADIUS_M })}
+            {t("deviationSubtitle")}
           </p>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -870,9 +869,7 @@ function DeviationStatsCard({
                   {numFmt.format(data.deviatedCenter)}
                 </span>{" "}
                 <span className="text-gray-500">
-                  {t("deviationCenterSplit", {
-                    radius: FIND_DEVIATION_RADIUS_M,
-                  })}
+                  {t("deviationCenterSplit")}
                 </span>
               </p>
             </DeviationStat>

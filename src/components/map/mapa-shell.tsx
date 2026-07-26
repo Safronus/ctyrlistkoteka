@@ -250,13 +250,14 @@ export function MapaShell({
     Set<number>
   >(() => {
     const set = new Set<number>();
-    // Children carrying `showOnMapByDefault` overlay their parent's polygon
-    // on first paint without any sidebar opt-in; every other child stays
-    // hidden until toggled. The v1 `{ "code": ..., "map": true }` flag that
-    // used to set this is retired (mapy v2), so in practice every v2 child is
-    // hidden by default — the mechanism stays in case it's revived.
+    // Child polygons are VISIBLE by default: the v1 admin screen that used to
+    // set `showOnMapByDefault` per child is retired with mapy v2, so a
+    // hidden-by-default rule left every sub-location invisible with no way to
+    // opt it back in short of clicking each row. Showing them is the useful
+    // default (a parent's polygon is often just a shell around its children);
+    // the sidebar's per-row toggle turns any of them back off.
     for (const loc of mapData.locations) {
-      if (loc.parentId !== null && loc.showOnMapByDefault) set.add(loc.id);
+      if (loc.parentId !== null) set.add(loc.id);
     }
     // The deep-link target — either the location requested via
     // `?focus=<id>` or the home location of a `?find=<n>` find — gets

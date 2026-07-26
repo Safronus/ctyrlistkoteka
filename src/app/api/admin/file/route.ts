@@ -38,9 +38,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return new NextResponse("Unknown scope", { status: 400 });
   }
 
+  // maps scope: `variant=rendered` serves the marker/polygon version of a v2
+  // map instead of the clean base ("nosná"). Anything else falls back to the
+  // base, so an old/typo'd URL can't 404 the preview.
+  const variant = sp.get("variant") === "rendered" ? "rendered" : "nosna";
+
   let info;
   try {
-    info = await statScopeFile(scope, name);
+    info = await statScopeFile(scope, name, variant);
   } catch (err) {
     // safeJoin throws on path traversal — treat that the same as a
     // 404 to avoid hinting to a probe that the path was rejected

@@ -25,6 +25,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   nálezu, jehož fotka se změnila. Mazat smí dál jen `--prune`.
 - +4 testy na merge (jednomapový balíček nesmí zmenšit inventář).
 
+### /mapa + admin: doladění po mapách v2
+- **Potomci jsou na `/mapa` viditelní defaultně.** Se zrušením v1 admin sekce
+  pro hierarchii zmizel i způsob, jak nastavit `showOnMapByDefault`, takže
+  všechny podlokality byly skryté a musely se zapínat po jedné. Teď se
+  zobrazují a přepínač v postranním panelu je umí vypnout.
+- **Popisky vrstev jsou v souladu s v2.** „Skrýt odchýlené" už netvrdí „> 5 m
+  od středu" (v2 má poloměr per lokalita) a zmiňuje, že lokality bez plochy
+  (jen bod) se neposuzují; „Pulzovat i nálezy do 5 m" → „Pulzovat i nálezy na
+  místě" (to je ten pulz u zelených). Stejně upraven i popis odchylek na
+  `/statistiky`. CS + EN.
+- **Detail mapy v adminu umí přepnout Nosná / Rendered.** v2 balíček dodává obě
+  verze pod stejným názvem v jiných adresářích; file endpoint je rozlišuje přes
+  `?variant=rendered`. Když balíček Rendered nedodal, přepínač se skryje.
+
 ### Úklid v1 vestige „NEEXISTUJE-" — zaniklost jen přes `is_cancelled`
 - Po plné migraci na v2 (sync upsertuje podle čísla → přepsal staré
   `NEEXISTUJE-…` kódy na čisté + `is_cancelled=true`) už žádný kód prefix nemá.

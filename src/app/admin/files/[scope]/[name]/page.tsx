@@ -62,6 +62,7 @@ import { MapDescriptionEditor } from "../../maps/description-editor";
 import { MarkMapNonexistentButton } from "../../maps/mark-nonexistent-button";
 import { MapMetadataPreview } from "../../maps/metadata-preview";
 import { MapV2Detail } from "../../maps/map-v2-detail";
+import { MapImageSwitcher } from "../../maps/map-image-switcher";
 import { MapRealPhotoCard } from "../../maps/real-photo-card";
 import { MapReplaceDropzone } from "../../maps/replace-dropzone";
 import { prisma } from "@/lib/db";
@@ -699,7 +700,16 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
         />
       )}
 
-      {isPreviewableImage(info.contentType) && (
+      {/* v2 map → Nosná/Rendered switch instead of the single-image preview. */}
+      {mapV2Entry && isPreviewableImage(info.contentType) && (
+        <MapImageSwitcher
+          name={info.name}
+          version={fileVersion}
+          hasRendered={mapV2Entry.hasRendered}
+        />
+      )}
+
+      {!mapV2Entry && isPreviewableImage(info.contentType) && (
         <figure className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2">
           {/* `<img>` rather than next/image — admin previews are
               one-off, no need to push them through the optimizer +

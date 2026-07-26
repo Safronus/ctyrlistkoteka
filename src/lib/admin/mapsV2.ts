@@ -92,6 +92,11 @@ export interface MapInventoryEntry {
   nosnaRel: string;
   /** Basename of the Nosná PNG — the admin's per-map identity. */
   nosnaName: string;
+  /** Path of the Rendered PNG (marker/polygon/ID drawn in) relative to
+   *  data/maps/, or null when the package didn't ship one. */
+  renderedRel: string | null;
+  /** True when the Rendered PNG named in the manifest is on disk. */
+  hasRendered: boolean;
   /** Size/mtime of the Nosná PNG; 0/"" + fileMissing when it's absent. */
   size: number;
   mtime: string;
@@ -125,6 +130,7 @@ export async function readMapInventory(): Promise<MapInventoryEntry[] | null> {
   const entries = await Promise.all(
     parsed.value.mapy.map(async (m) => {
       const nosnaRel = m.soubory["Nosné mapy"];
+      const renderedRel = m.soubory["Rendered mapy"] ?? null;
       let size = 0;
       let mtime = "";
       let fileMissing = false;
@@ -135,6 +141,15 @@ export async function readMapInventory(): Promise<MapInventoryEntry[] | null> {
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
         fileMissing = true;
+      }
+      let hasRendered = false;
+      if (renderedRel !== null) {
+        try {
+          await fs.stat(path.join(root, renderedRel));
+          hasRendered = true;
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+        }
       }
       return {
         cislo: entryNumber(m),
@@ -155,6 +170,8 @@ export async function readMapInventory(): Promise<MapInventoryEntry[] | null> {
         parentCode: m.potomek,
         nosnaRel,
         nosnaName: path.basename(nosnaRel),
+        renderedRel,
+        hasRendered,
         size,
         mtime,
         fileMissing,
@@ -165,19 +182,35 @@ export async function readMapInventory(): Promise<MapInventoryEntry[] | null> {
   return entries;
 }
 
-/** The on-disk Nosná PNG for a v2 map, located by its basename (NFC-aware).
- *  v2 maps live nested under `Nosné mapy/…`, so the flat `resolveDiskPath`
- *  misses them; the admin file endpoint + detail page fall back to this.
- *  Returns null when there's no manifest, no matching entry, or the file is
- *  gone. */
+/** Which image of a v2 map to serve: the clean base ("nosná") or the one with
+ *  the marker / polygon / ID drawn in ("rendered"). */
+export type MapV2Variant = "nosna" | "rendered";
+
+/** The on-disk PNG for a v2 map, located by the Nosná basename (NFC-aware) —
+ *  that basename is the admin's per-map identity for both variants, since the
+ *  two files share it and differ only by directory.
+ *
+ *  v2 maps live nested under `Nosné mapy/…` / `Rendered mapy/…`, so the flat
+ *  `resolveDiskPath` misses them; the admin file endpoint + detail page fall
+ *  back to this. Returns null when there's no manifest, no matching entry, or
+ *  the requested variant isn't on disk. */
 export async function resolveV2MapFileByName(
   name: string,
+  variant: MapV2Variant = "nosna",
 ): Promise<{ name: string; absolutePath: string } | null> {
   const inv = await readMapInventory();
   if (!inv) return null;
   const wantNFC = path.basename(name).normalize("NFC");
   const hit = inv.find((e) => e.nosnaName.normalize("NFC") === wantNFC);
-  if (!hit || hit.fileMissing) return null;
+  if (!hit) return null;
+  if (variant === "rendered") {
+    if (!hit.hasRendered || hit.renderedRel === null) return null;
+    return {
+      name: path.basename(hit.renderedRel),
+      absolutePath: path.join(ADMIN_ROOTS.locationMaps, hit.renderedRel),
+    };
+  }
+  if (hit.fileMissing) return null;
   return {
     name: hit.nosnaName,
     absolutePath: path.join(ADMIN_ROOTS.locationMaps, hit.nosnaRel),

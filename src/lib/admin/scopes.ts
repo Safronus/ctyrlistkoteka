@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ADMIN_ROOTS, type AdminRootKey, safeJoin } from "./paths";
-import { resolveV2MapFileByName } from "./mapsV2";
+import { resolveV2MapFileByName, type MapV2Variant } from "./mapsV2";
 
 /** Resolves a requested filename to its actual on-disk basename
  *  inside the given root, accounting for Unicode normalization drift
@@ -632,13 +632,20 @@ const EXT_TO_MIME: Record<string, string> = {
 export async function statScopeFile(
   scope: ScopeDef,
   filename: string,
+  /** maps scope only: which v2 image to serve. "rendered" resolves through
+   *  the manifest even when a same-named flat file exists, so the detail
+   *  page's Nosná/Rendered switch always gets the variant it asked for. */
+  variant: MapV2Variant = "nosna",
 ): Promise<FileInfo | null> {
-  let resolved = await resolveDiskPath(scope.rootKey, filename);
+  let resolved =
+    scope.slug === "maps" && variant === "rendered"
+      ? await resolveV2MapFileByName(filename, "rendered")
+      : await resolveDiskPath(scope.rootKey, filename);
   // v2 maps live nested under `Nosné mapy/…` — the flat resolveDiskPath
   // (which only scans data/maps/ directly) misses them. Fall back to the
   // manifest, matching the Nosná basename, so detail pages + the file
   // endpoint can serve v2 map images.
-  if (!resolved && scope.slug === "maps") {
+  if (!resolved && scope.slug === "maps" && variant === "nosna") {
     resolved = await resolveV2MapFileByName(filename);
   }
   if (!resolved) return null;
