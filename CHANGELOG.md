@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### 429 Too Many Requests při běžném procházení
+- Nginx limit `burst=40` v zóně `ctyr_main` nestačil na to, co dělá jedno
+  načtení `/sbirka`: **27** souborů `/_next/static/` + **až 48 RSC prefetchů**
+  (Next.js přednačítá odkazy ve viewportu) + dokument = přes 70 requestů
+  během vteřiny → okamžitě 429, hlavně při filtrování.
+- **Buildové assety (`/_next/static/`) jsou nově mimo limit** — mají hash
+  v názvu, jsou nemměnné a nemá smysl, aby ujídaly rozpočet určený stránkám.
+- **`burst` 40 → 200** při zachovaném `rate=20r/s`, takže dlouhodobý strop
+  proti scraperům zůstává stejný, jen se toleruje špička.
+- Fotky (`/generated/`) limitem neprocházely už dřív, ty problém nedělaly.
+
 ### /mapa: NEZNÁMÁ má vlastní místo v hlavičce panelu „Lokality"
 - Místo poslední položky v seznamu je teď **chip vpravo v hlavičce panelu**
   (na řádku s počtem lokalit a anonymizovaných): šedý, s „?" a počtem 🍀,

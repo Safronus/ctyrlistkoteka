@@ -116,6 +116,31 @@ server {
     location = /robots.txt  { access_log off; log_not_found off; }
 
     # -----------------------------------------------------------------
+    # Buildové assety Next.js — MIMO rate limit.
+    #
+    # Proč: jedno načtení /sbirka stáhne ~27 souborů z /_next/static/ a
+    # k tomu si Next.js přednačte (prefetch) až 48 odkazů na detaily
+    # nálezů — přes 70 requestů během vteřiny. S `burst=40` v zóně
+    # ctyr_main to okamžitě spadlo na 429 při běžném filtrování.
+    #
+    # Tyhle soubory mají hash v názvu (immutable), jsou drobné a proxy je
+    # jen podá dál — nemá smysl, aby ujídaly rozpočet určený stránkám.
+    # Ochranu proti scrape-flood tím neoslabujeme: dokumenty, RSC payloady
+    # i /api/ zůstávají limitované beze změny.
+    # -----------------------------------------------------------------
+    location /_next/static/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # -----------------------------------------------------------------
     # /admin — privátní zóna pro správu sbírky. PRVNÍ obranná linie:
     # IP allowlist. DOPLŇ KONKRÉTNÍ IP ADRESY níž (statickou domácí +
     # zálohy) a případně 10.x.x.x rozsah pro WireGuard tunel.
@@ -183,13 +208,19 @@ server {
         # "Load failed". Next.js in production uses plain HTTP here.
     }
 
-    # Vše ostatní → Next.js, s mírnějším rate limitem (20 req/s, burst 40)
+    # Vše ostatní → Next.js, s mírnějším rate limitem (20 req/s, burst 200).
     # Pro běžné prohlížení sbírky/mapy je 20/s pohodlných (typický uživatel
     # generuje < 5 req/s), botnety hammerujícím desítky/stovky req/s zachytí
     # 429. `nodelay` posílá burst rovnou bez front, ale překročení burstu
     # → instant 429 namísto front.
+    #
+    # burst 40 → 200: Next.js přednačítá odkazy ve viewportu, takže jedno
+    # otevření /sbirka znamená dokument + až 48 RSC prefetchů naráz. Se
+    # čtyřicítkou to při běžném filtrování okamžitě padalo na 429. Dvě stě
+    # pokryje i tu nejhustší stránku s rezervou, ale je pořád řádově pod
+    # tím, co udělá scraper — a `rate=20r/s` drží dlouhodobý strop stejný.
     location / {
-        limit_req zone=ctyr_main burst=40 nodelay;
+        limit_req zone=ctyr_main burst=200 nodelay;
         limit_req_status 429;
 
         proxy_pass http://127.0.0.1:3000;
