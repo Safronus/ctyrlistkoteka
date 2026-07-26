@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### 🛑 /sbirka: combobox „Lokalita" tiše zobrazoval jen prvních 200 lokalit
+- Seznam měl strop 200 vykreslených položek **bez jakékoli hlášky** (komentář
+  v kódu tvrdil, že se zkrácení vypisuje — nevypisovalo). Jakmile sbírka
+  přerostla 200 lokalit (dnes 285), řazení podle kódu znamenalo, že strop
+  vyplnily `CZ_*` a **všechny HU/IE/IS/JP/PL/SK lokality z nabídky zmizely** —
+  i bez jakýchkoli filtrů. Není to regrese z map v2, jen se to projevilo až
+  s růstem sbírky. Strop je teď vysoko nad reálným počtem **a** případné
+  zkrácení se pod seznamem vypíše.
+- **Výška seznamu se řídí oknem** — `max-h-64` (≈7 položek) →
+  `min(70dvh, 44rem)`, takže na vysokém okně je vidět mnohonásobek a na mobilu
+  to nepřeteče.
+- Tři další nula-pasti na `/sbirka` u lokality 0: `hasFilters` (nezobrazoval se
+  pruh „Filtr je aktivní" ani popis filtru), odkaz „Zobrazit na mapě" ztrácel
+  `loc=0`, a combobox neukázal 00000 jako vybranou lokalitu.
+
 ### 🛑 KRITICKÉ: import balíčku map přepisoval manifest → nálezy ztratily lokalitu
 - **Příčina:** `/admin/import` ukládal `manifest.json` z balíčku **přes** ten na
   disku. Balíček s jednou mapou (nová 00000) tak smazal inventář 212 map →
