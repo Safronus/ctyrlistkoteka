@@ -33,13 +33,11 @@ import {
 import { FilesListClient } from "../_shared/files-list-client";
 import { SyncNeededBanner } from "../_shared/sync-needed-banner";
 import { deleteCropsBulk } from "../crops/delete-action";
-import { CropsUploadForm } from "../crops/upload-form";
 import { deleteDonationPhotosBulk } from "../donation-photos/delete-action";
 import { DonationPhotosUploadForm } from "../donation-photos/upload-form";
 import { DonationPhotosBulkAssignForm } from "../donation-photos/bulk-assign-form";
 import { deleteFreePhotosBulk } from "../free-photos/delete-action";
 import { deleteFindsBulk } from "../finds/delete-action";
-import { FindsUploadForm } from "../finds/upload-form";
 import { deleteLocationPhotosBulk } from "../location-photos/delete-action";
 import { LocationPhotosUploadForm } from "../location-photos/upload-form";
 import { MapsScopeView } from "../maps/maps-scope-view";
@@ -451,8 +449,6 @@ export default async function AdminScopeListPage({
         )}
       </header>
 
-      {scope.slug === "finds" && <FindsUploadForm />}
-      {scope.slug === "crops" && <CropsUploadForm />}
       {scope.slug === "donation-photos" && <DonationPhotosUploadForm />}
       {scope.slug === "donation-photos" && <DonationPhotosBulkAssignForm />}
       {scope.slug === "location-photos" && <LocationPhotosUploadForm />}
