@@ -14,7 +14,11 @@ import {
   isAuthenticated,
   touchSession,
 } from "@/lib/admin/session";
-import { MAX_FILE_BYTES } from "./upload-types";
+/** Per-file size cap for a map replace. Real location maps are 100-500 kB
+ *  JPEGs (with a .png extension); 25 MB is wildly above that and serves only
+ *  as a runaway-input guard. Previously lived in upload-types.ts, which went
+ *  away with the maps upload form (maps arrive via /admin/import now). */
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 function looksLikePng(buf: Uint8Array): boolean {
   return (
@@ -46,9 +50,12 @@ export interface ReplaceResult {
 /** Replaces an existing map at `data/maps/<targetName>` with the
  *  uploaded bytes. The filename is taken from a hidden form field
  *  (the page renders it from the route param) — the dropped file's
- *  own name is ignored. Same magic-byte validation as the upload
- *  action; the current file is snapshotted into .trash before the
- *  atomic overwrite, so an "oops" is recoverable. */
+ *  own name is ignored. Magic-byte validated; the current file is
+ *  snapshotted into .trash before the atomic overwrite, so an "oops" is
+ *  recoverable.
+ *
+ *  Only reachable for a stray FLAT v1 PNG — v2 maps are guarded off (see
+ *  isV2ReservedMapName) and arrive through /admin/import. */
 export async function replaceMap(formData: FormData): Promise<ReplaceResult> {
   const session = await getAdminSession();
   if (!isAuthenticated(session)) {
@@ -127,16 +134,15 @@ export async function replaceMap(formData: FormData): Promise<ReplaceResult> {
 
   // Resolve the target through the NFC-aware lookup so the rename
   // operates on the actual on-disk name (rsync-from-macOS NFD vs
-  // browser NFC drift). Reject if the target doesn't exist — the
-  // replace flow is only for live maps; new uploads go through the
-  // upload action.
+  // browser NFC drift). Reject if the target doesn't exist — replace only
+  // overwrites an existing file; new maps arrive via /admin/import.
   const existing = await resolveDiskPath("locationMaps", baseName);
   if (!existing) {
     return {
       ok: false,
       filename: baseName,
       error:
-        "Cílový soubor neexistuje — nahrávání nového souboru je v upload sekci, ne v detailu.",
+        "Cílový soubor neexistuje — nové mapy se nahrávají přes /admin/import.",
     };
   }
 

@@ -9,17 +9,25 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
-### Zrušen upload na /admin/files/finds a /crops
+### Zrušen upload na /admin/files/{finds,crops,maps}
 - Nahrávání jednotlivých souborů plně nahradil ZIP balíček přes
   `/admin/import` (dvoufázový, s analýzou před zápisem), takže tahle cesta
   zůstávala jako druhá, méně bezpečná varianta téhož — a byla to zrovna ona,
   kterou jsme dnes dvakrát ladili (EXIF čtečka, websocket hlavičky v Nginxu).
-- Smazáno 8 souborů (`upload-{form,action,types}` pro finds i crops, routes
-  `api/upload/{finds,crops}`) + osiřelý `_shared/materialize.ts`. Serverové
-  akce `uploadFinds`/`uploadCrops` byly mrtvé už předtím — formuláře chodily
-  přes REST routes.
-- **Beze změny zůstává** procházení, mazání, přejmenování i detail na obou
+- **finds + crops:** smazáno 8 souborů (`upload-{form,action,types}` pro obojí,
+  routes `api/upload/{finds,crops}`) + osiřelý `_shared/materialize.ts`.
+  Serverové akce `uploadFinds`/`uploadCrops` byly mrtvé už předtím — formuláře
+  chodily přes REST routes.
+- **lokační mapy:** `upload-{form,action,types}` — ty už byly bez jediné
+  reference od přechodu na v2 (formulář zmizel z UI spolu s manifestovým
+  přehledem), takže šlo čistě o úklid mrtvého kódu. `MAX_FILE_BYTES` přesunut
+  do `replace-action.ts`, jediného zbylého konzumenta.
+- **Beze změny zůstává** procházení, mazání, přejmenování i detail na všech
   stránkách a upload reálných fotek darů a lokalit (ty balíček neřeší).
+- Nahrávání jednotlivých souborů plně nahradil ZIP balíček přes
+  `/admin/import` (dvoufázový, s analýzou před zápisem), takže tahle cesta
+  zůstávala jako druhá, méně bezpečná varianta téhož — a byla to zrovna ona,
+  kterou jsme dnes dvakrát ladili (EXIF čtečka, websocket hlavičky v Nginxu).
 
 ### Nginx: odstraněny websocket hlavičky + pořádná dokumentace
 - Z `location /` i `location /admin` na produkci zmizely `proxy_set_header
