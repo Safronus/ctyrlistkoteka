@@ -10,7 +10,10 @@
  * locations never make it into the public payload.
  */
 
-import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import {
+  FIND_DEVIATION_RADIUS_M,
+  UNKNOWN_LOCATION_ID,
+} from "@/lib/constants";
 import { prisma } from "@/lib/db";
 import { isLocationGone } from "@/lib/locationCode";
 
@@ -55,8 +58,9 @@ export interface MapData {
    *
    *  Slot meanings:
    *   - [0] lat, [1] lng — placement
-   *   - [2] locationId   — dim by focus-location (0 for findings without
-   *                        a location)
+   *   - [2] locationId   — dim by focus-location (**-1** for findings
+   *                        without a location; 0 is the real NEZNÁMÁ
+   *                        location, so it can't double as the sentinel)
    *   - [3] findId       — dim by /sbirka filter (which IDs match the
    *                        user's narrowing)
    *   - [4] tone         — three-band offset classification, the SAME as
@@ -246,9 +250,21 @@ export async function getMapData(): Promise<MapData> {
     };
   });
 
+  // The special NEZNÁMÁ location (id 0) sorts first by id, which would put a
+  // non-place at the top of the sidebar. Pin it last instead; everything else
+  // keeps the id order the query returns.
+  locations.sort((a, b) => {
+    const au = a.id === UNKNOWN_LOCATION_ID ? 1 : 0;
+    const bu = b.id === UNKNOWN_LOCATION_ID ? 1 : 0;
+    return au - bu || a.id - b.id;
+  });
+
   const findCoords = coordRows.map(
     (r) =>
-      [r.lat, r.lng, r.lid ?? 0, r.fid, Number(r.tone)] as readonly [
+      // -1 (not 0) is the "no location" sentinel: 0 is now a REAL location id
+      // (NEZNÁMÁ), so the old 0 would make every unlocated find look like it
+      // belonged to it when that location is focused.
+      [r.lat, r.lng, r.lid ?? -1, r.fid, Number(r.tone)] as readonly [
         number,
         number,
         number,

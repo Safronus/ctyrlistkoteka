@@ -78,6 +78,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   libovolný `stat`/`mesto` (placeholdery „Defaultní"/„Neznámé") — import ho
   přijme, ostatní entries drží 2-znakový stát dál. Sync u 00000 zapíše
   `countryCode = null` (sloupec je `VarChar(2)`). (`mapPackage.ts`, `sync.ts`.)
+- **Fáze 2–5 (web):** `/lokality` NEZNÁMÁ vůbec nevypisuje (detail zůstává
+  dostupný přímo i z `/mapa`); na `/mapa` je připnutá **na konec** seznamu
+  (jinak by jako id 0 byla první); detail má vysvětlující popisek („Výchozí
+  lokalita…"); ze statistik je vyloučená z **top lokalit, států, měst i počtu
+  měst** (z hustoty vypadne sama — je „bod"). Uvolněny stráže odmítající id 0
+  (hledání podle čísla, `?open=`, a hlavně `parseMapId` na detailu, který by
+  `/lokality/00000` poslal na 404). Sentinel „nález bez lokality" ve vrstvě
+  bodů `/mapa` posunut z `0` na `-1`, aby nekolidoval s reálnou lokalitou 0.
 - **BEZLOKACE se odvozuje z lokality, ne ze stavu v názvu/LSP:** sync přiřadí
   `LOCATION_MISSING` každému nálezu s `location_id = 0` (managed jako
   ANONYMIZED). `stavy.BEZLOKACE` v LSP se ignoruje (zpět v

@@ -453,6 +453,7 @@
     "subPartLabel": "sub-part",
     "subpartsTitle": "Location is split into sub-parts",
     "goneBadge": "Former",
+    "unknownLocationNote": "Default location used for clovers whose real location is unknown. It has no real country, town or area — which is why it is left out of the locations list and the location statistics.",
     "allFindsCta": "All finds ({count})",
     "allFindsEmptyCta": "All finds",
     "showOnMapCta": "Show on map",

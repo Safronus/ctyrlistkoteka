@@ -14,6 +14,7 @@ import {
   DEFAULT_LOCATION_ID,
   FIND_DEVIATION_RADIUS_M,
   POLYGON_FREE_AREA_M2,
+  UNKNOWN_LOCATION_ID,
 } from "@/lib/constants";
 import { countryFromCoords } from "@/lib/geo";
 import {
@@ -240,6 +241,9 @@ export async function getLocationIdsWithRealPhotos(): Promise<Set<number>> {
  *  sort (e.g. "Č" between "C" and "D", not after "Z"). */
 export async function listCadastralAreas(): Promise<string[]> {
   const rows = await prisma.location.findMany({
+    // NEZNÁMÁ (00000) carries a placeholder city ("Neznámé") — it must not
+    // show up as a town in the dropdown or inflate the town count.
+    where: { id: { not: UNKNOWN_LOCATION_ID } },
     distinct: ["cadastralArea"],
     select: { cadastralArea: true },
   });
@@ -520,7 +524,7 @@ export async function getLocationIdsMatchingText(filter: {
   const where: Prisma.LocationWhereInput = {};
   if (hasNum) {
     const n = Number.parseInt(filter.num!.trim(), 10);
-    where.id = Number.isInteger(n) && n > 0 ? n : -1;
+    where.id = Number.isInteger(n) && n >= 0 ? n : -1;
   }
   if (hasQ) where.OR = await buildLocationSearchOr(filter.q!.trim());
   const rows = await prisma.location.findMany({ where, select: { id: true } });
@@ -540,7 +544,7 @@ export async function listLocations(
   // AND. Zero / garbage → an impossible id so the result is simply empty.
   else if (filter.num && filter.num.trim()) {
     const n = Number.parseInt(filter.num.trim(), 10);
-    where.id = Number.isInteger(n) && n > 0 ? n : -1;
+    where.id = Number.isInteger(n) && n >= 0 ? n : -1;
   }
   if (filter.cadastralArea) {
     // cadastralArea is the plain city (gone-ness lives in is_cancelled, not
@@ -957,6 +961,14 @@ export async function listLocations(
   });
 
   // ------------------------------------------------------------ visibility filters
+  // The special NEZNÁMÁ location (číslo 00000) is never listed: it's a bucket
+  // for finds whose real place is unknown, not a place to browse. It stays
+  // reachable directly — its own detail page, /mapa's sidebar (pinned last),
+  // and the find rows that link to it — and `filter.id` lets those callers
+  // pull it deliberately.
+  if (filter.id !== UNKNOWN_LOCATION_ID) {
+    items = items.filter((it) => it.id !== UNKNOWN_LOCATION_ID);
+  }
   // Both default to hidden — anonymized and former-locations clutter the
   // common case where a visitor wants to browse active places.
   if (filter.showAnonymized !== true) {

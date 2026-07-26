@@ -91,7 +91,7 @@ export default async function LokalityPage({ searchParams }: PageProps) {
     (pickString(sp.open) ?? "")
       .split(",")
       .map((s) => Number(s))
-      .filter((n) => Number.isInteger(n) && n > 0),
+      .filter((n) => Number.isInteger(n) && n >= 0),
   );
 
   const locale = await getLocale();

@@ -22,6 +22,7 @@ import {
   formatLocationId,
   locationDetailHref,
 } from "@/lib/format";
+import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
 import {
   getAllLocationIds,
   getLocationDetailById,
@@ -52,7 +53,8 @@ export const revalidate = 86400;
 function parseMapId(value: string): number | null {
   if (!/^\d+$/.test(value)) return null;
   const n = Number.parseInt(value, 10);
-  return Number.isInteger(n) && n > 0 ? n : null;
+  // `>= 0`: 0 is the real NEZNÁMÁ location (/lokality/00000), not a bad id.
+  return Number.isInteger(n) && n >= 0 ? n : null;
 }
 
 /** 5 m halo radius for polygon-less v1 locations. v2 maps use MapOverlay
@@ -333,6 +335,14 @@ async function FullDetail({
 
         {base.displayName && base.displayName !== base.code && (
           <p className="text-base text-gray-700">{base.displayName}</p>
+        )}
+
+        {/* The special NEZNÁMÁ location isn't a place — say so up front, so a
+            visitor doesn't read its placeholder city / lack of area as a bug. */}
+        {base.id === UNKNOWN_LOCATION_ID && (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {t("unknownLocationNote")}
+          </p>
         )}
 
         <p className="text-sm text-gray-500">

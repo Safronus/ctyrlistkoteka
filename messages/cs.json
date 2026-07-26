@@ -452,6 +452,7 @@
     "subPartLabel": "dílčí část",
     "subpartsTitle": "Lokalita je rozdělena na dílčí části",
     "goneBadge": "Zaniklá",
+    "unknownLocationNote": "Výchozí lokalita, která slouží jako lokalita pro čtyřlístky bez známé lokality. Nemá skutečný stát, město ani plochu — proto se nezobrazuje v seznamu lokalit ani ve statistikách o lokalitách.",
     "allFindsCta": "Všechny nálezy ({count})",
     "allFindsEmptyCta": "Všechny nálezy",
     "showOnMapCta": "Zobrazit na mapě",

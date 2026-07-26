@@ -19,7 +19,11 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { DEFAULT_LOCATION_ID, FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import {
+  DEFAULT_LOCATION_ID,
+  FIND_DEVIATION_RADIUS_M,
+  UNKNOWN_LOCATION_ID,
+} from "@/lib/constants";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { countryFromCoords } from "@/lib/geo";
 import { czRegionFromCoords } from "@/lib/cz-regions";
@@ -621,6 +625,10 @@ const fetchGeoLocRows = cache(async (): Promise<GeoLocRow[]> => {
       COUNT(f.id) AS count
     FROM locations l
     LEFT JOIN finds f ON f.location_id = l.id
+    -- The special NEZNÁMÁ location (00000) has no real country/city (its
+    -- manifest stat/mesto are placeholders), so it must not create a country
+    -- or town bucket in the geo breakdowns.
+    WHERE l.id <> ${UNKNOWN_LOCATION_ID}::int
     GROUP BY l.id, l.code, l.cadastral_area, l.center_point
   `;
 });
@@ -1386,6 +1394,9 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
       FROM locations l
       LEFT JOIN bucket b ON b.bucket_id = l.id
       WHERE l.id NOT IN (SELECT location_id FROM anon)
+        -- NEZNÁMÁ (00000) isn't a real place — it must not compete in the
+        -- "busiest locations" ranking.
+        AND l.id <> ${UNKNOWN_LOCATION_ID}::int
         AND NOT (
           l.parent_id IS NOT NULL
           AND l.parent_id NOT IN (SELECT location_id FROM anon)
