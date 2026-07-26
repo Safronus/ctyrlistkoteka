@@ -964,9 +964,15 @@ export async function listLocations(
   // The special NEZNÁMÁ location (číslo 00000) is never listed: it's a bucket
   // for finds whose real place is unknown, not a place to browse. It stays
   // reachable directly — its own detail page, /mapa's sidebar (pinned last),
-  // and the find rows that link to it — and `filter.id` lets those callers
-  // pull it deliberately.
-  if (filter.id !== UNKNOWN_LOCATION_ID) {
+  // and the find rows that link to it.
+  //
+  // "Asked for it explicitly" must cover BOTH id selectors: the detail page
+  // goes through `idIn` (it folds the location together with its children), so
+  // checking only `filter.id` here 404'd /lokality/00000.
+  const wantsUnknown =
+    filter.id === UNKNOWN_LOCATION_ID ||
+    filter.idIn?.includes(UNKNOWN_LOCATION_ID) === true;
+  if (!wantsUnknown) {
     items = items.filter((it) => it.id !== UNKNOWN_LOCATION_ID);
   }
   // Both default to hidden — anonymized and former-locations clutter the

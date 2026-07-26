@@ -19,7 +19,11 @@ import {
 } from "@/components/finds/view-sort-toolbar";
 import { PageSizeSelector } from "@/components/finds/page-size-selector";
 import { Pagination } from "@/components/finds/pagination";
-import { DOMINANT_LOCATION_ID, FINDS_PER_PAGE } from "@/lib/constants";
+import {
+  DOMINANT_LOCATION_ID,
+  FINDS_PER_PAGE,
+  UNKNOWN_LOCATION_ID,
+} from "@/lib/constants";
 import { prisma } from "@/lib/db";
 import { cityFromCadastralArea } from "@/lib/locationCode";
 import {
@@ -90,6 +94,15 @@ function parsePositiveInt(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : undefined;
+}
+
+/** Like {@link parsePositiveInt} but accepts 0 — needed for `?loc=`, since
+ *  the NEZNÁMÁ location's id IS 0 and `?loc=0` must filter to it rather than
+ *  being silently dropped. Find ids still use the positive parser. */
+function parseNonNegativeInt(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : undefined;
 }
 
 function parseDateOnly(value: string | undefined): Date | undefined {
@@ -166,7 +179,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     q: pickString(sp.q) ?? undefined,
     // Dedicated exact find-number box (`?id=140`) — matches #140 only.
     exactId: parsePositiveInt(pickString(sp.id)),
-    locationId: parsePositiveInt(pickString(sp.loc)),
+    locationId: parseNonNegativeInt(pickString(sp.loc)),
     // cityFromCadastralArea just coerces to string (v2 cadastralAreas are the
     // plain city); `|| undefined` drops an empty filter.
     cadastralArea: cityFromCadastralArea(pickString(sp.city)) || undefined,
@@ -499,7 +512,12 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
         // Filter-independent totals, pinned to the right of the title. The
         // per-filter count moved to the "Filtr je aktivní" strip below.
         counts={t("headingCounts", {
-          locations: options.locations.length,
+          // NEZNÁMÁ (00000) is a bucket, not a place the collection visited —
+          // it stays in `options.locations` for the location filter below, but
+          // must not inflate this headline count.
+          locations: options.locations.filter(
+            (l) => l.id !== UNKNOWN_LOCATION_ID,
+          ).length,
           finds: progress.count,
         })}
         progressToggleLabel={

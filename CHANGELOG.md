@@ -86,7 +86,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   (hledání podle čísla, `?open=`, a hlavně `parseMapId` na detailu, který by
   `/lokality/00000` poslal na 404). Sentinel „nález bez lokality" ve vrstvě
   bodů `/mapa` posunut z `0` na `-1`, aby nekolidoval s reálnou lokalitou 0.
+- **Opraveno 404 na `/lokality/00000`** — skrývací filtr kontroloval jen
+  `filter.id`, ale detail lokality si ji tahá přes `filter.idIn` (skládá ji
+  s potomky), takže si ji sám odfiltroval. Nově se respektují oba selektory.
+  Ověřeno proti test DB.
+- **Opraveno `?loc=0` na `/sbirka`** — parser parametru vyžadoval > 0, takže
+  odkaz „Ukázat 🍀" u NEZNÁMÁ filtr tiše zahodil. Nálezová ID zůstávají > 0.
 - **NEZNÁMÁ se nepočítá do počtů lokalit** — hlavní panel na `/statistiky`,
+  titulkový součet na `/sbirka`,
   panel na domovské stránce a titulkový součet na `/lokality`. Vyloučená je i
   ze jmenovatele „⌀ 🍀 na lokalitu" (a s ní i její nálezy z čitatele), aby
   průměr nekřivil bucket bez skutečného místa.
