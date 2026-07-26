@@ -761,6 +761,8 @@
     "sidebarHeading": "Locations ({count})",
     "sidebarAnonymizedSuffix": "+ {count} anonymized",
     "sidebarAnonymizedTitle": "Anonymized locations aren't on the map and can't be shown",
+    "sidebarUnknownChip": "UNKNOWN · {count} 🍀",
+    "sidebarUnknownTitle": "Default location for 🍀 with no known place — click to focus it on the map",
     "searchPlaceholder": "Search code, description…",
     "noLocations": "No locations.",
     "rowGoneBadge": "Former",

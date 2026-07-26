@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ExternalLink, Eye, EyeOff, Search } from "lucide-react";
+import { ExternalLink, Eye, EyeOff, HelpCircle, Search } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
 import type { LocationListItem } from "@/lib/queries/locations";
 import {
   formatAreaM2,
@@ -49,11 +50,23 @@ export function MapSidebar({
   const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
   const [q, setQ] = useState("");
 
+  // NEZNÁMÁ (00000) is pulled OUT of the list and given its own chip in the
+  // header — it isn't a place you browse past, it's the bucket you jump to.
+  // It therefore also drops out of the header's location count.
+  const unknownLoc = useMemo(
+    () => locations.find((l) => l.id === UNKNOWN_LOCATION_ID) ?? null,
+    [locations],
+  );
+  const realLocations = useMemo(
+    () => locations.filter((l) => l.id !== UNKNOWN_LOCATION_ID),
+    [locations],
+  );
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return locations;
+    if (!needle) return realLocations;
     const idQuery = parseIdQuery(q);
-    return locations.filter((l) => {
+    return realLocations.filter((l) => {
       if (idQuery !== null) {
         if (l.id === idQuery.exactId) return true;
         if (paddedIdMatches(l.id, idQuery.digits)) return true;
@@ -64,13 +77,15 @@ export function MapSidebar({
         l.cadastralArea.toLowerCase().includes(needle)
       );
     });
-  }, [locations, q]);
+  }, [realLocations, q]);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-gray-200 px-3 py-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">
-          {t("sidebarHeading", { count: numFmt.format(locations.length) })}
+      <div className="flex items-center gap-2 border-b border-gray-200 px-3 py-2">
+        <h3 className="min-w-0 text-[11px] font-semibold uppercase tracking-wide text-brand-700">
+          {t("sidebarHeading", {
+            count: numFmt.format(realLocations.length),
+          })}
           {anonymizedLocationCount > 0 && (
             <span
               className="ml-1 normal-case tracking-normal text-gray-400"
@@ -83,6 +98,27 @@ export function MapSidebar({
             </span>
           )}
         </h3>
+        {/* NEZNÁMÁ (00000) — right-aligned chip on the same row, grey to match
+            its map marker. Focuses the location like a list row would. */}
+        {unknownLoc && (
+          <button
+            type="button"
+            onClick={() => onSelect(unknownLoc.id)}
+            title={t("sidebarUnknownTitle")}
+            className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition ${
+              focusId === unknownLoc.id
+                ? "border-slate-400 bg-slate-200 text-slate-900"
+                : "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
+          >
+            <HelpCircle className="h-3 w-3" aria-hidden />
+            {t("sidebarUnknownChip", {
+              count: numFmt.format(
+                unknownLoc.aggregateStats.total || unknownLoc.stats.total,
+              ),
+            })}
+          </button>
+        )}
       </div>
       <div className="border-b border-gray-200 p-3">
         <div className="relative">

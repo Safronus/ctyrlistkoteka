@@ -9,10 +9,7 @@ import {
   getHighlightFind,
   type FindFilters,
 } from "@/lib/queries/finds";
-import {
-  DOMINANT_LOCATION_ID,
-  UNKNOWN_LOCATION_ID,
-} from "@/lib/constants";
+import { DOMINANT_LOCATION_ID } from "@/lib/constants";
 import { buildFilterSummary } from "@/lib/filterSummary";
 import { formatShortDateCs, formatTinyDateTimeCs } from "@/lib/format";
 import { MapaShell } from "@/components/map/mapa-shell";
@@ -157,13 +154,10 @@ export default async function MapaPage({ searchParams }: PageProps) {
         : Promise.resolve(null),
     ]);
 
-  // NEZNÁMÁ (00000) always sits at the very END of the sidebar, whatever the
-  // sort would do with its find count — it isn't a place you'd browse to, it's
-  // the bucket you look up last.
-  const sidebarLocations = [
-    ...sidebarRows.filter((l) => l.id !== UNKNOWN_LOCATION_ID),
-    ...sidebarRows.filter((l) => l.id === UNKNOWN_LOCATION_ID),
-  ];
+  // NEZNÁMÁ (00000) stays in this array — MapSidebar pulls it out of the list
+  // itself and renders it as its own chip in the panel header, so no ordering
+  // work is needed here.
+  const sidebarLocations = sidebarRows;
 
   const highlightFindIds: ReadonlySet<number> | null =
     highlightIdList !== null ? new Set(highlightIdList) : null;

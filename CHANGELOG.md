@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /mapa: NEZNÁMÁ má vlastní místo v hlavičce panelu „Lokality"
+- Místo poslední položky v seznamu je teď **chip vpravo v hlavičce panelu**
+  (na řádku s počtem lokalit a anonymizovaných): šedý, s „?" a počtem 🍀,
+  kliknutím se lokalita zaostří. Šedá ladí s jejím markerem na mapě.
+- **Do počtu lokalit v hlavičce se už nezapočítává** a ze samotného seznamu
+  vypadla (tím i z jeho vyhledávání) — je dostupná právě přes ten chip.
+
 ### 🛑 /sbirka: combobox „Lokalita" tiše zobrazoval jen prvních 200 lokalit
 - Seznam měl strop 200 vykreslených položek **bez jakékoli hlášky** (komentář
   v kódu tvrdil, že se zkrácení vypisuje — nevypisovalo). Jakmile sbírka

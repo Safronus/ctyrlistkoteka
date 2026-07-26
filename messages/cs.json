@@ -760,6 +760,8 @@
     "sidebarHeading": "Lokality ({count})",
     "sidebarAnonymizedSuffix": "+ {count} anonymizovaných",
     "sidebarAnonymizedTitle": "Anonymizované lokality nejsou na mapě a nelze je zobrazit",
+    "sidebarUnknownChip": "NEZNÁMÁ · {count} 🍀",
+    "sidebarUnknownTitle": "Výchozí lokalita pro 🍀 bez známého místa nálezu — kliknutím ji zaostříš na mapě",
     "searchPlaceholder": "Hledat kód, popis…",
     "noLocations": "Žádné lokality.",
     "rowGoneBadge": "Zaniklá",
