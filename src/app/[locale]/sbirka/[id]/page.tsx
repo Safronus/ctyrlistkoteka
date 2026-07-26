@@ -31,7 +31,10 @@ import {
   formatLocationId,
   locationDetailHref,
 } from "@/lib/format";
-import { FIND_DEVIATION_RADIUS_M } from "@/lib/constants";
+import {
+  FIND_DEVIATION_RADIUS_M,
+  UNKNOWN_LOCATION_ID,
+} from "@/lib/constants";
 import { versionedPhotoUrl } from "@/lib/assetVersion";
 import { photoDisplay } from "@/lib/photoBox";
 import { getFindNoteOverride } from "@/lib/findNoteOverrides";
@@ -583,6 +586,14 @@ export default async function FindDetailPage({ params }: PageProps) {
                 {isLocationGone(find.location?.code, find.location?.isCancelled) && (
                   <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
                     {t("formerLocationNotice")}
+                  </p>
+                )}
+                {/* Find parked on the special NEZNÁMÁ location — say so, so the
+                    generic-looking map + placeholder city don't read as this
+                    find's actual place. */}
+                {find.location?.id === UNKNOWN_LOCATION_ID && (
+                  <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    {t("unknownLocationNotice")}
                   </p>
                 )}
                 {find.location ? (

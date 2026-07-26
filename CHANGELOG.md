@@ -86,6 +86,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   (hledání podle čísla, `?open=`, a hlavně `parseMapId` na detailu, který by
   `/lokality/00000` poslal na 404). Sentinel „nález bez lokality" ve vrstvě
   bodů `/mapa` posunut z `0` na `-1`, aby nekolidoval s reálnou lokalitou 0.
+- **Fáze 6–7 (dokončení):** na `/sbirka` je NEZNÁMÁ normálně ve filtru lokalit
+  (jakmile má nálezy) a nálezy nesou odznak „Bez lokality"; detail nálezu má
+  vysvětlivku, že místo není známé (CS + EN). Zdokumentováno v
+  `docs/data-schema.md` — jak nález přiřadit (MAP_NUMBER 00000 v názvu), proč
+  se BEZLOKACE odvozuje, výjimka pro stát/město v manifestu a past s id 0.
 - **BEZLOKACE se odvozuje z lokality, ne ze stavu v názvu/LSP:** sync přiřadí
   `LOCATION_MISSING` každému nálezu s `location_id = 0` (managed jako
   ANONYMIZED). `stavy.BEZLOKACE` v LSP se ignoruje (zpět v

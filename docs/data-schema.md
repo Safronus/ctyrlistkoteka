@@ -145,11 +145,38 @@ NOT_PICKED        -- (zrušeno) „Neutržený"
   zaokrouhlené na 3 desetinná místa (~111 m) nebo NULL.
 - Pokud stav `NO_GPS`, `coordinates` je NULL.
 - Pokud stav `NO_PHOTO`, nemá řádky v `find_images`.
-- Nález bez lokality má `location_id` i `map_id` NULL (dřív značeno stavem
-  `LOCATION_MISSING`, ten byl zrušen).
+- Nález s **neznámým** místem nálezu patří na výchozí lokalitu **NEZNÁMÁ**
+  (`location_id = 0`, viz níže). `location_id = NULL` znamená něco jiného —
+  „sync zatím nezná mapu tohoto nálezu" (typicky rozpracovaný upload), ne
+  „místo je neznámé".
 - `location.code` je unikátní a nemění se.
 - `finds.id` je stabilní — nikdy ho přečíslovat.
 - `location_maps.id` odpovídá MAP_ID z názvu mapy a MAP_NUMBER z fotek nálezů.
+
+### Výchozí lokalita „NEZNÁMÁ" (číslo 00000, id 0)
+
+Rezervovaná lokalita, kam patří nálezy bez známého místa. Konstanta
+`UNKNOWN_LOCATION_ID` v `src/lib/constants.ts`. **Nezaměňovat** s
+`DEFAULT_LOCATION_ID = 1`, což je placeholder mapa, kterou web podstrkuje
+u *anonymizovaných* nálezů (ty místo znají, jen ho tají).
+
+- **Jak tam nález přiřadit:** dát mu v názvu souboru `MAP_NUMBER` = `00000`.
+  Sync váže nálezy podle čísla mapy z názvu, `LokaceStavyPoznamky.json` sekce
+  `lokace` na vazbu nemá vliv.
+- **Stav BEZLOKACE** (`LOCATION_MISSING`) se **odvozuje** — sync ho přiřadí
+  každému nálezu s `location_id = 0`. Nepiš ho do názvu souboru ani do LSP
+  (`stavy.BEZLOKACE` je v `DEPRECATED_JSON_STATE_KEYS` a ignoruje se).
+- **Mapa 00000** se importuje běžně přes `/admin/import`. Jako jediná smí mít
+  v manifestu libovolný `stat`/`mesto` (placeholdery „Defaultní"/„Neznámé") —
+  ostatní mapy drží 2znakový kód státu. Sync jí zapíše `country_code = NULL`.
+  Doporučený indikátor je `dot` (bez plochy → sama vypadne z hustoty).
+- **Chování webu:** `/lokality` ji nevypisuje vůbec; `/mapa` ji má připnutou na
+  konec seznamu; detail `/lokality/00000` má vysvětlující popisek; ze statistik
+  je vyloučená z top-lokalit, států, měst i počtu měst. Na `/sbirka` je
+  normálně filtrovatelná a nálezy nesou odznak „Bez lokality".
+- **Pozor na id 0:** ve vrstvě bodů na `/mapa` je sentinel „nález bez lokality"
+  `-1`, ne `0` — nula je teď reálné id. Stráže typu `n > 0` u hledání podle
+  čísla / `?open=` / `parseMapId` musí být `>= 0`.
 
 ---
 

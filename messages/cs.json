@@ -816,6 +816,7 @@
     "panelLocation": "Lokalita",
     "anonymizedLocationNotice": "Skutečná lokalita anonymizovaného nálezu se nezobrazuje.",
     "formerLocationNotice": "Tato lokalita už fyzicky neexistuje (zástavba, terénní úprava apod.). Mapa zobrazuje původní místo.",
+    "unknownLocationNotice": "U tohoto 🍀 není známé místo nálezu. Je proto veden pod výchozí lokalitou „NEZNÁMÁ“ — mapa i údaje níže tedy nepatří ke konkrétnímu místu.",
     "kvCode": "Kód lokality",
     "kvDescription": "Popis lokality",
     "kvArea": "Plocha lokality",

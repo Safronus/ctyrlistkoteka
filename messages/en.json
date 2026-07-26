@@ -817,6 +817,7 @@
     "panelLocation": "Location",
     "anonymizedLocationNotice": "The real location of an anonymized find isn't shown.",
     "formerLocationNotice": "This location no longer physically exists (built over, terrain change, etc.). The map shows the original spot.",
+    "unknownLocationNotice": "The place where this 🍀 was found is unknown, so it sits under the default “NEZNÁMÁ” (unknown) location — the map and the details below don't describe a real spot.",
     "kvCode": "Location code",
     "kvDescription": "Location description",
     "kvArea": "Location area",
