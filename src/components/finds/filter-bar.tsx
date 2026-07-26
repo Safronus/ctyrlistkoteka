@@ -447,6 +447,7 @@ export function FilterBar({
             searchPlaceholder={t("locationSearchPlaceholder")}
             emptyLabel={t("locationSearchEmpty")}
             formatCount={(n) => nf.format(n)}
+            truncatedLabel={(n) => t("locationSearchTruncated", { count: nf.format(n) })}
           />
         </div>
 

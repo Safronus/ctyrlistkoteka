@@ -314,7 +314,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   const hasFilters = !!(
     filters.q ||
     filters.exactId ||
-    filters.locationId ||
+    filters.locationId != null ||
     filters.cadastralArea ||
     filters.country ||
     filters.states?.length ||
@@ -455,7 +455,9 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     const params = new URLSearchParams();
     if (filters.q) params.set("q", filters.q);
     if (filters.exactId) params.set("id", String(filters.exactId));
-    if (filters.locationId) params.set("loc", String(filters.locationId));
+    // `!= null`, not truthiness — location id 0 (NEZNÁMÁ) is real.
+    if (filters.locationId != null)
+      params.set("loc", String(filters.locationId));
     if (filters.cadastralArea) params.set("city", filters.cadastralArea);
     if (filters.country) params.set("country", filters.country);
     if (filters.states) for (const s of filters.states) params.append("state", s);
@@ -542,7 +544,8 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
         current={{
           q: filters.q ?? "",
           idQuery: filters.exactId ? String(filters.exactId) : "",
-          locationId: filters.locationId ? String(filters.locationId) : "",
+          locationId:
+            filters.locationId != null ? String(filters.locationId) : "",
           city: filters.cadastralArea ?? "",
           country: filters.country ?? "",
           states: filters.states ?? [],

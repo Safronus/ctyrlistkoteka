@@ -141,6 +141,7 @@
     "location": "Lokalita",
     "locationSearchPlaceholder": "Hledat lokalitu (kód nebo číslo)…",
     "locationSearchEmpty": "Nic nenalezeno",
+    "locationSearchTruncated": "Zobrazeno jen prvních — {count} dalších lokalit se do seznamu nevešlo, zuž hledání.",
     "state": "Stav",
     "noState": "Bez stavu",
     "year": "Rok",

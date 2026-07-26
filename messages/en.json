@@ -142,6 +142,7 @@
     "location": "Location",
     "locationSearchPlaceholder": "Search location (code or number)…",
     "locationSearchEmpty": "Nothing found",
+    "locationSearchTruncated": "Showing the first batch only — {count} more locations didn't fit; narrow your search.",
     "state": "State",
     "noState": "No state",
     "year": "Year",

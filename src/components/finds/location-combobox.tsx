@@ -29,6 +29,11 @@ function fold(s: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+/** DOM guard only — the dropdown must never silently end mid-list. Well above
+ *  the real location count (285 and growing slowly); anything beyond this is
+ *  reported by the "+N dalších" line under the list. */
+const MAX_RENDERED = 2000;
+
 export function LocationCombobox({
   locations,
   countries,
@@ -41,6 +46,7 @@ export function LocationCombobox({
   searchPlaceholder,
   emptyLabel,
   formatCount,
+  truncatedLabel,
 }: {
   /** Cascade-narrowed list to search (already limited to the picked
    *  country/city, if any). */
@@ -59,6 +65,8 @@ export function LocationCombobox({
   searchPlaceholder: string;
   emptyLabel: string;
   formatCount: (n: number) => string;
+  /** Rendered under the list when the render cap bit — must never be silent. */
+  truncatedLabel?: (n: number) => string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -92,9 +100,26 @@ export function LocationCombobox({
             String(l.id).padStart(5, "0").includes(q),
         )
       : locations;
-    // Cap so a no-query open doesn't render 200 rows; a search narrows well
-    // before this and the count line tells the user when it's truncated.
-    return list.slice(0, 200);
+    // Render cap, purely a DOM-size guard. It used to be 200 with a comment
+    // claiming "the count line tells the user when it's truncated" — there was
+    // no such line, so once the collection passed 200 locations the list
+    // silently ended mid-alphabet: sorted by code, CZ_* filled the whole cap
+    // and every HU/IE/IS/JP/PL/SK location vanished from the dropdown even
+    // with no filters set. The cap is now far above the real count AND
+    // truncation is surfaced below the list.
+    return list.slice(0, MAX_RENDERED);
+  }, [locations, query]);
+  const truncated = useMemo(() => {
+    const q = fold(query);
+    const total = q
+      ? locations.filter(
+          (l) =>
+            fold(l.label).includes(q) ||
+            String(l.id).includes(q) ||
+            String(l.id).padStart(5, "0").includes(q),
+        ).length
+      : locations.length;
+    return Math.max(0, total - MAX_RENDERED);
   }, [locations, query]);
 
   // Group the filtered list by country, ordered by the `countries` list —
@@ -207,7 +232,7 @@ export function LocationCombobox({
           </div>
           <ul
             ref={listRef}
-            className="max-h-64 overflow-auto overscroll-contain py-1 text-sm"
+            className="max-h-[min(70dvh,44rem)] overflow-auto overscroll-contain py-1 text-sm"
           >
             <li>
               <button
@@ -256,6 +281,11 @@ export function LocationCombobox({
               <li className="px-3 py-2 text-gray-400">{emptyLabel}</li>
             )}
           </ul>
+          {truncated > 0 && truncatedLabel && (
+            <p className="border-t border-gray-100 px-3 py-1.5 text-xs text-amber-700">
+              {truncatedLabel(truncated)}
+            </p>
+          )}
         </div>
       )}
     </div>
