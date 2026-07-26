@@ -180,6 +180,42 @@ export function resolveParentNumber(
   return dbFallback?.(entry.potomek) ?? null;
 }
 
+/**
+ * Merges an incoming manifest into an existing one, keyed by číslo (incoming
+ * wins per map). Result is sorted by číslo and carries the incoming manifest's
+ * top-level fields with `pocet_map` recomputed.
+ *
+ * A package can legitimately carry a SUBSET of the collection, so an import
+ * must be ADDITIVE: replacing the inventory with a subset would orphan every
+ * other location on the next sync. Pass `existing = null` for a first import.
+ */
+export function mergeManifests(
+  existing: MapPackageManifest | null,
+  incoming: MapPackageManifest,
+): { manifest: MapPackageManifest; added: number; replaced: number } {
+  const byCislo = new Map<number, MapPackageEntry>();
+  for (const m of existing?.mapy ?? []) byCislo.set(entryNumber(m), m);
+  let added = 0;
+  let replaced = 0;
+  for (const m of incoming.mapy) {
+    const n = entryNumber(m);
+    if (byCislo.has(n)) replaced++;
+    else added++;
+    byCislo.set(n, m);
+  }
+  return {
+    manifest: {
+      ...incoming,
+      pocet_map: byCislo.size,
+      mapy: [...byCislo.values()].sort(
+        (a, b) => entryNumber(a) - entryNumber(b),
+      ),
+    },
+    added,
+    replaced,
+  };
+}
+
 /** id_lokace → číslo map across a manifest, for parent resolution. */
 export function buildIdToNumber(
   manifest: MapPackageManifest,

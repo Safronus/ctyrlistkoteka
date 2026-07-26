@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### 🛑 KRITICKÉ: import balíčku map přepisoval manifest → nálezy ztratily lokalitu
+- **Příčina:** `/admin/import` ukládal `manifest.json` z balíčku **přes** ten na
+  disku. Balíček s jednou mapou (nová 00000) tak smazal inventář 212 map →
+  sync viděl `maps.scan count=1`, 284 lokalit se stalo osiřelými a **nově
+  nahrané nálezy dostaly `location_id = NULL`** (jejich mapa v manifestu nebyla).
+- **Oprava 1 — manifest se slučuje, nepřepisuje.** Import teď mergeuje podle
+  čísla (příchozí mapa vyhrává), takže **částečný balíček je aditivní** a nikdy
+  nesmaže ostatní mapy. Starý manifest se před zápisem zálohuje do
+  `data/.trash/<ts>/maps/`. Admin ukazuje „přidáno X / aktualizováno Y / celkem
+  Z map". Stejné pravidlo jako u `--prune`: balíček = upsert set, ne inventář.
+- **Oprava 2 — sync nepřepíše lokalitu na NULL.** Když běh mapu nezná (částečný
+  balíček **nebo `--only=finds`, kde je mapa prázdná!**), nechá existující vazbu
+  být místo zápisu `null`. Dřív `sync --only=finds` odpojil lokalitu každému
+  nálezu, jehož fotka se změnila. Mazat smí dál jen `--prune`.
+- +4 testy na merge (jednomapový balíček nesmí zmenšit inventář).
+
 ### Úklid v1 vestige „NEEXISTUJE-" — zaniklost jen přes `is_cancelled`
 - Po plné migraci na v2 (sync upsertuje podle čísla → přepsal staré
   `NEEXISTUJE-…` kódy na čisté + `is_cancelled=true`) už žádný kód prefix nemá.

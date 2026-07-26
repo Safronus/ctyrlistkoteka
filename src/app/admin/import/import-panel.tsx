@@ -931,6 +931,17 @@ function MapDoneCard({
         {mapSummary.manifestStaged ? " + manifest" : ""}.
       </p>
 
+      {mapSummary.manifestTotal !== undefined &&
+        mapSummary.manifestTotal !== null && (
+          <p className="mt-1 text-xs text-gray-700">
+            Manifest sloučen:{" "}
+            <strong>{mapSummary.manifestAdded ?? 0}</strong> nových,{" "}
+            <strong>{mapSummary.manifestReplaced ?? 0}</strong> aktualizovaných
+            — celkem <strong>{mapSummary.manifestTotal}</strong> map v
+            inventáři. Balíček se přidává, nikdy nemaže ostatní mapy.
+          </p>
+        )}
+
       {mapSummary.errors.length > 0 && (
         <Note tone="red">
           {mapSummary.errors.length} položek se nepodařilo uložit.

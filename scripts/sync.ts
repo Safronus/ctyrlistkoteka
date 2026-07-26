@@ -1288,8 +1288,16 @@ async function phaseFinds(
       watermark: ctx.watermark,
     });
     const exif = await readExifSafe(f.path);
-    const locationId = mapToLocation.get(f.parsed.mapNumber) ?? null;
-    const mapId = locationId !== null ? f.parsed.mapNumber : null;
+    // `undefined` = this run's map set doesn't know that MAP_NUMBER (partial
+    // map package, or --only=finds where mapToLocation is empty). That must
+    // NOT be read as "this find has no location": writing null would wipe a
+    // good link. Only an actually-resolved id is written; unknown leaves the
+    // existing link untouched (same rule as reconcileFindLinks, and prune
+    // stays the only thing that removes data).
+    const resolvedLocationId = mapToLocation.get(f.parsed.mapNumber);
+    const locationKnown = resolvedLocationId !== undefined;
+    const locationId = resolvedLocationId ?? null;
+    const mapId = locationKnown ? f.parsed.mapNumber : null;
 
     if (!exif.dateTaken) noDateExif += 1;
     else if (!exif.dateTakenHasClock) dateOnlyExif += 1;
@@ -1322,8 +1330,9 @@ async function phaseFinds(
         isAnonymized: f.parsed.isAnonymized,
       },
       update: {
-        locationId,
-        mapId,
+        // Only touch the link when this run actually resolved the map —
+        // see the resolvedLocationId note above.
+        ...(locationKnown ? { locationId, mapId } : {}),
         isAnonymized: f.parsed.isAnonymized,
         ...(isOriginal ? { foundAt: exif.dateTaken ?? null } : {}),
       },

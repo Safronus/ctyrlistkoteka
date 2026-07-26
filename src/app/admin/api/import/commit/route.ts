@@ -92,6 +92,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           scope: "import-map-package",
           staged: mapSummary.staged,
           manifestStaged: mapSummary.manifestStaged,
+          manifestAdded: mapSummary.manifestAdded ?? null,
+          manifestReplaced: mapSummary.manifestReplaced ?? null,
+          manifestTotal: mapSummary.manifestTotal ?? null,
           errorCount: mapSummary.errors.length,
         },
       });

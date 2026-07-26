@@ -4,9 +4,11 @@ import {
   buildIdToNumber,
   entryNumber,
   displayNameFor,
+  mergeManifests,
   polygonWkt,
   resolveParentNumber,
   type MapPackageEntry,
+  type MapPackageManifest,
 } from "./mapPackage";
 
 /** Minimal valid entry; override per test. */
@@ -148,5 +150,59 @@ describe("resolveParentNumber", () => {
   it("uses the DB fallback when the parent isn't in the package", () => {
     const idToNum = buildIdToNumber({ typ: "lokacni-mapy", schema_metadat: 2, mapy: [child] });
     expect(resolveParentNumber(child, idToNum, (id) => (id === "CZ_RATIBOŘ_POLE_001" ? 3 : null))).toBe(3);
+  });
+});
+
+describe("mergeManifests (a package is additive, never an inventory)", () => {
+  const mf = (mapy: MapPackageEntry[]): MapPackageManifest => ({
+    typ: "lokacni-mapy",
+    schema_metadat: 2,
+    mapy,
+  });
+
+  it("a one-map package does NOT wipe the rest of the inventory", () => {
+    // The incident: importing the single 00000 map replaced a 212-map
+    // manifest, so sync saw count=1 and orphaned every other location.
+    const existing = mf([
+      entry({ cislo: "00001", id_lokace: "A" }),
+      entry({ cislo: "00025", id_lokace: "B" }),
+    ]);
+    const incoming = mf([entry({ cislo: "00000", id_lokace: "NEZNÁMÁ" })]);
+    const { manifest, added, replaced } = mergeManifests(existing, incoming);
+    expect(manifest.mapy).toHaveLength(3);
+    expect(manifest.mapy.map((m) => m.cislo)).toEqual([
+      "00000",
+      "00001",
+      "00025",
+    ]);
+    expect(added).toBe(1);
+    expect(replaced).toBe(0);
+  });
+
+  it("an incoming map replaces the same číslo (update wins)", () => {
+    const existing = mf([entry({ cislo: "00025", popis: "starý" })]);
+    const incoming = mf([entry({ cislo: "00025", popis: "nový" })]);
+    const { manifest, added, replaced } = mergeManifests(existing, incoming);
+    expect(manifest.mapy).toHaveLength(1);
+    expect(manifest.mapy[0]!.popis).toBe("nový");
+    expect(added).toBe(0);
+    expect(replaced).toBe(1);
+  });
+
+  it("first import (no existing manifest) keeps the package as-is", () => {
+    const incoming = mf([entry({ cislo: "00001" }), entry({ cislo: "00002" })]);
+    const { manifest, added, replaced } = mergeManifests(null, incoming);
+    expect(manifest.mapy).toHaveLength(2);
+    expect(added).toBe(2);
+    expect(replaced).toBe(0);
+  });
+
+  it("recomputes pocet_map to the merged total", () => {
+    const existing = mf([entry({ cislo: "00001" })]);
+    const incoming: MapPackageManifest = {
+      ...mf([entry({ cislo: "00002" })]),
+      pocet_map: 1,
+    };
+    expect(mergeManifests(existing, incoming).manifest.pocet_map).toBe(2);
   });
 });

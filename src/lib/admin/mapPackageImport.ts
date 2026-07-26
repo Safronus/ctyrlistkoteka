@@ -4,11 +4,12 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import type { Entry, ZipFile } from "yauzl";
 import { prisma } from "@/lib/db";
-import { ensureDir } from "./atomic";
+import { atomicWrite, ensureDir, trashTimestamp } from "./atomic";
 import { ADMIN_ROOTS, safeJoin } from "./paths";
 import {
   parseMapPackageManifest,
   entryNumber,
+  mergeManifests,
   type MapPackageManifest,
   type MapPackageEntry,
 } from "@/lib/mapPackage";
@@ -196,6 +197,12 @@ export interface MapPackageImportSummary {
   staged: number;
   manifestStaged: boolean;
   errors: string[];
+  /** Maps the package ADDED to the on-disk manifest (číslo not seen before). */
+  manifestAdded?: number;
+  /** Maps the package REPLACED (číslo already in the manifest). */
+  manifestReplaced?: number;
+  /** Total maps in the merged manifest — the inventory sync will see. */
+  manifestTotal?: number;
 }
 
 /** Streams one zip entry to destPath atomically (tmp in same dir → rename). */
@@ -237,14 +244,79 @@ function shouldStage(zipPath: string): boolean {
 }
 
 /**
- * Stages the package into data/maps/ (manifest + the Nosné/Rendered trees,
- * subfolder structure preserved) so a subsequent `sync` picks it up via
- * phaseMapsV2. safeJoin keeps every write inside data/maps/ (rejects
- * traversal/absolute paths); the nested paths themselves are allowed.
+ * Merges an incoming manifest into the one already in data/maps/, keyed by
+ * číslo (incoming wins per map), and writes the result atomically.
  *
- * No .trash dance and no DB writes: v2 maps are addressed by číslo and the
- * manifest is the batch to sync, so overwriting the same relative paths is
- * the intended idempotent behaviour.
+ * **Why merging, not replacing:** a package may legitimately carry a SUBSET of
+ * the collection (one fixed map, the special 00000 location, a single city).
+ * Replacing manifest.json with that subset silently drops every other map from
+ * the inventory — sync then sees `count=1`, every other location becomes an
+ * orphan, and finds whose photos change get their location link rewritten.
+ * That is exactly the incident this function exists to prevent; it mirrors the
+ * "a package is an additive upsert set, not an authoritative inventory" rule
+ * that `sync --prune` already follows.
+ *
+ * The previous manifest is copied to `data/.trash/<ts>/maps/` first, so a bad
+ * merge is always recoverable. An existing-but-unparseable manifest is not
+ * fatal: it's backed up and the incoming one takes over (with a warning),
+ * since a corrupt manifest would fail the next sync anyway.
+ */
+async function mergeManifestIntoDisk(
+  incomingRaw: Buffer,
+  summary: MapPackageImportSummary,
+): Promise<void> {
+  const dest = safeJoin("locationMaps", MANIFEST_NAME);
+  const incomingParsed = parseMapPackageManifest(incomingRaw.toString("utf8"));
+  if (!incomingParsed.ok) {
+    summary.errors.push(`manifest.json: ${incomingParsed.error}`);
+    return;
+  }
+
+  let existing: MapPackageManifest | null = null;
+  let existingRaw: string | null = null;
+  try {
+    existingRaw = await fs.readFile(dest, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+  }
+  if (existingRaw !== null) {
+    // Back the current manifest up before we touch it — cheap insurance.
+    const trashDir = path.join(ADMIN_ROOTS.trash, trashTimestamp(), "maps");
+    await ensureDir(trashDir);
+    await fs.writeFile(path.join(trashDir, MANIFEST_NAME), existingRaw, "utf8");
+
+    const parsedExisting = parseMapPackageManifest(existingRaw);
+    if (parsedExisting.ok) {
+      existing = parsedExisting.value;
+    } else {
+      summary.errors.push(
+        `Stávající manifest.json je neplatný (${parsedExisting.error}) — byl zazálohován do .trash a nahrazen balíčkem.`,
+      );
+    }
+  }
+
+  const { manifest: merged, added, replaced } = mergeManifests(
+    existing,
+    incomingParsed.value,
+  );
+
+  await atomicWrite(dest, Buffer.from(JSON.stringify(merged, null, 1), "utf8"));
+  summary.manifestStaged = true;
+  summary.manifestAdded = added;
+  summary.manifestReplaced = replaced;
+  summary.manifestTotal = merged.mapy.length;
+}
+
+/**
+ * Stages the package into data/maps/ (the Nosné/Rendered trees, subfolder
+ * structure preserved) so a subsequent `sync` picks it up via phaseMapsV2.
+ * safeJoin keeps every write inside data/maps/ (rejects traversal/absolute
+ * paths); the nested paths themselves are allowed.
+ *
+ * Image files overwrite their own relative paths (idempotent by design). The
+ * manifest is NOT overwritten — it's merged by číslo, see
+ * {@link mergeManifestIntoDisk}, so a partial package can never wipe the rest
+ * of the inventory.
  */
 export async function commitMapPackage(
   zipPath: string,
@@ -255,21 +327,29 @@ export async function commitMapPackage(
     errors: [],
   };
 
+  let manifestRaw: Buffer | null = null;
   await iterateZipUtf8(zipPath, async (zp, zip, raw) => {
     if (!shouldStage(zp)) return;
     try {
+      if (zp === MANIFEST_NAME) {
+        // Buffer it — merged after the walk so a mid-walk failure can't leave
+        // a half-updated inventory behind.
+        manifestRaw = await readZipEntry(zip, raw);
+        return;
+      }
       // safeJoin validates the (possibly nested) path stays within data/maps/.
       const dest = safeJoin("locationMaps", zp);
       await stageEntry(zip, raw, dest);
-      if (zp === MANIFEST_NAME) summary.manifestStaged = true;
-      else summary.staged++;
+      summary.staged++;
     } catch (err) {
       summary.errors.push(`${zp}: ${(err as Error).message}`);
     }
   });
 
-  if (!summary.manifestStaged) {
+  if (manifestRaw === null) {
     summary.errors.push("manifest.json nebyl nalezen — balíček nebyl uložen ke zpracování.");
+    return summary;
   }
+  await mergeManifestIntoDisk(manifestRaw, summary);
   return summary;
 }
