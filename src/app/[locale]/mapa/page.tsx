@@ -9,7 +9,10 @@ import {
   getHighlightFind,
   type FindFilters,
 } from "@/lib/queries/finds";
-import { DOMINANT_LOCATION_ID } from "@/lib/constants";
+import {
+  DOMINANT_LOCATION_ID,
+  UNKNOWN_LOCATION_ID,
+} from "@/lib/constants";
 import { buildFilterSummary } from "@/lib/filterSummary";
 import { formatShortDateCs, formatTinyDateTimeCs } from "@/lib/format";
 import { MapaShell } from "@/components/map/mapa-shell";
@@ -51,6 +54,14 @@ function parsePositiveInt(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : undefined;
+}
+
+/** Accepts 0 — the NEZNÁMÁ location's id IS 0, so `?loc=0` must survive
+ *  parsing rather than being dropped as falsy. Years/find ids stay positive. */
+function parseNonNegativeInt(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : undefined;
 }
 
 function parseStates(
@@ -101,7 +112,7 @@ export default async function MapaPage({ searchParams }: PageProps) {
   const hideDominantOnMap = pickString(sp.hideTop) === "1";
   const findFilters: FindFilters = {
     q: pickString(sp.q) ?? undefined,
-    locationId: parsePositiveInt(pickString(sp.loc)),
+    locationId: parseNonNegativeInt(pickString(sp.loc)),
     cadastralArea: pickString(sp.city) || undefined,
     country: pickString(sp.country) || undefined,
     states: parseStates(sp.state),
@@ -114,7 +125,7 @@ export default async function MapaPage({ searchParams }: PageProps) {
   };
   const hasFindFilter = !!(
     findFilters.q ||
-    findFilters.locationId ||
+    findFilters.locationId !== undefined ||
     findFilters.cadastralArea ||
     findFilters.country ||
     findFilters.states?.length ||
@@ -130,15 +141,29 @@ export default async function MapaPage({ searchParams }: PageProps) {
   // ones aren't there and showing them with no click target was useless.
   // Former (NEEXISTUJE-) locations stay; their polygons are still on the
   // map.
-  const [data, sidebarLocations, highlightFind, highlightIdList] =
+  const [data, sidebarRows, highlightFind, highlightIdList] =
     await Promise.all([
       getMapData(),
-      listLocations({ showAnonymized: false, showGone: true }),
+      // `includeUnknown` — NEZNÁMÁ (00000) is hidden from /lokality but belongs
+      // here: its marker is on the map, so the sidebar needs a clickable row.
+      listLocations({
+        showAnonymized: false,
+        showGone: true,
+        includeUnknown: true,
+      }),
       findId !== null ? getHighlightFind(findId) : Promise.resolve(null),
       hasFindFilter
         ? getFilteredFindIds(findFilters)
         : Promise.resolve(null),
     ]);
+
+  // NEZNÁMÁ (00000) always sits at the very END of the sidebar, whatever the
+  // sort would do with its find count — it isn't a place you'd browse to, it's
+  // the bucket you look up last.
+  const sidebarLocations = [
+    ...sidebarRows.filter((l) => l.id !== UNKNOWN_LOCATION_ID),
+    ...sidebarRows.filter((l) => l.id === UNKNOWN_LOCATION_ID),
+  ];
 
   const highlightFindIds: ReadonlySet<number> | null =
     highlightIdList !== null ? new Set(highlightIdList) : null;

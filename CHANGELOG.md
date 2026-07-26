@@ -86,6 +86,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   (hledání podle čísla, `?open=`, a hlavně `parseMapId` na detailu, který by
   `/lokality/00000` poslal na 404). Sentinel „nález bez lokality" ve vrstvě
   bodů `/mapa` posunut z `0` na `-1`, aby nekolidoval s reálnou lokalitou 0.
+- **🛑 `?loc=0` a „Nedávné nálezy" u NEZNÁMÁ vracely CELOU sbírku** — filtr
+  nálezů testoval `if (f.locationId)`, což je pro id 0 falsy, takže se tiše
+  přeskočil. Proto detail 00000 ukazoval „Nedávné nálezy" (cizí) a `?loc=0`
+  vypsalo všechno, i když souhrn hlásil 0 nálezů. Nově `!== undefined`.
+  Stejná past opravena i u `?loc=` na `/mapa`.
+- **NEZNÁMÁ na `/mapa`:** je v seznamu vpravo (a vždy **na konci**, bez ohledu
+  na řazení) — dřív si ji skrývací filtr `listLocations` odfiltroval i tam;
+  `/mapa` si ji teď vyžádá přes `includeUnknown`. Marker je vizuálně odlišený:
+  **šedý, s přerušovaným kruhem a „?"** (na rozdíl od modré = aktivní, růžové =
+  zaniklá). **Její nálezy se na mapě nekreslí** — jejich místo není známé, tak
+  by každá pozice byla vymyšlená; počet nese popup markeru.
 - **Opraveno 404 na `/lokality/00000`** — skrývací filtr kontroloval jen
   `filter.id`, ale detail lokality si ji tahá přes `filter.idIn` (skládá ji
   s potomky), takže si ji sám odfiltroval. Nově se respektují oba selektory.

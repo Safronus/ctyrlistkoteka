@@ -203,6 +203,12 @@ export async function getMapData(): Promise<MapData> {
       FROM finds f
       LEFT JOIN locations l ON l.id = f.location_id
       WHERE f.is_anonymized = false AND f.coordinates IS NOT NULL
+        -- Finds parked on NEZNÁMÁ (00000) are never plotted: their real place
+        -- is unknown, so any position would be fiction. The location's own
+        -- marker carries the count instead. (Most have no GPS at all, but a
+        -- stray one with coordinates must not sneak onto the map either.)
+        AND (f.location_id IS NULL
+             OR f.location_id <> ${UNKNOWN_LOCATION_ID}::int)
     `,
   ]);
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { Fragment, useEffect, useRef } from "react";
-import { CircleMarker, useMap } from "react-leaflet";
+import { CircleMarker, Marker, useMap } from "react-leaflet";
 import L, { type CircleMarker as LCircleMarker } from "leaflet";
+import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
 import type { MapLocation } from "@/lib/queries/map";
 import {
   buildLocationPopupHtml,
@@ -77,11 +78,13 @@ export function LocationDots({
     <>
       {dots.map((l) => {
         const focused = l.id === focusLocationId;
-        // Blue = active, rose = former. NO amber-on-focus: a selected
-        // location is already carried by its bright finds + the green
-        // deviation circle (SelectedLocationDecor), and an orange dot both
-        // shouted over those finds and clashed with the green circle.
-        const fill = l.isGone ? "#e11d48" : "#1e40af";
+        // The NEZNÁMÁ bucket (00000) is deliberately the odd one out: neutral
+        // GREY (not blue = active, not rose = former), a DASHED ring saying
+        // "this isn't a real area", and a "?" glyph so it reads without the
+        // legend. Its finds have no GPS and are never plotted — the marker's
+        // popup count is the only thing representing them on the map.
+        const isUnknown = l.id === UNKNOWN_LOCATION_ID;
+        const fill = isUnknown ? "#64748b" : l.isGone ? "#e11d48" : "#1e40af";
         return (
           // `focused` is in the key so the marker REMOUNTS on select/deselect
           // — Leaflet can't move a layer between panes after creation, and the
@@ -98,13 +101,14 @@ export function LocationDots({
                 lifts it back on top to be clickable again. */}
             <CircleMarker
               center={[l.centerLat, l.centerLng]}
-              radius={6}
+              radius={isUnknown ? 9 : 6}
               pane={focused ? "overlayPane" : "loc-dots"}
               pathOptions={{
                 color: "#ffffff",
                 weight: focused ? 1.5 : 2,
                 fillColor: fill,
                 fillOpacity: focused ? 0.5 : 1,
+                ...(isUnknown ? { dashArray: "3 3" } : {}),
               }}
               eventHandlers={{
                 add: (e) => {
@@ -138,6 +142,27 @@ export function LocationDots({
                 },
               }}
             />
+            {/* "?" glyph over the NEZNÁMÁ dot. A separate, NON-interactive
+                DivIcon so the CircleMarker above keeps every existing
+                behaviour (popup binding, click-to-select, layerRefs) — clicks
+                pass straight through this to the circle underneath. */}
+            {isUnknown && (
+              <Marker
+                position={[l.centerLat, l.centerLng]}
+                interactive={false}
+                keyboard={false}
+                pane={focused ? "overlayPane" : "loc-dots"}
+                icon={L.divIcon({
+                  className: "",
+                  html:
+                    '<span style="display:flex;align-items:center;justify-content:center;' +
+                    "width:18px;height:18px;font:700 11px/1 ui-sans-serif,system-ui,sans-serif;" +
+                    'color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.45);">?</span>',
+                  iconSize: [18, 18],
+                  iconAnchor: [9, 9],
+                })}
+              />
+            )}
           </Fragment>
         );
       })}

@@ -239,7 +239,12 @@ async function buildWhere(f: FindFilters): Promise<Prisma.FindWhereInput> {
   // active filters (so it still respects a location/state narrowing).
   if (f.exactId) and.push({ id: f.exactId });
 
-  if (f.locationId) {
+  // `!== undefined`, NOT truthiness: location id 0 (NEZNÁMÁ) is a real,
+  // filterable location, and `if (f.locationId)` silently skipped the whole
+  // filter for it — so `?loc=0` returned the ENTIRE collection instead of that
+  // location's finds (and the location detail's "recent finds" listed finds
+  // from everywhere).
+  if (f.locationId !== undefined) {
     // When the requested location is a parent (has children declared via
     // data/meta/LokaceHierarchie.json), include every direct child in the
     // filter so the parent's "Vše ve sbírce" link surfaces every find

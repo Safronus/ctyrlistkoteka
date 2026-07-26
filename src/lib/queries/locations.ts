@@ -209,6 +209,10 @@ export interface LocationFilter {
    *  `${GENERATED_DIR}/location-photos/`). Wired to the "Reálná fotka"
    *  toggle on /lokality. */
   hasRealPhoto?: boolean;
+  /** When true, the special NEZNÁMÁ location (id 0) is kept in the result.
+   *  Default (false) hides it — /lokality must not list it. /mapa opts in:
+   *  its sidebar needs the row so the marker is clickable. */
+  includeUnknown?: boolean;
 }
 
 /**
@@ -970,6 +974,7 @@ export async function listLocations(
   // goes through `idIn` (it folds the location together with its children), so
   // checking only `filter.id` here 404'd /lokality/00000.
   const wantsUnknown =
+    filter.includeUnknown === true ||
     filter.id === UNKNOWN_LOCATION_ID ||
     filter.idIn?.includes(UNKNOWN_LOCATION_ID) === true;
   if (!wantsUnknown) {
