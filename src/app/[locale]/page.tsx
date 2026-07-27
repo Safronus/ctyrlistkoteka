@@ -358,7 +358,12 @@ function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="relative rounded-xl border border-gray-200 bg-brand-50 p-4 text-center">
+    // Content is centred BOTH ways: the tiles stretch to a common row height,
+    // and the finds tile is a single line ("30 199 🍀") once every find is
+    // uploaded and the hint drops out — top-aligned it then floated above the
+    // two-line neighbours. `justify-center` keeps every tile balanced whether
+    // it renders one line, two, or two plus the hint.
+    <div className="relative flex h-full flex-col justify-center rounded-xl border border-gray-200 bg-brand-50 p-4 text-center">
       <Icon
         className="absolute right-3 top-3 h-4 w-4 text-brand-500"
         aria-hidden

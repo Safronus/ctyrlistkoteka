@@ -9,6 +9,24 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Drobnosti: dlaždice na domovské stránce a jubilejní panely
+- **Domů** — dlaždice s počtem 🍀 je vycentrovaná i svisle. Jakmile jsou
+  všechny nálezy nahrané, zmizí z ní řádek „(N nahraných)" a jednořádkový
+  obsah pak visel u horní hrany nad dvouřádkovými sousedy.
+- **/statistiky → Jubilejní 🍀** — panely přepracované: zmizel kód lokality
+  (v té šířce se stejně ořízl do nečitelna), zůstalo číslo nálezu a pod ním
+  datum s časem, obojí na střed.
+  - Stav nálezu je teď **jen ikonka v pravém horním rohu** s tooltipem —
+    darovaný srdíčko, anonymizovaný otazník, ztracený, bez GPS, bez fotky,
+    bez lokality a gigant mají každý svou. Popisky se berou ze sdíleného
+    jmenného prostoru `States`, takže sedí s odznaky na `/sbirka`.
+  - **Anonymizované nálezy nově ukazují datum a čas** — kdy se nález našel,
+    není to soukromé; skrytý zůstává jen proklik na mapu.
+  - Jubilea 111, 666, 1111, 6666 a 11111 si nechala své ikonky, ostatní mají
+    před číslem 🍀 (i prázdné dlaždice, ať mřížka drží jednotný vzhled).
+- Dotaz na jubilea vrací místo jediného příznaku „darovaný" celý seznam stavů
+  (u anonymizovaných prázdný — stavy tam zůstávají skryté jako dosud).
+
 ### /admin/import: strop balíčku 2 GB → 4 GB
 - Balíček s ~25 000 nálezy se do 2 GB nevešel. Strop je čistě aplikační
   konstanta (`MAX_IMPORT_ZIP_BYTES` + její klientské zrcadlo) — nic v cestě

@@ -18,6 +18,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
+import type { FindState } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import {
   DEFAULT_LOCATION_ID,
@@ -282,14 +283,12 @@ export interface JubileeFind {
   foundAt: string | null;
   isAnonymized: boolean;
   location: { code: string; displayName: string } | null;
-  /** True when the find carries the DONATED state assignment in
-   *  data/meta/LokaceStavyPoznamky.json (and so its find_state_
-   *  assignments row exists in DB). Rendered as a small badge in
-   *  the top-right corner of the jubilee tile so the user can tell
-   *  at a glance which milestones have already been gifted. Honour
-   *  the anonymization flag — anonymized finds don't expose the
-   *  state, matching the privacy stance everywhere else. */
-  isDonated: boolean;
+  /** Every state assigned to the find, so the jubilee tile can show the
+   *  matching indicator icon in its top-right corner. Empty for anonymized
+   *  finds — the states stay hidden there, matching the privacy stance for
+   *  notes / GPS / location code. (The tile derives its ANONYMIZED icon from
+   *  `isAnonymized`, not from this list.) */
+  states: readonly FindState[];
   /** Same role as on FindHighlight — gates the map deep-link button. */
   hasGps: boolean;
 }
@@ -1313,7 +1312,7 @@ async function getStatsJubileesImpl(): Promise<StatsJubileesResult> {
       location_code: string | null;
       location_display_name: string | null;
       has_gps: boolean;
-      is_donated: boolean;
+      states: string[] | null;
     }>
   >`
     SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
@@ -1322,16 +1321,17 @@ async function getStatsJubileesImpl(): Promise<StatsJubileesResult> {
                 ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
            END AS location_display_name,
            (f.coordinates IS NOT NULL) AS has_gps,
-           -- DONATED flag for the jubilee tile badge. Anonymized
-           -- finds force false so the state itself stays hidden —
-           -- matches the privacy stance for notes / GPS / location
-           -- code everywhere else.
-           CASE WHEN f.is_anonymized THEN false
-                ELSE EXISTS (
-                  SELECT 1 FROM find_state_assignments fsa
-                  WHERE fsa.find_id = f.id AND fsa.state = 'DONATED'
-                )
-           END AS is_donated
+           -- State assignments for the jubilee tile's indicator icons.
+           -- Anonymized finds return an empty array so the states stay
+           -- hidden — matches the privacy stance for notes / GPS /
+           -- location code everywhere else.
+           CASE WHEN f.is_anonymized THEN ARRAY[]::text[]
+                ELSE COALESCE(
+                  (SELECT array_agg(fsa.state::text ORDER BY fsa.state)
+                   FROM find_state_assignments fsa
+                   WHERE fsa.find_id = f.id),
+                  ARRAY[]::text[])
+           END AS states
     FROM finds f
     LEFT JOIN locations l ON l.id = f.location_id
     WHERE f.id IN (${Prisma.join(candidateIds)})
@@ -1353,7 +1353,9 @@ async function getStatsJubileesImpl(): Promise<StatsJubileesResult> {
             }
           : null,
       hasGps: r.has_gps === true,
-      isDonated: r.is_donated === true,
+      // The column is the find_state enum, so every value is a valid
+      // FindState — no runtime filtering needed.
+      states: (r.states ?? []) as FindState[],
     })),
     recordIds,
   };

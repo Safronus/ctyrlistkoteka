@@ -19,7 +19,10 @@ import {
   ImageOff,
   MapPin,
   MapPinOff,
+  MapPinX,
+  Maximize2,
   Search,
+  SearchX,
   Sparkles,
   Timer,
   Trophy,
@@ -27,6 +30,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
+import { FindState } from "@/generated/prisma/enums";
 import { Link } from "@/i18n/navigation";
 import {
   formatDateTimeCs,
@@ -93,6 +97,36 @@ import {
 } from "@/components/stats/skeletons";
 
 type StatsT = Awaited<ReturnType<typeof getTranslations<"Statistiky">>>;
+type StatesT = Awaited<ReturnType<typeof getTranslations<"States">>>;
+
+/**
+ * Indicator icons for the jubilee tiles — icon only, no label: at tile width
+ * a worded badge either wrapped or truncated. NORMAL and the retired states
+ * are absent on purpose, so a tile with no icon reads as "nothing special".
+ * ANONYMIZED lives here too even though the tile derives it from the flag
+ * rather than the (redacted) state list.
+ */
+const JUBILEE_STATE_ICON: Partial<Record<FindState, LucideIcon>> = {
+  [FindState.ANONYMIZED]: HelpCircle,
+  [FindState.DONATED]: Heart,
+  [FindState.LOST]: SearchX,
+  [FindState.NO_GPS]: MapPinOff,
+  [FindState.NO_PHOTO]: ImageOff,
+  [FindState.LOCATION_MISSING]: MapPinX,
+  [FindState.GIGANT]: Maximize2,
+};
+
+/** Icon tint per state — the same hues as the STATE_BADGE chips on /sbirka,
+ *  one step darker so a bare icon still reads against the tile background. */
+const JUBILEE_STATE_TONE: Partial<Record<FindState, string>> = {
+  [FindState.ANONYMIZED]: "text-purple-500",
+  [FindState.DONATED]: "text-rose-500",
+  [FindState.LOST]: "text-red-500",
+  [FindState.NO_GPS]: "text-yellow-600",
+  [FindState.NO_PHOTO]: "text-slate-500",
+  [FindState.LOCATION_MISSING]: "text-orange-500",
+  [FindState.GIGANT]: "text-emerald-600",
+};
 
 function toIntlLocale(locale: string): string {
   if (locale === "cs") return "cs-CZ";
@@ -416,6 +450,7 @@ async function PeaksSection() {
 
 async function JubileesSection() {
   const t = await getTranslations("Statistiky");
+  const tStates = await getTranslations("States");
   const locale = await getLocale();
   const { jubilees, recordIds } = await getStatsJubilees();
   return (
@@ -423,6 +458,7 @@ async function JubileesSection() {
       jubilees={jubilees}
       recordIds={recordIds}
       t={t}
+      tStates={tStates}
       locale={locale}
     />
   );
@@ -2405,11 +2441,13 @@ function JubileeFindsSection({
   jubilees,
   recordIds,
   t,
+  tStates,
   locale,
 }: {
   jubilees: readonly JubileeFind[];
   recordIds: readonly number[];
   t: StatsT;
+  tStates: StatesT;
   locale: string;
 }) {
   if (jubilees.length === 0) return null;
@@ -2463,6 +2501,7 @@ function JubileeFindsSection({
                   find={slot.find}
                   variant="special"
                   t={t}
+                  tStates={tStates}
                   locale={locale}
                 />
               </li>
@@ -2478,7 +2517,12 @@ function JubileeFindsSection({
           {slottedMilestones.map((slot) =>
             slot.kind === "find" ? (
               <li key={slot.find.id}>
-                <JubileeCard find={slot.find} t={t} locale={locale} />
+                <JubileeCard
+                  find={slot.find}
+                  t={t}
+                  tStates={tStates}
+                  locale={locale}
+                />
               </li>
             ) : (
               <li key={`empty-${slot.id}`}>
@@ -2503,7 +2547,12 @@ function JubileeFindsSection({
             <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {hiddenMilestones.map((j) => (
                 <li key={j.id}>
-                  <JubileeCard find={j} t={t} locale={locale} />
+                  <JubileeCard
+                    find={j}
+                    t={t}
+                    tStates={tStates}
+                    locale={locale}
+                  />
                 </li>
               ))}
             </ul>
@@ -2575,16 +2624,30 @@ function JubileeCard({
   find,
   variant = "default",
   t,
+  tStates,
   locale,
 }: {
   find: JubileeFind;
   variant?: "default" | "special";
   t: StatsT;
+  /** `States` namespace — the indicator tooltips reuse the same wording as
+   *  the state badges on /sbirka rather than a second set of strings. */
+  tStates: StatesT;
   locale: string;
 }) {
   const date = find.foundAt ? new Date(find.foundAt) : null;
   const showMapLink = !find.isAnonymized && find.hasGps;
   const isSpecial = variant === "special";
+  // Indicators: icon only, pinned to the corner. ANONYMIZED comes from the
+  // flag (the query redacts the state list for those finds); everything else
+  // from the find's own states, minus NORMAL and the retired ones, which
+  // deliberately have no icon — a bare tile reads as "nothing special".
+  const indicators = find.isAnonymized
+    ? [{ state: FindState.ANONYMIZED, Icon: HelpCircle }]
+    : find.states.flatMap((s) => {
+        const Icon = JUBILEE_STATE_ICON[s];
+        return Icon ? [{ state: s, Icon }] : [];
+      });
   // The devil number gets a flame + red id instead of the golden
   // sparkles — a nod to its hellish detail-page overlay. Deliberately
   // keyed on the number itself (not the admin effect config): the
@@ -2599,61 +2662,52 @@ function JubileeCard({
           : "border-gray-200 bg-gray-50 hover:border-brand-200 hover:bg-brand-50"
       }`}
     >
+      {/* Number + date, both centred in the tile. The location code used to
+          sit under them but was truncated to illegibility at this width, so
+          it's gone — the id links straight to the detail anyway. The date
+          shows for anonymized finds too: WHEN a find was made isn't the
+          private part (the place is), and only the map link stays hidden
+          for them. */}
       <Link
         href={`/sbirka/${find.id}`}
-        className="flex flex-1 flex-col gap-1 p-3 text-sm"
+        className="relative flex flex-1 flex-col items-center justify-center gap-1 px-3 py-4 text-center text-sm"
       >
-        {/* Row 1 — id left, optional "Darovaný" badge right, sharing
-            one centred row so the two sit on the same horizontal level
-            (an absolutely-positioned corner badge sat a few px higher
-            than the id). The badge stays plain non-interactive text
-            inside the Link so the card keeps single-link semantics.
-            Hidden for anonymized finds (the server already forced
-            isDonated to false there; the guard documents the privacy
-            stance). */}
-        <span className="flex items-center justify-between gap-2">
-          <span
-            className={`inline-flex items-center gap-1 font-mono text-base font-semibold ${
-              isDevil ? "text-red-700" : "text-brand-700"
-            }`}
-          >
-            {isDevil ? (
-              <Flame className="h-3.5 w-3.5 text-red-600" aria-hidden />
-            ) : isSpecial ? (
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-hidden />
-            ) : null}
-            #{find.id}
-          </span>
-          {find.isDonated && !find.isAnonymized && (
-            <span
-              className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800"
-              title={t("jubileeDonated")}
-            >
-              <Heart className="h-2.5 w-2.5" aria-hidden />
-              {t("jubileeDonated")}
-            </span>
-          )}
-        </span>
-        {find.isAnonymized ? (
-          <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800 self-start">
-            <HelpCircle className="h-3 w-3" aria-hidden />
-            {t("jubileeAnonymized")}
-          </span>
-        ) : (
-          <>
-            <span className="text-xs text-gray-500">
-              {date ? formatDateTimeCs(date, locale) : t("jubileeUnknownDate")}
-            </span>
-            {find.location && (
+        {indicators.length > 0 && (
+          <span className="absolute right-1.5 top-1.5 flex items-center gap-0.5">
+            {/* The tooltip lives on a wrapping span — Lucide icons take no
+                `title` prop, and the span also carries the accessible name. */}
+            {indicators.map(({ state, Icon }) => (
               <span
-                className="truncate font-mono text-xs text-gray-700"
-                title={find.location.displayName}
+                key={state}
+                title={tStates(state)}
+                aria-label={tStates(state)}
+                role="img"
               >
-                {find.location.code}
+                <Icon
+                  className={`h-3.5 w-3.5 ${JUBILEE_STATE_TONE[state] ?? "text-gray-400"}`}
+                  aria-hidden
+                />
               </span>
-            )}
-          </>
+            ))}
+          </span>
         )}
+        <span
+          className={`inline-flex items-center gap-1 font-mono text-base font-semibold ${
+            isDevil ? "text-red-700" : "text-brand-700"
+          }`}
+        >
+          {isDevil ? (
+            <Flame className="h-3.5 w-3.5 text-red-600" aria-hidden />
+          ) : isSpecial ? (
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-hidden />
+          ) : (
+            <span aria-hidden>🍀</span>
+          )}
+          #{find.id}
+        </span>
+        <span className="text-xs text-gray-500">
+          {date ? formatDateTimeCs(date, locale) : t("jubileeUnknownDate")}
+        </span>
       </Link>
       {showMapLink && (
         <Link
@@ -2694,11 +2748,15 @@ function JubileeEmptyCard({
           isSpecial ? "text-brand-700/60" : "text-gray-500"
         }`}
       >
-        {isSpecial && (
-          <Sparkles
-            className="h-3.5 w-3.5 text-amber-500/70"
-            aria-hidden
-          />
+        {/* Same glyph rule as the filled tile: sparkles for the slotted
+            specials, a clover for the plain thousands — so a gap in the grid
+            still reads as the same kind of milestone. */}
+        {isSpecial ? (
+          <Sparkles className="h-3.5 w-3.5 text-amber-500/70" aria-hidden />
+        ) : (
+          <span className="opacity-60" aria-hidden>
+            🍀
+          </span>
         )}
         #{id}
       </span>
