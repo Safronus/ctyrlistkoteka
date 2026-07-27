@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /admin/import: strop balíčku 2 GB → 4 GB
+- Balíček s ~25 000 nálezy se do 2 GB nevešel. Strop je čistě aplikační
+  konstanta (`MAX_IMPORT_ZIP_BYTES` + její klientské zrcadlo) — nic v cestě
+  celý soubor nebuffuje: nahrává se po 8 MB blocích na byte offset, analýza
+  čte jen jména položek a `LokaceStavyPoznamky.json`, commit streamuje položku
+  po položce. 4 GB je zvolené proto, že nad ním je ZIP64 povinný.
+- Zadokumentovaný **známý strop**: commit je jeden blokující request a Nginx má
+  na `/admin/` `proxy_read_timeout 300s`, takže balíček s desítkami tisíc
+  souborů může skončit 504, i když server dobíhá. Až na to dojde → vlastní
+  `location` blok pro `/admin/api/import/` (ruční krok, Nginx nenasazuje CI).
+  Import je idempotentní podle ID, takže po nejasném 504 se dá zopakovat.
+
 ### NEZNÁMÁ: doladěný odznak počtu + GPS pryč i ze seznamu
 - Odznak u bodu na `/mapa` přepracován: čtyřlístek **20 px** (byl 12 px, kde se
   jeho tmavý obrys slil v blob) a **bez jakéhokoli podkladu** — místo bílé

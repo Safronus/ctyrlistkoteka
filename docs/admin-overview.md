@@ -109,6 +109,12 @@ ZIP má v rootu `finds/` (JPG originály), `crops/` (JPG výřezy), `maps/`
    body). Server je zapisuje na offset do `data/.admin/import-tmp/<id>.zip`
    — obchází ~10 MB truncation cap, stovky MB se poskládají na disku bez
    držení v paměti. `offset=0` soubor vytvoří/zkrátí.
+   **Strop balíčku: 4 GB** (`MAX_IMPORT_ZIP_BYTES`, zrcadlené v
+   `import-panel.tsx` kvůli rychlému odmítnutí ještě před uploadem). Nic
+   v cestě celý soubor nebuffuje, offsety jsou běžná JS čísla, takže limit
+   je čistě rozhodnutí — 4 GB je zvolené proto, že nad ním je ZIP64 povinný.
+   Reálný strop je místo na disku: temp ZIP, nastagované kopie i WebP, které
+   z nich odvodí `sync`, chvíli existují vedle sebe.
 2. **Analyze** (`analyze` → `analyzeImportZip`): **read-only** streaming
    průchod (yauzl, `lazyEntries`). Vrací **podrobný přehled**, aby operátor
    viděl, co se z balíčku přečetlo:
@@ -137,6 +143,15 @@ ZIP má v rootu `finds/` (JPG originály), `crops/` (JPG výřezy), `maps/`
    smaže při úspěchu i chybě (idempotence → stačí nahrát znovu).
 5. **Sync**: sumář odkáže na `/admin/sync`, který teprve zapíše DB a
    vygeneruje WebP.
+
+> **Známý strop u velkých balíčků (2026-07-27):** commit je **jeden blokující
+> request**, který rozbalí všechny položky, a Nginx má na `/admin/`
+> `proxy_read_timeout 300s`. Balíček s desítkami tisíc souborů (25 000 nálezů
+> = ~50 000 položek) se do pěti minut vejít nemusí a projeví se to jako **504,
+> zatímco server dál dobíhá** — stav pak není jednoznačný. Řešení, až na to
+> dojde: dát `/admin/api/import/` vlastní `location` blok s dlouhým timeoutem
+> v `deploy/nginx.conf.template`. **Nginx nenasazuje CI** — je to ruční krok.
+> Po nejasném 504 je bezpečné import zopakovat: je idempotentní podle ID.
 
 Idempotence: opakovaný import stejného balíčku soubory **přepíše podle ID**,
 nezduplikuje (to řeší jednorázový problém name-keyed uploadu, kde by změněný

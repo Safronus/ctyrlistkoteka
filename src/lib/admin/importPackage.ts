@@ -15,9 +15,27 @@ import { ADMIN_ROOTS } from "./paths";
 const UPLOAD_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-/** Hard ceiling on a reassembled package (well above realistic hundreds of
- *  MB, below anything that could exhaust the box). */
-export const MAX_IMPORT_ZIP_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
+/**
+ * Hard ceiling on a reassembled package. Raised from 2 GB when a ~25 000-find
+ * package didn't fit; 4 GB is also the boundary above which ZIP64 becomes
+ * mandatory, so staying at it avoids depending on the producer emitting a
+ * valid ZIP64 (yauzl reads it, but we've never verified our own archives do).
+ *
+ * Nothing in the pipeline buffers the whole file — the browser sends 8 MB
+ * chunks written at byte offsets (plain JS numbers, safe past any 32-bit
+ * limit), analysis reads only entry names + the LSP JSON, and commit streams
+ * entry-by-entry. The practical ceiling is disk: the temp ZIP, the staged
+ * copies and the WebP that `sync` derives from them all coexist for a while.
+ *
+ * KNOWN LIMIT (2026-07-27, owner's call to leave it): commit is one blocking
+ * request that writes every entry, and Nginx caps `/admin/` at
+ * `proxy_read_timeout 300s`. A package with tens of thousands of files can
+ * exceed that and surface as a 504 while the server keeps going. If that
+ * happens, give `/admin/api/import/` its own location block with a long
+ * timeout (deploy/nginx.conf.template) — it's a manual step, CI doesn't
+ * deploy Nginx.
+ */
+export const MAX_IMPORT_ZIP_BYTES = 4 * 1024 * 1024 * 1024; // 4 GB
 /** Per-chunk cap — the client sends ≤8 MB (MAX_BATCH_BYTES); allow a little
  *  slack, reject anything absurd. */
 export const MAX_IMPORT_CHUNK_BYTES = 16 * 1024 * 1024;

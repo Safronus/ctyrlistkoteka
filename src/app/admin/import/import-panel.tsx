@@ -47,8 +47,9 @@ type LspMergeResult = {
  *  8 MB to stay under the ~10 MB body-truncation cap (same reason the photo
  *  uploader batches at 8 MB). */
 const UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
-/** Mirror of MAX_IMPORT_ZIP_BYTES (server rejects above this too). */
-const MAX_ZIP_BYTES = 2 * 1024 * 1024 * 1024;
+/** Mirror of MAX_IMPORT_ZIP_BYTES (server rejects above this too) — keep the
+ *  two in step, this one only exists to fail fast before the upload starts. */
+const MAX_ZIP_BYTES = 4 * 1024 * 1024 * 1024;
 
 type Phase =
   | { kind: "idle" }
