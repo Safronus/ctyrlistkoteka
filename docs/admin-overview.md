@@ -144,6 +144,17 @@ ZIP má v rootu `finds/` (JPG originály), `crops/` (JPG výřezy), `maps/`
 5. **Sync**: sumář odkáže na `/admin/sync`, který teprve zapíše DB a
    vygeneruje WebP.
 
+> **Pozor na koš u velkých přepisů (poprvé 2026-07-21):** import v režimu
+> `overwrite` odklidí **každý nahrazovaný soubor** do `data/.trash/<ts>/`.
+> Přeimportování celé sbírky (typicky po přejmenování fotek při migraci) tak
+> vyrobí jeden bucket velký skoro jako sbírka sama — 21. 7. to bylo **14 GB**
+> (11 GB finds + 2,7 GB crops) a bez úklidového cronu tam leželo, dokud si toho
+> někdo nevšiml na widgetu „Místo na disku". Po velkém přepisu si ověř, že
+> živě existuje soubor ke každému ID z bucketu, a smaž ho ručně — 30denní
+> retence je na běžné mazání, ne na kopii celé sbírky. Ověření:
+> `comm -23` nad čísly nálezů z `<bucket>/finds` a `data/finds` (číslo je před
+> prvním `+`, takže na změněném kódu lokality ani diakritice nezáleží).
+>
 > **Známý strop u velkých balíčků (2026-07-27):** commit je **jeden blokující
 > request**, který rozbalí všechny položky, a Nginx má na `/admin/`
 > `proxy_read_timeout 300s`. Balíček s desítkami tisíc souborů (25 000 nálezů
