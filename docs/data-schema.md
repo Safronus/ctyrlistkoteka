@@ -182,7 +182,8 @@ u *anonymizovaných* nálezů (ty místo znají, jen ho tají).
   - ve vrstvě bodů `/mapa` se takové nálezy vůbec nekreslí,
   - `getHighlightFind` pro ně vrací `null` → `/mapa?find=N` je bez efektu a
     detail nálezu proto skrývá i špendlík „Zobrazit na mapě",
-  - detail nálezu nezobrazuje GPS pilulku,
+  - detail nálezu nezobrazuje GPS pilulku ani ji neposílá do JSON-LD
+    (`contentLocation.geo` je pro tyhle nálezy vynechané),
   - `locationOffset` je vynulovaný (od čeho by se odchyloval?), takže odpadá
     barevný stavový pruh nad mapkou i tón řádku na `/sbirka`,
   - v mapce v sekci „Lokalita" je nález zakreslený **na středu lokality 00000**,

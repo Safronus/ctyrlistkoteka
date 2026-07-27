@@ -20,7 +20,9 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   - v mapce je nález zakreslený **na středu lokality 00000** (neutrálně šedý
     špendlík), ne na svém EXIF GPS,
   - zmizela **GPS pilulka** ve fotce i špendlík „Zobrazit na mapě"
-    (`/mapa?find=N` u těchto nálezů stejně nemá co ukázat).
+    (`/mapa?find=N` u těchto nálezů stejně nemá co ukázat),
+  - a totéž ve **strukturovaných datech**: JSON-LD u nich už neposílá
+    `contentLocation.geo` — skrytá GPS by jinak zůstala strojově čitelná.
 - Lokalita 00000 se přestala počítat do **žebříčku „N. nejbohatší lokalita"** —
   ani nesoutěží, ani nenafukuje jeho celkový počet. Sjednoceno s výlukou,
   kterou už měly „Top lokalit" na `/statistiky`.

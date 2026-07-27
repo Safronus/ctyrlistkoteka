@@ -773,7 +773,10 @@ export default async function FindDetailPage({ params }: PageProps) {
             : null,
           foundAt: find.foundAt ? find.foundAt.toISOString() : null,
           locationName: findLocationName,
-          coordinates: find.coordinates,
+          // Same rule as the visible page: a find on NEZNÁMÁ has no known
+          // place, so its photo's GPS must not be published as one — not
+          // even in machine-readable form, where nobody would see it.
+          coordinates: isUnknownLocation ? null : find.coordinates,
         }),
       ];
 
