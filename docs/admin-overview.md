@@ -151,9 +151,26 @@ ZIP má v rootu `finds/` (JPG originály), `crops/` (JPG výřezy), `maps/`
 > (11 GB finds + 2,7 GB crops) a bez úklidového cronu tam leželo, dokud si toho
 > někdo nevšiml na widgetu „Místo na disku". Po velkém přepisu si ověř, že
 > živě existuje soubor ke každému ID z bucketu, a smaž ho ručně — 30denní
-> retence je na běžné mazání, ne na kopii celé sbírky. Ověření:
-> `comm -23` nad čísly nálezů z `<bucket>/finds` a `data/finds` (číslo je před
-> prvním `+`, takže na změněném kódu lokality ani diakritice nezáleží).
+> retence je na běžné mazání, ne na kopii celé sbírky.
+>
+> Ověření porovnává **čísla nálezů** (vše před prvním `+`), takže mu nevadí, že
+> se jméno mezi koším a živým stromem liší kódem lokality ani diakritikou:
+>
+> ```bash
+> for s in finds crops; do
+>   sudo find /var/ctyrlistkoteka/data/$s -type f -printf '%f\n' | cut -d+ -f1 | sort -u > /tmp/live-$s.txt
+>   sudo find <bucket>/$s -type f -printf '%f\n' | cut -d+ -f1 | sort -u > /tmp/trash-$s.txt
+>   echo "$s: chybí živě $(grep -F -x -v -f /tmp/live-$s.txt /tmp/trash-$s.txt | wc -l)"
+> done
+> ```
+>
+> **Nepoužívej na to `comm -23 <(…) <(…)`.** Při první verzi téhle kontroly
+> (2026-07-27) nahlásil 417 falešně chybějících ID — souvislý blok, klasický
+> příznak rozejitého merge. `comm` předpokládá vstup seřazený přesně tak, jak
+> sám porovnává, a stačí jediný cizí řádek (např. text sudo promptu, který
+> spadne do process substitution) a od toho místa je výstup nesmysl. Výše
+> použitý `grep -F -x -v -f` porovnává přesnou shodu řetězců a na pořadí
+> nespoléhá.
 >
 > **Známý strop u velkých balíčků (2026-07-27):** commit je **jeden blokující
 > request**, který rozbalí všechny položky, a Nginx má na `/admin/`
