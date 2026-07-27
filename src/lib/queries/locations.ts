@@ -1226,6 +1226,11 @@ export async function getLocationFindCountRank(
       FROM locations l
       LEFT JOIN bucket b ON b.bucket_id = l.id
       WHERE l.id NOT IN (SELECT location_id FROM anon)
+        -- NEZNÁMÁ (00000) isn't a real place: it must neither compete in the
+        -- ranking nor inflate the total. Same exclusion as the "Top lokalit"
+        -- query in queries/stats.ts, so both surfaces quote the same N.
+        -- A find parked there gets no rank row at all (the panel drops it).
+        AND l.id <> ${UNKNOWN_LOCATION_ID}::int
         AND NOT (
           l.parent_id IS NOT NULL
           AND l.parent_id NOT IN (SELECT location_id FROM anon)

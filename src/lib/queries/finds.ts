@@ -14,6 +14,7 @@ import {
   DEFAULT_LOCATION_ID,
   DOMINANT_LOCATION_ID,
   FIND_DEVIATION_RADIUS_M,
+  UNKNOWN_LOCATION_ID,
 } from "@/lib/constants";
 import {
   getFindIdsWithRealPhotos,
@@ -673,7 +674,14 @@ async function hydrate(
       // surface a distance that could be used to back-derive the
       // anonymized find's position.
       distanceFromDefault: distMap.get(r.id) ?? null,
-      locationOffset: offsetMap.get(r.id) ?? null,
+      // NEZNÁMÁ (00000) is a parking slot, not a place. Its centre point is
+      // an arbitrary anchor, so "how far from it" is meaningless — the SQL
+      // happily computes a number, we drop it here so no surface (list tone,
+      // map status banner, detail) claims a deviation that can't exist.
+      locationOffset:
+        r.location?.id === UNKNOWN_LOCATION_ID
+          ? null
+          : (offsetMap.get(r.id) ?? null),
       // Decorated by attachRealPhotoFlags after hydration — the on-disk
       // index isn't in scope here. Anonymized finds force false to keep
       // the indicator from leaking that hidden donations exist.
@@ -1580,6 +1588,17 @@ async function fetchLocationMaps(
   // v2-only: v1 maps carry their AOI baked into the PNG (see fetchLocationMaps
   // note in locations.ts) — drawing a web overlay too would double it.
   const overlayIsV2 = geom?.is_v2 === true;
+  // Finds parked on NEZNÁMÁ (00000) have no known place: their photo's EXIF
+  // GPS — when there is any — says nothing about where the find belongs, so
+  // pinning it on the map would be fiction. Draw them on the location's own
+  // centre instead. Null centre → no pin at all (the caller suppresses the
+  // no-GPS note for this location, so the map just renders bare).
+  const markerCoordinates =
+    locationId === UNKNOWN_LOCATION_ID
+      ? geom?.center_lat != null && geom?.center_lng != null
+        ? { lat: geom.center_lat, lng: geom.center_lng }
+        : null
+      : coordinates;
   return maps.map((m) => {
     const imageBounds = parseImageBounds(m.imageBounds);
     return {
@@ -1600,7 +1619,7 @@ async function fetchLocationMaps(
             isGone,
           })
         : null,
-      marker: computeMarker(coordinates, m.imageBounds),
+      marker: computeMarker(markerCoordinates, m.imageBounds),
     };
   });
 }
@@ -1764,7 +1783,13 @@ export async function getHighlightFind(
       location: { select: { code: true, displayName: true } },
     },
   });
-  if (!row || row.isAnonymized) return null;
+  // Anonymized finds never expose a position. Neither do finds parked on
+  // NEZNÁMÁ (00000): the dot layer deliberately omits them (queries/map.ts),
+  // so there'd be nothing to fly to — and their EXIF GPS isn't where they
+  // belong anyway. The detail page hides its "show on map" pin to match.
+  if (!row || row.isAnonymized || row.locationId === UNKNOWN_LOCATION_ID) {
+    return null;
+  }
 
   const coordRows = await prisma.$queryRaw<
     Array<{

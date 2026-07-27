@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### Lokalita NEZNÁMÁ: počet na mapě, žádná předstíraná poloha
+- **`/mapa`** — bod lokality 00000 dostal k šedému přerušovanému kroužku s „?"
+  ještě bílou bublinu s **ikonou čtyřlístku a počtem** nálezů, které tam stojí.
+  Jejich vlastní body se nekreslí (poloha neznámá), takže bublina je jediné,
+  co je na mapě zastupuje. Ikona je ten samý sprite jako body nálezů.
+- **Detail nálezu na 00000** už nikde netvrdí, kde nález je:
+  - zmizela **odchylka** i barevný stavový pruh nad mapkou lokality — od čeho
+    by se odchyloval, když místo neznáme,
+  - v mapce je nález zakreslený **na středu lokality 00000** (neutrálně šedý
+    špendlík), ne na svém EXIF GPS,
+  - zmizela **GPS pilulka** ve fotce i špendlík „Zobrazit na mapě"
+    (`/mapa?find=N` u těchto nálezů stejně nemá co ukázat).
+- Lokalita 00000 se přestala počítat do **žebříčku „N. nejbohatší lokalita"** —
+  ani nesoutěží, ani nenafukuje jeho celkový počet. Sjednoceno s výlukou,
+  kterou už měly „Top lokalit" na `/statistiky`.
+
 ### /admin/sync: progress bary s reálnými čísly
 - Nad terminálovým logem přibyly **dva progress bary** (Lokační mapy, Nálezy):
   hotovo / celkem, procenta, kolik zbývá, odhad času a rychlost. Po dokončení

@@ -1,14 +1,43 @@
 "use client";
 
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef } from "react";
 import { CircleMarker, Marker, useMap } from "react-leaflet";
 import L, { type CircleMarker as LCircleMarker } from "leaflet";
 import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
 import type { MapLocation } from "@/lib/queries/map";
+import { cloverSpriteDataUrl } from "./find-dots-canvas";
 import {
   buildLocationPopupHtml,
   type LocationPopupLabels,
 } from "./location-popup";
+
+/** Clover glyph size (CSS px) inside the NEZNÁMÁ count badge. */
+const BADGE_CLOVER_PX = 12;
+
+/**
+ * "🍀 12" pill pinned to the upper-right of the NEZNÁMÁ dot — the finds parked
+ * there are never plotted individually (no known position), so this badge is
+ * the only place their number shows on the map itself.
+ *
+ * Returns "" for an empty bucket (nothing to count) and for SSR, where the
+ * canvas-rendered sprite isn't available; the "?" glyph stands alone then.
+ */
+function cloverCountBadgeHtml(count: number, cloverUrl: string | null): string {
+  if (count <= 0 || cloverUrl === null) return "";
+  const n = Math.round(count);
+  return (
+    // The pill's lower-left corner lands on the ring (centre 9,9 / r 9 + 2px
+    // stroke): attached like an avatar badge, but clear of both the "?" and
+    // most of the dashes. `text-shadow:none` cancels the "?" glow it inherits.
+    '<span style="position:absolute;left:15px;bottom:14px;display:inline-flex;' +
+    "align-items:center;gap:2px;padding:1px 4px 1px 3px;border-radius:9999px;" +
+    "background:#ffffff;color:#0f172a;font:700 10px/1 ui-sans-serif,system-ui,sans-serif;" +
+    "text-shadow:none;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4);" +
+    'pointer-events:none;">' +
+    `<img src="${cloverUrl}" width="${BADGE_CLOVER_PX}" height="${BADGE_CLOVER_PX}" alt="" style="display:block" />` +
+    `${n}</span>`
+  );
+}
 
 /**
  * For locations with no AOI polygon recorded, render a small dot at the
@@ -48,6 +77,17 @@ export function LocationDots({
 }) {
   const map = useMap();
   const layerRefs = useRef<Map<number, LCircleMarker>>(new Map());
+
+  // Same sprite as the canvas find dots, so the badge's clover reads as
+  // "finds" at a glance. Canvas-rendered → client only (mirrors the guard in
+  // selected-location-decor).
+  const badgeCloverUrl = useMemo(
+    () =>
+      typeof window === "undefined"
+        ? null
+        : cloverSpriteDataUrl(0, BADGE_CLOVER_PX),
+    [],
+  );
 
   // When focused, open the focused dot's popup once the map's fit-bounds
   // animation settles. Same pattern as LocationPolygons.
@@ -142,10 +182,12 @@ export function LocationDots({
                 },
               }}
             />
-            {/* "?" glyph over the NEZNÁMÁ dot. A separate, NON-interactive
-                DivIcon so the CircleMarker above keeps every existing
-                behaviour (popup binding, click-to-select, layerRefs) — clicks
-                pass straight through this to the circle underneath. */}
+            {/* "?" glyph + 🍀 count over the NEZNÁMÁ dot. A separate,
+                NON-interactive DivIcon so the CircleMarker above keeps every
+                existing behaviour (popup binding, click-to-select, layerRefs)
+                — clicks pass straight through this to the circle underneath.
+                The "?" stays: it's the "not a real place" signal, while the
+                badge answers "how many are parked here". */}
             {isUnknown && (
               <Marker
                 position={[l.centerLat, l.centerLng]}
@@ -155,9 +197,12 @@ export function LocationDots({
                 icon={L.divIcon({
                   className: "",
                   html:
-                    '<span style="display:flex;align-items:center;justify-content:center;' +
-                    "width:18px;height:18px;font:700 11px/1 ui-sans-serif,system-ui,sans-serif;" +
-                    'color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.45);">?</span>',
+                    '<span style="position:relative;display:flex;align-items:center;' +
+                    "justify-content:center;width:18px;height:18px;" +
+                    "font:700 11px/1 ui-sans-serif,system-ui,sans-serif;" +
+                    'color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.45);">?' +
+                    cloverCountBadgeHtml(l.findCount, badgeCloverUrl) +
+                    "</span>",
                   iconSize: [18, 18],
                   iconAnchor: [9, 9],
                 })}

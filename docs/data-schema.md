@@ -174,6 +174,21 @@ u *anonymizovaných* nálezů (ty místo znají, jen ho tají).
   konec seznamu; detail `/lokality/00000` má vysvětlující popisek; ze statistik
   je vyloučená z top-lokalit, států, měst i počtu měst. Na `/sbirka` je
   normálně filtrovatelná a nálezy nesou odznak „Bez lokality".
+- **Bod na `/mapa`:** šedý (`#64748b`), přerušovaný kruh, glyf „?" a bílá
+  bublina s ikonou čtyřlístku a počtem nálezů. Bublina je jediné, co ty nálezy
+  na mapě reprezentuje — vlastní body se nekreslí (viz níže).
+- **Poloha nálezu se nikde nepředstírá.** Nález na 00000 nemá známé místo, takže
+  ani jeho EXIF GPS (když ho má) nesmí nic vykreslit jako polohu:
+  - ve vrstvě bodů `/mapa` se takové nálezy vůbec nekreslí,
+  - `getHighlightFind` pro ně vrací `null` → `/mapa?find=N` je bez efektu a
+    detail nálezu proto skrývá i špendlík „Zobrazit na mapě",
+  - detail nálezu nezobrazuje GPS pilulku,
+  - `locationOffset` je vynulovaný (od čeho by se odchyloval?), takže odpadá
+    barevný stavový pruh nad mapkou i tón řádku na `/sbirka`,
+  - v mapce v sekci „Lokalita" je nález zakreslený **na středu lokality 00000**,
+    ne na svém GPS, neutrálně šedým špendlíkem,
+  - `getLocationFindCountRank` lokalitu vynechává, takže nemá pořadí v žebříčku
+    a nenafukuje jeho `total` (stejná výluka jako „Top lokalit").
 - **Pozor na id 0:** ve vrstvě bodů na `/mapa` je sentinel „nález bez lokality"
   `-1`, ne `0` — nula je teď reálné id. Stráže typu `n > 0` u hledání podle
   čísla / `?open=` / `parseMapId` musí být `>= 0`.

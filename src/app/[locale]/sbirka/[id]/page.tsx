@@ -250,7 +250,14 @@ export default async function FindDetailPage({ params }: PageProps) {
   // (top-RIGHT, next to the crop magnifier) and the state badges
   // (bottom-LEFT). Visibility mirrors the old header rules — map needs
   // public GPS, vote needs a photo.
-  const mapSlot = find.coordinates ? (
+  // Finds parked on NEZNÁMÁ (00000) have no known place, so nothing may
+  // present a position as meaningful: no GPS pill, no "show on map" pin
+  // (/mapa omits these finds from the dot layer, there'd be nothing to fly
+  // to) and no deviation banner. The pin on the location map moves to the
+  // location's own centre instead — see fetchLocationMaps in queries/finds.
+  const isUnknownLocation = find.location?.id === UNKNOWN_LOCATION_ID;
+
+  const mapSlot = find.coordinates && !isUnknownLocation ? (
     <Link
       href={`/mapa?find=${find.id}`}
       aria-label={t("showOnMap")}
@@ -288,7 +295,7 @@ export default async function FindDetailPage({ params }: PageProps) {
     </span>
   );
   const gpsSlot =
-    !find.isAnonymized && find.coordinates ? (
+    !find.isAnonymized && !isUnknownLocation && find.coordinates ? (
       <div className={overlayPillCls}>
         <GpsValue
           lat={find.coordinates.lat}
@@ -535,6 +542,7 @@ export default async function FindDetailPage({ params }: PageProps) {
               maps={find.locationMaps}
               locationOffset={find.locationOffset}
               isAnonymized={find.isAnonymized}
+              isUnknownLocation={isUnknownLocation}
               /* locationId is non-null only when the gallery actually
                represents the find's real location — anonymized finds
                render the placeholder and we don't deep-link to it. */
@@ -883,6 +891,7 @@ function LocationMapsGallery({
   maps,
   locationOffset,
   isAnonymized = false,
+  isUnknownLocation = false,
   locationId,
   locationBadge = null,
   figureWidth,
@@ -906,6 +915,12 @@ function LocationMapsGallery({
    *  real one. The query layer already strips the marker (`no-gps`)
    *  and swaps in the placeholder location; this is the visual seal. */
   isAnonymized?: boolean;
+  /** Find parked on NEZNÁMÁ (00000). There is no place to deviate from, so
+   *  the status banner is dropped entirely — its every wording ("uvnitř
+   *  polygonu", "X m od středu") would assert something about a location we
+   *  don't know. The query layer already pins the marker on the location's
+   *  centre; here it just loses the verdict colour and keeps a neutral pin. */
+  isUnknownLocation?: boolean;
   /** The find's actual location id, used by the per-map overlay
    *  chips that link to /lokality/<id> and /mapa?focus=<id>. Null
    *  when the find is anonymized (the gallery shows a placeholder
@@ -933,10 +948,15 @@ function LocationMapsGallery({
   return (
     <div className="space-y-3 pt-2">
       {maps.map((m) => {
-        const status = isAnonymized
-          ? null
-          : classifyMapStatus(m.marker, locationOffset);
+        const status =
+          isAnonymized || isUnknownLocation
+            ? null
+            : classifyMapStatus(m.marker, locationOffset);
         const style = status ? MAP_STATUS_STYLES[status] : null;
+        // No verdict for NEZNÁMÁ, but the pin still needs a treatment —
+        // borrow the neutral grey glow so it stays legible on any basemap.
+        const pinStyle =
+          style ?? (isUnknownLocation ? MAP_STATUS_STYLES.no_gps : null);
         return (
           <figure
             key={m.id}
@@ -993,11 +1013,11 @@ function LocationMapsGallery({
                     idSuffix={String(m.id)}
                   />
                 )}
-              {!isAnonymized && m.marker?.kind === "inside" && style && (
+              {!isAnonymized && m.marker?.kind === "inside" && pinStyle && (
                 <FindLocationMarker
                   xFrac={m.marker.xFrac}
                   yFrac={m.marker.yFrac}
-                  pinFilter={style.pinFilter ?? undefined}
+                  pinFilter={pinStyle.pinFilter ?? undefined}
                   t={t}
                 />
               )}
