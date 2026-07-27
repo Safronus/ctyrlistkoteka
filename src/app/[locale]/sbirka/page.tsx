@@ -403,8 +403,15 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
   // dim/bright + zoom-to-marker cues are invisible if the dots layer
   // is hidden, and arriving from this chip with no dots was the
   // single biggest reason users called the chip broken.
+  // Shape 1 needs a find the map can actually point at. One parked on
+  // NEZNÁMÁ (00000) isn't plotted at all (its place is unknown), so
+  // /mapa?find=N would highlight nothing — fall through to the focus shape
+  // below, which lands on the location's own dot and its clover-count badge.
+  const singleFind = result.total === 1 ? (result.items[0] ?? null) : null;
   const singleFindId =
-    result.total === 1 ? (result.items[0]?.id ?? null) : null;
+    singleFind && singleFind.location?.id !== UNKNOWN_LOCATION_ID
+      ? singleFind.id
+      : null;
   // The chip must only lead to a useful single-location map view. Work out
   // how many mappable (non-anonymized) locations the filtered finds span:
   //  - explicit location filter → focus it, provided its subtree holds at
@@ -432,7 +439,9 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     }
     const params = new URLSearchParams();
     if (f.q) params.set("q", f.q);
-    if (f.locationId) params.set("loc", String(f.locationId));
+    // `!= null`, not truthiness — location id 0 (NEZNÁMÁ) is real, and
+    // dropping it here would send the map an unfiltered view.
+    if (f.locationId != null) params.set("loc", String(f.locationId));
     if (f.cadastralArea) params.set("city", f.cadastralArea);
     if (f.country) params.set("country", f.country);
     if (f.states) for (const s of f.states) params.append("state", s);

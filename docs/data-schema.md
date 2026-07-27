@@ -174,9 +174,12 @@ u *anonymizovaných* nálezů (ty místo znají, jen ho tají).
   konec seznamu; detail `/lokality/00000` má vysvětlující popisek; ze statistik
   je vyloučená z top-lokalit, států, měst i počtu měst. Na `/sbirka` je
   normálně filtrovatelná a nálezy nesou odznak „Bez lokality".
-- **Bod na `/mapa`:** šedý (`#64748b`), přerušovaný kruh, glyf „?" a bílá
-  bublina s ikonou čtyřlístku a počtem nálezů. Bublina je jediné, co ty nálezy
-  na mapě reprezentuje — vlastní body se nekreslí (viz níže).
+- **Bod na `/mapa`:** šedý (`#64748b`), přerušovaný kruh, glyf „?" a přes pravý
+  horní kvadrant čtyřlístek (20 px, ten samý sprite jako body nálezů) s počtem
+  vedle sebe. Bez jakéhokoli podkladu — čtyřlístek má vlastní bílou záři a
+  číslo bílý halo. Počet je **vedle** čtyřlístku, ne v něm: trojmístné číslo by
+  z glyfu přeteklo. Tenhle odznak je jediné, co ty nálezy na mapě reprezentuje
+  — vlastní body se nekreslí (viz níže).
 - **Poloha nálezu se nikde nepředstírá.** Nález na 00000 nemá známé místo, takže
   ani jeho EXIF GPS (když ho má) nesmí nic vykreslit jako polohu:
   - ve vrstvě bodů `/mapa` se takové nálezy vůbec nekreslí,
@@ -184,6 +187,11 @@ u *anonymizovaných* nálezů (ty místo znají, jen ho tají).
     detail nálezu proto skrývá i špendlík „Zobrazit na mapě",
   - detail nálezu nezobrazuje GPS pilulku ani ji neposílá do JSON-LD
     (`contentLocation.geo` je pro tyhle nálezy vynechané),
+  - v seznamu na `/sbirka` odpadá **celý geografický řádek** (GPS, odchylka
+    i „N od výchozí mapy" — vzdálenost od známého bodu polohu zúží stejně
+    dobře jako souřadnice) a špendlík na mapu u řádku i u dlaždice,
+  - chip „Zobrazit na mapě" nad výsledky u nich míří na `?focus=0`
+    (bod lokality s počtem), ne na `?find=N`, které by nic neukázalo,
   - `locationOffset` je vynulovaný (od čeho by se odchyloval?), takže odpadá
     barevný stavový pruh nad mapkou i tón řádku na `/sbirka`,
   - v mapce v sekci „Lokalita" je nález zakreslený **na středu lokality 00000**,

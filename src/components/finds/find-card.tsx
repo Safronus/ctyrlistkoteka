@@ -7,6 +7,7 @@ import { FindThumbnail, cropVariant } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
 import { VoteButton } from "./vote-button";
 import { formatShortDateTimeCs } from "@/lib/format";
+import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
 
 export async function FindCard({
   find,
@@ -33,8 +34,13 @@ export async function FindCard({
     : tRow("findAlt", { id: find.id });
 
   // Same gate as the /sbirka list row's map-pin: only finds with a real
-  // (non-anonymized) coordinate can be pointed at on the map.
-  const showMapLink = !find.isAnonymized && find.coordinates !== null;
+  // (non-anonymized) coordinate can be pointed at on the map — and finds
+  // parked on NEZNÁMÁ (00000) aren't plotted at all, so the pin would lead
+  // nowhere.
+  const showMapLink =
+    !find.isAnonymized &&
+    find.location?.id !== UNKNOWN_LOCATION_ID &&
+    find.coordinates !== null;
 
   return (
     <div className="group overflow-hidden rounded-lg border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm">

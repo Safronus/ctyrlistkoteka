@@ -15,6 +15,7 @@ import {
   mapThumbUrl,
 } from "@/lib/format";
 import { formatGpsApple } from "@/lib/gpsFormat";
+import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
 import { MapOverlay } from "@/components/map/map-overlay";
 
 type RowT = Awaited<ReturnType<typeof getTranslations<"FindRow">>>;
@@ -93,10 +94,19 @@ function FindListRow({
     ? tRow("anonymizedAlt", { id: find.id })
     : tRow("findAlt", { id: find.id });
 
+  // Finds parked on NEZNÁMÁ (00000) have no known place, so nothing derived
+  // from their photo's GPS may be shown as one — same rule as the detail page
+  // (docs/data-schema.md). That's the whole geographic row below, not just the
+  // coordinates: "N km od výchozí mapy" narrows the position down just as well.
+  const isUnknownLocation = find.location?.id === UNKNOWN_LOCATION_ID;
+
   // The map deep-link only makes sense when the find has a public GPS
   // point to focus on. Anonymized finds have their coordinates hidden
-  // (nulled), so both the flag and the null coord gate the link off.
-  const showMapLink = !find.isAnonymized && find.coordinates !== null;
+  // (nulled), so both the flag and the null coord gate the link off; the
+  // NEZNÁMÁ ones are absent from the map's dot layer, so there's nothing
+  // for /mapa?find=N to fly to.
+  const showMapLink =
+    !find.isAnonymized && !isUnknownLocation && find.coordinates !== null;
 
   // Red-zone finds (outside every location-map bbox) win over the
   // polygon/centre labels — what matters most is "this find sits
@@ -208,7 +218,7 @@ function FindListRow({
            *  is wrapped in its own `whitespace-nowrap` span so the
            *  break only ever happens at " · " on narrow viewports,
            *  never inside a phrase like "uvnitř AOI". */}
-          {!find.isAnonymized && find.coordinates && (
+          {!find.isAnonymized && !isUnknownLocation && find.coordinates && (
             <p className="font-mono text-xs text-gray-500">
               <span className="whitespace-nowrap">
                 {formatGpsApple(

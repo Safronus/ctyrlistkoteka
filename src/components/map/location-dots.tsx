@@ -11,13 +11,21 @@ import {
   type LocationPopupLabels,
 } from "./location-popup";
 
-/** Clover glyph size (CSS px) inside the NEZNÁMÁ count badge. */
-const BADGE_CLOVER_PX = 12;
+/** Clover glyph size (CSS px) in the NEZNÁMÁ count badge — matched to the dot
+ *  itself (r 9 + 2px stroke ≈ 20 px across) so neither one dominates. */
+const BADGE_CLOVER_PX = 20;
+/** White halo that keeps the count legible without a panel behind it. */
+const BADGE_NUMBER_HALO = "rgba(255,255,255,.95)";
 
 /**
- * "🍀 12" pill pinned to the upper-right of the NEZNÁMÁ dot — the finds parked
- * there are never plotted individually (no known position), so this badge is
- * the only place their number shows on the map itself.
+ * "🍀 12" over the upper-right of the NEZNÁMÁ dot — the finds parked there are
+ * never plotted individually (no known position), so this badge is the only
+ * place their number shows on the map itself.
+ *
+ * Deliberately has NO panel behind it: the clover's own white glow and the
+ * number's white halo do the separating, on grass and pavement alike. The
+ * count sits BESIDE the clover, never inside it — a three-digit number would
+ * overflow the glyph.
  *
  * Returns "" for an empty bucket (nothing to count) and for SSR, where the
  * canvas-rendered sprite isn't available; the "?" glyph stands alone then.
@@ -26,16 +34,16 @@ function cloverCountBadgeHtml(count: number, cloverUrl: string | null): string {
   if (count <= 0 || cloverUrl === null) return "";
   const n = Math.round(count);
   return (
-    // The pill's lower-left corner lands on the ring (centre 9,9 / r 9 + 2px
-    // stroke): attached like an avatar badge, but clear of both the "?" and
-    // most of the dashes. `text-shadow:none` cancels the "?" glow it inherits.
-    '<span style="position:absolute;left:15px;bottom:14px;display:inline-flex;' +
-    "align-items:center;gap:2px;padding:1px 4px 1px 3px;border-radius:9999px;" +
-    "background:#ffffff;color:#0f172a;font:700 10px/1 ui-sans-serif,system-ui,sans-serif;" +
-    "text-shadow:none;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4);" +
-    'pointer-events:none;">' +
-    `<img src="${cloverUrl}" width="${BADGE_CLOVER_PX}" height="${BADGE_CLOVER_PX}" alt="" style="display:block" />` +
-    `${n}</span>`
+    // Anchored so the clover overlaps the dot's upper-right quadrant (reads as
+    // attached) while leaving the "?" underneath fully visible.
+    '<span style="position:absolute;left:11px;bottom:9px;display:inline-flex;' +
+    'align-items:center;gap:1px;white-space:nowrap;pointer-events:none;">' +
+    `<img src="${cloverUrl}" width="${BADGE_CLOVER_PX}" height="${BADGE_CLOVER_PX}" alt="" ` +
+    'style="display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45)) ' +
+    'drop-shadow(0 0 2px rgba(255,255,255,.95));" />' +
+    '<span style="font:800 13px/1 ui-sans-serif,system-ui,sans-serif;color:#0f172a;' +
+    `text-shadow:0 0 3px ${BADGE_NUMBER_HALO},0 0 2px ${BADGE_NUMBER_HALO},` +
+    `0 1px 1px ${BADGE_NUMBER_HALO};">${n}</span></span>`
   );
 }
 

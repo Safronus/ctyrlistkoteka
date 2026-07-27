@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### NEZNÁMÁ: doladěný odznak počtu + GPS pryč i ze seznamu
+- Odznak u bodu na `/mapa` přepracován: čtyřlístek **20 px** (byl 12 px, kde se
+  jeho tmavý obrys slil v blob) a **bez jakéhokoli podkladu** — místo bílé
+  pilulky drží čitelnost vlastní bílá záře ikony a bílý halo kolem čísla.
+  Počet je tmavý, tučný, **vedle** čtyřlístku; do glyfu se nedává, trojmístné
+  číslo by z něj přeteklo. Velikost odpovídá samotnému bodu lokality.
+- `/sbirka` u nálezů na 00000 už neukazuje **geografický řádek** (GPS,
+  odchylka, „N od výchozí mapy") ani špendlík na mapu — v seznamu i v dlaždici.
+  Sjednoceno s detailem nálezu.
+- Chip „Zobrazit na mapě" u jediného výsledku míří u těchto nálezů na
+  `?focus=0` (bod lokality s počtem) místo mrtvého `?find=N`.
+- Opraven další **zero-falsy** případ: `buildMapHref` zahazoval `loc=0`, takže
+  filtr na lokalitu NEZNÁMÁ se do mapy nepropsal a ukázala se neomezená.
+
 ### Lokalita NEZNÁMÁ: počet na mapě, žádná předstíraná poloha
 - **`/mapa`** — bod lokality 00000 dostal k šedému přerušovanému kroužku s „?"
   ještě bílou bublinu s **ikonou čtyřlístku a počtem** nálezů, které tam stojí.
