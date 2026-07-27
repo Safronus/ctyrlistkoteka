@@ -9,6 +9,7 @@
 import type { FindState } from "@/generated/prisma/enums";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
+import { locationNameResolver } from "@/lib/locationNameI18n";
 import {
   MISSING_CLOVER_ID_MAX,
   MISSING_CLOVER_ID_MIN,
@@ -631,6 +632,7 @@ export async function getHomePageData(): Promise<HomePageData> {
       ? computeNetMinutesForLocationTree(topLocRow.id)
       : Promise.resolve(0),
   ]);
+  const localName = await locationNameResolver();
   const highlights: HomeHighlights = {
     firstYear: c?.first_year ?? null,
     firstFoundAt: c?.first_found_at ? c.first_found_at.toISOString() : null,
@@ -650,7 +652,7 @@ export async function getHomePageData(): Promise<HomePageData> {
       ? {
           id: topLocRow.id,
           code: topLocRow.code,
-          displayName: topLocRow.name,
+          displayName: localName(topLocRow.id, topLocRow.name),
           count: Number(topLocRow.count),
           netMinutes: topLocNetMinutes,
         }

@@ -21,6 +21,10 @@ import { Prisma } from "@/generated/prisma/client";
 import type { FindState } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import {
+  locationNameResolver,
+  type LocationNameResolver,
+} from "@/lib/locationNameI18n";
+import {
   DEFAULT_LOCATION_ID,
   FIND_DEVIATION_RADIUS_M,
   UNKNOWN_LOCATION_ID,
@@ -1015,17 +1019,20 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
     `,
   ]);
 
+  const localName = await locationNameResolver();
   const farthestRow = farthestFindRow[0];
   const farthestBase =
-    farthestRow && farthestRow.dist_m !== null ? toHighlight(farthestRow) : null;
+    farthestRow && farthestRow.dist_m !== null
+      ? toHighlight(farthestRow, localName)
+      : null;
   const farthestFind: FarthestFindHighlight | null =
     farthestBase && farthestRow && farthestRow.dist_m !== null
       ? { ...farthestBase, distanceMeters: Number(farthestRow.dist_m) }
       : null;
 
   return {
-    firstFind: toHighlight(firstFindRow[0]),
-    lastFind: toHighlight(lastFindRow[0]),
+    firstFind: toHighlight(firstFindRow[0], localName),
+    lastFind: toHighlight(lastFindRow[0], localName),
     farthestFind,
   };
 }
@@ -1337,6 +1344,7 @@ async function getStatsJubileesImpl(): Promise<StatsJubileesResult> {
     WHERE f.id IN (${Prisma.join(candidateIds)})
     ORDER BY f.id ASC
   `;
+  const localName = await locationNameResolver();
   return {
     jubilees: rows.map((r) => ({
       id: r.id,
@@ -1349,7 +1357,10 @@ async function getStatsJubileesImpl(): Promise<StatsJubileesResult> {
         !r.is_anonymized && r.location_id !== null && r.location_code
           ? {
               code: r.location_code,
-              displayName: r.location_display_name ?? r.location_code,
+              displayName: localName(
+                r.location_id,
+                r.location_display_name ?? r.location_code,
+              ),
             }
           : null,
       hasGps: r.has_gps === true,
@@ -2133,6 +2144,7 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
       octantDistN[idx] = (octantDistN[idx] ?? 0) + 1;
     }
   }
+  const localName = await locationNameResolver();
   const octants: DeviationOctant[] = octantCounts.map((count, octant) => ({
     octant,
     count,
@@ -2160,7 +2172,7 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
           meters: top.offset_m,
           mode: top.mode,
           foundAt: top.found_at ? top.found_at.toISOString() : null,
-          location: { code: top.code, displayName: top.display_name },
+          location: { code: top.code, displayName: localName(top.id, top.display_name) },
           findLat: top.f_lat,
           findLng: top.f_lng,
           locLat: top.c_lat,
@@ -2173,7 +2185,7 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
     ? {
         id: topRow.id,
         code: topRow.code,
-        displayName: topRow.display_name,
+        displayName: localName(topRow.id, topRow.display_name),
         total: Number(topRow.total),
         deviated: Number(topRow.deviated),
         rate: Number(topRow.deviated) / Number(topRow.total),
@@ -2198,7 +2210,12 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
 // ---------------------------------------------------------------------------
 // Local helpers shared by multiple fetchers above.
 
-function toHighlight(row: HighlightRow | undefined): FindHighlight | null {
+/** `localName` is threaded in rather than resolved here: this helper is sync
+ *  and shared by several fetchers, each of which already has the resolver. */
+function toHighlight(
+  row: HighlightRow | undefined,
+  localName: LocationNameResolver,
+): FindHighlight | null {
   if (!row) return null;
   return {
     id: row.id,
@@ -2209,7 +2226,10 @@ function toHighlight(row: HighlightRow | undefined): FindHighlight | null {
         ? {
             id: row.location_id,
             code: row.location_code,
-            displayName: row.location_display_name ?? row.location_code,
+            displayName: localName(
+              row.location_id,
+              row.location_display_name ?? row.location_code,
+            ),
           }
         : null,
     hasGps: row.has_gps === true,

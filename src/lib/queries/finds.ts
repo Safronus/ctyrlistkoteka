@@ -10,6 +10,7 @@ import { unstable_cache } from "next/cache";
 import { FindState, Prisma, type ImageType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { anonymize } from "@/lib/anonymize";
+import { locationNameResolver } from "@/lib/locationNameI18n";
 import {
   DEFAULT_LOCATION_ID,
   DOMINANT_LOCATION_ID,
@@ -616,6 +617,7 @@ async function hydrate(
     }
   }
 
+  const localName = await locationNameResolver();
   return rows.map((r) => {
     const images = [...r.images].sort((a, b) => {
       if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
@@ -652,7 +654,12 @@ async function hydrate(
             // place, not of the person — keep it so the notice still shows.
             isCancelled: r.location.isCancelled,
           }
-        : r.location;
+        : r.location
+          ? {
+              ...r.location,
+              displayName: localName(r.location.id, r.location.displayName),
+            }
+          : null;
     return {
       id: r.id,
       foundAt: r.foundAt,
@@ -1833,6 +1840,7 @@ export async function getHighlightFind(
   if (!c || c.lat === null || c.lng === null) return null;
 
   const isRecord = effectForFind(id, await getSpecialFinds()) === "record";
+  const localName = await locationNameResolver();
 
   return {
     id: row.id,
@@ -1841,7 +1849,10 @@ export async function getHighlightFind(
     locationId: row.locationId,
     foundAt: row.foundAt,
     locationCode: row.location?.code ?? null,
-    locationDisplayName: row.location?.displayName ?? null,
+    locationDisplayName:
+      row.location && row.locationId !== null
+        ? localName(row.locationId, row.location.displayName)
+        : null,
     offset:
       c.loc_offset_m !== null && c.loc_offset_mode !== null
         ? {
@@ -1887,6 +1898,11 @@ export interface FilterOptions {
    *  cascade (country → city → location) purely on the client. */
   locations: Array<{
     id: number;
+    code: string;
+    /** Czech source name, or null when the label is just the code. Kept so
+     *  the locale wrapper can swap in the English override. */
+    displayName: string | null;
+    /** Ready-to-render "<code> — <name>", already localized. */
     label: string;
     city: string;
     country: string;
@@ -1913,11 +1929,31 @@ export interface FilterOptions {
  * every subsequent filter click reuses it. Options change only on `sync`,
  * so a short revalidate window is plenty.
  */
-export const getFilterOptions = unstable_cache(
+const getFilterOptionsCached = unstable_cache(
   getFilterOptionsImpl,
   ["sbirka-filter-options"],
   { revalidate: 300 },
 );
+
+/**
+ * Locale wrapper around the cached options. The cache key deliberately has NO
+ * locale in it — the underlying aggregations are the same for everyone, and a
+ * per-locale key would double the work for a difference that's one string swap.
+ * So the labels are rebuilt here instead, after the cache. On `cs` the resolver
+ * is the identity function and this is a plain array copy.
+ */
+export async function getFilterOptions(): Promise<FilterOptions> {
+  const base = await getFilterOptionsCached();
+  const localName = await locationNameResolver();
+  return {
+    ...base,
+    locations: base.locations.map((l) =>
+      l.displayName === null
+        ? l
+        : { ...l, label: `${l.code} — ${localName(l.id, l.displayName)}` },
+    ),
+  };
+}
 
 async function getFilterOptionsImpl(): Promise<FilterOptions> {
   const [locationRows, yearRows, countries, dateBounds, anonMaps] =
@@ -1986,6 +2022,10 @@ async function getFilterOptionsImpl(): Promise<FilterOptions> {
       l.displayName !== l.code;
     return {
       id: l.id,
+      code: l.code,
+      // Null when the label is the bare code (anonymized, blank, or identical
+      // to the code) — the wrapper below then has nothing to translate.
+      displayName: showDisplay ? l.displayName : null,
       label: showDisplay ? `${l.code} — ${l.displayName}` : l.code,
       city: cityFromCadastralArea(l.cadastralArea),
       country:

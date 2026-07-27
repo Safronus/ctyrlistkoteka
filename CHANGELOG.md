@@ -9,6 +9,24 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### EN: názvy lokalit už nezůstávají česky
+- Překlad popisku mapy z `/admin/translations` se **nově používá i jako
+  anglický název lokality**. Dosud se uplatnil jen na dvou stránkách, takže
+  i po pečlivém přeložení viděl anglický návštěvník na `/en/lokality` přes
+  dvě stě českých názvů — a totéž na `/mapa`, v řádcích `/sbirka`, na
+  `/statistiky` i ve widgetu na domovské stránce.
+- Příčina: `sync` zapisuje manifestový `popis` **do dvou sloupců** —
+  `location_maps.description` (překládaný) a `locations.display_name`
+  (nepřekládaný). Obě řádky přitom nesou totéž číslo lokace, takže dohledání
+  překladu je triviální.
+- Řešeno v **dotazové vrstvě** (`src/lib/locationNameI18n.ts`): každé DTO
+  s `displayName` projde resolverem, takže to chytne všech deset míst naráz
+  a nové stránky to dostanou zadarmo. Bez překladu zůstává čeština.
+  Na `cs` je resolver identita a soubor s překlady se vůbec nečte.
+- Filtr na `/sbirka` je `unstable_cache`d bez locale v klíči (agregace jsou
+  pro všechny stejné) — labely se proto lokalizují až v obalu za cache, aby
+  se práce nezdvojnásobila a zároveň se jazyky nemíchaly.
+
 ### Drobnosti: dlaždice na domovské stránce a jubilejní panely
 - **Domů** — dlaždice s počtem 🍀 je vycentrovaná i svisle. Jakmile jsou
   všechny nálezy nahrané, zmizí z ní řádek „(N nahraných)" a jednořádkový

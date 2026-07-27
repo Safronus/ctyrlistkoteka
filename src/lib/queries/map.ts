@@ -15,6 +15,7 @@ import {
   UNKNOWN_LOCATION_ID,
 } from "@/lib/constants";
 import { prisma } from "@/lib/db";
+import { locationNameResolver } from "@/lib/locationNameI18n";
 import { isLocationGone } from "@/lib/locationCode";
 
 export interface MapLocation {
@@ -212,6 +213,7 @@ export async function getMapData(): Promise<MapData> {
     `,
   ]);
 
+  const localName = await locationNameResolver();
   const visibleRows = locRows.filter((r) => !anonLocIds.has(r.id));
 
   // Sum of every visible child's find count keyed by parent_id. The
@@ -244,7 +246,7 @@ export async function getMapData(): Promise<MapData> {
     return {
       id: r.id,
       code: r.code,
-      displayName: r.display_name,
+      displayName: localName(r.id, r.display_name),
       parentId: r.parent_id,
       showOnMapByDefault: r.show_on_map_by_default,
       isGone: isLocationGone(r.code, r.is_cancelled),

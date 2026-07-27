@@ -9,6 +9,7 @@
 
 import { FindState, ImageType, Prisma } from "@/generated/prisma/client";
 import { unstable_cache } from "next/cache";
+import { locationNameResolver } from "@/lib/locationNameI18n";
 import { prisma } from "@/lib/db";
 import {
   DEFAULT_LOCATION_ID,
@@ -820,6 +821,7 @@ export async function listLocations(
   // Description, cadastral area, location type, polygon area, GPS, the
   // map thumbnail, and every aggregated stat are stripped server-side
   // so a frontend bug can never accidentally render them.
+  const localName = await locationNameResolver();
   let items: LocationListItem[] = locations.map((l) => {
     const gone = isLocationGone(l.code, l.isCancelled);
     if (isAnonymizedLoc(l.id)) {
@@ -930,7 +932,7 @@ export async function listLocations(
     return {
       id: l.id,
       code: l.code,
-      displayName: l.displayName,
+      displayName: localName(l.id, l.displayName),
       cadastralArea: l.cadastralArea,
       locationType: l.locationType,
       indicator: indicatorFrom(
@@ -1584,11 +1586,12 @@ export async function getLocationDetailById(
   // "(N žlutě, M červeně)" next to its find count. One batched query.
   const devCounts = await fetchDeviationCountsByLocation(handleIds);
 
+  const localName = await locationNameResolver();
   const parent: LocationHandle | null = parentRow
     ? {
         id: parentRow.id,
         code: parentRow.code,
-        displayName: parentRow.displayName,
+        displayName: localName(parentRow.id, parentRow.displayName),
         findCount:
           (findCounts.get(parentRow.id) ?? 0) +
           parentChildRows.reduce(
@@ -1618,7 +1621,7 @@ export async function getLocationDetailById(
     .map((c) => ({
       id: c.id,
       code: c.code,
-      displayName: c.displayName,
+      displayName: localName(c.id, c.displayName),
       findCount: findCounts.get(c.id) ?? 0,
       amber: devCounts.get(c.id)?.amber ?? 0,
       rose: devCounts.get(c.id)?.rose ?? 0,
@@ -1628,7 +1631,7 @@ export async function getLocationDetailById(
   const children: LocationHandle[] = childRows.map((c) => ({
     id: c.id,
     code: c.code,
-    displayName: c.displayName,
+    displayName: localName(c.id, c.displayName),
     findCount: findCounts.get(c.id) ?? 0,
     amber: devCounts.get(c.id)?.amber ?? 0,
     rose: devCounts.get(c.id)?.rose ?? 0,
