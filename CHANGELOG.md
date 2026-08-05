@@ -26,7 +26,9 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   jako dlaždice s počtem 🍀 vedle ní.
 - Panely **První / Poslední / Nejvzdálenější 🍀** zeštíhlely: zmizel kód a
   popis lokality (v té šířce se stejně ořezával a odkaz na nález ji uvádí
-  celou), zbytek obsahu je na střed. Vzdálenost od mapy #00001 zůstala.
+  celou) i číslo nálezu z pravého horního rohu (nese ho tlačítko „Otevřít 🍀
+  #N" pod ním). Titulek i obsah jsou na střed, obsah navíc svisle uprostřed
+  mezi titulkem a tlačítky. Vzdálenost od mapy #00001 zůstala.
 
 ### EN: názvy lokalit už nezůstávají česky
 - Překlad popisku mapy z `/admin/translations` se **nově používá i jako

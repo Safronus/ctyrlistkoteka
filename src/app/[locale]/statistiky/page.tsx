@@ -36,7 +36,6 @@ import {
   formatDateTimeCs,
   formatDistance,
   formatDurationSeconds,
-  formatLocationId,
   formatLongDuration,
   formatTimeSinceCs,
   locationDetailHref,
@@ -1204,42 +1203,40 @@ function FindHighlightCard({
         tinted ? "bg-gray-50" : "bg-white"
       }`}
     >
-      {/* Header keeps its two-column shape (title left, find id right); the
-          body below is centred. The location code + description used to sit
-          under the date — dropped, they pushed the card tall and the id above
-          already links to the find, which names its location in full. */}
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-700">
-          {label}
-        </h2>
-        <span className="font-mono text-xs text-gray-500">
-          {formatLocationId(find.id)}
-        </span>
+      {/* Everything is centred, title included. The find id used to sit in the
+          top-right corner — dropped, the "Otevřít 🍀 #N" button below already
+          carries it. The body sits in a `flex-1` block so it centres in
+          whatever height the tallest card in the row sets, with the buttons
+          staying pinned to the bottom edge. */}
+      <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-brand-700">
+        {label}
+      </h2>
+
+      <div className="flex flex-1 flex-col justify-center py-2">
+        <p className="text-center text-base font-semibold text-gray-900">
+          {date ? formatDateTimeCs(date, locale) : t("missingDate")}
+        </p>
+        {date && (
+          <p className="text-center text-xs text-gray-500">
+            {formatTimeSinceCs(date, tTimeSince)}
+          </p>
+        )}
+
+        {distanceMeters !== undefined && (
+          <p
+            className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-500"
+            title={t("distanceFromDefaultTitle")}
+          >
+            <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
+            <span className="font-mono tabular-nums text-gray-900">
+              {formatDistance(distanceMeters, locale)}
+            </span>
+            <span>{t("distanceFromMapSuffix")}</span>
+          </p>
+        )}
       </div>
 
-      <p className="mt-2 text-center text-base font-semibold text-gray-900">
-        {date ? formatDateTimeCs(date, locale) : t("missingDate")}
-      </p>
-      {date && (
-        <p className="text-center text-xs text-gray-500">
-          {formatTimeSinceCs(date, tTimeSince)}
-        </p>
-      )}
-
-      {distanceMeters !== undefined && (
-        <p
-          className="mt-3 inline-flex items-center justify-center gap-1.5 text-xs text-gray-500"
-          title={t("distanceFromDefaultTitle")}
-        >
-          <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
-          <span className="font-mono tabular-nums text-gray-900">
-            {formatDistance(distanceMeters, locale)}
-          </span>
-          <span>{t("distanceFromMapSuffix")}</span>
-        </p>
-      )}
-
-      <div className="mt-auto flex flex-wrap justify-center gap-2 pt-4">
+      <div className="flex flex-wrap justify-center gap-2">
         <Link
           href={`/sbirka/${find.id}`}
           className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
