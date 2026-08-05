@@ -108,6 +108,17 @@ model Location {
   // this in phase D, keeping the prefix check as a fallback while both exist.
   isCancelled Boolean @default(false) @map("is_cancelled")
 
+  // Terrain elevation of the centre point, metres above sea level. NOT from
+  // the photos: phone GPS altitude scatters by metres to tens of metres (see
+  // docs/gotchas.md), so this comes from a digital elevation model, filled by
+  // the one-off `scripts/fetch-elevations.ts`. Deliberately absent from the
+  // sync upsert so a re-sync never clears it. Null = never looked up, or an
+  // anonymized location (their coordinates are never sent anywhere).
+  altitudeM Float? @map("altitude_m")
+  // Which model the value came from ("eudem25m", "srtm30m", …) — kept so a
+  // later, better source can be told apart from an older reading.
+  altitudeSource String? @map("altitude_source") @db.VarChar(32)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 

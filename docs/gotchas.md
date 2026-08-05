@@ -708,3 +708,25 @@ localhostu), takže proxované spojení se tím jen poškodí.
   (auth check před přečtením těla requestu). Kódová část se nasadila hned,
   **Nginx část ležela nenasazená do 2026-07-26** — viz varování v
   `docs/deployment.md` §8, že config CI nenasazuje.
+
+## 23. Nadmořská výška: EXIF z fotek ano, ale jen jako medián
+
+GPS výška z telefonu **je** v EXIFu (`GPSAltitude`) a dá se z ní počítat, ale
+naměřeno na 29 068 reálných fotkách (2026-07-28):
+
+- prostřední polovina měření uvnitř jedné lokality se rozchází o **0,6 až 12 m**
+  (u zlínských lokalit kolem 1 m, u ratibořského pole víc — tam je to ale
+  z velké části skutečný sklon terénu, ne chyba měření),
+- **krajní hodnoty jsou nepoužitelné**: v jedné lokalitě 41 m i 574 m. Studený
+  start GPS zapíše nesmysl, takže min/max ani jednotlivé měření nikdy neber
+  jako pravdu — vždy medián.
+
+Proto se výška lokality nebere z fotek, ale z **výškového modelu** ve středu
+lokality (`scripts/fetch-elevations.ts`, sloupec `locations.altitude_m`).
+Ověřeno proti sobě: EU-DEM dal pro ratibořské pole 459,8 m, mediány z EXIFu
+445,7–463,2 m — dvě nezávislé metody v rozmezí pár metrů.
+
+Ten skript je **vědomá výjimka z pravidla „neposílej data třetím stranám"**
+(CLAUDE.md §9), schválená vlastníkem: běží ručně, ne za provozu, a posílá
+výhradně souřadnice **nezanonymizovaných** lokalit, které jsou stejně veřejné
+na `/mapa`. Anonymizované se nikdy neodesílají.
