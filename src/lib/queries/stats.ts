@@ -461,6 +461,13 @@ export interface StatsJubileesResult {
  *  (metres above sea level) and which model it came from. */
 export interface LocationAltitudePoint extends LocationPoint {
   altitudeM: number;
+  /** City from the cadastral area, normalised the same way the geo section
+   *  does it. Null when the location has no usable cadastral area. */
+  city: string | null;
+  /** Raw English country name + its Natural Earth numeric id, resolved from
+   *  the centre point. The UI localizes and flags it. Null off-map. */
+  countryName: string | null;
+  countryCode: string | null;
   /** "eudem25m" / "srtm30m" / … — kept so a coarser reading is
    *  distinguishable from a fine one if we ever want to show it. */
   altitudeSource: string | null;
@@ -1663,6 +1670,9 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
         count: bigint;
         altitude_m: number;
         altitude_source: string | null;
+        cadastral: string | null;
+        lat: number | null;
+        lng: number | null;
       }>
     >`
       WITH anon AS (
@@ -1684,7 +1694,10 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
              COALESCE(NULLIF(l.display_name, ''), l.code) AS name,
              COUNT(b.find_id) AS count,
              l.altitude_m,
-             l.altitude_source
+             l.altitude_source,
+             l.cadastral_area AS cadastral,
+             ROUND(ST_Y(l.center_point)::numeric, 6)::float8 AS lat,
+             ROUND(ST_X(l.center_point)::numeric, 6)::float8 AS lng
       FROM locations l
       LEFT JOIN bucket b ON b.bucket_id = l.id
       WHERE l.altitude_m IS NOT NULL
@@ -1694,7 +1707,8 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
           l.parent_id IS NOT NULL
           AND l.parent_id NOT IN (SELECT location_id FROM anon)
         )
-      GROUP BY l.id, l.code, l.display_name, l.altitude_m, l.altitude_source
+      GROUP BY l.id, l.code, l.display_name, l.altitude_m, l.altitude_source,
+               l.cadastral_area, l.center_point
       ORDER BY l.altitude_m DESC, l.id
       LIMIT 10
     `,
@@ -1758,14 +1772,23 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
       name: localName(r.id, r.name),
       count: Number(r.count),
     })),
-    topLocationsByAltitude: topAltitudeRows.map((r) => ({
-      id: r.id,
-      code: r.code,
-      name: localName(r.id, r.name),
-      count: Number(r.count),
-      altitudeM: r.altitude_m,
-      altitudeSource: r.altitude_source,
-    })),
+    topLocationsByAltitude: topAltitudeRows.map((r) => {
+      const country =
+        r.lat !== null && r.lng !== null
+          ? countryFromCoords(r.lat, r.lng)
+          : null;
+      return {
+        id: r.id,
+        code: r.code,
+        name: localName(r.id, r.name),
+        count: Number(r.count),
+        altitudeM: r.altitude_m,
+        altitudeSource: r.altitude_source,
+        city: r.cadastral ? cityFromCadastralArea(r.cadastral) : null,
+        countryName: country?.name ?? null,
+        countryCode: country?.code ?? null,
+      };
+    }),
     topLocationsByDensity: topDensityRows.map((r) => ({
       id: r.id,
       code: r.code,

@@ -168,39 +168,73 @@ function ModeToggle({
   hasAltitude: boolean;
   t: StatsT;
 }) {
+  // Available tabs in display order, so the mobile <select> and the desktop
+  // button row can't drift apart.
+  const options: Array<{ value: Mode; label: string }> = [
+    { value: "count", label: t("topToggleByCount") },
+    ...(hasDensity
+      ? [{ value: "density" as const, label: t("topToggleByDensity") }]
+      : []),
+    ...(hasSessions
+      ? [{ value: "sessions" as const, label: t("topToggleBySessions") }]
+      : []),
+    ...(hasAltitude
+      ? [{ value: "altitude" as const, label: t("topToggleByAltitude") }]
+      : []),
+  ];
+
   return (
-    <div
-      role="radiogroup"
-      aria-label={t("topToggleAria")}
-      className="inline-flex items-center gap-0.5 rounded-md border border-gray-200 bg-gray-50 p-0.5"
-    >
-      <ModeButton
-        active={mode === "count"}
-        onClick={() => onChange("count")}
-        label={t("topToggleByCount")}
-      />
-      {hasDensity && (
+    <>
+      {/* Below `sm` the four labels wrapped into a ragged two-line block that
+          pushed the card's header around — a native select is one line, and
+          gets the platform picker for free. */}
+      <label className="sm:hidden">
+        <span className="sr-only">{t("topToggleAria")}</span>
+        <select
+          value={mode}
+          onChange={(e) => onChange(e.target.value as Mode)}
+          className="max-w-[11rem] rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 shadow-sm"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div
+        role="radiogroup"
+        aria-label={t("topToggleAria")}
+        className="hidden items-center gap-0.5 rounded-md border border-gray-200 bg-gray-50 p-0.5 sm:inline-flex"
+      >
         <ModeButton
-          active={mode === "density"}
-          onClick={() => onChange("density")}
-          label={t("topToggleByDensity")}
+          active={mode === "count"}
+          onClick={() => onChange("count")}
+          label={t("topToggleByCount")}
         />
-      )}
-      {hasSessions && (
-        <ModeButton
-          active={mode === "sessions"}
-          onClick={() => onChange("sessions")}
-          label={t("topToggleBySessions")}
-        />
-      )}
-      {hasAltitude && (
-        <ModeButton
-          active={mode === "altitude"}
-          onClick={() => onChange("altitude")}
-          label={t("topToggleByAltitude")}
-        />
-      )}
-    </div>
+        {hasDensity && (
+          <ModeButton
+            active={mode === "density"}
+            onClick={() => onChange("density")}
+            label={t("topToggleByDensity")}
+          />
+        )}
+        {hasSessions && (
+          <ModeButton
+            active={mode === "sessions"}
+            onClick={() => onChange("sessions")}
+            label={t("topToggleBySessions")}
+          />
+        )}
+        {hasAltitude && (
+          <ModeButton
+            active={mode === "altitude"}
+            onClick={() => onChange("altitude")}
+            label={t("topToggleByAltitude")}
+          />
+        )}
+      </div>
+    </>
   );
 }
 
@@ -469,8 +503,7 @@ function Row({
   suffix?: string;
   t: StatsT;
 }) {
-  const nameVisible =
-    !isAnonymized && !!name && !!code && name !== code;
+  const nameVisible = !isAnonymized && !!name && !!code && name !== code;
   const showSecondLine = nameVisible || !!suffix;
   return (
     <li className="space-y-2 rounded-md border border-gray-100 bg-gray-50 p-3">
@@ -482,9 +515,7 @@ function Row({
             <p className="mt-0.5 truncate text-xs text-gray-500">
               {nameVisible && <span title={name ?? undefined}>{name}</span>}
               {nameVisible && suffix && " "}
-              {suffix && (
-                <span>{nameVisible ? `(${suffix})` : suffix}</span>
-              )}
+              {suffix && <span>{nameVisible ? `(${suffix})` : suffix}</span>}
             </p>
           )}
         </div>

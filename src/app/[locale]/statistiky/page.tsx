@@ -17,6 +17,7 @@ import {
   Heart,
   HelpCircle,
   ImageOff,
+  Info,
   MapPin,
   MapPinOff,
   MapPinX,
@@ -384,8 +385,11 @@ async function HighlightsSection() {
   // cached, so asking for it here costs nothing extra.
   const highestPlace = topLocationsByAltitude[0] ?? null;
   if (!firstFind && !lastFind && !farthestFind && !highestPlace) return null;
+  // Two per row, not three: with four cards a 3-wide grid left the fourth
+  // stranded alone on a second row. 2×2 keeps the pairs together — the two
+  // "when" cards on top, the two "where" cards below.
   return (
-    <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {firstFind && (
         <FindHighlightCard
           label={t("highlightFirstFind")}
@@ -439,6 +443,11 @@ function HighestPlaceCard({
     maximumFractionDigits: 0,
   });
   const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
+  const countryLabel = place.countryName
+    ? localizedCountryName(place.countryName, locale, place.countryCode ?? undefined)
+    : null;
+  const alpha2 = place.countryCode ? alpha2FromNumeric(place.countryCode) : null;
+  const countryFlag = alpha2 ? countryFlagEmoji(alpha2) : null;
   return (
     <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-5">
       <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-brand-700">
@@ -446,21 +455,61 @@ function HighestPlaceCard({
       </h2>
 
       <div className="flex flex-1 flex-col justify-center py-2">
-        <p className="text-center text-base font-semibold text-gray-900">
+        {/* The elevation carries an info affordance: it's the one number on
+            this page that isn't measured from the collection itself, and
+            "how do you know that" is the obvious question. */}
+        <p className="flex items-center justify-center gap-1.5 text-base font-semibold text-gray-900">
           {t("topAltitudeValue", { m: altFmt.format(place.altitudeM) })}
+          <span
+            role="img"
+            aria-label={t("highestPlaceHowMeasured", {
+              source: place.altitudeSource ?? "DEM",
+            })}
+            title={t("highestPlaceHowMeasured", {
+              source: place.altitudeSource ?? "DEM",
+            })}
+            className="text-gray-400"
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden />
+          </span>
         </p>
-        <p className="mt-0.5 text-center text-sm text-gray-700">{place.name}</p>
-        <p className="text-center text-xs text-gray-500">
-          {t("highestPlaceFinds", { count: numFmt.format(place.count) })}
+        {/* Country · city · location id rather than the location's own
+            description — at this size the description wrapped to three lines
+            and said less about WHERE the place is. */}
+        <p className="mt-1 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-sm text-gray-700">
+          {countryFlag && (
+            <span className="leading-none" aria-hidden>
+              {countryFlag}
+            </span>
+          )}
+          {countryLabel && <span>{countryLabel}</span>}
+          {place.city && (
+            <>
+              {countryLabel && <span className="text-gray-400">·</span>}
+              <span>{place.city}</span>
+            </>
+          )}
+        </p>
+        <p className="mt-0.5 text-center font-mono text-xs text-gray-500">
+          {formatLocationId(place.id)}
         </p>
       </div>
 
       <div className="flex flex-wrap justify-center gap-2">
+        {/* Straight to the finds FROM this place, with the count on the
+            button itself — the card is about the location, so a link to one
+            arbitrary find would be the wrong destination. */}
         <Link
-          href={locationDetailHref(place.id)}
+          href={`/sbirka?loc=${place.id}`}
           className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
         >
-          {t("highestPlaceOpen", { code: formatLocationId(place.id) })}
+          {t("highestPlaceShowFinds", { count: numFmt.format(place.count) })}
+        </Link>
+        <Link
+          href={locationDetailHref(place.id)}
+          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:border-brand-200 hover:text-brand-700 hover:shadow-sm"
+        >
+          {t("highestPlaceOpenLocation")}
         </Link>
         <Link
           href={`/mapa?focus=${place.id}`}

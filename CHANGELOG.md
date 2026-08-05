@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /statistiky: doladění dlaždic a přepínače
+- Dlaždice **2×2** místo 3+1 — čtvrtá karta zůstávala trčet sama na druhém
+  řádku. Nahoře „kdy" (První / Poslední 🍀), dole „kde" (Nejvzdálenější 🍀 /
+  Nejvýše nalezené 🍀).
+- Karta **„Nejvýše nalezené 🍀"**: u výšky je ⓘ s vysvětlením, odkud se bere;
+  místo popisu lokality je **vlaječka + stát · město + číslo lokality**
+  (popis se lámal do tří řádků a o poloze říkal míň); tlačítko vede na
+  `/sbirka` filtrovanou podle lokality a **nese rovnou počet 🍀**.
+- Přepínač v Top 10 lokalit je na mobilu **rozbalovací seznam** — čtyři
+  popisky se pod 640 px lámaly do rozházených dvou řádků. Na širších
+  displejích zůstala řada tlačítek.
+
 ### /statistiky: nadmořská výška — žebříček i dlaždice
 - Nová záložka **„Podle nadmořské výšky"** v Top 10 lokalit a dlaždice
   **„Nejvýše položené místo"** vedle První / Poslední 🍀.

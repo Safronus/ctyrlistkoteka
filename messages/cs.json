@@ -515,9 +515,7 @@
     "highlightFirstFind": "První 🍀",
     "highlightLastFind": "Poslední 🍀",
     "highlightFarthestFind": "Nejvzdálenější 🍀",
-    "highlightHighestPlace": "Nejvýše položené místo",
-    "highestPlaceFinds": "{count} 🍀 na této lokalitě",
-    "highestPlaceOpen": "Otevřít {code} →",
+    "highlightHighestPlace": "Nejvýše nalezené 🍀",
     "deviationHeading": "Odchýlené 🍀",
     "deviationHeadline": "{deviated} z {eligible} 🍀 se odchyluje ({pct}) — ≈ 1 z {oneIn}.",
     "deviationSubtitle": "Odchýlení: u lokality s polygonem 🍀 mimo polygon (libovolně daleko); u lokality s poloměrem dál od středu než její poloměr. Lokality bez plochy (jen bod) se neposuzují. Počítají se jen neanonymizované 🍀 s GPS přiřazené k lokalitě.",
@@ -733,7 +731,10 @@
     "monthLong9": "září",
     "monthLong10": "říjen",
     "monthLong11": "listopad",
-    "monthLong12": "prosinec"
+    "monthLong12": "prosinec",
+    "highestPlaceHowMeasured": "Nadmořská výška terénu ve středu lokality, odečtená z výškového modelu ({source}). Nepočítá se z GPS ve fotkách — ta kolísá o jednotky až desítky metrů.",
+    "highestPlaceShowFinds": "Ukázat {count} 🍀 →",
+    "highestPlaceOpenLocation": "Detail lokality"
   },
   "Mapa": {
     "metaTitle": "Mapa",

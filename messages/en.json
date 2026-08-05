@@ -516,9 +516,7 @@
     "highlightFirstFind": "First 🍀",
     "highlightLastFind": "Last 🍀",
     "highlightFarthestFind": "Farthest 🍀",
-    "highlightHighestPlace": "Highest place",
-    "highestPlaceFinds": "{count} 🍀 at this location",
-    "highestPlaceOpen": "Open {code} →",
+    "highlightHighestPlace": "Highest 🍀 found",
     "deviationHeading": "Deviated 🍀",
     "deviationHeadline": "{deviated} of {eligible} 🍀 deviate ({pct}) — ≈ 1 in {oneIn}.",
     "deviationSubtitle": "Deviation: for a location with a polygon, a 🍀 outside the polygon (any distance); for a radius location, further from the centre than its own radius. Locations with no area (a bare dot) aren't judged. Only non-anonymized 🍀 with GPS assigned to a location are counted.",
@@ -734,7 +732,10 @@
     "monthLong9": "September",
     "monthLong10": "October",
     "monthLong11": "November",
-    "monthLong12": "December"
+    "monthLong12": "December",
+    "highestPlaceHowMeasured": "Terrain elevation at the location's centre, read from an elevation model ({source}). Not computed from the photos' GPS — that scatters by metres to tens of metres.",
+    "highestPlaceShowFinds": "Show {count} 🍀 →",
+    "highestPlaceOpenLocation": "Location detail"
   },
   "Mapa": {
     "metaTitle": "Map",
