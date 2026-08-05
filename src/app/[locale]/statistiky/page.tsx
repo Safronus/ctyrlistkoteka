@@ -72,6 +72,7 @@ import {
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { getLocationIdsWithRealPhotos } from "@/lib/queries/locations";
 import { localizedCountryName } from "@/lib/world-countries";
+import { alpha2FromNumeric, countryFlagEmoji } from "@/lib/countryCodes";
 import { getFindIdsWithRealPhotos } from "@/lib/findPhotos";
 import { prisma } from "@/lib/db";
 import { getTopFindsWithThumbs } from "@/lib/votes";
@@ -329,6 +330,10 @@ async function TotalsSection() {
       />
       <TotalCard
         tone="brand"
+        // Same shape as the finds tile beside it: the word rides on the
+        // number's line instead of sitting under it, so the two hero tiles
+        // read as a pair.
+        inlineLabel
         label={t("labelTotalLocations")}
         value={fmt.format(totals.locations)}
         cornerLeft={{
@@ -1199,6 +1204,10 @@ function FindHighlightCard({
         tinted ? "bg-gray-50" : "bg-white"
       }`}
     >
+      {/* Header keeps its two-column shape (title left, find id right); the
+          body below is centred. The location code + description used to sit
+          under the date — dropped, they pushed the card tall and the id above
+          already links to the find, which names its location in full. */}
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-700">
           {label}
@@ -1208,39 +1217,18 @@ function FindHighlightCard({
         </span>
       </div>
 
-      <p className="mt-2 text-base font-semibold text-gray-900">
+      <p className="mt-2 text-center text-base font-semibold text-gray-900">
         {date ? formatDateTimeCs(date, locale) : t("missingDate")}
       </p>
       {date && (
-        <p className="text-xs text-gray-500">
+        <p className="text-center text-xs text-gray-500">
           {formatTimeSinceCs(date, tTimeSince)}
         </p>
       )}
 
-      <div className="mt-3">
-        {find.location ? (
-          <div>
-            <p className="font-mono text-sm text-gray-900">
-              {find.location.code}
-            </p>
-            {find.location.displayName &&
-              find.location.displayName !== find.location.code && (
-                <p className="text-xs text-gray-500">
-                  {find.location.displayName}
-                </p>
-              )}
-          </div>
-        ) : (
-          <p className="inline-flex items-center gap-1.5 text-sm text-purple-700">
-            <HelpCircle className="h-4 w-4" aria-hidden />
-            {t("anonymizedLocation")}
-          </p>
-        )}
-      </div>
-
       {distanceMeters !== undefined && (
         <p
-          className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-500"
+          className="mt-3 inline-flex items-center justify-center gap-1.5 text-xs text-gray-500"
           title={t("distanceFromDefaultTitle")}
         >
           <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
@@ -1291,10 +1279,17 @@ function GeoStatsSection({
   // byCountry carries raw English names from Natural Earth. We localize
   // once here so both the leaderboard and the choropleth tooltips read
   // the same display string in the user's language.
-  const localizedByCountry = byCountry.map((c) => ({
-    ...c,
-    name: localizedCountryName(c.name, locale),
-  }));
+  const alpha2Of = (code: string) => alpha2FromNumeric(code);
+  const localizedByCountry = byCountry.map((c) => {
+    const a2 = alpha2Of(c.code);
+    return {
+      ...c,
+      name: localizedCountryName(c.name, locale, c.code),
+      // Emoji flag — renders on macOS / iOS / Android, degrades to the bare
+      // letter pair on Windows (no flag glyphs in its emoji font).
+      flag: a2 ? countryFlagEmoji(a2) : null,
+    };
+  });
   return (
     <CollapsibleSection
       storageKey="geo"
@@ -1309,6 +1304,7 @@ function GeoStatsSection({
               key: c.code,
               label: c.name,
               count: c.count,
+              flag: c.flag,
             }))}
             t={t}
           />
@@ -1345,6 +1341,9 @@ interface CountRow {
   key: string;
   label: string;
   count: number;
+  /** Optional glyph before the label — the country rows pass a flag emoji.
+   *  Decorative: the label already names the country, so it's aria-hidden. */
+  flag?: string | null;
 }
 
 function CountTable({
@@ -1375,6 +1374,11 @@ function CountTable({
               <span className="w-6 shrink-0 text-right font-mono text-xs text-gray-500">
                 {i + 1}.
               </span>
+              {r.flag && (
+                <span className="shrink-0 text-base leading-none" aria-hidden>
+                  {r.flag}
+                </span>
+              )}
               <span className="min-w-0 flex-1 truncate text-sm text-gray-900">
                 {r.label}
               </span>

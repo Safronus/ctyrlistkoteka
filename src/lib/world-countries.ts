@@ -10,6 +10,7 @@
  */
 
 import { feature } from "topojson-client";
+import { alpha2FromNumeric } from "@/lib/countryCodes";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import type {
   GeometryCollection,
@@ -152,9 +153,42 @@ export function czechCountryName(englishName: string): string {
 export function localizedCountryName(
   englishName: string,
   locale: string | undefined,
+  /** Natural Earth's numeric country id. When given (and mappable to
+   *  alpha-2) the name comes from `Intl.DisplayNames`, which covers every
+   *  country in both languages and fixes the dataset's abbreviations —
+   *  "Georgia" → "Gruzie", "W. Sahara" → "Západní Sahara". Without it we
+   *  fall back to the hand-kept CZECH_NAMES table, which only ever covered
+   *  the countries somebody had thought to add. */
+  numericCode?: string,
 ): string {
+  if (numericCode) {
+    const alpha2 = alpha2FromNumeric(numericCode);
+    if (alpha2) {
+      try {
+        const dn = new Intl.DisplayNames([localeTag(locale)], {
+          type: "region",
+        });
+        const name = dn.of(alpha2);
+        // `of()` echoes the input back for codes it doesn't know.
+        if (name && name !== alpha2) return name;
+      } catch {
+        // Unsupported locale tag — fall through to the tables below.
+      }
+    }
+  }
   if (locale === "cs" || locale?.startsWith("cs-")) {
     return CZECH_NAMES[englishName] ?? englishName;
   }
   return englishName;
+}
+
+/** `Intl` wants a BCP-47 tag. The site's locales are plain two-letter codes
+ *  ("cs" / "en") with an optional region ("cs-CZ"); anything else falls back
+ *  to English rather than risking an `Intl` throw. Kept deliberately narrow —
+ *  a general BCP-47 pattern needs nested quantifiers, which is a ReDoS shape. */
+function localeTag(locale: string | undefined): string {
+  if (!locale) return "en";
+  if (/^[a-z]{2}$/.test(locale)) return locale;
+  if (/^[a-z]{2}-[A-Za-z]{2}$/.test(locale)) return locale;
+  return "en";
 }

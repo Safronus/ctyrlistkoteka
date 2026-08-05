@@ -348,13 +348,13 @@ async function FullDetail({
         <p className="text-sm text-gray-500">
           {[
             base.coordinates
-              ? localizedCountryName(
-                  countryFromCoords(
+              ? (() => {
+                  const c = countryFromCoords(
                     base.coordinates.lat,
                     base.coordinates.lng,
-                  ).name,
-                  locale,
-                )
+                  );
+                  return localizedCountryName(c.name, locale, c.code);
+                })()
               : null,
             base.cadastralArea || null,
           ]

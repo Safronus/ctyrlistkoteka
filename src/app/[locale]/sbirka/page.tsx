@@ -304,7 +304,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
     countries: optionsRaw.countries
       .map((c) => ({
         code: c.code,
-        name: localizedCountryName(c.name, locale),
+        name: localizedCountryName(c.name, locale, c.code),
       }))
       .sort((a, b) =>
         a.name.localeCompare(b.name, locale === "en" ? "en" : "cs"),

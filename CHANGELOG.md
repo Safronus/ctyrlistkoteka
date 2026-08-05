@@ -9,6 +9,25 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /statistiky: vlaječky států, správné názvy zemí, sevřenější panely
+- **Názvy států se berou z `Intl.DisplayNames`**, ne z ruční tabulky. „Gruzie"
+  se ukazovala jako „Georgia" prostě proto, že v `CZECH_NAMES` chyběla — a
+  stejně na tom byla většina zemí na mapě světa („Fiji", „Kazakhstan",
+  „W. Sahara"…). Teď je správně česky i anglicky všech 236 zemí datasetu.
+- Nový `src/lib/countryCodes.ts` mapuje **číselný ISO kód → alpha-2** (dataset
+  Natural Earth klíčuje čísly, `Intl` i vlajky chtějí alpha-2). Tabulka je
+  vygenerovaná a ověřená: 191 položek spárováno přes anglické názvy z ICU,
+  zbylých 45 (zkratky typu „Bosnia and Herz.") domapováno podle čísla a každá
+  zkontrolována. Pět útvarů bez ISO kódu (Somaliland, N. Cyprus…) zůstává na
+  původním anglickém názvu.
+- U států v „Podle států" přibyly **emoji vlaječky**. Na Windows se místo
+  vlajky ukáže dvojpísmenný kód — jejich emoji font vlajky nemá.
+- **Dlaždice s počtem lokalit** má slovo „lokalit" na řádku s číslem, stejně
+  jako dlaždice s počtem 🍀 vedle ní.
+- Panely **První / Poslední / Nejvzdálenější 🍀** zeštíhlely: zmizel kód a
+  popis lokality (v té šířce se stejně ořezával a odkaz na nález ji uvádí
+  celou), zbytek obsahu je na střed. Vzdálenost od mapy #00001 zůstala.
+
 ### EN: názvy lokalit už nezůstávají česky
 - Překlad popisku mapy z `/admin/translations` se **nově používá i jako
   anglický název lokality**. Dosud se uplatnil jen na dvou stránkách, takže

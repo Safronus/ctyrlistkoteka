@@ -138,7 +138,10 @@ export default async function LokalityPage({ searchParams }: PageProps) {
   // Localize at the page boundary so the dropdown renders the user's
   // language while the upstream query stays cache-shareable across locales.
   const countries = filterOptions.countries
-    .map((c) => ({ code: c.code, name: localizedCountryName(c.name, locale) }))
+    .map((c) => ({
+      code: c.code,
+      name: localizedCountryName(c.name, locale, c.code),
+    }))
     .sort((a, b) =>
       a.name.localeCompare(b.name, locale === "en" ? "en" : "cs"),
     );
