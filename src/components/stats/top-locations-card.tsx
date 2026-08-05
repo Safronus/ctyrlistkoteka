@@ -12,12 +12,13 @@ import {
 } from "@/lib/format";
 import { CollapsibleSection } from "@/components/stats/collapsible-section";
 import type {
+  LocationAltitudePoint,
   LocationDensityPoint,
   LocationPoint,
   LocationSessionPoint,
 } from "@/lib/queries/stats";
 
-type Mode = "count" | "density" | "sessions";
+type Mode = "count" | "density" | "sessions" | "altitude";
 
 function toIntlLocale(locale: string): string {
   if (locale === "cs") return "cs-CZ";
@@ -30,6 +31,7 @@ export function TopLocationsCard({
   byDensity,
   densityCuriosities,
   bySessions,
+  byAltitude,
   avgCount,
   avgDensity,
   avgSessions,
@@ -40,6 +42,9 @@ export function TopLocationsCard({
    *  ranking (excluded from it so they don't flatten the bars). */
   densityCuriosities: readonly LocationDensityPoint[];
   bySessions: readonly LocationSessionPoint[];
+  /** Top 10 by terrain elevation. Empty until the elevation enrichment
+   *  script has been run, in which case the toggle hides the tab. */
+  byAltitude: readonly LocationAltitudePoint[];
   /** Mean finds per location, shown beside the "by count" toggle. */
   avgCount: number;
   /** Mean density (clovers / 100 m²), shown beside the "by density"
@@ -58,10 +63,14 @@ export function TopLocationsCard({
 
   const hasDensity = byDensity.length > 0;
   const hasSessions = bySessions.length > 0;
-  const showToggle = hasDensity || hasSessions;
-  // Fall back to "count" if the picked mode has no data (e.g. no polygons).
+  const hasAltitude = byAltitude.length > 0;
+  const showToggle = hasDensity || hasSessions || hasAltitude;
+  // Fall back to "count" if the picked mode has no data (e.g. no polygons,
+  // or the elevation script hasn't run yet).
   const activeMode: Mode =
-    (mode === "density" && !hasDensity) || (mode === "sessions" && !hasSessions)
+    (mode === "density" && !hasDensity) ||
+    (mode === "sessions" && !hasSessions) ||
+    (mode === "altitude" && !hasAltitude)
       ? "count"
       : mode;
 
@@ -70,25 +79,33 @@ export function TopLocationsCard({
       ? t("topLocationsHeading", { count: byCount.length })
       : activeMode === "density"
         ? t("topByDensityHeading", { count: byDensity.length })
-        : t("topBySessionsHeading", { count: bySessions.length });
+        : activeMode === "altitude"
+          ? t("topByAltitudeHeading", { count: byAltitude.length })
+          : t("topBySessionsHeading", { count: bySessions.length });
   const subtitle =
     activeMode === "count"
       ? t("topLocationsSubtitle")
       : activeMode === "density"
         ? t("topByDensitySubtitle")
-        : t("topBySessionsSubtitle");
+        : activeMode === "altitude"
+          ? t("topByAltitudeSubtitle")
+          : t("topBySessionsSubtitle");
   const baselineTitle =
     activeMode === "count"
       ? t("topAvgCountTitle")
       : activeMode === "density"
         ? t("topAvgDensityTitle")
-        : t("topAvgSessionsTitle");
+        : activeMode === "altitude"
+          ? t("topAltitudeNoteTitle")
+          : t("topAvgSessionsTitle");
   const baseline =
     activeMode === "count"
       ? t("topAvgCount", { avg: avgFmt.format(avgCount) })
       : activeMode === "density"
         ? t("topAvgDensity", { avg: formatDensity(avgDensity) })
-        : t("topAvgSessions", { avg: avgFmt.format(avgSessions) });
+        : activeMode === "altitude"
+          ? t("topAltitudeNote")
+          : t("topAvgSessions", { avg: avgFmt.format(avgSessions) });
 
   return (
     <CollapsibleSection
@@ -107,6 +124,7 @@ export function TopLocationsCard({
             onChange={setMode}
             hasDensity={hasDensity}
             hasSessions={hasSessions}
+            hasAltitude={hasAltitude}
             t={t}
           />
         )}
@@ -124,6 +142,8 @@ export function TopLocationsCard({
             />
           )}
         </>
+      ) : activeMode === "altitude" ? (
+        <AltitudeList rows={byAltitude} numFmt={numFmt} locale={locale} t={t} />
       ) : (
         <SessionsList rows={bySessions} numFmt={numFmt} avgFmt={avgFmt} t={t} />
       )}
@@ -138,12 +158,14 @@ function ModeToggle({
   onChange,
   hasDensity,
   hasSessions,
+  hasAltitude,
   t,
 }: {
   mode: Mode;
   onChange: (next: Mode) => void;
   hasDensity: boolean;
   hasSessions: boolean;
+  hasAltitude: boolean;
   t: StatsT;
 }) {
   return (
@@ -169,6 +191,13 @@ function ModeToggle({
           active={mode === "sessions"}
           onClick={() => onChange("sessions")}
           label={t("topToggleBySessions")}
+        />
+      )}
+      {hasAltitude && (
+        <ModeButton
+          active={mode === "altitude"}
+          onClick={() => onChange("altitude")}
+          label={t("topToggleByAltitude")}
         />
       )}
     </div>
@@ -225,6 +254,54 @@ function CountList({
           max={max}
           valueLabel={numFmt.format(r.count)}
           labelWidthClass="w-20"
+          t={t}
+        />
+      ))}
+    </ol>
+  );
+}
+
+/** "Highest places" — the bar is scaled from the LOWEST entry rather than
+ *  from zero: the ten highest places sit within a few hundred metres of each
+ *  other on a scale that starts at sea level, so zero-based bars would all
+ *  look identical. Anchoring at the lowest of the ten makes the differences
+ *  legible; the metre value is always spelled out beside it. */
+function AltitudeList({
+  rows,
+  numFmt,
+  locale,
+  t,
+}: {
+  rows: readonly LocationAltitudePoint[];
+  numFmt: Intl.NumberFormat;
+  locale: string;
+  t: StatsT;
+}) {
+  const altFmt = new Intl.NumberFormat(toIntlLocale(locale), {
+    maximumFractionDigits: 0,
+  });
+  const values = rows.map((r) => r.altitudeM);
+  const hi = Math.max(...values);
+  const lo = Math.min(...values);
+  // Keep a visible stub for the lowest row instead of a zero-width bar.
+  const span = hi - lo || 1;
+  return (
+    <ol className="space-y-2">
+      {rows.map((r, i) => (
+        <Row
+          key={r.id}
+          rank={i + 1}
+          id={r.id}
+          code={r.code}
+          name={r.name}
+          isAnonymized={false}
+          value={0.12 + 0.88 * ((r.altitudeM - lo) / span)}
+          max={1}
+          valueLabel={t("topAltitudeValue", { m: altFmt.format(r.altitudeM) })}
+          valueTitle={t("topAltitudeRowTitle", {
+            count: numFmt.format(r.count),
+          })}
+          labelWidthClass="w-24"
           t={t}
         />
       ))}
@@ -372,6 +449,7 @@ function Row({
   value,
   max,
   valueLabel,
+  valueTitle,
   labelWidthClass,
   suffix,
   t,
@@ -384,6 +462,9 @@ function Row({
   value: number;
   max: number;
   valueLabel: string;
+  /** Tooltip on the value — the elevation rows use it for the find count,
+   *  which has no room of its own in this layout. */
+  valueTitle?: string;
   labelWidthClass: string;
   suffix?: string;
   t: StatsT;
@@ -420,6 +501,7 @@ function Row({
         value={value}
         max={max}
         valueLabel={valueLabel}
+        valueTitle={valueTitle}
         labelWidthClass={labelWidthClass}
       />
     </li>
@@ -470,11 +552,13 @@ function Bar({
   value,
   max,
   valueLabel,
+  valueTitle,
   labelWidthClass,
 }: {
   value: number;
   max: number;
   valueLabel: string;
+  valueTitle?: string;
   labelWidthClass: string;
 }) {
   return (
@@ -486,6 +570,7 @@ function Bar({
         />
       </div>
       <span
+        title={valueTitle}
         className={`shrink-0 whitespace-nowrap text-right font-mono text-xs tabular-nums text-gray-600 ${labelWidthClass}`}
       >
         {valueLabel}

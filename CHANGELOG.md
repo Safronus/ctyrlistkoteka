@@ -9,6 +9,28 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /statistiky: nadmořská výška — žebříček i dlaždice
+- Nová záložka **„Podle nadmořské výšky"** v Top 10 lokalit a dlaždice
+  **„Nejvýše položené místo"** vedle První / Poslední 🍀.
+- Výška se **nebere z fotek**. Změřeno na 29 068 reálných snímků: uvnitř jedné
+  lokality se prostřední polovina měření rozchází o 0,6–12 m a jednotlivá
+  měření ujedou i o 400 m (studený GPS fix). Bere se proto z **výškového
+  modelu** ve středu lokality — sloupec `locations.altitude_m`, plněný
+  jednorázovým `scripts/fetch-elevations.ts`.
+- Ověřeno proti sobě: model dal pro ratibořské pole 459,8 m, mediány z EXIFu
+  445,7–463,2 m. Dvě nezávislé metody v rozmezí pár metrů, žádný systematický
+  posun.
+- Dlaždice je záměrně o **místě, ne o nálezu** — jediná fotka je na určení
+  „nejvyššího 🍀" příliš nepřesná.
+- Žebříček **slévá podlokality pod rodiče** (jinak by sedm dílů ratibořského
+  pole zabralo sedm z deseti míst, a to rozdíly menší, než je chyba modelu),
+  vynechává anonymizované i NEZNÁMOU.
+- Skript je **vědomá výjimka z pravidla „neposílej data třetím stranám"**,
+  schválená vlastníkem: běží ručně, ne za provozu, a posílá jen souřadnice
+  nezanonymizovaných lokalit, které jsou stejně veřejné na `/mapa`.
+- Při té příležitosti opraveno, že se v Top 10 lokalit názvy nelokalizovaly —
+  na anglické verzi tam zůstávala čeština.
+
 ### /statistiky: vlaječky států, správné názvy zemí, sevřenější panely
 - **Názvy států se berou z `Intl.DisplayNames`**, ne z ruční tabulky. „Gruzie"
   se ukazovala jako „Georgia" prostě proto, že v `CZECH_NAMES` chyběla — a

@@ -456,8 +456,21 @@ export interface StatsJubileesResult {
   recordIds: number[];
 }
 
+/** A leaderboard row for the "TOP by elevation" view. Same identifier rules
+ *  as `LocationPoint`, plus the terrain elevation of the location's centre
+ *  (metres above sea level) and which model it came from. */
+export interface LocationAltitudePoint extends LocationPoint {
+  altitudeM: number;
+  /** "eudem25m" / "srtm30m" / … — kept so a coarser reading is
+   *  distinguishable from a fine one if we ever want to show it. */
+  altitudeSource: string | null;
+}
+
 export interface StatsTopLocationsResult {
   topLocations: LocationPoint[];
+  /** Top 10 locations by terrain elevation. Empty until
+   *  `scripts/fetch-elevations.ts` has been run. */
+  topLocationsByAltitude: LocationAltitudePoint[];
   topLocationsByDensity: LocationDensityPoint[];
   /** Micro-locations (sub-1m² area, e.g. a 15 cm radius) whose density is so
    *  extreme they'd flatten the density ranking. Excluded from
@@ -1380,6 +1393,7 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
     avgRows,
     sessionRows,
     locNameRows,
+    topAltitudeRows,
   ] = await Promise.all([
     // Top 10 locations by find count.
     // - Anonymized locations are dropped (their code/name/findCount can't
@@ -1635,7 +1649,58 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
       FROM locations
       WHERE id NOT IN (SELECT location_id FROM anon)
     `,
+    // Top 10 locations by terrain elevation. Same identity rules as the
+    // by-count ranking above: anonymized out (their position is the thing
+    // being hidden), NEZNÁMÁ out (its centre is an arbitrary anchor), and
+    // sub-parts folded into their parent — without that the Ratiboř field's
+    // seven fragments would take seven of the ten places while differing by
+    // less than the elevation model's own error.
+    prisma.$queryRaw<
+      Array<{
+        id: number;
+        code: string;
+        name: string;
+        count: bigint;
+        altitude_m: number;
+        altitude_source: string | null;
+      }>
+    >`
+      WITH anon AS (
+        SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
+      ),
+      bucket AS (
+        SELECT f.id AS find_id,
+               CASE
+                 WHEN l.parent_id IS NOT NULL
+                      AND l.parent_id NOT IN (SELECT location_id FROM anon)
+                 THEN l.parent_id
+                 ELSE f.location_id
+               END AS bucket_id
+        FROM finds f
+        LEFT JOIN locations l ON l.id = f.location_id
+      )
+      SELECT l.id,
+             l.code,
+             COALESCE(NULLIF(l.display_name, ''), l.code) AS name,
+             COUNT(b.find_id) AS count,
+             l.altitude_m,
+             l.altitude_source
+      FROM locations l
+      LEFT JOIN bucket b ON b.bucket_id = l.id
+      WHERE l.altitude_m IS NOT NULL
+        AND l.id NOT IN (SELECT location_id FROM anon)
+        AND l.id <> ${UNKNOWN_LOCATION_ID}::int
+        AND NOT (
+          l.parent_id IS NOT NULL
+          AND l.parent_id NOT IN (SELECT location_id FROM anon)
+        )
+      GROUP BY l.id, l.code, l.display_name, l.altitude_m, l.altitude_source
+      ORDER BY l.altitude_m DESC, l.id
+      LIMIT 10
+    `,
   ]);
+
+  const localName = await locationNameResolver();
 
   // Fold finds into per-master-location sessions: walk each bucket's finds
   // (already time-sorted by the query) and open a new session whenever the
@@ -1665,7 +1730,7 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
     sessionPoints.push({
       id,
       code: nm.code,
-      name: nm.name,
+      name: localName(id, nm.name),
       sessions,
       finds: ts.length,
       avgPerSession: ts.length / sessions,
@@ -1690,13 +1755,21 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
     topLocations: topLocRows.map((r) => ({
       id: r.id,
       code: r.code,
-      name: r.name,
+      name: localName(r.id, r.name),
       count: Number(r.count),
+    })),
+    topLocationsByAltitude: topAltitudeRows.map((r) => ({
+      id: r.id,
+      code: r.code,
+      name: localName(r.id, r.name),
+      count: Number(r.count),
+      altitudeM: r.altitude_m,
+      altitudeSource: r.altitude_source,
     })),
     topLocationsByDensity: topDensityRows.map((r) => ({
       id: r.id,
       code: r.code,
-      name: r.name,
+      name: r.name === null ? r.name : localName(r.id, r.name),
       count: Number(r.count),
       areaM2: Number(r.area_m2),
       densityPer100m2: Number(r.density),
@@ -1705,7 +1778,7 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
     densityCuriosities: curiosityRows.map((r) => ({
       id: r.id,
       code: r.code,
-      name: r.name,
+      name: r.name === null ? r.name : localName(r.id, r.name),
       count: Number(r.count),
       areaM2: Number(r.area_m2),
       densityPer100m2: Number(r.density),

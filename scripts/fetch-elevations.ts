@@ -38,6 +38,7 @@
 import "dotenv/config";
 import { Prisma } from "@/generated/prisma/client";
 import { createPrismaClient } from "@/lib/prismaClient";
+import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
 
 const prisma = createPrismaClient();
 
@@ -108,6 +109,10 @@ async function main() {
            ROUND(ST_X(l.center_point)::numeric, 6)::float8 AS lng
     FROM locations l
     WHERE l.center_point IS NOT NULL
+      -- NEZNÁMÁ (00000) is a parking slot, not a place: its centre is the
+      -- default map's arbitrary anchor, so an elevation there would be
+      -- fiction. Excluded from the lookup as well as from the ranking.
+      AND l.id <> ${UNKNOWN_LOCATION_ID}::int
       AND NOT EXISTS (
         SELECT 1 FROM location_maps lm
         WHERE lm.location_id = l.id AND lm.is_anonymized = true

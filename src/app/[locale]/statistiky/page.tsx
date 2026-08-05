@@ -35,6 +35,7 @@ import { Link } from "@/i18n/navigation";
 import {
   formatDateTimeCs,
   formatDistance,
+  formatLocationId,
   formatDurationSeconds,
   formatLongDuration,
   formatTimeSinceCs,
@@ -66,6 +67,7 @@ import {
   type PeakFastestWindow,
   type PeakSlidingWindow,
   type StatsTimeAndPaceResult,
+  type LocationAltitudePoint,
   type YearlyPoint,
 } from "@/lib/queries/stats";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
@@ -373,8 +375,15 @@ async function HighlightsSection() {
   const t = await getTranslations("Statistiky");
   const tTimeSince = await getTranslations("TimeSince");
   const locale = await getLocale();
-  const { firstFind, lastFind, farthestFind } = await getStatsHighlights();
-  if (!firstFind && !lastFind && !farthestFind) return null;
+  const [{ firstFind, lastFind, farthestFind }, { topLocationsByAltitude }] =
+    await Promise.all([getStatsHighlights(), getStatsTopLocations()]);
+  // The highest PLACE, not the highest find: a single photo's GPS altitude is
+  // far too noisy to crown a winner (readings inside one location scatter by
+  // metres, with outliers hundreds of metres off), so the card names the
+  // location whose terrain elevation tops the ranking. getStatsTopLocations is
+  // cached, so asking for it here costs nothing extra.
+  const highestPlace = topLocationsByAltitude[0] ?? null;
+  if (!firstFind && !lastFind && !farthestFind && !highestPlace) return null;
   return (
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {firstFind && (
@@ -405,7 +414,64 @@ async function HighlightsSection() {
           locale={locale}
         />
       )}
+      {highestPlace && (
+        <HighestPlaceCard place={highestPlace} locale={locale} t={t} />
+      )}
     </section>
+  );
+}
+
+/** Sibling of the find cards above, but about a PLACE — so it carries the
+ *  location's name, its elevation and how many finds came from it, and links
+ *  to the location rather than to a find. Same skeleton as FindHighlightCard
+ *  (centred title, centred body, buttons pinned at the bottom) so the row
+ *  reads as one family. */
+function HighestPlaceCard({
+  place,
+  locale,
+  t,
+}: {
+  place: LocationAltitudePoint;
+  locale: string;
+  t: StatsT;
+}) {
+  const altFmt = new Intl.NumberFormat(toIntlLocale(locale), {
+    maximumFractionDigits: 0,
+  });
+  const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
+  return (
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-5">
+      <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-brand-700">
+        {t("highlightHighestPlace")}
+      </h2>
+
+      <div className="flex flex-1 flex-col justify-center py-2">
+        <p className="text-center text-base font-semibold text-gray-900">
+          {t("topAltitudeValue", { m: altFmt.format(place.altitudeM) })}
+        </p>
+        <p className="mt-0.5 text-center text-sm text-gray-700">{place.name}</p>
+        <p className="text-center text-xs text-gray-500">
+          {t("highestPlaceFinds", { count: numFmt.format(place.count) })}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-2">
+        <Link
+          href={locationDetailHref(place.id)}
+          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+        >
+          {t("highestPlaceOpen", { code: formatLocationId(place.id) })}
+        </Link>
+        <Link
+          href={`/mapa?focus=${place.id}`}
+          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:border-brand-200 hover:text-brand-700 hover:shadow-sm"
+          title={t("showOnMapTitle")}
+        >
+          <MapPin className="h-3.5 w-3.5" aria-hidden />
+          {t("showOnMapLabel")}
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -474,6 +540,7 @@ async function TopLocationsSection() {
     topLocationsByDensity,
     densityCuriosities,
     topLocationsBySessions,
+    topLocationsByAltitude,
     avgFindsPerLocation,
     avgDensityPer100m2,
     avgFindsPerSession,
@@ -485,6 +552,7 @@ async function TopLocationsSection() {
       byDensity={topLocationsByDensity}
       densityCuriosities={densityCuriosities}
       bySessions={topLocationsBySessions}
+      byAltitude={topLocationsByAltitude}
       avgCount={avgFindsPerLocation}
       avgDensity={avgDensityPer100m2}
       avgSessions={avgFindsPerSession}
