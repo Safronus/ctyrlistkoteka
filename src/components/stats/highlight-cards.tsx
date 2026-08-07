@@ -151,7 +151,12 @@ export function HighlightCards({
   if (!active && !distanceCard && !placeCard) return null;
 
   return (
-    <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    // Two per row only from `xl`. The distance card carries a rose beside its
+    // record, and at half of a mid-size page there wasn't room for both — the
+    // rose had to drop under the data, which reads worse than simply stacking
+    // the cards. Below `xl` each card takes the full width and keeps its own
+    // side-by-side layout.
+    <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       {active && (
         // Spans the row: it holds two readings side by side, so it needs the
         // width the single-value cards below don't.
@@ -206,12 +211,12 @@ export function HighlightCards({
         <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-5">
           {/* Title + toggle live INSIDE the left column, not above both, so the
               rose can use the card's full height instead of pushing it taller.
-              Side by side only from `xl`: this card shares a two-up grid from
-              `md`, so between those breakpoints two thirds of half a page left
-              the title wrapping mid-word and squeezed the rose down to a dot.
-              Below `xl` the rose simply sits under the record at full width. */}
-          <div className="flex flex-1 flex-col gap-3 xl:flex-row xl:items-stretch">
-            <div className="flex flex-col xl:basis-2/3">
+              The card itself is full width until `xl` (the highlights grid
+              only goes two-up there), so record and rose fit side by side from
+              `sm` — that's roomier than the two-up grid was, and the rose never
+              has to drop underneath. */}
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-stretch">
+            <div className="flex flex-col sm:basis-2/3">
               <CardHeader
                 title={
                   nearest
@@ -261,7 +266,7 @@ export function HighlightCards({
               </div>
             </div>
             {rosePoints && (
-              <div className="flex items-center justify-center xl:basis-1/3">
+              <div className="flex items-center justify-center sm:basis-1/3">
                 <DistanceRose
                   points={rosePoints}
                   legend={

@@ -200,6 +200,17 @@ Přidej:
 25 3 * * * find /var/ctyrlistkoteka/data/.admin/import-tmp -mindepth 1 -mtime +1 -exec rm -rf {} + 2>/dev/null
 ```
 
+### Kde co běží (rychlá orientace)
+
+| Věc | Kde | Jak na ni |
+| --- | --- | --- |
+| **PostgreSQL 17 + PostGIS** | **nativně na hostu**, NE v Dockeru | `psql -h 127.0.0.1 -U ctyrlist -d ctyrlistkoteka` (heslo z `~/.pgpass`) |
+| Aplikace (Next.js) | PM2, `/var/www/ctyrlistkoteka` | `pm2 status`, `pm2 logs` |
+| Nginx | nativně | `sudo nginx -t && sudo systemctl reload nginx` |
+| Docker | jen pomocné služby (GoatCounter, RustDesk) | s appkou ani DB nesouvisí |
+| Data sbírky | `/var/ctyrlistkoteka/{data,generated}` | rsync z Macu + `/admin/import` |
+| Časová zóna systému | **UTC** | proto se časy formátují explicitně v `Europe/Prague`, viz gotcha #25 |
+
 ### Svěžest statistik
 
 Statistiky mají **dvě vrstvy cache**: samotné agregace jsou v `unstable_cache`

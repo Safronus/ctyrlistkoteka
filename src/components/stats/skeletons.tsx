@@ -40,10 +40,10 @@ function TotalCardSkeleton() {
 
 export function HighlightsSkeleton() {
   return (
-    // Four cards in a 2×2 grid — must mirror HighlightsSection, otherwise the
-    // layout jumps when the real content lands. Blocks are centred because
-    // the cards are.
-    <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    // Must mirror HighlightCards: three cards, two-up only from `xl`,
+    // otherwise the layout jumps when the real content lands. Blocks are
+    // centred because the cards are.
+    <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
