@@ -159,8 +159,12 @@ export function HighlightCards({
     <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       {active && (
         // Spans the row: it holds two readings side by side, so it needs the
-        // width the single-value cards below don't.
-        <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 md:col-span-2">
+        // width the single-value cards below don't. The breakpoint MUST match
+        // the grid's own (`xl`): a child spanning two columns in a grid that
+        // only declares one makes the browser create an implicit second
+        // column, which is what put the other two cards side by side at 800 px
+        // and squeezed the rose to 8 px.
+        <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 xl:col-span-2">
           <CardHeader
             title={
               when === "global"
