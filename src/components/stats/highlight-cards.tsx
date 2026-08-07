@@ -164,7 +164,7 @@ export function HighlightCards({
         // only declares one makes the browser create an implicit second
         // column, which is what put the other two cards side by side at 800 px
         // and squeezed the rose to 8 px.
-        <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 xl:col-span-2">
+        <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-5 xl:col-span-2">
           <CardHeader
             title={
               when === "global"
@@ -548,7 +548,10 @@ function FindHalf({
 }) {
   if (!find) return <div />;
   return (
-    <div className="flex flex-col rounded-lg border border-gray-100 bg-gray-50/60 p-3">
+    // No frame of its own: the card around it already carries the tone, and
+    // a box inside a box read as two nested panels rather than one panel with
+    // two halves. Only the padding goes — alignment is unchanged.
+    <div className="flex flex-col p-3">
       <p className="text-center text-xs font-medium uppercase tracking-wide text-gray-500">
         {caption}
       </p>

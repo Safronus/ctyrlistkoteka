@@ -9,6 +9,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Přehlednější seznam lokalit a sjednocený panel prvního/posledního nálezu
+- **`/lokality`:** kód lokality se v řádku tiskl dvakrát — tučně v titulku
+  a ještě jednou drobně o řádek níž. Drobný zmizel a uvolněné místo dostala
+  **vzdálenost od Safrona**, takže je ten řádek nově „plocha · hustota ·
+  vzdálenost".
+- Tlačítka *Detail lokality*, *Zobrazit na mapě* a *Zobrazit nálezy lokality*
+  jsou zarovnaná doprava, takže tvoří sloupec místo aby začínala tam, kde
+  zrovna skončí počet nálezů.
+- **Mapa, která má dílčí části, má nově modré pozadí** — odliší se tak od
+  svých zelených potomků i od fialové (anonymizovaná) a růžové (zaniklá).
+- Odznaky **tvaru (polygon / bod / bod s rádiusem) a počtu částí** se
+  přesunuly do pravého horního rohu řádku. Dřív plavaly v titulku podle toho,
+  jak dlouhý byl kód a název, takže se nedaly číst po sloupci.
+- **`/statistiky`:** panel „První a poslední 🍀" už není bílý rámeček se dvěma
+  šedými rámečky uvnitř — obě poloviny s panelem splynuly a barvu podkladu
+  převzal celý panel. Zarovnání obsahu zůstalo.
+
 ### Doladění statistik a filtrů v QR seznamu
 - **Statistiky:** „Nejdelší série dnů s nalezeným 🍀" se přesunula z kalendářní
   sekce (kde visela vedle přepínačů teplotní mapy) do panelu „Odhadovaná doba

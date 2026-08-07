@@ -111,12 +111,20 @@ export function LocationListRow({
   };
 
   const isChild = !location.isAnonymized && location.parentId !== null;
+  const isParent = !location.isAnonymized && location.childCount > 0;
 
+  // Purple = anonymized, rose = gone, sky = a map that has sub-parts, green
+  // left stripe = one of those sub-parts. Anonymized/gone win over "parent"
+  // because they say something about the place itself, not its structure.
   const tone = location.isAnonymized
     ? "bg-purple-50/60 hover:bg-purple-100/60 focus:bg-purple-100/60"
     : location.isGone
       ? "bg-rose-50/60 hover:bg-rose-100/60 focus:bg-rose-100/60"
-      : "hover:bg-brand-50 focus:bg-brand-50";
+      : isParent
+        ? // sky-100, not -50: the page itself is green-tinted, so the lighter
+          // shade washed out to "slightly paler row" instead of reading blue.
+          "bg-sky-100/80 hover:bg-sky-200/80 focus:bg-sky-200/80"
+        : "hover:bg-brand-50 focus:bg-brand-50";
 
   const indent = isChild
     ? "border-l-4 border-brand-200 bg-brand-50/40 pl-6 sm:pl-10"
@@ -133,7 +141,25 @@ export function LocationListRow({
         className={`flex w-full cursor-pointer items-stretch gap-4 p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${tone} ${indent}`}
       >
         <RowThumb location={location} t={t} />
-        <div className="flex min-w-0 flex-1 flex-col justify-between gap-1">
+        <div className="relative flex min-w-0 flex-1 flex-col justify-between gap-1">
+          {/* Shape + sub-part count as a fixed corner overlay rather than
+              chips in the title flow: they were being pushed around by the
+              code, display name and status badges, so their position moved
+              from row to row and they stopped being scannable down the list. */}
+          {!location.isAnonymized && (
+            <div className="absolute right-0 top-0 z-10 flex items-center gap-1">
+              {location.childCount > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-800"
+                  title={t("partsBadgeTitle")}
+                >
+                  <Layers className="h-3 w-3" aria-hidden />+{" "}
+                  {t("partsBadge", { count: location.childCount })}
+                </span>
+              )}
+              <IndicatorBadge indicator={location.indicator} t={t} />
+            </div>
+          )}
           <RowTitle location={location} isChild={isChild} t={t} />
           {!location.isAnonymized && (
             <>
@@ -144,41 +170,32 @@ export function LocationListRow({
                     lat={location.coordinates.lat}
                     lng={location.coordinates.lng}
                   />
-                  {location.distanceFromDefault !== null && (
-                    <span
-                      className="text-xs text-gray-500"
-                      title={t("distanceFromMapTitle")}
-                    >
-                      <span className="font-mono tabular-nums text-gray-800">
-                        {formatDistance(location.distanceFromDefault)}
-                      </span>{" "}
-                      {t("distanceFromMap")}
-                    </span>
-                  )}
                 </div>
               )}
             </>
           )}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <RowCount location={location} t={t} />
-            {!location.isAnonymized && (
-              <>
-                <DetailLink location={location} t={t} />
-                <MapLink location={location} t={t} />
-              </>
-            )}
-            {/* FindsLink shown for every row including anonymized +
-                gone. Individual finds keep their own anonymization
-                on /sbirka (notes/GPS hidden per-find), so the link
-                stays privacy-safe even when the parent location is
-                anonymized. */}
-            <FindsLink location={location} t={t} />
+            {/* Buttons pushed to the far end of the row so they line up in a
+                column down the list instead of starting wherever the count
+                text happens to end. */}
+            <div className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-1">
+              {!location.isAnonymized && (
+                <>
+                  <DetailLink location={location} t={t} />
+                  <MapLink location={location} t={t} />
+                </>
+              )}
+              {/* FindsLink shown for every row including anonymized +
+                  gone. Individual finds keep their own anonymization
+                  on /sbirka (notes/GPS hidden per-find), so the link
+                  stays privacy-safe even when the parent location is
+                  anonymized. */}
+              <FindsLink location={location} t={t} />
+            </div>
           </div>
         </div>
-        <div
-          aria-hidden
-          className="flex shrink-0 items-center text-gray-400"
-        >
+        <div aria-hidden className="flex shrink-0 items-center text-gray-400">
           {open ? (
             <ChevronDown className="h-5 w-5" />
           ) : (
@@ -192,13 +209,7 @@ export function LocationListRow({
   );
 }
 
-function RowThumb({
-  location,
-  t,
-}: {
-  location: LocationListItem;
-  t: RowT;
-}) {
+function RowThumb({ location, t }: { location: LocationListItem; t: RowT }) {
   if (location.isAnonymized) {
     return (
       <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-purple-200 bg-purple-50 text-purple-400 sm:h-24 sm:w-24">
@@ -249,9 +260,10 @@ function RowTitle({
   isChild: boolean;
   t: RowT;
 }) {
-  const showPartsBadge = !location.isAnonymized && location.childCount > 0;
   return (
-    <div className="flex flex-wrap items-baseline gap-x-2">
+    // pr- reserves the corner overlay's lane so a long code never runs
+    // underneath the shape / sub-parts badges.
+    <div className="flex flex-wrap items-baseline gap-x-2 pr-24 sm:pr-32">
       {isChild && (
         <CornerDownRight
           className="h-3.5 w-3.5 shrink-0 self-center text-brand-500"
@@ -277,18 +289,6 @@ function RowTitle({
             ({location.displayName})
           </span>
         )}
-      {showPartsBadge && (
-        <span
-          className="inline-flex items-center gap-1 rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-800"
-          title={t("partsBadgeTitle")}
-        >
-          <Layers className="h-3 w-3" aria-hidden />+{" "}
-          {t("partsBadge", { count: location.childCount })}
-        </span>
-      )}
-      {!location.isAnonymized && (
-        <IndicatorBadge indicator={location.indicator} t={t} />
-      )}
       {location.isAnonymized && (
         <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800">
           {t("anonymizedBadge")}
@@ -339,46 +339,55 @@ function IndicatorBadge({
   );
 }
 
-function RowMeta({
-  location,
-  t,
-}: {
-  location: LocationListItem;
-  t: RowT;
-}) {
+function RowMeta({ location, t }: { location: LocationListItem; t: RowT }) {
   const estimate = location.areaIsEstimate;
+  // The code is NOT repeated here — it is already the row's bold title, and
+  // printing it twice just cost a line. This row now carries the measured
+  // facts: area, density, distance from home.
+  const parts: React.ReactNode[] = [];
+  if (location.effectiveAreaM2 !== null) {
+    parts.push(
+      <span key="area" title={estimate ? t("areaEstimateTitle") : undefined}>
+        {t("areaPrefix")} {estimate ? "≈ " : ""}
+        {formatAreaM2(location.effectiveAreaM2)}
+      </span>,
+    );
+  }
+  if (location.aggregateDensityPer100m2 !== null) {
+    parts.push(
+      <span
+        key="density"
+        title={estimate ? t("areaEstimateTitle") : t("densityTitle")}
+      >
+        {t("densityPrefix")} {estimate ? "≈ " : ""}
+        {formatDensity(location.aggregateDensityPer100m2)}
+      </span>,
+    );
+  }
+  if (location.distanceFromDefault !== null) {
+    parts.push(
+      <span key="distance" title={t("distanceFromMapTitle")}>
+        <span className="font-mono tabular-nums text-gray-800">
+          {formatDistance(location.distanceFromDefault)}
+        </span>{" "}
+        {t("distanceFromMap")}
+      </span>,
+    );
+  }
+  if (parts.length === 0) return null;
   return (
     <p className="truncate text-xs text-gray-500">
-      <span className="font-mono">{location.code}</span>
-      {location.effectiveAreaM2 !== null && (
-        <>
-          {" · "}
-          <span title={estimate ? t("areaEstimateTitle") : undefined}>
-            {t("areaPrefix")} {estimate ? "≈ " : ""}
-            {formatAreaM2(location.effectiveAreaM2)}
-          </span>
-        </>
-      )}
-      {location.aggregateDensityPer100m2 !== null && (
-        <>
-          {" · "}
-          <span title={estimate ? t("areaEstimateTitle") : t("densityTitle")}>
-            {t("densityPrefix")} {estimate ? "≈ " : ""}
-            {formatDensity(location.aggregateDensityPer100m2)}
-          </span>
-        </>
-      )}
+      {parts.map((node, i) => (
+        <span key={i}>
+          {i > 0 && " · "}
+          {node}
+        </span>
+      ))}
     </p>
   );
 }
 
-function MapLink({
-  location,
-  t,
-}: {
-  location: LocationListItem;
-  t: RowT;
-}) {
+function MapLink({ location, t }: { location: LocationListItem; t: RowT }) {
   return (
     <Link
       href={`/mapa?focus=${location.id}`}
@@ -395,13 +404,7 @@ function MapLink({
   );
 }
 
-function DetailLink({
-  location,
-  t,
-}: {
-  location: LocationListItem;
-  t: RowT;
-}) {
+function DetailLink({ location, t }: { location: LocationListItem; t: RowT }) {
   return (
     <Link
       href={locationDetailHref(location.id)}
@@ -416,13 +419,7 @@ function DetailLink({
   );
 }
 
-function FindsLink({
-  location,
-  t,
-}: {
-  location: LocationListItem;
-  t: RowT;
-}) {
+function FindsLink({ location, t }: { location: LocationListItem; t: RowT }) {
   return (
     <Link
       href={`/sbirka?loc=${location.id}`}
@@ -437,13 +434,7 @@ function FindsLink({
   );
 }
 
-function RowCount({
-  location,
-  t,
-}: {
-  location: LocationListItem;
-  t: RowT;
-}) {
+function RowCount({ location, t }: { location: LocationListItem; t: RowT }) {
   const hasChildren = location.childCount > 0;
   const view = location.aggregateStats;
   return (
@@ -464,13 +455,7 @@ function RowCount({
   );
 }
 
-function StatsPanel({
-  location,
-  t,
-}: {
-  location: LocationListItem;
-  t: RowT;
-}) {
+function StatsPanel({ location, t }: { location: LocationListItem; t: RowT }) {
   const tStates = useTranslations("States");
   const anon = location.isAnonymized;
   const view = location.aggregateStats;
@@ -599,9 +584,7 @@ function FindCard({
   const tTimeSince = useTranslations("TimeSince");
   const found = foundAt ? new Date(foundAt) : null;
   const title =
-    kind === "first"
-      ? t("firstFindTitle", { id })
-      : t("lastFindTitle", { id });
+    kind === "first" ? t("firstFindTitle", { id }) : t("lastFindTitle", { id });
   return (
     <div className="relative flex items-center gap-3 rounded-md border border-gray-200 bg-white p-3">
       {/* Crop → find detail. stopPropagation so the click doesn't also
