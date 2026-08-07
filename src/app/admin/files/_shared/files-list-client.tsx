@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import {
   Camera,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { FindState } from "@/generated/prisma/enums";
 import { parseFindFilename } from "@/lib/parseFilename";
+import { compactToRanges } from "@/lib/parseRanges";
 import { STATE_BADGE, STATE_LABELS } from "@/lib/stateLabels";
 import { NoteOverrideButton } from "./note-override-button";
 import { setFindNoteOverride } from "../finds/note-override-action";
@@ -95,10 +97,11 @@ interface Props {
     confirmTemplate: string;
     action: (formData: FormData) => Promise<{ results: BulkRenameResult[] }>;
   };
-  /** When true, the toolbar renders a "QR ZIP" button alongside
-   *  bulk-delete that POSTs the selection to /admin/api/qr-zip and
-   *  triggers a single .zip download with one PNG per find. Set only
-   *  for the finds scope — other scopes have no QR concept. */
+  /** When true, the toolbar renders a "QR kódy" button alongside
+   *  bulk-delete that hands the selected find numbers to /admin/qr,
+   *  which owns every QR option (size in cm, density, SVG/PNG/print
+   *  sheet). Set only for the finds scope — other scopes have no QR
+   *  concept. */
   showQrZip?: boolean;
   /** Web-display note overrides keyed by find id. When provided (finds
    *  scope), each row grows a "pozn." button opening the CS/EN editor
@@ -224,6 +227,7 @@ export function FilesListClient({
   mapNoteOverrides,
   mapNoteRaw,
 }: Props) {
+  const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [batchResults, setBatchResults] = useState<BulkDeleteResult[]>([]);
@@ -237,7 +241,6 @@ export function FilesListClient({
   const [confirming, setConfirming] = useState<"delete" | "rename" | null>(
     null,
   );
-  const [qrBusy, setQrBusy] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const { flagged, trashCandidates } = useMemo(
@@ -330,51 +333,34 @@ export function FilesListClient({
     });
   };
 
-  const onDownloadQrZip = async () => {
-    if (selected.size === 0 || qrBusy) return;
+  /** Hands the selection to /admin/qr rather than generating here.
+   *  That page owns every QR option (physical size, density, SVG / PNG /
+   *  print sheet), so duplicating a stripped-down generator on the file
+   *  list would only produce a second, subtly different code for the
+   *  same find. Numbers travel as a compact range spec — the same
+   *  grammar the target form accepts. */
+  const onOpenQrPage = () => {
+    if (selected.size === 0) return;
     setBannerError(null);
-    setQrBusy(true);
-    try {
-      const fd = new FormData();
-      for (const name of selected) fd.append("filename", name);
-      const r = await fetch("/admin/api/qr-zip", {
-        method: "POST",
-        body: fd,
-      });
-      if (!r.ok) {
-        // Server returns structured JSON for known errors (oversized
-        // batch, no valid names) — surface that message; fall back to
-        // a plain HTTP-status report if the body isn't JSON.
-        let detail: string;
-        try {
-          const body = (await r.json()) as { error?: string };
-          detail = body.error ?? `HTTP ${r.status}`;
-        } catch {
-          detail = `HTTP ${r.status}`;
-        }
-        throw new Error(detail);
-      }
-      // Stream → Blob → object URL → synthetic anchor click. Cleaner
-      // than relying on Content-Disposition alone — works the same
-      // across Safari / Chrome / Firefox without sniffing.
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const stamp = new Date().toISOString().slice(0, 10);
-      a.download = `qr-codes-${stamp}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      // Give the browser a tick to start the download before the
-      // object URL is revoked — premature revoke aborts the save
-      // dialog on some Safari versions.
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
-    } catch (err) {
-      setBannerError(err instanceof Error ? err.message : "QR ZIP selhal");
-    } finally {
-      setQrBusy(false);
+    const ids: number[] = [];
+    for (const name of selected) {
+      const parsed = parseFindFilename(name);
+      if (parsed.ok) ids.push(parsed.value.findId);
     }
+    if (ids.length === 0) {
+      setBannerError("Z vybraných názvů nejde vyčíst číslo nálezu.");
+      return;
+    }
+    const spec = compactToRanges(ids).join(",");
+    // Guard the URL length rather than letting Nginx reject an oversized
+    // request line on a pathological (fully non-contiguous) selection.
+    if (spec.length > 3500) {
+      setBannerError(
+        `Vybráno moc rozházených čísel (${ids.length}) — otevři /admin/qr a zadej je po částech.`,
+      );
+      return;
+    }
+    router.push(`/admin/qr?ids=${encodeURIComponent(spec)}`);
   };
 
   const onConfirmRename = () => {
@@ -455,17 +441,13 @@ export function FilesListClient({
           {selected.size > 0 && !confirming && showQrZip && (
             <button
               type="button"
-              onClick={onDownloadQrZip}
-              disabled={isPending || qrBusy}
-              title="Vygenerovat PNG QR kódy pro vybrané originály a stáhnout v ZIPu"
+              onClick={onOpenQrPage}
+              disabled={isPending}
+              title="Otevřít QR kódy nálezů s předvyplněnými čísly"
               className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1 font-medium text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 disabled:opacity-50"
             >
-              {qrBusy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-              ) : (
-                <QrCode className="h-3.5 w-3.5" aria-hidden />
-              )}
-              QR ZIP ({selected.size})
+              <QrCode className="h-3.5 w-3.5" aria-hidden />
+              QR kódy ({selected.size})
             </button>
           )}
           {selected.size > 0 && !confirming && bulkRename && (

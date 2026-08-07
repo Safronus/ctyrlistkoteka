@@ -10,6 +10,7 @@ import { QrGeneratorForm } from "./qr-generator-form";
 import { QrList, type QrListItem } from "./qr-list";
 import { FindQrForm } from "./find-qr-form";
 import { FindQrList, type FindQrListItem } from "./find-qr-list";
+import type { FindQrInput } from "./qr-types";
 
 export const metadata: Metadata = {
   title: "QR kódy",
@@ -20,8 +21,16 @@ export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export default async function AdminQrPage() {
+export default async function AdminQrPage({
+  searchParams,
+}: {
+  /** `?ids=101-103,201` — the file list hands its selection over here
+   *  instead of carrying a second QR generator of its own. */
+  searchParams: Promise<{ ids?: string | string[] }>;
+}) {
   await ensureAdminAuth();
+  const { ids: rawIds } = await searchParams;
+  const initialSpec = (Array.isArray(rawIds) ? rawIds[0] : rawIds) ?? "";
 
   const now = Date.now();
   const since7 = new Date(now - 7 * DAY_MS);
@@ -73,7 +82,16 @@ export default async function AdminQrPage() {
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <FindQrForm pxPerCm={prefs.pxPerCm} calibrated={prefs.calibrated} />
+          <FindQrForm
+            pxPerCm={prefs.pxPerCm}
+            calibrated={prefs.calibrated}
+            initialCfg={prefs.form as unknown as FindQrInput}
+            initialSizeCm={prefs.sizeCm}
+            // Sanitised here rather than trusted: the value lands straight
+            // in a textarea and is re-parsed server-side anyway, but there
+            // is no reason to echo anything but the range grammar back.
+            initialSpec={initialSpec.replace(/[^\d,\-\s]/g, "").slice(0, 4000)}
+          />
         </div>
 
         <div>

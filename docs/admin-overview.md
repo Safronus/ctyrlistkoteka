@@ -32,7 +32,7 @@ Přibyly v provozu, ve stejném auth + atomic-write + audit patternu:
 | Sekce (nav) | Co dělá | Klíčové soubory / config |
 | --- | --- | --- |
 | **Import balíčku** (`/admin/import`) | Hromadný import jednoho **ZIP „balíčku pro web"** (originály + výřezy + mapy + `meta/LokaceStavyPoznamky.json`) najednou. Dvoufázově: analýza (nic nezapisuje) → přehled → potvrzení → staging souborů + merge LSP. Nezapisuje DB — připraví soubory pro `sync`. Idempotentní (přepis podle ID / MAP_ID, ne duplikace). | `src/app/admin/import/*`, `src/app/admin/api/import/{upload-chunk,analyze,commit,cancel}/route.ts`, `src/lib/admin/importZip.ts` + `importPackage.ts` |
-| **QR** (`/admin/qr`) | **Dvě oddělené sekce.** *QR nálezů*: hromadně podle čísel/intervalů, kód míří na `/n/<číslo>` (trvalá adresa → sken se počítá per nález), volba hustoty/loga/titulku, velikost v cm s fyzickým náhledem, ZIP (SVG + PNG 300 DPI + tiskový A4 arch). Seznam = darované ∪ připnuté ∪ naskenované. *QR stránek*: původní generátor s tokenem `/go/<token>`. SVG fonty jen systémové (web font v `<img>`→canvas rasteru zmizí — viz `docs/gotchas.md`); **žádné emoji v SVG textu** — server nemá emoji font, čtyřlístek u titulku je vektor. | `src/app/admin/qr/*`, `src/app/n/[id]/route.ts`, `src/app/go/[token]/route.ts`, `src/lib/admin/qr.ts` + `qrDensity.ts` + `qrPrefs.ts`, `src/app/admin/api/qr-zip/route.ts` |
+| **QR** (`/admin/qr`) | **Dvě oddělené sekce.** *QR nálezů*: hromadně podle čísel/intervalů (`?ids=` přijímá výběr z `/admin/files`), kód míří na `/n/<číslo>` — trvalá adresa, sken se počítá per nález. Volba hustoty (H/Q/M se skutečnými počty bodů), loga a titulku; velikost v cm s fyzicky kalibrovaným náhledem; ZIP (SVG + PNG 300 DPI + tiskový A4 arch). Seznam = darované ∪ připnuté ∪ naskenované. Nastavení + kalibrace obrazovky se pamatují v `data/.admin/qr-prefs.json`. *QR stránek*: původní generátor s tokenem `/go/<token>`. SVG fonty jen systémové (web font v `<img>`→canvas rasteru zmizí — viz `docs/gotchas.md`); rasterizace **jen v prohlížeči** (viz gotcha níže). | `src/app/admin/qr/*`, `src/app/n/[id]/route.ts`, `src/app/go/[token]/route.ts`, `src/lib/admin/qr.ts` + `qrDensity.ts` + `qrPrefs.ts` |
 | **Efekty** (`/admin/special`) | Speciální atmosférický efekt na detailu nálezu (`record` / `heavenly` / `hellish`) přiřaditelný k libovolnému ID. „Rekord" je **jeden** (přiřazení jinému ho z předchozího sundá) a táhne i zlatý marker na `/mapa`, kartu na `/statistiky` a odznak v `/sbirka`. | `src/app/admin/special/*`, `src/lib/specialFinds.ts` + `…server.ts`, config `data/.admin/special-finds.json` |
 | **Rozdané** (`/admin/donated`) | „Pole darovaného štěstí" pod „Malou omluvou" na homepage. Toggle-seznam **darovaných** nálezů od #22094 výš (starší předcházejí nabídce), nejnovější nahoře; zapnuté se vykreslí jako rozházené pin-čtyřlístky. | `src/app/admin/donated/*`, `src/lib/donatedBoard.ts` + `…server.ts`, config `data/.admin/donated-board.json` |
 | **Hlasování** (`/admin/votes`) | Audit + mazání hlasů (single / fingerprint / uuid), tlačítko na kompletní reset. | `src/app/admin/votes/*` |
@@ -208,12 +208,13 @@ odvozený název vytvořil druhý soubor pro totéž ID).
 - **Sync map metadata read** v admin listingu = 64 KB read per file,
   cached by mtime (`src/lib/admin/mapAnon.ts`). Když sync přepíše
   všechny PNG, cache se invaliduje sama.
-- **Emoji v QR SVG** — QR se rasterizuje na dvou místech: v prohlížeči
-  přes canvas a **na VPS přes sharp/librsvg** (`/admin/api/qr-zip`).
-  Server nemá barevný emoji font, takže znak jako 🍀 by v PNG vyšel jako
-  prázdný čtvereček — a to zrovna v dávce určené na kartičky. Ikonka
-  čtyřlístku u titulku je proto `<use href="#ctyr-qr-clover">`, ne
-  emoji. Do `<text>` v QR nedávej emoji.
+- **QR se rasterizuje VÝHRADNĚ v prohlížeči** (canvas → PNG/PDF).
+  Server vrací jen SVG. Je to invariant, ne shoda okolností: titulek QR
+  nálezu obsahuje znak 🍀 a VPS nemá barevný emoji font, takže
+  serverová rasterizace (dřív `/admin/api/qr-zip` přes sharp/librsvg,
+  dnes zrušená) by v PNG vytiskla prázdný čtvereček — a to zrovna
+  v dávce určené na kartičky. Nezaváděj zpátky server-side rasterizaci
+  QR, dokud v titulku může být emoji.
 - **QR nálezu má trvalou adresu** — `/n/<číslo>`, ne minted token.
   Kartička s darovaným čtyřlístkem je fyzická věc v cizích rukou:
   dotisk musí vyjít identicky a starý kód nesmí přestat platit. Kdyby

@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Download, Pin, Gift } from "lucide-react";
+import { Loader2, Download, Pin, Gift, RotateCcw } from "lucide-react";
 import { centerFitsDensity, type QrDensity } from "@/lib/admin/qrDensity";
 import {
   previewFindQrAction,
   resolveFindIdsAction,
   pinFindQrAction,
   donatedFindIdsAction,
+  saveFindQrFormPrefsAction,
+  resetFindQrFormPrefsAction,
 } from "./find-qr-actions";
 import type { FindQrInput } from "./qr-types";
 import { CmCalibration, CmRuler } from "./cm-calibration";
@@ -69,29 +71,26 @@ const BORDER_OPTS = [
 const MODULE_MM_GOOD = 0.6;
 const MODULE_MM_RISKY = 0.4;
 
-const DEFAULT_CFG: FindQrInput = {
-  titleMode: "id",
-  theme: "brand",
-  moduleStyle: "clover",
-  center: "smiley",
-  centerScale: "md",
-  border: "none",
-  borderRadius: "soft",
-  borderColor: "theme",
-  density: "dense",
-};
-
 export function FindQrForm({
   pxPerCm,
   calibrated,
+  initialCfg,
+  initialSizeCm,
+  initialSpec,
 }: {
   pxPerCm: number;
   calibrated: boolean;
+  /** Last-used setup, read server-side from data/.admin/qr-prefs.json. */
+  initialCfg: FindQrInput;
+  initialSizeCm: number;
+  /** Prefill from `?ids=` — the file list hands its selection over here
+   *  rather than carrying a second, stripped-down QR generator. */
+  initialSpec: string;
 }) {
   const router = useRouter();
-  const [spec, setSpec] = useState("");
-  const [cfg, setCfg] = useState<FindQrInput>(DEFAULT_CFG);
-  const [sizeCm, setSizeCm] = useState(4);
+  const [spec, setSpec] = useState(initialSpec);
+  const [cfg, setCfg] = useState<FindQrInput>(initialCfg);
+  const [sizeCm, setSizeCm] = useState(initialSizeCm);
   const [svg, setSvg] = useState<string | null>(null);
   // Real module count per density for the previewed find's URL. A find
   // URL is short enough that "Střední" and "Kompaktní" often land on the
@@ -137,6 +136,16 @@ export function FindQrForm({
     return () => clearTimeout(handle);
   }, [spec]);
 
+  // Remember the setup for next time. Debounced and fire-and-forget: a
+  // failed save costs a re-pick, never a batch, so it must not interrupt
+  // the operator with an error.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      void saveFindQrFormPrefsAction(sizeCm, cfg);
+    }, 800);
+    return () => clearTimeout(handle);
+  }, [cfg, sizeCm]);
+
   // Debounced preview of the FIRST resolved find (or a stand-in id).
   const previewReq = useRef(0);
   const firstId = resolved.found[0] ?? null;
@@ -168,6 +177,19 @@ export function FindQrForm({
         return;
       }
       setSpec(compactRanges(r.ids).join(", "));
+    });
+  };
+
+  const resetPrefs = () => {
+    setNotice(null);
+    startTransition(async () => {
+      const r = await resetFindQrFormPrefsAction();
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      setCfg(r.form);
+      setSizeCm(r.sizeCm);
     });
   };
 
@@ -355,6 +377,21 @@ export function FindQrForm({
             options={BORDER_OPTS}
           />
         </Field>
+
+        <div className="flex items-center gap-2 pt-1">
+          <button
+            type="button"
+            onClick={resetPrefs}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 underline-offset-2 transition hover:text-gray-700 hover:underline disabled:opacity-50"
+          >
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+            Zpět na výchozí nastavení
+          </button>
+          <span className="text-[11px] text-gray-400">
+            (nastavení se pamatuje mezi návštěvami)
+          </span>
+        </div>
       </div>
 
       {/* -------------------------------------------- preview + export */}

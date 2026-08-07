@@ -135,16 +135,6 @@ export interface RenderQrOpts {
   /** Module density — see `QrDensity`. Defaults to `dense` (level H), the
    *  original behaviour, so existing callers are unaffected. */
   density?: QrDensity;
-  /**
-   * Draw a small clover to the LEFT of the title's first line.
-   *
-   * Deliberately a vector glyph rather than the 🍀 character: these SVGs
-   * are rasterised in two very different places — a browser canvas, and
-   * sharp/librsvg on the VPS (see /admin/api/qr-zip) — and the server has
-   * no colour-emoji font installed, so a literal emoji would print as a
-   * missing-glyph box on exactly the batch that goes onto cards.
-   */
-  titleIcon?: boolean;
   /** Explicit target pixel width (wins over `size`). */
   targetQrPx?: number;
 }
@@ -190,7 +180,6 @@ export function renderQrSvg(opts: RenderQrOpts): string {
   const borderRadius: QrBorderRadius = opts.borderRadius ?? "soft";
   const borderColor: QrBorderColor = opts.borderColor ?? "theme";
   const title = opts.title && opts.title.trim() ? opts.title.trim() : null;
-  const titleIcon = title !== null && opts.titleIcon === true;
   const caption =
     opts.caption && opts.caption.trim() ? opts.caption.trim() : null;
 
@@ -288,30 +277,16 @@ export function renderQrSvg(opts: RenderQrOpts): string {
         const blockH = lineH * titleLayout.lines.length;
         const firstBaseline =
           (HEADER_H - blockH) / 2 + titleLayout.fontSize * 0.8;
-        const fs = titleLayout.fontSize;
-        // With an icon the first line shifts right by half the icon block
-        // so icon+text stay optically centred as a unit.
-        const iconD = titleIcon ? Math.round(fs * 0.95) : 0;
-        const iconGap = titleIcon ? Math.round(fs * 0.28) : 0;
-        const shift = (iconD + iconGap) / 2;
-        const lines = titleLayout.lines
+        return titleLayout.lines
           .map(
             (line, i) =>
-              `<text x="${contentW / 2 + (i === 0 ? shift : 0)}" y="${
+              `<text x="${contentW / 2}" y="${
                 firstBaseline + i * lineH
-              }" text-anchor="middle" font-size="${fs}" font-weight="700" fill="${theme.title}" letter-spacing="-0.5">${escapeXml(
+              }" text-anchor="middle" font-size="${titleLayout.fontSize}" font-weight="700" fill="${theme.title}" letter-spacing="-0.5">${escapeXml(
                 line,
               )}</text>`,
           )
           .join("\n  ");
-        if (!titleIcon) return lines;
-        // Width of the first line, same estimator layoutTitle sizes with.
-        const firstW = (titleLayout.lines[0]?.length ?? 0) * fs * 0.56;
-        const iconX = contentW / 2 + shift - firstW / 2 - iconGap - iconD;
-        const iconY = firstBaseline - fs * 0.82;
-        return `<use href="#ctyr-qr-clover" x="${iconX.toFixed(1)}" y="${iconY.toFixed(
-          1,
-        )}" width="${iconD}" height="${iconD}" color="${theme.module}"/>\n  ${lines}`;
       })()
     : "";
   const captionSvg = caption
@@ -376,8 +351,6 @@ export function findQrUrl(findId: number): string {
 export interface RenderFindQrOpts {
   url?: string;
   header?: string | null;
-  /** Draw the brand clover before the title (default on). */
-  titleIcon?: boolean;
   density?: QrDensity;
   theme?: QrTheme;
   moduleStyle?: QrModuleStyle;
@@ -398,8 +371,7 @@ export function renderFindQrSvg(
 ): string {
   return renderQrSvg({
     url: opts.url ?? findQrUrl(findId),
-    title: opts.header === undefined ? `#${findId}` : opts.header,
-    titleIcon: opts.titleIcon !== false,
+    title: opts.header === undefined ? `🍀 #${findId}` : opts.header,
     theme: opts.theme ?? "brand",
     moduleStyle: opts.moduleStyle ?? "clover",
     center: opts.center ?? "smiley",

@@ -30,9 +30,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **Volba hustoty** (Hustý / Střední / Kompaktní = korekce H / Q / M).
   U každého stupně se ukazuje **skutečný** počet bodů pro danou adresu:
   u čísel nálezů to je 33² a 29², takže je vidět, že „Kompaktní" nic
-  nepřidá oproti „Střednímu" — a ten má víc rezervy. Obrázek uprostřed
-  ukusuje z bodů, které nemá co dopočítat, takže se při nízké korekci
-  vynechá (formulář na to upozorní dopředu).
+  nepřidá oproti „Střednímu" — a ten má víc rezervy. Výchozí je proto
+  **Střední**: 29 bodů místo 33 znamená o pětinu větší (a lépe čitelné)
+  body při stejné velikosti tisku, a smajlík uprostřed se tam pořád
+  vejde. Obrázek uprostřed ukusuje z bodů, které nemá co dopočítat,
+  takže se při nízké korekci vynechá (formulář na to upozorní dopředu).
 - Stahování otevře dialog s volbou obsahu balíčku: **SVG** (vektor, uložený
   rovnou ve zvolených centimetrech), **PNG** v 300 DPI a **tiskový arch A4**
   s mřížkou kódů a řezacími linkami. Dávka není nijak omezená, nad 500 čísel
@@ -40,11 +42,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - Seznam pod formulářem ukazuje **darované nálezy** (výchozí filtr),
   ručně **připnuté** a cokoli, co už někdo naskenoval — s počty skenů za
   7 / 30 dní a celkem.
-- Tlačítko „QR" u konkrétní fotky v `/admin/files` zůstává a nově generuje
-  ten samý trackovatelný kód.
-- Čtyřlístek u titulku se kreslí **vektorem, ne znakem 🍀** — QR se
-  rasterizuje i na serveru, kde není emoji font, a emoji by na kartičkách
-  vyšlo jako prázdný čtvereček.
+- **Poslední použité nastavení** (velikost, hustota, titulek, vzhled)
+  i kalibrace obrazovky se pamatují, takže další dávka naváže tam, kde
+  ta předchozí skončila. Tlačítko vrátí vše na výchozí.
+- Tvorba QR je teď na **jednom místě**. Tlačítko „QR" u konkrétní fotky
+  v `/admin/files` zůstává a generuje ten samý trackovatelný kód;
+  hromadný výběr ve výpisu souborů už negeneruje vlastní ZIP, ale předá
+  vybraná čísla do `/admin/qr`, kde jsou všechny volby. Původní serverová
+  cesta `/admin/api/qr-zip` (jen PNG, 144 DPI, strop 500) tím zanikla.
+- Díky tomu se QR nově rasterizuje **výhradně v prohlížeči**, což je
+  podmínka pro 🍀 v titulku: server nemá barevný emoji font a při
+  serverovém generování by se na kartičky vytiskl prázdný čtvereček.
 
 ### Oprava: časy nálezů byly posunuté o hodinu až dvě
 - EXIF `DateTimeOriginal` nenese časovou zónu. Sync ho interpretoval v zóně

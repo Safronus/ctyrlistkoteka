@@ -21,7 +21,13 @@ import {
   type QrBorderColor,
   type QrDensity,
 } from "@/lib/admin/qr";
-import { writeQrPxPerCm, clearQrPxPerCm } from "@/lib/admin/qrPrefs";
+import {
+  writeQrPxPerCm,
+  clearQrPxPerCm,
+  writeFindQrFormPrefs,
+  resetFindQrFormPrefs,
+  readQrPrefs,
+} from "@/lib/admin/qrPrefs";
 import type { FindQrInput, FindQrRendered, FindQrTitleMode } from "./qr-types";
 
 /**
@@ -166,12 +172,9 @@ const CARD_DATE_FMT = new Intl.DateTimeFormat("cs-CZ", {
   timeZone: COLLECTION_TIME_ZONE,
 });
 
-/** Title TEXT only — the clover in front of it is drawn by the renderer
- *  as a vector glyph (`titleIcon`), never as the 🍀 character, because
- *  server-side rasterisation has no emoji font. See RenderQrOpts. */
 function titleFor(mode: FindQrTitleMode, f: FindRow): string | null {
   if (mode === "none") return null;
-  const base = `#${f.id}`;
+  const base = `🍀 #${f.id}`;
   if (mode === "idDate") {
     return f.foundAt ? `${base} · ${CARD_DATE_FMT.format(f.foundAt)}` : base;
   }
@@ -388,6 +391,45 @@ export async function resetQrCalibrationAction(): Promise<VoidResult> {
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Reset kalibrace selhal",
+    };
+  }
+}
+
+/** Remembers the form setup for next time. Fire-and-forget from the
+ *  client — a failed save is a lost convenience, never a lost batch, so
+ *  it deliberately doesn't surface an error in the UI. */
+export async function saveFindQrFormPrefsAction(
+  sizeCm: number,
+  form: FindQrInput,
+): Promise<VoidResult> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    await writeFindQrFormPrefs(sizeCm, form);
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Uložení nastavení selhalo",
+    };
+  }
+}
+
+/** Back to the shipped defaults (keeps the screen calibration). Returns
+ *  them so the client can apply them without a second round-trip and
+ *  without duplicating the values — qrPrefs.ts is server-only. */
+export async function resetFindQrFormPrefsAction(): Promise<
+  ActionResult<{ sizeCm: number; form: FindQrInput }>
+> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    await resetFindQrFormPrefs();
+    revalidatePath("/admin/qr");
+    const prefs = await readQrPrefs();
+    return { ok: true, sizeCm: prefs.sizeCm, form: prefs.form as FindQrInput };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Reset nastavení selhal",
     };
   }
 }
