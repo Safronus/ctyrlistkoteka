@@ -43,14 +43,13 @@ export interface FindQrListItem {
   scans7: number;
 }
 
-type Filter = "donated" | "pinned" | "all";
 type Order = "desc" | "asc";
 
-const FILTER_OPTS = [
-  { v: "donated", l: "Darované" },
-  { v: "pinned", l: "Vlastní" },
-  { v: "all", l: "Všechny" },
-];
+/** ~20 rows before the box starts scrolling (a row runs ~74 px). Donated
+ *  finds are the ones actually printed onto cards, so that list earns the
+ *  height; the other two stay compact. */
+const TALL_LIST = "max-h-[92rem]";
+const SHORT_LIST = "max-h-[30rem]";
 const ORDER_OPTS = [
   { v: "desc", l: "Nejnovější", title: "Od nejvyššího čísla nálezu" },
   { v: "asc", l: "Nejstarší", title: "Od nejnižšího čísla nálezu" },
@@ -76,7 +75,6 @@ export function FindQrList({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(true);
-  const [filter, setFilter] = useState<Filter>("donated");
   const [query, setQuery] = useState("");
   const [noteQuery, setNoteQuery] = useState("");
   const [onlyScanned, setOnlyScanned] = useState(false);
@@ -87,12 +85,12 @@ export function FindQrList({
   const [error, setError] = useState<string | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
 
-  const { active, revoked } = useMemo(() => {
+  const { donated, others, revoked } = useMemo(() => {
     const q = query.trim();
     // Diacritics-insensitive so "chate" finds "chatě" — the notes are Czech
     // free text and nobody types the háčky when searching.
     const nq = fold(noteQuery);
-    const common = (i: FindQrListItem) => {
+    const matches = (i: FindQrListItem) => {
       if (q && !String(i.findId).includes(q)) return false;
       if (nq && !fold(i.note ?? "").includes(nq)) return false;
       if (onlyScanned && i.scansTotal === 0) return false;
@@ -100,20 +98,15 @@ export function FindQrList({
     };
     const byOrder = (a: FindQrListItem, b: FindQrListItem) =>
       order === "desc" ? b.findId - a.findId : a.findId - b.findId;
-    const matches = (i: FindQrListItem) => {
-      if (!common(i)) return false;
-      if (filter === "donated") return i.donated;
-      if (filter === "pinned") return i.pinned && !i.donated;
-      return true;
-    };
+    const live = items.filter((i) => !i.revoked && matches(i));
     return {
-      active: items.filter((i) => !i.revoked && matches(i)).sort(byOrder),
-      // Revoked rows ignore the donated/pinned filter — the point of the
-      // section is "everything I retired", regardless of how it got listed.
-      revoked: items.filter((i) => i.revoked && common(i)).sort(byOrder),
+      donated: live.filter((i) => i.donated).sort(byOrder),
+      others: live.filter((i) => !i.donated).sort(byOrder),
+      revoked: items.filter((i) => i.revoked && matches(i)).sort(byOrder),
     };
-  }, [items, filter, query, noteQuery, onlyScanned, order]);
+  }, [items, query, noteQuery, onlyScanned, order]);
 
+  const active = [...donated, ...others];
   const visibleIds = active.map((i) => i.findId);
   const allChecked =
     visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
@@ -157,11 +150,6 @@ export function FindQrList({
       {open && (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <Seg
-              value={filter}
-              onChange={(v) => setFilter(v as Filter)}
-              options={FILTER_OPTS}
-            />
             <div className="relative">
               <Search
                 className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
@@ -265,52 +253,120 @@ export function FindQrList({
             </p>
           )}
 
-          {active.length === 0 ? (
+          {items.length === 0 ? (
             <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-500">
-              {items.length === 0
-                ? "Zatím tu nic není."
-                : "Filtru neodpovídá žádný nález."}
+              Zatím tu nic není.
             </p>
           ) : (
-            // Bounded height instead of pagination — the operator asked for
-            // no pages, and thousands of rows would otherwise make the tab
-            // unusable to scroll past.
-            <ul className="max-h-[30rem] space-y-2 overflow-y-auto pr-1">
-              {active.map((it) => (
-                <Row
-                  key={it.findId}
-                  item={it}
-                  cfg={cfg}
-                  checked={selected.has(it.findId)}
-                  onToggle={() => onToggle(it.findId)}
-                />
-              ))}
-            </ul>
-          )}
-
-          {revoked.length > 0 && (
-            <div className="space-y-2 pt-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Zrušené{" "}
-                <span className="font-normal text-gray-400">
-                  ({revoked.length}) — kód dál vede na detail, jen se
-                  nezapočítává
-                </span>
-              </h4>
-              <ul className="max-h-64 space-y-2 overflow-y-auto pr-1">
-                {revoked.map((it) => (
-                  <Row
-                    key={it.findId}
-                    item={it}
-                    cfg={cfg}
-                    checked={selected.has(it.findId)}
-                    onToggle={() => onToggle(it.findId)}
-                  />
-                ))}
-              </ul>
-            </div>
+            <>
+              {/* Three standing sections rather than one list behind a
+                  filter: donated finds are the ones that actually get
+                  printed onto cards, so they deserve their own box that
+                  doesn't disappear when the filter is set elsewhere. Each
+                  renders even when empty, so a section never silently
+                  vanishes. */}
+              <Section
+                title="Darované"
+                note="nálezy, ke kterým se tiskne kartička"
+                rows={donated}
+                emptyText="Žádný nález nemá stav Darovaný."
+                heightClass={TALL_LIST}
+                cfg={cfg}
+                selected={selected}
+                onToggle={onToggle}
+                onSetMany={onSetMany}
+              />
+              <Section
+                title="Ostatní"
+                note="ručně přidané nebo naskenované"
+                rows={others}
+                emptyText="Žádný další nález v seznamu."
+                heightClass={SHORT_LIST}
+                cfg={cfg}
+                selected={selected}
+                onToggle={onToggle}
+                onSetMany={onSetMany}
+              />
+              <Section
+                title="Zrušené"
+                note="kód dál vede na detail, jen se nezapočítává"
+                rows={revoked}
+                emptyText="Žádný zrušený kód."
+                heightClass={SHORT_LIST}
+                cfg={cfg}
+                selected={selected}
+                onToggle={onToggle}
+                onSetMany={onSetMany}
+              />
+            </>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  note,
+  rows,
+  emptyText,
+  heightClass,
+  cfg,
+  selected,
+  onToggle,
+  onSetMany,
+}: {
+  title: string;
+  note: string;
+  rows: FindQrListItem[];
+  emptyText: string;
+  heightClass: string;
+  cfg: FindQrInput;
+  selected: ReadonlySet<number>;
+  onToggle: (findId: number) => void;
+  onSetMany: (findIds: number[], checked: boolean) => void;
+}) {
+  const ids = rows.map((r) => r.findId);
+  const allChecked = ids.length > 0 && ids.every((id) => selected.has(id));
+  return (
+    <div className="space-y-2 pt-2">
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          {title}{" "}
+          <span className="font-normal text-gray-400">
+            ({rows.length}) — {note}
+          </span>
+        </h4>
+        {ids.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onSetMany(ids, !allChecked)}
+            className="ml-auto rounded-md border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 transition hover:bg-gray-50"
+          >
+            {allChecked ? "Odznačit" : `Označit (${ids.length})`}
+          </button>
+        )}
+      </div>
+      {rows.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-4 text-center text-xs text-gray-500">
+          {emptyText}
+        </p>
+      ) : (
+        // Bounded height instead of pagination — the operator asked for no
+        // pages, and thousands of rows would otherwise make the tab
+        // unusable to scroll past.
+        <ul className={`${heightClass} space-y-2 overflow-y-auto pr-1`}>
+          {rows.map((it) => (
+            <Row
+              key={it.findId}
+              item={it}
+              cfg={cfg}
+              checked={selected.has(it.findId)}
+              onToggle={() => onToggle(it.findId)}
+            />
+          ))}
+        </ul>
       )}
     </div>
   );

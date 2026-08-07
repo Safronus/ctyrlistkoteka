@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Trackovací odkazy hlídané proti sitemapě, seznam QR nálezů rozdělený
+- Odkazy `/go/`, `/n/` (a připravované `/d/`) v sitemapě nikdy nebyly, ale
+  teď to hlídá **test** — dokázal jsem si, že když se do sitemapy nějaký
+  takový odkaz vloudí, test spadne. Navíc obě přesměrování posílají hlavičku
+  `X-Robots-Tag: noindex` a `/d/` přibylo do robots.txt. Tři zámky: crawler
+  by jinak dostal adresář kódů, které se mají hledat ve fyzickém světě, a
+  ještě by nafoukl počty naskenování.
+- Seznam v záložce **QR nálezů** je nově rozdělený na tři stálé sekce —
+  *Darované*, *Ostatní* a *Zrušené* — místo jednoho seznamu za přepínačem.
+  Každá se zobrazí i prázdná, takže nezmizí bez vysvětlení.
+- Sekce *Darované* pojme na výšku **22 řádků** (dřív ~6,5), protože právě
+  z ní se tisknou kartičky.
+
 ### Odkud nález je, přímo v seznamu i na dlaždici
 - **Seznam na `/sbirka`:** titulek je nově „🍀 #123" a hned za ním stojí
   **vlaječka, stát a město** — např. „🇨🇿 Česko · ZLÍN".

@@ -25,6 +25,13 @@ export const dynamic = "force-dynamic";
 const SCAN_LOG_THROTTLE_MS = 10_000;
 const lastScanLoggedAt = new Map<string, number>();
 
+/** Belt and braces beside robots.txt: a 302 carries no meta tag, so the
+ *  only way to tell a crawler "don't index this" is the header. */
+function noindex(res: NextResponse): NextResponse {
+  res.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  return res;
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
@@ -62,5 +69,5 @@ export async function GET(
 
   const dest = new URL(qrTargetPath(target, locale), siteUrl);
   dest.searchParams.set("ref", "qr");
-  return NextResponse.redirect(dest, 302);
+  return noindex(NextResponse.redirect(dest, 302));
 }
