@@ -14,7 +14,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   "file.replace": "Přepsání souboru",
   "file.rename": "Přejmenování souboru",
   "file.restore": "Obnova z koše",
-  "file.download": "Stažení (např. QR ZIP)",
+  "file.download": "Stažení souboru",
   "json.update": "Úprava JSONu",
   "sync.start": "Sync — start",
   "sync.finish": "Sync — konec",
@@ -22,6 +22,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   "pm2.restart": "PM2 restart",
   "vote.delete": "Smazání hlasu",
   "vote.reset_all": "Reset všech hlasů",
+  "qr.revoke": "Zrušení QR kódu nálezu",
+  "qr.scans_reset": "Vynulování naskenování QR",
   "settings.update": "Úprava nastavení",
 };
 
@@ -43,6 +45,8 @@ const ACTION_TONE: Record<AuditAction, string> = {
   "pm2.restart": "bg-amber-100 text-amber-800",
   "vote.delete": "bg-amber-100 text-amber-800",
   "vote.reset_all": "bg-rose-100 text-rose-800",
+  "qr.revoke": "bg-amber-100 text-amber-800",
+  "qr.scans_reset": "bg-rose-100 text-rose-800",
   "settings.update": "bg-violet-100 text-violet-800",
 };
 
@@ -70,7 +74,9 @@ const ALL_ACTIONS = new Set<AuditAction>(TOGGLE_ORDER);
 /** Parse the comma-separated `?actions=` query into a set of valid
  *  AuditAction values. Invalid tokens are silently dropped — bad
  *  links shouldn't crash the page, just behave like "no filter". */
-function parseActiveActions(raw: string | string[] | undefined): Set<AuditAction> {
+function parseActiveActions(
+  raw: string | string[] | undefined,
+): Set<AuditAction> {
   const out = new Set<AuditAction>();
   if (!raw) return out;
   const value = Array.isArray(raw) ? raw.join(",") : raw;
@@ -279,9 +285,7 @@ export default async function AdminAuditPage({
                       {row.ip}
                     </td>
                     <td className="whitespace-nowrap px-3 py-1.5 font-mono text-[11px] text-gray-500">
-                      {row.details
-                        ? JSON.stringify(row.details)
-                        : ""}
+                      {row.details ? JSON.stringify(row.details) : ""}
                     </td>
                   </tr>
                 );

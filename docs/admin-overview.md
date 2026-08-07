@@ -32,7 +32,7 @@ Přibyly v provozu, ve stejném auth + atomic-write + audit patternu:
 | Sekce (nav) | Co dělá | Klíčové soubory / config |
 | --- | --- | --- |
 | **Import balíčku** (`/admin/import`) | Hromadný import jednoho **ZIP „balíčku pro web"** (originály + výřezy + mapy + `meta/LokaceStavyPoznamky.json`) najednou. Dvoufázově: analýza (nic nezapisuje) → přehled → potvrzení → staging souborů + merge LSP. Nezapisuje DB — připraví soubory pro `sync`. Idempotentní (přepis podle ID / MAP_ID, ne duplikace). | `src/app/admin/import/*`, `src/app/admin/api/import/{upload-chunk,analyze,commit,cancel}/route.ts`, `src/lib/admin/importZip.ts` + `importPackage.ts` |
-| **QR** (`/admin/qr`) | **Dvě oddělené sekce.** *QR nálezů*: hromadně podle čísel/intervalů (`?ids=` přijímá výběr z `/admin/files`), kód míří na `/n/<číslo>` — trvalá adresa, sken se počítá per nález. Volba hustoty (H/Q/M se skutečnými počty bodů), loga a titulku; velikost v cm s fyzicky kalibrovaným náhledem; ZIP (SVG + PNG 300 DPI + tiskový A4 arch). Seznam = darované ∪ připnuté ∪ naskenované. Nastavení + kalibrace obrazovky se pamatují v `data/.admin/qr-prefs.json`. *QR stránek*: původní generátor s tokenem `/go/<token>`. SVG fonty jen systémové (web font v `<img>`→canvas rasteru zmizí — viz `docs/gotchas.md`); rasterizace **jen v prohlížeči** (viz gotcha níže). | `src/app/admin/qr/*`, `src/app/n/[id]/route.ts`, `src/app/go/[token]/route.ts`, `src/lib/admin/qr.ts` + `qrDensity.ts` + `qrPrefs.ts` |
+| **QR** (`/admin/qr`) | **Dvě záložky s vlastními počty.** *QR nálezů*: hromadně podle čísel/intervalů (`?ids=` přijímá výběr z `/admin/files`), kód míří na `/n/<číslo>` — trvalá adresa, sken se počítá per nález. Volba hustoty (H/Q/M se skutečnými počty bodů), loga a titulku; velikost v cm s fyzicky kalibrovaným náhledem; ZIP (SVG + PNG 300 DPI + tiskový A4 arch). Seznam je sbalitelný, filtruje se podle čísla + „skrýt nenaskenované", má multi-select **obousměrně svázaný s polem čísel** (spec string je jediný zdroj pravdy), zobrazuje LSP poznámku a plné datum s časem, umí vynulovat skeny (per nález i hromadně) a **zrušit kód** (viz gotcha). Čísla mimo seznam se při stažení doplní (idempotentně přes PK). Nastavení + kalibrace v `data/.admin/qr-prefs.json`. *QR stránek*: původní generátor s tokenem `/go/<token>`. SVG fonty jen systémové; rasterizace **jen v prohlížeči** (viz gotcha níže). | `src/app/admin/qr/*`, `src/app/n/[id]/route.ts`, `src/app/go/[token]/route.ts`, `src/lib/admin/qr.ts` + `qrDensity.ts` + `qrPrefs.ts` |
 | **Efekty** (`/admin/special`) | Speciální atmosférický efekt na detailu nálezu (`record` / `heavenly` / `hellish`) přiřaditelný k libovolnému ID. „Rekord" je **jeden** (přiřazení jinému ho z předchozího sundá) a táhne i zlatý marker na `/mapa`, kartu na `/statistiky` a odznak v `/sbirka`. | `src/app/admin/special/*`, `src/lib/specialFinds.ts` + `…server.ts`, config `data/.admin/special-finds.json` |
 | **Rozdané** (`/admin/donated`) | „Pole darovaného štěstí" pod „Malou omluvou" na homepage. Toggle-seznam **darovaných** nálezů od #22094 výš (starší předcházejí nabídce), nejnovější nahoře; zapnuté se vykreslí jako rozházené pin-čtyřlístky. | `src/app/admin/donated/*`, `src/lib/donatedBoard.ts` + `…server.ts`, config `data/.admin/donated-board.json` |
 | **Hlasování** (`/admin/votes`) | Audit + mazání hlasů (single / fingerprint / uuid), tlačítko na kompletní reset. | `src/app/admin/votes/*` |
@@ -215,6 +215,12 @@ odvozený název vytvořil druhý soubor pro totéž ID).
   dnes zrušená) by v PNG vytiskla prázdný čtvereček — a to zrovna
   v dávce určené na kartičky. Nezaváděj zpátky server-side rasterizaci
   QR, dokud v titulku může být emoji.
+- **„Zrušený" QR nálezu neznamená rozbitý.** Revoke jen vypne
+  započítávání: `/n/<číslo>` pořád přesměruje na detail nálezu (jen bez
+  `?ref=qr`) a řádek se přesune do sekce „Zrušené". Kdyby zrušení
+  vracelo 404 nebo posílalo na výpis, přestala by fungovat kartička,
+  kterou už někdo má doma — a to je přesně to, čemu se celý design
+  `/n/<číslo>` vyhýbá.
 - **QR nálezu má trvalou adresu** — `/n/<číslo>`, ne minted token.
   Kartička s darovaným čtyřlístkem je fyzická věc v cizích rukou:
   dotisk musí vyjít identicky a starý kód nesmí přestat platit. Kdyby

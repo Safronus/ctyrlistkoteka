@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, Download, X, AlertTriangle } from "lucide-react";
-import { renderFindQrChunkAction } from "./find-qr-actions";
+import { useRouter } from "next/navigation";
+import {
+  renderFindQrChunkAction,
+  ensureFindQrCodesAction,
+} from "./find-qr-actions";
 import type { FindQrInput } from "./qr-types";
 import { triggerDownload, svgToPngBlob } from "./qr-download";
 import { Check } from "./qr-ui";
@@ -11,9 +15,14 @@ import { Check } from "./qr-ui";
  * Export dialog for a batch of find QR codes.
  *
  * Everything is assembled in the BROWSER: the server returns SVG strings
- * (cheap, and the only thing it can render reliably), and PNG/PDF come
- * from a canvas here. That matters for the 🍀 in the title — the VPS has
- * no emoji font, so a server-side rasteriser would print tofu.
+ * and PNG/PDF come from a canvas here. That is a hard requirement, not a
+ * preference — the title carries a 🍀 and the VPS has no colour-emoji
+ * font, so a server-side rasteriser would print a missing-glyph box on
+ * exactly the batch that goes onto cards.
+ *
+ * Downloading also enrols anything not yet listed, so numbers typed by
+ * hand show up in the evidence afterwards (idempotent by primary key —
+ * re-downloading the same batch can't duplicate a row).
  *
  * There is no hard batch cap by request; instead a big batch is
  * confirmed, and progress is reported per chunk so a long run is visibly
@@ -53,6 +62,7 @@ export function FindQrExportDialog({
   const [phase, setPhase] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmedBig, setConfirmedBig] = useState(false);
+  const router = useRouter();
 
   // Esc closes — same pattern as the per-find QR modal.
   useEffect(() => {
@@ -77,6 +87,10 @@ export function FindQrExportDialog({
       // width is its intrinsic px, so the scale is derived per item.
       const targetPx = Math.round((sizeCm / 2.54) * PRINT_DPI);
       const forPdf: { findId: number; svg: string }[] = [];
+
+      setPhase("Přidávám do seznamu…");
+      const enrol = await ensureFindQrCodesAction(ids);
+      if (!enrol.ok) throw new Error(enrol.error);
 
       setPhase("Generuji kódy…");
       for (let i = 0; i < ids.length; i += CHUNK) {
@@ -107,6 +121,7 @@ export function FindQrExportDialog({
       const blob = await zip.generateAsync({ type: "blob" });
       const stamp = new Date().toISOString().slice(0, 10);
       triggerDownload(blob, `ctyrlistkoteka-qr-nalezy-${stamp}.zip`);
+      router.refresh(); // newly enrolled finds appear in the list
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export selhal");

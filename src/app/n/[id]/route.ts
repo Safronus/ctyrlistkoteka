@@ -47,28 +47,35 @@ export async function GET(
   }
 
   let path = "/sbirka";
+  let tracked = false;
   if (findId !== null) {
     const find = await prisma.find.findUnique({
       where: { id: findId },
-      select: { id: true },
+      select: { id: true, qrCode: { select: { revokedAt: true } } },
     });
     if (find) {
       path = `/sbirka/${find.id}`;
-      // Best-effort scan log; never block the redirect on a write error.
-      const now = Date.now();
-      const prev = lastScanLoggedAt.get(find.id);
-      if (prev === undefined || now - prev >= SCAN_LOG_THROTTLE_MS) {
-        lastScanLoggedAt.set(find.id, now);
-        try {
-          await prisma.findQrScan.create({ data: { findId: find.id } });
-        } catch {
-          /* swallow — redirect the visitor regardless */
+      // A revoked code still resolves — a card already handed out must
+      // never dead-end — it just stops being counted, and drops `ref=qr`
+      // so it doesn't show up as a QR landing in GoatCounter either.
+      tracked = find.qrCode?.revokedAt == null;
+      if (tracked) {
+        // Best-effort scan log; never block the redirect on a write error.
+        const now = Date.now();
+        const prev = lastScanLoggedAt.get(find.id);
+        if (prev === undefined || now - prev >= SCAN_LOG_THROTTLE_MS) {
+          lastScanLoggedAt.set(find.id, now);
+          try {
+            await prisma.findQrScan.create({ data: { findId: find.id } });
+          } catch {
+            /* swallow — redirect the visitor regardless */
+          }
         }
       }
     }
   }
 
   const dest = new URL(path, siteUrl);
-  dest.searchParams.set("ref", "qr");
+  if (tracked) dest.searchParams.set("ref", "qr");
   return NextResponse.redirect(dest, 302);
 }

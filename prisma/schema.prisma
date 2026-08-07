@@ -207,7 +207,7 @@ model Find {
   images  FindImage[]
   states  FindStateAssignment[]
   votes   FindVote[]
-  qrPin   FindQrPin?
+  qrCode  FindQrCode?
   qrScans FindQrScan[]
 
   @@index([locationId])
@@ -343,19 +343,30 @@ model QrCode {
   @@map("qr_codes")
 }
 
-/// A find explicitly pinned into the /admin/qr find list.
+/// Admin-side bookkeeping for one find's QR code.
 ///
 /// Find QR codes need no minting — the encoded URL is always
-/// `/n/<find id>`, so every find implicitly "has" a code. This table only
-/// remembers which finds the operator wants to SEE in the list on top of
-/// the donated ones (which the list derives from find state), so pinning
-/// is pure UI bookkeeping and losing a row costs nothing but visibility.
-model FindQrPin {
-  findId    Int      @id @map("find_id")
-  find      Find     @relation(fields: [findId], references: [id], onDelete: Cascade)
+/// `/n/<find id>`, so every find implicitly "has" a code and this table
+/// is purely about the admin view. A row exists when the find is pinned
+/// into the list (donated finds are listed from their state and need no
+/// row) and/or when its code has been revoked.
+model FindQrCode {
+  findId Int  @id @map("find_id")
+  find   Find @relation(fields: [findId], references: [id], onDelete: Cascade)
+
+  /// Show this find in the list even though it isn't donated.
+  pinned Boolean @default(true)
+
+  /// Set when the operator cancels the code. The printed card keeps
+  /// working — `/n/<id>` still redirects to the find detail, because a
+  /// card already in someone's hands must never dead-end — but the scan
+  /// stops being logged and the row moves to the "Zrušené" section.
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  @@map("find_qr_pins")
+  @@index([revokedAt])
+  @@map("find_qr_codes")
 }
 
 /// One logged scan of a find QR code (a hit on /n/<find id>).

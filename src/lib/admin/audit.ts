@@ -23,6 +23,8 @@ export type AuditAction =
   | "pm2.restart"
   | "vote.delete"
   | "vote.reset_all"
+  | "qr.revoke"
+  | "qr.scans_reset"
   | "settings.update";
 
 export interface AuditEntry {

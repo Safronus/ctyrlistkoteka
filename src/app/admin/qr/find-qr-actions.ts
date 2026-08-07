@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAuth } from "@/lib/admin/session";
+import { requireAuth, getRequestIp } from "@/lib/admin/session";
+import { appendAudit } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db";
 import { FindState } from "@/generated/prisma/client";
 import { parseRanges } from "@/lib/parseRanges";
@@ -302,64 +303,115 @@ export async function previewFindQrAction(
   }
 }
 
-/** Pins finds into the list (so non-donated ones stay visible). Donated
- *  finds need no pin — the list derives those from find state. */
-export async function pinFindQrAction(
-  spec: string,
-): Promise<ActionResult<{ pinned: number; missing: number[] }>> {
+/**
+ * Makes sure every id in `ids` is visible in the list before a download.
+ *
+ * Donated finds are listed from their state and need no row; anything
+ * else gets pinned. Idempotent by primary key, so re-downloading the
+ * same batch can't create duplicates — that's the "kontrola na duplicity"
+ * the operator asked for, enforced by the schema rather than a lookup.
+ */
+export async function ensureFindQrCodesAction(
+  ids: number[],
+): Promise<ActionResult<{ added: number }>> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
-  let ids: number[];
+  const clean = (Array.isArray(ids) ? ids : []).filter(
+    (n) => Number.isInteger(n) && n > 0,
+  );
+  if (clean.length === 0) return { ok: true, added: 0 };
   try {
-    ids = expandSpec(String(spec ?? ""));
-  } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "Chybný zápis",
-    };
-  }
-  if (ids.length === 0) return { ok: false, error: "Zadej číslo nálezu" };
-  try {
-    const rows = await prisma.find.findMany({
-      where: { id: { in: ids } },
-      select: { id: true },
+    const [existing, donated] = await Promise.all([
+      prisma.find.findMany({
+        where: { id: { in: clean } },
+        select: { id: true },
+      }),
+      prisma.findStateAssignment.findMany({
+        where: { findId: { in: clean }, state: FindState.DONATED },
+        select: { findId: true },
+      }),
+    ]);
+    const donatedSet = new Set(donated.map((d) => d.findId));
+    const toPin = existing.map((f) => f.id).filter((id) => !donatedSet.has(id));
+    if (toPin.length === 0) return { ok: true, added: 0 };
+    const res = await prisma.findQrCode.createMany({
+      data: toPin.map((findId) => ({ findId, pinned: true })),
+      skipDuplicates: true,
     });
-    const have = rows.map((r) => r.id);
-    const haveSet = new Set(have);
-    if (have.length > 0) {
-      await prisma.findQrPin.createMany({
-        data: have.map((findId) => ({ findId })),
-        skipDuplicates: true,
-      });
-    }
     revalidatePath("/admin/qr");
-    return {
-      ok: true,
-      pinned: have.length,
-      missing: ids.filter((i) => !haveSet.has(i)),
-    };
+    return { ok: true, added: res.count };
   } catch (e) {
     return {
       ok: false,
-      error: e instanceof Error ? e.message : "Připnutí selhalo",
+      error: e instanceof Error ? e.message : "Přidání do seznamu selhalo",
     };
   }
 }
 
-/** Removes a pin. Donated finds stay in the list regardless — the pin is
- *  only what keeps a NON-donated find visible. */
-export async function unpinFindQrAction(findId: number): Promise<VoidResult> {
+/**
+ * Revokes (or restores) a find's QR code.
+ *
+ * Revoking deliberately does NOT break the printed card: `/n/<id>` keeps
+ * redirecting to the find detail, because a card already handed out with
+ * a clover must never dead-end. What stops is the counting — no scan row,
+ * no `ref=qr` — and the row moves to the "Zrušené" section.
+ */
+export async function setFindQrRevokedAction(
+  findId: number,
+  revoked: boolean,
+): Promise<VoidResult> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
   if (!Number.isInteger(findId) || findId <= 0) {
     return { ok: false, error: "Neplatné ID nálezu" };
   }
   try {
-    await prisma.findQrPin.deleteMany({ where: { findId } });
+    const revokedAt = revoked ? new Date() : null;
+    await prisma.findQrCode.upsert({
+      where: { findId },
+      // `pinned: false` on create: revoking a DONATED find must not also
+      // pin it, or un-revoking would leave it stuck under "Vlastní".
+      create: { findId, pinned: false, revokedAt },
+      update: { revokedAt },
+    });
+    await appendAudit({
+      action: "qr.revoke",
+      ip: await getRequestIp(),
+      details: { findId, revoked },
+    });
     revalidatePath("/admin/qr");
     return { ok: true };
   } catch (e) {
     return {
       ok: false,
-      error: e instanceof Error ? e.message : "Odepnutí selhalo",
+      error: e instanceof Error ? e.message : "Zrušení kódu selhalo",
+    };
+  }
+}
+
+/** Wipes scan history for one find, or for every find when `findId` is
+ *  null. Destructive and irreversible, hence the audit row. */
+export async function resetFindQrScansAction(
+  findId: number | null,
+): Promise<ActionResult<{ deleted: number }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  if (findId !== null && (!Number.isInteger(findId) || findId <= 0)) {
+    return { ok: false, error: "Neplatné ID nálezu" };
+  }
+  try {
+    const res =
+      findId === null
+        ? await prisma.findQrScan.deleteMany()
+        : await prisma.findQrScan.deleteMany({ where: { findId } });
+    await appendAudit({
+      action: "qr.scans_reset",
+      ip: await getRequestIp(),
+      details: { findId: findId ?? "all", deleted: res.count },
+    });
+    revalidatePath("/admin/qr");
+    return { ok: true, deleted: res.count };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Vynulování selhalo",
     };
   }
 }
@@ -430,27 +482,6 @@ export async function resetFindQrFormPrefsAction(): Promise<
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Reset nastavení selhal",
-    };
-  }
-}
-
-/** Ids of all donated finds — the "Darované" default view, and the
- *  one-click "vyplnit všechny darované" button in the form. */
-export async function donatedFindIdsAction(): Promise<
-  ActionResult<{ ids: number[] }>
-> {
-  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
-  try {
-    const rows = await prisma.findStateAssignment.findMany({
-      where: { state: FindState.DONATED },
-      select: { findId: true },
-      orderBy: { findId: "asc" },
-    });
-    return { ok: true, ids: rows.map((r) => r.findId) };
-  } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "Načtení darovaných selhalo",
     };
   }
 }

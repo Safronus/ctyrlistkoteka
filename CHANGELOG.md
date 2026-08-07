@@ -9,6 +9,32 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### QR kódy: dvě záložky, sbalitelný seznam s výběrem a rušení kódů
+- `/admin/qr` je rozdělená na **dvě záložky** — „QR nálezů" a „QR stránek".
+  Každá si nese vlastní počty aktivních kódů a naskenování, takže se čísla
+  z obou světů nemíchají.
+- **Seznam nálezů je sbalitelný a filtrovatelný**: hledání podle čísla,
+  přepínač „skrýt nenaskenované" a Darované / Vlastní / Všechny. Místo
+  stránkování má omezenou výšku s vlastním posouváním, aby ho šlo přeskočit
+  i při tisících řádků.
+- **Zaškrtávání v seznamu a pole „Čísla nálezů" jsou jedna věc.** Zaškrtnutí
+  řádku číslo do pole přidá, ruční dopsání čísla řádek zaškrtne. Vevnitř je
+  to jediný řetězec, takže se ty dva pohledy nemají jak rozejít.
+- Díky tomu zmizela tlačítka „Vyplnit všechny darované" a „Přidat do
+  seznamu": čísla, která v seznamu ještě nejsou, se **přidají sama při
+  stažení** (idempotentně, duplicitu neumí vytvořit ani opakované stažení).
+- **Zrušení QR kódu** — kód se přesune do sekce „Zrušené" a přestane se
+  započítávat. Kartička ale dál funguje: `/n/<číslo>` pořád vede na detail
+  nálezu, jen bez sledování. Rušit i obnovovat jde kdykoli.
+- **Vynulování počtů naskenování** u jednotlivého nálezu i hromadně, obojí
+  s potvrzením a záznamem do auditu.
+- V seznamu je nově vidět **poznámka nálezu z LSP** a **plné datum s časem**
+  (lokalita zmizela — v adminu není k ničemu). Poznámky se tu ukazují
+  proto, že je to přihlášené admin rozhraní; veřejný web je dál čte jen
+  přes `anonymize()`.
+- Náhled dostal **širší sloupec** — dvanácticentimetrový kód se do něj
+  vejde, místo aby se ořízl.
+
 ### QR kódy nálezů: hromadná tvorba, trackování a tisk v centimetrech
 - `/admin/qr` je nově rozdělená na **dvě oddělené sekce**, aby kódy na
   stránky a kódy na nálezy nesplývaly.
