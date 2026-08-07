@@ -475,7 +475,17 @@ model DropArea {
   centerLng      Float  @map("center_lng")
   zoom           Int    @default(14) @db.SmallInt
   /// Radius in metres used by "scatter the unplaced pieces at random".
+  /// Only a fallback once `boundary` is set — a town is not a circle.
   scatterRadiusM Float? @map("scatter_radius_m")
+
+  /// The town's real outline, fetched once from OSM (Nominatim) and kept
+  /// here so nothing calls out again. Plain GeoJSON Polygon/MultiPolygon
+  /// in a Json column rather than PostGIS: it is drawn on an admin map
+  /// and point-tested in JS, never queried spatially.
+  boundary       Json?   @map("boundary")
+  /// What OSM called the thing we took the outline from, so the operator
+  /// can tell "Zlín the town" from "Zlín the district".
+  boundaryLabel  String? @map("boundary_label") @db.VarChar(300)
 
   sortOrder Int      @default(0) @map("sort_order") @db.SmallInt
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz

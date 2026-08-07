@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ExternalLink,
   Loader2,
+  Pencil,
   Plus,
   Printer,
   QrCode,
@@ -20,8 +28,16 @@ import {
 } from "../../drop-actions";
 import { DROP_STATUS_LABEL, DROP_STATUS_ORDER } from "@/lib/admin/dropVocab";
 import type { DropStatus } from "@/generated/prisma/enums";
-import { Field, INPUT_CLS, SELECT_CLS } from "../../qr-ui";
-import { ItemDialog } from "./item-dialog";
+import {
+  CONTROL_H,
+  CONTROL_H_SM,
+  Field,
+  INPUT_CLS,
+  LABEL_H,
+  ROW_CLS,
+  SELECT_CLS,
+} from "../../qr-ui";
+import { ItemDialog, type CampaignDefaults } from "./item-dialog";
 import { DropPrintDialog } from "./print-dialog";
 
 export interface ItemView {
@@ -72,12 +88,14 @@ const STATUS_TONE: Record<DropStatus, string> = {
 export function ItemsGrid({
   campaignId,
   campaignName,
+  campaignDefaults,
   items,
   areas,
   placers,
 }: {
   campaignId: number;
   campaignName: string;
+  campaignDefaults: CampaignDefaults;
   items: ItemView[];
   areas: Array<{ id: number; name: string }>;
   placers: string[];
@@ -137,13 +155,17 @@ export function ItemsGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownKey]);
 
-  const toggle = (id: number) =>
+  // Identity-stable, so the memoised cards actually skip re-rendering:
+  // an inline arrow would be a new prop on every keystroke in the filter.
+  const toggle = useCallback((id: number) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  }, []);
+  const openCard = useCallback((it: ItemView) => setOpenItem(it), []);
 
   const allShownChecked =
     shown.length > 0 && shown.every((i) => selected.has(i.id));
@@ -190,7 +212,7 @@ export function ItemsGrid({
           type="button"
           disabled={printIds.length === 0}
           onClick={() => setPrinting(printIds)}
-          className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-800 transition hover:border-brand-400 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`${CONTROL_H_SM} inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-brand-50 px-3 text-xs font-medium text-brand-800 transition hover:border-brand-400 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50`}
         >
           <Printer className="h-3.5 w-3.5" aria-hidden />
           {selected.size > 0
@@ -204,13 +226,15 @@ export function ItemsGrid({
           baseline, and the hint hangs below without shoving the button
           out of line — `items-end` on a taller cell used to do exactly
           that. */}
-      <div className="grid items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:grid-cols-[minmax(16rem,1fr)_11rem_auto]">
+      <div
+        className={`${ROW_CLS} rounded-lg border border-gray-200 bg-gray-50 p-3 sm:grid-cols-[minmax(16rem,1fr)_11rem_auto]`}
+      >
         <Field
           label="Přidat nálezy do sady"
           hint="Čísla a intervaly, např. 30001-30111. Musí už být ve sbírce."
         >
           <input
-            className={`${INPUT_CLS} font-mono`}
+            className={`${INPUT_CLS} ${CONTROL_H} font-mono`}
             value={spec}
             onChange={(e) => setSpec(e.target.value)}
             placeholder="30001-30111"
@@ -218,7 +242,7 @@ export function ItemsGrid({
         </Field>
         <Field label="Do oblasti">
           <select
-            className={SELECT_CLS}
+            className={`${SELECT_CLS} ${CONTROL_H}`}
             value={addArea}
             onChange={(e) => setAddArea(e.target.value)}
           >
@@ -257,7 +281,7 @@ export function ItemsGrid({
               router.refresh();
             })
           }
-          className="mt-[1.375rem] inline-flex h-[2.125rem] items-center gap-1.5 self-start rounded-md border border-emerald-300 bg-emerald-50 px-3 text-sm font-medium text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-50"
+          className={`${LABEL_H} ${CONTROL_H} inline-flex items-center gap-1.5 self-start rounded-md border border-emerald-300 bg-emerald-50 px-3 text-sm font-medium text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-50`}
         >
           {busy ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -282,12 +306,12 @@ export function ItemsGrid({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Hledat číslo"
             aria-label="Hledat podle čísla nálezu"
-            className={`${INPUT_CLS} py-1 text-xs`}
+            className={`${INPUT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
           />
         </div>
         <div className="w-40">
           <select
-            className={`${SELECT_CLS} py-1 text-xs`}
+            className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
             value={areaFilter}
             onChange={(e) => setAreaFilter(e.target.value)}
             aria-label="Filtr oblasti"
@@ -303,7 +327,7 @@ export function ItemsGrid({
         </div>
         <div className="w-40">
           <select
-            className={`${SELECT_CLS} py-1 text-xs`}
+            className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             aria-label="Filtr stavu"
@@ -329,7 +353,7 @@ export function ItemsGrid({
               return next;
             })
           }
-          className="rounded-md border border-gray-300 bg-white px-2 py-1 font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+          className={`${CONTROL_H_SM} rounded-md border border-gray-300 bg-white px-2.5 font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50`}
         >
           {allShownChecked ? "Odznačit" : `Označit (${shown.length})`}
         </button>
@@ -347,7 +371,7 @@ export function ItemsGrid({
           </span>
           <div className="w-44">
           <select
-            className={`${SELECT_CLS} py-1 text-xs`}
+            className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
             aria-label="Hromadně změnit stav"
             defaultValue=""
             onChange={(e) => {
@@ -373,7 +397,7 @@ export function ItemsGrid({
           </div>
           <div className="w-44">
           <select
-            className={`${SELECT_CLS} py-1 text-xs`}
+            className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
             aria-label="Hromadně přiřadit členu týmu"
             defaultValue=""
             onChange={(e) => {
@@ -400,7 +424,7 @@ export function ItemsGrid({
           </div>
           <div className="w-52">
           <select
-            className={`${SELECT_CLS} py-1 text-xs`}
+            className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
             aria-label="Hromadně přesunout do oblasti"
             defaultValue=""
             onChange={(e) => {
@@ -425,6 +449,29 @@ export function ItemsGrid({
             ))}
           </select>
           </div>
+          <div className="w-52">
+          <select
+            className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
+            aria-label="Hromadně zveřejnit nebo skrýt nápovědu"
+            defaultValue=""
+            onChange={(e) => {
+              const v = e.target.value;
+              e.currentTarget.value = "";
+              if (!v) return;
+              run(
+                () =>
+                  bulkUpdateItemsAction(campaignId, [...selected], {
+                    hintPublished: v === "show",
+                  }),
+                v === "show" ? "Nápovědy odkryty" : "Nápovědy skryty",
+              );
+            }}
+          >
+            <option value="">Nápověda na webu…</option>
+            <option value="show">Odkrýt</option>
+            <option value="hide">Skrýt</option>
+          </select>
+          </div>
           <button
             type="button"
             onClick={() =>
@@ -433,7 +480,7 @@ export function ItemsGrid({
                 "Kusy odebrány ze sady",
               )
             }
-            className="ml-auto inline-flex items-center gap-1 rounded-md border border-red-300 bg-white px-2 py-1 font-medium text-red-800 transition hover:bg-red-50"
+            className={`${CONTROL_H_SM} ml-auto inline-flex items-center gap-1 rounded-md border border-red-300 bg-white px-2.5 font-medium text-red-800 transition hover:bg-red-50`}
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden />
             Odebrat ze sady
@@ -468,8 +515,8 @@ export function ItemsGrid({
               svg={svgs[i.id] ?? null}
               areaName={areas.find((a) => a.id === i.areaId)?.name ?? null}
               checked={selected.has(i.id)}
-              onToggle={() => toggle(i.id)}
-              onOpen={() => setOpenItem(i)}
+              onToggle={toggle}
+              onOpen={openCard}
             />
           ))}
         </ul>
@@ -486,6 +533,7 @@ export function ItemsGrid({
       {openItem && (
         <ItemDialog
           campaignId={campaignId}
+          campaign={campaignDefaults}
           item={openItem}
           areas={areas}
           placers={placers}
@@ -500,7 +548,15 @@ export function ItemsGrid({
   );
 }
 
-function ItemCard({
+/**
+ * Memoised on purpose.
+ *
+ * A wave is 111 cards, each holding an inlined QR SVG of a few thousand
+ * nodes. Without this, opening the edit dialog — a state change on the
+ * grid — re-rendered every one of them, and the dialog took about a
+ * second to appear on what is a purely client-side toggle.
+ */
+const ItemCard = memo(function ItemCard({
   item,
   svg,
   areaName,
@@ -513,8 +569,8 @@ function ItemCard({
   svg: string | null;
   areaName: string | null;
   checked: boolean;
-  onToggle: () => void;
-  onOpen: () => void;
+  onToggle: (id: number) => void;
+  onOpen: (item: ItemView) => void;
 }) {
   return (
     <li
@@ -527,7 +583,7 @@ function ItemCard({
           <input
             type="checkbox"
             checked={checked}
-            onChange={onToggle}
+            onChange={() => onToggle(item.id)}
             aria-label={`Vybrat nález ${item.findId}`}
             className="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30"
           />
@@ -540,12 +596,10 @@ function ItemCard({
         </span>
       </div>
 
-      <button
-        type="button"
-        onClick={onOpen}
-        title="Upravit kus"
-        className="mt-2 block w-full rounded border border-gray-100 bg-gray-50 p-1 transition hover:border-brand-300"
-      >
+      {/* The code is a picture, not a control: it is here to be looked
+          at, and clicking a 4 cm QR to reach a form was a guessing game.
+          Editing has its own button below. */}
+      <div className="mt-2 rounded border border-gray-100 bg-gray-50 p-1">
         {svg ? (
           <div
             className="[&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
@@ -556,6 +610,15 @@ function ItemCard({
             <QrCode className="h-8 w-8" aria-hidden />
           </span>
         )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onOpen(item)}
+        className="mt-1.5 inline-flex w-full items-center justify-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50"
+      >
+        <Pencil className="h-3 w-3" aria-hidden />
+        Upravit
       </button>
 
       <div className="mt-1.5 space-y-0.5 text-[10px] text-gray-500">
@@ -605,4 +668,4 @@ function ItemCard({
       </div>
     </li>
   );
-}
+});

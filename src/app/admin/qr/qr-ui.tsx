@@ -12,6 +12,28 @@ export const SELECT_CLS =
 export const INPUT_CLS =
   "w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
 
+/**
+ * One height for every single-line control sitting in a row together.
+ *
+ * Inputs, selects and buttons each size themselves differently from
+ * padding alone — a select adds room for its native arrow, a button sizes
+ * to its text — so a row built out of all three never lines up unless the
+ * height is stated. Deliberately NOT part of INPUT_CLS: textareas share
+ * that constant and must stay free to grow.
+ */
+export const CONTROL_H = "h-9";
+/** The compact variant, for filter strips in `text-xs`. */
+export const CONTROL_H_SM = "h-7";
+
+/** Height of a `Field` label (text-xs line box + mb-1). A bare button
+ *  sharing a row with labelled fields needs exactly this much lead so its
+ *  top edge meets theirs. */
+export const LABEL_H = "mt-5";
+
+/** A row of controls that must share a baseline: labels on top, hints
+ *  hanging below without pushing anything out of line. */
+export const ROW_CLS = "grid items-start gap-3";
+
 export function Field({
   label,
   hint,

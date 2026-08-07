@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Loader2, Save, X } from "lucide-react";
+import { Loader2, RotateCcw, Save, X } from "lucide-react";
 import { saveItemAction } from "../../drop-actions";
 import {
   DROP_STATUS_LABEL,
@@ -9,7 +9,8 @@ import {
   DROP_SIZE_MAX_CM,
   DROP_SIZE_MIN_CM,
 } from "@/lib/admin/dropVocab";
-import { Field, INPUT_CLS, SELECT_CLS } from "../../qr-ui";
+import { CONTROL_H, Field, INPUT_CLS, SELECT_CLS } from "../../qr-ui";
+import { InheritedField } from "./inherited-field";
 import type { ItemView } from "./items-grid";
 
 /**
@@ -19,8 +20,35 @@ import type { ItemView } from "./items-grid";
  * rather than pre-filling the campaign's text, because a pre-filled field
  * would silently turn into an override the moment it was saved.
  */
+/** The campaign's text for every field a card may override. */
+export interface CampaignDefaults {
+  headingCs: string;
+  headingEn: string;
+  bodyCs: string;
+  bodyEn: string;
+  bonusCs: string;
+  bonusEn: string;
+  qrTitle: string;
+  qrCaption: string;
+  sizeCm: string;
+}
+
+/** Fields whose value is the campaign's until the card says otherwise. */
+const INHERITED_KEYS = [
+  "headingCs",
+  "headingEn",
+  "bodyCs",
+  "bodyEn",
+  "bonusCs",
+  "bonusEn",
+  "qrTitle",
+  "qrCaption",
+  "sizeCm",
+] as const;
+
 export function ItemDialog({
   campaignId,
+  campaign,
   item,
   areas,
   placers,
@@ -28,22 +56,33 @@ export function ItemDialog({
   onSaved,
 }: {
   campaignId: number;
+  campaign: CampaignDefaults;
   item: ItemView;
   areas: Array<{ id: number; name: string }>;
   placers: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [form, setForm] = useState({
-    areaId: item.areaId === null ? "" : String(item.areaId),
-    status: item.status as string,
-    placedBy: item.placedBy ?? "",
-    gps:
-      item.lat !== null && item.lng !== null
-        ? `${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}`
-        : "",
-    ...item.detail,
-    hintPublished: item.hintPublished,
+  const [form, setForm] = useState(() => {
+    // Seed every inherited field: the card's own value where it has one,
+    // the campaign's otherwise. What goes BACK is decided on save, by
+    // comparison — see the note in inherited-field.tsx.
+    const inherited = Object.fromEntries(
+      INHERITED_KEYS.map((k) => [k, item.detail[k] || campaign[k]]),
+    ) as Record<(typeof INHERITED_KEYS)[number], string>;
+    return {
+      areaId: item.areaId === null ? "" : String(item.areaId),
+      status: item.status as string,
+      placedBy: item.placedBy ?? "",
+      gps:
+        item.lat !== null && item.lng !== null
+          ? `${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}`
+          : "",
+      hintCs: item.detail.hintCs,
+      hintEn: item.detail.hintEn,
+      ...inherited,
+      hintPublished: item.hintPublished,
+    };
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
@@ -59,6 +98,21 @@ export function ItemDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, busy]);
 
+  const overridden = INHERITED_KEYS.filter(
+    (k) => form[k].trim() !== campaign[k].trim(),
+  );
+  const overriddenCount = overridden.length;
+
+  const resetAllToCampaign = () =>
+    setForm((f) => ({
+      ...f,
+      ...Object.fromEntries(INHERITED_KEYS.map((k) => [k, campaign[k]])),
+    }));
+
+  /** Equal to the campaign → stored empty, i.e. still inheriting. */
+  const outbound = (k: (typeof INHERITED_KEYS)[number]) =>
+    form[k].trim() === campaign[k].trim() ? "" : form[k];
+
   const save = () => {
     setError(null);
     start(async () => {
@@ -67,15 +121,15 @@ export function ItemDialog({
         status: form.status,
         placedBy: form.placedBy,
         gps: form.gps,
-        headingCs: form.headingCs,
-        headingEn: form.headingEn,
-        bodyCs: form.bodyCs,
-        bodyEn: form.bodyEn,
-        bonusCs: form.bonusCs,
-        bonusEn: form.bonusEn,
-        qrTitle: form.qrTitle,
-        qrCaption: form.qrCaption,
-        sizeCm: form.sizeCm,
+        headingCs: outbound("headingCs"),
+        headingEn: outbound("headingEn"),
+        bodyCs: outbound("bodyCs"),
+        bodyEn: outbound("bodyEn"),
+        bonusCs: outbound("bonusCs"),
+        bonusEn: outbound("bonusEn"),
+        qrTitle: outbound("qrTitle"),
+        qrCaption: outbound("qrCaption"),
+        sizeCm: outbound("sizeCm"),
         hintCs: form.hintCs,
         hintEn: form.hintEn,
         hintPublished: form.hintPublished,
@@ -111,10 +165,10 @@ export function ItemDialog({
           </button>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-4">
+        <div className="grid items-start gap-4 sm:grid-cols-4">
           <Field label="Oblast">
             <select
-              className={SELECT_CLS}
+              className={`${SELECT_CLS} ${CONTROL_H}`}
               value={form.areaId}
               onChange={(e) => set("areaId", e.target.value)}
             >
@@ -128,7 +182,7 @@ export function ItemDialog({
           </Field>
           <Field label="Stav">
             <select
-              className={SELECT_CLS}
+              className={`${SELECT_CLS} ${CONTROL_H}`}
               value={form.status}
               onChange={(e) => set("status", e.target.value)}
             >
@@ -141,7 +195,7 @@ export function ItemDialog({
           </Field>
           <Field label="Kdo umístí">
             <select
-              className={SELECT_CLS}
+              className={`${SELECT_CLS} ${CONTROL_H}`}
               value={form.placedBy}
               onChange={(e) => set("placedBy", e.target.value)}
             >
@@ -162,7 +216,7 @@ export function ItemDialog({
           </Field>
           <Field label="GPS úkrytu" hint="Desetinné stupně, DMS i odkaz z map.">
             <input
-              className={`${INPUT_CLS} font-mono`}
+              className={`${INPUT_CLS} ${CONTROL_H} font-mono`}
               value={form.gps}
               onChange={(e) => set("gps", e.target.value)}
               placeholder="49.2245, 17.6712"
@@ -170,93 +224,88 @@ export function ItemDialog({
           </Field>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nadpis (česky)" hint="Prázdné = ze sady.">
-            <input
-              className={INPUT_CLS}
-              value={form.headingCs}
-              onChange={(e) => set("headingCs", e.target.value)}
-              placeholder="dědí ze sady"
-            />
-          </Field>
-          <Field label="Nadpis (anglicky)">
-            <input
-              className={INPUT_CLS}
-              value={form.headingEn}
-              onChange={(e) => set("headingEn", e.target.value)}
-              placeholder="dědí ze sady"
-            />
-          </Field>
-          <Field label="Text (česky)">
-            <textarea
-              rows={4}
-              className={`${INPUT_CLS} resize-y`}
-              value={form.bodyCs}
-              onChange={(e) => set("bodyCs", e.target.value)}
-              placeholder="dědí ze sady"
-            />
-          </Field>
-          <Field label="Text (anglicky)">
-            <textarea
-              rows={4}
-              className={`${INPUT_CLS} resize-y`}
-              value={form.bodyEn}
-              onChange={(e) => set("bodyEn", e.target.value)}
-              placeholder="dědí ze sady"
-            />
-          </Field>
-          <Field label="Bonusový text (česky)">
-            <textarea
-              rows={3}
-              className={`${INPUT_CLS} resize-y`}
-              value={form.bonusCs}
-              onChange={(e) => set("bonusCs", e.target.value)}
-              placeholder="dědí ze sady"
-            />
-          </Field>
-          <Field label="Bonusový text (anglicky)">
-            <textarea
-              rows={3}
-              className={`${INPUT_CLS} resize-y`}
-              value={form.bonusEn}
-              onChange={(e) => set("bonusEn", e.target.value)}
-              placeholder="dědí ze sady"
-            />
-          </Field>
+        <div className="flex items-center justify-between gap-2 border-y border-gray-100 py-2">
+          <p className="text-xs text-gray-500">
+            Pole jsou předvyplněná textem sady. Co přepíšeš, se označí jako{" "}
+            <strong className="font-semibold text-amber-800">upraveno</strong> —
+            zbytek dál sleduje sadu.
+          </p>
+          {overriddenCount > 0 && (
+            <button
+              type="button"
+              onClick={resetAllToCampaign}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              <RotateCcw className="h-3 w-3" aria-hidden />
+              Vše ze sady ({overriddenCount})
+            </button>
+          )}
+        </div>
+
+        <div className="grid items-start gap-4 sm:grid-cols-2">
+          <InheritedField
+            label="Nadpis (česky)"
+            value={form.headingCs}
+            inherited={campaign.headingCs}
+            onChange={(v) => set("headingCs", v)}
+          />
+          <InheritedField
+            label="Nadpis (anglicky)"
+            value={form.headingEn}
+            inherited={campaign.headingEn}
+            onChange={(v) => set("headingEn", v)}
+          />
+          <InheritedField
+            label="Text (česky)"
+            rows={5}
+            value={form.bodyCs}
+            inherited={campaign.bodyCs}
+            onChange={(v) => set("bodyCs", v)}
+          />
+          <InheritedField
+            label="Text (anglicky)"
+            rows={5}
+            value={form.bodyEn}
+            inherited={campaign.bodyEn}
+            onChange={(v) => set("bodyEn", v)}
+          />
+          <InheritedField
+            label="Bonusový text (česky)"
+            rows={3}
+            value={form.bonusCs}
+            inherited={campaign.bonusCs}
+            onChange={(v) => set("bonusCs", v)}
+          />
+          <InheritedField
+            label="Bonusový text (anglicky)"
+            rows={3}
+            value={form.bonusEn}
+            inherited={campaign.bonusEn}
+            onChange={(v) => set("bonusEn", v)}
+          />
         </div>
 
         <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem]">
-          <Field label="Titulek nad QR" hint="Prázdné = ze sady.">
-            <input
-              className={INPUT_CLS}
-              value={form.qrTitle}
-              onChange={(e) => set("qrTitle", e.target.value)}
-              placeholder="dědí ze sady"
-            />
-          </Field>
-          <Field label="Text pod QR" hint="Prázdné = ze sady.">
-            <input
-              className={INPUT_CLS}
-              value={form.qrCaption}
-              onChange={(e) => set("qrCaption", e.target.value)}
-              placeholder="dědí ze sady"
-            />
-          </Field>
-          <Field label="Velikost tisku" hint="Prázdné = ze sady.">
-            <div className="flex items-center gap-1.5">
-              <input
-                type="number"
-                min={DROP_SIZE_MIN_CM}
-                max={DROP_SIZE_MAX_CM}
-                step={0.1}
-                className={`${INPUT_CLS} tabular-nums`}
-                value={form.sizeCm}
-                onChange={(e) => set("sizeCm", e.target.value)}
-                placeholder="ze sady"
-              />
-              <span className="shrink-0 text-xs text-gray-500">cm</span>
-            </div>
-          </Field>
+          <InheritedField
+            label="Titulek nad QR"
+            value={form.qrTitle}
+            inherited={campaign.qrTitle}
+            onChange={(v) => set("qrTitle", v)}
+          />
+          <InheritedField
+            label="Text pod QR"
+            value={form.qrCaption}
+            inherited={campaign.qrCaption}
+            onChange={(v) => set("qrCaption", v)}
+          />
+          <InheritedField
+            label="Velikost tisku (cm)"
+            hint={`${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM} cm.`}
+            mono
+            value={form.sizeCm}
+            inherited={campaign.sizeCm}
+            onChange={(v) => set("sizeCm", v)}
+          />
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">

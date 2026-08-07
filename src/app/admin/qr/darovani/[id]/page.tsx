@@ -178,6 +178,8 @@ export default async function DropCampaignPage({
           centerLng: a.centerLng,
           zoom: a.zoom,
           scatterRadiusM: a.scatterRadiusM,
+          boundary: a.boundary,
+          boundaryLabel: a.boundaryLabel,
           itemCount: campaign.items.filter((i) => i.areaId === a.id).length,
           unplaced: campaign.items.filter(
             (i) => i.areaId === a.id && i.lat === null,
@@ -194,6 +196,7 @@ export default async function DropCampaignPage({
           centerLng: a.centerLng,
           zoom: a.zoom,
           scatterRadiusM: a.scatterRadiusM,
+          boundary: a.boundary,
         }))}
         items={campaign.items.map((i) => ({
           id: i.id,
@@ -213,6 +216,19 @@ export default async function DropCampaignPage({
       <ItemsGrid
         campaignId={campaign.id}
         campaignName={campaign.name}
+        campaignDefaults={{
+          headingCs: campaign.headingCs,
+          headingEn: campaign.headingEn ?? "",
+          bodyCs: campaign.bodyCs,
+          bodyEn: campaign.bodyEn ?? "",
+          bonusCs: campaign.bonusCs ?? "",
+          bonusEn: campaign.bonusEn ?? "",
+          qrTitle: campaign.qrTitle ?? "",
+          qrCaption: campaign.qrCaption ?? "",
+          sizeCm: String(
+            readDropQrOptions(campaign.qrOptions).sizeCm ?? DROP_SIZE_DEFAULT_CM,
+          ),
+        }}
         items={items}
         areas={campaign.areas.map((a) => ({ id: a.id, name: a.name }))}
         placers={campaign.placers}

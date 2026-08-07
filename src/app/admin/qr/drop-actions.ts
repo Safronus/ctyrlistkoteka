@@ -8,6 +8,11 @@ import { DropStatus, Prisma } from "@/generated/prisma/client";
 import { parseRanges } from "@/lib/parseRanges";
 import { parseGps, formatGpsDecimal } from "@/lib/parseGps";
 import { newDropToken, scatterPoints } from "@/lib/admin/drops";
+import { readBoundary, scatterInBoundary } from "@/lib/admin/dropBoundary";
+import {
+  findBoundaries,
+  type BoundaryCandidate,
+} from "@/lib/admin/dropNominatim";
 import { parseDropXlsx } from "@/lib/admin/dropXlsx";
 import { renderFindQrSvg } from "@/lib/admin/qr";
 import {
@@ -270,6 +275,87 @@ export async function saveAreaAction(
   }
 }
 
+/**
+ * Asks OSM what it knows by that name, best match first.
+ *
+ * Deliberately does NOT save: searching "Zlín" turns up the town AND the
+ * region named after it, and picking for the operator is how a wave ends
+ * up scattered across half a county. The geometries come back with the
+ * list so choosing one costs nothing further.
+ *
+ * This is the app's only third-party call. It goes out from the admin
+ * only, carries nothing but a place name, and once a shape is stored
+ * nothing asks again.
+ */
+export async function searchAreaBoundariesAction(
+  query: string,
+): Promise<Result<{ candidates: BoundaryCandidate[] }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  const q = str(query, 200);
+  if (!q) return { ok: false, error: "Zadej název místa" };
+  try {
+    const candidates = await findBoundaries(q);
+    if (candidates.length === 0) {
+      return {
+        ok: false,
+        error: `Pro „${q}“ OSM žádnou hranici nemá. Zkus přesnější název, třeba „Zlín, Česko“.`,
+      };
+    }
+    return { ok: true, candidates };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Dotaz do OSM selhal") };
+  }
+}
+
+/** Stores a chosen outline on the area. Re-validated here — the shape
+ *  arrives from the browser and everything from a client is input. */
+export async function applyAreaBoundaryAction(
+  campaignId: number,
+  areaId: number,
+  label: string,
+  geometry: unknown,
+): Promise<VoidResult> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  const boundary = readBoundary(geometry);
+  if (!boundary) return { ok: false, error: "Neplatný tvar hranice" };
+  try {
+    await prisma.dropArea.update({
+      where: { id: areaId },
+      data: {
+        boundary: boundary as unknown as Prisma.InputJsonObject,
+        boundaryLabel: str(label, 300) || null,
+      },
+    });
+    await appendAudit({
+      action: "settings.update",
+      ip: await getRequestIp(),
+      details: { drops: "area-boundary", campaignId, areaId },
+    });
+    revalidate(campaignId);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Uložení hranice selhalo") };
+  }
+}
+
+/** Drops a stored outline, so the scatter falls back to the radius. */
+export async function clearAreaBoundaryAction(
+  campaignId: number,
+  areaId: number,
+): Promise<VoidResult> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    await prisma.dropArea.update({
+      where: { id: areaId },
+      data: { boundary: Prisma.DbNull, boundaryLabel: null },
+    });
+    revalidate(campaignId);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Smazání hranice selhalo") };
+  }
+}
+
 export async function deleteAreaAction(
   campaignId: number,
   areaId: number,
@@ -440,7 +526,12 @@ const DROP_STATUSES: DropStatus[] = [
 export async function bulkUpdateItemsAction(
   campaignId: number,
   itemIds: number[],
-  patch: { status?: string; placedBy?: string; areaId?: number | null },
+  patch: {
+    status?: string;
+    placedBy?: string;
+    areaId?: number | null;
+    hintPublished?: boolean;
+  },
 ): Promise<Result<{ updated: number }>> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
   const ids = (Array.isArray(itemIds) ? itemIds : []).filter(
@@ -455,6 +546,11 @@ export async function bulkUpdateItemsAction(
     data.placedBy = nullable(patch.placedBy, 120);
   }
   if (patch.areaId !== undefined) data.areaId = patch.areaId;
+  // Publishing a hint only reveals text that is already written; a card
+  // with an empty hint stays silent either way (see getPublishedDropHint).
+  if (patch.hintPublished !== undefined) {
+    data.hintPublished = patch.hintPublished === true;
+  }
   if (Object.keys(data).length === 0) {
     return { ok: false, error: "Není co změnit" };
   }
@@ -495,19 +591,27 @@ export async function removeItemsAction(
   }
 }
 
-/** Random positions for every unplaced card of an area. */
+/**
+ * Random positions for every unplaced card of an area.
+ *
+ * Prefers the town's real outline when it has one — a 2.5 km circle round
+ * Zlín is half hillside and field, and a card "hidden" up there is a card
+ * nobody finds. The radius stays as the fallback, and also covers the
+ * leftovers if a pathological shape defeats rejection sampling.
+ */
 export async function scatterAreaAction(
   campaignId: number,
   areaId: number,
-): Promise<Result<{ placed: number }>> {
+): Promise<Result<{ placed: number; inBoundary: number }>> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
   try {
     const area = await prisma.dropArea.findUnique({ where: { id: areaId } });
     if (!area) return { ok: false, error: "Oblast nenalezena" };
-    if (!area.scatterRadiusM) {
+    const boundary = readBoundary(area.boundary);
+    if (!area.scatterRadiusM && !boundary) {
       return {
         ok: false,
-        error: "Oblast nemá nastavený poloměr pro rozhoz",
+        error: "Oblast nemá ani hranici, ani poloměr pro rozhoz",
       };
     }
     const targets = await prisma.dropItem.findMany({
@@ -517,12 +621,31 @@ export async function scatterAreaAction(
     if (targets.length === 0) {
       return { ok: false, error: "Všechny kusy oblasti už pozici mají" };
     }
-    const pts = scatterPoints(
-      area.centerLat,
-      area.centerLng,
-      area.scatterRadiusM,
-      targets.length,
-    );
+
+    const pts: Array<{ lat: number; lng: number }> = [];
+    let inBoundary = 0;
+    if (boundary) {
+      const got = scatterInBoundary(boundary, targets.length);
+      pts.push(...got.points);
+      inBoundary = got.points.length;
+    }
+    if (pts.length < targets.length) {
+      if (!area.scatterRadiusM) {
+        return {
+          ok: false,
+          error:
+            "Uvnitř hranice se nepodařilo umístit všechny kusy. Nastav i poloměr rozhozu jako záložní.",
+        };
+      }
+      pts.push(
+        ...scatterPoints(
+          area.centerLat,
+          area.centerLng,
+          area.scatterRadiusM,
+          targets.length - pts.length,
+        ),
+      );
+    }
     await prisma.$transaction(
       targets.map((t, i) =>
         prisma.dropItem.update({
@@ -532,13 +655,32 @@ export async function scatterAreaAction(
       ),
     );
     revalidate(campaignId);
-    return { ok: true, placed: targets.length };
+    return { ok: true, placed: targets.length, inBoundary };
   } catch (e) {
     return { ok: false, error: msg(e, "Rozhoz selhal") };
   }
 }
 
 /** Sets one card's position — used by clicking the map. */
+/** Clears a card's position — it goes back to the "still to place" queue
+ *  without losing anything else about it. */
+export async function clearItemPositionAction(
+  campaignId: number,
+  itemId: number,
+): Promise<VoidResult> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    await prisma.dropItem.update({
+      where: { id: itemId },
+      data: { lat: null, lng: null },
+    });
+    revalidate(campaignId);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Smazání pozice selhalo") };
+  }
+}
+
 export async function setItemPositionAction(
   campaignId: number,
   itemId: number,

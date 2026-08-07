@@ -3,15 +3,18 @@
 import { useEffect } from "react";
 import {
   Circle,
-  CircleMarker,
+  GeoJSON,
   MapContainer,
+  Marker,
   TileLayer,
   Tooltip,
   useMap,
   useMapEvents,
 } from "react-leaflet";
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { DROP_STATUS_COLOR, DROP_STATUS_LABEL } from "@/lib/admin/dropVocab";
+import { boundaryBBox, type BoundaryGeometry } from "@/lib/admin/dropBoundary";
 import type { DropStatus } from "@/generated/prisma/enums";
 
 export interface MapPoint {
@@ -39,6 +42,7 @@ export function DropMap({
   center,
   zoom,
   radiusM,
+  boundary,
   points,
   selectedId,
   onSelect,
@@ -47,6 +51,7 @@ export function DropMap({
   center: [number, number];
   zoom: number;
   radiusM: number | null;
+  boundary: BoundaryGeometry | null;
   points: MapPoint[];
   selectedId: number | null;
   onSelect: (id: number) => void;
@@ -66,6 +71,23 @@ export function DropMap({
       <Recenter center={center} zoom={zoom} />
       <ClickToPlace onPlace={onPlace} />
 
+      {/* Drawn first so markers stay clickable on top of it. */}
+      {boundary && (
+        <GeoJSON
+          key={JSON.stringify(boundaryBBox(boundary))}
+          data={boundary as never}
+          // Non-interactive: a click on the town must still place a card,
+          // not get swallowed by the polygon.
+          interactive={false}
+          style={{
+            color: "#0f766e",
+            weight: 2,
+            fillColor: "#14b8a6",
+            fillOpacity: 0.07,
+          }}
+        />
+      )}
+
       {radiusM !== null && (
         <Circle
           center={center}
@@ -82,16 +104,10 @@ export function DropMap({
       {points.map((p) => {
         const selected = p.id === selectedId;
         return (
-          <CircleMarker
+          <Marker
             key={p.id}
-            center={[p.lat, p.lng]}
-            radius={selected ? 11 : 7}
-            pathOptions={{
-              color: selected ? "#111827" : DROP_STATUS_COLOR[p.status],
-              weight: selected ? 3 : 2,
-              fillColor: DROP_STATUS_COLOR[p.status],
-              fillOpacity: 0.85,
-            }}
+            position={[p.lat, p.lng]}
+            icon={cloverIcon(DROP_STATUS_COLOR[p.status], selected)}
             eventHandlers={{
               click: (e) => {
                 // Selecting a marker must not also drop the selected card
@@ -101,14 +117,14 @@ export function DropMap({
               },
             }}
           >
-            <Tooltip direction="top" offset={[0, -8]}>
+            <Tooltip direction="top" offset={[0, -10]}>
               <span className="text-xs">
                 🍀 #{p.findId} · {DROP_STATUS_LABEL[p.status]}
                 {p.placedBy && <> · {p.placedBy}</>}
                 {p.scans > 0 && <> · {p.scans}× sken</>}
               </span>
             </Tooltip>
-          </CircleMarker>
+          </Marker>
         );
       })}
     </MapContainer>
@@ -143,4 +159,45 @@ function ClickToPlace({
     },
   });
   return null;
+}
+
+/**
+ * The same four-circle clover the public /mapa paints for a find, tinted
+ * by lifecycle instead of by theme.
+ *
+ * A coloured dot said "a thing is here"; the clover says WHAT is here,
+ * which matters on a map that also carries a town outline and a scatter
+ * circle. Selection gets a dark ring rather than a bigger shape, so the
+ * markers keep their size and the eye tracks the position, not the blob.
+ *
+ * Cached per (colour, selected): Leaflet re-renders a marker's DOM
+ * whenever its `icon` prop is a new object, and a hundred of them
+ * re-rendering on every pan is exactly the jank this map cannot afford.
+ */
+const ICON_BOX = 24;
+const iconCache = new Map<string, L.DivIcon>();
+
+function cloverIcon(color: string, selected: boolean): L.DivIcon {
+  const key = `${color}|${selected}`;
+  const hit = iconCache.get(key);
+  if (hit) return hit;
+  const icon = L.divIcon({
+    className: "",
+    html: `
+      <svg viewBox="0 0 32 32" width="${ICON_BOX}" height="${ICON_BOX}" aria-hidden="true" focusable="false">
+        <circle cx="16" cy="16" r="15" fill="#ffffff" opacity="0.9" />
+        ${selected ? '<circle cx="16" cy="16" r="15" fill="none" stroke="#111827" stroke-width="2.5" />' : ""}
+        <g fill="${color}">
+          <circle cx="16" cy="11" r="5" />
+          <circle cx="11" cy="16" r="5" />
+          <circle cx="21" cy="16" r="5" />
+          <circle cx="16" cy="21" r="5" />
+        </g>
+        <circle cx="16" cy="16" r="3" fill="${color}" stroke="#ffffff" stroke-width="1" />
+      </svg>`,
+    iconSize: [ICON_BOX, ICON_BOX],
+    iconAnchor: [ICON_BOX / 2, ICON_BOX / 2],
+  });
+  iconCache.set(key, icon);
+  return icon;
 }

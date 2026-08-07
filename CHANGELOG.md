@@ -9,6 +9,33 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Darování ve světě — hranice měst a práce s mapou (6. fáze)
+- **Oblast zná obrys svého města.** Tlačítko „Najít hranici“ se zeptá
+  OpenStreetMap, nabídne, co našlo, a ty vybereš. Vybraný obrys se uloží
+  k oblasti a víc se už nikam nevolá.
+- Nabídka je řazená od nejmenšího: na „Zlín“ je první **město Zlín**, ne
+  Zlínský kraj — a rozdíl je vidět, protože u každé možnosti je napsané,
+  co to je a z kolika bodů se skládá.
+- **Náhodný rozhoz míří dovnitř hranice.** Kruh o poloměru 2,5 km kolem
+  Zlína je z půlky kopec a pole; teď kusy padnou do města. Poloměr zůstal
+  jako záloha pro oblast bez hranice.
+- Formulář oblasti má **náhledovou mapu** se středem, poloměrem a hranicí,
+  která sleduje, co zrovna píšeš.
+- **Mapa úkrytů má dva seznamy**: vlevo kusy bez pozice, vpravo umístěné.
+  Umístěný kus tak nezmizí — dá se vybrat a překlepnout jinam, nebo mu
+  pozici úplně zrušit a vrátit ho do fronty.
+- Značky v mapě jsou **čtyřlístky** obarvené podle stavu, ne pouhé tečky —
+  stejný tvar, jaký má nález na veřejné `/mapa`.
+- **Texty v dialogu kusu jsou předvyplněné textem sady.** Upravovat se dá
+  rovnou, změněné pole se označí jako *upraveno* a jde vrátit ze sady —
+  po jednom nebo všechny naráz. Co zůstane shodné se sadou, dál sadu
+  sleduje, takže pozdější změna vlny se propíše i sem.
+- U kusu přibylo **Upravit** jako tlačítko. Klikání do QR kódu bylo hádání
+  a stovka karet se u toho překreslovala; dialog teď naskočí okamžitě.
+- Hromadně nad výběrem jde **odkrýt nebo skrýt nápovědu**.
+- Formuláře v „Kusech“ i „Oblastech“ konečně lícují — jednořádkové prvky
+  mají jednu výšku a řádek z pole, výběru a tlačítka sedí na pixel.
+
 ### Darování ve světě — tisk kartiček (5. fáze)
 - **Text pod QR kódem** — druhý řádek kartičky, pod samotným kódem. Výchozí
   u sady, přepsatelný u jednoho kusu, se sloupcem v tabulce. Prázdný
