@@ -734,8 +734,8 @@
     "highestPlaceShowFinds": "Ukázat {count} 🍀 →",
     "highestPlaceOpenLocation": "Detail lokality",
     "whenHeadingGlobal": "První a poslední 🍀",
-    "whenHeadingYear": "Nejdřív a nejpozději v roce",
-    "whenHeadingDay": "Nejdřív a nejpozději ve dne",
+    "whenHeadingYear": "První a poslední 🍀 v roce",
+    "whenHeadingDay": "První a poslední 🍀 ve dne",
     "whenToggleAria": "Které první a poslední zobrazit",
     "whenToggleGlobal": "Celkově",
     "whenToggleYear": "V roce",
@@ -754,7 +754,8 @@
     "altitudeToggleLow": "Nejníže",
     "distanceDirection": "({direction})",
     "distanceRoseFarLegend": "nejdál v každém směru",
-    "distanceRoseNearLegend": "nejblíž v každém směru"
+    "distanceRoseNearLegend": "nejblíž v každém směru",
+    "timezoneNote": "Všechny časy a data se počítají v Safronově časové zóně (Praha), ne podle nastavení tvého zařízení."
   },
   "Mapa": {
     "metaTitle": "Mapa",

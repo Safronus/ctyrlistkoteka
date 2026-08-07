@@ -18,7 +18,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
-import type { FindState } from "@/generated/prisma/enums";
+import { FindState } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import {
   locationNameResolver,
@@ -1013,6 +1013,44 @@ async function getStatsTimeAndPaceImpl(): Promise<StatsTimeAndPaceResult> {
   };
 }
 
+/**
+ * "The find's GPS is where its location says it should be." Deviated finds —
+ * GPS outside the AOI polygon, or past the location's radius — carry a
+ * position we don't trust, and at the "nearest find" end that's decided in
+ * metres, so one bad fix would win outright. NULL means the location sets no
+ * expectation (no polygon, no centre), which counts as fine.
+ *
+ * Same rule as the tone split on /mapa and the offset chips on /sbirka — see
+ * the canonical SQL in queries/finds.ts.
+ */
+const NOT_DEVIATED = Prisma.sql`
+  COALESCE(
+    CASE
+      WHEN l.polygon IS NOT NULL
+        THEN ST_Covers(l.polygon::geography, f.coordinates::geography)
+      WHEN l.center_point IS NOT NULL THEN
+        COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END) IS NULL
+        OR ST_DistanceSphere(f.coordinates, l.center_point)
+             <= COALESCE(l.radius_m, CASE WHEN l.schema_version = 2 THEN NULL ELSE ${FIND_DEVIATION_RADIUS_M}::float8 END)
+      ELSE NULL
+    END,
+    true
+  )
+`;
+
+/**
+ * Finds whose photo can't be trusted to say WHEN or WHERE it was taken:
+ * BEZGPS and BEZFOTKY. Both usually mean the picture was taken later and
+ * somewhere else, so their clock is no evidence of the time of day.
+ */
+const RELIABLE_TIMESTAMP = Prisma.sql`
+  NOT EXISTS (
+    SELECT 1 FROM find_state_assignments fsa
+    WHERE fsa.find_id = f.id
+      AND fsa.state IN (${FindState.NO_GPS}::"FindState", ${FindState.NO_PHOTO}::"FindState")
+  )
+`;
+
 async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
   const [
     firstFindRow,
@@ -1078,6 +1116,7 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       WHERE f.is_anonymized = false
         AND f.coordinates IS NOT NULL
         AND (SELECT pt FROM ref) IS NOT NULL
+        AND ${NOT_DEVIATED}
       ORDER BY dist_m DESC NULLS LAST
       LIMIT 1
     `,
@@ -1100,6 +1139,7 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       WHERE f.is_anonymized = false
         AND f.coordinates IS NOT NULL
         AND (SELECT pt FROM ref) IS NOT NULL
+        AND ${NOT_DEVIATED}
       ORDER BY dist_m ASC NULLS LAST
       LIMIT 1
     `,
@@ -1154,6 +1194,7 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       LEFT JOIN locations l ON l.id = f.location_id
       WHERE f.found_at IS NOT NULL
         AND date_trunc('day', f.found_at) <> f.found_at
+        AND ${RELIABLE_TIMESTAMP}
       ORDER BY (f.found_at AT TIME ZONE 'Europe/Prague')::time ASC, f.found_at ASC
       LIMIT 1
     `,
@@ -1168,6 +1209,7 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       LEFT JOIN locations l ON l.id = f.location_id
       WHERE f.found_at IS NOT NULL
         AND date_trunc('day', f.found_at) <> f.found_at
+        AND ${RELIABLE_TIMESTAMP}
       ORDER BY (f.found_at AT TIME ZONE 'Europe/Prague')::time DESC, f.found_at DESC
       LIMIT 1
     `,
@@ -1198,10 +1240,12 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
                (((round(degrees(ST_Azimuth((SELECT pt FROM ref), f.coordinates)) / 45)::int % 8) + 8) % 8) AS octant,
                ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref))::float8 AS dist
         FROM finds f
+        LEFT JOIN locations l ON l.id = f.location_id
         WHERE f.is_anonymized = false
           AND f.coordinates IS NOT NULL
           AND (SELECT pt FROM ref) IS NOT NULL
           AND ST_Azimuth((SELECT pt FROM ref), f.coordinates) IS NOT NULL
+          AND ${NOT_DEVIATED}
       )
       SELECT octant,
              count(*) AS count,

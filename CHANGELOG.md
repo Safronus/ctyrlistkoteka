@@ -26,6 +26,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### /statistiky: spolehlivější rekordy a poznámka o časové zóně
+- Do panelu **Nejvzdálenější/Nejbližší 🍀** (i do růžice) se nepočítají
+  **odchýlené nálezy** — jejich GPS neodpovídá lokalitě, a u „nejbližšího" se
+  rozhoduje na metrech, takže jeden špatný fix by vyhrál. Stejné pravidlo jako
+  barevné tóny na `/mapa`.
+- Do statistiky **Ve dne** se nepočítají nálezy se stavem **Bez GPS** a
+  **Bez fotky** — ty se obvykle fotí až později a jinde, takže jejich čas není
+  důkazem denní doby.
+- Titulky se mění podle přepnutí: „První a poslední 🍀 v roce" / „ve dne".
+- U nadpisu stránky přibyla ⓘ s upozorněním, že se **všechno počítá
+  v Safronově časové zóně (Praha)**, ne podle zařízení návštěvníka. Nález
+  z 23:40 v Praze se tak nikomu nepřeklopí do dalšího dne.
+- Přepínač v rohu je řádek, ne absolutně položený prvek — v užším sloupci
+  přetékal přes titulek („NEJVZDÁL…").
+
 ### Doladění panelů na /statistiky
 - Přepínače u **První a poslední 🍀** a **Nejvýše/Nejníže nalezené 🍀** sedí
   vpravo nahoře, nezávisle na titulku — nepřidávají panelu výšku. Na úzkém

@@ -735,8 +735,8 @@
     "highestPlaceShowFinds": "Show {count} 🍀 →",
     "highestPlaceOpenLocation": "Location detail",
     "whenHeadingGlobal": "First and last 🍀",
-    "whenHeadingYear": "Earliest and latest in the year",
-    "whenHeadingDay": "Earliest and latest in the day",
+    "whenHeadingYear": "First and last 🍀 in the year",
+    "whenHeadingDay": "First and last 🍀 in the day",
     "whenToggleAria": "Which first and last to show",
     "whenToggleGlobal": "Overall",
     "whenToggleYear": "In the year",
@@ -755,7 +755,8 @@
     "altitudeToggleLow": "Lowest",
     "distanceDirection": "({direction})",
     "distanceRoseFarLegend": "farthest in each direction",
-    "distanceRoseNearLegend": "nearest in each direction"
+    "distanceRoseNearLegend": "nearest in each direction",
+    "timezoneNote": "All times and dates are computed in Safron's time zone (Prague), not your device's."
   },
   "Mapa": {
     "metaTitle": "Map",

@@ -226,6 +226,7 @@ export function HighlightCards({
                     />
                   ) : null
                 }
+                position="corner"
               />
               <div className="flex flex-1 flex-col justify-center py-2">
               <FindBody
@@ -382,14 +383,16 @@ function CardHeader({
   position?: "stacked" | "corner";
 }) {
   if (position === "corner") {
+    // A row, not an absolutely-positioned overlay: the toggle is up to 180 px
+    // wide and the narrow card's column only 364 px, so absolute positioning
+    // put it straight over the end of the title. `flex-1` centres the title in
+    // whatever space is left, and both stay on one line — no extra height.
     return (
-      <div className="relative flex flex-col items-center gap-2 sm:block">
-        <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-brand-700">
+      <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center">
+        <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-brand-700 sm:flex-1">
           {title}
         </h2>
-        {toggle && (
-          <div className="sm:absolute sm:right-0 sm:top-0">{toggle}</div>
-        )}
+        {toggle && <div className="shrink-0">{toggle}</div>}
       </div>
     );
   }

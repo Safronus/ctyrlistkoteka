@@ -17,6 +17,7 @@ import {
   Heart,
   HelpCircle,
   ImageOff,
+  Info,
   MapPin,
   MapPinOff,
   MapPinX,
@@ -165,7 +166,21 @@ export default async function StatistikyPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <header>
-        <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
+        <h1 className="flex flex-wrap items-center gap-2 text-3xl font-bold text-gray-900">
+          {t("h1")}
+          {/* Every date, hour and day-of-year on this page is bucketed in the
+              collection's own zone, not the visitor's — a find at 23:40 in
+              Prague must not slide into the next day for someone reading from
+              Tokyo. Said out loud here so the numbers are interpretable. */}
+          <span
+            role="img"
+            aria-label={t("timezoneNote")}
+            title={t("timezoneNote")}
+            className="text-gray-400"
+          >
+            <Info className="h-4 w-4" aria-hidden />
+          </span>
+        </h1>
       </header>
 
       <Suspense fallback={<TotalsSkeleton />}>
