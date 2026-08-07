@@ -93,11 +93,6 @@ export interface StatsTotals {
   lastYear: number | null;
 }
 
-export interface MonthlyPoint {
-  month: string; // "YYYY-MM"
-  count: number;
-}
-
 export interface YearlyPoint {
   year: number;
   count: number;

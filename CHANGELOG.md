@@ -7,6 +7,23 @@ seskupené po datech. Vyčerpávající historie je v `git log` — sem patří
 jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 (pravidlo: docs / changelog / readme se drží aktuální).
 
+## 2026-08
+
+### Údržba závislostí a úklid mrtvých grafů
+- Bump skupiny `minor-and-patch` (14 balíčků). Podstatný je **Next 16.2.12**,
+  který nese bezpečnostní 16.2.11 — devět advisories, z toho čtyři High
+  (DoS v App Routeru přes Server Actions, obcházení middleware u single-locale,
+  dvakrát SSRF přes rewrites a Server Actions na custom serveru). Dál Prisma
+  7.9.1, React 19.2.8, recharts 3.10.1, lucide-react 1.28, next-intl 4.13.4.
+- **Smazány čtyři nepoužívané Recharts grafy** (`monthly-line`, `yearly-bars`,
+  `top-locations`, `category-pie`) i jejich dynamický shim `charts-dynamic.tsx`.
+  Neimportoval je nikdo — `/statistiky` dávno kreslí vlastní dlaždice, tabulky
+  a heatmapy. Balíček `recharts` zůstává v závislostech kvůli grafu návštěvnosti
+  v `/admin/visitors`, což je teď jeho jediné použití.
+- S nimi osiřel i zbytek palety: `palette.ts` je zredukovaná na `BRAND`
+  (`BRAND_DARK`, `BRAND_LIGHT`, `ANON`, `CATEGORY_COLORS` a `colorFor` nikdo
+  nepoužíval), a ze `stats.ts` zmizel typ `MonthlyPoint`.
+
 ## 2026-07
 
 ### /statistiky: doladění dlaždic a přepínače
