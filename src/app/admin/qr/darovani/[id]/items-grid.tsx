@@ -7,6 +7,7 @@ import {
   ExternalLink,
   Loader2,
   Plus,
+  Printer,
   QrCode,
   ScanLine,
   Trash2,
@@ -21,6 +22,7 @@ import { DROP_STATUS_LABEL, DROP_STATUS_ORDER } from "@/lib/admin/dropVocab";
 import type { DropStatus } from "@/generated/prisma/enums";
 import { Field, INPUT_CLS, SELECT_CLS } from "../../qr-ui";
 import { ItemDialog } from "./item-dialog";
+import { DropPrintDialog } from "./print-dialog";
 
 export interface ItemView {
   id: number;
@@ -43,6 +45,9 @@ export interface ItemView {
     bonusCs: string;
     bonusEn: string;
     qrTitle: string;
+    qrCaption: string;
+    /** Empty string means "inherit the campaign's size". */
+    sizeCm: string;
     hintCs: string;
     hintEn: string;
   };
@@ -66,11 +71,13 @@ const STATUS_TONE: Record<DropStatus, string> = {
  */
 export function ItemsGrid({
   campaignId,
+  campaignName,
   items,
   areas,
   placers,
 }: {
   campaignId: number;
+  campaignName: string;
   items: ItemView[];
   areas: Array<{ id: number; name: string }>;
   placers: string[];
@@ -86,6 +93,7 @@ export function ItemsGrid({
   const [error, setError] = useState<string | null>(null);
   const [openItem, setOpenItem] = useState<ItemView | null>(null);
   const [svgs, setSvgs] = useState<Record<number, string>>({});
+  const [printing, setPrinting] = useState<number[] | null>(null);
   const [busy, start] = useTransition();
 
   const shown = useMemo(() => {
@@ -140,6 +148,17 @@ export function ItemsGrid({
   const allShownChecked =
     shown.length > 0 && shown.every((i) => selected.has(i.id));
 
+  // Selection wins when there is one, otherwise everything the filters
+  // currently show — so "print what I'm looking at" needs no extra step,
+  // and an accidental whole-wave sheet takes a deliberate filter reset.
+  const printIds = useMemo(
+    () =>
+      selected.size > 0
+        ? shown.filter((i) => selected.has(i.id)).map((i) => i.id)
+        : shown.map((i) => i.id),
+    [shown, selected],
+  );
+
   const run = (
     fn: () => Promise<{ ok: boolean; error?: string }>,
     okMsg: string,
@@ -160,44 +179,57 @@ export function ItemsGrid({
 
   return (
     <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
-      <h2 className="text-sm font-semibold text-gray-900">
-        Kusy{" "}
-        <span className="font-normal text-gray-400">
-          ({items.length.toLocaleString("cs-CZ")})
-        </span>
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-gray-900">
+          Kusy{" "}
+          <span className="font-normal text-gray-400">
+            ({items.length.toLocaleString("cs-CZ")})
+          </span>
+        </h2>
+        <button
+          type="button"
+          disabled={printIds.length === 0}
+          onClick={() => setPrinting(printIds)}
+          className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-800 transition hover:border-brand-400 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Printer className="h-3.5 w-3.5" aria-hidden />
+          {selected.size > 0
+            ? `Tiskový arch (${selected.size} vybraných)`
+            : `Tiskový arch (${printIds.length})`}
+        </button>
+      </div>
 
-      {/* ------------------------------------------------------- adding */}
-      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
-        <div className="min-w-[16rem] flex-1">
-          <Field
-            label="Přidat nálezy do sady"
-            hint="Čísla a intervaly, např. 30001-30111. Musí už být ve sbírce."
+      {/* --------------------------------------------------------- adding
+          One grid row: the spec field, the area and the button share a
+          baseline, and the hint hangs below without shoving the button
+          out of line — `items-end` on a taller cell used to do exactly
+          that. */}
+      <div className="grid items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:grid-cols-[minmax(16rem,1fr)_11rem_auto]">
+        <Field
+          label="Přidat nálezy do sady"
+          hint="Čísla a intervaly, např. 30001-30111. Musí už být ve sbírce."
+        >
+          <input
+            className={`${INPUT_CLS} font-mono`}
+            value={spec}
+            onChange={(e) => setSpec(e.target.value)}
+            placeholder="30001-30111"
+          />
+        </Field>
+        <Field label="Do oblasti">
+          <select
+            className={SELECT_CLS}
+            value={addArea}
+            onChange={(e) => setAddArea(e.target.value)}
           >
-            <input
-              className={`${INPUT_CLS} font-mono`}
-              value={spec}
-              onChange={(e) => setSpec(e.target.value)}
-              placeholder="30001-30111"
-            />
-          </Field>
-        </div>
-        <div className="w-44">
-          <Field label="Do oblasti">
-            <select
-              className={SELECT_CLS}
-              value={addArea}
-              onChange={(e) => setAddArea(e.target.value)}
-            >
-              <option value="">— bez oblasti —</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
+            <option value="">— bez oblasti —</option>
+            {areas.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </Field>
         <button
           type="button"
           disabled={busy || !spec.trim()}
@@ -225,7 +257,7 @@ export function ItemsGrid({
               router.refresh();
             })
           }
-          className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-50"
+          className="mt-[1.375rem] inline-flex h-[2.125rem] items-center gap-1.5 self-start rounded-md border border-emerald-300 bg-emerald-50 px-3 text-sm font-medium text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-50"
         >
           {busy ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -238,39 +270,52 @@ export function ItemsGrid({
 
       {/* ------------------------------------------------------ filters */}
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Hledat číslo"
-          aria-label="Hledat podle čísla nálezu"
-          className={`${INPUT_CLS} w-32 py-1 text-xs`}
-        />
-        <select
-          className={`${SELECT_CLS} w-auto py-1 text-xs`}
-          value={areaFilter}
-          onChange={(e) => setAreaFilter(e.target.value)}
-        >
-          <option value="all">Všechny oblasti</option>
-          <option value="none">Bez oblasti</option>
-          {areas.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className={`${SELECT_CLS} w-auto py-1 text-xs`}
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="all">Všechny stavy</option>
-          {DROP_STATUS_ORDER.map((s) => (
-            <option key={s} value={s}>
-              {DROP_STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
+        {/* Each control is boxed to its own width: INPUT_CLS/SELECT_CLS
+            carry `w-full`, and a `w-32` appended after it does NOT win —
+            Tailwind resolves width utilities by stylesheet order, not by
+            the order they appear in the attribute. That is why these three
+            used to stack full-width down the page. */}
+        <div className="w-32">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Hledat číslo"
+            aria-label="Hledat podle čísla nálezu"
+            className={`${INPUT_CLS} py-1 text-xs`}
+          />
+        </div>
+        <div className="w-40">
+          <select
+            className={`${SELECT_CLS} py-1 text-xs`}
+            value={areaFilter}
+            onChange={(e) => setAreaFilter(e.target.value)}
+            aria-label="Filtr oblasti"
+          >
+            <option value="all">Všechny oblasti</option>
+            <option value="none">Bez oblasti</option>
+            {areas.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="w-40">
+          <select
+            className={`${SELECT_CLS} py-1 text-xs`}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filtr stavu"
+          >
+            <option value="all">Všechny stavy</option>
+            {DROP_STATUS_ORDER.map((s) => (
+              <option key={s} value={s}>
+                {DROP_STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </div>
         <button
           type="button"
           disabled={shown.length === 0}
@@ -300,8 +345,10 @@ export function ItemsGrid({
           <span className="font-medium text-brand-900">
             {selected.size} vybráno:
           </span>
+          <div className="w-44">
           <select
-            className={`${SELECT_CLS} w-auto py-1 text-xs`}
+            className={`${SELECT_CLS} py-1 text-xs`}
+            aria-label="Hromadně změnit stav"
             defaultValue=""
             onChange={(e) => {
               const v = e.target.value;
@@ -323,8 +370,11 @@ export function ItemsGrid({
               </option>
             ))}
           </select>
+          </div>
+          <div className="w-44">
           <select
-            className={`${SELECT_CLS} w-auto py-1 text-xs`}
+            className={`${SELECT_CLS} py-1 text-xs`}
+            aria-label="Hromadně přiřadit členu týmu"
             defaultValue=""
             onChange={(e) => {
               const v = e.target.value;
@@ -347,8 +397,11 @@ export function ItemsGrid({
               </option>
             ))}
           </select>
+          </div>
+          <div className="w-52">
           <select
-            className={`${SELECT_CLS} w-auto py-1 text-xs`}
+            className={`${SELECT_CLS} py-1 text-xs`}
+            aria-label="Hromadně přesunout do oblasti"
             defaultValue=""
             onChange={(e) => {
               const v = e.target.value;
@@ -371,6 +424,7 @@ export function ItemsGrid({
               </option>
             ))}
           </select>
+          </div>
           <button
             type="button"
             onClick={() =>
@@ -419,6 +473,14 @@ export function ItemsGrid({
             />
           ))}
         </ul>
+      )}
+
+      {printing && (
+        <DropPrintDialog
+          itemIds={printing}
+          campaignName={campaignName}
+          onClose={() => setPrinting(null)}
+        />
       )}
 
       {openItem && (

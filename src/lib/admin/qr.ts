@@ -351,6 +351,9 @@ export function findQrUrl(findId: number): string {
 export interface RenderFindQrOpts {
   url?: string;
   header?: string | null;
+  /** Line under the code. Null/empty renders nothing and the card loses
+   *  the footer strip entirely, rather than keeping an empty gap. */
+  footer?: string | null;
   density?: QrDensity;
   theme?: QrTheme;
   moduleStyle?: QrModuleStyle;
@@ -372,6 +375,7 @@ export function renderFindQrSvg(
   return renderQrSvg({
     url: opts.url ?? findQrUrl(findId),
     title: opts.header === undefined ? `🍀 #${findId}` : opts.header,
+    caption: opts.footer ?? null,
     theme: opts.theme ?? "brand",
     moduleStyle: opts.moduleStyle ?? "clover",
     center: opts.center ?? "smiley",

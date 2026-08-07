@@ -54,6 +54,26 @@ export interface DropQrOptions {
   border?: string;
   borderRadius?: string;
   borderColor?: string;
+  /** Printed width of the whole card in centimetres. Lives in the option
+   *  bag rather than its own column so it inherits campaign → item for
+   *  free, like every other look setting. */
+  sizeCm?: number;
+}
+
+/** Printed-width bounds, shared by the form, the option reader and the
+ *  sheet layout. The floor is where a UUID landing code stops being
+ *  readable by a phone; the ceiling is a card that no longer fits an A4
+ *  grid usefully. */
+export const DROP_SIZE_MIN_CM = 2;
+export const DROP_SIZE_MAX_CM = 12;
+export const DROP_SIZE_DEFAULT_CM = 4;
+
+/** Clamps to the printable range; anything unparseable falls back to the
+ *  default rather than to zero, which would render an invisible card. */
+export function clampDropSizeCm(v: unknown): number | undefined {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return Math.min(DROP_SIZE_MAX_CM, Math.max(DROP_SIZE_MIN_CM, n));
 }
 
 function pickOne<T extends string>(
@@ -78,6 +98,7 @@ export function readDropQrOptions(raw: unknown): DropQrOptions {
     border: pickOne(o.border, ["none", "frame", "panel", "cut"] as const),
     borderRadius: pickOne(o.borderRadius, ["soft", "round"] as const),
     borderColor: pickOne(o.borderColor, ["theme", "gray"] as const),
+    sizeCm: clampDropSizeCm(o.sizeCm),
   };
 }
 

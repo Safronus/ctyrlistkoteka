@@ -9,6 +9,27 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Darování ve světě — tisk kartiček (5. fáze)
+- **Text pod QR kódem** — druhý řádek kartičky, pod samotným kódem. Výchozí
+  u sady, přepsatelný u jednoho kusu, se sloupcem v tabulce. Prázdný
+  znamená, že pod kódem není nic a kartička je o ten kus nižší.
+- **Velikost tisku** se nastavuje u sady a jednotlivý kus si ji smí
+  přepsat. Taky je v tabulce a bere „4,5“ i „45 mm“… tedy „4,5 cm“.
+- **Tiskový arch (PDF)** z vybraných kusů, nebo ze všech, co zrovna
+  procházejí filtrem. Kartičky se skládají po řádcích, takže jeden kus
+  s jinou velikostí nerozhodí zbytek stránky.
+- Volitelná **mezera** mezi kartičkami (0–12 mm) na nůžky a laminovací
+  okraj, a **ořezové linky** buď jako rohové značky mimo kartičku, nebo
+  jako rámeček kolem ní — nebo žádné.
+- Volitelně se vedle každé kartičky vytiskne **drobné číslo nálezu**.
+  Pomůcka na rozdělení kusů mezi tým; po ustřižení na kartičce nezůstane.
+- U velké dávky se dopředu řekne, kolik to bude megabajtů a minut.
+  Skládá se to v prohlížeči — jinak by z tiskárny vylezl prázdný
+  čtvereček místo 🍀 v titulku.
+- Formulář sady i seznam kusů přestaly být rozházené: tiskové věci mají
+  vlastní pruh, filtry drží svoje šířky a dialog kusu se konečně kreslí
+  **nad mapou** místo pod ní.
+
 ### Darování ve světě — tabulka a nápovědy (4. fáze)
 - **Celá sada se stáhne jako xlsx** a po úpravě v Excelu nahraje zpět.
   Sto kartiček se dá vyplnit hromadně místo proklikávání — souřadnice

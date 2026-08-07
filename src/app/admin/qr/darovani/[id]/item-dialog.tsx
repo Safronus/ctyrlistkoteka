@@ -3,7 +3,12 @@
 import { useEffect, useState, useTransition } from "react";
 import { Loader2, Save, X } from "lucide-react";
 import { saveItemAction } from "../../drop-actions";
-import { DROP_STATUS_LABEL, DROP_STATUS_ORDER } from "@/lib/admin/dropVocab";
+import {
+  DROP_STATUS_LABEL,
+  DROP_STATUS_ORDER,
+  DROP_SIZE_MAX_CM,
+  DROP_SIZE_MIN_CM,
+} from "@/lib/admin/dropVocab";
 import { Field, INPUT_CLS, SELECT_CLS } from "../../qr-ui";
 import type { ItemView } from "./items-grid";
 
@@ -69,6 +74,8 @@ export function ItemDialog({
         bonusCs: form.bonusCs,
         bonusEn: form.bonusEn,
         qrTitle: form.qrTitle,
+        qrCaption: form.qrCaption,
+        sizeCm: form.sizeCm,
         hintCs: form.hintCs,
         hintEn: form.hintEn,
         hintPublished: form.hintPublished,
@@ -82,7 +89,7 @@ export function ItemDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+    <div className="fixed inset-0 z-[1100] flex items-start justify-center overflow-y-auto bg-black/40 p-4">
       <div className="my-8 w-full max-w-3xl space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -218,14 +225,39 @@ export function ItemDialog({
           </Field>
         </div>
 
-        <Field label="Titulek na QR" hint="Prázdné = ze sady.">
-          <input
-            className={INPUT_CLS}
-            value={form.qrTitle}
-            onChange={(e) => set("qrTitle", e.target.value)}
-            placeholder="dědí ze sady"
-          />
-        </Field>
+        <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem]">
+          <Field label="Titulek nad QR" hint="Prázdné = ze sady.">
+            <input
+              className={INPUT_CLS}
+              value={form.qrTitle}
+              onChange={(e) => set("qrTitle", e.target.value)}
+              placeholder="dědí ze sady"
+            />
+          </Field>
+          <Field label="Text pod QR" hint="Prázdné = ze sady.">
+            <input
+              className={INPUT_CLS}
+              value={form.qrCaption}
+              onChange={(e) => set("qrCaption", e.target.value)}
+              placeholder="dědí ze sady"
+            />
+          </Field>
+          <Field label="Velikost tisku" hint="Prázdné = ze sady.">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min={DROP_SIZE_MIN_CM}
+                max={DROP_SIZE_MAX_CM}
+                step={0.1}
+                className={`${INPUT_CLS} tabular-nums`}
+                value={form.sizeCm}
+                onChange={(e) => set("sizeCm", e.target.value)}
+                placeholder="ze sady"
+              />
+              <span className="shrink-0 text-xs text-gray-500">cm</span>
+            </div>
+          </Field>
+        </div>
 
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
           <div className="grid gap-4 sm:grid-cols-2">

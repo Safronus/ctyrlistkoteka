@@ -4,6 +4,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, Loader2, Save } from "lucide-react";
 import { updateCampaignAction, type CampaignInput } from "../../drop-actions";
+import {
+  DROP_SIZE_DEFAULT_CM,
+  DROP_SIZE_MAX_CM,
+  DROP_SIZE_MIN_CM,
+} from "@/lib/admin/dropVocab";
 import { Field, INPUT_CLS } from "../../qr-ui";
 
 /** Campaign-wide defaults: the message every card inherits unless it
@@ -77,7 +82,7 @@ export function CampaignSettings({
             </Field>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid items-start gap-x-4 gap-y-4 sm:grid-cols-2">
             <Field label="Nadpis (česky)">
               <input
                 className={INPUT_CLS}
@@ -124,8 +129,13 @@ export function CampaignSettings({
                 onChange={(e) => set("bonusEn", e.target.value)}
               />
             </Field>
+          </div>
+
+          {/* Card print settings — their own strip, because they describe
+              the physical object rather than the landing page above. */}
+          <div className="grid items-start gap-x-4 gap-y-4 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem]">
             <Field
-              label="Titulek na QR"
+              label="Titulek nad QR"
               hint="Prázdné = „🍀 #<číslo>“ podle nálezu."
             >
               <input
@@ -134,15 +144,42 @@ export function CampaignSettings({
                 onChange={(e) => set("qrTitle", e.target.value)}
               />
             </Field>
-            <Field label="Kdo rozmisťuje" hint="Jedno jméno na řádek.">
-              <textarea
-                rows={4}
-                className={`${INPUT_CLS} resize-y`}
-                value={cfg.placers}
-                onChange={(e) => set("placers", e.target.value)}
+            <Field
+              label="Text pod QR"
+              hint="Prázdné = pod kódem není nic."
+            >
+              <input
+                className={INPUT_CLS}
+                value={cfg.qrCaption}
+                onChange={(e) => set("qrCaption", e.target.value)}
+                placeholder="např. ctyrlistkoteka.cz"
               />
             </Field>
+            <Field label="Velikost tisku" hint={`${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM} cm, šířka kartičky.`}>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={DROP_SIZE_MIN_CM}
+                  max={DROP_SIZE_MAX_CM}
+                  step={0.1}
+                  className={`${INPUT_CLS} tabular-nums`}
+                  value={cfg.sizeCm}
+                  onChange={(e) => set("sizeCm", e.target.value)}
+                  placeholder={String(DROP_SIZE_DEFAULT_CM)}
+                />
+                <span className="shrink-0 text-xs text-gray-500">cm</span>
+              </div>
+            </Field>
           </div>
+
+          <Field label="Kdo rozmisťuje" hint="Jedno jméno na řádek.">
+            <textarea
+              rows={4}
+              className={`${INPUT_CLS} resize-y sm:max-w-sm`}
+              value={cfg.placers}
+              onChange={(e) => set("placers", e.target.value)}
+            />
+          </Field>
 
           {error && (
             <p className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800">

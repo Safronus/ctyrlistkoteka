@@ -4,13 +4,19 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, getRequestIp } from "@/lib/admin/session";
 import { appendAudit } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db";
-import { DropStatus } from "@/generated/prisma/client";
+import { DropStatus, Prisma } from "@/generated/prisma/client";
 import { parseRanges } from "@/lib/parseRanges";
 import { parseGps, formatGpsDecimal } from "@/lib/parseGps";
 import { newDropToken, scatterPoints } from "@/lib/admin/drops";
 import { parseDropXlsx } from "@/lib/admin/dropXlsx";
 import { renderFindQrSvg } from "@/lib/admin/qr";
-import { dropLandingUrl, mergeDropQrOptions } from "@/lib/admin/drops";
+import {
+  dropLandingUrl,
+  mergeDropQrOptions,
+  readDropQrOptions,
+  clampDropSizeCm,
+  DROP_SIZE_DEFAULT_CM,
+} from "@/lib/admin/drops";
 import type {
   QrTheme,
   QrModuleStyle,
@@ -70,8 +76,28 @@ export interface CampaignInput {
   bonusCs: string;
   bonusEn: string;
   qrTitle: string;
+  qrCaption: string;
+  /** Printed width in cm, as typed. Empty falls back to the default. */
+  sizeCm: string;
   /** Newline- or comma-separated crew names. */
   placers: string;
+}
+
+/**
+ * Writes the print size into the campaign's option bag without touching
+ * the look settings that share it — density, theme, border and friends
+ * are set elsewhere and a blind overwrite would silently reset them.
+ */
+function withSizeCm(existing: unknown, raw: string): Prisma.InputJsonObject {
+  const bag: Record<string, unknown> = {
+    ...(existing && typeof existing === "object"
+      ? (existing as Record<string, unknown>)
+      : {}),
+  };
+  const size = clampDropSizeCm(raw.replace(",", "."));
+  if (size === undefined) delete bag.sizeCm;
+  else bag.sizeCm = size;
+  return bag as Prisma.InputJsonObject;
 }
 
 function parsePlacers(raw: string): string[] {
@@ -109,6 +135,8 @@ export async function createCampaignAction(
         bonusCs: nullable(input.bonusCs, 20_000),
         bonusEn: nullable(input.bonusEn, 20_000),
         qrTitle: nullable(input.qrTitle, 200),
+        qrCaption: nullable(input.qrCaption, 200),
+        qrOptions: withSizeCm(null, str(input.sizeCm, 10)),
         placers: parsePlacers(String(input.placers ?? "")),
       },
       select: { id: true },
@@ -133,6 +161,10 @@ export async function updateCampaignAction(
     return { ok: false, error: "Vyplň český nadpis a text" };
   }
   try {
+    const current = await prisma.dropCampaign.findUnique({
+      where: { id },
+      select: { qrOptions: true },
+    });
     await prisma.dropCampaign.update({
       where: { id },
       data: {
@@ -145,6 +177,8 @@ export async function updateCampaignAction(
         bonusCs: nullable(input.bonusCs, 20_000),
         bonusEn: nullable(input.bonusEn, 20_000),
         qrTitle: nullable(input.qrTitle, 200),
+        qrCaption: nullable(input.qrCaption, 200),
+        qrOptions: withSizeCm(current?.qrOptions, str(input.sizeCm, 10)),
         placers: parsePlacers(String(input.placers ?? "")),
       },
     });
@@ -152,24 +186,6 @@ export async function updateCampaignAction(
     return { ok: true };
   } catch (e) {
     return { ok: false, error: msg(e, "Uložení sady selhalo") };
-  }
-}
-
-/** Saves the campaign's default QR look. */
-export async function saveCampaignQrAction(
-  id: number,
-  options: Record<string, string>,
-): Promise<VoidResult> {
-  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
-  try {
-    await prisma.dropCampaign.update({
-      where: { id },
-      data: { qrOptions: options },
-    });
-    revalidate(id);
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: msg(e, "Uložení vzhledu selhalo") };
   }
 }
 
@@ -338,6 +354,9 @@ export interface ItemInput {
   bonusCs: string;
   bonusEn: string;
   qrTitle: string;
+  qrCaption: string;
+  /** Printed width in cm. Empty = inherit the campaign's size. */
+  sizeCm: string;
   hintCs: string;
   hintEn: string;
   hintPublished: boolean;
@@ -367,9 +386,18 @@ export async function saveItemAction(
     ? (input.status as DropStatus)
     : DropStatus.PREPARED;
   try {
+    const current = await prisma.dropItem.findUnique({
+      where: { id: itemId },
+      select: { qrOptions: true },
+    });
+    // An item's option bag is an override layer: with no size of its own
+    // it must stay ABSENT rather than become the campaign's value copied
+    // in, otherwise changing the wave's size would stop propagating.
+    const bag = withSizeCm(current?.qrOptions, str(input.sizeCm, 10));
     await prisma.dropItem.update({
       where: { id: itemId },
       data: {
+        qrOptions: Object.keys(bag).length > 0 ? bag : Prisma.DbNull,
         areaId: input.areaId,
         status,
         placedBy: nullable(input.placedBy, 120),
@@ -382,6 +410,7 @@ export async function saveItemAction(
         bonusCs: nullable(input.bonusCs, 20_000),
         bonusEn: nullable(input.bonusEn, 20_000),
         qrTitle: nullable(input.qrTitle, 200),
+        qrCaption: nullable(input.qrCaption, 200),
         hintCs: nullable(input.hintCs, 5_000),
         hintEn: nullable(input.hintEn, 5_000),
         hintPublished: input.hintPublished === true,
@@ -536,6 +565,48 @@ export async function setItemPositionAction(
 }
 
 /** Renders one card's QR exactly as it will print. */
+/**
+ * One card's code, exactly as it will print.
+ *
+ * Title, caption and every look setting resolve item-over-campaign here
+ * and nowhere else, so the grid preview, the single preview and the print
+ * sheet cannot drift apart — the whole point of previewing in centimetres
+ * is that what you see is what comes out of the printer.
+ */
+function renderItem(item: DropItemWithCampaign): {
+  id: number;
+  findId: number;
+  svg: string;
+  url: string;
+  sizeCm: number;
+} {
+  const url = dropLandingUrl(item.token);
+  const o = mergeDropQrOptions(item.campaign.qrOptions, item.qrOptions);
+  return {
+    id: item.id,
+    findId: item.findId,
+    url,
+    sizeCm: o.sizeCm ?? DROP_SIZE_DEFAULT_CM,
+    svg: renderFindQrSvg(item.findId, {
+      url,
+      header: item.qrTitle ?? item.campaign.qrTitle ?? `🍀 #${item.findId}`,
+      footer: item.qrCaption ?? item.campaign.qrCaption ?? null,
+      density: (o.density ?? "medium") as QrDensity,
+      theme: o.theme as QrTheme | undefined,
+      moduleStyle: o.moduleStyle as QrModuleStyle | undefined,
+      center: o.center as QrCenter | undefined,
+      centerScale: o.centerScale as QrCenterScale | undefined,
+      border: o.border as QrBorder | undefined,
+      borderRadius: o.borderRadius as QrBorderRadius | undefined,
+      borderColor: o.borderColor as QrBorderColor | undefined,
+    }),
+  };
+}
+
+type DropItemWithCampaign = Prisma.DropItemGetPayload<{
+  include: { campaign: true };
+}>;
+
 export async function renderDropQrAction(
   itemId: number,
 ): Promise<Result<{ svg: string; url: string }>> {
@@ -546,25 +617,8 @@ export async function renderDropQrAction(
       include: { campaign: true },
     });
     if (!item) return { ok: false, error: "Kus nenalezen" };
-    const url = dropLandingUrl(item.token);
-    const o = mergeDropQrOptions(item.campaign.qrOptions, item.qrOptions);
-    const title = item.qrTitle ?? item.campaign.qrTitle ?? `🍀 #${item.findId}`;
-    return {
-      ok: true,
-      url,
-      svg: renderFindQrSvg(item.findId, {
-        url,
-        header: title,
-        density: (o.density ?? "medium") as QrDensity,
-        theme: o.theme as QrTheme | undefined,
-        moduleStyle: o.moduleStyle as QrModuleStyle | undefined,
-        center: o.center as QrCenter | undefined,
-        centerScale: o.centerScale as QrCenterScale | undefined,
-        border: o.border as QrBorder | undefined,
-        borderRadius: o.borderRadius as QrBorderRadius | undefined,
-        borderColor: o.borderColor as QrBorderColor | undefined,
-      }),
-    };
+    const r = renderItem(item);
+    return { ok: true, url: r.url, svg: r.svg };
   } catch (e) {
     return { ok: false, error: msg(e, "Vykreslení QR selhalo") };
   }
@@ -579,7 +633,11 @@ export async function renderDropQrAction(
  */
 export async function renderDropQrBatchAction(
   itemIds: number[],
-): Promise<Result<{ items: Array<{ id: number; svg: string }> }>> {
+): Promise<
+  Result<{
+    items: Array<{ id: number; findId: number; svg: string; sizeCm: number }>;
+  }>
+> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
   const ids = (Array.isArray(itemIds) ? itemIds : [])
     .filter((n) => Number.isInteger(n) && n > 0)
@@ -589,27 +647,13 @@ export async function renderDropQrBatchAction(
     const rows = await prisma.dropItem.findMany({
       where: { id: { in: ids } },
       include: { campaign: true },
+      orderBy: { findId: "asc" },
     });
     return {
       ok: true,
       items: rows.map((item) => {
-        const url = dropLandingUrl(item.token);
-        const o = mergeDropQrOptions(item.campaign.qrOptions, item.qrOptions);
-        return {
-          id: item.id,
-          svg: renderFindQrSvg(item.findId, {
-            url,
-            header: item.qrTitle ?? item.campaign.qrTitle ?? `🍀 #${item.findId}`,
-            density: (o.density ?? "medium") as QrDensity,
-            theme: o.theme as QrTheme | undefined,
-            moduleStyle: o.moduleStyle as QrModuleStyle | undefined,
-            center: o.center as QrCenter | undefined,
-            centerScale: o.centerScale as QrCenterScale | undefined,
-            border: o.border as QrBorder | undefined,
-            borderRadius: o.borderRadius as QrBorderRadius | undefined,
-            borderColor: o.borderColor as QrBorderColor | undefined,
-          }),
-        };
+        const { id, findId, svg, sizeCm } = renderItem(item);
+        return { id, findId, svg, sizeCm };
       }),
     };
   } catch (e) {
@@ -722,6 +766,7 @@ export async function importDropXlsxAction(
           | "bonusCs"
           | "bonusEn"
           | "qrTitle"
+          | "qrCaption"
           | "hintCs"
           | "hintEn",
       ) => {
@@ -742,10 +787,24 @@ export async function importDropXlsxAction(
           "bonusCs",
           "bonusEn",
           "qrTitle",
+          "qrCaption",
           "hintCs",
           "hintEn",
         ] as const
       ).forEach(setText);
+
+      if (v.sizeCm !== undefined) {
+        const bag = withSizeCm(
+          item.qrOptions,
+          v.sizeCm === null ? "" : String(v.sizeCm),
+        );
+        const before = readDropQrOptions(item.qrOptions).sizeCm;
+        const after = readDropQrOptions(bag).sizeCm;
+        if (before !== after) {
+          data.qrOptions = Object.keys(bag).length > 0 ? bag : Prisma.DbNull;
+          if (after === undefined) report.cleared += 1;
+        }
+      }
 
       if (v.area !== undefined) {
         if (v.area === "") {

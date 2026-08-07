@@ -444,6 +444,9 @@ model DropCampaign {
   /// Default title printed above the QR, and the default render options
   /// (same option bag as the rest of the QR admin).
   qrTitle    String?   @map("qr_title") @db.VarChar(200)
+  /// Default line printed UNDER the code. Empty means no line at all —
+  /// the card is then simply shorter.
+  qrCaption  String?   @map("qr_caption") @db.VarChar(200)
   qrOptions  Json?     @map("qr_options")
 
   /// Who can be assigned to hide a card — the crew for this wave. A plain
@@ -517,6 +520,7 @@ model DropItem {
   bonusCs   String? @map("bonus_cs") @db.Text
   bonusEn   String? @map("bonus_en") @db.Text
   qrTitle   String? @map("qr_title") @db.VarChar(200)
+  qrCaption String? @map("qr_caption") @db.VarChar(200)
   qrOptions Json?   @map("qr_options")
   /// Landing image for this one card, relative to the generated dir.
   imagePath String? @map("image_path") @db.VarChar(500)

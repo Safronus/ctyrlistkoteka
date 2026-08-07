@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, X } from "lucide-react";
 import { createCampaignAction, type CampaignInput } from "./drop-actions";
+import { DROP_SIZE_DEFAULT_CM } from "@/lib/admin/dropVocab";
 import { Field, INPUT_CLS } from "./qr-ui";
 
 /** The crew as it stands — pre-filled so the first wave needs no typing.
@@ -20,6 +21,8 @@ const EMPTY: CampaignInput = {
   bonusCs: "",
   bonusEn: "",
   qrTitle: "",
+  qrCaption: "",
+  sizeCm: String(DROP_SIZE_DEFAULT_CM),
   placers: DEFAULT_PLACERS,
 };
 

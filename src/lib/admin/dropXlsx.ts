@@ -1,7 +1,12 @@
 import ExcelJS from "exceljs";
 import { DropStatus } from "@/generated/prisma/client";
 import { parseGps, formatGpsDecimal } from "@/lib/parseGps";
-import { DROP_STATUS_LABEL, DROP_STATUS_ORDER } from "./dropVocab";
+import {
+  DROP_STATUS_LABEL,
+  DROP_STATUS_ORDER,
+  DROP_SIZE_MAX_CM,
+  DROP_SIZE_MIN_CM,
+} from "./dropVocab";
 
 /**
  * Round-trip of a whole wave through one spreadsheet.
@@ -38,7 +43,9 @@ const COLUMNS = [
   { key: "bodyEn", header: "Text EN", width: 40 },
   { key: "bonusCs", header: "Bonus CZ", width: 32 },
   { key: "bonusEn", header: "Bonus EN", width: 32 },
-  { key: "qrTitle", header: "Titulek QR", width: 20 },
+  { key: "qrTitle", header: "Titulek nad QR", width: 20 },
+  { key: "qrCaption", header: "Text pod QR", width: 20 },
+  { key: "sizeCm", header: "Velikost tisku (cm)", width: 18 },
   { key: "hintCs", header: "Nápověda CZ", width: 32 },
   { key: "hintEn", header: "Nápověda EN", width: 32 },
   { key: "hintPublished", header: "Nápověda zveřejněná", width: 20 },
@@ -48,6 +55,22 @@ const COLUMNS = [
 ] as const;
 
 const READ_ONLY = new Set(["landingUrl", "scans", "foundAt"]);
+
+/** Spreadsheet column letter for a key, derived from COLUMNS rather than
+ *  written down — inserting a column used to silently move a dropdown
+ *  onto the wrong field. */
+function columnLetter(key: string): string {
+  const idx = COLUMNS.findIndex((c) => c.key === key);
+  if (idx < 0) throw new Error(`Neznámý sloupec ${key}`);
+  let n = idx + 1;
+  let out = "";
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    out = String.fromCharCode(65 + rem) + out;
+    n = Math.floor((n - 1) / 26);
+  }
+  return out;
+}
 
 export interface DropXlsxRow {
   findId: number;
@@ -63,6 +86,9 @@ export interface DropXlsxRow {
   bonusCs: string;
   bonusEn: string;
   qrTitle: string;
+  qrCaption: string;
+  /** Empty string = inherits the campaign's size. */
+  sizeCm: string;
   hintCs: string;
   hintEn: string;
   hintPublished: boolean;
@@ -103,6 +129,8 @@ export async function buildDropXlsx(
       bonusCs: r.bonusCs,
       bonusEn: r.bonusEn,
       qrTitle: r.qrTitle,
+      qrCaption: r.qrCaption,
+      sizeCm: r.sizeCm,
       hintCs: r.hintCs,
       hintEn: r.hintEn,
       hintPublished: r.hintPublished ? "ano" : "ne",
@@ -117,31 +145,23 @@ export async function buildDropXlsx(
   // remembering them.
   const last = Math.max(2, rows.length + 1);
   const statusList = `"${DROP_STATUS_ORDER.map((s) => DROP_STATUS_LABEL[s]).join(",")}"`;
-  for (let i = 2; i <= last; i++) {
-    ws.getCell(`C${i}`).dataValidation = {
-      type: "list",
-      allowBlank: false,
-      formulae: [statusList],
-    };
-    ws.getCell(`O${i}`).dataValidation = {
-      type: "list",
-      allowBlank: false,
-      formulae: ['"ano,ne"'],
-    };
-    if (placers.length > 0 && placers.join(",").length < 250) {
-      ws.getCell(`D${i}`).dataValidation = {
+  const validate = (key: string, formula: string, allowBlank: boolean) => {
+    const col = columnLetter(key);
+    for (let i = 2; i <= last; i++) {
+      ws.getCell(`${col}${i}`).dataValidation = {
         type: "list",
-        allowBlank: true,
-        formulae: [`"${placers.join(",")}"`],
+        allowBlank,
+        formulae: [formula],
       };
     }
-    if (areaNames.length > 0 && areaNames.join(",").length < 250) {
-      ws.getCell(`B${i}`).dataValidation = {
-        type: "list",
-        allowBlank: true,
-        formulae: [`"${areaNames.join(",")}"`],
-      };
-    }
+  };
+  validate("status", statusList, false);
+  validate("hintPublished", '"ano,ne"', false);
+  if (placers.length > 0 && placers.join(",").length < 250) {
+    validate("placedBy", `"${placers.join(",")}"`, true);
+  }
+  if (areaNames.length > 0 && areaNames.join(",").length < 250) {
+    validate("area", `"${areaNames.join(",")}"`, true);
   }
 
   // A second sheet as the manual — the operator opening this in six
@@ -157,6 +177,8 @@ export async function buildDropXlsx(
     "• Prázdná buňka u textu znamená „převzít ze sady“ — stejně jako prázdné pole v adminu.",
     "• GPS bere desetinné stupně (49.2245, 17.6712), DMS i odkaz z Mapy.cz nebo Google Maps.",
     "• Prázdná GPS pozici smaže.",
+    `• Velikost tisku je šířka kartičky v cm (${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM}). Prázdné = velikost sady.`,
+    "• Text pod QR se tiskne pod kód; prázdné = ze sady, a když ho nemá ani sada, netiskne se nic.",
     "• Poslední tři sloupce jsou jen ke čtení a při importu se ignorují.",
     "• Stav: " + DROP_STATUS_ORDER.map((s) => DROP_STATUS_LABEL[s]).join(", "),
   ]) {
@@ -183,6 +205,8 @@ export interface ParsedDropRow {
     bonusCs: string;
     bonusEn: string;
     qrTitle: string;
+    qrCaption: string;
+    sizeCm: number | null;
     hintCs: string;
     hintEn: string;
     hintPublished: boolean;
@@ -272,6 +296,7 @@ export async function parseDropXlsx(
       "bonusCs",
       "bonusEn",
       "qrTitle",
+      "qrCaption",
       "hintCs",
       "hintEn",
       "area",
@@ -303,6 +328,30 @@ export async function parseDropXlsx(
         );
       } else {
         values.hintPublished = yes;
+      }
+    }
+
+    const rawSize = text("sizeCm");
+    if (rawSize !== undefined) {
+      if (rawSize === "") {
+        values.sizeCm = null; // clears the override → inherits the campaign
+      } else {
+        // Somebody will type "4 cm". Strip the unit by hand — the obvious
+        // /\s*cm$/i backtracks badly enough that the linter flags it.
+        const cleaned = rawSize.replace(",", ".").trim();
+        const bare = cleaned.toLowerCase().endsWith("cm")
+          ? cleaned.slice(0, -2).trim()
+          : cleaned;
+        const n = Number(bare);
+        if (!Number.isFinite(n) || n <= 0) {
+          errors.push(`Řádek ${r}: „${rawSize}“ není velikost v cm.`);
+        } else if (n < DROP_SIZE_MIN_CM || n > DROP_SIZE_MAX_CM) {
+          errors.push(
+            `Řádek ${r}: velikost ${rawSize} cm je mimo ${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM} cm.`,
+          );
+        } else {
+          values.sizeCm = n;
+        }
       }
     }
 

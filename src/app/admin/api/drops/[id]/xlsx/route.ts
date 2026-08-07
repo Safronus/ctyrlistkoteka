@@ -5,7 +5,7 @@ import {
   isAuthenticated,
   touchSession,
 } from "@/lib/admin/session";
-import { dropLandingUrl } from "@/lib/admin/drops";
+import { dropLandingUrl, readDropQrOptions } from "@/lib/admin/drops";
 import { buildDropXlsx, type DropXlsxRow } from "@/lib/admin/dropXlsx";
 import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 
@@ -77,6 +77,10 @@ export async function GET(
     bonusCs: i.bonusCs ?? "",
     bonusEn: i.bonusEn ?? "",
     qrTitle: i.qrTitle ?? "",
+    qrCaption: i.qrCaption ?? "",
+    // Blank when the card has no size of its own — the sheet then reads
+    // "inherits", the same as an empty text cell.
+    sizeCm: readDropQrOptions(i.qrOptions).sizeCm?.toString() ?? "",
     hintCs: i.hintCs ?? "",
     hintEn: i.hintEn ?? "",
     hintPublished: i.hintPublished,

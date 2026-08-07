@@ -9,6 +9,8 @@ import {
   DROP_STATUS_LABEL,
   DROP_STATUS_ORDER,
   dropLandingUrl,
+  readDropQrOptions,
+  DROP_SIZE_DEFAULT_CM,
 } from "@/lib/admin/drops";
 import { CampaignSettings } from "./campaign-settings";
 import { AreaEditor } from "./area-editor";
@@ -72,6 +74,7 @@ export default async function DropCampaignPage({
       i.bodyCs || i.bodyEn ? "text" : null,
       i.bonusCs || i.bonusEn ? "bonus" : null,
       i.qrTitle ? "titulek QR" : null,
+      i.qrCaption ? "text pod QR" : null,
       i.qrOptions ? "vzhled QR" : null,
       i.hintCs || i.hintEn ? "nápověda" : null,
     ].filter(Boolean) as string[],
@@ -83,6 +86,8 @@ export default async function DropCampaignPage({
       bonusCs: i.bonusCs ?? "",
       bonusEn: i.bonusEn ?? "",
       qrTitle: i.qrTitle ?? "",
+      qrCaption: i.qrCaption ?? "",
+      sizeCm: readDropQrOptions(i.qrOptions).sizeCm?.toString() ?? "",
       hintCs: i.hintCs ?? "",
       hintEn: i.hintEn ?? "",
     },
@@ -156,6 +161,10 @@ export default async function DropCampaignPage({
           bonusCs: campaign.bonusCs ?? "",
           bonusEn: campaign.bonusEn ?? "",
           qrTitle: campaign.qrTitle ?? "",
+          qrCaption: campaign.qrCaption ?? "",
+          sizeCm: String(
+            readDropQrOptions(campaign.qrOptions).sizeCm ?? DROP_SIZE_DEFAULT_CM,
+          ),
           placers: campaign.placers.join("\n"),
         }}
       />
@@ -203,6 +212,7 @@ export default async function DropCampaignPage({
 
       <ItemsGrid
         campaignId={campaign.id}
+        campaignName={campaign.name}
         items={items}
         areas={campaign.areas.map((a) => ({ id: a.id, name: a.name }))}
         placers={campaign.placers}
