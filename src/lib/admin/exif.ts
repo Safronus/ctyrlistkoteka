@@ -20,6 +20,8 @@
  * Webpack can't bundle for the browser.
  */
 
+import { reinterpretAsCollectionZone } from "@/lib/collectionTime";
+
 export interface ExifSummary {
   /** Coalesced from DateTimeOriginal / DateTimeDigitized / CreateDate /
    *  ModifyDate. `null` when no field carried a parseable date. */
@@ -108,6 +110,10 @@ export async function readExifSafe(path: string): Promise<ExifSummary> {
       .map(toDate)
       .filter((d): d is Date => d !== null);
     const withClock = candidates.find(hasClockComponent);
+    // EXIF carries a bare wall clock; whichever parser produced it read that
+    // clock in the PROCESS's zone. Re-anchor it in the collection's zone so
+    // the stored instant matches when the photo was actually taken — see
+    // lib/collectionTime.ts for why this can't be fixed at render time alone.
     const dateTaken = withClock ?? candidates[0] ?? null;
 
     // Prefer the auto-unwrapped decimals; fall back to manually decoding
@@ -122,7 +128,9 @@ export async function readExifSafe(path: string): Promise<ExifSummary> {
         : toDecimalDegrees(exif.GPSLongitude, exif.GPSLongitudeRef);
 
     return {
-      dateTaken,
+      // hasClock is read BEFORE re-anchoring: the check looks at the local
+      // components, which the conversion deliberately changes.
+      dateTaken: dateTaken ? reinterpretAsCollectionZone(dateTaken) : null,
       dateTakenHasClock: dateTaken ? hasClockComponent(dateTaken) : false,
       lat: lat !== null && Number.isFinite(lat) ? lat : null,
       lng: lng !== null && Number.isFinite(lng) ? lng : null,

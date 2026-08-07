@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { Compass, Info, MapPin } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -480,7 +481,7 @@ function FindBody({
   return (
     <>
       <p className="text-center text-base font-semibold text-gray-900">
-        {date ? formatDateTimeCs(date, locale) : t("missingDate")}
+        {date ? formatDateTimeCs(date, locale, COLLECTION_TIME_ZONE) : t("missingDate")}
       </p>
       {date && (
         <p className="text-center text-xs text-gray-500">

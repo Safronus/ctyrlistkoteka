@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { notFound } from "next/navigation";
 import {
   CornerDownRight,
@@ -604,8 +605,8 @@ function SummaryGrid({
       </Field>
       {!singleFind && aggregate.firstFoundAt && aggregate.lastFoundAt && (
         <Field label={t("kvDateRange")}>
-          {formatDateCs(new Date(aggregate.firstFoundAt), locale)} –{" "}
-          {formatDateCs(new Date(aggregate.lastFoundAt), locale)}
+          {formatDateCs(new Date(aggregate.firstFoundAt), locale, COLLECTION_TIME_ZONE)} –{" "}
+          {formatDateCs(new Date(aggregate.lastFoundAt), locale, COLLECTION_TIME_ZONE)}
         </Field>
       )}
       {base.coordinates && (
@@ -715,7 +716,7 @@ function FindRefLinks({
       </Link>
       {foundAt && (
         <span className="text-xs text-gray-600">
-          {formatDateCs(new Date(foundAt), locale)}
+          {formatDateCs(new Date(foundAt), locale, COLLECTION_TIME_ZONE)}
         </span>
       )}
       <Link

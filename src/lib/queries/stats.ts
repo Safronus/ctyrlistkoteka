@@ -1183,12 +1183,13 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
     `,
     // Earliest / latest CLOCK TIME, across all days.
     //
-    // Finds whose EXIF carried a date but no clock land on exact UTC
-    // midnight (sync logs them as `date_only_exif`), which would otherwise
-    // win "earliest" outright and say nothing. They're excluded by dropping
-    // rows that sit precisely on midnight UTC — a real find at that instant
-    // is a 1-in-86400 coincidence and losing it beats ranking thousands of
-    // clockless ones.
+    // Finds whose EXIF carried a date but no clock land on exact midnight in
+    // the COLLECTION's zone (sync logs them as `date_only_exif`), which would
+    // otherwise win "earliest" outright and say nothing. Dropped by testing
+    // the local time — a real find at exactly 00:00:00 is a 1-in-86400
+    // coincidence and losing it beats ranking thousands of clockless ones.
+    // (Before the timezone fix this tested midnight UTC, which was the same
+    // thing only because the stored instants were shifted.)
     prisma.$queryRaw<HighlightRow[]>`
       SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
              CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
@@ -1199,7 +1200,7 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       FROM finds f
       LEFT JOIN locations l ON l.id = f.location_id
       WHERE f.found_at IS NOT NULL
-        AND date_trunc('day', f.found_at) <> f.found_at
+        AND (f.found_at AT TIME ZONE 'Europe/Prague')::time <> '00:00:00'
         AND ${RELIABLE_TIMESTAMP}
       ORDER BY (f.found_at AT TIME ZONE 'Europe/Prague')::time ASC, f.found_at ASC
       LIMIT 1
@@ -1214,7 +1215,7 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       FROM finds f
       LEFT JOIN locations l ON l.id = f.location_id
       WHERE f.found_at IS NOT NULL
-        AND date_trunc('day', f.found_at) <> f.found_at
+        AND (f.found_at AT TIME ZONE 'Europe/Prague')::time <> '00:00:00'
         AND ${RELIABLE_TIMESTAMP}
       ORDER BY (f.found_at AT TIME ZONE 'Europe/Prague')::time DESC, f.found_at DESC
       LIMIT 1

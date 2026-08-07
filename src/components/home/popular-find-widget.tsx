@@ -1,4 +1,5 @@
 import { Heart, MapPin, Trophy } from "lucide-react";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { CloverThumbIcon } from "@/components/icons/clover-thumb-icon";
@@ -47,7 +48,7 @@ export async function PopularFindWidget({
 
   const dateLine =
     !winner.isAnonymized && winner.foundAt
-      ? formatShortDateTimeCs(new Date(winner.foundAt), locale)
+      ? formatShortDateTimeCs(new Date(winner.foundAt), locale, COLLECTION_TIME_ZONE)
       : null;
   // Most-recent vote timestamp shown in parens next to the count. Vote timing
   // doesn't identify the location, so it's kept even for anonymized winners.

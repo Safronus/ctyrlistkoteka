@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { cookies } from "next/headers";
 import { Map as MapIcon } from "lucide-react";
 import { FindState } from "@/generated/prisma/enums";
@@ -370,8 +371,8 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
         countryLabel: (code) =>
           options.countries.find((c) => c.code === code)?.name ?? code,
         cityLabel: (name) => name,
-        formatDay: (d) => formatShortDateCs(d, locale),
-        formatInstant: (d) => formatTinyDateTimeCs(d, locale),
+        formatDay: (d) => formatShortDateCs(d, locale, COLLECTION_TIME_ZONE),
+        formatInstant: (d) => formatTinyDateTimeCs(d, locale, COLLECTION_TIME_ZONE),
       })
     : "";
 

@@ -1,4 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { FindState } from "@/generated/prisma/enums";
 import { Camera, Images, MapPin, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -142,7 +143,7 @@ export async function FindCard({
                   "0 1px 4px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.85)",
               }}
             >
-              {formatShortDateTimeCs(find.foundAt, locale)}
+              {formatShortDateTimeCs(find.foundAt, locale, COLLECTION_TIME_ZONE)}
             </p>
           </div>
         )}

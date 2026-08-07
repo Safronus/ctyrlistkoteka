@@ -41,6 +41,11 @@ function toIntlLocale(locale: string | undefined): string {
 export function formatDateCs(
   date: Date | null | undefined,
   locale?: string,
+  /** IANA zone to format in. Always pass the collection's zone: without it
+   *  Intl uses the RUNNING PROCESS's zone, which on the VPS is UTC — that's
+   *  how the same find showed 20:39 in a list and 22:39 on its detail page
+   *  (see lib/collectionTime.ts). */
+  timeZone?: string,
 ): string {
   if (!date) return "—";
   return new Intl.DateTimeFormat(toIntlLocale(locale), {
@@ -48,12 +53,18 @@ export function formatDateCs(
     day: "numeric",
     month: "long",
     year: "numeric",
+      ...(timeZone ? { timeZone } : {}),
   }).format(date);
 }
 
 export function formatShortDateCs(
   date: Date | null | undefined,
   locale?: string,
+  /** IANA zone to format in. Always pass the collection's zone: without it
+   *  Intl uses the RUNNING PROCESS's zone, which on the VPS is UTC — that's
+   *  how the same find showed 20:39 in a list and 22:39 on its detail page
+   *  (see lib/collectionTime.ts). */
+  timeZone?: string,
 ): string {
   if (!date) return "—";
   return new Intl.DateTimeFormat(toIntlLocale(locale), {
@@ -61,6 +72,7 @@ export function formatShortDateCs(
     day: "numeric",
     month: "numeric",
     year: "numeric",
+      ...(timeZone ? { timeZone } : {}),
   }).format(date);
 }
 
@@ -72,6 +84,11 @@ export function formatShortDateCs(
 export function formatShortDateTimeCs(
   date: Date | null | undefined,
   locale?: string,
+  /** IANA zone to format in. Always pass the collection's zone: without it
+   *  Intl uses the RUNNING PROCESS's zone, which on the VPS is UTC — that's
+   *  how the same find showed 20:39 in a list and 22:39 on its detail page
+   *  (see lib/collectionTime.ts). */
+  timeZone?: string,
 ): string {
   if (!date) return "—";
   return new Intl.DateTimeFormat(toIntlLocale(locale), {
@@ -82,6 +99,7 @@ export function formatShortDateTimeCs(
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+      ...(timeZone ? { timeZone } : {}),
   }).format(date);
 }
 

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 
@@ -180,6 +181,7 @@ export default async function PublicLayout({
                   ? formatShortDateTimeCs(
                       new Date(freshness.latestCreatedAt),
                       locale,
+                      COLLECTION_TIME_ZONE,
                     )
                   : null
               }
@@ -189,6 +191,7 @@ export default async function PublicLayout({
                   ? formatShortDateTimeCs(
                       new Date(freshness.firstCreatedAt),
                       locale,
+                      COLLECTION_TIME_ZONE,
                     )
                   : null
               }
@@ -197,6 +200,7 @@ export default async function PublicLayout({
                   ? formatShortDateTimeCs(
                       new Date(freshness.lastBackfillCreatedAt),
                       locale,
+                      COLLECTION_TIME_ZONE,
                     )
                   : null
               }

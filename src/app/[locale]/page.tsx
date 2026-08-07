@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import {
   BarChart3,
   Building2,
@@ -148,7 +149,11 @@ export default async function HomePage() {
   const donationProps = {
     count: totals.donated,
     lastDonated: totals.lastDonatedAt
-      ? formatShortDateCs(new Date(totals.lastDonatedAt), locale)
+      ? formatShortDateCs(
+          new Date(totals.lastDonatedAt),
+          locale,
+          COLLECTION_TIME_ZONE,
+        )
       : null,
     t,
     nf: NF,
@@ -714,7 +719,7 @@ function PeakDayCard({
         {nf.format(peakDay.count)} {t("statFinds", { count: peakDay.count })}
       </p>
       <p className="mt-0.5 text-xs text-gray-500">
-        {formatDateCs(date, locale)}
+        {formatDateCs(date, locale, COLLECTION_TIME_ZONE)}
       </p>
       <p className="mt-0.5 text-xs text-gray-500">
         <span className="font-mono tabular-nums">{fromTo}</span>

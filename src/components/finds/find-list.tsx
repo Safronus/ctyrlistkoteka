@@ -1,4 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { FindState } from "@/generated/prisma/enums";
 import { Camera, Images, MapPin, Trophy } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -205,10 +206,10 @@ function FindListRow({
             </div>
             <span className="shrink-0 whitespace-nowrap text-xs text-gray-500">
               <span className="sm:hidden">
-                {formatTinyDateTimeCs(find.foundAt, locale)}
+                {formatTinyDateTimeCs(find.foundAt, locale, COLLECTION_TIME_ZONE)}
               </span>
               <span className="hidden sm:inline">
-                {formatDateTimeCs(find.foundAt, locale)}
+                {formatDateTimeCs(find.foundAt, locale, COLLECTION_TIME_ZONE)}
               </span>
             </span>
           </div>

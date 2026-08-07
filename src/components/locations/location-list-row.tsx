@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { Link } from "@/i18n/navigation";
 import {
   Camera,
@@ -632,7 +633,7 @@ function FindCard({
         <p className="text-sm font-semibold text-gray-900">{title}</p>
         {found && (
           <p className="text-xs text-gray-600">
-            {formatDateTimeCs(found, locale)}
+            {formatDateTimeCs(found, locale, COLLECTION_TIME_ZONE)}
           </p>
         )}
         {found && (

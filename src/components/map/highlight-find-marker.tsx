@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { Marker, Popup } from "react-leaflet";
 import L, { type Marker as LeafletMarker } from "leaflet";
 import { useLocale, useTranslations } from "next-intl";
@@ -143,7 +144,7 @@ export function HighlightFindMarker({
                 fontSize: 12,
               }}
             >
-              {formatDateTimeCs(find.foundAt, locale)}
+              {formatDateTimeCs(find.foundAt, locale, COLLECTION_TIME_ZONE)}
             </div>
           )}
           <div

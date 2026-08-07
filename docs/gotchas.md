@@ -755,3 +755,38 @@ pnpm sync --only=meta
 Nález si **lokalitu ponechá** — patří k místu, jen ho v něm neumíme zapíchnout.
 Detail pak ukáže poznámku „bez GPS" místo značky a `/mapa` ho vynechá z bodové
 vrstvy.
+
+## 25. Časy nálezů: EXIF nemá zónu, a dvě chyby se navzájem maskovaly
+
+EXIF `DateTimeOriginal` je holý údaj z hodinek — „2026:05:13 20:39:53" bez
+jakékoli časové zóny. Kdo ho načte přes `new Date(y, m, d, …)`, ten ho
+interpretuje **v zóně běžícího procesu**, a VPS běží v UTC. Nález pořízený
+ve Zlíně ve 20:39 se proto uložil jako 20:39Z, tedy o dvě hodiny později,
+než se stal (v zimě o hodinu).
+
+**Proč si toho nikdo dlouho nevšiml:** většina míst na webu formátovala čas
+**bez** zadané zóny, takže ho `Intl` vypsal zpátky v zóně serveru — v UTC —
+a chyba se vyrušila. Jen `/` a detail nálezu zónu zadávaly správně, a proto
+u téhož nálezu ukazovaly 22:39, zatímco seznam 20:39. To byl symptom, podle
+kterého se to našlo (2026-08-07, nález 11336).
+
+Oprava musí být **na obou stranách zároveň**:
+
+1. `src/lib/collectionTime.ts` — EXIF se ukotví jako pražský čas
+   (`reinterpretAsCollectionZone`), dvouprůchodový převod zvládá i přechody
+   letního času a nezávisí na zóně procesu.
+2. Každé volání formátovače dostává `COLLECTION_TIME_ZONE`. **Nikdy nespoléhej
+   na výchozí zónu** — je to zóna serveru, ne sbírky.
+
+Opravit jen jednu z těch dvou věcí zobrazené časy **zhorší**, ne zlepší.
+
+Existující data se opraví jedním DST-korektním příkazem (nepotřebuje sync):
+
+```sql
+UPDATE finds SET found_at = (found_at AT TIME ZONE 'UTC') AT TIME ZONE 'Europe/Prague'
+WHERE found_at IS NOT NULL;
+```
+
+Pozn.: detekce „jen datum, bez času" se proto ptá na půlnoc **v Praze**
+(`(found_at AT TIME ZONE 'Europe/Prague')::time <> '00:00:00'`), ne na
+půlnoc UTC — to bylo totéž jen díky tomu posunu.

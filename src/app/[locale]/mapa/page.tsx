@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { FindState } from "@/generated/prisma/enums";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
@@ -190,8 +191,8 @@ export default async function MapaPage({ searchParams }: PageProps) {
           locationLabel: () => "",
           countryLabel: () => "",
           cityLabel: (name) => name,
-          formatDay: (d) => formatShortDateCs(d, locale),
-          formatInstant: (d) => formatTinyDateTimeCs(d, locale),
+          formatDay: (d) => formatShortDateCs(d, locale, COLLECTION_TIME_ZONE),
+          formatInstant: (d) => formatTinyDateTimeCs(d, locale, COLLECTION_TIME_ZONE),
         },
       )
     : "";

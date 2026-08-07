@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import type { Metadata } from "next";
 import {
   Building2,
@@ -2501,7 +2502,7 @@ function RecordJubileeCard({
               #{find.id}
             </span>
             {!find.isAnonymized && date && (
-              <> · {formatDateTimeCs(date, locale)}</>
+              <> · {formatDateTimeCs(date, locale, COLLECTION_TIME_ZONE)}</>
             )}
             {!find.isAnonymized && find.location && (
               <>
@@ -2612,7 +2613,7 @@ function JubileeCard({
           #{find.id}
         </span>
         <span className="text-xs text-gray-500">
-          {date ? formatDateTimeCs(date, locale) : t("jubileeUnknownDate")}
+          {date ? formatDateTimeCs(date, locale, COLLECTION_TIME_ZONE) : t("jubileeUnknownDate")}
         </span>
       </Link>
       {showMapLink && (
