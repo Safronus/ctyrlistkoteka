@@ -39,6 +39,7 @@ import "dotenv/config";
 import { Prisma } from "@/generated/prisma/client";
 import { createPrismaClient } from "@/lib/prismaClient";
 import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
+import { pingRevalidate } from "@/lib/revalidatePing";
 
 const prisma = createPrismaClient();
 
@@ -170,6 +171,15 @@ async function main() {
     });
   }
   console.log(`· zapsáno do DB: ${found.size} lokalit`);
+
+  // Same nudge sync gives the running server, for the same reason: the
+  // elevation ranking and the highest/lowest card are behind the 10-minute
+  // stats cache, so without this a fresh run wouldn't show up until it
+  // expired. Best-effort and localhost-only (see lib/revalidatePing.ts).
+  const rv = await pingRevalidate();
+  console.log(
+    `· revalidace: ${rv.ok ? "ok" : `neproběhla (${rv.skipped ?? rv.status})`}`,
+  );
 }
 
 main()

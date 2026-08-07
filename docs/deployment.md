@@ -200,6 +200,33 @@ Přidej:
 25 3 * * * find /var/ctyrlistkoteka/data/.admin/import-tmp -mindepth 1 -mtime +1 -exec rm -rf {} + 2>/dev/null
 ```
 
+### Svěžest statistik
+
+Statistiky mají **dvě vrstvy cache**: samotné agregace jsou v `unstable_cache`
+s oknem `STATS_REVALIDATE` (10 min) a značkou `stats`, nad tím jsou ISR cache
+stránek (`/statistiky` 6 h, `/` 1 h).
+
+Po syncu se obojí zahodí **okamžitě**: `scripts/sync.ts` pingne
+`/api/admin/revalidate`, ten zavolá `revalidateTag("stats")` +
+`revalidatePath` pro veřejné stránky. Ping je best-effort a **tiše se
+přeskočí bez `REVALIDATE_TOKEN`** — pak jedeš jen na desetiminutovém okně.
+Ověření v logu syncu:
+
+```bash
+grep -o 'revalidate.ping[^}]*' /var/ctyrlistkoteka/data/.admin/logs/sync-*.log | tail -3
+```
+
+Zdravý stav vypadá `ok=true status=200 skipped=null`; `skipped="no-token"`
+znamená chybějící proměnnou v `.env`.
+
+`scripts/fetch-elevations.ts` pinguje stejně (2026-08-05), jinak by se nový
+žebříček výšek objevil až po vypršení okna.
+
+**Známá mezera:** admin akce mění data pod statistikami (rekordní nález,
+mazání výřezů, hlasy), ale volají jen `revalidatePath`, ne
+`revalidateTag("stats")` — `/statistiky` po nich může být až 10 minut pozadu.
+Není to kritické, jen o tom vědět.
+
 > **Pozn.:** appka `.trash` ani staging sama nemaže (time-based cleanup patří
 > do cronu, ne do request-flow). Když crontab tyhle řádky nemá, adresáře
 > rostou donekonečna — `crontab -l` ověří, jestli tam už jsou.
