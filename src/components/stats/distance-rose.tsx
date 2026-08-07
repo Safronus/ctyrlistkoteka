@@ -40,6 +40,9 @@ export function DistanceRose({
   legend,
 }: {
   points: readonly DistanceRosePoint[];
+  /** Accessible name for the SVG only — not drawn. The spokes label
+   *  themselves, and the card's own toggle already says which end
+   *  ("nejbližší" / "nejvzdálenější") is being shown. */
   legend: string;
 }) {
   return (
@@ -50,13 +53,6 @@ export function DistanceRose({
         role="img"
         aria-label={legend}
       >
-        <circle
-          cx={C}
-          cy={C}
-          r={R}
-          className="fill-none stroke-gray-200"
-          strokeWidth={1}
-        />
         {points.map((p, i) => {
           const [x, y] = at(i, R);
           const [lx, ly] = at(i, R + 20);
@@ -122,7 +118,6 @@ export function DistanceRose({
           );
         })}
       </svg>
-      <p className="mt-1 text-center text-[11px] text-gray-600">{legend}</p>
     </div>
   );
 }

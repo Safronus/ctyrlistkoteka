@@ -86,9 +86,9 @@ export function HighlightCards({
   }> = (
     [
       {
-        value: "global",
-        label: t("whenToggleGlobal"),
-        pair: [firstFind, lastFind],
+        value: "day",
+        label: t("whenToggleDay"),
+        pair: [earliestInDay, latestInDay],
       },
       {
         value: "year",
@@ -96,14 +96,17 @@ export function HighlightCards({
         pair: [earliestInYear, latestInYear],
       },
       {
-        value: "day",
-        label: t("whenToggleDay"),
-        pair: [earliestInDay, latestInDay],
+        value: "global",
+        label: t("whenToggleGlobal"),
+        pair: [firstFind, lastFind],
       },
     ] as const
   ).filter((o) => o.pair[0] ?? o.pair[1]);
 
-  const active = whenOptions.find((o) => o.value === when) ?? whenOptions[0];
+  const active =
+    whenOptions.find((o) => o.value === when) ??
+    whenOptions.find((o) => o.value === "global") ??
+    whenOptions[0];
   const [firstOf, lastOf] = active?.pair ?? [null, null];
 
   const distanceCard = nearest && nearestFind ? nearestFind : farthestFind;
@@ -173,6 +176,7 @@ export function HighlightCards({
                 />
               ) : null
             }
+            position="corner"
           />
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FindHalf
@@ -214,8 +218,8 @@ export function HighlightCards({
                     <Toggle
                       value={nearest ? "near" : "far"}
                       options={[
-                        { value: "far", label: t("distanceToggleFar") },
                         { value: "near", label: t("distanceToggleNear") },
+                        { value: "far", label: t("distanceToggleFar") },
                       ]}
                       onChange={(v) => setNearest(v === "near")}
                       ariaLabel={t("distanceToggleAria")}
@@ -277,14 +281,15 @@ export function HighlightCards({
                 <Toggle
                   value={lowest ? "low" : "high"}
                   options={[
-                    { value: "high", label: t("altitudeToggleHigh") },
                     { value: "low", label: t("altitudeToggleLow") },
+                    { value: "high", label: t("altitudeToggleHigh") },
                   ]}
                   onChange={(v) => setLowest(v === "low")}
                   ariaLabel={t("altitudeToggleAria")}
                 />
               ) : null
             }
+            position="corner"
           />
           <div className="flex flex-1 flex-col justify-center py-2">
             <p className="flex items-center justify-center gap-1.5 text-base font-semibold text-gray-900">
@@ -358,15 +363,36 @@ const CHIP_PRIMARY =
 type T = ReturnType<typeof useTranslations<"Statistiky">>;
 type TimeT = ReturnType<typeof useTranslations<"TimeSince">>;
 
-/** Centred title with the toggle underneath, so a changing title never
- *  shoves the control sideways. */
+/**
+ * Card title with its toggle either underneath (`stacked`) or pinned to the
+ * top-right corner (`corner`).
+ *
+ * `corner` costs no height at all — the control sits beside the title rather
+ * than under it — which matters on the cards where the body is what should
+ * fill the panel. It's absolute only from `sm` up; on a narrow screen it
+ * flows under the title instead of overlapping it.
+ */
 function CardHeader({
   title,
   toggle,
+  position = "stacked",
 }: {
   title: string;
   toggle: React.ReactNode;
+  position?: "stacked" | "corner";
 }) {
+  if (position === "corner") {
+    return (
+      <div className="relative flex flex-col items-center gap-2 sm:block">
+        <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-brand-700">
+          {title}
+        </h2>
+        {toggle && (
+          <div className="sm:absolute sm:right-0 sm:top-0">{toggle}</div>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-center gap-2">
       <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-brand-700">

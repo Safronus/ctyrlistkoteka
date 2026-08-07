@@ -26,6 +26,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Doladění panelů na /statistiky
+- Přepínače u **První a poslední 🍀** a **Nejvýše/Nejníže nalezené 🍀** sedí
+  vpravo nahoře, nezávisle na titulku — nepřidávají panelu výšku. Na úzkém
+  displeji se pod titulek vrátí, aby ho nepřekrývaly.
+- Pořadí přepínačů zleva doprava: **Nejbližší → Nejvzdálenější**,
+  **Nejníže → Nejvýše**, **Ve dne → V roce → Celkově**. Výchozí zapnutí se
+  nemění (nejvzdálenější, nejvýše, celkově).
+- Z růžice zmizela kružnice i popisek pod ní — paprsky se popisují samy a
+  přepínač karty už říká, který konec je zobrazený.
+
 ### Růžice vzdáleností: osm směrů, vypsaná čísla
 - Růžice **nekreslí tvar podle vzdálenosti**. Sbírka sahá od metrů (vedlejší
   ulice) po tisíce kilometrů (Japonsko), takže lineární poloměr sedm z osmi
