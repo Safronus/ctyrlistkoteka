@@ -93,3 +93,26 @@
 - **HEIC v prohlížeči nefunguje** (kromě Safari). V DB uchováváme jen cesty k WebP variantám. Sloupec `original_path` odkazuje na offline archiv (info pro případný export v budoucnu, nepoužívá se v UI).
 - **Leaflet a SSR**: komponenty s Leafletem **musí** být `"use client"` a načtené přes `next/dynamic` s `{ ssr: false }`.
 - **Server Components + Prisma**: Prisma klient se vytváří jako singleton v `src/lib/db.ts`, aby se při HMR nerozjela konexe.
+
+## Počátek měření vzdáleností
+
+Všechny vzdálenosti („N km od Safrona" na `/sbirka`, `/lokality`, v sekci
+„Vzdálenosti" i v panelu Nejvzdálenější/Nejbližší) se počítají od jednoho
+bodu: `DISTANCE_ORIGIN_LOCATION_ID` v `src/lib/constants.ts`, dnes domovská
+lokalita autora (158) — místo, na které je `/mapa` výchozí.
+
+**Proč je to vlastní konstanta a ne `DEFAULT_LOCATION_ID`:** ta má i druhý,
+nesouvisející význam — je to zástupná lokalita, kterou web podstrkuje místo
+skutečné u *anonymizovaných* nálezů. Přepsáním jedné konstanty na jiné id by
+se tiše přesunula i anonymizace, což by nebyla kosmetická změna, ale
+bezpečnostní chyba. Ty dva významy proto zůstávají oddělené.
+
+Změna počátku **nepotřebuje migraci dat** — žádná vzdálenost se neukládá, vše
+se počítá za běhu ze souřadnic. Stačí změnit konstantu a nechat vypršet (nebo
+shodit) statistickou cache.
+
+Když lokalita s tímto id v DB neexistuje, `WITH ref` vrátí NULL a vzdálenosti
+se prostě nezobrazí — stránky se nerozbijí (ověřeno).
+
+**Zbývá:** volitelnost přes `/admin` (fáze 3), aby se bod dal přepnout bez
+zásahu do kódu.

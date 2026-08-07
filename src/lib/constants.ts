@@ -144,6 +144,24 @@ export const DOMINANT_LOCATION_ID = 3;
 export const AUTHOR_LOCATION_ID = 158;
 
 /**
+ * Origin every "how far is this find" measurement is taken from.
+ *
+ * Deliberately its OWN constant rather than reusing DEFAULT_LOCATION_ID, which
+ * happens to have carried this job so far: that id also means "the placeholder
+ * location shown instead of an anonymized find's real one", and the two are
+ * unrelated. Repointing the distance origin by editing DEFAULT_LOCATION_ID
+ * would silently repoint the privacy placeholder too — a security bug wearing
+ * a cosmetic hat.
+ *
+ * Points at the author's home spot (2026-08-05, owner's call): distances read
+ * as "how far from home", which is what a visitor actually wonders. Made
+ * configurable from /admin later; until then this is the single place to
+ * change it, and nothing needs migrating because no distance is ever stored —
+ * they're all computed per request from the coordinates.
+ */
+export const DISTANCE_ORIGIN_LOCATION_ID = AUTHOR_LOCATION_ID;
+
+/**
  * Historical "missing clovers" backfill window — the inclusive find-ID
  * range the user is gradually filling in (older finds that were never
  * scanned/uploaded). The home page's "Poslední nahrání chybějících

@@ -12,7 +12,7 @@ import { unstable_cache } from "next/cache";
 import { locationNameResolver } from "@/lib/locationNameI18n";
 import { prisma } from "@/lib/db";
 import {
-  DEFAULT_LOCATION_ID,
+  DISTANCE_ORIGIN_LOCATION_ID,
   FIND_DEVIATION_RADIUS_M,
   POLYGON_FREE_AREA_M2,
   UNKNOWN_LOCATION_ID,
@@ -653,8 +653,8 @@ export async function listLocations(
     }>
   >`
     WITH ref AS (
-      SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
-      FROM "location_maps" WHERE id = ${DEFAULT_LOCATION_ID}
+      SELECT center_point AS pt FROM locations
+      WHERE id = ${DISTANCE_ORIGIN_LOCATION_ID}
     )
     SELECT id,
            -- Real polygon area (for the "plocha polygonu" field); NULL for

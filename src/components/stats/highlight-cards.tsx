@@ -213,13 +213,13 @@ export function HighlightCards({
               />
               <p
                 className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-500"
-                title={t("distanceFromAuthorTitle")}
+                title={t("distanceFromDefaultTitle")}
               >
                 <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
                 <span className="font-mono tabular-nums text-gray-900">
                   {formatDistance(distanceCard.distanceMeters, locale)}
                 </span>
-                <span>{t("distanceFromAuthorSuffix")}</span>
+                <span>{t("distanceFromMapSuffix")}</span>
               </p>
               <div className="mt-3">
                 <FindButtons find={distanceCard} t={t} />

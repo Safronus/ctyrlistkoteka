@@ -26,9 +26,9 @@ import {
 } from "@/lib/locationNameI18n";
 import {
   AUTHOR_LOCATION_ID,
-  DEFAULT_LOCATION_ID,
   FIND_DEVIATION_RADIUS_M,
   UNKNOWN_LOCATION_ID,
+  DISTANCE_ORIGIN_LOCATION_ID,
 } from "@/lib/constants";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { countryFromCoords } from "@/lib/geo";
@@ -2205,9 +2205,8 @@ async function getStatsDistanceImpl(): Promise<StatsDistanceResult> {
     Array<{ bucket: number; count: bigint }>
   >`
     WITH ref AS (
-      SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
-      FROM location_maps
-      WHERE id = ${DEFAULT_LOCATION_ID}
+      SELECT center_point AS pt FROM locations
+      WHERE id = ${DISTANCE_ORIGIN_LOCATION_ID}
     ),
     distances AS (
       SELECT ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref)) AS dist_m

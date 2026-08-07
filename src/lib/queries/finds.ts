@@ -16,6 +16,7 @@ import {
   DOMINANT_LOCATION_ID,
   FIND_DEVIATION_RADIUS_M,
   UNKNOWN_LOCATION_ID,
+  DISTANCE_ORIGIN_LOCATION_ID,
 } from "@/lib/constants";
 import {
   getFindIdsWithRealPhotos,
@@ -476,8 +477,8 @@ async function hydrate(
     }>
   >`
     WITH ref AS (
-      SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
-      FROM location_maps WHERE id = ${DEFAULT_LOCATION_ID}
+      SELECT center_point AS pt FROM locations
+      WHERE id = ${DISTANCE_ORIGIN_LOCATION_ID}
     )
     SELECT f.id,
            ST_Y(f.coordinates)::float8 AS lat,
@@ -1133,8 +1134,8 @@ async function listFindsByDistance(
     Array<{ id: number; dist_m: number | null }>
   >`
     WITH ref AS (
-      SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
-      FROM location_maps WHERE id = ${DEFAULT_LOCATION_ID}
+      SELECT center_point AS pt FROM locations
+      WHERE id = ${DISTANCE_ORIGIN_LOCATION_ID}
     )
     SELECT id,
            CASE WHEN is_anonymized = false

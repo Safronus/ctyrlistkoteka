@@ -26,6 +26,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Vzdálenosti se měří od domovského bodu, ne od mapy 00001
+- Celý web (`/sbirka`, `/lokality`, sekce „Vzdálenosti", panely na
+  `/statistiky`) počítá vzdálenosti od **domovského bodu autora** — místa, na
+  které je `/mapa` výchozí. Popisky nově říkají „od Safrona".
+- Zavedena samostatná konstanta `DISTANCE_ORIGIN_LOCATION_ID`. Dosud tuhle
+  roli plnilo `DEFAULT_LOCATION_ID`, které má **i druhý význam** — zástupná
+  lokalita u anonymizovaných nálezů. Přepsání jedné konstanty by tiše
+  přesunulo i anonymizaci, což by byla bezpečnostní chyba, ne kosmetika.
+- **Bez migrace dat** — žádná vzdálenost se neukládá, počítá se za běhu.
+  Když počáteční lokalita v DB chybí, vzdálenosti se nezobrazí a nic se
+  nerozbije (ověřeno).
+- Zbývá volitelnost přes `/admin`.
+
 ### /statistiky: růžice vzdáleností a jednotný počátek měření
 - Panel **Nejvzdálenější / Nejbližší 🍀** měří **obě** hodnoty od domovského
   bodu autora (lokalita 158). Dřív byla „nejvzdálenější" od mapy 00001 a
