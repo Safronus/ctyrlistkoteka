@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Odkud nález je, přímo v seznamu i na dlaždici
+- **Seznam na `/sbirka`:** titulek je nově „🍀 #123" a hned za ním stojí
+  **vlaječka, stát a město** — např. „🇨🇿 Česko · ZLÍN".
+- **Dlaždice:** vlaječka státu je vedle ikonky prokliku na mapu, takže je
+  vidět i bez najetí myší. Proužek po najetí má nově druhý řádek se státem
+  a městem a celý je jednou barvou — stejnou zelenou jako datum a čas — a
+  tučně.
+- Údaje se skládají z dat, která stránka už načítá kvůli filtrům, takže
+  přehled nestál žádný dotaz navíc.
+
 ### Dlaždice na /sbirka mají detail po najetí myší
 - Po najetí na dlaždici vyjede zespodu proužek s **číslem a ID lokace, GPS
   souřadnicemi a vzdáleností od Safrona včetně světové strany**. Když myš

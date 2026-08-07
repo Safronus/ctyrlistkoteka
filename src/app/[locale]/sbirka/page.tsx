@@ -5,6 +5,7 @@ import { Map as MapIcon } from "lucide-react";
 import { FindState } from "@/generated/prisma/enums";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizedCountryName } from "@/lib/world-countries";
+import { alpha2FromNumeric, countryFlagEmoji } from "@/lib/countryCodes";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { Link } from "@/i18n/navigation";
 import { CollectionProgressBanner } from "@/components/finds/collection-progress-banner";
@@ -156,9 +157,7 @@ interface PageProps {
   params: Promise<{ locale: string }>;
 }
 
-function pickString(
-  v: string | string[] | undefined,
-): string | undefined {
+function pickString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
   return v;
 }
@@ -312,6 +311,26 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
       ),
   };
 
+  // Place label per LOCATION (flag + localized country + city), built from
+  // the filter-options rows the page already loaded — no extra query. Both
+  // the list rows and the grid tiles' hover strip render it, so it is
+  // resolved once here rather than per find.
+  const countryNameByCode = new Map(
+    options.countries.map((c) => [c.code, c.name]),
+  );
+  const placeByLocation = new Map<
+    number,
+    { flag: string | null; country: string | null; city: string | null }
+  >();
+  for (const l of optionsRaw.locations) {
+    const a2 = l.country ? alpha2FromNumeric(l.country) : null;
+    placeByLocation.set(l.id, {
+      flag: a2 ? countryFlagEmoji(a2) : null,
+      country: (l.country && countryNameByCode.get(l.country)) || null,
+      city: l.city || null,
+    });
+  }
+
   const hasFilters = !!(
     filters.q ||
     filters.exactId ||
@@ -344,8 +363,7 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
       ? progress.maxFindId - progress.minFindId + 1 - progress.count
       : 0;
   const showProgressNotice =
-    progress.count > 0 &&
-    (progressLeadingGap > 0 || progressInternalGaps > 0);
+    progress.count > 0 && (progressLeadingGap > 0 || progressInternalGaps > 0);
 
   // Localized one-line description of the active filters, appended to the
   // "Filtr je aktivní" banner so the visitor sees WHAT is narrowing the
@@ -372,7 +390,8 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
           options.countries.find((c) => c.code === code)?.name ?? code,
         cityLabel: (name) => name,
         formatDay: (d) => formatShortDateCs(d, locale, COLLECTION_TIME_ZONE),
-        formatInstant: (d) => formatTinyDateTimeCs(d, locale, COLLECTION_TIME_ZONE),
+        formatInstant: (d) =>
+          formatTinyDateTimeCs(d, locale, COLLECTION_TIME_ZONE),
       })
     : "";
 
@@ -470,7 +489,8 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
       params.set("loc", String(filters.locationId));
     if (filters.cadastralArea) params.set("city", filters.cadastralArea);
     if (filters.country) params.set("country", filters.country);
-    if (filters.states) for (const s of filters.states) params.append("state", s);
+    if (filters.states)
+      for (const s of filters.states) params.append("state", s);
     if (filters.noState) params.set("nostate", "1");
     if (filters.year) params.set("year", String(filters.year));
     if (filters.dateFrom) params.set("from", dateToString(filters.dateFrom));
@@ -619,12 +639,14 @@ export default async function SbirkaPage({ searchParams, params }: PageProps) {
           finds={result.items}
           votedSet={votedSet}
           voteCounts={voteCounts}
+          placeByLocation={placeByLocation}
         />
       ) : (
         <FindGrid
           finds={result.items}
           votedSet={votedSet}
           voteCounts={voteCounts}
+          placeByLocation={placeByLocation}
         />
       )}
 

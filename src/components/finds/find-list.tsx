@@ -1,4 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
+import type { PlaceLabel } from "./find-card";
 import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { FindState } from "@/generated/prisma/enums";
 import { Camera, Images, MapPin, Trophy } from "lucide-react";
@@ -27,6 +28,7 @@ export async function FindList({
   finds,
   votedSet,
   voteCounts,
+  placeByLocation,
 }: {
   finds: readonly PublicFind[];
   /** Set of find IDs this visitor has already voted for — server
@@ -35,6 +37,8 @@ export async function FindList({
   votedSet?: ReadonlySet<number>;
   /** Per-find vote counts. Map keyed by find ID; missing → 0. */
   voteCounts?: ReadonlyMap<number, number>;
+  /** Flag + country + city per location id, resolved by the page. */
+  placeByLocation?: ReadonlyMap<number, PlaceLabel>;
 }) {
   if (finds.length === 0) {
     const tSbirka = await getTranslations("Sbirka");
@@ -62,6 +66,9 @@ export async function FindList({
             tRow={tRow}
             tOffset={tOffset}
             tCompass={tCompass}
+            place={
+              find.location ? placeByLocation?.get(find.location.id) : undefined
+            }
             voted={votedSet?.has(find.id) ?? false}
             voteCount={voteCounts?.get(find.id) ?? 0}
             // First rows are above the fold — eager-load their thumbnails
@@ -80,6 +87,7 @@ function FindListRow({
   tRow,
   tOffset,
   tCompass,
+  place,
   voted,
   voteCount,
   priority = false,
@@ -89,6 +97,7 @@ function FindListRow({
   tRow: RowT;
   tOffset: OffsetT;
   tCompass: CompassT;
+  place?: PlaceLabel;
   voted: boolean;
   voteCount: number;
   priority?: boolean;
@@ -200,8 +209,21 @@ function FindListRow({
           <div className="flex items-start gap-x-3">
             <div className="flex min-w-0 flex-1 items-baseline gap-x-2">
               <span className="shrink-0 text-base font-semibold text-brand-700 group-hover:underline">
-                #{find.id}
+                🍀 #{find.id}
               </span>
+              {/* Where it came from, right after the number: flag + country
+                  + city. `shrink-0` so a long note can't squeeze it out. */}
+              {place && (place.country || place.city) && (
+                <span
+                  className="shrink-0 whitespace-nowrap text-xs text-gray-500"
+                  title={[place.country, place.city]
+                    .filter(Boolean)
+                    .join(" · ")}
+                >
+                  {place.flag && <span className="mr-1">{place.flag}</span>}
+                  {[place.country, place.city].filter(Boolean).join(" · ")}
+                </span>
+              )}
               {find.notes && (
                 <span
                   className="min-w-0 flex-1 truncate text-sm text-gray-700"

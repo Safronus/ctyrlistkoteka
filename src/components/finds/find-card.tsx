@@ -12,6 +12,14 @@ import { formatGpsApple } from "@/lib/gpsFormat";
 import { formatLocationId } from "@/lib/format";
 import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
 
+/** Flag + localized country + city per location id, resolved once by the
+ *  page (it already holds the filter-options rows) instead of per find. */
+export interface PlaceLabel {
+  flag: string | null;
+  country: string | null;
+  city: string | null;
+}
+
 type OffsetT = Awaited<ReturnType<typeof getTranslations<"LocationOffset">>>;
 type CompassT = Awaited<ReturnType<typeof getTranslations<"Compass">>>;
 
@@ -19,10 +27,13 @@ export async function FindCard({
   find,
   voted,
   voteCount,
+  place,
   priority = false,
   autoHydrate = false,
 }: {
   find: PublicFind;
+  /** Flag + country + city for this find's location, or undefined. */
+  place?: PlaceLabel;
   voted: boolean;
   voteCount: number;
   /** Eager-load this card's thumbnail (first grid row) to fix the LCP. */
@@ -73,6 +84,17 @@ export async function FindCard({
           </Link>
         ) : (
           <span aria-hidden className="h-7 w-7 shrink-0" />
+        )}
+        {/* Country flag right beside the pin — the tile's only hint of where
+            the find is without hovering. */}
+        {place?.flag && (
+          <span
+            className="shrink-0 text-sm leading-none"
+            title={[place.country, place.city].filter(Boolean).join(" · ")}
+            aria-label={[place.country, place.city].filter(Boolean).join(" · ")}
+          >
+            {place.flag}
+          </span>
         )}
 
         {/* Centre — the find number links to the detail page. */}
@@ -187,6 +209,7 @@ export async function FindCard({
         )}
         <FindHoverInfo
           find={find}
+          place={place}
           locale={locale}
           tOffset={tOffset}
           tCompass={tCompass}
@@ -210,11 +233,13 @@ export async function FindCard({
  */
 function FindHoverInfo({
   find,
+  place,
   locale,
   tOffset,
   tCompass,
 }: {
   find: PublicFind;
+  place?: PlaceLabel;
   locale: string;
   tOffset: OffsetT;
   tCompass: CompassT;
@@ -222,36 +247,44 @@ function FindHoverInfo({
   if (find.isAnonymized) return null;
   const loc = find.location;
   const hasDistance = find.distanceFromDefault !== null;
-  if (!loc && !find.coordinates && !hasDistance) return null;
+  const placeLine = place
+    ? [place.country, place.city].filter(Boolean).join(" · ")
+    : "";
+  if (!loc && !placeLine && !find.coordinates && !hasDistance) return null;
+
+  // One literal light green for every line — the same colour the date pill
+  // uses. It can't be a Tailwind class: the dark theme inverts colour
+  // classes, but the strip's backdrop is a fixed literal dark, so the text
+  // has to stay light in both themes.
+  const INK = "#bbf7d0";
 
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-black/85 px-2 py-1.5 transition-transform duration-150 ease-out group-hover:translate-y-0 group-focus-within:translate-y-0"
+      className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-black/85 px-2 py-1.5 font-semibold transition-transform duration-150 ease-out group-focus-within:translate-y-0 group-hover:translate-y-0"
+      style={{ color: INK }}
     >
       {loc && (
         <p
           className={`truncate text-center font-mono leading-tight ${codeSizeClass(loc.code)}`}
-          style={{ color: "#e5e7eb" }}
           title={loc.code}
         >
-          <span style={{ color: "#9ca3af" }}>{formatLocationId(loc.id)}</span>{" "}
-          {loc.code}
+          {formatLocationId(loc.id)} {loc.code}
+        </p>
+      )}
+      {placeLine && (
+        <p className="truncate text-center text-[10px] leading-tight">
+          {place?.flag && <span className="mr-1">{place.flag}</span>}
+          {placeLine}
         </p>
       )}
       {find.coordinates && (
-        <p
-          className="truncate text-center font-mono text-[10px] leading-tight"
-          style={{ color: "#bbf7d0" }}
-        >
+        <p className="truncate text-center font-mono text-[10px] leading-tight">
           {formatGpsApple(find.coordinates.lat, find.coordinates.lng, locale)}
         </p>
       )}
       {hasDistance && (
-        <p
-          className="truncate text-center text-[10px] leading-tight"
-          style={{ color: "#d1d5db" }}
-        >
+        <p className="truncate text-center text-[10px] leading-tight">
           {tOffset("fromDefaultMap", {
             distance: formatDistance(find.distanceFromDefault!, locale),
           })}

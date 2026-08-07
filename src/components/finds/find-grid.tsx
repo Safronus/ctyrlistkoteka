@@ -1,11 +1,12 @@
 import { getTranslations } from "next-intl/server";
 import type { PublicFind } from "@/lib/queries/finds";
-import { FindCard } from "./find-card";
+import { FindCard, type PlaceLabel } from "./find-card";
 
 export async function FindGrid({
   finds,
   votedSet,
   voteCounts,
+  placeByLocation,
   className = "grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4",
   priority = true,
   autoHydrate = false,
@@ -15,6 +16,8 @@ export async function FindGrid({
    *  the grid card variant instead of the list row. */
   votedSet?: ReadonlySet<number>;
   voteCounts?: ReadonlyMap<number, number>;
+  /** See FindCard — powers the hover strip's place line. */
+  placeByLocation?: ReadonlyMap<number, PlaceLabel>;
   /** Forwarded to each card's VoteButton: when the host page is
    *  ISR-cached (can't read the visitor's cookie at render time), the
    *  buttons self-hydrate their voted state on mount. Leave false on
@@ -47,6 +50,9 @@ export async function FindGrid({
             voted={votedSet?.has(find.id) ?? false}
             voteCount={voteCounts?.get(find.id) ?? 0}
             autoHydrate={autoHydrate}
+            place={
+              find.location ? placeByLocation?.get(find.location.id) : undefined
+            }
             // First row (up to 4 cols on lg) is above the fold — eager-load
             // it so the LCP thumbnail isn't lazy. Rest stay lazy.
             priority={priority && i < 4}
