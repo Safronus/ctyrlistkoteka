@@ -10,7 +10,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 ## 2026-08
 
 ### Přerovnaný řádek v seznamu lokalit
-
 - Řádek na `/lokality` má nově pevné pořadí, takže se dá číst po sloupci:
   **1. řádek** číslo lokace, ID lokace a GPS · **2. řádek** popis lokality ·
   **3. řádek** plocha, hustota a vzdálenost od Safrona. Popis dřív sdílel
@@ -26,7 +25,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   chybě v mém skriptu nezapsala, i když jsem ji hlásil jako hotovou.)
 
 ### Seskupení anonymizovaných lokalit a přehlednější seznam map
-
 - **Oprava `/lokality`:** anonymizované lokality se neseskupovaly pod svého
   rodiče a jejich počty nálezů se nesčítaly za dílčí části. Dotaz jim záměrně
   zahazoval vazbu na rodiče — jenže **kód anonymizované lokality je veřejný
@@ -51,12 +49,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   co říká nadpis panelu a pořadí zleva doprava.
 
 ### Přehlednější seznam lokalit a sjednocený panel prvního/posledního nálezu
-
 - **`/lokality`:** kód lokality se v řádku tiskl dvakrát — tučně v titulku
   a ještě jednou drobně o řádek níž. Drobný zmizel a uvolněné místo dostala
   **vzdálenost od Safrona**, takže je ten řádek nově „plocha · hustota ·
   vzdálenost".
-- Tlačítka _Detail lokality_, _Zobrazit na mapě_ a _Zobrazit nálezy lokality_
+- Tlačítka *Detail lokality*, *Zobrazit na mapě* a *Zobrazit nálezy lokality*
   jsou zarovnaná doprava, takže tvoří sloupec místo aby začínala tam, kde
   zrovna skončí počet nálezů.
 - **Mapa, která má dílčí části, má nově modré pozadí** — odliší se tak od
@@ -69,7 +66,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   převzal celý panel. Zarovnání obsahu zůstalo.
 
 ### Doladění statistik a filtrů v QR seznamu
-
 - **Statistiky:** „Nejdelší série dnů s nalezeným 🍀" se přesunula z kalendářní
   sekce (kde visela vedle přepínačů teplotní mapy) do panelu „Odhadovaná doba
   sbírání" jako samostatný řádek přes celou šířku nad čárou oddělující
@@ -84,7 +80,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   jenom roste a tisknou se hlavně čerstvé přírůstky.
 
 ### QR kódy: dvě záložky, sbalitelný seznam s výběrem a rušení kódů
-
 - `/admin/qr` je rozdělená na **dvě záložky** — „QR nálezů" a „QR stránek".
   Každá si nese vlastní počty aktivních kódů a naskenování, takže se čísla
   z obou světů nemíchají.
@@ -111,7 +106,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   vejde, místo aby se ořízl.
 
 ### QR kódy nálezů: hromadná tvorba, trackování a tisk v centimetrech
-
 - `/admin/qr` je nově rozdělená na **dvě oddělené sekce**, aby kódy na
   stránky a kódy na nálezy nesplývaly.
 - **QR nálezů** se dělají hromadně: zadá se číslo, seznam čísel nebo
@@ -157,7 +151,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   serverovém generování by se na kartičky vytiskl prázdný čtvereček.
 
 ### Oprava: časy nálezů byly posunuté o hodinu až dvě
-
 - EXIF `DateTimeOriginal` nenese časovou zónu. Sync ho interpretoval v zóně
   procesu — a ta je na VPS **UTC** — takže nález pořízený ve 20:39 ve Zlíně
   se uložil jako 20:39 UTC, tedy o dvě hodiny později, než se stal.
@@ -172,8 +165,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - Data se opraví jedním SQL příkazem, sync není potřeba. Detekce „jen datum
   bez času" se nově ptá na půlnoc v Praze, ne v UTC.
 
-### Údržba závislostí a úklid mrtvých grafů
 
+### Údržba závislostí a úklid mrtvých grafů
 - Bump skupiny `minor-and-patch` (14 balíčků). Podstatný je **Next 16.2.12**,
   který nese bezpečnostní 16.2.11 — devět advisories, z toho čtyři High
   (DoS v App Routeru přes Server Actions, obcházení middleware u single-locale,
@@ -191,7 +184,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 ## 2026-08
 
 ### /statistiky: nižší panely a přehlednější geo tabulky
-
 - Růžice měla **čtvercový viewBox**, ale kreslila jen prostřední pás — třetina
   výšky byla prázdná. Protože se SVG roztahuje na šířku sloupce, ta prázdnota
   se propisovala do výšky karty (a přes mřížku i do sousední karty s výškou).
@@ -203,7 +195,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   vyrovnanější pohled — říká, kde jsi byl, ne jak štědré bylo jedno pole.
 
 ### /statistiky: spolehlivější rekordy a poznámka o časové zóně
-
 - Do panelu **Nejvzdálenější/Nejbližší 🍀** (i do růžice) se nepočítají
   **odchýlené nálezy** — jejich GPS neodpovídá lokalitě, a u „nejbližšího" se
   rozhoduje na metrech, takže jeden špatný fix by vyhrál. Stejné pravidlo jako
@@ -219,7 +210,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   přetékal přes titulek („NEJVZDÁL…").
 
 ### Doladění panelů na /statistiky
-
 - Přepínače u **První a poslední 🍀** a **Nejvýše/Nejníže nalezené 🍀** sedí
   vpravo nahoře, nezávisle na titulku — nepřidávají panelu výšku. Na úzkém
   displeji se pod titulek vrátí, aby ho nepřekrývaly.
@@ -230,7 +220,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   přepínač karty už říká, který konec je zobrazený.
 
 ### Růžice vzdáleností: osm směrů, vypsaná čísla
-
 - Růžice **nekreslí tvar podle vzdálenosti**. Sbírka sahá od metrů (vedlejší
   ulice) po tisíce kilometrů (Japonsko), takže lineární poloměr sedm z osmi
   paprsků stáhl do středu a nakreslil jediný trn. Logaritmus by obrázek
@@ -244,7 +233,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   „Odchýlení" zůstal beze změny, tam proporcionální tvar dává smysl.
 
 ### Růžice vzdáleností ukazuje osm skutečných nálezů
-
 - Růžice v panelu Nejvzdálenější/Nejbližší už neukazuje počty a průměry, ale
   **osm konkrétních nálezů** — v každém světovém směru ten nejvzdálenější
   (resp. nejbližší, podle přepnutí). Průměr byl tvar, se kterým se nedalo nic
@@ -257,7 +245,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   sekce „Odchýlení" ji používá beze změny dál se dvěma sériemi.
 
 ### Vzdálenosti se měří od domovského bodu, ne od mapy 00001
-
 - Celý web (`/sbirka`, `/lokality`, sekce „Vzdálenosti", panely na
   `/statistiky`) počítá vzdálenosti od **domovského bodu autora** — místa, na
   které je `/mapa` výchozí. Popisky nově říkají „od Safrona".
@@ -271,7 +258,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - Zbývá volitelnost přes `/admin`.
 
 ### /statistiky: růžice vzdáleností a jednotný počátek měření
-
 - Panel **Nejvzdálenější / Nejbližší 🍀** měří **obě** hodnoty od domovského
   bodu autora (lokalita 158). Dřív byla „nejvzdálenější" od mapy 00001 a
   „nejbližší" od Safronuse, takže přepínač porovnával nesrovnatelné.
@@ -282,7 +268,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   mapy 00001 — sjednocení je naplánované zvlášť, viz `docs/architecture.md`.
 
 ### Oprava: nálezy „Bez GPS" měly souřadnice z EXIFu
-
 - Nález se stavem **BEZGPS** znamená „nevíme, kde se našel" — fotka bývá
   pořízená až po utržení jinde. Přesto se jeho EXIF GPS zapisovala do DB,
   takže se kreslila značka v mapce lokality, svítil proklik na `/mapa` a
@@ -296,7 +281,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   zapíchnout.
 
 ### Svěžest statistik i po admin akcích
-
 - Admin akce, které mění data pod agregacemi (rekordní nález, mazání výřezů,
   anonymizace z `/admin/checks`, tabule rozdaných), volaly jen
   `revalidatePath`, takže `/statistiky` po nich mohly být až 10 minut pozadu.
@@ -305,7 +289,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 ## 2026-07
 
 ### /statistiky: přepínatelné rekordní panely
-
 - **První a Poslední 🍀 sloučeny do jednoho panelu** přes celou šířku, se
   třemi pohledy: **Celkově** (jako dosud), **V roce** (nález nejblíž začátku
   a konci kalendářního roku napříč všemi roky — tedy „nejdřív na jaře" a
@@ -323,7 +306,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   rozvržení, takže po dopočtení stránka poskočila.
 
 ### /statistiky: doladění dlaždic a přepínače
-
 - Dlaždice **2×2** místo 3+1 — čtvrtá karta zůstávala trčet sama na druhém
   řádku. Nahoře „kdy" (První / Poslední 🍀), dole „kde" (Nejvzdálenější 🍀 /
   Nejvýše nalezené 🍀).
@@ -336,7 +318,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   displejích zůstala řada tlačítek.
 
 ### /statistiky: nadmořská výška — žebříček i dlaždice
-
 - Nová záložka **„Podle nadmořské výšky"** v Top 10 lokalit a dlaždice
   **„Nejvýše položené místo"** vedle První / Poslední 🍀.
 - Výška se **nebere z fotek**. Změřeno na 29 068 reálných snímků: uvnitř jedné
@@ -359,7 +340,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   na anglické verzi tam zůstávala čeština.
 
 ### /statistiky: vlaječky států, správné názvy zemí, sevřenější panely
-
 - **Názvy států se berou z `Intl.DisplayNames`**, ne z ruční tabulky. „Gruzie"
   se ukazovala jako „Georgia" prostě proto, že v `CZECH_NAMES` chyběla — a
   stejně na tom byla většina zemí na mapě světa („Fiji", „Kazakhstan",
@@ -381,7 +361,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   mezi titulkem a tlačítky. Vzdálenost od mapy #00001 zůstala.
 
 ### EN: názvy lokalit už nezůstávají česky
-
 - Překlad popisku mapy z `/admin/translations` se **nově používá i jako
   anglický název lokality**. Dosud se uplatnil jen na dvou stránkách, takže
   i po pečlivém přeložení viděl anglický návštěvník na `/en/lokality` přes
@@ -400,7 +379,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   se práce nezdvojnásobila a zároveň se jazyky nemíchaly.
 
 ### Drobnosti: dlaždice na domovské stránce a jubilejní panely
-
 - **Domů** — dlaždice s počtem 🍀 je vycentrovaná i svisle. Jakmile jsou
   všechny nálezy nahrané, zmizí z ní řádek „(N nahraných)" a jednořádkový
   obsah pak visel u horní hrany nad dvouřádkovými sousedy.
@@ -419,7 +397,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   (u anonymizovaných prázdný — stavy tam zůstávají skryté jako dosud).
 
 ### /admin/import: strop balíčku 2 GB → 4 GB
-
 - Balíček s ~25 000 nálezy se do 2 GB nevešel. Strop je čistě aplikační
   konstanta (`MAX_IMPORT_ZIP_BYTES` + její klientské zrcadlo) — nic v cestě
   celý soubor nebuffuje: nahrává se po 8 MB blocích na byte offset, analýza
@@ -432,7 +409,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   Import je idempotentní podle ID, takže po nejasném 504 se dá zopakovat.
 
 ### NEZNÁMÁ: doladěný odznak počtu + GPS pryč i ze seznamu
-
 - Odznak u bodu na `/mapa` přepracován: čtyřlístek **20 px** (byl 12 px, kde se
   jeho tmavý obrys slil v blob) a **bez jakéhokoli podkladu** — místo bílé
   pilulky drží čitelnost vlastní bílá záře ikony a bílý halo kolem čísla.
@@ -447,7 +423,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   filtr na lokalitu NEZNÁMÁ se do mapy nepropsal a ukázala se neomezená.
 
 ### Lokalita NEZNÁMÁ: počet na mapě, žádná předstíraná poloha
-
 - **`/mapa`** — bod lokality 00000 dostal k šedému přerušovanému kroužku s „?"
   ještě bílou bublinu s **ikonou čtyřlístku a počtem** nálezů, které tam stojí.
   Jejich vlastní body se nekreslí (poloha neznámá), takže bublina je jediné,
@@ -466,7 +441,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   kterou už měly „Top lokalit" na `/statistiky`.
 
 ### /admin/sync: progress bary s reálnými čísly
-
 - Nad terminálovým logem přibyly **dva progress bary** (Lokační mapy, Nálezy):
   hotovo / celkem, procenta, kolik zbývá, odhad času a rychlost. Po dokončení
   fáze zezelená.
@@ -481,8 +455,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   ten rozpad vypsaný — ať se 42 650 nečte jako počet nálezů.
 - +10 testů parseru na reálných řádcích z produkčního logu.
 
-### Zrušena celá v1 mašinérie u lokačních map
 
+### Zrušena celá v1 mašinérie u lokačních map
 - Po přechodu na v2 zbývalo v `/admin/files/maps` sedm komponent, které
   obsluhovaly už jen „stray" ploché v1 PNG: nahradit soubor, editor popisku,
   přejmenování, označit/obnovit „zaniklé", anonymizace zápisem do PNG tEXt,
@@ -497,7 +471,6 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   Detail mapy teď staví výhradně na manifestu.
 
 ### Zrušen upload na /admin/files/{finds,crops,maps}
-
 - Nahrávání jednotlivých souborů plně nahradil ZIP balíček přes
   `/admin/import` (dvoufázový, s analýzou před zápisem), takže tahle cesta
   zůstávala jako druhá, méně bezpečná varianta téhož — a byla to zrovna ona,
@@ -518,9 +491,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   kterou jsme dnes dvakrát ladili (EXIF čtečka, websocket hlavičky v Nginxu).
 
 ### Nginx: odstraněny websocket hlavičky + pořádná dokumentace
-
 - Z `location /` i `location /admin` na produkci zmizely `proxy_set_header
-Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
+  Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
   websockety nepoužívá a `Connection: upgrade` na každém requestu rozbíjelo
   velké POST uploady do `/admin/api/upload/*` (Safari to hlásilo jako obecné
   „Load failed"). Diagnostikováno už 2026-06-02 (`19c3a47`), ale Nginx půlka
@@ -534,7 +506,6 @@ Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
   nezaměňoval za realitu.
 
 ### 429 Too Many Requests při běžném procházení
-
 - Nginx limit `burst=40` v zóně `ctyr_main` nestačil na to, co dělá jedno
   načtení `/sbirka`: **27** souborů `/_next/static/` + **až 48 RSC prefetchů**
   (Next.js přednačítá odkazy ve viewportu) + dokument = přes 70 requestů
@@ -546,7 +517,6 @@ Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
 - Fotky (`/generated/`) limitem neprocházely už dřív, ty problém nedělaly.
 
 ### /mapa: NEZNÁMÁ má vlastní místo v hlavičce panelu „Lokality"
-
 - Místo poslední položky v seznamu je teď **chip vpravo v hlavičce panelu**
   (na řádku s počtem lokalit a anonymizovaných): šedý, s „?" a počtem 🍀,
   kliknutím se lokalita zaostří. Šedá ladí s jejím markerem na mapě.
@@ -554,7 +524,6 @@ Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
   vypadla (tím i z jeho vyhledávání) — je dostupná právě přes ten chip.
 
 ### 🛑 /sbirka: combobox „Lokalita" tiše zobrazoval jen prvních 200 lokalit
-
 - Seznam měl strop 200 vykreslených položek **bez jakékoli hlášky** (komentář
   v kódu tvrdil, že se zkrácení vypisuje — nevypisovalo). Jakmile sbírka
   přerostla 200 lokalit (dnes 285), řazení podle kódu znamenalo, že strop
@@ -570,7 +539,6 @@ Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
   `loc=0`, a combobox neukázal 00000 jako vybranou lokalitu.
 
 ### 🛑 KRITICKÉ: import balíčku map přepisoval manifest → nálezy ztratily lokalitu
-
 - **Příčina:** `/admin/import` ukládal `manifest.json` z balíčku **přes** ten na
   disku. Balíček s jednou mapou (nová 00000) tak smazal inventář 212 map →
   sync viděl `maps.scan count=1`, 284 lokalit se stalo osiřelými a **nově
@@ -587,7 +555,6 @@ Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
 - +4 testy na merge (jednomapový balíček nesmí zmenšit inventář).
 
 ### /mapa + admin: doladění po mapách v2
-
 - **Potomci jsou na `/mapa` viditelní defaultně.** Se zrušením v1 admin sekce
   pro hierarchii zmizel i způsob, jak nastavit `showOnMapByDefault`, takže
   všechny podlokality byly skryté a musely se zapínat po jedné. Teď se
@@ -602,7 +569,6 @@ Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
   `?variant=rendered`. Když balíček Rendered nedodal, přepínač se skryje.
 
 ### Úklid v1 vestige „NEEXISTUJE-" — zaniklost jen přes `is_cancelled`
-
 - Po plné migraci na v2 (sync upsertuje podle čísla → přepsal staré
   `NEEXISTUJE-…` kódy na čisté + `is_cancelled=true`) už žádný kód prefix nemá.
   Odstraněn celý v1 mechanismus: `isLocationGone` bere jen `is_cancelled`
@@ -613,7 +579,6 @@ Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
   přepsány na nové chování.
 
 ### 🛑 Regrese po přechodu na mapy v2: zaniklé lokality + reálné fotky zmizely
-
 - **Zaniklé/zrušené lokality se přestaly zobrazovat** (na /lokality i ve
   statistikách). Dva count dotazy detekovaly „zaniklou" jen přes v1 prefix
   `code LIKE 'NEEXISTUJE-%'` — jenže v2 sync dává čistý kód + `is_cancelled=true`,
@@ -630,7 +595,6 @@ Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
 - Ověřeno na test DB (zaniklá v2 lokalita 0→1) + regex na reálných v1/v2 názvech.
 
 ### Výchozí lokalita „NEZNÁMÁ" (00000) pro nálezy bez lokality (probíhá)
-
 - Nálezy, u kterých není známá lokalita, se přiřadí na speciální lokalitu
   **NEZNÁMÁ, číslo 00000** (id 0) — importuje se klasicky přes /admin/import.
   Bude skrytá z /lokality, připnutá na konec seznamu na /mapě a vyloučená ze
@@ -686,7 +650,6 @@ Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
   nepoužívá).
 
 ### Odchylky: v2 „bod" (bez rádiusu) se do míry odchylky nepočítá
-
 - v2 lokalita s indikátorem „bod" nemá polygon ani rádius, takže u ní nejde
   určit, jestli je nález odchýlený. Dřív se její nálezy počítaly do jmenovatele
   míry odchylky, ale nikdy do čitatele (práh = NULL → nikdy „odchýlený") →
@@ -694,17 +657,15 @@ Upgrade` / `Connection "upgrade"` / `proxy_cache_bypass`. Next.js v produkci
   vyřadí úplně** (čitatel i jmenovatel i „lokalita s nejvyšší odchylkou"):
   „neumíme posoudit → nepočítáme". Plocha a hustota bod už vylučovaly (nemá
   plochu). Predikát `NOT (COALESCE(schema_version,1)=2 AND polygon IS NULL AND
-radius_m IS NULL)` — `COALESCE` je nutný, aby v1 lokality (schema_version
+  radius_m IS NULL)` — `COALESCE` je nutný, aby v1 lokality (schema_version
   NULL) nedostaly NULL-porovnání a nevypadly taky.
 
 ### Kalendářní heatmapa — širší sloupce
-
 - Čtyřmístné součty (1084, 1107, 1191…) se do 28px sloupce při 11px fontu
   nevešly. Denní sloupce 28 → 32 px, sloupec Σ 40 → 48 px. Tabulka tak zabírá
   ~1074 px z ~1176 px dostupných v sekci — pořád bez vodorovného posuvníku.
 
 ### 🛑 Falešné „chybí EXIF" u KAŽDÉHO admin uploadu
-
 - `/admin/files/{finds,crops}` hlásily u každé nahrané fotky **„Chybí EXIF
   DateTimeOriginal"**, i když ji fotka měla. Příčina: `exifr` nebyl
   v `serverExternalPackages`, takže si ho Next zabalil do server bundlu — jeho
@@ -721,7 +682,6 @@ radius_m IS NULL)` — `COALESCE` je nutný, aby v1 lokality (schema_version
   v externals nikdy nebyl.
 
 ### Admin `/admin/files/maps` → mapy v2 (probíhá)
-
 - **Listing nově čte `manifest.json`, ne plochý `readdir`.** Dřív `/admin/files/maps`
   ukazoval `manifest.json` + adresáře `Nosné mapy`/`Rendered mapy` + staré
   ploché v1 PNG, protože skenoval `data/maps/` naplocho — v2 mapy jsou přitom
@@ -753,7 +713,6 @@ radius_m IS NULL)` — `COALESCE` je nutný, aby v1 lokality (schema_version
   detailu v2 mapy.
 
 ### 🛑 KRITICKÉ: sync auto-prune footgun opraven
-
 - Sync auto-mazal DB řádky map + lokalit na KAŽDÉM běhu (bez `--prune`), zatímco
   nálezy měly gate. Partial upload map (18 map) tak tiše smazal 194 lokalit a
   odpojil jejich nálezy. Navíc to bylo v rozporu s hlavičkou skriptu, která
@@ -761,8 +720,8 @@ radius_m IS NULL)` — `COALESCE` je nutný, aby v1 lokality (schema_version
   **`--prune` nemaže vůbec nic** — balíček map je aditivní upsert set, ne
   autoritativní inventář. Ověřeno na test DB (orphan lokace partial sync přežije).
 
-### `crop-gps.sh` (přenos GPS z originálů na výřezy) + `.DS_Store` hygiena
 
+### `crop-gps.sh` (přenos GPS z originálů na výřezy) + `.DS_Store` hygiena
 - Přidán `scripts/crop-gps.sh` — na VPS přenese GPS + datum z originálů
   (`data/finds/`) na odpovídající výřezy (`data/crops/`) přes číslo nálezu.
   Bez argumentu dry-run, `run` zapisuje (exiftool, `-P` zachová mtime → WebP
@@ -774,7 +733,6 @@ radius_m IS NULL)` — `COALESCE` je nutný, aby v1 lokality (schema_version
   o `--exclude='.DS_Store'`; nový gotcha #19.
 
 ### Statistiky → hustota: kuriozity + férovější žebříček
-
 - **Mikrolokality pod 1 m² už neválcují žebříček „Podle hustoty".** Lokalita
   s poloměrem 15 cm (plocha ≈ 0,07 m²) dosáhne hustoty v tisících 🍀/100 m² a
   smrskla by všechny ostatní sloupce na nitku. Nově jsou lokality s plochou
@@ -786,7 +744,6 @@ radius_m IS NULL)` — `COALESCE` je nutný, aby v1 lokality (schema_version
   bez polygonu.
 
 ### Odstraněné nápovědy
-
 - Pryč nápověda (❓ dialog) u titulků `/sbirka` a `/lokality`, v „Vrstvy" na
   `/mapa` a nově i u karty „Odchylky" na `/statistiky` — na webu stejně
   nebyla vidět. S posledním použitím padla celá komponenta `HelpDialog`
@@ -794,22 +751,19 @@ radius_m IS NULL)` — `COALESCE` je nutný, aby v1 lokality (schema_version
   `MapaHelp` a `deviationHelp*` v namespace `Statistiky`).
 
 ### Malé plochy (rádius < 1 m)
-
 - `formatAreaM2` u pod-1m² ploch (např. 15cm rádius → π·0,15² ≈ 0,07 m²) už
   neukazuje matoucí „0 m²" — zobrazí 2 desetinná místa („0,07 m²"), s prahem
   „<0,01 m²" pro extrémně malé. Zbytek (≥ 1 m²) drží celá čísla. +4 testy.
 
 ### Home „lísteček" se nepřetáčí při změně jazyka
-
 - Rotující karta čtyřlístkových faktů na hlavní stránce se řídí **hodinami**
   (slot = `floor(now / interval)`, deterministický výběr faktu i odpočtu) místo
   náhodného výběru na každý mount. Přepnutí jazyka (= plná navigace) tak jen
-  přeloží _tentýž_ fakt se _stejným_ odpočtem, místo aby se přetočil (a dřív
+  přeloží *tentýž* fakt se *stejným* odpočtem, místo aby se přetočil (a dřív
   dokonce dvakrát: seed → plná sada). Ruční „zamíchat" zůstává (efemérní).
 - Detail nálezu → „Pořadí lokality" nota „dle počtu nálezů" → „dle počtu 🍀".
 
 ### Provázanost filtrů + „Bez stavu"
-
 - **/lokality** — filtry „Stát"/„Město" teď reagují na hledání: po vyfiltrování
   podle čísla/popisu nabízejí jen státy/města, které ve výsledku zůstaly (a
   správné počty) — dřív šlo vybrat např. Japonsko u zlínské lokality a dostat
@@ -819,7 +773,6 @@ radius_m IS NULL)` — `COALESCE` je nutný, aby v1 lokality (schema_version
   stavu (s vlastním počtem, mizí když nedává smysl).
 
 ### Drobná UI vylepšení (filtry, ikony, mobil)
-
 - **/lokality** — hledání rozděleno na dvě pole jako na /sbirka: malý „Hledat
   podle čísla" (📍, jen číslo lokace — přesně, „26" i „00026") + klasické
   textové „Hledat" (kód/popis/katastr). Nový `num` filtr = přesná shoda na id.
@@ -833,7 +786,6 @@ radius_m IS NULL)` — `COALESCE` je nutný, aby v1 lokality (schema_version
   fallback pro Safari < 16.
 
 ### Mapy v2 — web dokresluje překryvy + úklid syncu (fáze D/E)
-
 Produkce běží na v2 (čistá „Nosná" mapa), takže web teď kreslí indikátor
 lokality **sám, vektorově** — místo aby spoléhal na vpálený „Rendered" PNG.
 
@@ -853,11 +805,11 @@ lokality **sám, vektorově** — místo aby spoléhal na vpálený „Rendered"
   mapu států/krajů). Popisek o `NEEXISTUJE-` prefixu pryč.
 - **Úklid syncu:** stavy `BEZLOKACE` / `LOKACE-NEEXISTUJE` už nehlásí
   `unknown_state_key` (rozpoznané jako vyřazené). **`LokaceHierarchie.json`
-  - `phaseHierarchy` odstraněny** — hierarchie rodič/potomek jde teď výhradně
-    z v2 manifestu (`phaseMapsV2`). Sync tím přestal hlásit `parent_missing`
-    na v1 kódech.
+  + `phaseHierarchy` odstraněny** — hierarchie rodič/potomek jde teď výhradně
+  z v2 manifestu (`phaseMapsV2`). Sync tím přestal hlásit `parent_missing`
+  na v1 kódech.
 - **Auto-přejmenování fotek při syncu (fáze E):** sync srovná token kódu v
-  názvech fotek/výřezů na _aktuální_ kód jejich lokace (párování přes neměnné
+  názvech fotek/výřezů na *aktuální* kód jejich lokace (párování přes neměnné
   číslo) — přepíše jen ty, co se liší. Doháníí tím i staré v1 fotky, které
   zůstaly s původním kódem z doby před v2 přepnutím. Atomicky, se zálohou do
   `data/.trash/`, nikdy nepřepíše existující cíl; `phaseFinds` pak dorovná
@@ -868,14 +820,12 @@ lokality **sám, vektorově** — místo aby spoléhal na vpálený „Rendered"
   sjednocen `parseImageBounds`; komentáře „circle" → „radius".
 
 ### /lokality — filtry přežijí návrat z detailu
-
 Po vyfiltrování lokalit, otevření detailu a kliknutí „Zpět na seznam lokalit"
 se filtry ztrácely (odkaz vedl na holé `/lokality`). Nově se pamatují —
 stejný vzor jako `/sbirka`: seznam si ukládá aktuální filtr do `sessionStorage`
 (per-tab) a odkaz zpět z detailu se vrací na stejný vyfiltrovaný pohled.
 
 ### Lokační mapy v2 — začátek migrace (fáze A + B)
-
 Web se připravuje na „mapy v2" (nový formát z desktop generátoru: strukturované
 id_lokace, GPS/zoom v metadatech, polygon v GPS, stát/město/indikátor/plocha).
 Zero-downtime, po fázích — web mezitím jede beze změny na v1.
@@ -922,14 +872,12 @@ Zero-downtime, po fázích — web mezitím jede beze změny na v1.
     audit. Přepínat web na alpha-2 by zbytečně rozbilo filtry/URL/mapy.
 
 ### Oprava: `pnpm sync` a další CLI skripty po Prisma 7
-
 Prisma 7 přestala automaticky načítat `.env`, takže samostatné `tsx` skripty
 (sync, seed, watermark, diagnose) padaly na `SASL: client password must be a
 string`. Přidán `import "dotenv/config"` do každého. Web ani admin-UI sync se
 netýkalo (ty mají env z Next). Viz `docs/gotchas.md` #16.
 
 ### Prisma 6 → 7
-
 Migrace, ne bump — v7 zrušila Rust query engine, takže se mění způsob
 připojení k databázi.
 
@@ -956,7 +904,6 @@ i top hustoty vycházejí **identicky** jako na produkci pod Prismou 6,
 při nule chyb v logu.
 
 ### Next.js 15 → 16
-
 Velký framework upgrade. Co bylo potřeba změnit:
 
 - **`next lint` byl v 16 odstraněn.** Skript `pnpm lint` teď volá přímo
@@ -973,7 +920,7 @@ Velký framework upgrade. Co bylo potřeba změnit:
 - **React Compiler pravidla** přišla jako `error` a vyhodila 41 nálezů na
   kódu, který byl pod 15 čistý. Přeřazena na `warn` (stejná „audit vrstvy
   jsou advisory" logika jako u zbytku configu). `react-hooks/purity` jsou
-  u nás false positives — `Date.now()` a `Math.random()` v _Server_
+  u nás false positives — `Date.now()` a `Math.random()` v *Server*
   komponentách. `react-hooks/set-state-in-effect` (16×) je ale reálný
   backlog k pročištění, ne šum.
 - **Turbopack je nově výchozí** pro `build` i `dev`. Custom webpack config
@@ -988,9 +935,9 @@ běžícího serveru — všechny veřejné cesty v obou jazycích, CSP nonce
 z middleware, sitemap, robots i OG obrázek.
 
 ### Závislosti — průběžná aktualizace
-
 - **GitHub Actions**: `checkout` v5→v7, `setup-node` v5→v6,
-  `gitleaks-action` v2→v3. Poslední jmenovaná není volitelná — GitHub 16. 9. 2026 odstraní Node 20 z runnerů a v2 přestane fungovat.
+  `gitleaks-action` v2→v3. Poslední jmenovaná není volitelná — GitHub
+  16. 9. 2026 odstraní Node 20 z runnerů a v2 přestane fungovat.
 - **minor/patch skupina** (14 balíčků): mj. bezpečnostní oprava
   `@simplewebauthn/server` 13.3.2 ([GHSA-6hxq-p678-4hr2][webauthn-adv]),
   `sharp` 0.34→0.35, `tailwindcss` 4.2→4.3, `react` 19.2.7,
@@ -1015,20 +962,18 @@ z middleware, sitemap, robots i OG obrázek.
   vyšla 8×16 místo 16×16), proto komponenty nesou 24×24 + `shrink-0`.
 - **sharp 0.35 rozbil typování**: nově má ESM typy, kde je volatelná
   funkce až v `default` exportu — vzor `require("sharp") as typeof
-import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
+  import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   (`require` míří na CJS), šlo čistě o typy. Viz `docs/gotchas.md`.
 
 [webauthn-adv]: https://github.com/MasterKale/SimpleWebAuthn/security/advisories/GHSA-6hxq-p678-4hr2
 
 ### /mapa — méně citlivý zoom kolečkem
-
 - Zoom kolečkem byl přecitlivělý (Apple Magic Mouse posílá dávku momentum
   eventů, takže drobný pohyb naskočil o 4–5 úrovní). `wheelPxPerZoomLevel`
   zvýšen z výchozích 60 na **250** — jemný pohyb ≈ jedna úroveň, a přitom to
   není líné pro klasické kolečko.
 
 ### /sbirka — filtr Lokalita jako našeptávač
-
 - Nativní `<select>` s 200+ lokalitami nahrazen **searchable comboboxem**
   (`LocationCombobox`): tlačítko → panel s hledáním. Hledá se **kdekoli v
   řetězci**, **bez ohledu na velikost písmen, diakritiku i interpunkci**
@@ -1040,7 +985,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   (doscrollování konce už neposune celou stránku).
 
 ### Perf: filtry Stát/Město zpět rychlé (cache location→country)
-
 - Po přechodu geo resolveru na 50m (přesnější hranice) zpomalily filtry podle
   státu/města na /sbirka i /lokality na 2–4 s: `countryFromCoords` (teď ~7×
   víc vrcholů) běžel **per-request přes všechny lokality** — na /sbirka v
@@ -1053,20 +997,17 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   ten studený přepočet za oknem. Ověřeno, že klasifikace se nemění.
 
 ### /admin — proklik na WebP verzi v detailu originálu/ořezu
-
 - Detail souboru (`/admin/files/finds|crops/<jméno>`) má teď pod náhledem
   odkaz **„Vygenerovaná WebP verze: web → / thumb →"** — otevře skutečně
   servírovanou WebP variantu (vodoznak, orientace, kvalita), s `?v=` proti
   cache. Funguje i u HEIC originálů, které prohlížeč nenáhleduje.
 
 ### Cache-bust: `FIND_PHOTO_ASSET_VERSION` 2 → 3
-
 - Po nočním re-syncu vodoznaku (světlý primární + max. kontrast) bumpnuta verze
   → všechny `<img src>` fotek nálezů mají `?v=3`, takže prohlížeče stáhnou nové
   světlé vodoznaky místo starých tmavých z `immutable` cache.
 
 ### Fix: GPS → země přesnější na hranicích (Natural Earth 50m)
-
 - Point-in-polygon pro zařazení lokality do státu jel na **Natural Earth 110m**
   (nejhrubší). U říčních hranic to mýlilo — Štúrovo (SK, severní břeh Dunaje)
   padalo do **Maďarska**. Server teď používá **50m** (ověřeno: 110m → Hungary,
@@ -1077,13 +1018,11 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   nedostalo do prohlížeče.
 
 ### /lokality — počty lokalit ve filtrech Stát/Město
-
 - Comboboxy „Stát" a „Město" teď u každé volby ukazují **počet lokalit**, které
   pod ni spadají („Zlín (12)"). Počítá se ve stránce z už načteného seznamu
   lokalit (každá nese stát + město), takže žádný dotaz navíc.
 
 ### /statistiky — přeřazení spodních sekcí + zrušený podtitulek
-
 - Spodní sekce jsou teď v pořadí **Kalendářní statistiky → 🍀 podle
   vzdálenosti → Odchýlené 🍀** (Odchýlené šly na úplný konec, Kalendář a
   Vzdálenost se prohodily).
@@ -1091,7 +1030,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   `subtitle`).
 
 ### /statistiky — kosmetika doby sbírání a „Nejrychlejších N"
-
 - Panel „Odhadovaná doba sbírání": „(Ø … 🍀 / hledání) + baseline" je teď na
   **samostatném řádku** pod hlavní větou.
 - „Nejrychlejších N" interval: **vypadává vedoucí „0 min"** — „1 🍀 každých
@@ -1101,7 +1039,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   tempo" a nepoužitý klíč `fastestRateLabel`.
 
 ### 🍀 drobnosti — homepage dlaždice, /sbirka titulek + stránkování
-
 - Homepage dlaždice s počtem 🍀 má teď **🍀 hned za číslem** („27 872 🍀",
   nápověda „(… nahraných)" pod), stejně jako hero na /statistiky (StatCard
   dostal `inlineLabel`).
@@ -1110,7 +1047,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   slovní popis nechává).
 
 ### Homepage — „nález" → 🍀 + rate „🍀 za minutu"
-
 - Viditelné výskyty „nález" na hlavní stránce jsou teď **🍀** (Home namespace +
   „🍀:" v panelu Nejoblíbenější). `aria`/`alt` a sloveso „find" v en si slovo
   nechávají (přístupnost + gramatika).
@@ -1118,7 +1054,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   **„X 🍀 za minutu"** (dřív „X čtyřlístku/min"), cs i en.
 
 ### /statistiky — 🍀 hned za číslo + „zátah" → „sbírání" + korekce série
-
 - Hero panel s počtem čtyřlístků má teď **🍀 na stejném řádku hned za číslem**
   („27 872 🍀", nápověda „(… nahraných)" zůstává pod), stejně tak dlaždice v
   **„Další velká sbírání"** (dřív ikonka pod číslem).
@@ -1127,7 +1062,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
 - „Nejdelší série dnů s 🍀" → **„Nejdelší série dnů s nalezeným 🍀"**.
 
 ### /admin/clover-texts — oprava ukládání a nechtěného zavření dialogu
-
 - **Ukládání teď viditelně potvrdí.** `dirty` se porovnával vůči neměnnému
   propu `initialTexts`, který se po uložení nikdy nezměnil → i po úspěšném
   uložení UI dál hlásilo „Neuložené změny" a nezobrazilo čas uložení, takže to
@@ -1139,13 +1073,11 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   „Zrušit", „Potvrdit"), aby se rozdělaná úprava neztratila.
 
 ### /sbirka — placeholder „Hledat podle čísla" jako denní easter-egg
-
 - Číslo v placeholderu se řídí dnem v měsíci (Praha): **liché dny 111, sudé
   666** (majitelovy dva speciální nálezy — nebeský a pekelný). Počítá se
   server-side (stránka je force-dynamic), takže žádný hydratační mismatch.
 
 ### /statistiky — slovo „nález" nahrazeno ikonkou 🍀
-
 - Všechny viditelné výskyty slova „nález" (ve všech pádech) na /statistiky jsou
   teď **🍀** — titulky sekcí, počty, popisky panelů, tlačítka i delší texty.
   Slovo „nález" působilo strojově; ikonka drží gramatický pád okolních slov
@@ -1157,7 +1089,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   (konzistentní).
 
 ### /sbirka — hledání rozděleno na „podle čísla" + „poznámka/lokalita"
-
 - Pole „Hledat" je teď **rozdělené na dvě** (ve stejné šířce, bez dalšího
   řádku filtrů): vlevo **„Hledat podle čísla 🍀"** (přesné ID nálezu — `140`
   najde jen #140, ne #1140/#10140; nový param `?id=`), vpravo dosavadní
@@ -1166,7 +1097,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   stránkování a je v souhrnu „Filtr je aktivní".
 
 ### Vodoznak — světlý jako primární (max. kontrast) + drobnosti v detailu
-
 - Po kontrastní studii (zelený vodoznak na zelené má nízký kontrast, jednolitá
   barva nefunguje všude) je teď **primární světlý** vodoznak při **opacity 1**.
   Rozhodování je „max. kontrast": composite změří jas rohu a zvolí tu z barev
@@ -1187,7 +1117,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   - Navigace/titulek: `🍀 #123` → **`🍀#123`** (bez mezery).
 
 ### Vodoznak — cílený „relight" jen pro tmavé rohy (`--relight-below`)
-
 - Vodoznak je primárně tmavě zelený a na **světlý** se přepne jen tam, kde je
   roh vpravo dole tmavší než `darkThreshold` (95). U sbírky světlé zeleně je
   to vzácné (~12 % fotek), takže světlý padne zřídka — což působilo, že „světlý
@@ -1202,9 +1131,8 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   `FIND_PHOTO_ASSET_VERSION`** (jinak si prohlížeče drží cache — viz níže).
 
 ### Fotky nálezů — verzované URL kvůli `immutable` cache
-
 - Regenerované WebP (vodoznak, rotace, kvalita, re-crop) se zapisují „na
-  místě" na **stejnou sha1 URL** (sha1 je hash _originálu_, ne zakódovaného
+  místě" na **stejnou sha1 URL** (sha1 je hash *originálu*, ne zakódovaného
   výstupu). Nginx je ale servíruje s `Cache-Control: public, immutable`, což
   prohlížeči říká „nikdy nerevaliduj" — takže po přegenerování drží starou
   kopii až rok a nezmění ji ani běžný reload. Klientská navigace mezi nálezy
@@ -1219,7 +1147,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   se). Viz gotcha #11.
 
 ### Fotky nálezů — sjednocené na výšku (vodoznak vždy vpravo dole)
-
 - Generování WebP teď po EXIF-narovnání **otočí landscape fotky na výšku**
   (90° CW — přesně rotace, kterou dřív dělal detail v CSS, jen zapečená).
   Čtyřlístky jsou focené shora, takže nemají „správně nahoře", a díky tomu
@@ -1234,7 +1161,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   (nebo `pnpm sync --force-regen`).
 
 ### /sbirka — „Zrušit filtry" se ukáže i u čistě datumové filtrace
-
 - Tlačítko „Zrušit filtry" ve filtru se řídilo výčtem, který **neobsahoval
   datumový rozsah** (ten žije v jiném prvku, parametry `from/to/fromTs/toTs`).
   Takže po prokliku na /sbirka jen s datumovým filtrem (homepage „Nejlepší
@@ -1242,7 +1168,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   `hasDate` do `hasAny` — tlačítko se teď ukáže i pro datumovou filtraci.
 
 ### /sbirka — ikona „sbírka se postupně doplňuje" i na filtrovaném pohledu
-
 - Info ikonka o neúplnosti sbírky (vedle počtu v hlavičce) se schovávala,
   jakmile byl aktivní jakýkoli filtr — takže po prokliku na /sbirka s
   filtrací (z detailu lokality „Ukázat nálezy" nebo z homepage „Nejlepší
@@ -1252,14 +1177,12 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   filtr.
 
 ### /sbirka — 5místné ID nálezu se vejde do hlavičky dlaždice (mobil)
-
 - V mřížce dlaždic se na úzkém mobilu 5místné číslo ořezávalo („#277…").
   Číslo je teď na mobilu `text-xs` (na `sm+` zůstává `text-sm`) a hlavička
   má těsnější mezery/odsazení, takže se celé ID vejde; `truncate` zůstává
   jako záchrana pro extrémně úzké displeje.
 
 ### Vodoznak — zelený smajlík místo černého, adaptivní kontrast
-
 - Rohový vodoznak (smajlík) se teď zapéká **zeleně** místo tvrdého černého
   razítka a **přizpůsobuje se rohu**, na který dopadá. Protože je sbírka
   skoro celá zelené listí (kde světlá zelená stejného odstínu splývá), je
@@ -1283,7 +1206,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   přerušit a navázat bez `--reset`.
 
 ### Hlasování — poměr za období + čas posledního hlasu
-
 - **Top 10 nejoblíbenějších** (/statistiky): v záložkách „Posledních 12 měsíců"
   a „Posledních 30 dnů" se u nálezu teď ukazuje **poměr „za období / celkem"**
   (např. `5 / 42`), takže pořadí podle období dává smysl i u nálezu s nízkým
@@ -1297,7 +1219,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   `Europe/Prague`, aby v client komponentě nevznikl hydration mismatch.
 
 ### Patička — AbuseIPDB: počet nahlášených útočných IP
-
 - Nová položka v patičce „AbuseIPDB · Počet IP reportováno: {N}" s proklikem
   na contributor profil. Oficiální `<img>` badge **nepoužíváme** — načítal by
   se z abuseipdb.com v prohlížeči každého návštěvníka (únik jeho IP) a stejně
@@ -1310,7 +1231,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   vynechá. Contributor ID přes `ABUSEIPDB_CONTRIBUTOR_ID` (default 254988).
 
 ### /statistiky — Minutová heatmapa: zoom + scroll, kříž při hoveru, výchozí 1 min
-
 - Nad heatmapou je **posuvník přiblížení** (1×–8×). Při přiblížení se plátno
   zvětší a v obalu se objeví **scrollbary do obou směrů** — jde tak najet na
   konkrétní část. Buňky zůstávají po přiblížení ostré (`pixelated`).
@@ -1320,7 +1240,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
 - **Výchozí velikost buňky je teď 1 minuta** (dřív 5 minut).
 
 ### Admin — import balíčku: intervaly ID, volba u kolizí; home „Top lokalita" ve dnech
-
 - **Intervalové zobrazení ID** místo výčtu: `27273, 27274, … (+153)` →
   `27273-27445`. Souvislé řady se složí do jednoho úseku (u originálů, výřezů
   i v LSP diffu). Přehlednější rozpis LSP sekcí — počet a seznam se už
@@ -1334,7 +1253,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   `formatLongDuration`, stejně jako na /statistiky.
 
 ### Admin — import balíčku: podrobný přehled + oprava prázdných sekcí
-
 - **Přehled po analýze je teď podrobný**, aby šlo ověřit, co se z balíčku
   přečetlo: u originálů i výřezů **konkrétní seznamy ID** (nové vs.
   přepisované), u lokačních map **seznam položek** (MAP_ID, kód lokality,
@@ -1350,7 +1268,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   i při **zrušení během nahrávání** a při **chybě** — místo se uvolní hned.
 
 ### Admin — import „balíčku pro web" (ZIP) jedním nahráním
-
 - Nová sekce `/admin/import`: nahraj jeden **ZIP** s `finds/` (originály),
   `crops/` (výřezy), `maps/` (mapy lokalit) a
   `meta/LokaceStavyPoznamky.json` a naimportuj celou dávku najednou místo
@@ -1367,7 +1284,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   sklidí nový `import-tmp` cron (deployment.md).
 
 ### /sbirka — výrazné zrychlení filtrování (3–5s → ~0.65s)
-
 - Profilováním (`?debug=timing`, skrytý gated blok pro budoucí ladění) se
   našly tři věci: **(1)** `buildWhere` rozkládal stát→lokality přes JS
   point-in-polygon nad všemi lokacemi a volal se **6–7× za render** (v
@@ -1380,7 +1296,6 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   base **1.3s → 0.7s**. Filtr-options se po syncu projeví do 5 min.
 
 ### /sbirka — filtry „Město" a „Lokalita" seskupené podle státu
-
 - Když není vybraný stát, dropdowny Město i Lokalita teď řadí položky pod
   hlavičky států (`<optgroup>`) místo ploché změti — obě položky svůj stát
   nesou, tak to jen zrcadlí filtr Stát. Skupiny jsou seřazené jako filtr
@@ -1388,12 +1303,11 @@ import("sharp")` přestal být callable (13 míst). Runtime byl v pořádku
   plochý. Sdílený helper `groupByCountry`. Beze změny logiky filtrování.
 
 ### Admin — hromadné přiřazení sdílené fotky daru (dedup)
-
 - Na `/admin/files/donation-photos` nový panel „Hromadné přiřazení sdílené
   fotky": nahraješ pár fotek (jakýkoli formát/název → normalizace na WebP
   web+thumb, EXIF strip) a přiřadíš je **rozsahu čísel nálezů** (např.
   `16330-16440`). Fotky se uloží **jednou** (`generated/find-photos/
-s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
+  s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   přes manifest `data/.admin/donation-photo-shares.json` — žádné N kopií.
   Pořadí fotek = sloty `a, b, c…` (v UI přeuspořádatelné, s náhledy).
 - Validace: čísla se ověří proti DB (neexistující se nahlásí a přeskočí).
@@ -1412,7 +1326,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   servírovaný soubor. Staging čistí cron (viz `docs/deployment.md`).
 
 ### Fix: deploy „aktualizuje se" scéna zamrzávala na countdownu
-
 - Countdown „Sám se obnovím za N s…" po **prvním** auto-reloadu zamrznul na
   4 s a další obnovení se nenaplánovalo (musel jsi kliknout „Zkusit hned").
   Příčina: 20s throttle dělal `return` **před** spuštěním ticku, takže se
@@ -1422,10 +1335,9 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   zamrznutí. Jádro výpočtu vytaženo do `src/lib/deployReload.ts` + unit testy.
 
 ### Bezpečnostní otužení — follow-up LOW nálezy z auditu (po fázích)
-
 - **CSP nonce**: skutečných 16 náhodných bytů (`getRandomValues`) místo base64
   z UUID-stringu — matchuje komentář, kratší hlavička. `style-src
-'unsafe-inline'` zůstává (Tailwind; script CSP je striktní nonce+strict-dynamic).
+  'unsafe-inline'` zůstává (Tailwind; script CSP je striktní nonce+strict-dynamic).
 - **`path.join` → `safeJoin`**: sjednocení §9b kontejnmentu na posledních 2
   místech (maps „mark nonexistent" rename, `recrop.ts`) — názvy byly už
   bezpečné, teď je assertion uniformní.
@@ -1444,7 +1356,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `pnpm.overrides` (drženo ve stejném majoru). `pnpm audit` čistý.
 
 ### Bezpečnostní otužení: anti-spoofing IP, boot-guard hesla, sjednocené API gaty
-
 - **`clientIp` helper (anti-spoofing):** `getRequestIp()` (admin audit log) i
   fingerprint hlasování četly **první** prvek `X-Forwarded-For` — ten si ale
   klient může podvrhnout (Nginx appenduje reálnou IP na konec). Nový sdílený
@@ -1470,7 +1381,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   (bez allowlistu), takže 401 prozrazovalo existenci endpointu.
 
 ### /lokality/[id] — „Nedávné nálezy" jako dlaždice ze /sbirka
-
 - Sekce „Nedávné nálezy" na detailu lokality používá teď **stejné dlaždice
   jako /sbirka** (`FindGrid`/`FindCard`) místo vlastní mřížky: **fotky ořezů**
   (ne originály), banner nad fotkou (mapa-pin · „🍀 #id" · hlasování),
@@ -1487,7 +1397,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `autoHydrate` (zpětně kompatibilní — /sbirka beze změny).
 
 ### Admin session — krátké prod heslo teď selže fail-closed
-
 - `sessionOptions.password` spadlo na **veřejný dev fallback klíč**, kdykoli
   byl `ADMIN_SESSION_PASSWORD` kratší než 32 znaků, ale `requireAuth()`
   hlídal jen `chybí` (ne `krátké`) — takže krátké prod heslo → session
@@ -1498,7 +1407,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   v produkci `requireAuth()` odmítne (fail-closed).
 
 ### Deploy — brány proti nasazení rozbitého `.next` (fail-closed)
-
 - **Incident (2026-07-08):** deploy hlásil `success`, ale `next build`
   skončil `exit 0` a přesto nechal šest **0 B manifestů** v `.next`. Při
   restartu workerů `next start` udělal `JSON.parse("")` →
@@ -1512,7 +1420,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `127.0.0.1:3000` a padne, když app neožije. Detail: `docs/gotchas.md` #5.
 
 ### Odchýlené nálezy — počty „(N žlutě, M červeně)" u počtů nálezů
-
 - Vedle počtu nálezů se nově ukazuje, kolik z nich je **odchýlených**:
   **žlutě** (mimo lokaci, ale v rámci některé lokační mapy) a **červeně**
   (mimo všechny mapy) — barevně ladí s tečkami na mapě (stejná tone-klasifikace).
@@ -1526,9 +1433,8 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   nálezy se souřadnicemi — tatáž množina, kterou kreslí mapa.
 
 ### /mapa — bod lokace bez polygonu je vidět i v hustých nálezech
-
 - Lokace bez polygonu (jen středový bod) se ztrácela pod hustým shlukem
-  poloprůhledných čtyřlístků — bod byl navíc kreslený _pod_ vrstvou nálezů.
+  poloprůhledných čtyřlístků — bod byl navíc kreslený *pod* vrstvou nálezů.
   **Nevybraný bod** je v pane **nad nálezy** (z-index 560 > 550 canvasu),
   neprůhledný, s bílým obrysem (najdeš + klikneš ho i v hustém shluku).
   **Po výběru** bod **klesne pod nálezy** (overlayPane) a zprůhlední → prim
@@ -1544,7 +1450,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
     jsou skoro vždy menšina → pulz je levný i u lokalit s tisíci nálezy.
 
 ### /mapa — vrstva Nálezy už nezůstane skrytá po `?find` prokliku
-
 - Proklik na `/mapa?find=X` schová hromadnou vrstvu Nálezy, aby vynikl jeden
   zvýrazněný marker (záměr). Jenže ten vynucený „off" se **ukládal do
   localStorage**, takže návrat na prostou `/mapa` nechal Nálezy skryté, i když
@@ -1554,7 +1459,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   vadné „false" — spadnou zpět na výchozí zobrazeno.
 
 ### Domů — „Náhodný čtyřlístek" se na širokoúzkém okně otočí na šířku
-
 - Showcase fotka vyplňovala 100 % šířky sloupce bez stropu na výšku, takže
   vysoký portrét na FullHD přetekl (vidět půlka). Nově: **vejde-li se
   vzpřímený, nech ho** (4K/vysoká okna beze změny); **nevejde-li se na výšku**
@@ -1569,7 +1473,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   chová **beze změny**. Fullscreen (šetřič) se **neotáčí** (plní se dle výšky).
 
 ### /lokality — návrat zpět znovu rozbalí lokalitu
-
 - Rozbalený řádek lokality se zrcadlí do URL (`?open=id,id2`) přes nativní
   `replaceState` (bez reloadu, bez re-renderu ostatních řádků). Po prokliku
   z rozbaleného řádku na detail nálezu / mapu a stisku **Zpět** se ty řádky
@@ -1580,7 +1483,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `?open` není filtr — nesahá na dotaz.
 
 ### /lokality — na mobilu jen ikonky u tlačítek v řádku
-
 - Tlačítka v nerozbalené části řádku lokality (Detail lokality / Zobrazit na
   mapě / Zobrazit nálezy lokality) se pod `lg` scvrknou **jen na ikonku s
   tooltipem** (`title`) — na telefonu se tři textová tlačítka jinak zalamovala
@@ -1590,7 +1492,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   čtečky ho čtou i u ikonek.
 
 ### /lokality — rozbalený detail: náhledy prvního/posledního nálezu
-
 - Rozbalená část řádku lokality přepracována kolem **prvního a posledního
   nálezu**:
   - **Ořezový náhled** (crop) nálezu doleva před popis — **klikatelný na
@@ -1609,7 +1510,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `allInCollectionLink`, `ownVsChildren`).
 
 ### /mapa — panel Vrstvy se na mobilu už nepřekrývá s detailem lokality
-
 - Na mobilu se rozbalený panel **Vrstvy** kreslil **za** kartou detailu
   lokality (vyšší z-index) → toggly byly schované. Nově tvoří obě karty
   jeden **flex-sloupec**: Vrstvy se rozbalí **přes celou šířku** a detail
@@ -1620,7 +1520,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   karty (dřív se detail renderoval zvlášť pro mobil a desktop).
 
 ### Navbar detailu, info ikona na Domů, anon lokality
-
 - **/sbirka/[id] — navbar už se nesmršťuje na úzkou fotku.** Lišta prev/next
   s „Zpět na sbírku" má nově vlastní **komfortní min šířku (768 px)**
   nezávislou na fotce; fotka + mapa + fakta si drží svou (klidně menší)
@@ -1641,9 +1540,8 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   mapa i katastr.
 
 ### Počty v hlavičce (/sbirka, /lokality) + „Ukázat nálezy" na /statistiky
-
 - **Počty přesunuty na úroveň hlavního titulku, zarovnané doprava.** Místo
-  počtu _vyfiltrovaných_ (ten je teď v „Filtr je aktivní" pod filtry) hlavička
+  počtu *vyfiltrovaných* (ten je teď v „Filtr je aktivní" pod filtry) hlavička
   ukazuje **filter-independent** souhrn: **počet lokalit · celkový počet
   nálezů**. Na /lokality navíc **v závorce počet anonymizovaných**. Řádek
   pod titulkem (redundantní) odstraněn. Sdílená komponenta
@@ -1654,7 +1552,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   „Nejlepší den" na Domů, mapa a lokality).
 
 ### /lokality sladěno s /sbirka (+ sdílené komponenty)
-
 - **Ikona nápovědy bez kolečka** — borderless je nově **default** v
   `HelpDialog`, takže /sbirka, /lokality i /statistiky vypadají stejně
   (/mapa má vlastní styl). Redundantní override na /sbirka odstraněn.
@@ -1663,7 +1560,7 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   **sdíleného `getFilterOptions`** (nese vazbu město→stát).
 - **„Zrušit filtry"** přesunuto z toolbaru na **spodek filter-baru** (stejné
   místo jako /sbirka); zachovává řazení, čistí jen filtry.
-- **Řádek „Filtr je aktivní — N 🍀 lokalit odpovídá filtru (_popis_)"** pod
+- **Řádek „Filtr je aktivní — N 🍀 lokalit odpovídá filtru (*popis*)"** pod
   filtry, stejně jako nedávná korekce na /sbirka. Počítá vyfiltrované
   lokality a popisuje filtr (hledání / město / stát). `sort` už nepočítá
   jako filtr (jako na /sbirka).
@@ -1672,7 +1569,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   filter-bary zůstávají zvlášť (filtrují jiné entity), ale sdílí tyto kusy.
 
 ### Drobné korekce stylu
-
 - **Karta zajímavostí (Domů)**: tlačítko „další fakt" (shuffle) je nově
   **inline za odpočtem času** dole uprostřed karty — v rohu kolidovalo s
   #id (vpravo) i watermark smajlíkem (vlevo). Info ikona (ⓘ) ztratila
@@ -1686,18 +1582,17 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   scvrkne do úzkého proužku (např. `/sbirka/165` = 739×1600 → ~290 px),
   **uvolní cap až na ~28rem** (nikdy přes native px → žádný upscale), takže
   se zobrazí pohodlně široká a **celý zarovnaný sloupec** (fotka + navigace
-  - lokační mapa) se roztáhne s ní. Široké fotky beze změny (jejich
-    cap-šířka floor převyšuje). `minWidthPx` v `photoBox` řídí fotku i chrome
-    přes jednu `widthCss` (galerie dostává stejnou hodnotu). _(Oprava
-    předchozího pokusu, který podlažoval jen chrome → nesoulad fotka vs
-    navigace.)_
+  + lokační mapa) se roztáhne s ní. Široké fotky beze změny (jejich
+  cap-šířka floor převyšuje). `minWidthPx` v `photoBox` řídí fotku i chrome
+  přes jednu `widthCss` (galerie dostává stejnou hodnotu). *(Oprava
+  předchozího pokusu, který podlažoval jen chrome → nesoulad fotka vs
+  navigace.)*
 - **/mapa — scroll hlavičky**: stránka mapy nově **zamyká scroll a skrývá
   patičku** (`:has([data-map-fullscreen])`), takže mapa vlastní celý
   viewport pod sticky hlavičkou. Dřív šlo scrollovat s kurzorem nad
   hlavičkou a Leaflet panes (vysoký z-index) přejely přes ni.
 
 ### Odolnost deploye — čtyřlístková obrazovka i pro „rozbitý styl"
-
 - **Detekce rozbitého CSS během deploye.** Když se build zruší mid-flight
   (timeout / superseding push), starý PM2 proces dál servíruje HTML s hashi,
   které přebuild smazal → assety vrací 404 a stránka se vykreslí **bez
@@ -1714,7 +1609,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   mid-build (což `.next/static` rozbije). Příčina outage 2026-07-08.
 
 ### /sbirka — vylepšení filtrů a UX (série)
-
 - **Nadpis** „Sbírka nálezů" → **„Sbírka 🍀"**.
 - **Ikona nápovědy** už není v kolečku s rámečkem — jen samotná ikonka.
 - **Banner „Sbírka se postupně doplňuje"** je nově **skrytý** za malým
@@ -1723,7 +1617,7 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
 - **Přepnutí jazyka** (CS ⇄ EN) nově **zachová query string** — filtry,
   řazení a hledání na /sbirka (i parametry jiných stránek) přežijí, dřív
   se přepnutím jazyka mlčky vynulovaly.
-- **Text „Filtr je aktivní"** nově zní „…N 🍀 odpovídá filtru (_popis_)"
+- **Text „Filtr je aktivní"** nově zní „…N 🍀 odpovídá filtru (*popis*)"
   s lidským popisem aktivních filtrů (např. „datum po 25. 12. 2024",
   „stav Darovaný", „sběr …"). Cíl: po prokliku z „Nejlepší den"/statistik
   uživatel hned vidí, čím je výběr zúžený. Popis je ve sdíleném helperu
@@ -1759,8 +1653,8 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   deep-linky (`?state=DONATED` ze statistik/Domů) fungují beze změny.
 - **Nápověda `/sbirka`** aktualizována dle všech změn (multi-select stavů,
   faceted county + skrývání nulových, tlačítko na mapu jen pro jednu lokaci
-  - kontext filtru, „Filtr je aktivní" řádek, přežití filtrů při změně
-    jazyka) + nadpis „Sbírka 🍀".
+  + kontext filtru, „Filtr je aktivní" řádek, přežití filtrů při změně
+  jazyka) + nadpis „Sbírka 🍀".
 - **Deep-link `?loc=X`** (proklik „Top lokalita" / statistiky / lokality /
   mapa → „Ukázat nálezy") nově **nastaví i dropdowny Stát a Město** podle
   zvolené lokace — stejně, jako když lokalitu vybereš přímo ve filtru.
@@ -1768,7 +1662,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   (URL zůstává čistá `?loc=X`).
 
 ### Nejoblíbenější nálezy — ořez místo originálu (Domů + /statistiky)
-
 - Tlačítko „nejoblíbenější" na Domů a leaderboard **„Top 10
   nejoblíbenějších"** na `/statistiky` ukazovaly thumbnail **originální**
   fotky. Teď preferují **ořez čtyřlístku** (stejně jako dlaždice `/sbirka`) —
@@ -1777,7 +1670,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `limit 3` i tři okna leaderboardu `limit 10`).
 
 ### Dark theme — brand-800 dodefinováno + zelené popisky sekcí (celý web)
-
 - **`brand-800` konečně definováno** (v `@theme` i v dark bloku, interpolace
   mezi 700 a 900). Dřív `--color-brand-800` neexistoval: `text-brand-800`
   (odznaky „darováno" / části lokace, aktivní stránkování, „voted" palec)
@@ -1795,7 +1687,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   placeholdery), legenda kompasu a datové popisky.
 
 ### Dlaždice /sbirka — banner s pinem + lajkem, dark popup na mapě
-
 - **Banner dlaždice** přeskládán: **pin s proklikem na mapu** (`/mapa?find=<id>`,
   stejný odkaz i gate jako v seznamu — `!isAnonymized && coordinates≠null`)
   vlevo, **`🍀 #id`** uprostřed (odkaz na detail), **hlasovací tlačítko** vpravo
@@ -1811,7 +1702,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   (tmavý na světlém / světlý na tmavém) a světlý motiv zůstává beze změny.
 
 ### /sbirka — datum čitelné i v dark theme + zapamatované zobrazení
-
 - **Datum v dlaždici** má teď fixní **světlou zelenou** (`#bbf7d0`) přes inline
   `color` (ne Tailwind třídu): dark theme obrací barevné třídy, takže se
   `text-white` převracel na černou → „tmavé na tmavém". Gradient pod ním je
@@ -1823,7 +1713,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   „Ochrana soukromí" (funkční, neslouží ke sledování).
 
 ### Dlaždice + čtyřlístková chybová stránka
-
 - **Datum v dlaždici** `/sbirka` je čitelné i na světlých fotkách — silný spodní
   gradient + dvojitý text-shadow, obojí **inline stylem** (Tailwind arbitrary
   `text-shadow` se spolehlivě nekompiloval, takže první pokus nebyl vidět).
@@ -1841,7 +1730,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `<html>/<body>`, inline styly, žádný Tailwind/next-intl (běží mimo layout).
 
 ### Statistiky — kratší TTL cache (cluster prodleva po syncu)
-
 - Po syncu se `/statistiky` občas neobnovila, zatímco hlavní strana ano (např.
   745 vs 740 hledání). Příčina: **PM2 cluster** (2 workeři), každý má vlastní
   in-memory kopii statistik; `revalidateTag("stats")` z pingu dorovná jen
@@ -1853,7 +1741,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   přes Redis — zatím není zapojený.)
 
 ### Sync — nálezy po skupinách (originál před ořezem, vzestupně)
-
 - Protože `/sbirka` teď ukazuje jako náhled **ořez**, ořez vygenerovaný **dřív
   než originál** během syncu způsoboval, že web během importu vypadal rozbitě.
   Sync teď zpracovává každý nález jako **celek** — nejprve originál (zdroj
@@ -1863,7 +1750,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   dřívější dva paralelní proudy `pMap(finds) + pMap(crops)`.
 
 ### /sbirka — přeuspořádání dlaždice (mřížka)
-
 - Číslo nálezu přesunuto **nad fotku** jako centrovaný banner „🍀 #123"
   (+ odznak REKORD, pokud jde o rekord).
 - **Palec hlasování** přesunut do **pravého horního rohu** fotky.
@@ -1874,7 +1760,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   mřížky/dlaždic; seznam (list) beze změny. Uklizeny osiřelé importy.
 
 ### Statistiky — „Top 10 lokalit" i podle počtu sbírání
-
 - Žebříček „Top 10 lokalit" má nový přepínač **„Podle sbírání"** — kolikrát jsem
   na dané lokalitě byl na čtyřlístkách (počet hledání). V řádku: **počet hledání**
   (sloupec) + **průměrný počet nálezů na hledání** + celkem nálezů; vedle
@@ -1885,7 +1770,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `LocationSessionPoint` + `topLocationsBySessions` / `avgFindsPerSession`.
 
 ### Hlavní strana — širší záplava + výraznější „→ pole"
-
 - **Záplava čtyřlístků** roztažena přes **šířku obsahu stránky** (jak nav/stat
   karty — `inset-0` za sekcí, ne celé okno) a za celý blok darování (nabídka →
   odlétající → pole → počet → hledání). Rozmístění je **rovnoměrné** —
@@ -1898,7 +1782,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   na skrytém obsahu, aby odkazy nebyly v tab pořadí / a11y stromu).
 
 ### Hlavní strana — reorganizace (patička, tagline, pole)
-
 - **„Poslední aktualizace sbírky"** (+ ⓘ založení / poslední backfill) přesunuta
   z hero do **globální patičky** jako druhý řádek. Nový lehký cachovaný
   `getCollectionFreshness` (`queries/home.ts`, tag „stats" → obnoví se po syncu),
@@ -1914,7 +1797,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
 - Tím se **nabídka darování (se záplavou)** posunula výš — hned pod fakta v hero.
 
 ### /sbirka — v seznamu i mřížce rovnou ořez nálezu
-
 - Náhled nálezu v `/sbirka` (mřížka i seznam) je teď rovnou **ořez** (close-up
   čtyřlístku, `CROP`) místo hlavní fotky — v malém náhledu je čitelnější; celá
   fotka je o klik dál na detailu. Helper `cropVariant` vybírá CROP (fallback na
@@ -1922,7 +1804,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   hover-náhled ořezu (ten už není potřeba).
 
 ### Sync — nálezy bez lokace se po pozdním nahrání map nedorovnaly
-
 - **Příčina:** sync přeskočí **celé** zpracování nálezu, když se jeho foto
   nezměnilo (`mtime`), včetně upsertu `location_id`. Když se udělá sync
   s **chybějícími** lokačními mapami, nálezy dostanou `location_id = null`;
@@ -1937,7 +1818,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `--force-regen`, žádné překódování fotek). Detail v `docs/sync-workflow.md`.
 
 ### Statistiky se po syncu neobnovovaly (cache)
-
 - **Příčina:** `/statistiky` (a statové panely na `/`) cachují agregace přes
   `unstable_cache(tag: "stats", revalidate 6 h)` + ISR stránek. `pnpm sync`
   z Termiusu běží mimo Next runtime a **neinvaliduje nic** (dělal jen IndexNow
@@ -1960,7 +1840,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `docs/sync-workflow.md` → „Revalidace cache po syncu".
 
 ### Mapa — velikost ikon nálezů + barevné odlišení odchýlených
-
 - Pod „Nálezy" ve Vrstvách přibyly dva ovladače (sub-řádky vedle „Skrýt
   odchýlené"):
   - **Posuvník „Velikost ikon"** — zvětší/zmenší body nálezů na mapě
@@ -1984,7 +1863,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   tón, takže překreslení zůstává rychlé; barvy tónů se nemění.
 
 ### Hlavní strana — přepracovaná sekce „darování štěstí"
-
 - Nabídka darování + LinkedIn se přesunula nahoru (ze spodní „malé omluvy")
   do nové **`GiveAwaySection`** nad „Komu putovalo štěstí". Pořadí odshora:
   **záplava čtyřlístků + nabídka + LinkedIn** (bez rámečku/pozadí, ~32
@@ -1998,14 +1876,12 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   jen dole u „Malé omluvy".
 
 ### Hlavní strana — zrušena sekce „Retrospektiva"
-
 - Odstraněna spodní sekce **„Retrospektiva"** (look-back mřížka napříč roky).
   Uklizen i mrtvý kód: komponenta `retrospective-grid.tsx`, query
   `queries/retrospective.ts`, fetch/import na hlavní straně a celý i18n
   namespace `Retrospective` (cs + en).
 
 ### Hlavní strana — panel „Odhadovaná doba sbírání" + centrování Top lokality
-
 - Nad třemi ukazateli je nově **panel přes celou šířku** s **„Odhadovanou
   dobou sbírání"** + průměrným tempem (od počátku sbírání) — stejná část jako
   na `/statistiky`. Vytaženo do sdílené `TimePaceSummary` (statistiky ji
@@ -2015,7 +1891,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   střed, pořád mimo tlačítko).
 
 ### Hlavní strana — „Zajímavosti" jako ⓘ popover u lístečku (místo dlaždice)
-
 - Dlaždice **„Zajímavosti o čtyřlístcích"** z řady ukazatelů odstraněna (řada
   je teď 3 sloupce). Její obsah (počet zajímavostí + z toho autorských, počet
   a názvy kategorií) je teď **ⓘ popover v rohu rotujícího lístečku** v heru
@@ -2026,7 +1901,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   den, čas byl šum).
 
 ### Hlavní strana — čerstvost sbírky do jedné řádky (+ⓘ) + „naposledy darováno"
-
 - Tři řádky metadat pod úvodem (založení / poslední aktualizace / poslední
   doplnění historických) nahrazeny **jednou řádkou** „Poslední aktualizace
   sbírky … (+N)"; datum založení a poslední backfill se schovaly za **ⓘ
@@ -2036,7 +1910,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   darovaného čtyřlístku (nový `lastDonatedAt` v home query).
 
 ### Admin — check „bez EN překladu" s inline editací
-
 - Nové kontroly **„Poznámky nálezů bez EN"** a **„Popisky map bez EN"** ve
   vlastní skupině **Překlady (EN)** na `/admin/checks`. Po syncu nových
   nálezů/map hned ukážou, u kterých chybí anglická varianta.
@@ -2048,14 +1921,13 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `/admin/checks` i `/admin/translations`.
 
 ### Admin — dávkový CZ→EN překlad poznámek (stáhnout/nahrát na /admin)
-
 - Nová sekce **`/admin/translations`** („Překlady"): **stáhne** JSON s českými
   zdrojovými texty poznámek nálezů + popisků map; po přeložení ho **nahraješ
   zpět** — zapíše se jen `en` do override vrstev (čeština dál sleduje název
   souboru / LSP). Ukazuje počty „celkem" a „bez EN".
-- **Dvě varianty stažení:** _„Vše (ke kontrole)"_ (`?all=1` — i položky, co už
+- **Dvě varianty stažení:** *„Vše (ke kontrole)"* (`?all=1` — i položky, co už
   EN mají, s přiloženým současným `en`, na odhalení nepřeložených CS-kopií) a
-  _„Jen nepřeložené"_.
+  *„Jen nepřeložené"*.
 - **Bez SSH/pnpm** — celé přes autentizované admin API (`notes/export` GET
   download, `notes/import` POST). Po importu se veřejné stránky přegenerují.
 - **Ochrana soukromí:** export vynechává anonymizované + darované nálezy a
@@ -2064,7 +1936,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
 - Sdílená logika v `src/lib/noteTranslations.ts`.
 
 ### Admin — override popisků lokačních map pro web (CZ/EN)
-
 - Doplněk k override poznámek nálezů: na `/admin/files/maps` má **každá mapa**
   tlačítko **„pozn."** s **CZ + volitelnou EN** variantou popisku. Uloží se do
   `data/.admin/map-note-overrides.json` (klíč = MAP_ID) — **mezivrstva jen pro
@@ -2074,11 +1945,10 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   **`/lokality/[mapId]`** — bere přednostně override; bez EN varianty se v EN
   ukáže česky s upozorněním „🇨🇿 In Czech only".
 - Sdílené UI: `NoteOverrideButton` se přesunul do `files/_shared/` a bere akci
-  - hint jako props (nálezy → `setFindNoteOverride`, mapy → `setMapNoteOverride`).
+  + hint jako props (nálezy → `setFindNoteOverride`, mapy → `setMapNoteOverride`).
 - Nový `czechOnly` klíč v i18n namespace `LocationDetail` (dřív jen `FindDetail`).
 
 ### Hlavní strana — showcase přesně přes kontejner + stavy nahoře i na mobilu
-
 - **Fotka „Náhodný 🍀"** teď vyplní **přesně 100 % kontejneru** (`fill`), takže
   její levá/pravá hrana sedí na levou hranu první a pravou hranu poslední
   fotky (dřív byla o ~8 px užší kvůli nativnímu stropu 1200 px < 1216 px).
@@ -2088,7 +1958,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   dole. Týká se všech fotek s overlay stavy (hlavní strana i detail).
 
 ### Hlavní strana — showcase/První-Poslední přes celou šířku + rotace + lupa
-
 - **Fotky „Náhodný 🍀" i „První vs poslední"** teď **vyplní celou šířku
   sloupce** (zrušen výškový strop) — okraje sednou na „Nejoblíbenější".
   Portrét proto vyjde vysoký a spodek se odscrolluje; to je zvolený kompromis
@@ -2105,7 +1974,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   velikost, aby nebyl rozmazaný.
 
 ### Hlavní strana — „První vs poslední" jako dvě fotky; pryč titulky
-
 - **Sekce „První vs poslední čtyřlístek"** už není dvojice vodorovných
   dlaždic — jsou to **dvě fotky nálezů vedle sebe** (na mobilu pod sebou),
   vyplňují šířku stránky s mezerou mezi nimi, **bez rámečku**. Nad každou je
@@ -2123,7 +1991,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `latestFindNoLocation`) smazáno z `cs.json`/`en.json`.
 
 ### Overlaye nad fotkou — brand barva (ladí s tlačítky) + 4K šířka
-
 - **Barva textu/ikon** overlayů nad fotkou (detail nálezu i „Náhodný 🍀") je
   teď **`brand-700`** místo `gray-700` — takže v dark theme svítí **zeleně**
   (ne bíle) a **ladí s tlačítky „Mapa"/„Detail"** nad lokační mapkou. Týká se:
@@ -2134,7 +2001,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   dosáhla plné šířky sloupce i na scaled-down 4K (~1080 CSS px).
 
 ### Mobil/responzivita — overlaye pod sebou + výškový strop showcase fotky
-
 - **Datum a čas** + **GPS/rotace** overlay na spodní hraně fotky se už
   **nepřekrývají** — jsou naskládané pod sebou (datum nahoře, GPS/rotace pod
   ním), vlevo dole, na všech velikostech (týká se detailu nálezu i „Náhodný 🍀"
@@ -2145,7 +2011,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   `ImageGallery` prop `maxVh`; `fullWidth` zrušen.)
 
 ### Oprava — mazání ořezů míjelo NFD názvy; upload teď nahradí osiřelé
-
 - **Bug:** „Smazat všechny ořezy" smazalo DB CROP řádky, ale fyzické soubory s
   **NFD názvem** (diakritika z macOS, např. `RATIBOŘ`) neodstranilo —
   `safeBaseName` dělá NFC a přímý `fs.rename(NFC)` na NFD souboru hodil ENOENT a
@@ -2158,7 +2023,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   mazání se při novém uploadu samy nahradí.
 
 ### Admin — hromadné „Smazat všechny ořezy" u checku celé-fotky
-
 - Nad tabulkou checku „Ořez je celá fotka" je tlačítko **„Smazat všechny
   ořezy (N)"** (s potvrzením). Přesune všechny dotčené ořezy do
   `data/.trash/<ts>/crops/` (obnovitelné) a **smaže jejich `find_images` CROP
@@ -2170,7 +2034,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   i mazáním.
 
 ### Admin — nástroj „Ořezat" (crop dialog) u checku (fáze 2–4)
-
 - U checku „Ořez je celá fotka" má každý řádek tlačítko **„Ořezat"**, které
   otevře **dialog se čtvercovým výběrem** (react-easy-crop — zoom/pan do
   čtverce). Uložení **přeořízne ořez z originálu na serveru**, nahradí soubor
@@ -2185,7 +2048,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
 - Nové závislosti: `react-easy-crop` (UI), `piexifjs` (EXIF přenos).
 
 ### Admin check „Ořez je celá fotka" — náhledy + kopírování ID (fáze 1)
-
 - Řádky checku teď ukazují **malé náhledy originálu a ořezu vedle sebe** — na
   první pohled vidíš, jestli je ořez skutečný výřez (vypadá jinak) nebo celá
   fotka (vypadá stejně).
@@ -2196,7 +2058,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   v další fázi.
 
 ### Admin check — „Ořez je nejspíš celá fotka, ne výřez"
-
 - Nový check v `/admin/checks` (skupina „Originály ↔ ořezy") vypíše nálezy, kde
   má **ořez stejný poměr stran jako originál a pokrývá ≥50 % jeho plochy** —
   typicky celá fotka nahraná jako ořez (lupa nad fotkou pak neukáže žádnou
@@ -2205,21 +2066,18 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   stejné 3:4, 80 % plochy). Řádek nabídne chipy „Originál →" i „Ořez →".
 
 ### Detail nálezu — datum a GPS jako overlaye nad fotkou
-
 - Datum a čas se přesunuly z popisku nad fotkou na **overlay vlevo dole nad
   fotkou**; GPS souřadnice (s přepínáním formátu) na **overlay na střed spodní
   hrany** — stejně jako to má sekce „Náhodný 🍀" na hlavní stránce. Datum je
   pinnuté na Europe/Prague.
 
 ### Detail nálezu — „Zpět na sbírku" na řádku navigace, u levého okraje fotky
-
 - Tlačítko je **na stejné lince** jako prev/next navigace (absolutní overlay
   vycentrovaný na baru), zarovnané s **levým okrajem fotky**. Pod `md` se skryje
   a převezme ho „Sbírka" chip v app baru (skok nahoru). Pozn.: na úzkém sloupci
   portrétní fotky se širší text-tlačítko může nepatrně překrýt s „🍀 #předchozí".
 
 ### Detail nálezu — „Zpět na sbírku" jako tlačítko + šipky v navigaci
-
 - Zpátky ze samotné **ikony ← na plné tlačítko „Zpět na sbírku"** (vlevo v
   navigačním baru). Od `md` nahoru je v baru; pod `md` se skryje a převezme ho
   kompaktní **„Sbírka" chip v app baru** (skočí nahoru jako na mobilu). Titulek
@@ -2228,10 +2086,9 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   a `›` za „🍀 #další".
 
 ### „Náhodný 🍀" — bez rámečku, fotka na plnou šířku
-
 - Titulek sekce i **rámeček karty odstraněny**; fotka teď zabírá **plnou šířku
   stránky** (nový `fullWidth` režim `ImageGallery` obchází výškový cap `min(100%,
-1200px, 70vh)`). Pozn.: u portrétních fotek je box vysoký (poměr stran).
+  1200px, 70vh)`). Pozn.: u portrétních fotek je box vysoký (poměr stran).
 - Klikací nadpis je teď **„Náhodný 🍀 #číslo"**, zarovnaný s levým okrajem fotky.
 - Tlačítko „Další náhodný 🍀" zrušeno jako tlačítko → **refresh ikona-overlay**
   v levém horním rohu mezi fullscreen a mapou.
@@ -2239,7 +2096,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   spodní hrany** fotky (vedle datum-overlaye vlevo dole).
 
 ### „Náhodný 🍀" — overlaye nad fotkou jako v detailu
-
 - Sekce na hlavní stránce přepracovaná do stejného stylu jako detail nálezu:
   - **Vote** a **„Na mapě"** jsou teď **overlaye nad fotkou** (vote vpravo nahoře,
     mapa vlevo nahoře vedle fullscreen ikony). „Na mapě" je jen ikona.
@@ -2253,7 +2109,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
 - **Anonymizované** nálezy dál bez prokliku na mapu i bez map-indikátoru.
 
 ### Oprava — zmizelá fotka v „Náhodný čtyřlístek" na hlavní stránce
-
 - Sekce showcase obalovala fotku do `w-fit` (shrink-wrap) kolem `ImageGallery`,
   jejíž šířka je `min(100%, …px, …vh)`. To je **cyklická závislost šířky** —
   některé prohlížeče ji vyhodnotí jako **nulovou** → box fotky zkolaboval na 0
@@ -2264,7 +2119,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   Detail nálezu byl OK, protože nikdy `w-fit` nepoužil. Viz [gotcha #8](docs/gotchas.md).
 
 ### Oprava — anonymizovaný stav v dark theme (tmavé na tmavém)
-
 - **Purple škála v dark theme byla neúplná** (chyběly odstíny 300/500/700) →
   odznak „Anonymizovaný" (`text-purple-700`) padal na default střední fialovou
   na tmavém pozadí (kontrast **2.19:1**). Doplněna celá škála → **7.92:1**.
@@ -2276,7 +2130,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   (**13.58:1**) — neměněn. Ostatní theme (light, leaf) byly celou dobu OK.
 
 ### Admin — správa textů bannerů nad fotkou nálezu
-
 - Nová sekce **`/admin/banner-texts`**: editace vysvětlujících pruhů nad fotkou
   nálezu (stavy `LOST` / `ANONYMIZED` / `DONATED` / `GIGANT` / `NO_GPS` /
   `NO_PHOTO` + zlatý odznak rekordu) v **češtině i angličtině**.
@@ -2289,7 +2142,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   (detaily nálezů se přegenerují přes `revalidatePath`).
 
 ### Admin — odhad kapacity disku, předvyplněné poznámky, méně warningů
-
 - **„Místo na disku"** na `/admin` teď ukazuje **odhad, kolik nálezů se ještě
   vejde** — průměrná stopa nálezu na disku (originál + výřez) promítnutá do
   volného místa. Sken zdrojových adresářů je cachovaný na 30 min (přehled
@@ -2305,7 +2157,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   proměnných), nic z toho neblokuje deploy.
 
 ### Opravy — „Bez fotky", middleware, #666
-
 - **Nové public obrázky se 404-ovaly** (`clover-illustration.png` → 404): matcher
   next-intl middleware měl **explicitní seznam** vyloučených souborů a nový
   obrázek v něm nebyl → přesměroval se na `/cs/…` a spadl. Nahrazeno **obecným
@@ -2318,7 +2169,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   (nečitelná) — dostala světlou kartu jako mapa nad nimi.
 
 ### Admin — override poznámek nálezů pro web (CZ/EN)
-
 - Na `/admin/files/finds` má každý originál tlačítko **„pozn."**, které otevře
   dialog s **CZ + volitelnou EN** variantou poznámky. Uloží se do
   `data/.admin/find-note-overrides.json` — **mezivrstva jen pro zobrazení**,
@@ -2329,10 +2179,9 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
 - Nový **filtr „S poznámkou"** v seznamu originálů (nálezy s poznámkou v LSP
   JSONu nebo s overridem).
 - Fáze pro lokační mapy (`/admin/files/maps`) zatím ne — dle domluvy později.
-  _(Doděláno 2026-07 — viz novější záznam „override popisků lokačních map".)_
+  *(Doděláno 2026-07 — viz novější záznam „override popisků lokačních map".)*
 
 ### /sbirka — provázané filtry Stát → Město → Lokalita
-
 - Filtry se teď kaskádují (celé na klientu — každá lokalita v options nese
   své město i stát):
   - **Stát** → v comboboxu **Město** jsou jen města zvoleného státu.
@@ -2345,7 +2194,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   (hodnota pro filtr zůstává původní, kapitalizuje se jen popisek).
 
 ### GPS všude + EN varování u českých poznámek
-
 - **Lokalizace GPS dotažena i do řádkového seznamu /sbirka** (`find-list`) —
   teď jsou S/J/V/Z konzistentně na všech veřejných místech (seznam i detail
   nálezů, seznam i detail lokalit, karty, mapa, homepage).
@@ -2355,7 +2203,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   poznámkou nálezu (banner pod fotkou) i pod popiskem lokační mapy.
 
 ### GPS souřadnice — lokalizace, oprava mezer, nové formáty
-
 - **Směry se lokalizují**: v CS teď S/J/V/Z (Sever/Jih/Východ/Západ) místo
   N/S/E/W — všude, kde se GPS zobrazuje (detail, karty, mapa, /lokality).
 - **Oprava „verbose" formátu**: odstraněny mezery navíc za `°` a `'`
@@ -2377,7 +2224,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   dva samostatné druhy.
 
 ### Detail nálezu — duchové, kombinace stavů, drobné opravy
-
 - **Ztracený nález má teď stoupající duchy** místo lístečků; anonymizovaný má
   otazníčky. Overlaye jsou **nezávislé** — anonymizovaný + ztracený nechá
   stoupat **duchy i otazníčky** zároveň (a bannerů je tam pak víc, každý stav
@@ -2394,7 +2240,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   v comboboxu „Stav" na /sbirka.
 
 ### Zrušené stavy nálezů — „Neutržený", „Zaniklá lokalita", „Bez lokality"
-
 - Stavy `NOT_PICKED`, `LOCATION_GONE` a `LOCATION_MISSING` byly zrušeny:
   odebrány z `JSON_STATE_MAP` (sync je přestal přiřazovat) a schované z UI
   (`RETIRED_STATES` filtruje `StateBadges`). „Bez lokality" byla špatná kopie
@@ -2405,7 +2250,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   je potřeba na VPS spustit `pnpm sync`.
 
 ### Detail nálezu — stavové bannery, „Bez fotky" a „Bez GPS", back k okraji
-
 - **Back ikona zarovnaná k levému okraji fotky** (desktop): už neplave u kraje
   stránky, ale sedí na levé hraně vycentrovaného sloupce fotky (přes overlay
   vrstvu, klikací zůstává jen odkaz).
@@ -2420,7 +2264,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   (`??°??′??″N …`) — je vidět, že souřadnice by tu mohly být, jen chybí.
 
 ### Detail nálezu — rámeček fotky, stavové bannery, anonymizace
-
 - **Fotka má rámeček jako lokační mapka** (`bordered` u `ImageGallery`).
 - **Stavové notice jako banner nad fotkou**: „Ztracený" (šedý, s duchem) a
   „Anonymizovaný" (fialový, barvou jako mělo hlášení o anonymizaci) přesunuty
@@ -2441,7 +2284,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   mapky.
 
 ### Detail nálezu — šířka fotky/mapy, rotace, poznámka jako banner
-
 - **Mapa se roztáhne na šířku fotky (ne naopak)**: šířka se počítá z rozměrů
   fotky (`photoDisplay` v [src/lib/photoBox.ts](src/lib/photoBox.ts)) jako čistý
   CSS výraz `min(100%, Wpx, 70vh·W/H)` a **stejná hodnota** se použije pro box
@@ -2455,7 +2297,6 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   nálezu i popisku lokační mapy je v bannerech **vycentrovaný**.
 
 ### Detail nálezu — doladění
-
 - **Placeholder rámeček fotky**: box fotky si rezervuje místo z poměru stran
   (`aspect-ratio` + `bg-gray-100`) ještě před načtením obrázku, takže při
   překlikávání předchozí/další nález stránka neposkakuje (dřív nejdřív naskočila
@@ -2473,16 +2314,14 @@ s_<sha1>_DAR[_ANON].webp`, sha1-dedup) a všechny nálezy na ně jen odkážou
   ne text „Max.".
 
 ### Patička
-
 - **Přeorganizováno do čtyř skupin**: (1) `© 2026 Safronova čtyřlístkotéka` +
   podpis autora (smajlík · Safronus · LinkedIn), (2) odkaz **Ochrana soukromí**
   (nahradil tagline „Soukromá sbírka čtyřlístků" v copyrightu), (3) `s asistencí
-Claude Code` **bez uvádění modelu** + odkaz na GitHub repo + číslo buildu
+  Claude Code` **bez uvádění modelu** + odkaz na GitHub repo + číslo buildu
   (počet commitů), (4) počet návštěv. GitHub + build number se přesunuly
   z podpisu autora do části o Claude Code.
 
 ### Detail nálezu — hlavička, „Čas a poloha" a fotka
-
 - **Titulek přesunut do lišty „Zpět na sbírku"**: z „Nález #123" je teď
   „🍀 #123", vycentrovaný v horní liště. Po stranách titulku jsou tiché
   navigační odkazy na sousední nálezy — vlevo předchozí („🍀 #122"), vpravo
@@ -2504,7 +2343,6 @@ Claude Code` **bez uvádění modelu** + odkaz na GitHub repo + číslo buildu
   v levém dolním rohu fotky (dřív vycentrované v hlavičce).
 
 ### Admin / anonymizace
-
 - **Anonymizace lokality se plně propíše do nálezů**: dřív šlo přes admin označit
   mapu lokality jako anonymizovanou, ale přidružené nálezy zůstaly veřejné (jen
   `/admin/checks` to hlásil, nešlo to tam vyřešit). Teď toggle anonymizace mapy
@@ -2529,7 +2367,6 @@ Claude Code` **bez uvádění modelu** + odkaz na GitHub repo + číslo buildu
     (nálezy anon v DB/JSONu, ale `+NE+` v názvu). Obě pak stačí dorovnat syncem.
 
 ### Detail nálezu — sekce „Lokalita"
-
 - **2-sloupcový layout na desktopu**: fakta lokality (kód, plocha, hustota,
   pořadí) + navigace mezi nálezy **vlevo**, mapa **vpravo** — po capnutí mapy
   zbývalo vedle ní hodně prázdna. Na mobilu se to složí pod sebe (fakta →
@@ -2563,19 +2400,17 @@ Claude Code` **bez uvádění modelu** + odkaz na GitHub repo + číslo buildu
   `1. 🍀 | Předchozí 🍀 | Další 🍀 | Max. 🍀` (vybledlá na krajích řetězu).
 
 ### Homepage — kartička „Zajímavosti"
-
 - **„Další zajímavost" skočí na kartu**: tlačítko v dlaždici Zajímavostí je pod
   ohybem, hero kartička nahoře — po kliknutí teď stránka plynule scrolluje ke
   kartě a dá jí focus, aby bylo vidět nově načtený lísteček (i pro čtečky).
 - **Kartička roste do šířky, ne do výšky**: fixní `w-72/w-80` → `w-80 sm:w-96
-lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé texty
+  lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé texty
   rozlévají na šířku místo natahování na výšku.
 - **Vlastní tlačítko rotace v kartě**: v levém dolním rohu tichá „shuffle"
   ikona (tonální dle varianty, odhalí se na hover) — provede rotaci na místě bez
   čekání na časovač. Skryté na „link" kartách (celá karta je odkaz).
 
 ### Homepage — časové značky pod úvodem
-
 - **„Poslední aktualizace sbírky" = čas posledního nahrání, ne posledního
   nálezu**: dřív se zobrazoval `MAX(found_at)` (nejnovější EXIF datum nálezu),
   což neodpovídalo popisku „aktualizace". Teď `MAX(created_at)` — kdy sync
@@ -2586,7 +2421,6 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   se první lísteček dostal na web, ne na jeho EXIF datum nálezu.
 
 ### Přístupnost (WCAG AA)
-
 - **Kontrast** na dvou dříve padajících místech (Lighthouse a11y 96 → cíl 100):
   na **/statistiky** labely na světle zeleném `bg-brand-50` / `bg-gray-50`
   (`text-gray-500/400`, ~4,2:1) zvednuty na `gray-600` (~6,6:1) — totals karta,
@@ -2606,7 +2440,6 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   → k označení „Safe" v Sonaru.
 
 ### Kvalita a bezpečnost (SonarCloud)
-
 - **Napojen SonarCloud** (Automatic Analysis, veřejný projekt) a provedena
   kompletní triage 926 nálezů. Většina „vulnerabilities" jsou kontextové
   false-positive (rating E táhla jediná falešná BLOCKER — `TOKEN_ALPHABET`).
@@ -2624,7 +2457,6 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
     prep-skriptu (S8707).
 
 ### Obsah
-
 - **Oprava rozbité diakritiky** u faktu #21 „Genom jetele": malá písmena
   s diakritikou byla zapsaná jako velká základní (`plazivého`→`plazivEho`,
   `týmu`→`tYmu`, `časopis`→`Casopis` …) — nejspíš artefakt z auditu při přidání
@@ -2647,11 +2479,10 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   odstraněna** (#100), **46 přepsáno** na ověřené znění se zdroji, **23 přehnaných
   zjemněno**; **27 ověřených** ponecháno. Autorovy BONUS entry (#111, #666 aj.)
   netknuté. Zastaralé EN překlady u změněných id odstraněny (dočasný fallback na
-  CS, čeká re-translation). _(66 „pověr" má zvlášť naznačené přerámování — zatím
-  neaplikováno.)_
+  CS, čeká re-translation). *(66 „pověr" má zvlášť naznačené přerámování — zatím
+  neaplikováno.)*
 
 ### Výkon
-
 - **Odlehčení homepage payloadu (facts on-demand)**: rotující kartička
   „Drobnosti" už do iniciálního HTML neserializuje celou sadu ~210 faktů —
   pošle se jen náhodný **seed 8 položek**, zbytek si klient dotáhne po
@@ -2663,14 +2494,14 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   `width={1024}` (zdroj je 1024×1024/692 KB) bez `sizes` → Next servíroval
   velkou variantu pro **98px displej**. PSI (mobil) to hlásil jako **~731 KiB
   k úspoře** a hlavní příčinu **LCP 6,6 s**. Sníženo na reálné fixní rozměry
-  (256/128 px, retina 2×) → Next posílá malou WebP variantu. _(Skóre výkonu
-  homepage 74; Přístupnost/Doporučené postupy/SEO 100.)_
+  (256/128 px, retina 2×) → Next posílá malou WebP variantu. *(Skóre výkonu
+  homepage 74; Přístupnost/Doporučené postupy/SEO 100.)*
 - **CLS na detailech (mobil i desktop)**: detailní lokační mapy (`<img>`
   s `h-auto w-full`) neměly rozměry → posun layoutu při doloadování (PSI:
   nález CLS 0,16 mobil; lokalita 0,29 desktop). Doplněny `width`/`height`
-  z `imageWidth`/`imageHeight` → prohlížeč rezervuje výšku předem. _(Bajtová
+  z `imageWidth`/`imageHeight` → prohlížeč rezervuje výšku předem. *(Bajtová
   optimalizace obrázků — menší varianty map/náhledů — vyžaduje re-sync ~17k
-  obrázků, řeší se zvlášť.)_
+  obrázků, řeší se zvlášť.)*
 - **/sbirka LCP (mobil i desktop)**: náhledy nálezů se všechny lazy-loadovaly
   včetně prvního nad ohybem → PSI hlásil **LCP 3,7 s i na desktopu**
   („nepoužívej lazy pro LCP obrázek"). První řádek (grid ≤4, list ≤3) teď
@@ -2688,22 +2519,20 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   i marker/center souřadnice se serializovaly na **9 desetin** (~0,1 mm).
   Zkráceno na **6** (`ST_AsGeoJSON(l.polygon, 6)` + `ROUND(…, 6)`; ~0,11 m,
   vizuálně identické) → menší HTML (polygony dominují 179 KB gzip). Deviation
-  výpočet používá raw geometrii, ne zaokrouhlený výstup → nedotčen. _(Hlavní
+  výpočet používá raw geometrii, ne zaokrouhlený výstup → nedotčen. *(Hlavní
   bolest /mapa — LCP 6,5 s — jsou ale externí OSM dlaždice, mimo naši
-  kontrolu. Leaflet se mimo /mapa nenačítá — code-split je OK.)_
+  kontrolu. Leaflet se mimo /mapa nenačítá — code-split je OK.)*
 
 ### Výkon (pokr.)
-
 - **A2 — mapové náhledy na `-thumb`**: lokační mapy se generovaly jen v plné
   velikosti (~800 px) a servírovaly se tak i do 80–200 px náhledů v seznamech
   (~4× overdraw, PSI ~0,5 MB na /lokality). `generateMapWebP` teď vytváří i
   `{sha}-thumb.webp` (256 px; **5 KB vs 33 KB = −85 %/mapa**, backfill i pro
   existující mapy přes maps-only sync), a seznam lokalit (`location-list-row`)
-  - náhled v seznamu nálezů (`find-list`) ho používají přes helper
-    `mapThumbUrl`. Detail mapy zůstává na plné variantě.
+  + náhled v seznamu nálezů (`find-list`) ho používají přes helper
+  `mapThumbUrl`. Detail mapy zůstává na plné variantě.
 
 ### Přidáno
-
 - **Stránka „Ochrana soukromí"** (`/soukromi`, `/en/soukromi`) + odkaz v
   patičce. Informační povinnost dle čl. 13 GDPR: správce + kontakt, co a proč
   se zpracovává (cookieless GoatCounter, IP v bezpečnostních logách, hashovaný
@@ -2714,7 +2543,6 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   dle § 89 z. č. 127/2005 Sb. nevyžaduje.
 
 ### Přístupnost
-
 - **Kontrast textů** (dle Lighthouse): smysluplné sekundární texty povýšeny na
   `text-gray-600`/`-700`, aby splnily WCAG AA 4.5:1 — časové značky na home,
   popisky měsíců ve sparkline, počet hlasů, datum v retrospektivě, patička
@@ -2729,7 +2557,6 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   atribut `[data-fact-title]`, beze změny vzhledu.
 
 ### Automatizace / údržba
-
 - **Dependabot** (`.github/dependabot.yml`): týdenní hlídání npm (Next.js,
   React, Prisma, …) i GitHub Actions + okamžité PR pro bezpečnostní
   aktualizace (po zapnutí „Dependabot security updates" v Settings). PR se
@@ -2746,7 +2573,6 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   důležité. Zdarma pro osobní/public repo.
 
 ### Bezpečnost
-
 - **Next.js 15.5.15 → 15.5.20**: záplata **7 high** CVE (3× DoS — Server Actions /
   connection / image; 3× middleware/proxy bypass; 1× SSRF) + moderaty (XSS v App
   Routeru, cache poisoning RSC). `pnpm audit --prod` klesl ze 17 (7 high) na 4
@@ -2757,9 +2583,9 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   z trackovaných souborů (`deploy/permaban-whitelist.conf` je teď jen šablona
   s placeholdery, `deploy/README.md` příklady, `docs/gotchas.md`). Skutečné
   adresy žijí výhradně v `/etc/permaban-whitelist.conf` a nginx configu na
-  VPS — odkud je skripty reálně čtou, takže se nic nerozbilo. _(Pozn.: v git
+  VPS — odkud je skripty reálně čtou, takže se nic nerozbilo. *(Pozn.: v git
   historii zůstávají; jejich odstranění z minulých commitů je samostatný
-  destruktivní krok — rewrite historie.)_
+  destruktivní krok — rewrite historie.)*
 - **robots.txt už neprozrazuje `/admin`**: `Disallow: /admin/` odstraněn.
   robots.txt je veřejně čitelný, takže ta řádka fungovala jako ukazatel na
   admin cestu pro kohokoli, kdo dělá průzkum — opak skrývání. Admin drží mimo
@@ -2769,7 +2595,6 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   v robots zůstávají kvůli crawl-budget hygieně.
 
 ### Změněno
-
 - **Brandová OG karta** `/og` teď používá **autorovu ručně kreslenou
   čtyřlístek-ilustraci** („SAFRONUS" na stonku) + tvářičku jako podpis v
   rohu (místo generovaného geometrického čtyřlístku), na stejném zeleném
@@ -2777,27 +2602,26 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   sharp na PNG a vložené jako data URL.
 
 ### SEO / dosah (průběžně)
-
 - **Detail nálezu + detail lokality**: self-referencing `canonical` + hreflang
   (cs/en/x-default) v `<head>`, `og:locale`/`og:url`, a **OG/Twitter obrázek**
   (fotka nálezu / náhled mapy, `summary_large_image`) → sdílení na sítích má
   konečně náhledový obrázek. Anonymizované nálezy/lokality zůstávají `noindex`
   bez obrázku. Logika je v `generateMetadata` (helper `src/lib/seo.ts`), takže
-  platí i pro každý budoucí nález automaticky. _(Batch 1.)_
+  platí i pro každý budoucí nález automaticky. *(Batch 1.)*
 - **Vynucení https** pro canonical/OG/sitemap/robots (`siteBaseUrl()`), i když
   má prod `.env` `http://`.
 - **Sekční stránky** (home, sbírka, lokality, mapa, statistiky): canonical +
   hreflang + `og:locale`/`og:url` + **brandová OG karta** (`/og`,
   `ImageResponse`, bezfontová vektorová zelená karta se čtyřlístkem,
-  `summary_large_image`). _(Batch 2.)_
+  `summary_large_image`). *(Batch 2.)*
 - **IndexNow** (`src/lib/indexnow.ts` + `/indexnow-key`): `pnpm sync` po
   přidání nálezů sám pingne Bing / Seznam.cz / Yandex s URL **nově
   vložených** (a neanonymizovaných) nálezů → indexace v hodinách, ne dnech.
   Best-effort (selhání nerozbije sync), localhost/dry-run = no-op.
 - **Ověření webmaster nástrojů**: `<meta>` tagy pro Google / Bing / Seznam
   přes env (`GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION`,
-  `SEZNAM_WMT`) — vykreslí se, jen když je token nastavený. _(Batch 4.)_
-- **Strukturovaná data (JSON-LD)** _(Batch 3)_: `WebSite`+`SearchAction` na
+  `SEZNAM_WMT`) — vykreslí se, jen když je token nastavený. *(Batch 4.)*
+- **Strukturovaná data (JSON-LD)** *(Batch 3)*: `WebSite`+`SearchAction` na
   homepage (vyhledávací box v Google, napojený na `/sbirka?q=`),
   `BreadcrumbList` + `ImageObject` (foto, datum, místo, GPS) na detailu
   nálezu, `BreadcrumbList` + `Place`+`GeoCoordinates` na detailu lokality.
@@ -2808,7 +2632,6 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
 ## 2026-06
 
 ### Přidáno
-
 - **/statistiky — „Nejvíce čtyřlístků na jeden zátah"**: panel s největším
   jedním sběrem (globální série nálezů s mezerou ≤ 15 min); proklik dlaždic
   vede na přesně ten zátah v `/sbirka` (instant-resolution `fromTs`/`toTs`
@@ -2816,7 +2639,7 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
 - **/statistiky — nejdelší série dnů s nálezem**: v řádku přepínačů nad
   heatmapou (počet dní + datum od–do + proklik na první/poslední nález).
 - **/statistiky — proklik first→last** u panelů „Nejvíc za…" (6 kalendářních
-  - 3 klouzavé) a sekundy u „Nejrychlejších 10/100".
+  + 3 klouzavé) a sekundy u „Nejrychlejších 10/100".
 - **/statistiky — neúplné krajní roky**: první a aktuální rok v tempu označené
   (počítá se z méně dní, ne podhodnocené).
 - **Domů — „Pole darovaného štěstí"**: pole rozházených pin-čtyřlístků pod
@@ -2832,7 +2655,6 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
   jako na detailu.
 
 ### Opraveno / bezpečnost
-
 - **EXIF**: malé „volné" fotky pod prahem konverze se servírovaly s původními
   metadaty (GPS) — teď se vždy stripují.
 - **+2h posun** v časech na `/statistiky` (found_at je naivní Prague wall-clock).
@@ -2846,7 +2668,6 @@ lg:w-[30rem]`; vedle karty je v hero řádku spousta místa, tak se dlouhé text
 - Mobil: „plavání" šířky (overflow-x na `<html>`), výška sparkline grafu.
 
 ### Dokumentace
-
 - `docs/deployment.md` + `CLAUDE.md` srovnány se skutečností produkce:
   Ubuntu 25.10 „questing", nativní PostgreSQL 17, ověření `pm2-app` unitu,
   Docker pomocné služby na hostu.
