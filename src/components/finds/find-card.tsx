@@ -7,8 +7,13 @@ import type { PublicFind } from "@/lib/queries/finds";
 import { FindThumbnail, cropVariant } from "./find-thumbnail";
 import { StateBadges } from "./state-badges";
 import { VoteButton } from "./vote-button";
-import { formatShortDateTimeCs } from "@/lib/format";
+import { formatDistance, formatShortDateTimeCs } from "@/lib/format";
+import { formatGpsApple } from "@/lib/gpsFormat";
+import { formatLocationId } from "@/lib/format";
 import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
+
+type OffsetT = Awaited<ReturnType<typeof getTranslations<"LocationOffset">>>;
+type CompassT = Awaited<ReturnType<typeof getTranslations<"Compass">>>;
 
 export async function FindCard({
   find,
@@ -28,7 +33,11 @@ export async function FindCard({
   autoHydrate?: boolean;
 }) {
   const locale = await getLocale();
-  const tRow = await getTranslations("FindRow");
+  const [tRow, tOffset, tCompass] = await Promise.all([
+    getTranslations("FindRow"),
+    getTranslations("LocationOffset"),
+    getTranslations("Compass"),
+  ]);
 
   const altText = find.isAnonymized
     ? tRow("anonymizedAlt", { id: find.id })
@@ -106,7 +115,9 @@ export async function FindCard({
             list-level echo of the detail page's elegy treatment. The
             overlays are siblings, so they keep their colours. */}
         <FindThumbnail
-          image={cropVariant(find.primaryImage, find.images) ?? find.primaryImage}
+          image={
+            cropVariant(find.primaryImage, find.images) ?? find.primaryImage
+          }
           alt={altText}
           priority={priority}
           className={`aspect-square ${
@@ -143,7 +154,11 @@ export async function FindCard({
                   "0 1px 4px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.85)",
               }}
             >
-              {formatShortDateTimeCs(find.foundAt, locale, COLLECTION_TIME_ZONE)}
+              {formatShortDateTimeCs(
+                find.foundAt,
+                locale,
+                COLLECTION_TIME_ZONE,
+              )}
             </p>
           </div>
         )}
@@ -170,7 +185,94 @@ export async function FindCard({
             )}
           </div>
         )}
+        <FindHoverInfo
+          find={find}
+          locale={locale}
+          tOffset={tOffset}
+          tCompass={tCompass}
+        />
       </Link>
     </div>
   );
+}
+
+/**
+ * Slide-up detail strip along the bottom of the tile's photo, revealed on
+ * hover (and on keyboard focus, so it isn't mouse-only).
+ *
+ * Pure CSS off the card's `group` class — no client component and no hover
+ * state to hydrate, which matters on a page that renders a hundred of these.
+ * `pointer-events-none` keeps the whole tile a single click target.
+ *
+ * Anonymized finds get nothing: their coordinates and distance are already
+ * null by policy, and the location identity is exactly what anonymization
+ * withholds.
+ */
+function FindHoverInfo({
+  find,
+  locale,
+  tOffset,
+  tCompass,
+}: {
+  find: PublicFind;
+  locale: string;
+  tOffset: OffsetT;
+  tCompass: CompassT;
+}) {
+  if (find.isAnonymized) return null;
+  const loc = find.location;
+  const hasDistance = find.distanceFromDefault !== null;
+  if (!loc && !find.coordinates && !hasDistance) return null;
+
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-black/85 px-2 py-1.5 transition-transform duration-150 ease-out group-hover:translate-y-0 group-focus-within:translate-y-0"
+    >
+      {loc && (
+        <p
+          className={`truncate text-center font-mono leading-tight ${codeSizeClass(loc.code)}`}
+          style={{ color: "#e5e7eb" }}
+          title={loc.code}
+        >
+          <span style={{ color: "#9ca3af" }}>{formatLocationId(loc.id)}</span>{" "}
+          {loc.code}
+        </p>
+      )}
+      {find.coordinates && (
+        <p
+          className="truncate text-center font-mono text-[10px] leading-tight"
+          style={{ color: "#bbf7d0" }}
+        >
+          {formatGpsApple(find.coordinates.lat, find.coordinates.lng, locale)}
+        </p>
+      )}
+      {hasDistance && (
+        <p
+          className="truncate text-center text-[10px] leading-tight"
+          style={{ color: "#d1d5db" }}
+        >
+          {tOffset("fromDefaultMap", {
+            distance: formatDistance(find.distanceFromDefault!, locale),
+          })}
+          {find.directionFromDefault !== null && (
+            <> · {tCompass(`compassAbbr${find.directionFromDefault}`)}</>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Location codes run from 12 to ~50 characters
+ * ("CZ_VALAŠSKÉMEZIŘÍČÍ_KRÁSNONADBEČVOU_SVĚRÁKOVA_001"). The tile is a fixed
+ * grid cell, so the type steps down instead of wrapping onto a second line
+ * and pushing the rest of the strip off the photo.
+ */
+function codeSizeClass(code: string): string {
+  if (code.length <= 18) return "text-[11px]";
+  if (code.length <= 26) return "text-[10px]";
+  if (code.length <= 34) return "text-[9px]";
+  return "text-[8px]";
 }

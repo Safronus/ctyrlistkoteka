@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Dlaždice na /sbirka mají detail po najetí myší
+- Po najetí na dlaždici vyjede zespodu proužek s **číslem a ID lokace, GPS
+  souřadnicemi a vzdáleností od Safrona včetně světové strany**. Když myš
+  odjede, zase se sbalí. Je to čistě CSS — na stránce se stovkou dlaždic
+  nepřibyl žádný stav k hydratování — a reaguje i na klávesové zaměření.
+- ID lokace se podle délky zmenšuje (kódy sahají od 12 do ~50 znaků), aby
+  se vždy vešlo na jeden řádek a proužek nevytlačilo z fotky.
+- Anonymizované nálezy proužek nedostávají vůbec: jejich souřadnice
+  i vzdálenost jsou z principu prázdné a identita lokality je přesně to,
+  co se skrývá.
+- **Světová strana přibyla i do seznamu** na `/sbirka` — např. „22,7 km od
+  Safrona · SV", s celým názvem směru v tooltipu. Používá se stejný výpočet
+  oktantu jako u růžice na `/statistiky`, takže směr sedí na obou stránkách.
+- V titulku `/lokality` zmizelo poslední „nálezů" ve prospěch 🍀.
+
 ### Oprava: modré prvky svítily v tmavém režimu
 - Tmavý režim přebarvuje celé palety (zelená, fialová, růžová, jantarová,
   smaragdová) — jen **modrá tam chyběla**. Modrý řádek rodičovské lokality na

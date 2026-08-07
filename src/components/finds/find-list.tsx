@@ -21,6 +21,7 @@ import { MapOverlay } from "@/components/map/map-overlay";
 
 type RowT = Awaited<ReturnType<typeof getTranslations<"FindRow">>>;
 type OffsetT = Awaited<ReturnType<typeof getTranslations<"LocationOffset">>>;
+type CompassT = Awaited<ReturnType<typeof getTranslations<"Compass">>>;
 
 export async function FindList({
   finds,
@@ -44,10 +45,11 @@ export async function FindList({
     );
   }
 
-  const [locale, tRow, tOffset] = await Promise.all([
+  const [locale, tRow, tOffset, tCompass] = await Promise.all([
     getLocale(),
     getTranslations("FindRow"),
     getTranslations("LocationOffset"),
+    getTranslations("Compass"),
   ]);
 
   return (
@@ -59,6 +61,7 @@ export async function FindList({
             locale={locale}
             tRow={tRow}
             tOffset={tOffset}
+            tCompass={tCompass}
             voted={votedSet?.has(find.id) ?? false}
             voteCount={voteCounts?.get(find.id) ?? 0}
             // First rows are above the fold — eager-load their thumbnails
@@ -76,6 +79,7 @@ function FindListRow({
   locale,
   tRow,
   tOffset,
+  tCompass,
   voted,
   voteCount,
   priority = false,
@@ -84,6 +88,7 @@ function FindListRow({
   locale: string;
   tRow: RowT;
   tOffset: OffsetT;
+  tCompass: CompassT;
   voted: boolean;
   voteCount: number;
   priority?: boolean;
@@ -164,7 +169,9 @@ function FindListRow({
           {/* LOST finds render their photo in grayscale — the quiet
               list-level echo of the detail page's elegy treatment. */}
           <FindThumbnail
-            image={cropVariant(find.primaryImage, find.images) ?? find.primaryImage}
+            image={
+              cropVariant(find.primaryImage, find.images) ?? find.primaryImage
+            }
             alt={altText}
             priority={priority}
             className={`h-24 w-24 rounded-md sm:h-28 sm:w-28 ${
@@ -206,7 +213,11 @@ function FindListRow({
             </div>
             <span className="shrink-0 whitespace-nowrap text-xs text-gray-500">
               <span className="sm:hidden">
-                {formatTinyDateTimeCs(find.foundAt, locale, COLLECTION_TIME_ZONE)}
+                {formatTinyDateTimeCs(
+                  find.foundAt,
+                  locale,
+                  COLLECTION_TIME_ZONE,
+                )}
               </span>
               <span className="hidden sm:inline">
                 {formatDateTimeCs(find.foundAt, locale, COLLECTION_TIME_ZONE)}
@@ -252,6 +263,18 @@ function FindListRow({
                         locale,
                       ),
                     })}
+                    {/* Direction as the abbreviation with the full name in
+                        the tooltip: "22,6 km od Safrona · SV". */}
+                    {find.directionFromDefault !== null && (
+                      <span
+                        className="ml-1 font-mono text-gray-500"
+                        title={tCompass(
+                          `compassName${find.directionFromDefault}`,
+                        )}
+                      >
+                        · {tCompass(`compassAbbr${find.directionFromDefault}`)}
+                      </span>
+                    )}
                   </span>
                 </>
               )}

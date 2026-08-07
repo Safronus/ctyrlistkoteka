@@ -72,6 +72,7 @@ export function HighlightCards({
 }) {
   const t = useTranslations("Statistiky");
   const tTime = useTranslations("TimeSince");
+  const tCompass = useTranslations("Compass");
   const locale = useLocale();
 
   const [when, setWhen] = useState<WhenMode>("global");
@@ -134,18 +135,18 @@ export function HighlightCards({
     ? distanceRose.map((o) => {
         const v = roseValue(o);
         return {
-          abbr: t(`compassAbbr${o.octant}`),
+          abbr: tCompass(`compassAbbr${o.octant}`),
           value: v === null ? null : roseLabel(v),
           isRecord: o.octant === recordOctant,
           tooltip:
             v === null
-              ? `${t(`compassName${o.octant}`)}: —`
-              : `${t(`compassName${o.octant}`)}: ${formatDistance(v, locale)}`,
+              ? `${tCompass(`compassName${o.octant}`)}: —`
+              : `${tCompass(`compassName${o.octant}`)}: ${formatDistance(v, locale)}`,
         };
       })
     : null;
   const recordDirection =
-    recordOctant === null ? null : t(`compassName${recordOctant}`);
+    recordOctant === null ? null : tCompass(`compassName${recordOctant}`);
   const placeCard = lowest && lowestPlace ? lowestPlace : highestPlace;
 
   if (!active && !distanceCard && !placeCard) return null;

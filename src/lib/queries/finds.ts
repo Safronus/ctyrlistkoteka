@@ -93,6 +93,10 @@ export interface PublicFind {
    *  to null for anonymized finds so the value can't be used to
    *  triangulate their position. */
   distanceFromDefault: number | null;
+  /** Compass octant from the same origin: 0 = N, 1 = NE … 7 = NW. Null
+   *  under exactly the conditions `distanceFromDefault` is null, plus when
+   *  the find sits on the origin itself (no direction to speak of). */
+  directionFromDefault: number | null;
   /** True when the find has at least one donation photo on disk under
    *  `${GENERATED_DIR}/find-photos/`. Drives the camera badge on the
    *  /sbirka list rows and the gallery button on the detail page. The
@@ -468,6 +472,7 @@ async function hydrate(
       lat: number | null;
       lng: number | null;
       dist_m: number | null;
+      octant: number | null;
       loc_offset_m: number | null;
       loc_offset_mode: "polygon" | "center" | null;
       loc_offset_inside: boolean | null;
@@ -487,6 +492,16 @@ async function hydrate(
                   AND (SELECT pt FROM ref) IS NOT NULL
                 THEN ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref))::float8
            END AS dist_m,
+           -- Compass octant, 0 = N clockwise to 7 = NW. Same expression the
+           -- /statistiky distance rose uses, so a find's direction reads the
+           -- same on both pages. ST_Azimuth is NULL for a point identical to
+           -- the origin, which carries through to a NULL octant.
+           CASE WHEN f.is_anonymized = false
+                  AND (SELECT pt FROM ref) IS NOT NULL
+                THEN (((round(degrees(
+                         ST_Azimuth((SELECT pt FROM ref), f.coordinates)
+                       ) / 45)::int % 8) + 8) % 8)
+           END AS octant,
            CASE WHEN f.is_anonymized = false THEN
                 CASE
                   WHEN l.polygon IS NOT NULL
@@ -585,6 +600,7 @@ async function hydrate(
 
   const coordsMap = new Map<number, { lat: number; lng: number }>();
   const distMap = new Map<number, number>();
+  const dirMap = new Map<number, number>();
   const offsetMap = new Map<
     number,
     {
@@ -602,6 +618,9 @@ async function hydrate(
     }
     if (c.dist_m !== null) {
       distMap.set(c.id, c.dist_m);
+    }
+    if (c.octant !== null) {
+      dirMap.set(c.id, c.octant);
     }
     if (c.loc_offset_m !== null && c.loc_offset_mode !== null) {
       offsetMap.set(c.id, {
@@ -682,6 +701,7 @@ async function hydrate(
       // surface a distance that could be used to back-derive the
       // anonymized find's position.
       distanceFromDefault: distMap.get(r.id) ?? null,
+      directionFromDefault: dirMap.get(r.id) ?? null,
       // NEZNÁMÁ (00000) is a parking slot, not a place. Its centre point is
       // an arbitrary anchor, so "how far from it" is meaningless — the SQL
       // happily computes a number, we drop it here so no surface (list tone,
@@ -909,16 +929,16 @@ export async function getFacetCounts(
   const [dominantChildren, allLocations] = await tap(
     "facet.locMeta",
     Promise.all([
-    prisma.location.findMany({
-      where: { parentId: DOMINANT_LOCATION_ID },
-      select: { id: true },
-    }),
-    // parentId map so per-location counts can roll children up into their
-    // parent — selecting a parent in the dropdown filters its whole subtree
-    // (buildWhere expands parent → children), so its count must too, or a
-    // parent whose finds live only in child locations would show 0 and get
-    // hidden. Hierarchy is max depth 2, so a single pass suffices.
-    prisma.location.findMany({ select: { id: true, parentId: true } }),
+      prisma.location.findMany({
+        where: { parentId: DOMINANT_LOCATION_ID },
+        select: { id: true },
+      }),
+      // parentId map so per-location counts can roll children up into their
+      // parent — selecting a parent in the dropdown filters its whole subtree
+      // (buildWhere expands parent → children), so its count must too, or a
+      // parent whose finds live only in child locations would show 0 and get
+      // hidden. Hierarchy is max depth 2, so a single pass suffices.
+      prisma.location.findMany({ select: { id: true, parentId: true } }),
     ]),
   );
   const dominantIds = [
@@ -1030,7 +1050,8 @@ export async function getFacetCounts(
 
   const directLocationCounts: Record<number, number> = {};
   for (const r of locForLocation) {
-    if (r.locationId != null) directLocationCounts[r.locationId] = r._count._all;
+    if (r.locationId != null)
+      directLocationCounts[r.locationId] = r._count._all;
   }
   // Roll each child's direct count up into its parent so a parent option's
   // number matches what selecting it actually returns (parent + children).
@@ -1279,7 +1300,8 @@ async function attachLocationThumbs(finds: PublicFind[]): Promise<void> {
     }
   }
   const geomByLoc = new Map(geomRows.map((g) => [g.id, g]));
-  const placeholderThumb = firstByLoc.get(DEFAULT_LOCATION_ID)?.imagePath ?? null;
+  const placeholderThumb =
+    firstByLoc.get(DEFAULT_LOCATION_ID)?.imagePath ?? null;
   for (const f of finds) {
     if (f.isAnonymized) {
       // Placeholder map — no overlay (its shape isn't the find's real one).
@@ -1618,15 +1640,15 @@ async function fetchLocationMaps(
       overlay:
         imageBounds && overlayIsV2
           ? computeMapOverlayGeometry({
-            indicator,
-            imageBounds,
-            centerLat: geom?.center_lat ?? null,
-            centerLng: geom?.center_lng ?? null,
-            radiusM: geom?.eff_radius_m ?? null,
-            polygonLngLat: ring,
-            isGone,
-          })
-        : null,
+              indicator,
+              imageBounds,
+              centerLat: geom?.center_lat ?? null,
+              centerLng: geom?.center_lng ?? null,
+              radiusM: geom?.eff_radius_m ?? null,
+              polygonLngLat: ring,
+              isGone,
+            })
+          : null,
       marker: computeMarker(markerCoordinates, m.imageBounds),
     };
   });
@@ -1887,9 +1909,7 @@ export async function getHighlightFind(
 const locationIdsInCountry = cache(
   async (country: string): Promise<number[]> => {
     const { locations } = await getFilterOptions();
-    return locations
-      .filter((l) => l.country === country)
-      .map((l) => l.id);
+    return locations.filter((l) => l.country === country).map((l) => l.id);
   },
 );
 

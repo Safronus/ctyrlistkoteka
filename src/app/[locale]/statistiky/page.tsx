@@ -104,6 +104,7 @@ import {
 } from "@/components/stats/skeletons";
 
 type StatsT = Awaited<ReturnType<typeof getTranslations<"Statistiky">>>;
+type CompassT = Awaited<ReturnType<typeof getTranslations<"Compass">>>;
 type StatesT = Awaited<ReturnType<typeof getTranslations<"States">>>;
 
 /**
@@ -451,9 +452,14 @@ async function HighlightsSection() {
 async function DeviationsSection() {
   const data = await getStatsDeviations();
   if (data.eligible === 0) return null;
-  const t = await getTranslations("Statistiky");
+  const [t, tCompass] = await Promise.all([
+    getTranslations("Statistiky"),
+    getTranslations("Compass"),
+  ]);
   const locale = await getLocale();
-  return <DeviationStatsCard data={data} t={t} locale={locale} />;
+  return (
+    <DeviationStatsCard data={data} t={t} tCompass={tCompass} locale={locale} />
+  );
 }
 
 function DeviationsSkeleton() {
@@ -858,10 +864,13 @@ function TimeAndPaceSkeleton() {
 function DeviationStatsCard({
   data,
   t,
+  tCompass,
   locale,
 }: {
   data: StatsDeviationsResult;
   t: StatsT;
+  /** Compass names live in their own namespace — /sbirka needs them too. */
+  tCompass: CompassT;
   locale: string;
 }) {
   const intlLocale = toIntlLocale(locale);
@@ -880,11 +889,11 @@ function DeviationStatsCard({
 
   const dom = data.dominantOctant;
   const compassPoints = data.octants.map((o) => ({
-    abbr: t(`compassAbbr${o.octant}`),
+    abbr: tCompass(`compassAbbr${o.octant}`),
     count: o.count,
     mean: o.meanMeters,
     isDominant: o.octant === dom,
-    tooltip: `${t(`compassName${o.octant}`)}: ${t("deviationRoseCount")} ${numFmt.format(o.count)} · ${t("deviationRoseDistance")} ${dist(o.meanMeters)}`,
+    tooltip: `${tCompass(`compassName${o.octant}`)}: ${t("deviationRoseCount")} ${numFmt.format(o.count)} · ${t("deviationRoseDistance")} ${dist(o.meanMeters)}`,
   }));
   const coord = (lat: number, lng: number) =>
     `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
@@ -972,10 +981,10 @@ function DeviationStatsCard({
                       aria-hidden
                     />
                     <span className="font-semibold">
-                      {t(`compassName${dom}`)}
+                      {tCompass(`compassName${dom}`)}
                     </span>{" "}
                     <span className="font-mono text-gray-500">
-                      ({t(`compassAbbr${dom}`)})
+                      ({tCompass(`compassAbbr${dom}`)})
                     </span>
                   </p>
                 )}
