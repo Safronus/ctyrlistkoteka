@@ -26,6 +26,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### /statistiky: nižší panely a přehlednější geo tabulky
+- Růžice měla **čtvercový viewBox**, ale kreslila jen prostřední pás — třetina
+  výšky byla prázdná. Protože se SVG roztahuje na šířku sloupce, ta prázdnota
+  se propisovala do výšky karty (a přes mřížku i do sousední karty s výškou).
+  Ořezáno na skutečný obsah.
+- Tabulky **Podle států** a **TOP 10 měst** už nemají sloupečky — jeden výlet
+  přebíjí ostatní o dva řády (Ratiboř ~22 000 proti 14 v Praze), takže jeden
+  sloupec byl plný a zbytek prázdný. Číslo řekne totéž.
+- Obě tabulky umí přepnout na **počty lokalit** místo nálezů. To je
+  vyrovnanější pohled — říká, kde jsi byl, ne jak štědré bylo jedno pole.
+
 ### /statistiky: spolehlivější rekordy a poznámka o časové zóně
 - Do panelu **Nejvzdálenější/Nejbližší 🍀** (i do růžice) se nepočítají
   **odchýlené nálezy** — jejich GPS neodpovídá lokalitě, a u „nejbližšího" se

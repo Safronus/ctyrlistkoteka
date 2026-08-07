@@ -755,7 +755,11 @@
     "distanceDirection": "({direction})",
     "distanceRoseFarLegend": "nejdál v každém směru",
     "distanceRoseNearLegend": "nejblíž v každém směru",
-    "timezoneNote": "Všechny časy a data se počítají v Safronově časové zóně (Praha), ne podle nastavení tvého zařízení."
+    "timezoneNote": "Všechny časy a data se počítají v Safronově časové zóně (Praha), ne podle nastavení tvého zařízení.",
+    "geoCountToggleAria": "Počítat nálezy nebo lokality",
+    "geoCountByFinds": "Podle 🍀",
+    "geoCountByLocations": "Podle lokalit",
+    "moreRows": "+ {count} dalších"
   },
   "Mapa": {
     "metaTitle": "Mapa",

@@ -756,7 +756,11 @@
     "distanceDirection": "({direction})",
     "distanceRoseFarLegend": "farthest in each direction",
     "distanceRoseNearLegend": "nearest in each direction",
-    "timezoneNote": "All times and dates are computed in Safron's time zone (Prague), not your device's."
+    "timezoneNote": "All times and dates are computed in Safron's time zone (Prague), not your device's.",
+    "geoCountToggleAria": "Count finds or locations",
+    "geoCountByFinds": "By 🍀",
+    "geoCountByLocations": "By locations",
+    "moreRows": "+ {count} more"
   },
   "Mapa": {
     "metaTitle": "Map",

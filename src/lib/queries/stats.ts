@@ -535,6 +535,12 @@ export interface StatsTopLocationsResult {
 export interface StatsGeoResult {
   byCountry: CountryPoint[];
   byCity: CategoryPoint[];
+  /** The same two breakdowns counted by LOCATIONS instead of finds — the
+   *  geo tables toggle between them. A single trip dominates the find counts
+   *  (Ratiboř alone is ~22 000), so "how many places" tells a different and
+   *  often more interesting story than "how many clovers". */
+  byCountryLocations: CountryPoint[];
+  byCityLocations: CategoryPoint[];
   /** Finds per Czech region (kraj), for the "podle krajů ČR" map mode.
    *  `code` is the ISO 3166-2 region code (e.g. "CZ-ZL"); `name` is the
    *  Czech region name. Only points resolving inside ČR contribute. */
@@ -2123,8 +2129,9 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
 
 async function getStatsGeoImpl(): Promise<StatsGeoResult> {
   const rows = await fetchGeoLocRows();
-  const { byCountry, byCity, byKraj } = buildGeoBreakdowns(rows);
-  return { byCountry, byCity, byKraj };
+  const { byCountry, byCity, byKraj, byCountryLocations, byCityLocations } =
+    buildGeoBreakdowns(rows);
+  return { byCountry, byCity, byKraj, byCountryLocations, byCityLocations };
 }
 
 async function getStatsCalendarImpl(): Promise<StatsCalendarResult> {
@@ -2675,6 +2682,8 @@ function buildGeoBreakdowns(
   byCity: CategoryPoint[];
   /** Finds per Czech region (kraj). Points outside ČR don't contribute. */
   byKraj: CountryPoint[];
+  byCountryLocations: CountryPoint[];
+  byCityLocations: CategoryPoint[];
   /** Total number of distinct cities that host at least one non-
    *  anonymized location, even if its finds are still zero. Former
    *  locations (`NEEXISTUJE-`) collapse onto the canonical city
@@ -2690,6 +2699,9 @@ function buildGeoBreakdowns(
   const countryAcc = new Map<string, { name: string; count: number }>();
   const krajAcc = new Map<string, { name: string; count: number }>();
   const cityAcc = new Map<string, number>();
+  // Same buckets, but one per LOCATION rather than per find.
+  const countryLocAcc = new Map<string, { name: string; count: number }>();
+  const cityLocAcc = new Map<string, number>();
 
   for (const r of rows) {
     const c = Number(r.count);
@@ -2709,6 +2721,7 @@ function buildGeoBreakdowns(
     const cityKey = cityFromCadastralArea(r.cadastral) || r.code;
     if (cityKey) {
       cityAcc.set(cityKey, (cityAcc.get(cityKey) ?? 0) + c);
+      cityLocAcc.set(cityKey, (cityLocAcc.get(cityKey) ?? 0) + 1);
     }
     if (r.lat !== null && r.lng !== null) {
       const country = countryFromCoords(r.lat, r.lng);
@@ -2718,6 +2731,9 @@ function buildGeoBreakdowns(
       } else {
         countryAcc.set(country.code, { name: country.name, count: c });
       }
+      const prevLoc = countryLocAcc.get(country.code);
+      if (prevLoc) prevLoc.count += 1;
+      else countryLocAcc.set(country.code, { name: country.name, count: 1 });
       // Czech regions: only points inside ČR resolve to a kraj.
       const kraj = czRegionFromCoords(r.lat, r.lng);
       if (kraj) {
@@ -2749,7 +2765,25 @@ function buildGeoBreakdowns(
     .map(([code, v]) => ({ code, name: v.name, count: v.count }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
 
-  return { byCountry, byCity, byKraj, cityCount, countryCount };
+  // Location counts keep the zero-find places: a location with no finds yet
+  // is still a place you've mapped, which is exactly what this view counts.
+  const byCountryLocations: CountryPoint[] = [...countryLocAcc.entries()]
+    .map(([code, v]) => ({ code, name: v.name, count: v.count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
+
+  const byCityLocations: CategoryPoint[] = [...cityLocAcc.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
+
+  return {
+    byCountry,
+    byCity,
+    byKraj,
+    byCountryLocations,
+    byCityLocations,
+    cityCount,
+    countryCount,
+  };
 }
 
 // ---------------------------------------------------------------------------

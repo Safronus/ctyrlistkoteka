@@ -83,6 +83,7 @@ import { CzRegionsChoroplethMap } from "@/components/stats/cz-regions-choropleth
 import { GeoMapToggle } from "@/components/stats/geo-map-toggle";
 import { TopFindsLeaderboard } from "@/components/stats/top-finds-leaderboard";
 import { TopLocationsCard } from "@/components/stats/top-locations-card";
+import { GeoCountTables } from "@/components/stats/geo-count-tables";
 import {
   HighlightCards,
   type PlaceCardView,
@@ -531,17 +532,24 @@ async function TopLocationsSection() {
 async function GeoSection() {
   const t = await getTranslations("Statistiky");
   const locale = await getLocale();
-  const { byCountry, byCity, byKraj } = await getStatsGeo();
+  const { byCountry, byCity, byKraj, byCountryLocations, byCityLocations } =
+    await getStatsGeo();
   return (
     <GeoStatsSection
       byCountry={byCountry}
       byCity={byCity}
       byKraj={byKraj}
+      byCountryLocations={byCountryLocations}
+      byCityLocations={byCityLocations}
       t={t}
       locale={locale}
     />
   );
 }
+
+const HOUR_KEYS = Array.from({ length: 24 }, (_, i) => i);
+const DOW_KEYS = [1, 2, 3, 4, 5, 6, 7];
+const MONTH_KEYS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 async function CalendarSection() {
   const t = await getTranslations("Statistiky");
@@ -1218,12 +1226,16 @@ function GeoStatsSection({
   byCountry,
   byCity,
   byKraj,
+  byCountryLocations,
+  byCityLocations,
   t,
   locale,
 }: {
   byCountry: readonly CountryPoint[];
   byCity: readonly CategoryPoint[];
   byKraj: readonly CountryPoint[];
+  byCountryLocations: readonly CountryPoint[];
+  byCityLocations: readonly CategoryPoint[];
   t: StatsT;
   locale: string;
 }) {
@@ -1242,6 +1254,14 @@ function GeoStatsSection({
       flag: a2 ? countryFlagEmoji(a2) : null,
     };
   });
+  const localizedByCountryLocations = byCountryLocations.map((c) => {
+    const a2 = alpha2Of(c.code);
+    return {
+      ...c,
+      name: localizedCountryName(c.name, locale, c.code),
+      flag: a2 ? countryFlagEmoji(a2) : null,
+    };
+  });
   return (
     <CollapsibleSection
       storageKey="geo"
@@ -1249,28 +1269,30 @@ function GeoStatsSection({
       subtitle={t("geoSubtitle")}
     >
       <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <CountTable
-            title={t("geoTopCountries")}
-            rows={localizedByCountry.map((c) => ({
-              key: c.code,
-              label: c.name,
-              count: c.count,
-              flag: c.flag,
-            }))}
-            t={t}
-          />
-          <CountTable
-            title={t("geoTopCities")}
-            rows={byCity.map((c) => ({
-              key: c.name,
-              label: c.name,
-              count: c.count,
-            }))}
-            maxRows={10}
-            t={t}
-          />
-        </div>
+        <GeoCountTables
+          countriesByFinds={localizedByCountry.map((c) => ({
+            key: c.code,
+            label: c.name,
+            count: c.count,
+            flag: c.flag,
+          }))}
+          citiesByFinds={byCity.map((c) => ({
+            key: c.name,
+            label: c.name,
+            count: c.count,
+          }))}
+          countriesByLocations={localizedByCountryLocations.map((c) => ({
+            key: c.code,
+            label: c.name,
+            count: c.count,
+            flag: c.flag,
+          }))}
+          citiesByLocations={byCityLocations.map((c) => ({
+            key: c.name,
+            label: c.name,
+            count: c.count,
+          }))}
+        />
         {localizedByCountry.length > 0 && (
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-700">
@@ -1289,78 +1311,6 @@ function GeoStatsSection({
   );
 }
 
-interface CountRow {
-  key: string;
-  label: string;
-  count: number;
-  /** Optional glyph before the label — the country rows pass a flag emoji.
-   *  Decorative: the label already names the country, so it's aria-hidden. */
-  flag?: string | null;
-}
-
-function CountTable({
-  title,
-  rows,
-  maxRows,
-  t,
-}: {
-  title: string;
-  rows: readonly CountRow[];
-  maxRows?: number;
-  t: StatsT;
-}) {
-  const visible = maxRows ? rows.slice(0, maxRows) : rows;
-  const max = visible.reduce((m, r) => Math.max(m, r.count), 0);
-  const truncated = maxRows ? rows.length - visible.length : 0;
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-700">
-        {title}
-      </h3>
-      {visible.length === 0 ? (
-        <p className="text-sm text-gray-500">{t("noData")}</p>
-      ) : (
-        <ol className="space-y-1.5">
-          {visible.map((r, i) => (
-            <li key={r.key} className="flex items-center gap-3">
-              <span className="w-6 shrink-0 text-right font-mono text-xs text-gray-500">
-                {i + 1}.
-              </span>
-              {r.flag && (
-                <span className="shrink-0 text-base leading-none" aria-hidden>
-                  {r.flag}
-                </span>
-              )}
-              <span className="min-w-0 flex-1 truncate text-sm text-gray-900">
-                {r.label}
-              </span>
-              <div className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-gray-200">
-                <div
-                  className="h-full rounded-full bg-brand-500"
-                  style={{
-                    width: max > 0 ? `${(r.count / max) * 100}%` : "0%",
-                  }}
-                />
-              </div>
-              <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums text-gray-700">
-                {r.count}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
-      {truncated > 0 && (
-        <p className="mt-3 text-xs text-gray-500">
-          {t("moreCount", { count: truncated })}
-        </p>
-      )}
-    </div>
-  );
-}
-
-const HOUR_KEYS = Array.from({ length: 24 }, (_, i) => i);
-const DOW_KEYS = [1, 2, 3, 4, 5, 6, 7];
-const MONTH_KEYS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 function fillSeries(
   data: readonly CalendarPoint[],

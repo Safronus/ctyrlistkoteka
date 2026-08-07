@@ -29,6 +29,17 @@ const SIZE = 240;
 const C = SIZE / 2;
 /** Spoke length. Short on purpose — the labels need the outer ring. */
 const R = 52;
+/**
+ * Cropped to what the rose actually draws. A square viewBox left roughly a
+ * third of its height empty above and below the labels, and because the SVG
+ * scales to its column width that empty band became real height — it was what
+ * made the distance card (and, sharing the grid row, the elevation card next
+ * to it) taller than their contents needed.
+ *
+ * Vertical extent is the spoke plus the two-line label; horizontal is wider
+ * because the E/W labels run sideways from their spoke.
+ */
+const VIEW = { x: 8, y: 30, w: 224, h: 180 };
 
 function at(octant: number, r: number): [number, number] {
   const bearing = (octant * 45 * Math.PI) / 180; // 0 = N, clockwise
@@ -48,7 +59,7 @@ export function DistanceRose({
   return (
     <div className="flex w-full flex-col items-center">
       <svg
-        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`}
         className="h-auto w-full max-w-[240px]"
         role="img"
         aria-label={legend}
