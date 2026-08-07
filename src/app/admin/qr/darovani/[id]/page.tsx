@@ -13,6 +13,7 @@ import {
 import { CampaignSettings } from "./campaign-settings";
 import { AreaEditor } from "./area-editor";
 import { ItemsGrid, type ItemView } from "./items-grid";
+import { AreaMapPanel } from "./area-map-panel";
 
 export const metadata: Metadata = {
   title: "Darování ve světě",
@@ -171,6 +172,29 @@ export default async function DropCampaignPage({
           unplaced: campaign.items.filter(
             (i) => i.areaId === a.id && i.lat === null,
           ).length,
+        }))}
+      />
+
+      <AreaMapPanel
+        campaignId={campaign.id}
+        areas={campaign.areas.map((a) => ({
+          id: a.id,
+          name: a.name,
+          centerLat: a.centerLat,
+          centerLng: a.centerLng,
+          zoom: a.zoom,
+          scatterRadiusM: a.scatterRadiusM,
+        }))}
+        items={campaign.items.map((i) => ({
+          id: i.id,
+          findId: i.findId,
+          areaId: i.areaId,
+          status: i.status,
+          placedBy: i.placedBy,
+          lat: i.lat,
+          lng: i.lng,
+          scans: i._count.scans,
+          foundAt: i.foundAt ? dateTimeFmt.format(i.foundAt) : null,
         }))}
       />
 

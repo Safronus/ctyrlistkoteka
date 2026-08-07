@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Darování ve světě — mapa úkrytů (3. fáze)
+- Ke každé oblasti přibyla **mapa se značkami úkrytů**, obarvenými podle
+  stavu kusu (připravený / vytištěný / schovaný / nalezený). Přejetím
+  značky se ukáže číslo, stav, kdo ho umístil a kolikrát byl naskenován.
+- **Umísťování kliknutím**: vlevo je seznam kusů oblasti — ty bez pozice
+  jsou nahoře, protože právě kvůli nim se jde ven. Vybereš kus, klikneš
+  do mapy, a výběr sám přeskočí na další nenastavený. Rozmístit celou
+  dávku je pak klik–klik–klik bez vracení se do seznamu.
+- Kliknutí na značku kus vybere (místo aby ho přesunulo), takže se dá
+  rovnou opravit pozice existujícího úkrytu.
+- V mapě je čárkovaně vidět **poloměr pro náhodný rozhoz** té oblasti.
+- Mapa žije **jen v adminu**. Souřadnice úkrytů se nikdy neobjeví na
+  veřejné stránce ani na landing page — jinak by se z náhodného nálezu
+  stal nákupní seznam.
+
 ### Darování ve světě — správa sad (2. fáze)
 - Na `/admin/qr` přibyla třetí záložka **Darování ve světě**. Je to
   rozcestník: vypíše sady s počty podle stavu a s odkazem na jejich
