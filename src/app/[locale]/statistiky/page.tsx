@@ -17,7 +17,6 @@ import {
   Heart,
   HelpCircle,
   ImageOff,
-  Info,
   MapPin,
   MapPinOff,
   MapPinX,
@@ -36,10 +35,8 @@ import { Link } from "@/i18n/navigation";
 import {
   formatDateTimeCs,
   formatDistance,
-  formatLocationId,
   formatDurationSeconds,
   formatLongDuration,
-  formatTimeSinceCs,
   locationDetailHref,
 } from "@/lib/format";
 import {
@@ -59,7 +56,6 @@ import {
   type CountryPoint,
   type DayStreak,
   type DistanceBucket,
-  type FindHighlight,
   type JubileeFind,
   type StatsDeviationsResult,
   type MinuteHeatmapCell,
@@ -86,6 +82,10 @@ import { CzRegionsChoroplethMap } from "@/components/stats/cz-regions-choropleth
 import { GeoMapToggle } from "@/components/stats/geo-map-toggle";
 import { TopFindsLeaderboard } from "@/components/stats/top-finds-leaderboard";
 import { TopLocationsCard } from "@/components/stats/top-locations-card";
+import {
+  HighlightCards,
+  type PlaceCardView,
+} from "@/components/stats/highlight-cards";
 import { YearlyPaceBlock } from "@/components/stats/yearly-pace-block";
 import { TimePaceSummary } from "@/components/stats/time-pace-summary";
 import {
@@ -373,163 +373,56 @@ async function TotalsSection() {
 }
 
 async function HighlightsSection() {
-  const t = await getTranslations("Statistiky");
-  const tTimeSince = await getTranslations("TimeSince");
   const locale = await getLocale();
-  const [{ firstFind, lastFind, farthestFind }, { topLocationsByAltitude }] =
-    await Promise.all([getStatsHighlights(), getStatsTopLocations()]);
-  // The highest PLACE, not the highest find: a single photo's GPS altitude is
-  // far too noisy to crown a winner (readings inside one location scatter by
-  // metres, with outliers hundreds of metres off), so the card names the
-  // location whose terrain elevation tops the ranking. getStatsTopLocations is
-  // cached, so asking for it here costs nothing extra.
-  const highestPlace = topLocationsByAltitude[0] ?? null;
-  if (!firstFind && !lastFind && !farthestFind && !highestPlace) return null;
-  // Two per row, not three: with four cards a 3-wide grid left the fourth
-  // stranded alone on a second row. 2×2 keeps the pairs together — the two
-  // "when" cards on top, the two "where" cards below.
+  const [
+    {
+      firstFind,
+      lastFind,
+      farthestFind,
+      nearestFind,
+      earliestInYear,
+      latestInYear,
+      earliestInDay,
+      latestInDay,
+    },
+    { topLocationsByAltitude, lowestLocationByAltitude },
+  ] = await Promise.all([getStatsHighlights(), getStatsTopLocations()]);
+
+  // Country label + flag are resolved HERE, not in the client component: the
+  // lookup pulls in the Natural Earth dataset, which has no business in the
+  // browser bundle for one line of text.
+  const toPlaceView = (p: LocationAltitudePoint | null): PlaceCardView | null =>
+    p
+      ? {
+          id: p.id,
+          code: p.code,
+          altitudeM: p.altitudeM,
+          altitudeSource: p.altitudeSource,
+          city: p.city,
+          countryLabel: p.countryName
+            ? localizedCountryName(p.countryName, locale, p.countryCode ?? undefined)
+            : null,
+          countryFlag: (() => {
+            const a2 = p.countryCode ? alpha2FromNumeric(p.countryCode) : null;
+            return a2 ? countryFlagEmoji(a2) : null;
+          })(),
+          count: p.count,
+        }
+      : null;
+
   return (
-    <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      {firstFind && (
-        <FindHighlightCard
-          label={t("highlightFirstFind")}
-          find={firstFind}
-          t={t}
-          tTimeSince={tTimeSince}
-          locale={locale}
-        />
-      )}
-      {lastFind && lastFind.id !== firstFind?.id && (
-        <FindHighlightCard
-          label={t("highlightLastFind")}
-          find={lastFind}
-          t={t}
-          tTimeSince={tTimeSince}
-          locale={locale}
-        />
-      )}
-      {farthestFind && (
-        <FindHighlightCard
-          label={t("highlightFarthestFind")}
-          find={farthestFind}
-          distanceMeters={farthestFind.distanceMeters}
-          t={t}
-          tTimeSince={tTimeSince}
-          locale={locale}
-        />
-      )}
-      {highestPlace && (
-        <HighestPlaceCard place={highestPlace} locale={locale} t={t} />
-      )}
-    </section>
-  );
-}
-
-/** Sibling of the find cards above, but about a PLACE — so it carries the
- *  location's name, its elevation and how many finds came from it, and links
- *  to the location rather than to a find. Same skeleton as FindHighlightCard
- *  (centred title, centred body, buttons pinned at the bottom) so the row
- *  reads as one family. */
-function HighestPlaceCard({
-  place,
-  locale,
-  t,
-}: {
-  place: LocationAltitudePoint;
-  locale: string;
-  t: StatsT;
-}) {
-  const altFmt = new Intl.NumberFormat(toIntlLocale(locale), {
-    maximumFractionDigits: 0,
-  });
-  const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
-  const countryLabel = place.countryName
-    ? localizedCountryName(place.countryName, locale, place.countryCode ?? undefined)
-    : null;
-  const alpha2 = place.countryCode ? alpha2FromNumeric(place.countryCode) : null;
-  const countryFlag = alpha2 ? countryFlagEmoji(alpha2) : null;
-  return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-5">
-      <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-brand-700">
-        {t("highlightHighestPlace")}
-      </h2>
-
-      <div className="flex flex-1 flex-col justify-center py-2">
-        {/* The elevation carries an info affordance: it's the one number on
-            this page that isn't measured from the collection itself, and
-            "how do you know that" is the obvious question. */}
-        <p className="flex items-center justify-center gap-1.5 text-base font-semibold text-gray-900">
-          {t("topAltitudeValue", { m: altFmt.format(place.altitudeM) })}
-          <span
-            role="img"
-            aria-label={t("highestPlaceHowMeasured", {
-              source: place.altitudeSource ?? "DEM",
-            })}
-            title={t("highestPlaceHowMeasured", {
-              source: place.altitudeSource ?? "DEM",
-            })}
-            className="text-gray-400"
-          >
-            <Info className="h-3.5 w-3.5" aria-hidden />
-          </span>
-        </p>
-        {/* Country · city · location id rather than the location's own
-            description — at this size the description wrapped to three lines
-            and said less about WHERE the place is. */}
-        <p className="mt-1 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-sm text-gray-700">
-          {countryFlag && (
-            <span className="leading-none" aria-hidden>
-              {countryFlag}
-            </span>
-          )}
-          {countryLabel && <span>{countryLabel}</span>}
-          {place.city && (
-            <>
-              {countryLabel && <span className="text-gray-400">·</span>}
-              <span>{place.city}</span>
-            </>
-          )}
-        </p>
-        {/* Number + code together: the number alone identifies the location
-            for someone who knows the collection, the code names it for
-            everyone else. */}
-        <p className="mt-0.5 flex flex-wrap items-baseline justify-center gap-x-1.5 text-center font-mono text-xs text-gray-500">
-          <span>{formatLocationId(place.id)}</span>
-          {place.code && place.code !== String(place.id) && (
-            <>
-              <span className="text-gray-400">·</span>
-              <span className="break-all">{place.code}</span>
-            </>
-          )}
-        </p>
-      </div>
-
-      <div className="flex flex-wrap justify-center gap-2">
-        {/* Straight to the finds FROM this place, with the count on the
-            button itself — the card is about the location, so a link to one
-            arbitrary find would be the wrong destination. */}
-        <Link
-          href={`/sbirka?loc=${place.id}`}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
-        >
-          {t("highestPlaceShowFinds", { count: numFmt.format(place.count) })}
-        </Link>
-        <Link
-          href={locationDetailHref(place.id)}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:border-brand-200 hover:text-brand-700 hover:shadow-sm"
-        >
-          {t("highestPlaceOpenLocation")}
-        </Link>
-        <Link
-          href={`/mapa?focus=${place.id}`}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:border-brand-200 hover:text-brand-700 hover:shadow-sm"
-          title={t("showOnMapTitle")}
-        >
-          <MapPin className="h-3.5 w-3.5" aria-hidden />
-          {t("showOnMapLabel")}
-        </Link>
-      </div>
-    </div>
+    <HighlightCards
+      firstFind={firstFind}
+      lastFind={lastFind}
+      earliestInYear={earliestInYear}
+      latestInYear={latestInYear}
+      earliestInDay={earliestInDay}
+      latestInDay={latestInDay}
+      farthestFind={farthestFind}
+      nearestFind={nearestFind}
+      highestPlace={toPlaceView(topLocationsByAltitude[0] ?? null)}
+      lowestPlace={toPlaceView(lowestLocationByAltitude)}
+    />
   );
 }
 
@@ -1302,87 +1195,6 @@ function CornerStat({
     );
   }
   return <div className={`flex flex-col ${positionCls}`}>{inner}</div>;
-}
-
-function FindHighlightCard({
-  label,
-  find,
-  distanceMeters,
-  t,
-  tTimeSince,
-  locale,
-}: {
-  label: string;
-  find: FindHighlight;
-  distanceMeters?: number;
-  t: StatsT;
-  tTimeSince: Awaited<ReturnType<typeof getTranslations<"TimeSince">>>;
-  locale: string;
-}) {
-  const date = find.foundAt ? new Date(find.foundAt) : null;
-  // Only the "Nejvzdálenější nález" card is tinted grey (it's the one
-  // passing distanceMeters); First + Last stay white.
-  const tinted = distanceMeters !== undefined;
-  return (
-    <div
-      className={`flex flex-col rounded-xl border border-gray-200 p-5 ${
-        tinted ? "bg-gray-50" : "bg-white"
-      }`}
-    >
-      {/* Everything is centred, title included. The find id used to sit in the
-          top-right corner — dropped, the "Otevřít 🍀 #N" button below already
-          carries it. The body sits in a `flex-1` block so it centres in
-          whatever height the tallest card in the row sets, with the buttons
-          staying pinned to the bottom edge. */}
-      <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-brand-700">
-        {label}
-      </h2>
-
-      <div className="flex flex-1 flex-col justify-center py-2">
-        <p className="text-center text-base font-semibold text-gray-900">
-          {date ? formatDateTimeCs(date, locale) : t("missingDate")}
-        </p>
-        {date && (
-          <p className="text-center text-xs text-gray-500">
-            {formatTimeSinceCs(date, tTimeSince)}
-          </p>
-        )}
-
-        {distanceMeters !== undefined && (
-          <p
-            className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-500"
-            title={t("distanceFromDefaultTitle")}
-          >
-            <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
-            <span className="font-mono tabular-nums text-gray-900">
-              {formatDistance(distanceMeters, locale)}
-            </span>
-            <span>{t("distanceFromMapSuffix")}</span>
-          </p>
-        )}
-      </div>
-
-      <div className="flex flex-wrap justify-center gap-2">
-        <Link
-          href={`/sbirka/${find.id}`}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
-        >
-          {t("openFind", { id: find.id })}
-        </Link>
-        {!find.isAnonymized && find.hasGps && (
-          <Link
-            href={`/mapa?find=${find.id}`}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:border-brand-200 hover:text-brand-700 hover:shadow-sm"
-            aria-label={t("showFindOnMapAria", { id: find.id })}
-            title={t("showOnMapTitle")}
-          >
-            <MapPin className="h-3.5 w-3.5" aria-hidden />
-            {t("showOnMapLabel")}
-          </Link>
-        )}
-      </div>
-    </div>
-  );
 }
 
 function GeoStatsSection({

@@ -26,6 +26,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-07
 
+### /statistiky: přepínatelné rekordní panely
+- **První a Poslední 🍀 sloučeny do jednoho panelu** přes celou šířku, se
+  třemi pohledy: **Celkově** (jako dosud), **V roce** (nález nejblíž začátku
+  a konci kalendářního roku napříč všemi roky — tedy „nejdřív na jaře" a
+  „nejdéle na podzim") a **Ve dne** (nejranější a nejpozdější čas).
+- Panel vzdálenosti umí přepnout na **Nejbližší 🍀** — a to schválně od
+  **domovského bodu autora** (lokalita 158, na kterou je `/mapa` výchozí), ne
+  od mapy 00001. „Nejdál od začátku sbírky" a „nejblíž k mému stolu" jsou dva
+  různé příběhy.
+- Panel výšky umí přepnout na **Nejníže nalezené 🍀**.
+- **Past s časem:** nálezy, kterým EXIF nesl jen datum, leží přesně na půlnoci
+  UTC (sync je počítá jako `date_only_exif`). Do žebříčku „ve dne" by se
+  nahrnuly na první místo a nic neřekly — jsou proto vyloučené. Když v celé
+  sbírce žádný čas není, záložka „Ve dne" se vůbec nenabídne.
+- Opraven **placeholder během načítání** — ukazoval tři dlaždice ve starém
+  rozvržení, takže po dopočtení stránka poskočila.
+
 ### /statistiky: doladění dlaždic a přepínače
 - Dlaždice **2×2** místo 3+1 — čtvrtá karta zůstávala trčet sama na druhém
   řádku. Nahoře „kdy" (První / Poslední 🍀), dole „kde" (Nejvzdálenější 🍀 /

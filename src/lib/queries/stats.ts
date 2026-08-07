@@ -25,6 +25,7 @@ import {
   type LocationNameResolver,
 } from "@/lib/locationNameI18n";
 import {
+  AUTHOR_LOCATION_ID,
   DEFAULT_LOCATION_ID,
   FIND_DEVIATION_RADIUS_M,
   UNKNOWN_LOCATION_ID,
@@ -423,6 +424,22 @@ export interface StatsHighlightsResult {
    *  the default LocationMap's centre. Null when MAP 00001 isn't on
    *  disk or no qualifying find exists. */
   farthestFind: FarthestFindHighlight | null;
+  /** Closest find to the AUTHOR's home point (AUTHOR_LOCATION_ID — the spot
+   *  /mapa centres on), not to map 00001. Different reference on purpose:
+   *  "farthest from where the collection started" and "closest to my desk"
+   *  are two different stories. */
+  nearestFind: FarthestFindHighlight | null;
+  /** Find that sits earliest in the calendar year, across ALL years — i.e.
+   *  the earliest spring date ever managed. Ordered by day-of-year in
+   *  Europe/Prague. */
+  earliestInYear: FindHighlight | null;
+  /** …and the latest autumn date. */
+  latestInYear: FindHighlight | null;
+  /** Earliest clock time of day, across all days. Finds whose EXIF carried
+   *  only a date are excluded — see the query. */
+  earliestInDay: FindHighlight | null;
+  /** …and the latest evening time. */
+  latestInDay: FindHighlight | null;
 }
 
 export interface StatsPeaksResult {
@@ -473,6 +490,10 @@ export interface StatsTopLocationsResult {
   /** Top 10 locations by terrain elevation. Empty until
    *  `scripts/fetch-elevations.ts` has been run. */
   topLocationsByAltitude: LocationAltitudePoint[];
+  /** The single LOWEST location, for the highlight card's toggle. Same
+   *  identity rules as the ranking (anonymized + NEZNÁMÁ out, sub-parts
+   *  folded). Null until elevations are filled in. */
+  lowestLocationByAltitude: LocationAltitudePoint | null;
   topLocationsByDensity: LocationDensityPoint[];
   /** Micro-locations (sub-1m² area, e.g. a 15 cm radius) whose density is so
    *  extreme they'd flatten the density ranking. Excluded from
@@ -975,7 +996,16 @@ async function getStatsTimeAndPaceImpl(): Promise<StatsTimeAndPaceResult> {
 }
 
 async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
-  const [firstFindRow, lastFindRow, farthestFindRow] = await Promise.all([
+  const [
+    firstFindRow,
+    lastFindRow,
+    farthestFindRow,
+    nearestFindRow,
+    earliestYearRow,
+    latestYearRow,
+    earliestDayRow,
+    latestDayRow,
+  ] = await Promise.all([
     // Earliest find by ID. The CASE-anonymise pattern keeps location
     // info out of the payload for is_anonymized=true rows.
     prisma.$queryRaw<HighlightRow[]>`
@@ -1032,6 +1062,96 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       ORDER BY dist_m DESC NULLS LAST
       LIMIT 1
     `,
+    // Closest find to the AUTHOR's home point — the location /mapa centres
+    // on. Deliberately a different reference than the farthest card above.
+    prisma.$queryRaw<FarthestRow[]>`
+      WITH ref AS (
+        SELECT center_point AS pt FROM locations
+        WHERE id = ${AUTHOR_LOCATION_ID}
+      )
+      SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
+             CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
+             CASE WHEN f.is_anonymized THEN NULL
+                  ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+             END AS location_display_name,
+             true AS has_gps,
+             ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref))::float8 AS dist_m
+      FROM finds f
+      LEFT JOIN locations l ON l.id = f.location_id
+      WHERE f.is_anonymized = false
+        AND f.coordinates IS NOT NULL
+        AND (SELECT pt FROM ref) IS NOT NULL
+      ORDER BY dist_m ASC NULLS LAST
+      LIMIT 1
+    `,
+    // Earliest / latest position in the CALENDAR YEAR, across all years —
+    // "the earliest in spring I ever managed" and its autumn counterpart.
+    // Day-of-year is taken in Europe/Prague (the collection's zone), so a
+    // late-evening find doesn't slide into the next day.
+    prisma.$queryRaw<HighlightRow[]>`
+      SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
+             CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
+             CASE WHEN f.is_anonymized THEN NULL
+                  ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+             END AS location_display_name,
+             (f.coordinates IS NOT NULL) AS has_gps
+      FROM finds f
+      LEFT JOIN locations l ON l.id = f.location_id
+      WHERE f.found_at IS NOT NULL
+      ORDER BY EXTRACT(DOY FROM f.found_at AT TIME ZONE 'Europe/Prague') ASC,
+               f.found_at ASC
+      LIMIT 1
+    `,
+    prisma.$queryRaw<HighlightRow[]>`
+      SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
+             CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
+             CASE WHEN f.is_anonymized THEN NULL
+                  ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+             END AS location_display_name,
+             (f.coordinates IS NOT NULL) AS has_gps
+      FROM finds f
+      LEFT JOIN locations l ON l.id = f.location_id
+      WHERE f.found_at IS NOT NULL
+      ORDER BY EXTRACT(DOY FROM f.found_at AT TIME ZONE 'Europe/Prague') DESC,
+               f.found_at DESC
+      LIMIT 1
+    `,
+    // Earliest / latest CLOCK TIME, across all days.
+    //
+    // Finds whose EXIF carried a date but no clock land on exact UTC
+    // midnight (sync logs them as `date_only_exif`), which would otherwise
+    // win "earliest" outright and say nothing. They're excluded by dropping
+    // rows that sit precisely on midnight UTC — a real find at that instant
+    // is a 1-in-86400 coincidence and losing it beats ranking thousands of
+    // clockless ones.
+    prisma.$queryRaw<HighlightRow[]>`
+      SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
+             CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
+             CASE WHEN f.is_anonymized THEN NULL
+                  ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+             END AS location_display_name,
+             (f.coordinates IS NOT NULL) AS has_gps
+      FROM finds f
+      LEFT JOIN locations l ON l.id = f.location_id
+      WHERE f.found_at IS NOT NULL
+        AND date_trunc('day', f.found_at) <> f.found_at
+      ORDER BY (f.found_at AT TIME ZONE 'Europe/Prague')::time ASC, f.found_at ASC
+      LIMIT 1
+    `,
+    prisma.$queryRaw<HighlightRow[]>`
+      SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
+             CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
+             CASE WHEN f.is_anonymized THEN NULL
+                  ELSE COALESCE(NULLIF(l.display_name, ''), l.code)
+             END AS location_display_name,
+             (f.coordinates IS NOT NULL) AS has_gps
+      FROM finds f
+      LEFT JOIN locations l ON l.id = f.location_id
+      WHERE f.found_at IS NOT NULL
+        AND date_trunc('day', f.found_at) <> f.found_at
+      ORDER BY (f.found_at AT TIME ZONE 'Europe/Prague')::time DESC, f.found_at DESC
+      LIMIT 1
+    `,
   ]);
 
   const localName = await locationNameResolver();
@@ -1045,10 +1165,25 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       ? { ...farthestBase, distanceMeters: Number(farthestRow.dist_m) }
       : null;
 
+  const nearestRow = nearestFindRow[0];
+  const nearestBase =
+    nearestRow && nearestRow.dist_m !== null
+      ? toHighlight(nearestRow, localName)
+      : null;
+  const nearestFind: FarthestFindHighlight | null =
+    nearestBase && nearestRow && nearestRow.dist_m !== null
+      ? { ...nearestBase, distanceMeters: Number(nearestRow.dist_m) }
+      : null;
+
   return {
     firstFind: toHighlight(firstFindRow[0], localName),
     lastFind: toHighlight(lastFindRow[0], localName),
     farthestFind,
+    nearestFind,
+    earliestInYear: toHighlight(earliestYearRow[0], localName),
+    latestInYear: toHighlight(latestYearRow[0], localName),
+    earliestInDay: toHighlight(earliestDayRow[0], localName),
+    latestInDay: toHighlight(latestDayRow[0], localName),
   };
 }
 
@@ -1396,6 +1531,7 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
     sessionRows,
     locNameRows,
     topAltitudeRows,
+    lowAltitudeRows,
   ] = await Promise.all([
     // Top 10 locations by find count.
     // - Anonymized locations are dropped (their code/name/findCount can't
@@ -1707,9 +1843,87 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
       ORDER BY l.altitude_m DESC, l.id
       LIMIT 10
     `,
+    // …and the single lowest, for the highlight card's toggle.
+    prisma.$queryRaw<
+      Array<{
+        id: number;
+        code: string;
+        name: string;
+        count: bigint;
+        altitude_m: number;
+        altitude_source: string | null;
+        cadastral: string | null;
+        lat: number | null;
+        lng: number | null;
+      }>
+    >`
+      WITH anon AS (
+        SELECT DISTINCT location_id FROM location_maps WHERE is_anonymized = true
+      ),
+      bucket AS (
+        SELECT f.id AS find_id,
+               CASE
+                 WHEN l.parent_id IS NOT NULL
+                      AND l.parent_id NOT IN (SELECT location_id FROM anon)
+                 THEN l.parent_id
+                 ELSE f.location_id
+               END AS bucket_id
+        FROM finds f
+        LEFT JOIN locations l ON l.id = f.location_id
+      )
+      SELECT l.id,
+             l.code,
+             COALESCE(NULLIF(l.display_name, ''), l.code) AS name,
+             COUNT(b.find_id) AS count,
+             l.altitude_m,
+             l.altitude_source,
+             l.cadastral_area AS cadastral,
+             ROUND(ST_Y(l.center_point)::numeric, 6)::float8 AS lat,
+             ROUND(ST_X(l.center_point)::numeric, 6)::float8 AS lng
+      FROM locations l
+      LEFT JOIN bucket b ON b.bucket_id = l.id
+      WHERE l.altitude_m IS NOT NULL
+        AND l.id NOT IN (SELECT location_id FROM anon)
+        AND l.id <> ${UNKNOWN_LOCATION_ID}::int
+        AND NOT (
+          l.parent_id IS NOT NULL
+          AND l.parent_id NOT IN (SELECT location_id FROM anon)
+        )
+      GROUP BY l.id, l.code, l.display_name, l.altitude_m, l.altitude_source,
+               l.cadastral_area, l.center_point
+      ORDER BY l.altitude_m ASC, l.id
+      LIMIT 1
+    `,
   ]);
 
   const localName = await locationNameResolver();
+
+  /** Shared shape for both altitude rankings (top 10 + the single lowest). */
+  const toAltitudePoint = (r: {
+    id: number;
+    code: string;
+    name: string;
+    count: bigint;
+    altitude_m: number;
+    altitude_source: string | null;
+    cadastral: string | null;
+    lat: number | null;
+    lng: number | null;
+  }): LocationAltitudePoint => {
+    const country =
+      r.lat !== null && r.lng !== null ? countryFromCoords(r.lat, r.lng) : null;
+    return {
+      id: r.id,
+      code: r.code,
+      name: localName(r.id, r.name),
+      count: Number(r.count),
+      altitudeM: r.altitude_m,
+      altitudeSource: r.altitude_source,
+      city: r.cadastral ? cityFromCadastralArea(r.cadastral) : null,
+      countryName: country?.name ?? null,
+      countryCode: country?.code ?? null,
+    };
+  };
 
   // Fold finds into per-master-location sessions: walk each bucket's finds
   // (already time-sorted by the query) and open a new session whenever the
@@ -1767,23 +1981,10 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
       name: localName(r.id, r.name),
       count: Number(r.count),
     })),
-    topLocationsByAltitude: topAltitudeRows.map((r) => {
-      const country =
-        r.lat !== null && r.lng !== null
-          ? countryFromCoords(r.lat, r.lng)
-          : null;
-      return {
-        id: r.id,
-        code: r.code,
-        name: localName(r.id, r.name),
-        count: Number(r.count),
-        altitudeM: r.altitude_m,
-        altitudeSource: r.altitude_source,
-        city: r.cadastral ? cityFromCadastralArea(r.cadastral) : null,
-        countryName: country?.name ?? null,
-        countryCode: country?.code ?? null,
-      };
-    }),
+    topLocationsByAltitude: topAltitudeRows.map(toAltitudePoint),
+    lowestLocationByAltitude: lowAltitudeRows[0]
+      ? toAltitudePoint(lowAltitudeRows[0])
+      : null,
     topLocationsByDensity: topDensityRows.map((r) => ({
       id: r.id,
       code: r.code,
