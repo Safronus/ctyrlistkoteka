@@ -33,6 +33,7 @@ Přibyly v provozu, ve stejném auth + atomic-write + audit patternu:
 | --- | --- | --- |
 | **Import balíčku** (`/admin/import`) | Hromadný import jednoho **ZIP „balíčku pro web"** (originály + výřezy + mapy + `meta/LokaceStavyPoznamky.json`) najednou. Dvoufázově: analýza (nic nezapisuje) → přehled → potvrzení → staging souborů + merge LSP. Nezapisuje DB — připraví soubory pro `sync`. Idempotentní (přepis podle ID / MAP_ID, ne duplikace). | `src/app/admin/import/*`, `src/app/admin/api/import/{upload-chunk,analyze,commit,cancel}/route.ts`, `src/lib/admin/importZip.ts` + `importPackage.ts` |
 | **QR** (`/admin/qr`) | **Dvě záložky s vlastními počty.** *QR nálezů*: hromadně podle čísel/intervalů (`?ids=` přijímá výběr z `/admin/files`), kód míří na `/n/<číslo>` — trvalá adresa, sken se počítá per nález. Volba hustoty (H/Q/M se skutečnými počty bodů), loga a titulku; velikost v cm s fyzicky kalibrovaným náhledem; ZIP (SVG + PNG 300 DPI + tiskový A4 arch). Seznam je sbalitelný, filtruje se podle čísla, podle poznámky (bez diakritiky) a „skrýt nenaskenované", řadí se podle čísla (Nejnovější/Nejstarší, výchozí nejnovější), má multi-select **obousměrně svázaný s polem čísel** (spec string je jediný zdroj pravdy), zobrazuje LSP poznámku a plné datum s časem, umí vynulovat skeny (per nález i hromadně) a **zrušit kód** (viz gotcha). Čísla mimo seznam se při stažení doplní (idempotentně přes PK). Nastavení + kalibrace v `data/.admin/qr-prefs.json`. *QR stránek*: původní generátor s tokenem `/go/<token>`. SVG fonty jen systémové; rasterizace **jen v prohlížeči** (viz gotcha níže). | `src/app/admin/qr/*`, `src/app/n/[id]/route.ts`, `src/app/go/[token]/route.ts`, `src/lib/admin/qr.ts` + `qrDensity.ts` + `qrPrefs.ts` |
+| **Darování ve světě** (`/admin/qr` → záložka *Darování ve světě*) | Sady laminovaných kartiček schovávaných ve veřejném prostoru. Sada (`DropCampaign`) → oblasti (`DropArea`, jedna na město/vesnici, střed + zoom + rádius rozhozu) → kusy (`DropItem`, jeden na nález). Každý kus má **vlastní náhodný token** a landing page `/d/<uuid>`, volitelnou GPS úkrytu, čtyři stavy (Připravený → Vytištěný → Schovaný → Nalezený), člena týmu (`campaign.placers`, zatím Magďul + Pali / Míša / Leonka / Já) a per-kus přepisy textů (nadpis, tělo, bonus, titulek QR, hustota/logo). Prázdné pole = dědí se ze sady (`resolveDropText`, fallback per pole a per jazyk). Mapa úkrytů umí klik-do-mapy i hromadný rozhoz do rádiusu. Celá sada se stáhne a nahraje zpět jako **xlsx**. | `src/app/admin/qr/darovani/[id]/*`, `src/app/admin/qr/drop-actions.ts`, `src/lib/admin/{drops,dropVocab,dropXlsx}.ts`, `src/lib/{dropText,dropScan,dropHint}.ts`, `src/app/d/[token]/page.tsx`, `src/app/admin/api/drops/[id]/xlsx/route.ts` |
 | **Efekty** (`/admin/special`) | Speciální atmosférický efekt na detailu nálezu (`record` / `heavenly` / `hellish`) přiřaditelný k libovolnému ID. „Rekord" je **jeden** (přiřazení jinému ho z předchozího sundá) a táhne i zlatý marker na `/mapa`, kartu na `/statistiky` a odznak v `/sbirka`. | `src/app/admin/special/*`, `src/lib/specialFinds.ts` + `…server.ts`, config `data/.admin/special-finds.json` |
 | **Rozdané** (`/admin/donated`) | „Pole darovaného štěstí" pod „Malou omluvou" na homepage. Toggle-seznam **darovaných** nálezů od #22094 výš (starší předcházejí nabídce), nejnovější nahoře; zapnuté se vykreslí jako rozházené pin-čtyřlístky. | `src/app/admin/donated/*`, `src/lib/donatedBoard.ts` + `…server.ts`, config `data/.admin/donated-board.json` |
 | **Hlasování** (`/admin/votes`) | Audit + mazání hlasů (single / fingerprint / uuid), tlačítko na kompletní reset. | `src/app/admin/votes/*` |
@@ -97,6 +98,7 @@ state mezi workery, jde přes disk:
 | Import balíčku (upload) | `isValidUploadId` + offset + chunk-size cap | chunk `fs.write` na offset do `data/.admin/import-tmp/<id>.zip` | — |
 | Import balíčku (commit) | streaming unzip (yauzl), `findIdOf`/`mapIdOf`, `safeBaseName`+`safeJoin` | staré ID/MAP_ID → `.trash`, `atomicWrite` per soubor; LSP přes `mergeWholeFile` | `file.replace` (`scope: import-package`) |
 | Sync start | concurrent-run check on disk | spawn child + write status JSON | `sync.start` |
+| Darování — xlsx import | `parseDropXlsx` (hlavičky podle názvu, číslo nálezu = klíč, `parseGps`); chybný stav/GPS blokuje celý soubor | jedna `$transaction` nad `drop_items` — buď projde tabulka celá, nebo nic | `settings.update` (`drops: xlsx-import`) |
 
 ### Import balíčku pro web — tok
 
@@ -188,11 +190,21 @@ odvozený název vytvořil druhý soubor pro totéž ID).
 ## 4. Veřejný web vs admin — invariants
 
 - `/`, `/sbirka`, `/mapa`, `/statistiky`, `/lokality` zůstávají
-  read-only. Žádný kód v admin track nepíše do `prisma` — DB se
-  mění jen přes `pnpm sync`.
+  read-only. **Do sbírkových tabulek** (`finds`, `find_images`,
+  `locations`, `location_maps`) nepíše admin nikdy — ty se mění
+  výhradně přes `pnpm sync` z filesystemu. Admin vlastní jen své
+  postranní tabulky (`votes`, `find_qr_codes`/`find_qr_scans`,
+  `drop_*`), které sync naopak nikdy nesahá.
 - Anonymizované nálezy: `find.notes` se nesmí číst přímo, vždy přes
   `anonymize(find)` v `src/lib/anonymize.ts`. Admin to taky respektuje
   (stačí Audit log neukládat poznámky verbatim — ten je v `secure/`).
+- **Souřadnice úkrytů darovaných kartiček se nesmí dostat na veřejnou
+  routu.** `DropItem.lat/lng` je čistě admin údaj: mapa úkrytů, xlsx
+  export (auth-gated GET) a nic jiného. Z celé sady prosakuje ven
+  jediná věc — text nápovědy, a to jen když je u kusu ručně zapnuté
+  `hintPublished` (`getPublishedDropHint`). Ne stav, ne token, ne kdo
+  ji schoval. Kdyby se přidávalo cokoli dalšího na `/sbirka/<id>` nebo
+  na `/d/<token>`, projdi tenhle odstavec znovu.
 
 ## 5. Známé gotchas
 
@@ -226,6 +238,23 @@ odvozený název vytvořil druhý soubor pro totéž ID).
   dotisk musí vyjít identicky a starý kód nesmí přestat platit. Kdyby
   se to překlopilo na `/go/<token>`, každé přegenerování by rozdané
   kartičky odpojilo.
+- **Kartičky „darování ve světě" naopak token MAJÍ** — a je to schválně.
+  `/n/<číslo>` prozradí číslo nálezu už z natištěného QR; u kusu
+  schovaného v parku je pointa, že se nedá dopředu uhodnout, kam
+  vede. Proto `/d/<uuid>`, `noindex` a nikde na webu na to neodkazuje.
+  Obojí přesto **nesmí do `sitemap.xml`** — hlídá to test
+  `src/app/sitemap.test.ts` (`/go/`, `/n/`, `/d/`).
+- **Prisma nesmí do klientského bundlu.** Import čehokoli, co sahá na
+  `@/lib/db` nebo `node:fs`, z `"use client"` komponenty přitáhne
+  `pg` → `dns` do prohlížeče a build spadne. U QR i u darování to
+  spadlo pokaždé stejně; řešení je vždycky rozdělit modul na čistý
+  slovník (`qrDensity.ts`, `dropVocab.ts`) a server-only zbytek
+  (`qr.ts`, `drops.ts`), a z klienta importovat jen ten čistý.
+- **Kolo přes xlsx musí být bezztrátové.** Export píše souřadnice na
+  6 desetin (≈ 11 cm), klik do mapy ukládá plnou přesnost — import
+  proto porovnává obojí přes `formatGpsDecimal`, aby neupravený soubor
+  vyšel jako „žádná změna". Bez toho hlásil změnu u každého řádku
+  s pozicí a operátor by přestal reportu věřit.
 
 ## 6. Úkoly TODO / open questions
 

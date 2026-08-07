@@ -14,6 +14,7 @@ import { CampaignSettings } from "./campaign-settings";
 import { AreaEditor } from "./area-editor";
 import { ItemsGrid, type ItemView } from "./items-grid";
 import { AreaMapPanel } from "./area-map-panel";
+import { XlsxPanel } from "./xlsx-panel";
 
 export const metadata: Metadata = {
   title: "Darování ve světě",
@@ -197,6 +198,8 @@ export default async function DropCampaignPage({
           foundAt: i.foundAt ? dateTimeFmt.format(i.foundAt) : null,
         }))}
       />
+
+      <XlsxPanel campaignId={campaign.id} campaignName={campaign.name} />
 
       <ItemsGrid
         campaignId={campaign.id}

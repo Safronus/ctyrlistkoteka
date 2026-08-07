@@ -15,7 +15,7 @@ import {
   addItemsAction,
   bulkUpdateItemsAction,
   removeItemsAction,
-  renderDropQrAction,
+  renderDropQrBatchAction,
 } from "../../drop-actions";
 import { DROP_STATUS_LABEL, DROP_STATUS_ORDER } from "@/lib/admin/dropVocab";
 import type { DropStatus } from "@/generated/prisma/enums";
@@ -61,8 +61,8 @@ const STATUS_TONE: Record<DropStatus, string> = {
  * A hundred-odd pieces is few enough to show each one's actual code —
  * which matters because every card may carry its own title and look, and
  * a table of numbers wouldn't reveal a card whose override went wrong.
- * The previews render lazily, one server call per card, so opening the
- * page doesn't rasterise a hundred codes up front.
+ * The previews render lazily and in batches of forty, so opening the page
+ * doesn't cost a hundred round trips before it settles.
  */
 export function ItemsGrid({
   campaignId,
@@ -85,6 +85,7 @@ export function ItemsGrid({
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openItem, setOpenItem] = useState<ItemView | null>(null);
+  const [svgs, setSvgs] = useState<Record<number, string>>({});
   const [busy, start] = useTransition();
 
   const shown = useMemo(() => {
@@ -99,6 +100,34 @@ export function ItemsGrid({
       return true;
     });
   }, [items, query, areaFilter, statusFilter]);
+
+  // Render the visible cards' codes in batches rather than one request
+  // each: 111 cards used to mean 111 round trips before the page settled.
+  const shownKey = shown.map((i) => i.id).join(",");
+  useEffect(() => {
+    let alive = true;
+    const missing = shown.filter((i) => svgs[i.id] === undefined).map((i) => i.id);
+    if (missing.length === 0) return;
+    (async () => {
+      for (let i = 0; i < missing.length; i += 40) {
+        const r = await renderDropQrBatchAction(missing.slice(i, i + 40));
+        if (!alive) return;
+        if (r.ok) {
+          setSvgs((prev) => {
+            const next = { ...prev };
+            for (const it of r.items) next[it.id] = it.svg;
+            return next;
+          });
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // `svgs` is deliberately out of the deps: it is what the effect fills
+    // in, and including it would re-run the effect after every chunk.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownKey]);
 
   const toggle = (id: number) =>
     setSelected((prev) => {
@@ -382,6 +411,7 @@ export function ItemsGrid({
             <ItemCard
               key={i.id}
               item={i}
+              svg={svgs[i.id] ?? null}
               areaName={areas.find((a) => a.id === i.areaId)?.name ?? null}
               checked={selected.has(i.id)}
               onToggle={() => toggle(i.id)}
@@ -410,33 +440,20 @@ export function ItemsGrid({
 
 function ItemCard({
   item,
+  svg,
   areaName,
   checked,
   onToggle,
   onOpen,
 }: {
   item: ItemView;
+  /** Pre-rendered by the grid's batched fetch; null until it arrives. */
+  svg: string | null;
   areaName: string | null;
   checked: boolean;
   onToggle: () => void;
   onOpen: () => void;
 }) {
-  const [svg, setSvg] = useState<string | null>(null);
-
-  // Lazily: a hundred codes rendered on mount would be a hundred server
-  // calls before the page is usable.
-  useEffect(() => {
-    let alive = true;
-    const t = setTimeout(async () => {
-      const r = await renderDropQrAction(item.id);
-      if (alive && r.ok) setSvg(r.svg);
-    }, 50);
-    return () => {
-      alive = false;
-      clearTimeout(t);
-    };
-  }, [item.id]);
-
   return (
     <li
       className={`rounded-lg border p-2 transition ${

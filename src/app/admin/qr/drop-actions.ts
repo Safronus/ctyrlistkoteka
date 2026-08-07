@@ -6,8 +6,9 @@ import { appendAudit } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db";
 import { DropStatus } from "@/generated/prisma/client";
 import { parseRanges } from "@/lib/parseRanges";
-import { parseGps } from "@/lib/parseGps";
+import { parseGps, formatGpsDecimal } from "@/lib/parseGps";
 import { newDropToken, scatterPoints } from "@/lib/admin/drops";
+import { parseDropXlsx } from "@/lib/admin/dropXlsx";
 import { renderFindQrSvg } from "@/lib/admin/qr";
 import { dropLandingUrl, mergeDropQrOptions } from "@/lib/admin/drops";
 import type {
@@ -569,6 +570,258 @@ export async function renderDropQrAction(
   }
 }
 
+/**
+ * Renders a whole page of cards in one round trip.
+ *
+ * The grid used to fire one action per card, which is fine for nine and
+ * silly for a hundred and eleven — 111 requests before the page settles.
+ * Chunked by the caller so a huge set still streams in.
+ */
+export async function renderDropQrBatchAction(
+  itemIds: number[],
+): Promise<Result<{ items: Array<{ id: number; svg: string }> }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  const ids = (Array.isArray(itemIds) ? itemIds : [])
+    .filter((n) => Number.isInteger(n) && n > 0)
+    .slice(0, 60);
+  if (ids.length === 0) return { ok: true, items: [] };
+  try {
+    const rows = await prisma.dropItem.findMany({
+      where: { id: { in: ids } },
+      include: { campaign: true },
+    });
+    return {
+      ok: true,
+      items: rows.map((item) => {
+        const url = dropLandingUrl(item.token);
+        const o = mergeDropQrOptions(item.campaign.qrOptions, item.qrOptions);
+        return {
+          id: item.id,
+          svg: renderFindQrSvg(item.findId, {
+            url,
+            header: item.qrTitle ?? item.campaign.qrTitle ?? `🍀 #${item.findId}`,
+            density: (o.density ?? "medium") as QrDensity,
+            theme: o.theme as QrTheme | undefined,
+            moduleStyle: o.moduleStyle as QrModuleStyle | undefined,
+            center: o.center as QrCenter | undefined,
+            centerScale: o.centerScale as QrCenterScale | undefined,
+            border: o.border as QrBorder | undefined,
+            borderRadius: o.borderRadius as QrBorderRadius | undefined,
+            borderColor: o.borderColor as QrBorderColor | undefined,
+          }),
+        };
+      }),
+    };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Vykreslení QR selhalo") };
+  }
+}
+
 function msg(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
+}
+
+// -------------------------------------------------------------------- xlsx
+
+export interface ImportReport {
+  matched: number;
+  changed: number;
+  /** Fields cleared back to "inherit from the campaign". */
+  cleared: number;
+  unknownFinds: number[];
+  unknownAreas: string[];
+  unknownPlacers: string[];
+  errors: string[];
+}
+
+/**
+ * Applies an edited export back onto the campaign.
+ *
+ * Deliberately single-phase but loud: nothing is deleted, every change is
+ * counted and every rejected row is named, so a mistake shows up in the
+ * report instead of being discovered weeks later. Blocking problems (a
+ * bad status, an unreadable coordinate, a duplicate row) stop the whole
+ * import — a half-applied spreadsheet is worse than none.
+ *
+ * A crew name outside the roster is allowed but reported: the roster is a
+ * convenience list, not a constraint, and refusing an import because
+ * somebody typed a nickname would be the wrong trade.
+ */
+export async function importDropXlsxAction(
+  campaignId: number,
+  form: FormData,
+): Promise<Result<{ report: ImportReport }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Vyber soubor .xlsx" };
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return { ok: false, error: "Soubor je větší než 10 MB" };
+  }
+
+  try {
+    const parsed = await parseDropXlsx(await file.arrayBuffer());
+    if (parsed.errors.length > 0) {
+      return {
+        ok: true,
+        report: {
+          matched: 0,
+          changed: 0,
+          cleared: 0,
+          unknownFinds: [],
+          unknownAreas: [],
+          unknownPlacers: [],
+          errors: parsed.errors.slice(0, 50),
+        },
+      };
+    }
+
+    const [items, areas, campaign] = await Promise.all([
+      prisma.dropItem.findMany({ where: { campaignId } }),
+      prisma.dropArea.findMany({ where: { campaignId } }),
+      prisma.dropCampaign.findUnique({
+        where: { id: campaignId },
+        select: { placers: true },
+      }),
+    ]);
+    const byFind = new Map(items.map((i) => [i.findId, i]));
+    const areaByName = new Map(
+      areas.map((a) => [a.name.trim().toLowerCase(), a.id]),
+    );
+    const roster = new Set(campaign?.placers ?? []);
+
+    const report: ImportReport = {
+      matched: 0,
+      changed: 0,
+      cleared: 0,
+      unknownFinds: [],
+      unknownAreas: [],
+      unknownPlacers: [],
+      errors: [],
+    };
+
+    const updates: Array<{ id: number; data: Record<string, unknown> }> = [];
+
+    for (const row of parsed.rows) {
+      const item = byFind.get(row.findId);
+      if (!item) {
+        report.unknownFinds.push(row.findId);
+        continue;
+      }
+      report.matched += 1;
+      const data: Record<string, unknown> = {};
+      const v = row.values;
+
+      const setText = (
+        key:
+          | "headingCs"
+          | "headingEn"
+          | "bodyCs"
+          | "bodyEn"
+          | "bonusCs"
+          | "bonusEn"
+          | "qrTitle"
+          | "hintCs"
+          | "hintEn",
+      ) => {
+        if (v[key] === undefined) return;
+        const next = v[key] === "" ? null : v[key]!;
+        const prev = (item as Record<string, unknown>)[key] ?? null;
+        if (next !== prev) {
+          data[key] = next;
+          if (next === null) report.cleared += 1;
+        }
+      };
+      (
+        [
+          "headingCs",
+          "headingEn",
+          "bodyCs",
+          "bodyEn",
+          "bonusCs",
+          "bonusEn",
+          "qrTitle",
+          "hintCs",
+          "hintEn",
+        ] as const
+      ).forEach(setText);
+
+      if (v.area !== undefined) {
+        if (v.area === "") {
+          if (item.areaId !== null) data.areaId = null;
+        } else {
+          const areaId = areaByName.get(v.area.trim().toLowerCase());
+          if (areaId === undefined) {
+            if (!report.unknownAreas.includes(v.area)) {
+              report.unknownAreas.push(v.area);
+            }
+          } else if (areaId !== item.areaId) {
+            data.areaId = areaId;
+          }
+        }
+      }
+
+      if (v.placedBy !== undefined) {
+        const next = v.placedBy === "" ? null : v.placedBy;
+        if (next !== null && !roster.has(next)) {
+          if (!report.unknownPlacers.includes(next)) {
+            report.unknownPlacers.push(next);
+          }
+        }
+        if (next !== (item.placedBy ?? null)) data.placedBy = next;
+      }
+
+      if (v.status !== undefined && v.status !== item.status) {
+        data.status = v.status;
+      }
+      if (v.hintPublished !== undefined && v.hintPublished !== item.hintPublished) {
+        data.hintPublished = v.hintPublished;
+      }
+      if (v.lat !== undefined && v.lng !== undefined) {
+        // Compare at the precision the export writes (6 decimals ≈ 11 cm).
+        // A click on the map stores full double precision, so a plain !==
+        // would flag every untouched row as changed the moment it made a
+        // round trip through the sheet.
+        const same =
+          v.lat === null || v.lng === null || item.lat === null || item.lng === null
+            ? v.lat === item.lat && v.lng === item.lng
+            : formatGpsDecimal(v.lat, v.lng) ===
+              formatGpsDecimal(item.lat, item.lng);
+        if (!same) {
+          data.lat = v.lat;
+          data.lng = v.lng;
+        }
+      }
+
+      if (Object.keys(data).length > 0) {
+        updates.push({ id: item.id, data });
+        report.changed += 1;
+      }
+    }
+
+    if (updates.length > 0) {
+      // One transaction: a spreadsheet either lands whole or not at all.
+      await prisma.$transaction(
+        updates.map((u) =>
+          prisma.dropItem.update({ where: { id: u.id }, data: u.data }),
+        ),
+      );
+      await appendAudit({
+        action: "settings.update",
+        ip: await getRequestIp(),
+        details: {
+          drops: "xlsx-import",
+          campaignId,
+          changed: report.changed,
+          cleared: report.cleared,
+        },
+      });
+      revalidate(campaignId);
+    }
+
+    return { ok: true, report };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Import selhal") };
+  }
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getPublishedDropHint } from "@/lib/dropHint";
 import {
   BarChart3,
   ChevronLeft,
@@ -400,6 +401,10 @@ export default async function FindDetailPage({ params }: PageProps) {
   // LSP-JSON note — it can carry characters the filename can't and an
   // optional EN variant. Same privacy gate as the query's `find.notes`:
   // never for anonymized / donated finds.
+  // Hunt hint published on this find's in-the-wild card, if any. Text
+  // only — the card's coordinates never reach a public page.
+  const dropHint = await getPublishedDropHint(find.id);
+
   const noteOverride =
     !find.isAnonymized && !find.states.includes(FindState.DONATED)
       ? await getFindNoteOverride(find.id)
@@ -432,6 +437,19 @@ export default async function FindDetailPage({ params }: PageProps) {
     <article className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       {/* ← / → keyboard navigation to the neighbouring finds. */}
       <FindKeyNav prevId={adjacent.prevId} nextId={adjacent.nextId} />
+      {dropHint && (
+        <aside className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-center">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+            {t("dropHintHeading")}
+          </p>
+          <p className="mt-1 whitespace-pre-line text-sm text-emerald-900">
+            {locale === "en" && dropHint.en ? dropHint.en : dropHint.cs}
+          </p>
+          <p className="mt-1 text-[11px] text-emerald-700/80">
+            {t("dropHintNote")}
+          </p>
+        </aside>
+      )}
       {/* Bar: the find title — "🍀 #id" — centered with the prev/next find
           links flanking it (prev left, next right).
 

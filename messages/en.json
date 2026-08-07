@@ -897,7 +897,9 @@
     "anonMapAria": "The location of the anonymized find is hidden",
     "anonMapBadge": "Location hidden",
     "findMarkerAria": "Find position on the map",
-    "mapImageFallback": "Location map"
+    "mapImageFallback": "Location map",
+    "dropHintHeading": "Hunt hint 🍀",
+    "dropHintNote": "This clover is one of those hidden out in the world."
   },
   "Privacy": {
     "metaTitle": "Privacy Policy | Čtyřlístkotéka",

@@ -9,6 +9,28 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Darování ve světě — tabulka a nápovědy (4. fáze)
+- **Celá sada se stáhne jako xlsx** a po úpravě v Excelu nahraje zpět.
+  Sto kartiček se dá vyplnit hromadně místo proklikávání — souřadnice
+  nasbírané v mobilu, texty, stavy, kdo umísťuje.
+- Tabulka učí sama sebe: u stavu, člena týmu a oblasti jsou rozbalovací
+  seznamy, uvnitř souboru je list **Návod** a poslední tři sloupce
+  (odkaz, počet naskenování, kdy byl nalezen) jsou jen ke čtení.
+- Řádky se párují **podle čísla nálezu**, ne podle pořadí, a sloupce se
+  poznávají podle názvu — přeházet je nebo pár smazat nic nerozbije.
+  Prázdná buňka u textu pořád znamená „převzít ze sady“.
+- Import je **všechno nebo nic**: neznámý stav nebo nečitelné souřadnice
+  zastaví celý soubor a vypíšou se i s číslem řádku. Co projde, projde
+  v jedné transakci. Čísla mimo sadu, neznámé oblasti a jména mimo tým
+  se nahlásí zvlášť. Nahrání nezměněného exportu nedělá nic.
+- Souřadnice se čtou i v **DMS a z odkazů z Mapy.cz nebo Google Maps**
+  — `49°13'28.2"S 17°40'16.1"V` i `49.2245, 17.6711` skončí stejně.
+- **Nápověda k hledání**: u kusu se dá napsat text a zvlášť ho zveřejnit.
+  Teprve pak se ukáže na detailu toho čtyřlístku ve sbírce. Ven jde
+  výhradně ta věta — ne poloha, ne stav, ne kdo ji schoval.
+- Náhledy QR v mřížce se natahují po čtyřicítkách místo jednoho dotazu
+  na kartičku; u stovky kusů to je rozdíl mezi jedním čekáním a sto.
+
 ### Darování ve světě — mapa úkrytů (3. fáze)
 - Ke každé oblasti přibyla **mapa se značkami úkrytů**, obarvenými podle
   stavu kusu (připravený / vytištěný / schovaný / nalezený). Přejetím

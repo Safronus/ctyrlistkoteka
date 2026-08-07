@@ -896,7 +896,9 @@
     "anonMapAria": "Lokalita anonymizovaného nálezu je skrytá",
     "anonMapBadge": "Lokalita skryta",
     "findMarkerAria": "Pozice nálezu na mapě",
-    "mapImageFallback": "Mapa lokality"
+    "mapImageFallback": "Mapa lokality",
+    "dropHintHeading": "Nápověda k hledání 🍀",
+    "dropHintNote": "Tenhle čtyřlístek je jeden ze schovaných ve světě."
   },
   "Privacy": {
     "metaTitle": "Zásady ochrany osobních údajů | Čtyřlístkotéka",
