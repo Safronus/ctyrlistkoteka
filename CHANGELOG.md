@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Oprava: modré prvky svítily v tmavém režimu
+- Tmavý režim přebarvuje celé palety (zelená, fialová, růžová, jantarová,
+  smaragdová) — jen **modrá tam chyběla**. Modrý řádek rodičovské lokality na
+  `/lokality` proto na skoro černé stránce svítil jako světlý pruh a text
+  v něm byl tmavý na světlém. Modrá teď má tmavou variantu podle stejného
+  receptu jako ostatní barvy: kontrast textu **14,5:1**, odznaku **8,9:1**.
+- Týkalo se to i dalších míst, kde se modrá používá — odznaků rodič/potomek
+  v `/admin/files/maps` a informačních štítků.
+- Světlý a čtyřlístkový režim zůstávají beze změny.
+
 ### Přerovnaný řádek v seznamu lokalit
 - Řádek na `/lokality` má nově pevné pořadí, takže se dá číst po sloupci:
   **1. řádek** číslo lokace, ID lokace a GPS · **2. řádek** popis lokality ·

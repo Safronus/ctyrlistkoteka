@@ -180,6 +180,24 @@
   --color-emerald-900: oklch(0.92 0.06 162);
   --color-emerald-950: oklch(0.95 0.04 162);
 
+  /* Hierarchy / informational — sky. The one family that had no dark
+     counterpart, so every `bg-sky-100` surface (the parent-location row on
+     /lokality, the parent/child badges in /admin/files/maps, the info chips)
+     rendered as a bright light-blue island on the near-black page, with
+     `text-sky-800/900` going dark-on-light-on-dark. Same recipe as
+     amber/rose/purple/emerald: low shades are dark surfaces, high shades are
+     light text, mid shades stay vivid for icons. Hue 237° = Tailwind's sky. */
+  --color-sky-50: oklch(0.22 0.05 237);
+  --color-sky-100: oklch(0.27 0.07 237);
+  --color-sky-200: oklch(0.34 0.09 237);
+  --color-sky-300: oklch(0.44 0.12 237);
+  --color-sky-400: oklch(0.60 0.15 237);
+  --color-sky-500: oklch(0.68 0.16 237);
+  --color-sky-600: oklch(0.74 0.14 237);
+  --color-sky-700: oklch(0.80 0.12 237);
+  --color-sky-800: oklch(0.86 0.09 237);
+  --color-sky-900: oklch(0.92 0.05 237);
+
   /* Black-line logo / watermark needs to flip to white silhouette on
      near-black surfaces, otherwise it disappears. The image file itself
      is black-on-transparent, so a simple invert is enough — opt-in via
