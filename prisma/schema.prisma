@@ -41,6 +41,15 @@ enum ImageType {
   CROP
 }
 
+/// Where one in-the-wild card is on its journey. FOUND is set automatically
+/// by the first scan of its landing page; the rest are ticked by hand.
+enum DropStatus {
+  PREPARED // číslo vyhrazeno, nic vytištěno
+  PRINTED // kartička vytištěná, doma
+  HIDDEN // schovaná v terénu
+  FOUND // někdo naskenoval QR
+}
+
 // ============================================================
 //  LOCATIONS
 // ============================================================
@@ -84,29 +93,29 @@ model Location {
   // Which data generation this location was last synced from: 1 = v1
   // (code/GPS/zoom parsed from the map filename), 2 = v2 (from manifest.json).
   // Lets read paths pick the v2 source only where it actually exists.
-  schemaVersion Int? @map("schema_version") @db.SmallInt
+  schemaVersion Int?    @map("schema_version") @db.SmallInt
   // ISO-3166 alpha-2 country code (CZ, SK, JP…) straight from the manifest.
   // Replaces the run-time countryFromCoords() point-in-polygon on center_point
   // — faster and exact at borders (the Štúrovo case). Fallback stays for nulls.
-  countryCode String? @map("country_code") @db.VarChar(2)
+  countryCode   String? @map("country_code") @db.VarChar(2)
   // Human-readable reverse-geocoded address ("Svěrákova 161"), used as a nicer
   // display name when the map's popis is the empty "BezPoznámky" marker.
-  geoAddress String? @map("geo_address") @db.VarChar(255)
+  geoAddress    String? @map("geo_address") @db.VarChar(255)
   // Location indicator kind: "dot" (point, no radius), "radius" (point with
   // radius_m) or "polygon" (AOI). Drives which shape the map/stats draw and
   // how area is computed. Mutually exclusive — see the map generator.
-  indicator String? @db.VarChar(16)
+  indicator     String? @db.VarChar(16)
   // Radius in metres; set only for indicator = "radius" (null for dot and
   // polygon). Area of a radius location = π·radius². A dot has no area.
-  radiusM Float? @map("radius_m")
+  radiusM       Float?  @map("radius_m")
   // Precomputed area in m²: polygon → real AOI area, radius → π·radius².
   // From the manifest so we don't recompute ST_Area at run time, and so
   // radius locations (no polygon) still contribute an area to density stats.
-  aoiAreaM2 Float? @map("aoi_area_m2")
+  aoiAreaM2     Float?  @map("aoi_area_m2")
   // Cancelled/defunct location flag from v2 metadata. Replaces the v1
   // convention of a "NEEXISTUJE-" prefix on the code; read path switches to
   // this in phase D, keeping the prefix check as a fallback while both exist.
-  isCancelled Boolean @default(false) @map("is_cancelled")
+  isCancelled   Boolean @default(false) @map("is_cancelled")
 
   // Terrain elevation of the centre point, metres above sea level. NOT from
   // the photos: phone GPS altitude scatters by metres to tens of metres (see
@@ -114,7 +123,7 @@ model Location {
   // the one-off `scripts/fetch-elevations.ts`. Deliberately absent from the
   // sync upsert so a re-sync never clears it. Null = never looked up, or an
   // anonymized location (their coordinates are never sent anywhere).
-  altitudeM Float? @map("altitude_m")
+  altitudeM      Float?  @map("altitude_m")
   // Which model the value came from ("eudem25m", "srtm30m", …) — kept so a
   // later, better source can be told apart from an older reading.
   altitudeSource String? @map("altitude_source") @db.VarChar(32)
@@ -204,11 +213,12 @@ model Find {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  images  FindImage[]
-  states  FindStateAssignment[]
-  votes   FindVote[]
-  qrCode  FindQrCode?
-  qrScans FindQrScan[]
+  images   FindImage[]
+  states   FindStateAssignment[]
+  votes    FindVote[]
+  qrCode   FindQrCode?
+  qrScans  FindQrScan[]
+  dropItem DropItem?
 
   @@index([locationId])
   @@index([mapId])
@@ -238,13 +248,13 @@ model Find {
 // serverový salt → nelze přímo dohledat osobu z DB dumpu.
 
 model FindVote {
-  findId      Int       @map("find_id")
-  find        Find      @relation(fields: [findId], references: [id], onDelete: Cascade)
-  voterUuid   String    @map("voter_uuid") @db.Uuid                          // z cookie
-  fingerprint String    @map("fingerprint") @db.Char(40)                      // sha1
-  votedAt     DateTime  @default(now()) @map("voted_at") @db.Timestamptz
-  ipHash      String    @map("ip_hash") @db.Char(40)                          // audit-only, sha1
-  userAgent   String?   @map("user_agent") @db.VarChar(500)                   // audit-only
+  findId      Int      @map("find_id")
+  find        Find     @relation(fields: [findId], references: [id], onDelete: Cascade)
+  voterUuid   String   @map("voter_uuid") @db.Uuid // z cookie
+  fingerprint String   @map("fingerprint") @db.Char(40) // sha1
+  votedAt     DateTime @default(now()) @map("voted_at") @db.Timestamptz
+  ipHash      String   @map("ip_hash") @db.Char(40) // audit-only, sha1
+  userAgent   String?  @map("user_agent") @db.VarChar(500) // audit-only
 
   @@id([findId, voterUuid])
   // `map:` pins the DB index name to what migration 20260523 actually
@@ -309,33 +319,33 @@ model FindStateAssignment {
 //  keeps working for stray scans and the scan history is preserved.
 
 model QrCode {
-  id          Int       @id @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   /// Short unique slug encoded in the QR (the /go/<token> path).
-  token       String    @unique @db.VarChar(16)
+  token        String    @unique @db.VarChar(16)
   /// Human label for the evidence list (e.g. where it's stuck).
-  label       String    @db.VarChar(200)
+  label        String    @db.VarChar(200)
   /// Target public page key: home | sbirka | lokality | mapa | statistiky
-  target      String    @db.VarChar(20)
+  target       String    @db.VarChar(20)
   /// Locale the QR links to: cs | en
-  locale      String    @default("cs") @db.VarChar(5)
+  locale       String    @default("cs") @db.VarChar(5)
   // render options (stored so re-download reproduces the same image)
-  theme       String    @default("brand") @db.VarChar(16)
-  moduleStyle String    @default("clover") @map("module_style") @db.VarChar(16)
-  centerImage String    @default("clover") @map("center_image") @db.VarChar(16)
-  centerScale String    @default("md") @map("center_scale") @db.VarChar(8)
-  showTitle   Boolean   @default(true) @map("show_title")
-  titleText   String?   @map("title_text") @db.VarChar(200)
-  showCaption Boolean   @default(false) @map("show_caption")
-  size        String    @default("md") @db.VarChar(8)
-  border       String   @default("none") @db.VarChar(12) // none | frame | panel | cut
-  borderRadius String   @default("soft") @map("border_radius") @db.VarChar(8) // soft | round
-  borderColor  String   @default("theme") @map("border_color") @db.VarChar(8) // theme | gray
+  theme        String    @default("brand") @db.VarChar(16)
+  moduleStyle  String    @default("clover") @map("module_style") @db.VarChar(16)
+  centerImage  String    @default("clover") @map("center_image") @db.VarChar(16)
+  centerScale  String    @default("md") @map("center_scale") @db.VarChar(8)
+  showTitle    Boolean   @default(true) @map("show_title")
+  titleText    String?   @map("title_text") @db.VarChar(200)
+  showCaption  Boolean   @default(false) @map("show_caption")
+  size         String    @default("md") @db.VarChar(8)
+  border       String    @default("none") @db.VarChar(12) // none | frame | panel | cut
+  borderRadius String    @default("soft") @map("border_radius") @db.VarChar(8) // soft | round
+  borderColor  String    @default("theme") @map("border_color") @db.VarChar(8) // theme | gray
   /// Module density = error-correction level under a friendlier name:
   /// dense (H) | medium (Q) | compact (M). See QrDensity in lib/admin/qr.ts.
-  density      String   @default("dense") @db.VarChar(8)
+  density      String    @default("dense") @db.VarChar(8)
   /// Set when the physical QR is retired ("Zničený"). Redirect still works.
-  archivedAt  DateTime? @map("archived_at") @db.Timestamptz
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   scans QrScan[]
 
@@ -396,4 +406,145 @@ model QrScan {
   @@index([qrCodeId])
   @@index([scannedAt])
   @@map("qr_scans")
+}
+
+// ============================================================
+//  DROP CAMPAIGNS ("darování ve světě")
+// ============================================================
+//
+//  A wave of four-leaf clovers laminated onto cards and hidden around
+//  real places for strangers to find. Scanning a card's QR opens
+//  `/d/<token>` — a per-card landing page, never linked from the site and
+//  never in the sitemap, which logs the scan and offers two ways on: the
+//  find's own detail page, or the homepage.
+//
+//  Three levels because a wave spans several towns and more waves are
+//  planned: campaign (shared philosophy + default texts) → area (one map,
+//  one centre) → item (one physical card).
+//
+//  Every text on an item is nullable: null means "inherit the campaign's
+//  default", so re-wording the campaign propagates everywhere that hasn't
+//  been overridden.
+
+model DropCampaign {
+  id   Int     @id @default(autoincrement())
+  name String  @db.VarChar(120)
+  /// Admin-facing note: what this wave is about, how many pieces, why.
+  note String? @db.Text
+
+  /// Landing-page defaults. CS is required, EN optional — the page falls
+  /// back to CS when a visitor's English text is missing.
+  headingCs  String    @map("heading_cs") @db.VarChar(200)
+  headingEn  String?   @map("heading_en") @db.VarChar(200)
+  bodyCs     String    @map("body_cs") @db.Text
+  bodyEn     String?   @map("body_en") @db.Text
+  /// Secondary "bonus" block rendered under the main text.
+  bonusCs    String?   @map("bonus_cs") @db.Text
+  bonusEn    String?   @map("bonus_en") @db.Text
+  /// Default title printed above the QR, and the default render options
+  /// (same option bag as the rest of the QR admin).
+  qrTitle    String?   @map("qr_title") @db.VarChar(200)
+  qrOptions  Json?     @map("qr_options")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  areas DropArea[]
+  items DropItem[]
+
+  @@map("drop_campaigns")
+}
+
+model DropArea {
+  id         Int          @id @default(autoincrement())
+  campaignId Int          @map("campaign_id")
+  campaign   DropCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  name           String @db.VarChar(120)
+  /// Map centre + zoom for this area's admin map.
+  centerLat      Float  @map("center_lat")
+  centerLng      Float  @map("center_lng")
+  zoom           Int    @default(14) @db.SmallInt
+  /// Radius in metres used by "scatter the unplaced pieces at random".
+  scatterRadiusM Float? @map("scatter_radius_m")
+
+  sortOrder Int      @default(0) @map("sort_order") @db.SmallInt
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  items DropItem[]
+
+  @@index([campaignId])
+  @@map("drop_areas")
+}
+
+model DropItem {
+  id         Int          @id @default(autoincrement())
+  campaignId Int          @map("campaign_id")
+  campaign   DropCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  areaId     Int?         @map("area_id")
+  area       DropArea?    @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  /// The find this card carries. Unique — one physical clover, one find.
+  /// Required: the landing page's primary button opens its detail.
+  findId Int  @unique @map("find_id")
+  find   Find @relation(fields: [findId], references: [id], onDelete: Cascade)
+
+  /// Random, unguessable path segment of the landing page (`/d/<token>`).
+  /// A UUID: at the 4 cm the cards are printed at, the denser QR still
+  /// gives ~0.9 mm modules, comfortably readable.
+  token String @unique @db.VarChar(64)
+
+  status DropStatus @default(PREPARED)
+
+  /// Where the card is hidden. Plain floats rather than PostGIS: these are
+  /// only ever drawn as markers on an admin map, never queried spatially,
+  /// and floats keep the whole CRUD in plain Prisma. NEVER exposed
+  /// publicly — see docs/admin-overview.md.
+  lat Float?
+  lng Float?
+
+  /// Per-item overrides. Null = inherit the campaign's value.
+  headingCs String? @map("heading_cs") @db.VarChar(200)
+  headingEn String? @map("heading_en") @db.VarChar(200)
+  bodyCs    String? @map("body_cs") @db.Text
+  bodyEn    String? @map("body_en") @db.Text
+  bonusCs   String? @map("bonus_cs") @db.Text
+  bonusEn   String? @map("bonus_en") @db.Text
+  qrTitle   String? @map("qr_title") @db.VarChar(200)
+  qrOptions Json?   @map("qr_options")
+  /// Landing image for this one card, relative to the generated dir.
+  imagePath String? @map("image_path") @db.VarChar(500)
+
+  /// Optional hunt hint. Shown on the find's PUBLIC detail page only when
+  /// `hintPublished` is on; the landing page then points visitors at it.
+  /// Free text written by the operator — it must not spell out the GPS.
+  hintCs        String? @map("hint_cs") @db.Text
+  hintEn        String? @map("hint_en") @db.Text
+  hintPublished Boolean @default(false) @map("hint_published")
+
+  placedAt DateTime? @map("placed_at") @db.Timestamptz
+  /// First scan, i.e. when somebody found it. Set once, by the landing page.
+  foundAt  DateTime? @map("found_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  scans DropScan[]
+
+  @@index([campaignId])
+  @@index([areaId])
+  @@index([status])
+  @@map("drop_items")
+}
+
+model DropScan {
+  id        Int      @id @default(autoincrement())
+  itemId    Int      @map("item_id")
+  item      DropItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  /// Timestamp only — no IP / UA / PII, same rule as the other scan logs.
+  scannedAt DateTime @default(now()) @map("scanned_at") @db.Timestamptz
+
+  @@index([itemId])
+  @@index([scannedAt])
+  @@map("drop_scans")
 }

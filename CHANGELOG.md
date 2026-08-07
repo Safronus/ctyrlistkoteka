@@ -9,6 +9,30 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Darování ve světě — základ (1. fáze)
+- Nový datový model pro **sady čtyřlístků rozmisťovaných v reálném světě**:
+  sada (vlna, společná filozofie a výchozí texty) → oblast (jedno město,
+  jedna mapa) → kus (jedna kartička). Počítá se s dalšími vlnami.
+- **Landing page `/d/<uuid>`** po naskenování kartičky. Není nikde
+  odkazovaná, má `noindex`, je v robots.txt a test hlídá, že se nedostane
+  do sitemapy. Ukáže nadpis, text a bonusový blok, pak dvě tlačítka —
+  na detail čtyřlístku a na hlavní stránku. **Žádné automatické
+  přesměrování.** Poloha úkrytu se na ní nikdy neobjeví.
+- Texty jsou **česky i anglicky** a vybírají se podle prohlížeče, s
+  přepínačem dole. Chybějící anglický text spadne na češtinu — a to po
+  jednotlivých polích, takže sada přeložená jen v nadpisu pořád ukáže
+  český text.
+- Každý kus může přepsat cokoli ze sady (nadpis, text, bonus, titulek
+  a vzhled QR, obrázek, nápovědu); prázdné pole dědí, takže přepsání
+  textu akce se propíše všude, kde není přepsáno ručně.
+- **První naskenování** kus automaticky označí jako nalezený a zapíše
+  čas. Skeny se logují jen s časem, bez IP a bez čehokoli o návštěvníkovi.
+- Nový **parser GPS**, který bere všechny běžné tvary — desetinné stupně,
+  DMS s českými i anglickými písmeny světových stran (pozor: „S" je česky
+  sever, anglicky jih — pozná se to podle druhé složky páru), stupně
+  s desetinnými minutami, desetinnou čárku i vložený odkaz z Mapy.cz nebo
+  Google Maps. 10 testů.
+
 ### Trackovací odkazy hlídané proti sitemapě, seznam QR nálezů rozdělený
 - Odkazy `/go/`, `/n/` (a připravované `/d/`) v sitemapě nikdy nebyly, ale
   teď to hlídá **test** — dokázal jsem si, že když se do sitemapy nějaký
