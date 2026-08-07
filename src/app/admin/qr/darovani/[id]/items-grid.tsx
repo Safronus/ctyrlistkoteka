@@ -17,6 +17,7 @@ import {
   Plus,
   Printer,
   QrCode,
+  RotateCcw,
   ScanLine,
   Trash2,
 } from "lucide-react";
@@ -25,6 +26,7 @@ import {
   bulkUpdateItemsAction,
   removeItemsAction,
   renderDropQrBatchAction,
+  resetScansAction,
 } from "../../drop-actions";
 import { DROP_STATUS_LABEL, DROP_STATUS_ORDER } from "@/lib/admin/dropVocab";
 import type { DropStatus } from "@/generated/prisma/enums";
@@ -112,6 +114,9 @@ export function ItemsGrid({
   const [openItem, setOpenItem] = useState<ItemView | null>(null);
   const [svgs, setSvgs] = useState<Record<number, string>>({});
   const [printing, setPrinting] = useState<number[] | null>(null);
+  // Two-step, because zeroing counters is not undoable and the button
+  // sits in a strip of one-click bulk edits.
+  const [confirmReset, setConfirmReset] = useState(false);
   const [busy, start] = useTransition();
 
   const shown = useMemo(() => {
@@ -195,6 +200,7 @@ export function ItemsGrid({
       }
       setNotice(okMsg);
       setSelected(new Set());
+      setConfirmReset(false);
       router.refresh();
     });
   };
@@ -449,6 +455,29 @@ export function ItemsGrid({
             ))}
           </select>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (!confirmReset) {
+                setConfirmReset(true);
+                return;
+              }
+              setConfirmReset(false);
+              run(
+                () => resetScansAction(campaignId, [...selected]),
+                "Počty naskenování vynulovány",
+              );
+            }}
+            title="Smaže historii skenů i razítko „nalezeno“; „Nalezený“ se vrátí na „Schovaný“"
+            className={`${CONTROL_H_SM} inline-flex items-center gap-1 rounded-md border px-2.5 font-medium transition ${
+              confirmReset
+                ? "border-amber-400 bg-amber-100 text-amber-900"
+                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+            {confirmReset ? "Opravdu vynulovat?" : "Vynulovat skeny"}
+          </button>
           <div className="w-52">
           <select
             className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}

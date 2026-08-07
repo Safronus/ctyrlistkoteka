@@ -144,7 +144,7 @@ export function ItemDialog({
 
   return (
     <div className="fixed inset-0 z-[1100] flex items-start justify-center overflow-y-auto bg-black/40 p-4">
-      <div className="my-8 w-full max-w-3xl space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
+      <div className="my-8 w-full max-w-5xl space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">
@@ -165,7 +165,7 @@ export function ItemDialog({
           </button>
         </div>
 
-        <div className="grid items-start gap-4 sm:grid-cols-4">
+        <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(15rem,1.4fr)]">
           <Field label="Oblast">
             <select
               className={`${SELECT_CLS} ${CONTROL_H}`}

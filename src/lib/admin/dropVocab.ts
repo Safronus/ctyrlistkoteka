@@ -1,5 +1,6 @@
 import { DropStatus } from "@/generated/prisma/enums";
 import type { QrDensity } from "@/lib/admin/qrDensity";
+import { printableSiteUrl } from "@/lib/printableSiteUrl";
 
 /**
  * Pure vocabulary of the drop-campaign domain — labels, tones, the option
@@ -120,12 +121,10 @@ function stripUndefined<T extends object>(o: T): Partial<T> {
   return out;
 }
 
-/** Public URL a card's QR encodes. */
+/** Public URL a card's QR encodes. Scheme is forced by
+ *  `printableSiteUrl` — this ends up printed on a laminated card. */
 export function dropLandingUrl(token: string): string {
-  const siteUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz"
-  ).replace(/\/$/, "");
-  return `${siteUrl}/d/${token}`;
+  return `${printableSiteUrl()}/d/${token}`;
 }
 
 /**

@@ -3,10 +3,11 @@
 import dynamic from "next/dynamic";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, MapPinOff, ScanLine, X } from "lucide-react";
+import { Eraser, Loader2, MapPinOff, ScanLine, X } from "lucide-react";
 import {
   setItemPositionAction,
   clearItemPositionAction,
+  clearAreaPositionsAction,
 } from "../../drop-actions";
 import { DROP_STATUS_COLOR, DROP_STATUS_LABEL } from "@/lib/admin/dropVocab";
 import { readBoundary } from "@/lib/admin/dropBoundary";
@@ -67,6 +68,7 @@ export function AreaMapPanel({
   const [areaId, setAreaId] = useState<number | null>(areas[0]?.id ?? null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmWipe, setConfirmWipe] = useState(false);
   const [busy, start] = useTransition();
 
   const area = areas.find((a) => a.id === areaId) ?? null;
@@ -127,6 +129,21 @@ export function AreaMapPanel({
         const rest = todo.filter((i) => i.id !== selectedId);
         setSelectedId(rest[0]?.id ?? null);
       }
+      router.refresh();
+    });
+  };
+
+  const wipeAll = () => {
+    if (areaId === null) return;
+    setError(null);
+    setConfirmWipe(false);
+    start(async () => {
+      const r = await clearAreaPositionsAction(campaignId, areaId);
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      setSelectedId(null);
       router.refresh();
     });
   };
@@ -214,7 +231,11 @@ export function AreaMapPanel({
           onSelect={setSelectedId}
         />
 
-        <div className="relative">
+        <div
+          className={`relative${
+            selectedId !== null ? " ctyr-drop-map--placing" : ""
+          }`}
+        >
           {area && (
             <DropMap
               center={[area.centerLat, area.centerLng]}
@@ -244,6 +265,26 @@ export function AreaMapPanel({
           selectedId={selectedId}
           onSelect={setSelectedId}
           onClear={clear}
+          action={
+            placed.length > 0 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  confirmWipe ? wipeAll() : setConfirmWipe(true)
+                }
+                onBlur={() => setConfirmWipe(false)}
+                title="Zrušit pozice všech umístěných kusů této oblasti"
+                className={`ml-auto inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium transition ${
+                  confirmWipe
+                    ? "border-red-400 bg-red-100 text-red-900"
+                    : "border-gray-300 bg-white text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                <Eraser className="h-3 w-3" aria-hidden />
+                {confirmWipe ? `Opravdu všech ${placed.length}?` : "Zrušit vše"}
+              </button>
+            ) : null
+          }
         />
       </div>
 
@@ -291,6 +332,7 @@ function ItemQueue({
   selectedId,
   onSelect,
   onClear,
+  action,
 }: {
   title: string;
   count: number;
@@ -301,6 +343,8 @@ function ItemQueue({
   onSelect: (id: number) => void;
   /** Present only on the placed queue. */
   onClear?: (id: number) => void;
+  /** Optional control in the queue's header row. */
+  action?: React.ReactNode;
 }) {
   return (
     <div className="min-w-0">
@@ -315,6 +359,7 @@ function ItemQueue({
         >
           {count}
         </span>
+        {action}
       </p>
       <ul className="max-h-[26rem] space-y-1 overflow-y-auto pr-1">
         {items.length === 0 && (

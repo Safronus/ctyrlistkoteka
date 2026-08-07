@@ -58,6 +58,17 @@ export default async function DropLandingPage({
 
   await registerDropScan(item.id);
 
+  // "3. ze 111" — where this card sits in its wave. Ordered by find
+  // number, which is the order the wave was assembled in and the only one
+  // that stays put; a position derived from anything editable would
+  // change under a card already in somebody's pocket.
+  const [position, total] = await Promise.all([
+    prisma.dropItem.count({
+      where: { campaignId: item.campaignId, findId: { lte: item.findId } },
+    }),
+    prisma.dropItem.count({ where: { campaignId: item.campaignId } }),
+  ]);
+
   const lang = await pickLang(langParam);
   const t = resolveDropText(item, item.campaign, lang);
   const other: DropLang = lang === "cs" ? "en" : "cs";
@@ -70,6 +81,7 @@ export default async function DropLandingPage({
           hintLead: "There are more of these hidden around.",
           hintTail: "Each one leaves a clue on its own page.",
           switch: "Česky",
+          ordinal: `No. ${position} of ${total} in this batch`,
         }
       : {
           openFind: "Otevřít tenhle čtyřlístek",
@@ -77,6 +89,7 @@ export default async function DropLandingPage({
           hintLead: "Schovaných je jich víc.",
           hintTail: "Ke každému je nápověda na jeho vlastní stránce.",
           switch: "English",
+          ordinal: `${position}. ze ${total} v této sadě`,
         };
 
   return (
@@ -88,6 +101,19 @@ export default async function DropLandingPage({
         <h1 className="mt-4 text-balance text-center text-2xl font-bold text-brand-800 sm:text-3xl">
           {t.heading}
         </h1>
+
+        {/* Which clover this is, and which of the batch. The find number
+            is public anyway — it is printed on the card and the button
+            below opens that very page — and "3. ze 111" is the bit that
+            makes a single find feel like part of something. */}
+        <p className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-gray-500">
+          <span className="rounded-full bg-brand-50 px-2.5 py-1 font-semibold text-brand-800">
+            🍀 #{item.findId}
+          </span>
+          <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold tabular-nums text-gray-600">
+            {labels.ordinal}
+          </span>
+        </p>
 
         <div className="mt-5 space-y-3 text-pretty text-center text-gray-700">
           {t.body.split(/\n{2,}/).map((para, i) => (

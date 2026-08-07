@@ -432,6 +432,26 @@
   z-index: auto;
 }
 
+/* Admin hiding map, "a card is selected" mode.
+   Leaflet paints `cursor: grab` on the container and swaps it for
+   `grabbing` on `.leaflet-dragging` while a drag is under way. Only the
+   idle state is overridden here, so the pointer reads "the next click
+   places this card" when hovering and still turns into a hand the moment
+   the map is actually being dragged. */
+.ctyr-drop-map--placing .leaflet-container {
+  cursor: crosshair;
+}
+
+.ctyr-drop-map--placing .leaflet-container.leaflet-dragging {
+  cursor: grabbing;
+}
+
+/* Markers keep the pointer: clicking one SELECTS that card rather than
+   moving the selected one, and the cursor should not promise otherwise. */
+.ctyr-drop-map--placing .leaflet-marker-icon {
+  cursor: pointer;
+}
+
 /* Full-screen map page (mapa/page.tsx marks its root `data-map-fullscreen`).
    Lock page scroll so the sticky header can't drift under the Leaflet panes
    when the wheel is over it, and drop the footer — the map owns the viewport

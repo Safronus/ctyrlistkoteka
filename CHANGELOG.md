@@ -9,6 +9,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Darování ve světě — drobnosti, co se ukázaly až při práci (7. fáze)
+- **Adresa v QR kódu je vždycky `https://`.** Doteď se brala z nastavení,
+  jak byla; teď se schéma vynutí u všeho kromě localhostu. `http://`
+  vytištěné na stovce zalaminovaných kartiček se totiž neopravuje.
+- **Landing page říká, který čtyřlístek to je**: číslo ze sbírky a pořadí
+  v sadě — „3. ze 111“. Pořadí se počítá podle čísla nálezu, takže se
+  kartičce v cizí kapse nikdy nezmění pod rukama.
+- **Vynulování skenů** nad vybranými kusy. Smaže historii i razítko
+  „nalezeno“ a stav „Nalezený“ vrátí na „Schovaný“ — sken totiž dělá
+  všechny tři věci naráz, takže jeho odvolání je musí vzít taky.
+  Na dvě kliknutí, protože zpátky to nejde.
+- V mapě úkrytů jde **zrušit pozice všech umístěných kusů oblasti** naráz,
+  taky s potvrzením.
+- Kurzor nad mapou teď říká, co se stane: **terč**, když je kus vybraný a
+  další kliknutí ho umístí, ruka při tažení mapy, šipka nad značkou.
+- Dialog kusu je širší — **souřadnice se do pole konečně vejdou celé**.
+
 ### Darování ve světě — hranice měst a práce s mapou (6. fáze)
 - **Oblast zná obrys svého města.** Tlačítko „Najít hranici“ se zeptá
   OpenStreetMap, nabídne, co našlo, a ty vybereš. Vybraný obrys se uloží

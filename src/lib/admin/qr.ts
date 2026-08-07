@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import QRCode from "qrcode";
 import { DENSITY_ECC, type QrDensity } from "./qrDensity";
+import { printableSiteUrl } from "@/lib/printableSiteUrl";
 
 // Density/centre-fit vocabulary lives in ./qrDensity so the (client) admin
 // forms can import it without dragging this server-only module — and its
@@ -343,9 +344,7 @@ export function renderQrSvg(opts: RenderQrOpts): string {
  * code and an old card must never stop resolving.
  */
 export function findQrUrl(findId: number): string {
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz";
-  return `${siteUrl.replace(/\/$/, "")}/n/${findId}`;
+  return `${printableSiteUrl()}/n/${findId}`;
 }
 
 export interface RenderFindQrOpts {

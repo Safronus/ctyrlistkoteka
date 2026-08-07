@@ -62,6 +62,9 @@ export function DropMap({
       center={center}
       zoom={zoom}
       scrollWheelZoom
+      // The placing cursor is driven from the WRAPPER in area-map-panel,
+      // not from here: react-leaflet reads MapContainer's className once
+      // at mount and never again, so toggling it on selection did nothing.
       className="h-[28rem] w-full rounded-lg"
     >
       <TileLayer

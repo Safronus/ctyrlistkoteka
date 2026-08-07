@@ -662,6 +662,86 @@ export async function scatterAreaAction(
 }
 
 /** Sets one card's position — used by clicking the map. */
+/**
+ * Wipes the scan history of the chosen cards.
+ *
+ * Undoes everything a scan did, because a scan does three things:
+ * `registerDropScan` writes the row, stamps `foundAt` AND flips the
+ * status to FOUND. Clearing only the rows would leave a card reading
+ * "found, by nobody, at no time" — so the timestamp goes too, and a FOUND
+ * status drops back to HIDDEN.
+ *
+ * Only FOUND is touched. A card still sitting in PREPARED or PRINTED
+ * keeps its status, and one the operator marked FOUND by hand goes back
+ * to HIDDEN — which is the honest reading once its evidence is gone.
+ *
+ * Mainly for the test scans made while a wave is still on the kitchen
+ * table, so the counters start from zero when it goes out.
+ */
+export async function resetScansAction(
+  campaignId: number,
+  itemIds: number[],
+): Promise<Result<{ cleared: number }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  const ids = (Array.isArray(itemIds) ? itemIds : []).filter(
+    (n) => Number.isInteger(n) && n > 0,
+  );
+  if (ids.length === 0) return { ok: false, error: "Nic není vybráno" };
+  try {
+    // Scoped by campaign as well as id: an id from another wave pasted in
+    // by a stale client must not reach across.
+    const mine = await prisma.dropItem.findMany({
+      where: { id: { in: ids }, campaignId },
+      select: { id: true },
+    });
+    const mineIds = mine.map((m) => m.id);
+    if (mineIds.length === 0) return { ok: false, error: "Nic k vynulování" };
+    const [deleted] = await prisma.$transaction([
+      prisma.dropScan.deleteMany({ where: { itemId: { in: mineIds } } }),
+      prisma.dropItem.updateMany({
+        where: { id: { in: mineIds } },
+        data: { foundAt: null },
+      }),
+      prisma.dropItem.updateMany({
+        where: { id: { in: mineIds }, status: DropStatus.FOUND },
+        data: { status: DropStatus.HIDDEN },
+      }),
+    ]);
+    await appendAudit({
+      action: "qr.scans_reset",
+      ip: await getRequestIp(),
+      details: { drops: "reset-scans", campaignId, items: mineIds.length },
+    });
+    revalidate(campaignId);
+    return { ok: true, cleared: deleted.count };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Vynulování skenů selhalo") };
+  }
+}
+
+/** Takes the position off every placed card of an area at once. */
+export async function clearAreaPositionsAction(
+  campaignId: number,
+  areaId: number,
+): Promise<Result<{ cleared: number }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    const res = await prisma.dropItem.updateMany({
+      where: { campaignId, areaId, lat: { not: null } },
+      data: { lat: null, lng: null },
+    });
+    await appendAudit({
+      action: "settings.update",
+      ip: await getRequestIp(),
+      details: { drops: "clear-positions", campaignId, areaId, count: res.count },
+    });
+    revalidate(campaignId);
+    return { ok: true, cleared: res.count };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Smazání pozic selhalo") };
+  }
+}
+
 /** Clears a card's position — it goes back to the "still to place" queue
  *  without losing anything else about it. */
 export async function clearItemPositionAction(
