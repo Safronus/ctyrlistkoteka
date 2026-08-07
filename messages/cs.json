@@ -752,8 +752,9 @@
     "altitudeToggleAria": "Nejvýše nebo nejníže",
     "altitudeToggleHigh": "Nejvýše",
     "altitudeToggleLow": "Nejníže",
-    "distanceRoseCount": "nálezů",
-    "distanceRoseDistance": "⌀ vzdálenost"
+    "distanceDirection": "({direction})",
+    "distanceRoseFarLegend": "nejdál v každém směru",
+    "distanceRoseNearLegend": "nejblíž v každém směru"
   },
   "Mapa": {
     "metaTitle": "Mapa",

@@ -753,8 +753,9 @@
     "altitudeToggleAria": "Highest or lowest",
     "altitudeToggleHigh": "Highest",
     "altitudeToggleLow": "Lowest",
-    "distanceRoseCount": "finds",
-    "distanceRoseDistance": "⌀ distance"
+    "distanceDirection": "({direction})",
+    "distanceRoseFarLegend": "farthest in each direction",
+    "distanceRoseNearLegend": "nearest in each direction"
   },
   "Mapa": {
     "metaTitle": "Map",

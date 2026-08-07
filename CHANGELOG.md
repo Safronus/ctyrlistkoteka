@@ -26,6 +26,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Růžice vzdáleností ukazuje osm skutečných nálezů
+- Růžice v panelu Nejvzdálenější/Nejbližší už neukazuje počty a průměry, ale
+  **osm konkrétních nálezů** — v každém světovém směru ten nejvzdálenější
+  (resp. nejbližší, podle přepnutí). Průměr byl tvar, se kterým se nedalo nic
+  dělat; „ten nejdál tímhle směrem" je nález, který se dá otevřít.
+- Nález, který drží celkový rekord, je v růžici **zvýrazněný** a jeho směr se
+  píše i k vzdálenosti („1 725 km od Safrona (západ)").
+- Titulek a přepínač se přesunuly **dovnitř levé části**, takže růžice využije
+  celou výšku panelu a zbytečně ho neprodlužuje.
+- Komponenta růžice umí nově jednosériový režim (`count: null` u všech bodů);
+  sekce „Odchýlení" ji používá beze změny dál se dvěma sériemi.
+
 ### Vzdálenosti se měří od domovského bodu, ne od mapy 00001
 - Celý web (`/sbirka`, `/lokality`, sekce „Vzdálenosti", panely na
   `/statistiky`) počítá vzdálenosti od **domovského bodu autora** — místa, na

@@ -107,24 +107,35 @@ export function HighlightCards({
   const [firstOf, lastOf] = active?.pair ?? [null, null];
 
   const distanceCard = nearest && nearestFind ? nearestFind : farthestFind;
-  const dominantOctant = distanceRose.reduce<number | null>(
-    (best, o) =>
-      o.count > 0 && (best === null || o.count > (distanceRose[best]?.count ?? 0))
-        ? o.octant
-        : best,
-    null,
-  );
-  const rosePoints = distanceRose.some((o) => o.count > 0)
-    ? distanceRose.map((o) => ({
-        abbr: t(`compassAbbr${o.octant}`),
-        count: o.count,
-        mean: o.meanMeters,
-        isDominant: o.octant === dominantOctant,
-        tooltip: `${t(`compassName${o.octant}`)}: ${t("distanceRoseCount")} ${o.count} · ${t("distanceRoseDistance")} ${
-          o.meanMeters === null ? "—" : formatDistance(o.meanMeters, locale)
-        }`,
-      }))
+  // One point per direction: the farthest (or nearest) find that way. Not an
+  // average — this way every vertex is a real find, and the one that also
+  // holds the overall record is marked.
+  const roseValue = (o: DistanceOctant) =>
+    nearest ? o.nearMeters : o.farMeters;
+  const roseFindId = (o: DistanceOctant) =>
+    nearest ? o.nearFindId : o.farFindId;
+  const recordOctant =
+    distanceCard === null
+      ? null
+      : (distanceRose.find((o) => roseFindId(o) === distanceCard.id)?.octant ??
+        null);
+  const rosePoints = distanceRose.some((o) => roseValue(o) !== null)
+    ? distanceRose.map((o) => {
+        const v = roseValue(o);
+        return {
+          abbr: t(`compassAbbr${o.octant}`),
+          count: null,
+          mean: v,
+          isDominant: o.octant === recordOctant,
+          tooltip:
+            v === null
+              ? `${t(`compassName${o.octant}`)}: —`
+              : `${t(`compassName${o.octant}`)}: ${formatDistance(v, locale)}`,
+        };
+      })
     : null;
+  const recordDirection =
+    recordOctant === null ? null : t(`compassName${recordOctant}`);
   const placeCard = lowest && lowestPlace ? lowestPlace : highestPlace;
 
   if (!active && !distanceCard && !placeCard) return null;
@@ -182,29 +193,31 @@ export function HighlightCards({
 
       {distanceCard && (
         <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-5">
-          <CardHeader
-            title={
-              nearest ? t("highlightNearestFind") : t("highlightFarthestFind")
-            }
-            toggle={
-              nearestFind && farthestFind ? (
-                <Toggle
-                  value={nearest ? "near" : "far"}
-                  options={[
-                    { value: "far", label: t("distanceToggleFar") },
-                    { value: "near", label: t("distanceToggleNear") },
-                  ]}
-                  onChange={(v) => setNearest(v === "near")}
-                  ariaLabel={t("distanceToggleAria")}
-                />
-              ) : null
-            }
-          />
-          {/* Two thirds record, one third rose. The rose is the same
-              component the deviation section uses, fed with distances from
-              the author's point instead of from each find's location. */}
-          <div className="mt-2 flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex flex-1 flex-col justify-center sm:basis-2/3">
+          {/* Title + toggle live INSIDE the left column, not above both, so the
+              rose can use the card's full height instead of pushing it taller. */}
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-stretch">
+            <div className="flex flex-col sm:basis-2/3">
+              <CardHeader
+                title={
+                  nearest
+                    ? t("highlightNearestFind")
+                    : t("highlightFarthestFind")
+                }
+                toggle={
+                  nearestFind && farthestFind ? (
+                    <Toggle
+                      value={nearest ? "near" : "far"}
+                      options={[
+                        { value: "far", label: t("distanceToggleFar") },
+                        { value: "near", label: t("distanceToggleNear") },
+                      ]}
+                      onChange={(v) => setNearest(v === "near")}
+                      ariaLabel={t("distanceToggleAria")}
+                    />
+                  ) : null
+                }
+              />
+              <div className="flex flex-1 flex-col justify-center py-2">
               <FindBody
                 find={distanceCard}
                 locale={locale}
@@ -220,17 +233,26 @@ export function HighlightCards({
                   {formatDistance(distanceCard.distanceMeters, locale)}
                 </span>
                 <span>{t("distanceFromMapSuffix")}</span>
+                {recordDirection && (
+                  <span className="text-gray-600">
+                    {t("distanceDirection", { direction: recordDirection })}
+                  </span>
+                )}
               </p>
               <div className="mt-3">
                 <FindButtons find={distanceCard} t={t} />
               </div>
+              </div>
             </div>
             {rosePoints && (
-              <div className="sm:basis-1/3">
+              <div className="flex items-center sm:basis-1/3">
                 <DeviationCompass
                   points={rosePoints}
-                  countLabel={t("distanceRoseCount")}
-                  distanceLabel={t("distanceRoseDistance")}
+                  distanceLabel={
+                    nearest
+                      ? t("distanceRoseNearLegend")
+                      : t("distanceRoseFarLegend")
+                  }
                 />
               </div>
             )}

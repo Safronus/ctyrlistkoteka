@@ -450,9 +450,14 @@ export interface DistanceOctant {
   /** 0 = N, 1 = NE, … 7 = NW. */
   octant: number;
   count: number;
-  /** Metres; null for an empty octant. */
-  meanMeters: number | null;
-  maxMeters: number | null;
+  /** The farthest / nearest find in this direction and its distance in
+   *  metres. Null for an empty direction. The card plots one or the other
+   *  depending on its toggle, and marks the point whose id matches the
+   *  overall record. */
+  farMeters: number | null;
+  farFindId: number | null;
+  nearMeters: number | null;
+  nearFindId: number | null;
 }
 
 export interface StatsPeaksResult {
@@ -1166,27 +1171,46 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       ORDER BY (f.found_at AT TIME ZONE 'Europe/Prague')::time DESC, f.found_at DESC
       LIMIT 1
     `,
-    // Distance rose around the author's home point: how many finds lie in
-    // each compass octant and how far they average. ST_Azimuth returns
-    // radians clockwise from north and is NULL for a point identical to the
-    // reference, which the WHERE drops.
+    // Distance rose around the author's home point. Per compass octant it
+    // returns the FARTHEST and the NEAREST find — those eight extremes are
+    // what the card plots, one per direction, depending on which way its
+    // toggle is set. (An average would have been a shape nobody can act on;
+    // "the farthest one out that way" is a real find you can open.)
+    //
+    // ST_Azimuth returns radians clockwise from north and is NULL for a point
+    // identical to the reference, which the WHERE drops.
     prisma.$queryRaw<
-      Array<{ octant: number; count: bigint; mean_m: number; max_m: number }>
+      Array<{
+        octant: number;
+        count: bigint;
+        min_m: number;
+        max_m: number;
+        near_id: number;
+        far_id: number;
+      }>
     >`
       WITH ref AS (
         SELECT center_point AS pt FROM locations
         WHERE id = ${AUTHOR_LOCATION_ID}
+      ),
+      d AS (
+        SELECT f.id,
+               (((round(degrees(ST_Azimuth((SELECT pt FROM ref), f.coordinates)) / 45)::int % 8) + 8) % 8) AS octant,
+               ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref))::float8 AS dist
+        FROM finds f
+        WHERE f.is_anonymized = false
+          AND f.coordinates IS NOT NULL
+          AND (SELECT pt FROM ref) IS NOT NULL
+          AND ST_Azimuth((SELECT pt FROM ref), f.coordinates) IS NOT NULL
       )
-      SELECT (((round(degrees(ST_Azimuth((SELECT pt FROM ref), f.coordinates)) / 45)::int % 8) + 8) % 8) AS octant,
+      SELECT octant,
              count(*) AS count,
-             avg(ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref)))::float8 AS mean_m,
-             max(ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref)))::float8 AS max_m
-      FROM finds f
-      WHERE f.is_anonymized = false
-        AND f.coordinates IS NOT NULL
-        AND (SELECT pt FROM ref) IS NOT NULL
-        AND ST_Azimuth((SELECT pt FROM ref), f.coordinates) IS NOT NULL
-      GROUP BY 1
+             min(dist) AS min_m,
+             max(dist) AS max_m,
+             (array_agg(id ORDER BY dist ASC))[1] AS near_id,
+             (array_agg(id ORDER BY dist DESC))[1] AS far_id
+      FROM d
+      GROUP BY octant
     `,
   ]);
 
@@ -1225,8 +1249,10 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       return {
         octant,
         count: r ? Number(r.count) : 0,
-        meanMeters: r ? r.mean_m : null,
-        maxMeters: r ? r.max_m : null,
+        farMeters: r ? r.max_m : null,
+        farFindId: r ? r.far_id : null,
+        nearMeters: r ? r.min_m : null,
+        nearFindId: r ? r.near_id : null,
       };
     }),
   };
