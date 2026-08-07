@@ -445,6 +445,12 @@ model DropCampaign {
   /// (same option bag as the rest of the QR admin).
   qrTitle    String?   @map("qr_title") @db.VarChar(200)
   qrOptions  Json?     @map("qr_options")
+
+  /// Who can be assigned to hide a card — the crew for this wave. A plain
+  /// array rather than a table: it is a short list of names the operator
+  /// edits by hand, it changes per wave, and a typo should be fixable
+  /// without a migration. `DropItem.placedBy` holds the chosen name.
+  placers String[] @default([])
   archivedAt DateTime? @map("archived_at") @db.Timestamptz
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -521,6 +527,11 @@ model DropItem {
   hintCs        String? @map("hint_cs") @db.Text
   hintEn        String? @map("hint_en") @db.Text
   hintPublished Boolean @default(false) @map("hint_published")
+
+  /// Crew member who is to hide (or has hidden) this card. Free text so an
+  /// import can carry a name the roster doesn't know yet; the admin offers
+  /// the campaign's roster as a dropdown and flags anything outside it.
+  placedBy String? @map("placed_by") @db.VarChar(120)
 
   placedAt DateTime? @map("placed_at") @db.Timestamptz
   /// First scan, i.e. when somebody found it. Set once, by the landing page.

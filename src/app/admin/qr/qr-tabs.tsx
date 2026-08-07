@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { QrCode, Leaf } from "lucide-react";
+import { QrCode, Leaf, Globe2 } from "lucide-react";
 
 /**
  * Tab shell for the two independent QR worlds (finds vs. pages).
@@ -18,6 +18,8 @@ export function QrTabs({
   pageLabel,
   pageSummary,
   pagePanel,
+  dropLabel,
+  dropPanel,
 }: {
   findLabel: string;
   findSummary: React.ReactNode;
@@ -25,8 +27,10 @@ export function QrTabs({
   pageLabel: string;
   pageSummary: React.ReactNode;
   pagePanel: React.ReactNode;
+  dropLabel: string;
+  dropPanel: React.ReactNode;
 }) {
-  const [tab, setTab] = useState<"finds" | "pages">("finds");
+  const [tab, setTab] = useState<"finds" | "pages" | "drops">("finds");
 
   return (
     <div className="space-y-4">
@@ -47,8 +51,14 @@ export function QrTabs({
           icon={<QrCode className="h-4 w-4" aria-hidden />}
           label={pageLabel}
         />
+        <Tab
+          active={tab === "drops"}
+          onClick={() => setTab("drops")}
+          icon={<Globe2 className="h-4 w-4" aria-hidden />}
+          label={dropLabel}
+        />
         <div className="ml-auto flex items-center gap-4 pb-2 text-center">
-          {tab === "finds" ? findSummary : pageSummary}
+          {tab === "finds" ? findSummary : tab === "pages" ? pageSummary : null}
         </div>
       </div>
 
@@ -57,6 +67,9 @@ export function QrTabs({
       </div>
       <div role="tabpanel" hidden={tab !== "pages"}>
         {pagePanel}
+      </div>
+      <div role="tabpanel" hidden={tab !== "drops"}>
+        {dropPanel}
       </div>
     </div>
   );

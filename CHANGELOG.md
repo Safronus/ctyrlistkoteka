@@ -9,6 +9,28 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Darování ve světě — správa sad (2. fáze)
+- Na `/admin/qr` přibyla třetí záložka **Darování ve světě**. Je to
+  rozcestník: vypíše sady s počty podle stavu a s odkazem na jejich
+  správu na `/admin/qr/darovani/<id>` — vlastní adresa, dá se poslat
+  odkazem nebo si ji otevřít v mobilu v terénu.
+- **Správa sady** má texty a tým, oblasti a kusy. Texty sady jsou výchozí
+  pro všechny kusy; prázdné pole u kusu znamená „zdědit“, takže přepsání
+  textu akce se propíše všude, kde není přepsáno ručně.
+- **Tým**: u sady je seznam lidí, kteří rozmisťují (předvyplněno Magďul +
+  Pali, Míša, Leonka, Já) a u každého kusu se vybírá, kdo ho umístí —
+  jednotlivě i hromadně nad výběrem.
+- **Oblasti** (města) si drží střed mapy, přiblížení a poloměr pro
+  náhodný rozhoz. Souřadnice se zadávají v jakémkoli běžném formátu.
+  Tlačítko **Rozhodit** náhodně rozmístí všechny kusy oblasti, které
+  ještě pozici nemají — rovnoměrně podle plochy, ne nahuštěně u středu.
+- **Kusy** se přidávají čísly a intervaly (`30001-30111`); přidají se jen
+  ta, která ve sbírce existují a ještě v žádné sadě nejsou, zbytek se
+  vypíše. Zobrazují se jako mřížka se **skutečnými náhledy QR** — vykreslí
+  se postupně, takže sto kódů nezdrží otevření stránky.
+- Stav kusu (**připravený → vytištěný → schovaný → nalezený**), oblast
+  i přiřazení jdou měnit hromadně nad zaškrtnutým výběrem.
+
 ### Darování ve světě — základ (1. fáze)
 - Nový datový model pro **sady čtyřlístků rozmisťovaných v reálném světě**:
   sada (vlna, společná filozofie a výchozí texty) → oblast (jedno město,

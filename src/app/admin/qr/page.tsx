@@ -11,6 +11,7 @@ import { QrList, type QrListItem } from "./qr-list";
 import { FindQrSection } from "./find-qr-section";
 import { type FindQrListItem } from "./find-qr-list";
 import { QrTabs } from "./qr-tabs";
+import { DropsPanel } from "./drops-panel";
 import type { FindQrInput } from "./qr-types";
 
 export const metadata: Metadata = {
@@ -37,10 +38,11 @@ export default async function AdminQrPage({
   const since7 = new Date(now - 7 * DAY_MS);
   const since30 = new Date(now - 30 * DAY_MS);
 
-  const [pageItems, findItems, prefs] = await Promise.all([
+  const [pageItems, findItems, prefs, dropCount] = await Promise.all([
     loadPageCodes(since7, since30),
     loadFindCodes(since7, since30),
     readQrPrefs(),
+    prisma.dropItem.count(),
   ]);
 
   const findScans = findItems.reduce((s, c) => s + c.scansTotal, 0);
@@ -100,6 +102,8 @@ export default async function AdminQrPage({
             <Summary value={pageScans} label="naskenování" />
           </>
         }
+        dropLabel={`Darování ve světě (${dropCount.toLocaleString("cs-CZ")})`}
+        dropPanel={<DropsPanel />}
         pagePanel={
           <section className="space-y-4 rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
             <p className="text-xs text-gray-600">
