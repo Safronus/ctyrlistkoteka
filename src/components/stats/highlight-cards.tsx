@@ -189,24 +189,8 @@ export function HighlightCards({
             position="corner"
           />
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FindHalf
-              caption={
-                when === "day" ? t("whenEarliestOfDay") : t("whenFirstLabel")
-              }
-              find={firstOf}
-              locale={locale}
-              t={t}
-              tTime={tTime}
-            />
-            <FindHalf
-              caption={
-                when === "day" ? t("whenLatestOfDay") : t("whenLastLabel")
-              }
-              find={lastOf}
-              locale={locale}
-              t={t}
-              tTime={tTime}
-            />
+            <FindHalf find={firstOf} locale={locale} t={t} tTime={tTime} />
+            <FindHalf find={lastOf} locale={locale} t={t} tTime={tTime} />
           </div>
         </div>
       )}
@@ -534,13 +518,11 @@ function FindButtons({ find, t }: { find: FindHighlight; t: T }) {
 
 /** One half of the merged first/last card. */
 function FindHalf({
-  caption,
   find,
   locale,
   t,
   tTime,
 }: {
-  caption: string;
   find: FindHighlight | null;
   locale: string;
   t: T;
@@ -548,13 +530,10 @@ function FindHalf({
 }) {
   if (!find) return <div />;
   return (
-    // No frame of its own: the card around it already carries the tone, and
-    // a box inside a box read as two nested panels rather than one panel with
-    // two halves. Only the padding goes — alignment is unchanged.
+    // No frame and no caption of its own: the card around it already carries
+    // the tone, and "PRVNÍ / POSLEDNÍ" only restated what the card's own
+    // heading plus left/right order already say. Alignment is unchanged.
     <div className="flex flex-col p-3">
-      <p className="text-center text-xs font-medium uppercase tracking-wide text-gray-500">
-        {caption}
-      </p>
       <div className="flex flex-1 flex-col justify-center py-2">
         <FindBody find={find} locale={locale} t={t} tTime={tTime} />
       </div>

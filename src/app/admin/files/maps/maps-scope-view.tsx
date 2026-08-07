@@ -1,18 +1,20 @@
 import Link from "next/link";
 import {
+  ArrowDownAZ,
   ArrowLeft,
   Camera,
+  CornerDownRight,
   EyeOff,
   Ghost,
+  Hexagon,
   ImageOff,
+  Layers,
+  LocateFixed,
   MapPin,
   Search,
   Users,
 } from "lucide-react";
-import {
-  readMapInventory,
-  type MapInventoryEntry,
-} from "@/lib/admin/mapsV2";
+import { readMapInventory, type MapInventoryEntry } from "@/lib/admin/mapsV2";
 import {
   getScope,
   getScopeDiskBytes,
@@ -29,6 +31,34 @@ function pickString(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
+function SortLink({
+  href,
+  active,
+  label,
+  bordered = false,
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+  bordered?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "true" : undefined}
+      className={`px-2 py-0.5 font-medium transition ${
+        bordered ? "border-l border-gray-300" : ""
+      } ${
+        active
+          ? "bg-brand-600 text-white"
+          : "bg-white text-gray-700 hover:bg-gray-50"
+      }`}
+    >
+      {label}
+    </Link>
+  );
+}
+
 function formatFreeBytes(bytes: number): string {
   const mb = bytes / 1_048_576;
   if (mb >= 1024) {
@@ -41,14 +71,40 @@ function formatFreeBytes(bytes: number): string {
   }).format(mb)} MB`;
 }
 
-/** How the map's area is drawn on the web — mirrors the manifest indikátor. */
-function indicatorLabel(e: MapInventoryEntry): string {
-  if (e.indikator === "polygon") return "polygon";
-  if (e.indikator === "radius") {
-    return e.radiusM !== null ? `poloměr ${e.radiusM} m` : "poloměr";
-  }
-  return "bod";
+/** How the map's area is drawn on the web — mirrors the manifest indikátor.
+ *  A coloured chip with its own icon rather than a word buried in the meta
+ *  line: the shape is the single most useful thing to scan a map list for,
+ *  and as plain text it disappeared between the city and the area. */
+function IndicatorChip({ e }: { e: MapInventoryEntry }) {
+  const { Icon, label, tone } =
+    e.indikator === "polygon"
+      ? {
+          Icon: Hexagon,
+          label: "polygon",
+          tone: "bg-indigo-100 text-indigo-900",
+        }
+      : e.indikator === "radius"
+        ? {
+            Icon: LocateFixed,
+            label: e.radiusM !== null ? `poloměr ${e.radiusM} m` : "poloměr",
+            tone: "bg-teal-100 text-teal-900",
+          }
+        : { Icon: MapPin, label: "bod", tone: "bg-gray-200 text-gray-700" };
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${tone}`}
+      title={`Indikátor: ${label}`}
+    >
+      <Icon className="h-3 w-3" aria-hidden />
+      {label}
+    </span>
+  );
 }
+
+type SortKey = "cislo" | "code";
+type SortDir = "asc" | "desc";
+
+const CODE_COLLATOR = new Intl.Collator("cs", { sensitivity: "base" });
 
 /**
  * Manifest-driven listing for the maps scope (v2). Reads
@@ -66,6 +122,8 @@ export async function MapsScopeView({ sp }: { sp: SP }) {
   const query = (pickString(sp.q) ?? "").trim();
   const onlyAnon = pickString(sp.anonymized) === "1";
   const onlyCancelled = pickString(sp.nonexistent) === "1";
+  const sortKey: SortKey = pickString(sp.sort) === "code" ? "code" : "cislo";
+  const sortDir: SortDir = pickString(sp.dir) === "desc" ? "desc" : "asc";
 
   const [inventory, diskBytes, diskFreeBytes, photoMapIds] = await Promise.all([
     readMapInventory(),
@@ -128,19 +186,67 @@ export async function MapsScopeView({ sp }: { sp: SP }) {
   if (onlyAnon) rows = rows.filter((e) => e.anonymized);
   if (onlyCancelled) rows = rows.filter((e) => e.cancelled);
 
+  const sign = sortDir === "asc" ? 1 : -1;
+  rows = [...rows].sort((a, b) =>
+    sortKey === "code"
+      ? sign * CODE_COLLATOR.compare(a.code, b.code)
+      : sign * (a.cislo - b.cislo),
+  );
+
+  // Sub-parts sit under their master, same as /lokality. `potomek` names the
+  // parent by id_lokace, so it is resolved through the manifest's own
+  // code→číslo table — the číslo is the stable join key (a code can be
+  // renamed, see docs on the v2 migration).
+  const numberByCode = new Map(inventory.map((e) => [e.code, e.cislo]));
+  const visible = new Set(rows.map((e) => e.cislo));
+  const parentNumberOf = (e: MapInventoryEntry): number | null => {
+    if (!e.parentCode) return null;
+    const n = numberByCode.get(e.parentCode);
+    return n !== undefined && visible.has(n) ? n : null;
+  };
+  const childrenOf = new Map<number, MapInventoryEntry[]>();
+  for (const e of rows) {
+    const pn = parentNumberOf(e);
+    if (pn === null) continue;
+    const list = childrenOf.get(pn);
+    if (list) list.push(e);
+    else childrenOf.set(pn, [e]);
+  }
+  // Rebuild: emit everything that isn't a child of a VISIBLE parent at its
+  // sorted position, then splice that row's children right after it. A child
+  // whose parent got filtered out keeps its own place rather than vanishing.
+  const grouped: MapInventoryEntry[] = [];
+  for (const e of rows) {
+    if (parentNumberOf(e) !== null) continue;
+    grouped.push(e);
+    for (const kid of childrenOf.get(e.cislo) ?? []) grouped.push(kid);
+  }
+  rows = grouped;
+
   const buildHref = (
-    overrides: Partial<{ q: string; anonymized: boolean; cancelled: boolean }>,
+    overrides: Partial<{
+      q: string;
+      anonymized: boolean;
+      cancelled: boolean;
+      sort: SortKey;
+      dir: SortDir;
+    }>,
   ) => {
     const merged = {
       q: query,
       anonymized: onlyAnon,
       cancelled: onlyCancelled,
+      sort: sortKey,
+      dir: sortDir,
       ...overrides,
     };
     const usp = new URLSearchParams();
     if (merged.q) usp.set("q", merged.q);
     if (merged.anonymized) usp.set("anonymized", "1");
     if (merged.cancelled) usp.set("nonexistent", "1");
+    // Defaults stay out of the URL so the plain path is the canonical view.
+    if (merged.sort !== "cislo") usp.set("sort", merged.sort);
+    if (merged.dir !== "asc") usp.set("dir", merged.dir);
     const qs = usp.toString();
     return qs ? `/admin/files/maps?${qs}` : "/admin/files/maps";
   };
@@ -192,7 +298,9 @@ export async function MapsScopeView({ sp }: { sp: SP }) {
       {missingCount > 0 && (
         <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-800">
           {missingCount.toLocaleString("cs-CZ")}{" "}
-          {missingCount === 1 ? "mapa v manifestu nemá" : "map v manifestu nemá"}{" "}
+          {missingCount === 1
+            ? "mapa v manifestu nemá"
+            : "map v manifestu nemá"}{" "}
           nosný PNG na disku — balíček je nekompletní. Doimportuj přes
           /admin/import.
         </p>
@@ -218,6 +326,12 @@ export async function MapsScopeView({ sp }: { sp: SP }) {
         </div>
         {onlyAnon && <input type="hidden" name="anonymized" value="1" />}
         {onlyCancelled && <input type="hidden" name="nonexistent" value="1" />}
+        {sortKey !== "cislo" && (
+          <input type="hidden" name="sort" value={sortKey} />
+        )}
+        {sortDir !== "asc" && (
+          <input type="hidden" name="dir" value={sortDir} />
+        )}
         <button
           type="submit"
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
@@ -227,6 +341,49 @@ export async function MapsScopeView({ sp }: { sp: SP }) {
       </form>
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+        {/* Explicit reset. The search box is a plain GET form, so wiping the
+            text with the browser's own × clears the field but submits
+            nothing — the list kept showing the old results until something
+            else was clicked. This link is the thing that actually reloads. */}
+        {query && (
+          <Link
+            href={buildHref({ q: "" })}
+            className="inline-flex items-center gap-1 rounded-md border border-brand-300 bg-brand-50 px-2 py-0.5 font-medium text-brand-900 hover:bg-brand-100"
+          >
+            <span aria-hidden>×</span>
+            Zrušit hledání „{query}&ldquo;
+          </Link>
+        )}
+        <span className="inline-flex items-center gap-1">
+          <ArrowDownAZ className="h-3.5 w-3.5 text-gray-400" aria-hidden />
+          Řazení:
+        </span>
+        <span className="inline-flex overflow-hidden rounded-md border border-gray-300">
+          <SortLink
+            href={buildHref({ sort: "cislo" })}
+            active={sortKey === "cislo"}
+            label="Číslo lokace"
+          />
+          <SortLink
+            href={buildHref({ sort: "code" })}
+            active={sortKey === "code"}
+            label="ID lokace"
+            bordered
+          />
+        </span>
+        <span className="inline-flex overflow-hidden rounded-md border border-gray-300">
+          <SortLink
+            href={buildHref({ dir: "asc" })}
+            active={sortDir === "asc"}
+            label="Vzestupně"
+          />
+          <SortLink
+            href={buildHref({ dir: "desc" })}
+            active={sortDir === "desc"}
+            label="Sestupně"
+            bordered
+          />
+        </span>
         {anonCount > 0 &&
           (onlyAnon ? (
             <Link
@@ -274,15 +431,33 @@ export async function MapsScopeView({ sp }: { sp: SP }) {
           {rows.map((e) => {
             const href = `/admin/files/maps/${encodeURIComponent(e.nosnaName)}`;
             const hasPhoto = photoMapIds.has(e.cislo);
+            const kidCount = childrenOf.get(e.cislo)?.length ?? 0;
+            const nested = parentNumberOf(e) !== null;
             return (
               <li
                 key={e.cislo}
-                className="flex items-center gap-3 px-3 py-2 text-sm transition hover:bg-gray-50"
+                // Same visual grammar as /lokality: a master with sub-parts
+                // gets the blue row, its parts get the green left stripe and
+                // an indent, so a family reads as one block.
+                className={`flex items-center gap-3 py-2 pr-3 text-sm transition ${
+                  nested
+                    ? "border-l-4 border-brand-200 bg-brand-50/40 pl-4 hover:bg-brand-50"
+                    : kidCount > 0
+                      ? "bg-sky-100/70 pl-3 hover:bg-sky-200/70"
+                      : "pl-3 hover:bg-gray-50"
+                }`}
               >
-                <MapPin
-                  className="h-4 w-4 shrink-0 text-brand-600"
-                  aria-hidden
-                />
+                {nested ? (
+                  <CornerDownRight
+                    className="h-4 w-4 shrink-0 text-brand-500"
+                    aria-label="Podřízená lokalita"
+                  />
+                ) : (
+                  <MapPin
+                    className="h-4 w-4 shrink-0 text-brand-600"
+                    aria-hidden
+                  />
+                )}
                 <span className="w-14 shrink-0 font-mono text-xs tabular-nums text-gray-500">
                   {String(e.cislo).padStart(5, "0")}
                 </span>
@@ -295,14 +470,24 @@ export async function MapsScopeView({ sp }: { sp: SP }) {
                   </span>
                   <span className="block truncate text-[11px] text-gray-500">
                     {e.displayName !== e.code && `${e.displayName} · `}
-                    {e.mesto}, {e.stat} · {indicatorLabel(e)}
+                    {e.mesto}, {e.stat}
                     {e.areaM2 !== null && ` · ${formatAreaM2(e.areaM2)}`}
                   </span>
                 </Link>
+                <IndicatorChip e={e} />
+                {kidCount > 0 && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 rounded bg-sky-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sky-900"
+                    title="Nadřízená lokalita — má dílčí části"
+                  >
+                    <Layers className="h-3 w-3" aria-hidden />
+                    rodič +{kidCount}
+                  </span>
+                )}
                 {e.isChild && (
                   <span
-                    className="inline-flex shrink-0 items-center gap-1 rounded bg-sky-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-sky-900"
-                    title="Podřízená lokalita (potomek)"
+                    className="inline-flex shrink-0 items-center gap-1 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sky-900"
+                    title={`Podřízená lokalita — část mapy ${e.parentCode ?? ""}`}
                   >
                     <Users className="h-3 w-3" aria-hidden />
                     potomek

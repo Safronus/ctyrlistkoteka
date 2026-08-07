@@ -9,6 +9,30 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Seskupení anonymizovaných lokalit a přehlednější seznam map
+- **Oprava `/lokality`:** anonymizované lokality se neseskupovaly pod svého
+  rodiče a jejich počty nálezů se nesčítaly za dílčí části. Dotaz jim záměrně
+  zahazoval vazbu na rodiče — jenže **kód anonymizované lokality je veřejný
+  a rodiče stejně pojmenovává** („…_001-A" pod „…_001"), takže se tím nic
+  neskrývalo, jen se rozbilo seskupení a sčítání. Vazba se nově vrací;
+  souřadnice, mapa, poznámka i tvar zůstávají skryté jako dřív.
+- Pod seznamem lokalit přibyl odkaz **Zpět nahoru**.
+- Šipka pro rozbalení řádku má dělící čáru a vlastní proužek, stejně jako
+  ikonka mapy v seznamu na `/sbirka` — dřív splývala s pozadím řádku.
+- **`/admin/files/maps`:** mapy s dílčími částmi se nově **seskupují** —
+  rodič má modrý řádek a odznak „rodič +N", potomci jsou odsazení pod ním.
+- Přibylo **řazení podle čísla nebo ID lokace, vzestupně i sestupně**
+  (výchozí vzestupně podle čísla). Seskupení se zachová — potomci jdou vždy
+  hned za svým rodičem.
+- Indikátor **polygon / bod / bod s poloměrem** je teď barevný odznak
+  s ikonkou místo slova schovaného mezi městem a plochou.
+- **Oprava:** vymazání textu ve vyhledávání seznam neobnovilo — křížek
+  v poli je součást prohlížeče a formulář neodešle. Přibyl proto odkaz
+  „Zrušit hledání", který funguje.
+- **`/statistiky`:** z panelu „První a poslední 🍀" zmizely podtitulky
+  „První"/„Poslední" — po sloučení poloviny s panelem už jen opakovaly to,
+  co říká nadpis panelu a pořadí zleva doprava.
+
 ### Přehlednější seznam lokalit a sjednocený panel prvního/posledního nálezu
 - **`/lokality`:** kód lokality se v řádku tiskl dvakrát — tučně v titulku
   a ještě jednou drobně o řádek níž. Drobný zmizel a uvolněné místo dostala

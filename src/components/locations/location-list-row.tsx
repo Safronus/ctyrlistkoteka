@@ -110,8 +110,10 @@ export function LocationListRow({
     }
   };
 
-  const isChild = !location.isAnonymized && location.parentId !== null;
-  const isParent = !location.isAnonymized && location.childCount > 0;
+  // Anonymized rows group like any other: their code already names the
+  // master, so the indent and the parent tint reveal nothing new.
+  const isChild = location.parentId !== null;
+  const isParent = location.childCount > 0;
 
   // Purple = anonymized, rose = gone, sky = a map that has sub-parts, green
   // left stripe = one of those sub-parts. Anonymized/gone win over "parent"
@@ -146,7 +148,7 @@ export function LocationListRow({
               chips in the title flow: they were being pushed around by the
               code, display name and status badges, so their position moved
               from row to row and they stopped being scannable down the list. */}
-          {!location.isAnonymized && (
+          {(location.childCount > 0 || !location.isAnonymized) && (
             <div className="absolute right-0 top-0 z-10 flex items-center gap-1">
               {location.childCount > 0 && (
                 <span
@@ -157,7 +159,12 @@ export function LocationListRow({
                   {t("partsBadge", { count: location.childCount })}
                 </span>
               )}
-              <IndicatorBadge indicator={location.indicator} t={t} />
+              {/* Shape stays hidden for anonymized rows — the query
+                  neutralises `indicator` to "dot" there, so showing it would
+                  state something untrue about the place. */}
+              {!location.isAnonymized && (
+                <IndicatorBadge indicator={location.indicator} t={t} />
+              )}
             </div>
           )}
           <RowTitle location={location} isChild={isChild} t={t} />

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Archive, X } from "lucide-react";
+import { Archive, ArrowUp, X } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { FilterablePageHeader } from "@/components/filterable-page-header";
@@ -104,33 +104,33 @@ export default async function LokalityPage({ searchParams }: PageProps) {
     progress,
     textFilteredIds,
   ] = await Promise.all([
-      // Shared with /sbirka — its `cities` carry the country each sits in,
-      // which the filter bar needs to cascade Stát → Město the same way.
-      getFilterOptions(),
-      listLocations({
-        q: q || undefined,
-        num: num || undefined,
-        cadastralArea: city || undefined,
-        country: country || undefined,
-        sort,
-        showAnonymized,
-        showGone,
-        onlyGone: onlyGone || undefined,
-        hasRealPhoto: hasRealPhoto || undefined,
-      }),
-      countAnonymizedAndFormerLocations(),
-      // Filter-independent count for the "S reálnou fotkou" toggle.
-      getLocationIdsWithRealPhotos(),
-      // Total find count for the filter-independent heading counts.
-      getCollectionProgress(),
-      // IDs matching just the text filters (num / q). Drives the Stát / Město
-      // facet counts below so the dropdowns react to the search (null when no
-      // text filter is active → count across all locations).
-      getLocationIdsMatchingText({
-        num: num || undefined,
-        q: q || undefined,
-      }),
-    ]);
+    // Shared with /sbirka — its `cities` carry the country each sits in,
+    // which the filter bar needs to cascade Stát → Město the same way.
+    getFilterOptions(),
+    listLocations({
+      q: q || undefined,
+      num: num || undefined,
+      cadastralArea: city || undefined,
+      country: country || undefined,
+      sort,
+      showAnonymized,
+      showGone,
+      onlyGone: onlyGone || undefined,
+      hasRealPhoto: hasRealPhoto || undefined,
+    }),
+    countAnonymizedAndFormerLocations(),
+    // Filter-independent count for the "S reálnou fotkou" toggle.
+    getLocationIdsWithRealPhotos(),
+    // Total find count for the filter-independent heading counts.
+    getCollectionProgress(),
+    // IDs matching just the text filters (num / q). Drives the Stát / Město
+    // facet counts below so the dropdowns react to the search (null when no
+    // text filter is active → count across all locations).
+    getLocationIdsMatchingText({
+      num: num || undefined,
+      q: q || undefined,
+    }),
+  ]);
   const totalFinds = progress.count;
 
   const cities = filterOptions.cities;
@@ -223,7 +223,12 @@ export default async function LokalityPage({ searchParams }: PageProps) {
           finds: totalFinds,
         })}
       >
-        <h1 className="text-3xl font-bold text-gray-900">{t("h1")}</h1>
+        <h1
+          id="lokality-top"
+          className="scroll-mt-24 text-3xl font-bold text-gray-900"
+        >
+          {t("h1")}
+        </h1>
       </FilterablePageHeader>
 
       <RememberLokalitySearch />
@@ -303,6 +308,21 @@ export default async function LokalityPage({ searchParams }: PageProps) {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Plain anchor, no JS: the list runs to a few hundred rows and the
+          only way back to the filters was a long scroll. `scroll-mt` on the
+          heading keeps it clear of the sticky header. */}
+      {locations.length > 0 && (
+        <div className="flex justify-center pt-2">
+          <a
+            href="#lokality-top"
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm"
+          >
+            <ArrowUp className="h-4 w-4" aria-hidden />
+            {t("backToTop")}
+          </a>
+        </div>
       )}
     </div>
   );

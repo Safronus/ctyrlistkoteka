@@ -36,12 +36,7 @@ import { paddedIdMatches, parseIdQuery } from "@/lib/search";
  *  (their coords are private) and fall to the end of distance sorts so
  *  the order can't be used to triangulate them. */
 export type LocationSort =
-  | "id"
-  | "code"
-  | "finds"
-  | "dist-asc"
-  | "dist-desc"
-  | "newest";
+  "id" | "code" | "finds" | "dist-asc" | "dist-desc" | "newest";
 
 export interface LocationStats {
   total: number;
@@ -837,8 +832,12 @@ export async function listLocations(
       // (name, GPS, map, area stay null below), not the bare fact that it has
       // N finds in these states between these dates.
       //
-      // Still kept null: parentId (would out a sub-part's hidden master) and
-      // the year range / yearly histogram (not surfaced in the list detail).
+      // parentId IS exposed (since 2026-08): an anonymized sub-part's code
+      // is public and already spells out its master ("…_001-A" under
+      // "…_001"), so withholding the link revealed nothing — it only broke
+      // the grouping and stopped the master's counts from adding up its
+      // parts. Still kept null: the year range / yearly histogram (not
+      // surfaced in the list detail).
       const realStats = totalsByLoc.get(l.id) ?? EMPTY_STATS;
       const visibleStats: LocationStats = {
         total: realStats.total,
@@ -876,7 +875,8 @@ export async function listLocations(
         aggregateDensityPer100m2: null,
         coordinates: null,
         distanceFromDefault: null,
-        parentId: null,
+        parentId: l.parentId,
+        // Filled by the fold below, same as any other row.
         childCount: 0,
         stats: visibleStats,
         aggregateStats: visibleStats,
@@ -1112,8 +1112,7 @@ export async function listLocations(
     });
   } else {
     items.sort(
-      (a, b) =>
-        b.aggregateStats.total - a.aggregateStats.total || a.id - b.id,
+      (a, b) => b.aggregateStats.total - a.aggregateStats.total || a.id - b.id,
     );
   }
 
@@ -1253,7 +1252,11 @@ export async function getLocationFindCountRank(
   `;
   const r = rows[0];
   if (!r) return null;
-  return { rank: Number(r.rank), total: Number(r.total), count: Number(r.count) };
+  return {
+    rank: Number(r.rank),
+    total: Number(r.total),
+    count: Number(r.count),
+  };
 }
 
 /** Mutates `into` to absorb `from`'s totals, year range, first/last find
@@ -1283,8 +1286,10 @@ function foldStats(into: LocationStats, from: LocationStats): void {
   for (const s of from.states) {
     stateMap.set(s.state, (stateMap.get(s.state) ?? 0) + s.count);
   }
-  into.states = Array.from(stateMap, ([state, count]) => ({ state, count }))
-    .sort((a, b) => b.count - a.count);
+  into.states = Array.from(stateMap, ([state, count]) => ({
+    state,
+    count,
+  })).sort((a, b) => b.count - a.count);
 
   // Yearly bins: merge by year, sum counts, sort by year asc.
   const yearMap = new Map<number, number>();
@@ -1294,8 +1299,9 @@ function foldStats(into: LocationStats, from: LocationStats): void {
   for (const y of from.yearly) {
     yearMap.set(y.year, (yearMap.get(y.year) ?? 0) + y.count);
   }
-  into.yearly = Array.from(yearMap, ([year, count]) => ({ year, count }))
-    .sort((a, b) => a.year - b.year);
+  into.yearly = Array.from(yearMap, ([year, count]) => ({ year, count })).sort(
+    (a, b) => a.year - b.year,
+  );
 }
 
 function minNullable(a: number | null, b: number | null): number | null {
@@ -1329,9 +1335,7 @@ function maxIso(a: string | null, b: string | null): string | null {
  *  regardless of the chosen top-level sort. Orphaned children (parent
  *  filtered out) keep their sorted position — they behave as standalone
  *  rows from the visitor's POV. */
-function interleaveChildren(
-  items: LocationListItem[],
-): LocationListItem[] {
+function interleaveChildren(items: LocationListItem[]): LocationListItem[] {
   const collator = new Intl.Collator("cs", { sensitivity: "base" });
   const childrenByParent = new Map<number, LocationListItem[]>();
   const ids = new Set(items.map((it) => it.id));
@@ -1497,78 +1501,79 @@ export async function getLocationDetailById(
     };
   }
 
-  const [mapRows, parentRow, childRows, parentChildRows] =
-    await Promise.all([
-      prisma.locationMap.findMany({
-        where: { locationId: id, isAnonymized: false },
-        select: {
-          id: true,
-          imagePath: true,
-          imageWidth: true,
-          imageHeight: true,
-          description: true,
-          // GPS metadata for the centre-dot overlay on locations without
-          // a polygon — the detail page draws a 5-m gradient halo and
-          // needs both the centre point (from the filename) and the
-          // pixel bounds (from sync) to position + scale it.
-          centerLat: true,
-          centerLng: true,
-          imageBounds: true,
-          // Needed for the real-photo lookup — `imagePath` is sha1-hashed
-          // for cache-busting, only the original (diacritics + plus
-          // signs) preserves the disk-side filename of the photo.
-          originalFilename: true,
-          isAnonymized: true,
-        },
-        orderBy: { id: "asc" },
-      }),
-      base.parentId !== null
-        ? prisma.location.findUnique({
-            where: { id: base.parentId },
-            select: {
-              id: true,
-              code: true,
-              displayName: true,
-              isCancelled: true,
-              // `isGone` derives from `code` (v1 NEEXISTUJE- prefix) OR
-              // `isCancelled` (v2) via isLocationGone() at assembly time;
-              // findCount is summed below from the batched groupBy.
-            },
-          })
-        : Promise.resolve(null),
-      prisma.location.findMany({
-        where: { parentId: id },
-        select: {
-          id: true,
-          code: true,
-          displayName: true,
-          isCancelled: true,
-        },
-        orderBy: { id: "asc" },
-      }),
-      // Siblings preview — every other child of THIS location's parent.
-      // We fetch the parent's full child set (which includes `base.id`)
-      // and filter `base` out at assembly time; doing it that way also
-      // gives us the per-sibling counts we need to roll up the parent's
-      // aggregate findCount in the same batch.
-      base.parentId !== null
-        ? prisma.location.findMany({
-            where: { parentId: base.parentId },
-            select: {
-              id: true,
-              code: true,
-              displayName: true,
-              isCancelled: true,
-            },
-            orderBy: { id: "asc" },
-          })
-        : Promise.resolve([] as Array<{
+  const [mapRows, parentRow, childRows, parentChildRows] = await Promise.all([
+    prisma.locationMap.findMany({
+      where: { locationId: id, isAnonymized: false },
+      select: {
+        id: true,
+        imagePath: true,
+        imageWidth: true,
+        imageHeight: true,
+        description: true,
+        // GPS metadata for the centre-dot overlay on locations without
+        // a polygon — the detail page draws a 5-m gradient halo and
+        // needs both the centre point (from the filename) and the
+        // pixel bounds (from sync) to position + scale it.
+        centerLat: true,
+        centerLng: true,
+        imageBounds: true,
+        // Needed for the real-photo lookup — `imagePath` is sha1-hashed
+        // for cache-busting, only the original (diacritics + plus
+        // signs) preserves the disk-side filename of the photo.
+        originalFilename: true,
+        isAnonymized: true,
+      },
+      orderBy: { id: "asc" },
+    }),
+    base.parentId !== null
+      ? prisma.location.findUnique({
+          where: { id: base.parentId },
+          select: {
+            id: true,
+            code: true,
+            displayName: true,
+            isCancelled: true,
+            // `isGone` derives from `code` (v1 NEEXISTUJE- prefix) OR
+            // `isCancelled` (v2) via isLocationGone() at assembly time;
+            // findCount is summed below from the batched groupBy.
+          },
+        })
+      : Promise.resolve(null),
+    prisma.location.findMany({
+      where: { parentId: id },
+      select: {
+        id: true,
+        code: true,
+        displayName: true,
+        isCancelled: true,
+      },
+      orderBy: { id: "asc" },
+    }),
+    // Siblings preview — every other child of THIS location's parent.
+    // We fetch the parent's full child set (which includes `base.id`)
+    // and filter `base` out at assembly time; doing it that way also
+    // gives us the per-sibling counts we need to roll up the parent's
+    // aggregate findCount in the same batch.
+    base.parentId !== null
+      ? prisma.location.findMany({
+          where: { parentId: base.parentId },
+          select: {
+            id: true,
+            code: true,
+            displayName: true,
+            isCancelled: true,
+          },
+          orderBy: { id: "asc" },
+        })
+      : Promise.resolve(
+          [] as Array<{
             id: number;
             code: string;
             displayName: string;
             isCancelled: boolean;
-          }>),
-    ]);
+          }>,
+        ),
+  ]);
 
   // Lookup per-handle find counts in one batched query so the parent +
   // siblings + children chips can show "(N nálezů)" without N+1. The
