@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Přerovnaný řádek v seznamu lokalit
+- Řádek na `/lokality` má nově pevné pořadí, takže se dá číst po sloupci:
+  **1. řádek** číslo lokace, ID lokace a GPS · **2. řádek** popis lokality ·
+  **3. řádek** plocha, hustota a vzdálenost od Safrona. Popis dřív sdílel
+  první řádek s kódem a stejně se v půlce případů zalomil, takže se žádné
+  dva řádky nelámaly na stejném místě.
+- **Všechny odznaky jsou na jednom místě** v pravém horním rohu — počet
+  dílčích částí, tvar, „zaniklá", „anonymizovaná" i reálná fotka. Na mobilu
+  se přesouvají jako poslední řádek pod tlačítka, kde je na ně místo.
+- **Náhledový obrázek vyplňuje celou výšku řádku** — dřív měl pevnou výšku
+  a pod delšími řádky zůstávala prázdná plocha.
+- Šipka pro rozbalení má konečně dělící čáru a vlastní proužek, jak to má
+  ikonka mapy v seznamu na `/sbirka`. (V minulé dávce se ta úprava kvůli
+  chybě v mém skriptu nezapsala, i když jsem ji hlásil jako hotovou.)
+
 ### Seskupení anonymizovaných lokalit a přehlednější seznam map
 - **Oprava `/lokality`:** anonymizované lokality se neseskupovaly pod svého
   rodiče a jejich počty nálezů se nesčítaly za dílčí části. Dotaz jim záměrně

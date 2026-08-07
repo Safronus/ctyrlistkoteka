@@ -144,43 +144,14 @@ export function LocationListRow({
       >
         <RowThumb location={location} t={t} />
         <div className="relative flex min-w-0 flex-1 flex-col justify-between gap-1">
-          {/* Shape + sub-part count as a fixed corner overlay rather than
-              chips in the title flow: they were being pushed around by the
-              code, display name and status badges, so their position moved
-              from row to row and they stopped being scannable down the list. */}
-          {(location.childCount > 0 || !location.isAnonymized) && (
-            <div className="absolute right-0 top-0 z-10 flex items-center gap-1">
-              {location.childCount > 0 && (
-                <span
-                  className="inline-flex items-center gap-1 rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-800"
-                  title={t("partsBadgeTitle")}
-                >
-                  <Layers className="h-3 w-3" aria-hidden />+{" "}
-                  {t("partsBadge", { count: location.childCount })}
-                </span>
-              )}
-              {/* Shape stays hidden for anonymized rows — the query
-                  neutralises `indicator` to "dot" there, so showing it would
-                  state something untrue about the place. */}
-              {!location.isAnonymized && (
-                <IndicatorBadge indicator={location.indicator} t={t} />
-              )}
-            </div>
-          )}
+          {/* Line 1: number, code, GPS. Line 2: the caption. Line 3: the
+              measured facts. The caption used to share line 1 with the code
+              and wrapped onto a second line half the time anyway, so no two
+              rows in the list broke at the same place. */}
           <RowTitle location={location} isChild={isChild} t={t} />
-          {!location.isAnonymized && (
-            <>
-              <RowMeta location={location} t={t} />
-              {location.coordinates && (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <GpsValue
-                    lat={location.coordinates.lat}
-                    lng={location.coordinates.lng}
-                  />
-                </div>
-              )}
-            </>
-          )}
+          {!location.isAnonymized && <RowName location={location} />}
+          {!location.isAnonymized && <RowMeta location={location} t={t} />}
+
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <RowCount location={location} t={t} />
             {/* Buttons pushed to the far end of the row so they line up in a
@@ -201,8 +172,22 @@ export function LocationListRow({
               <FindsLink location={location} t={t} />
             </div>
           </div>
+
+          {/* Every status chip in one place, LAST in the DOM so a phone gets
+              them as the bottom row under the buttons. From `sm` they lift
+              out of the flow into the top-right corner, where a fixed
+              position makes them scannable straight down the list. */}
+          <RowIndicators location={location} t={t} />
         </div>
-        <div aria-hidden className="flex shrink-0 items-center text-gray-400">
+
+        {/* Divider + tinted strip, matching the map-pin column on the
+            /sbirka rows: without it the chevron floated in the row's
+            background and didn't read as its own control. The negative
+            margins cancel the row padding so the strip spans full height. */}
+        <div
+          aria-hidden
+          className="-my-3 -mr-3 flex shrink-0 items-center border-l border-gray-200/70 bg-gray-50/50 px-2 text-gray-400"
+        >
           {open ? (
             <ChevronDown className="h-5 w-5" />
           ) : (
@@ -219,7 +204,7 @@ export function LocationListRow({
 function RowThumb({ location, t }: { location: LocationListItem; t: RowT }) {
   if (location.isAnonymized) {
     return (
-      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-purple-200 bg-purple-50 text-purple-400 sm:h-24 sm:w-24">
+      <div className="flex w-20 shrink-0 self-stretch sm:w-24 min-h-20 sm:min-h-24 items-center justify-center rounded-md border border-purple-200 bg-purple-50 text-purple-400">
         <HelpCircle className="h-10 w-10" aria-hidden />
         <span className="sr-only">{t("anonymizedAriaShort")}</span>
       </div>
@@ -227,7 +212,7 @@ function RowThumb({ location, t }: { location: LocationListItem; t: RowT }) {
   }
   if (location.thumbnailUrl) {
     return (
-      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md border border-gray-200 sm:h-24 sm:w-24">
+      <div className="relative w-20 shrink-0 self-stretch sm:w-24 min-h-20 sm:min-h-24 overflow-hidden rounded-md border border-gray-200">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={mapThumbUrl(location.thumbnailUrl)}
@@ -252,7 +237,7 @@ function RowThumb({ location, t }: { location: LocationListItem; t: RowT }) {
     );
   }
   return (
-    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 text-2xl text-gray-300 sm:h-24 sm:w-24">
+    <div className="flex w-20 shrink-0 self-stretch sm:w-24 min-h-20 sm:min-h-24 items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 text-2xl text-gray-300">
       🍀
     </div>
   );
@@ -268,9 +253,9 @@ function RowTitle({
   t: RowT;
 }) {
   return (
-    // pr- reserves the corner overlay's lane so a long code never runs
-    // underneath the shape / sub-parts badges.
-    <div className="flex flex-wrap items-baseline gap-x-2 pr-24 sm:pr-32">
+    // sm:pr- reserves the corner overlay's lane; below `sm` the chips are in
+    // the flow as the last row, so no reservation is needed there.
+    <div className="flex flex-wrap items-baseline gap-x-2 sm:pr-40">
       {isChild && (
         <CornerDownRight
           className="h-3.5 w-3.5 shrink-0 self-center text-brand-500"
@@ -286,35 +271,99 @@ function RowTitle({
       >
         {location.code}
       </span>
-      {!location.isAnonymized &&
-        location.displayName &&
-        location.displayName !== location.code && (
-          <span
-            className="truncate text-sm text-gray-500"
-            title={location.displayName}
-          >
-            ({location.displayName})
-          </span>
-        )}
-      {location.isAnonymized && (
-        <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800">
-          {t("anonymizedBadge")}
-        </span>
+      {/* GPS rides along on the identity line — it identifies the place just
+          as much as the code does, and it used to cost a line of its own. */}
+      {!location.isAnonymized && location.coordinates && (
+        <GpsValue
+          lat={location.coordinates.lat}
+          lng={location.coordinates.lng}
+        />
       )}
-      {location.isGone && (
-        <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
-          {t("goneBadge")}
-        </span>
-      )}
-      {location.hasRealPhoto && (
-        <span
-          className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800"
-          title={t("hasRealPhotoTitle")}
-          aria-label={t("hasRealPhotoTitle")}
-        >
-          <Camera className="h-3 w-3" aria-hidden />
-        </span>
-      )}
+    </div>
+  );
+}
+
+/** The human caption, on its own line. */
+function RowName({ location }: { location: LocationListItem }) {
+  const name = location.displayName;
+  if (!name || name === location.code) return null;
+  return (
+    <p className="truncate text-sm text-gray-500" title={name}>
+      ({name})
+    </p>
+  );
+}
+
+/**
+ * Every status chip in one group: sub-part count, shape, gone, anonymized,
+ * real photo. They used to be scattered — some in the title, some in a
+ * corner overlay — which meant no two rows put the same fact in the same
+ * place. Static (last row) on a phone, absolutely positioned top-right from
+ * `sm` up.
+ */
+function RowIndicators({
+  location,
+  t,
+}: {
+  location: LocationListItem;
+  t: RowT;
+}) {
+  const chips: React.ReactNode[] = [];
+  if (location.childCount > 0) {
+    chips.push(
+      <span
+        key="parts"
+        className="inline-flex items-center gap-1 rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-800"
+        title={t("partsBadgeTitle")}
+      >
+        <Layers className="h-3 w-3" aria-hidden />+{" "}
+        {t("partsBadge", { count: location.childCount })}
+      </span>,
+    );
+  }
+  // Shape stays hidden for anonymized rows — the query neutralises
+  // `indicator` to "dot" there, so showing it would state something untrue.
+  if (!location.isAnonymized) {
+    chips.push(
+      <IndicatorBadge key="shape" indicator={location.indicator} t={t} />,
+    );
+  }
+  if (location.isAnonymized) {
+    chips.push(
+      <span
+        key="anon"
+        className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-800"
+      >
+        {t("anonymizedBadge")}
+      </span>,
+    );
+  }
+  if (location.isGone) {
+    chips.push(
+      <span
+        key="gone"
+        className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800"
+      >
+        {t("goneBadge")}
+      </span>,
+    );
+  }
+  if (location.hasRealPhoto) {
+    chips.push(
+      <span
+        key="photo"
+        className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-emerald-800"
+        title={t("hasRealPhotoTitle")}
+        aria-label={t("hasRealPhotoTitle")}
+      >
+        <Camera className="h-3 w-3" aria-hidden />
+      </span>,
+    );
+  }
+  if (chips.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1 pt-1 sm:absolute sm:right-0 sm:top-0 sm:z-10 sm:flex-nowrap sm:pt-0">
+      {chips}
     </div>
   );
 }
