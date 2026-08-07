@@ -16,7 +16,7 @@ import type {
   FarthestFindHighlight,
   FindHighlight,
 } from "@/lib/queries/stats";
-import { DeviationCompass } from "@/components/stats/deviation-compass";
+import { DistanceRose } from "@/components/stats/distance-rose";
 
 /**
  * The three "record" cards under the hero tiles. Client-side because each one
@@ -119,14 +119,20 @@ export function HighlightCards({
       ? null
       : (distanceRose.find((o) => roseFindId(o) === distanceCard.id)?.octant ??
         null);
+  // The rose has room for ~8 characters per spoke, so its numbers are coarser
+  // than the headline figure: no decimals past 100 km ("1 725 km", not
+  // "1 725,084 km"). The tooltip still carries the exact value.
+  const roseLabel = (m: number) =>
+    m >= 100_000
+      ? `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(m / 1000)} km`
+      : formatDistance(m, locale);
   const rosePoints = distanceRose.some((o) => roseValue(o) !== null)
     ? distanceRose.map((o) => {
         const v = roseValue(o);
         return {
           abbr: t(`compassAbbr${o.octant}`),
-          count: null,
-          mean: v,
-          isDominant: o.octant === recordOctant,
+          value: v === null ? null : roseLabel(v),
+          isRecord: o.octant === recordOctant,
           tooltip:
             v === null
               ? `${t(`compassName${o.octant}`)}: —`
@@ -246,9 +252,9 @@ export function HighlightCards({
             </div>
             {rosePoints && (
               <div className="flex items-center sm:basis-1/3">
-                <DeviationCompass
+                <DistanceRose
                   points={rosePoints}
-                  distanceLabel={
+                  legend={
                     nearest
                       ? t("distanceRoseNearLegend")
                       : t("distanceRoseFarLegend")

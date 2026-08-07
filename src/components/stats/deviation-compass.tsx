@@ -14,12 +14,8 @@
 export interface CompassPoint {
   /** Short compass label, e.g. "S" / "SV" (octant order N..NW). */
   abbr: string;
-  /** Finds in this direction. `null` on EVERY point switches the chart to
-   *  single-series mode — one polygon of distances, no count ring. The
-   *  distance card uses that: there "how many" isn't the story, "how far in
-   *  each direction" is. */
-  count: number | null;
-  /** Distance in metres for this direction, or null when empty. */
+  count: number;
+  /** Mean deviation distance in metres, or null when empty. */
   mean: number | null;
   /** Pre-formatted hover tooltip ("severovýchod: 12 · ⌀ 24 m"). */
   tooltip: string;
@@ -43,19 +39,17 @@ export function DeviationCompass({
   distanceLabel,
 }: {
   points: readonly CompassPoint[];
-  /** Omitted in single-series mode (every `count` null). */
-  countLabel?: string;
+  countLabel: string;
   distanceLabel: string;
 }) {
-  const singleSeries = points.every((p) => p.count === null);
-  const maxCount = Math.max(1, ...points.map((p) => p.count ?? 0));
+  const maxCount = Math.max(1, ...points.map((p) => p.count));
   const maxMean = Math.max(
     1,
     ...points.map((p) => p.mean ?? 0),
   );
 
   const countPoly = points
-    .map((p, i) => at(i, (p.count ?? 0) / maxCount).join(","))
+    .map((p, i) => at(i, p.count / maxCount).join(","))
     .join(" ");
   const meanPoly = points
     .map((p, i) => at(i, (p.mean ?? 0) / maxMean).join(","))
@@ -67,7 +61,7 @@ export function DeviationCompass({
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         className="h-auto w-full max-w-[260px]"
         role="img"
-        aria-label={countLabel ? `${countLabel} / ${distanceLabel}` : distanceLabel}
+        aria-label={`${countLabel} / ${distanceLabel}`}
       >
         {/* Grid rings + spokes */}
         {RINGS.map((f) => (
@@ -95,31 +89,23 @@ export function DeviationCompass({
           );
         })}
 
-        {/* Distance series. Single-series mode promotes it to the filled
-            primary shape; alongside a count ring it stays a dashed outline. */}
+        {/* Distance series — dashed amber outline. */}
         <polygon
           points={meanPoly}
-          className={
-            singleSeries
-              ? "fill-brand-500/20 stroke-brand-600"
-              : "fill-none stroke-amber-500"
-          }
+          className="fill-none stroke-amber-500"
           strokeWidth={1.5}
-          strokeDasharray={singleSeries ? undefined : "3 3"}
+          strokeDasharray="3 3"
         />
-        {!singleSeries && (
-          <polygon
-            points={countPoly}
-            className="fill-brand-500/20 stroke-brand-600"
-            strokeWidth={1.5}
-          />
-        )}
+        {/* Count series — filled brand polygon. */}
+        <polygon
+          points={countPoly}
+          className="fill-brand-500/20 stroke-brand-600"
+          strokeWidth={1.5}
+        />
 
-        {/* Vertices + tooltips, on whichever series is primary. */}
+        {/* Count vertices + tooltips. */}
         {points.map((p, i) => {
-          const [x, y] = singleSeries
-            ? at(i, (p.mean ?? 0) / maxMean)
-            : at(i, (p.count ?? 0) / maxCount);
+          const [x, y] = at(i, p.count / maxCount);
           return (
             <circle
               key={i}
@@ -157,22 +143,16 @@ export function DeviationCompass({
 
       {/* Legend */}
       <div className="mt-1 flex items-center gap-4 text-[11px] text-gray-600">
-        {!singleSeries && countLabel && (
-          <span className="inline-flex items-center gap-1.5">
-            <span
-              className="inline-block h-2.5 w-2.5 rounded-sm border border-brand-600 bg-brand-500/20"
-              aria-hidden
-            />
-            {countLabel}
-          </span>
-        )}
         <span className="inline-flex items-center gap-1.5">
           <span
-            className={
-              singleSeries
-                ? "inline-block h-2.5 w-2.5 rounded-sm border border-brand-600 bg-brand-500/20"
-                : "inline-block h-0 w-3.5 border-t-2 border-dashed border-amber-500"
-            }
+            className="inline-block h-2.5 w-2.5 rounded-sm border border-brand-600 bg-brand-500/20"
+            aria-hidden
+          />
+          {countLabel}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block h-0 w-3.5 border-t-2 border-dashed border-amber-500"
             aria-hidden
           />
           {distanceLabel}

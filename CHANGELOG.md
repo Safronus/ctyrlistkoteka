@@ -26,6 +26,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Růžice vzdáleností: osm směrů, vypsaná čísla
+- Růžice **nekreslí tvar podle vzdálenosti**. Sbírka sahá od metrů (vedlejší
+  ulice) po tisíce kilometrů (Japonsko), takže lineární poloměr sedm z osmi
+  paprsků stáhl do středu a nakreslil jediný trn. Logaritmus by obrázek
+  spravil za cenu délek, které nic neříkají — proto (rozhodnutí vlastníka)
+  žádný tvar: **stejně dlouhé paprsky a u každého vypsaná vzdálenost**.
+- Rekordní směr má silnější paprsek, tučný popisek a jeho směr se opakuje
+  u hlavního čísla. Směry bez nálezu jsou zašedlé s pomlčkou.
+- Čísla v růžici jsou hrubší než hlavní údaj (nad 100 km bez desetinných
+  míst), aby se osm popisků vešlo; tooltip nese přesnou hodnotu.
+- Vzniklo jako samostatná komponenta `DistanceRose` — kompas v sekci
+  „Odchýlení" zůstal beze změny, tam proporcionální tvar dává smysl.
+
 ### Růžice vzdáleností ukazuje osm skutečných nálezů
 - Růžice v panelu Nejvzdálenější/Nejbližší už neukazuje počty a průměry, ale
   **osm konkrétních nálezů** — v každém světovém směru ten nejvzdálenější
