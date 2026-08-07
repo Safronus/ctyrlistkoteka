@@ -1,6 +1,23 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import QRCode from "qrcode";
+import { DENSITY_ECC, type QrDensity } from "./qrDensity";
+
+// Density/centre-fit vocabulary lives in ./qrDensity so the (client) admin
+// forms can import it without dragging this server-only module — and its
+// `readFileSync` of the brand PNGs — into the browser bundle.
+export { centerFitsDensity, type QrDensity } from "./qrDensity";
+
+/** Module count per side the given URL needs at each density. Cheap
+ *  (the encoder runs, nothing is drawn) and EXACT, which matters: a find
+ *  URL like `/n/201` is short enough that `medium` and `compact` land on
+ *  the same size, so a hard-coded table would have the admin picking the
+ *  weaker error correction for no gain. */
+export function moduleCountsFor(url: string): Record<QrDensity, number> {
+  const at = (d: QrDensity) =>
+    QRCode.create(url, { errorCorrectionLevel: DENSITY_ECC[d] }).modules.size;
+  return { dense: at("dense"), medium: at("medium"), compact: at("compact") };
+}
 
 /**
  * SVG renderer for the admin QR features (per-find QR + the standalone
@@ -115,6 +132,19 @@ export interface RenderQrOpts {
   border?: QrBorder;
   borderRadius?: QrBorderRadius;
   borderColor?: QrBorderColor;
+  /** Module density — see `QrDensity`. Defaults to `dense` (level H), the
+   *  original behaviour, so existing callers are unaffected. */
+  density?: QrDensity;
+  /**
+   * Draw a small clover to the LEFT of the title's first line.
+   *
+   * Deliberately a vector glyph rather than the 🍀 character: these SVGs
+   * are rasterised in two very different places — a browser canvas, and
+   * sharp/librsvg on the VPS (see /admin/api/qr-zip) — and the server has
+   * no colour-emoji font installed, so a literal emoji would print as a
+   * missing-glyph box on exactly the batch that goes onto cards.
+   */
+  titleIcon?: boolean;
   /** Explicit target pixel width (wins over `size`). */
   targetQrPx?: number;
 }
@@ -160,17 +190,18 @@ export function renderQrSvg(opts: RenderQrOpts): string {
   const borderRadius: QrBorderRadius = opts.borderRadius ?? "soft";
   const borderColor: QrBorderColor = opts.borderColor ?? "theme";
   const title = opts.title && opts.title.trim() ? opts.title.trim() : null;
+  const titleIcon = title !== null && opts.titleIcon === true;
   const caption =
     opts.caption && opts.caption.trim() ? opts.caption.trim() : null;
 
-  const qr = QRCode.create(opts.url, { errorCorrectionLevel: "H" });
+  const qr = QRCode.create(opts.url, {
+    errorCorrectionLevel: DENSITY_ECC[opts.density ?? "dense"],
+  });
   const SIZE = qr.modules.size;
   const data = qr.modules.data;
   const isDark = (r: number, c: number) => data[r * SIZE + c] === 1;
   const inFinderArea = (r: number, c: number) =>
-    (r < 8 && c < 8) ||
-    (r < 8 && c >= SIZE - 8) ||
-    (r >= SIZE - 8 && c < 8);
+    (r < 8 && c < 8) || (r < 8 && c >= SIZE - 8) || (r >= SIZE - 8 && c < 8);
 
   const MODULE = Math.max(1, Math.floor(targetQrPx / SIZE));
   const QR_PX = SIZE * MODULE;
@@ -257,16 +288,30 @@ export function renderQrSvg(opts: RenderQrOpts): string {
         const blockH = lineH * titleLayout.lines.length;
         const firstBaseline =
           (HEADER_H - blockH) / 2 + titleLayout.fontSize * 0.8;
-        return titleLayout.lines
+        const fs = titleLayout.fontSize;
+        // With an icon the first line shifts right by half the icon block
+        // so icon+text stay optically centred as a unit.
+        const iconD = titleIcon ? Math.round(fs * 0.95) : 0;
+        const iconGap = titleIcon ? Math.round(fs * 0.28) : 0;
+        const shift = (iconD + iconGap) / 2;
+        const lines = titleLayout.lines
           .map(
             (line, i) =>
-              `<text x="${contentW / 2}" y="${
+              `<text x="${contentW / 2 + (i === 0 ? shift : 0)}" y="${
                 firstBaseline + i * lineH
-              }" text-anchor="middle" font-size="${titleLayout.fontSize}" font-weight="700" fill="${theme.title}" letter-spacing="-0.5">${escapeXml(
+              }" text-anchor="middle" font-size="${fs}" font-weight="700" fill="${theme.title}" letter-spacing="-0.5">${escapeXml(
                 line,
               )}</text>`,
           )
           .join("\n  ");
+        if (!titleIcon) return lines;
+        // Width of the first line, same estimator layoutTitle sizes with.
+        const firstW = (titleLayout.lines[0]?.length ?? 0) * fs * 0.56;
+        const iconX = contentW / 2 + shift - firstW / 2 - iconGap - iconD;
+        const iconY = firstBaseline - fs * 0.82;
+        return `<use href="#ctyr-qr-clover" x="${iconX.toFixed(1)}" y="${iconY.toFixed(
+          1,
+        )}" width="${iconD}" height="${iconD}" color="${theme.module}"/>\n  ${lines}`;
       })()
     : "";
   const captionSvg = caption
@@ -296,7 +341,7 @@ export function renderQrSvg(opts: RenderQrOpts): string {
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CARD_W} ${CARD_H}" width="${CARD_W}" height="${CARD_H}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CARD_W} ${CARD_H}" width="${CARD_W}" height="${CARD_H}" data-qr-px="${QR_PX}" data-qr-modules="${SIZE}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif">
   <defs>${CLOVER_SYMBOL}</defs>
   <rect x="0" y="0" width="${CARD_W}" height="${CARD_H}" fill="${theme.bg}"/>
   ${panelSvg}
@@ -316,28 +361,53 @@ export function renderQrSvg(opts: RenderQrOpts): string {
 `;
 }
 
+/**
+ * Trackable scan URL for a find. Deterministic on purpose — see the long
+ * note in `src/app/n/[id]/route.ts`: these get printed onto cards that
+ * travel with donated clovers, so reprinting must yield the identical
+ * code and an old card must never stop resolving.
+ */
+export function findQrUrl(findId: number): string {
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz";
+  return `${siteUrl.replace(/\/$/, "")}/n/${findId}`;
+}
+
 export interface RenderFindQrOpts {
   url?: string;
-  header?: string;
+  header?: string | null;
+  /** Draw the brand clover before the title (default on). */
+  titleIcon?: boolean;
+  density?: QrDensity;
+  theme?: QrTheme;
+  moduleStyle?: QrModuleStyle;
+  center?: QrCenter;
+  centerScale?: QrCenterScale;
+  border?: QrBorder;
+  borderRadius?: QrBorderRadius;
+  borderColor?: QrBorderColor;
   targetQrPx?: number;
 }
 
-/** Per-find QR — the original branded style (green clover modules + the
- *  author smiley centre + `#<id>` header). Thin wrapper over renderQrSvg. */
+/** Per-find QR — the branded style (green clover modules + the author
+ *  smiley centre + `🍀 #<id>` header) as defaults. Thin wrapper over
+ *  renderQrSvg; every default is overridable from the admin form. */
 export function renderFindQrSvg(
   findId: number,
   opts: RenderFindQrOpts = {},
 ): string {
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz";
-  const url = opts.url ?? `${siteUrl.replace(/\/$/, "")}/sbirka/${findId}`;
   return renderQrSvg({
-    url,
-    title: opts.header ?? `#${findId}`,
-    theme: "brand",
-    moduleStyle: "clover",
-    center: "smiley",
-    centerScale: "md",
+    url: opts.url ?? findQrUrl(findId),
+    title: opts.header === undefined ? `#${findId}` : opts.header,
+    titleIcon: opts.titleIcon !== false,
+    theme: opts.theme ?? "brand",
+    moduleStyle: opts.moduleStyle ?? "clover",
+    center: opts.center ?? "smiley",
+    centerScale: opts.centerScale ?? "md",
+    border: opts.border ?? "none",
+    borderRadius: opts.borderRadius ?? "soft",
+    borderColor: opts.borderColor ?? "theme",
+    density: opts.density ?? "dense",
     targetQrPx: opts.targetQrPx ?? 594,
   });
 }

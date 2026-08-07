@@ -204,9 +204,11 @@ model Find {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  images FindImage[]
-  states FindStateAssignment[]
-  votes  FindVote[]
+  images  FindImage[]
+  states  FindStateAssignment[]
+  votes   FindVote[]
+  qrPin   FindQrPin?
+  qrScans FindQrScan[]
 
   @@index([locationId])
   @@index([mapId])
@@ -328,6 +330,9 @@ model QrCode {
   border       String   @default("none") @db.VarChar(12) // none | frame | panel | cut
   borderRadius String   @default("soft") @map("border_radius") @db.VarChar(8) // soft | round
   borderColor  String   @default("theme") @map("border_color") @db.VarChar(8) // theme | gray
+  /// Module density = error-correction level under a friendlier name:
+  /// dense (H) | medium (Q) | compact (M). See QrDensity in lib/admin/qr.ts.
+  density      String   @default("dense") @db.VarChar(8)
   /// Set when the physical QR is retired ("Zničený"). Redirect still works.
   archivedAt  DateTime? @map("archived_at") @db.Timestamptz
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
@@ -336,6 +341,38 @@ model QrCode {
 
   @@index([archivedAt])
   @@map("qr_codes")
+}
+
+/// A find explicitly pinned into the /admin/qr find list.
+///
+/// Find QR codes need no minting — the encoded URL is always
+/// `/n/<find id>`, so every find implicitly "has" a code. This table only
+/// remembers which finds the operator wants to SEE in the list on top of
+/// the donated ones (which the list derives from find state), so pinning
+/// is pure UI bookkeeping and losing a row costs nothing but visibility.
+model FindQrPin {
+  findId    Int      @id @map("find_id")
+  find      Find     @relation(fields: [findId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("find_qr_pins")
+}
+
+/// One logged scan of a find QR code (a hit on /n/<find id>).
+///
+/// Separate table from `qr_scans` because find codes have no `qr_codes`
+/// row to hang off — the find id IS the identity. Timestamp only, same
+/// no-PII rule as page QR scans.
+model FindQrScan {
+  id        Int      @id @default(autoincrement())
+  findId    Int      @map("find_id")
+  find      Find     @relation(fields: [findId], references: [id], onDelete: Cascade)
+  /// Timestamp only — no IP / UA / PII is stored for scans.
+  scannedAt DateTime @default(now()) @map("scanned_at") @db.Timestamptz
+
+  @@index([findId])
+  @@index([scannedAt])
+  @@map("find_qr_scans")
 }
 
 model QrScan {

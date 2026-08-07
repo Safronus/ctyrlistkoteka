@@ -9,6 +9,43 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### QR kódy nálezů: hromadná tvorba, trackování a tisk v centimetrech
+- `/admin/qr` je nově rozdělená na **dvě oddělené sekce**, aby kódy na
+  stránky a kódy na nálezy nesplývaly.
+- **QR nálezů** se dělají hromadně: zadá se číslo, seznam čísel nebo
+  interval (`1, 5-9, 12`), případně se jedním tlačítkem předvyplní všechny
+  darované nálezy. Formulář průběžně hlásí, kolik čísel existuje a která ne.
+- Kód míří na **`https://ctyrlistkoteka.cz/n/<číslo>`**, což zapíše sken
+  (jen čas, žádná IP) a přesměruje na detail nálezu. Adresa je pro dané
+  číslo **trvalá** — dotisk kartičky vyjde vždy stejně a už rozdané
+  kartičky platí dál. To je hlavní důvod, proč tu není náhodný token jako
+  u stránkových QR: kartička k darovanému čtyřlístku je fyzická věc
+  v cizích rukou.
+- **Velikost v centimetech** s fyzicky přesným náhledem. Protože prohlížeč
+  počítá 1 cm jako 37,8 px a skutečný monitor bývá o 10–20 % jinde, jde
+  obrazovku jednorázově zkalibrovat podle platební karty (8,56 cm);
+  nastavení se ukládá na server, ne do prohlížeče. Vedle náhledu je
+  centimetrové pravítko a údaj, jak velký bude jeden bod v milimetrech —
+  se zeleným / oranžovým / červeným hodnocením čitelnosti.
+- **Volba hustoty** (Hustý / Střední / Kompaktní = korekce H / Q / M).
+  U každého stupně se ukazuje **skutečný** počet bodů pro danou adresu:
+  u čísel nálezů to je 33² a 29², takže je vidět, že „Kompaktní" nic
+  nepřidá oproti „Střednímu" — a ten má víc rezervy. Obrázek uprostřed
+  ukusuje z bodů, které nemá co dopočítat, takže se při nízké korekci
+  vynechá (formulář na to upozorní dopředu).
+- Stahování otevře dialog s volbou obsahu balíčku: **SVG** (vektor, uložený
+  rovnou ve zvolených centimetrech), **PNG** v 300 DPI a **tiskový arch A4**
+  s mřížkou kódů a řezacími linkami. Dávka není nijak omezená, nad 500 čísel
+  se ale nejdřív zeptá a ukáže odhad času i velikosti.
+- Seznam pod formulářem ukazuje **darované nálezy** (výchozí filtr),
+  ručně **připnuté** a cokoli, co už někdo naskenoval — s počty skenů za
+  7 / 30 dní a celkem.
+- Tlačítko „QR" u konkrétní fotky v `/admin/files` zůstává a nově generuje
+  ten samý trackovatelný kód.
+- Čtyřlístek u titulku se kreslí **vektorem, ne znakem 🍀** — QR se
+  rasterizuje i na serveru, kde není emoji font, a emoji by na kartičkách
+  vyšlo jako prázdný čtvereček.
+
 ### Oprava: časy nálezů byly posunuté o hodinu až dvě
 - EXIF `DateTimeOriginal` nenese časovou zónu. Sync ho interpretoval v zóně
   procesu — a ta je na VPS **UTC** — takže nález pořízený ve 20:39 ve Zlíně

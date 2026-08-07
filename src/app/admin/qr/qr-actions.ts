@@ -14,12 +14,11 @@ import {
   type QrBorder,
   type QrBorderRadius,
   type QrBorderColor,
+  type QrDensity,
   type RenderQrOpts,
 } from "@/lib/admin/qr";
-import {
-  QR_TARGET_KEYS,
-  qrTargetUrl,
-} from "@/lib/admin/qrTargets";
+import { centerFitsDensity } from "@/lib/admin/qrDensity";
+import { QR_TARGET_KEYS, qrTargetUrl } from "@/lib/admin/qrTargets";
 import { siteName } from "@/lib/siteName";
 import type { QrInput } from "./qr-types";
 
@@ -52,6 +51,7 @@ interface NormalizedQr {
   border: QrBorder;
   borderRadius: QrBorderRadius;
   borderColor: QrBorderColor;
+  density: QrDensity;
 }
 
 function pick<T extends string>(
@@ -59,14 +59,38 @@ function pick<T extends string>(
   allowed: readonly T[],
   fallback: T,
 ): T {
-  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+  return typeof value === "string" &&
+    (allowed as readonly string[]).includes(value)
     ? (value as T)
     : fallback;
 }
 
 function normalize(input: QrInput): NormalizedQr {
+  const density = pick(
+    input.density,
+    ["dense", "medium", "compact"] as const,
+    "dense",
+  );
+  const centerScale = pick(input.centerScale, ["sm", "md"] as const, "md");
+  let center = pick(
+    input.center,
+    ["clover", "smiley", "none"] as const,
+    "clover",
+  );
+  // Hard guard behind the form's warning: the centre image punches a hole
+  // through data modules and only spare error correction makes that
+  // readable, so below the safe density it is dropped rather than baked
+  // into a code that scans on the desk and fails in the wild.
+  if (center !== "none" && !centerFitsDensity(density, centerScale)) {
+    center = "none";
+  }
   return {
-    label: String(input.label ?? "").trim().slice(0, 200),
+    center,
+    centerScale,
+    density,
+    label: String(input.label ?? "")
+      .trim()
+      .slice(0, 200),
     target: pick(input.target, QR_TARGET_KEYS as readonly string[], "home"),
     locale: pick(input.locale, ["cs", "en"] as const, "cs"),
     theme: pick(input.theme, ["brand", "classic", "dark"] as const, "brand"),
@@ -75,10 +99,10 @@ function normalize(input: QrInput): NormalizedQr {
       ["clover", "square", "dot"] as const,
       "clover",
     ),
-    center: pick(input.center, ["clover", "smiley", "none"] as const, "clover"),
-    centerScale: pick(input.centerScale, ["sm", "md"] as const, "md"),
     showTitle: input.showTitle !== false,
-    titleText: String(input.titleText ?? "").trim().slice(0, 200),
+    titleText: String(input.titleText ?? "")
+      .trim()
+      .slice(0, 200),
     showCaption: input.showCaption === true,
     size: pick(input.size, ["sm", "md", "lg"] as const, "md"),
     border: pick(
@@ -111,6 +135,7 @@ function renderOptsFor(n: NormalizedQr, url: string): RenderQrOpts {
     border: n.border,
     borderRadius: n.borderRadius,
     borderColor: n.borderColor,
+    density: n.density,
   };
 }
 
@@ -190,6 +215,7 @@ export async function createQrAction(
             border: n.border,
             borderRadius: n.borderRadius,
             borderColor: n.borderColor,
+            density: n.density,
           },
           select: { id: true, token: true },
         });
@@ -244,12 +270,13 @@ export async function getQrSvgAction(
         ["none", "frame", "panel", "cut"] as const,
         "none",
       ),
-      borderRadius: pick(
-        row.borderRadius,
-        ["soft", "round"] as const,
-        "soft",
-      ),
+      borderRadius: pick(row.borderRadius, ["soft", "round"] as const, "soft"),
       borderColor: pick(row.borderColor, ["theme", "gray"] as const, "theme"),
+      density: pick(
+        row.density,
+        ["dense", "medium", "compact"] as const,
+        "dense",
+      ),
     };
     const url = `${SITE_URL}/go/${row.token}`;
     return {

@@ -9,8 +9,9 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        // /api/ = JSON endpoints (no index value); /go/ = QR scan-redirect
-        // util. The QR landing pages themselves stay indexable.
+        // /api/ = JSON endpoints (no index value); /go/ and /n/ = QR
+        // scan-redirect utils (page codes and find codes respectively).
+        // The QR landing pages themselves stay indexable.
         //
         // /admin is DELIBERATELY not listed here: robots.txt is world-
         // readable, so a `Disallow: /admin/` line would advertise the admin
@@ -21,7 +22,7 @@ export default function robots(): MetadataRoute.Robots {
         // actually SEE the noindex), and protected by WebAuthn/iron-session
         // auth (plus the optional Nginx IP-allowlist cloak in
         // deploy/nginx.conf.template). Don't add it back.
-        disallow: ["/api/", "/go/"],
+        disallow: ["/api/", "/go/", "/n/"],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

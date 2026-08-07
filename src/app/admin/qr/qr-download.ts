@@ -38,9 +38,7 @@ export function svgToPngBlob(svg: string, scale: number): Promise<Blob> {
     const baseW = wMatch ? Number(wMatch[1]) : 600;
     const baseH = hMatch ? Number(hMatch[1]) : 800;
 
-    const url = URL.createObjectURL(
-      new Blob([svg], { type: "image/svg+xml" }),
-    );
+    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement("canvas");

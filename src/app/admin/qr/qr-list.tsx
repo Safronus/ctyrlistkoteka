@@ -9,11 +9,7 @@ import {
   Loader2,
   QrCode,
 } from "lucide-react";
-import {
-  archiveQrAction,
-  getQrSvgAction,
-  restoreQrAction,
-} from "./qr-actions";
+import { archiveQrAction, getQrSvgAction, restoreQrAction } from "./qr-actions";
 import { downloadPng, downloadSvg } from "./qr-download";
 import { QrPdfButton } from "./qr-pdf-button";
 
@@ -74,7 +70,8 @@ function Section({
   return (
     <div>
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-        {title} <span className="font-normal text-gray-400">({items.length})</span>
+        {title}{" "}
+        <span className="font-normal text-gray-400">({items.length})</span>
       </h3>
       <ul className="space-y-2">
         {items.map((it) => (
@@ -216,7 +213,9 @@ function Stat({
     <div className="min-w-[2.5rem]">
       <p
         className={`font-mono tabular-nums ${
-          strong ? "text-sm font-semibold text-brand-700" : "text-xs text-gray-700"
+          strong
+            ? "text-sm font-semibold text-brand-700"
+            : "text-xs text-gray-700"
         }`}
       >
         {value.toLocaleString("cs-CZ")}

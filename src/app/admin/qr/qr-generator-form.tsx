@@ -4,10 +4,12 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Download, Plus } from "lucide-react";
 import { QR_TARGETS } from "@/lib/admin/qrTargets";
+import { centerFitsDensity, type QrDensity } from "@/lib/admin/qrDensity";
 import { siteName } from "@/lib/siteName";
 import { createQrAction, previewQrAction } from "./qr-actions";
 import type { QrInput } from "./qr-types";
 import { downloadPng, downloadSvg } from "./qr-download";
+import { Field, Seg, Check, SELECT_CLS } from "./qr-ui";
 
 const THEME_OPTS = [
   { v: "brand", l: "Značková" },
@@ -27,6 +29,23 @@ const CENTER_OPTS = [
 const CENTER_SCALE_OPTS = [
   { v: "sm", l: "Menší" },
   { v: "md", l: "Větší" },
+];
+const DENSITY_OPTS = [
+  {
+    v: "dense",
+    l: "Hustý",
+    title: "Korekce H — 37×37 bodů, unese obrázek uprostřed",
+  },
+  {
+    v: "medium",
+    l: "Střední",
+    title: "Korekce Q — 33×33 bodů, jen s menším obrázkem",
+  },
+  {
+    v: "compact",
+    l: "Kompaktní",
+    title: "Korekce M — 29×29 bodů, bez obrázku uprostřed",
+  },
 ];
 const SIZE_OPTS = [
   { v: "sm", l: "Malý" },
@@ -64,6 +83,7 @@ const DEFAULT_CFG: QrInput = {
   border: "none",
   borderRadius: "soft",
   borderColor: "theme",
+  density: "dense",
 };
 
 export function QrGeneratorForm() {
@@ -88,8 +108,8 @@ export function QrGeneratorForm() {
   const reqId = useRef(0);
   useEffect(() => {
     const id = ++reqId.current;
-    setPreviewing(true);
     const handle = setTimeout(async () => {
+      setPreviewing(true);
       const r = await previewQrAction(cfg);
       if (id !== reqId.current) return; // a newer change superseded this
       if (r.ok) {
@@ -194,6 +214,27 @@ export function QrGeneratorForm() {
             </Field>
           )}
         </div>
+
+        <Field
+          label="Hustota bodů"
+          hint="Méně bodů = větší (a lépe čitelné) body při stejné velikosti tisku, ale menší rezerva na poškození."
+        >
+          <Seg
+            value={cfg.density}
+            onChange={(v) => set("density", v)}
+            options={DENSITY_OPTS}
+          />
+        </Field>
+        {cfg.center !== "none" &&
+          !centerFitsDensity(
+            cfg.density as QrDensity,
+            cfg.centerScale === "sm" ? "sm" : "md",
+          ) && (
+            <p className="rounded border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900">
+              Při této hustotě se prostřední obrázek do kódu nevejde —
+              vykousnuté body už nemá co dopočítat. Obrázek se proto vynechá.
+            </p>
+          )}
 
         <Field label="Velikost QR">
           <Seg
@@ -327,7 +368,9 @@ export function QrGeneratorForm() {
               </label>
               <button
                 type="button"
-                onClick={() => fileBase && downloadSvg(created.svg, `${fileBase}.svg`)}
+                onClick={() =>
+                  fileBase && downloadSvg(created.svg, `${fileBase}.svg`)
+                }
                 className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 font-medium text-gray-700 transition hover:bg-gray-50"
               >
                 <Download className="h-3.5 w-3.5" aria-hidden />
@@ -336,7 +379,8 @@ export function QrGeneratorForm() {
               <button
                 type="button"
                 onClick={() =>
-                  fileBase && downloadPng(created.svg, `${fileBase}.png`, pngScale)
+                  fileBase &&
+                  downloadPng(created.svg, `${fileBase}.png`, pngScale)
                 }
                 className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-2.5 py-1 font-medium text-emerald-800 transition hover:bg-emerald-100"
               >
@@ -360,85 +404,5 @@ export function QrGeneratorForm() {
         )}
       </div>
     </div>
-  );
-}
-
-const SELECT_CLS =
-  "w-full cursor-pointer rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
-
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-gray-700">
-        {label}
-      </span>
-      {children}
-      {hint && <span className="mt-1 block text-[11px] text-gray-400">{hint}</span>}
-    </label>
-  );
-}
-
-function Seg({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { v: string; l: string }[];
-}) {
-  return (
-    <div className="inline-flex flex-wrap overflow-hidden rounded-md border border-gray-300">
-      {options.map((o, i) => {
-        const active = o.v === value;
-        return (
-          <button
-            key={o.v}
-            type="button"
-            onClick={() => onChange(o.v)}
-            aria-pressed={active}
-            className={`px-2.5 py-1.5 text-xs font-medium transition ${
-              i > 0 ? "border-l border-gray-300" : ""
-            } ${
-              active
-                ? "bg-brand-600 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            {o.l}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Check({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (b: boolean) => void;
-  label: string;
-}) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30"
-      />
-      {label}
-    </label>
   );
 }
