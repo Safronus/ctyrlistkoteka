@@ -204,9 +204,13 @@ export function HighlightCards({
       {distanceCard && (
         <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-5">
           {/* Title + toggle live INSIDE the left column, not above both, so the
-              rose can use the card's full height instead of pushing it taller. */}
-          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-stretch">
-            <div className="flex flex-col sm:basis-2/3">
+              rose can use the card's full height instead of pushing it taller.
+              Side by side only from `xl`: this card shares a two-up grid from
+              `md`, so between those breakpoints two thirds of half a page left
+              the title wrapping mid-word and squeezed the rose down to a dot.
+              Below `xl` the rose simply sits under the record at full width. */}
+          <div className="flex flex-1 flex-col gap-3 xl:flex-row xl:items-stretch">
+            <div className="flex flex-col xl:basis-2/3">
               <CardHeader
                 title={
                   nearest
@@ -256,7 +260,7 @@ export function HighlightCards({
               </div>
             </div>
             {rosePoints && (
-              <div className="flex items-center sm:basis-1/3">
+              <div className="flex items-center justify-center xl:basis-1/3">
                 <DistanceRose
                   points={rosePoints}
                   legend={
@@ -389,7 +393,7 @@ function CardHeader({
     // whatever space is left, and both stay on one line — no extra height.
     return (
       <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center">
-        <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-brand-700 sm:flex-1">
+        <h2 className="text-balance text-center text-sm font-semibold uppercase tracking-wide text-brand-700 sm:flex-1">
           {title}
         </h2>
         {toggle && <div className="shrink-0">{toggle}</div>}
