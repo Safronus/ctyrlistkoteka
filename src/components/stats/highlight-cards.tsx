@@ -11,7 +11,12 @@ import {
   formatTimeSinceCs,
   locationDetailHref,
 } from "@/lib/format";
-import type { FarthestFindHighlight, FindHighlight } from "@/lib/queries/stats";
+import type {
+  DistanceOctant,
+  FarthestFindHighlight,
+  FindHighlight,
+} from "@/lib/queries/stats";
+import { DeviationCompass } from "@/components/stats/deviation-compass";
 
 /**
  * The three "record" cards under the hero tiles. Client-side because each one
@@ -48,6 +53,7 @@ export function HighlightCards({
   latestInDay,
   farthestFind,
   nearestFind,
+  distanceRose,
   highestPlace,
   lowestPlace,
 }: {
@@ -59,6 +65,7 @@ export function HighlightCards({
   latestInDay: FindHighlight | null;
   farthestFind: FarthestFindHighlight | null;
   nearestFind: FarthestFindHighlight | null;
+  distanceRose: readonly DistanceOctant[];
   highestPlace: PlaceCardView | null;
   lowestPlace: PlaceCardView | null;
 }) {
@@ -100,6 +107,24 @@ export function HighlightCards({
   const [firstOf, lastOf] = active?.pair ?? [null, null];
 
   const distanceCard = nearest && nearestFind ? nearestFind : farthestFind;
+  const dominantOctant = distanceRose.reduce<number | null>(
+    (best, o) =>
+      o.count > 0 && (best === null || o.count > (distanceRose[best]?.count ?? 0))
+        ? o.octant
+        : best,
+    null,
+  );
+  const rosePoints = distanceRose.some((o) => o.count > 0)
+    ? distanceRose.map((o) => ({
+        abbr: t(`compassAbbr${o.octant}`),
+        count: o.count,
+        mean: o.meanMeters,
+        isDominant: o.octant === dominantOctant,
+        tooltip: `${t(`compassName${o.octant}`)}: ${t("distanceRoseCount")} ${o.count} · ${t("distanceRoseDistance")} ${
+          o.meanMeters === null ? "—" : formatDistance(o.meanMeters, locale)
+        }`,
+      }))
+    : null;
   const placeCard = lowest && lowestPlace ? lowestPlace : highestPlace;
 
   if (!active && !distanceCard && !placeCard) return null;
@@ -175,33 +200,41 @@ export function HighlightCards({
               ) : null
             }
           />
-          <div className="flex flex-1 flex-col justify-center py-2">
-            <FindBody
-              find={distanceCard}
-              locale={locale}
-              t={t}
-              tTime={tTime}
-            />
-            <p
-              className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-500"
-              title={
-                nearest
-                  ? t("distanceFromAuthorTitle")
-                  : t("distanceFromDefaultTitle")
-              }
-            >
-              <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
-              <span className="font-mono tabular-nums text-gray-900">
-                {formatDistance(distanceCard.distanceMeters, locale)}
-              </span>
-              <span>
-                {nearest
-                  ? t("distanceFromAuthorSuffix")
-                  : t("distanceFromMapSuffix")}
-              </span>
-            </p>
+          {/* Two thirds record, one third rose. The rose is the same
+              component the deviation section uses, fed with distances from
+              the author's point instead of from each find's location. */}
+          <div className="mt-2 flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-1 flex-col justify-center sm:basis-2/3">
+              <FindBody
+                find={distanceCard}
+                locale={locale}
+                t={t}
+                tTime={tTime}
+              />
+              <p
+                className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-500"
+                title={t("distanceFromAuthorTitle")}
+              >
+                <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
+                <span className="font-mono tabular-nums text-gray-900">
+                  {formatDistance(distanceCard.distanceMeters, locale)}
+                </span>
+                <span>{t("distanceFromAuthorSuffix")}</span>
+              </p>
+              <div className="mt-3">
+                <FindButtons find={distanceCard} t={t} />
+              </div>
+            </div>
+            {rosePoints && (
+              <div className="sm:basis-1/3">
+                <DeviationCompass
+                  points={rosePoints}
+                  countLabel={t("distanceRoseCount")}
+                  distanceLabel={t("distanceRoseDistance")}
+                />
+              </div>
+            )}
           </div>
-          <FindButtons find={distanceCard} t={t} />
         </div>
       )}
 

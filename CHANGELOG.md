@@ -26,6 +26,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### /statistiky: růžice vzdáleností a jednotný počátek měření
+- Panel **Nejvzdálenější / Nejbližší 🍀** měří **obě** hodnoty od domovského
+  bodu autora (lokalita 158). Dřív byla „nejvzdálenější" od mapy 00001 a
+  „nejbližší" od Safronuse, takže přepínač porovnával nesrovnatelné.
+- Do panelu přibyla **růžice vzdáleností** v pravé třetině — kolik nálezů leží
+  v každém světovém směru od domovského bodu a jak daleko průměrně. Používá
+  tutéž komponentu jako růžice v sekci „Odchýlení", jen s jinými daty.
+- Zbytek webu (řádky `/sbirka`, `/lokality`, sekce „Vzdálenosti") měří dál od
+  mapy 00001 — sjednocení je naplánované zvlášť, viz `docs/architecture.md`.
+
 ### Oprava: nálezy „Bez GPS" měly souřadnice z EXIFu
 - Nález se stavem **BEZGPS** znamená „nevíme, kde se našel" — fotka bývá
   pořízená až po utržení jinde. Přesto se jeho EXIF GPS zapisovala do DB,

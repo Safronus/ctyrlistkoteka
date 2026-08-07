@@ -440,6 +440,19 @@ export interface StatsHighlightsResult {
   earliestInDay: FindHighlight | null;
   /** …and the latest evening time. */
   latestInDay: FindHighlight | null;
+  /** Finds per compass octant around the author's home point, with their
+   *  mean and maximum distance. Always length 8, zero-filled — feeds the
+   *  rose beside the distance card. */
+  distanceRose: DistanceOctant[];
+}
+
+export interface DistanceOctant {
+  /** 0 = N, 1 = NE, … 7 = NW. */
+  octant: number;
+  count: number;
+  /** Metres; null for an empty octant. */
+  meanMeters: number | null;
+  maxMeters: number | null;
 }
 
 export interface StatsPeaksResult {
@@ -1005,6 +1018,7 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
     latestYearRow,
     earliestDayRow,
     latestDayRow,
+    roseRows,
   ] = await Promise.all([
     // Earliest find by ID. The CASE-anonymise pattern keeps location
     // info out of the payload for is_anonymized=true rows.
@@ -1032,9 +1046,10 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       ORDER BY f.id DESC
       LIMIT 1
     `,
-    // Farthest non-anonymized find from the default LocationMap's GPS
-    // centre. The CTE makes the reference point optional: if MAP 00001
-    // isn't on disk we still return zero rows instead of crashing.
+    // Farthest non-anonymized find from the AUTHOR's home point. Both this
+    // and the "nearest" reading below use the same origin so the card's
+    // toggle compares like with like; the rest of the site still measures
+    // from map 00001 (see the migration note in docs/architecture.md).
     //
     // We don't dedupe against firstFind/lastFind here: by user request,
     // the genuine farthest find is shown even when it happens to also
@@ -1043,9 +1058,8 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
     // between cards is fine.
     prisma.$queryRaw<FarthestRow[]>`
       WITH ref AS (
-        SELECT ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326) AS pt
-        FROM location_maps
-        WHERE id = ${DEFAULT_LOCATION_ID}
+        SELECT center_point AS pt FROM locations
+        WHERE id = ${AUTHOR_LOCATION_ID}
       )
       SELECT f.id, f.found_at, f.is_anonymized, f.location_id,
              CASE WHEN f.is_anonymized THEN NULL ELSE l.code END AS location_code,
@@ -1152,6 +1166,28 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
       ORDER BY (f.found_at AT TIME ZONE 'Europe/Prague')::time DESC, f.found_at DESC
       LIMIT 1
     `,
+    // Distance rose around the author's home point: how many finds lie in
+    // each compass octant and how far they average. ST_Azimuth returns
+    // radians clockwise from north and is NULL for a point identical to the
+    // reference, which the WHERE drops.
+    prisma.$queryRaw<
+      Array<{ octant: number; count: bigint; mean_m: number; max_m: number }>
+    >`
+      WITH ref AS (
+        SELECT center_point AS pt FROM locations
+        WHERE id = ${AUTHOR_LOCATION_ID}
+      )
+      SELECT (((round(degrees(ST_Azimuth((SELECT pt FROM ref), f.coordinates)) / 45)::int % 8) + 8) % 8) AS octant,
+             count(*) AS count,
+             avg(ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref)))::float8 AS mean_m,
+             max(ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref)))::float8 AS max_m
+      FROM finds f
+      WHERE f.is_anonymized = false
+        AND f.coordinates IS NOT NULL
+        AND (SELECT pt FROM ref) IS NOT NULL
+        AND ST_Azimuth((SELECT pt FROM ref), f.coordinates) IS NOT NULL
+      GROUP BY 1
+    `,
   ]);
 
   const localName = await locationNameResolver();
@@ -1184,6 +1220,15 @@ async function getStatsHighlightsImpl(): Promise<StatsHighlightsResult> {
     latestInYear: toHighlight(latestYearRow[0], localName),
     earliestInDay: toHighlight(earliestDayRow[0], localName),
     latestInDay: toHighlight(latestDayRow[0], localName),
+    distanceRose: Array.from({ length: 8 }, (_, octant) => {
+      const r = roseRows.find((x) => x.octant === octant);
+      return {
+        octant,
+        count: r ? Number(r.count) : 0,
+        meanMeters: r ? r.mean_m : null,
+        maxMeters: r ? r.max_m : null,
+      };
+    }),
   };
 }
 

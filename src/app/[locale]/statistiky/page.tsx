@@ -384,6 +384,7 @@ async function HighlightsSection() {
       latestInYear,
       earliestInDay,
       latestInDay,
+      distanceRose,
     },
     { topLocationsByAltitude, lowestLocationByAltitude },
   ] = await Promise.all([getStatsHighlights(), getStatsTopLocations()]);
@@ -420,6 +421,7 @@ async function HighlightsSection() {
       latestInDay={latestInDay}
       farthestFind={farthestFind}
       nearestFind={nearestFind}
+      distanceRose={distanceRose}
       highestPlace={toPlaceView(topLocationsByAltitude[0] ?? null)}
       lowestPlace={toPlaceView(lowestLocationByAltitude)}
     />

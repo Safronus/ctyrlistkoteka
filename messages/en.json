@@ -754,7 +754,9 @@
     "highlightLowestPlace": "Lowest 🍀 found",
     "altitudeToggleAria": "Highest or lowest",
     "altitudeToggleHigh": "Highest",
-    "altitudeToggleLow": "Lowest"
+    "altitudeToggleLow": "Lowest",
+    "distanceRoseCount": "finds",
+    "distanceRoseDistance": "⌀ distance"
   },
   "Mapa": {
     "metaTitle": "Map",

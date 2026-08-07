@@ -753,7 +753,9 @@
     "highlightLowestPlace": "Nejníže nalezené 🍀",
     "altitudeToggleAria": "Nejvýše nebo nejníže",
     "altitudeToggleHigh": "Nejvýše",
-    "altitudeToggleLow": "Nejníže"
+    "altitudeToggleLow": "Nejníže",
+    "distanceRoseCount": "nálezů",
+    "distanceRoseDistance": "⌀ vzdálenost"
   },
   "Mapa": {
     "metaTitle": "Mapa",
