@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublicSurfaces } from "@/lib/revalidate";
 import { ImageType } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import { appendAudit } from "@/lib/admin/audit";
@@ -75,6 +76,8 @@ export async function anonymizeMismatchedFilenames(): Promise<AnonymizeNeFilenam
     },
   });
 
+  // Anonymizing shifts the anonymized/public counts on /statistiky.
+  revalidatePublicSurfaces();
   revalidatePath("/admin/checks");
   revalidatePath("/admin/files/finds");
   revalidatePath("/admin/json/lokace-stavy-poznamky");

@@ -2,6 +2,7 @@
 
 import { promises as fs } from "node:fs";
 import { revalidatePath } from "next/cache";
+import { revalidatePublicSurfaces } from "@/lib/revalidate";
 import { appendAudit } from "@/lib/admin/audit";
 import { ADMIN_ROOTS, safeJoin } from "@/lib/admin/paths";
 import {
@@ -174,8 +175,8 @@ export async function syncCropNameToOriginal(
   revalidatePath("/admin/files/crops");
   revalidatePath(`/admin/files/crops/${encodeURIComponent(crop)}`);
   revalidatePath(`/admin/files/crops/${encodeURIComponent(newCropName)}`);
+  revalidatePublicSurfaces();
   revalidatePath("/admin/checks");
-  revalidatePath("/sbirka", "layout");
 
   return {
     ok: true,

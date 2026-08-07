@@ -1705,6 +1705,34 @@ async function phaseMeta(ctx: Context, meta: Meta) {
     deletedStates = stateRowsToDelete.length;
   }
 
+  // A find marked BEZGPS must carry NO coordinates, full stop. Its photo was
+  // usually taken after picking and somewhere else entirely, so the EXIF
+  // position says nothing about where the clover was found — but the per-file
+  // pass above writes whatever EXIF holds, and the BEZGPS state is only
+  // decided HERE (LokaceStavyPoznamky.json is authoritative, so a find can be
+  // BEZGPS without the filename saying so). Hence the sweep runs after the
+  // state convergence, and self-heals rows written by earlier syncs.
+  //
+  // The find keeps its location — it belongs to the place, we just can't pin
+  // it on the map. The detail page then shows its "no GPS" note instead of a
+  // marker, and /mapa leaves it out of the dot layer.
+  const clearedGps = await ctx.prisma.$executeRaw`
+    UPDATE finds SET coordinates = NULL
+    WHERE coordinates IS NOT NULL
+      AND id IN (
+        SELECT find_id FROM find_state_assignments
+        WHERE state = ${FindState.NO_GPS}::"FindState"
+      )
+  `;
+  if (clearedGps > 0) {
+    ctx.log.log({
+      event: "meta.gps_cleared",
+      level: "warn",
+      finds: clearedGps,
+      hint: "finds marked BEZGPS still carried EXIF coordinates — cleared",
+    });
+  }
+
   const desiredNoteIds = new Set<number>();
   for (const idStr of Object.keys(meta.poznamky)) {
     const id = Number(idStr);

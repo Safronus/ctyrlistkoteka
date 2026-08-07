@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublicSurfaces } from "@/lib/revalidate";
 import { atomicWrite, ensureDir } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import {
@@ -28,7 +29,10 @@ async function persist(list: SpecialFind[]): Promise<void> {
 function refresh() {
   // The find detail (ISR) + /statistiky read the config; revalidate the
   // whole locale tree so a newly-assigned effect shows on the next visit.
-  revalidatePath("/", "layout");
+  // The record effect feeds /statistiky (jubilee section) and the home
+  // panels, both behind the "stats" data cache — revalidatePath alone left
+  // them up to 10 minutes stale.
+  revalidatePublicSurfaces();
   revalidatePath("/admin/special");
 }
 

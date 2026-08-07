@@ -3,6 +3,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
+import { revalidatePublicSurfaces } from "@/lib/revalidate";
 import { prisma } from "@/lib/db";
 import { wholePhotoCropOffenders } from "@/lib/admin/checks";
 import { ensureDir, trashTimestamp } from "@/lib/admin/atomic";
@@ -92,6 +93,8 @@ export async function deleteWholePhotoCropsAction(): Promise<DeleteCropsResult> 
     },
   });
 
+  // Deleting crops changes the photo counts the stats aggregations report.
+  revalidatePublicSurfaces();
   revalidatePath("/admin/checks");
   revalidatePath("/[locale]/sbirka/[id]", "page");
 

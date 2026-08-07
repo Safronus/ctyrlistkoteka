@@ -24,6 +24,27 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   (`BRAND_DARK`, `BRAND_LIGHT`, `ANON`, `CATEGORY_COLORS` a `colorFor` nikdo
   nepoužíval), a ze `stats.ts` zmizel typ `MonthlyPoint`.
 
+## 2026-08
+
+### Oprava: nálezy „Bez GPS" měly souřadnice z EXIFu
+- Nález se stavem **BEZGPS** znamená „nevíme, kde se našel" — fotka bývá
+  pořízená až po utržení jinde. Přesto se jeho EXIF GPS zapisovala do DB,
+  takže se kreslila značka v mapce lokality, svítil proklik na `/mapa` a
+  ukazovaly se souřadnice (např. nález 7524; nález 843 to měl správně).
+- Nešlo o kontrolu u zápisu: **stav BEZGPS se rozhoduje až po něm**, protože
+  autoritativní je `LokaceStavyPoznamky.json` — nález může být BEZGPS, aniž by
+  to stálo v názvu souboru. Řešeno sweepem na konci meta fáze syncu, který
+  souřadnice takovým nálezům umaže a nahlásí `meta.gps_cleared`. Opraví to
+  i řádky z dřívějších synců; rychlá cesta je `pnpm sync --only=meta`.
+- Lokalitu si nález **ponechá** — patří k místu, jen ho v něm neumíme
+  zapíchnout.
+
+### Svěžest statistik i po admin akcích
+- Admin akce, které mění data pod agregacemi (rekordní nález, mazání výřezů,
+  anonymizace z `/admin/checks`, tabule rozdaných), volaly jen
+  `revalidatePath`, takže `/statistiky` po nich mohly být až 10 minut pozadu.
+  Nově shazují i značku `stats`, stejně jako to dělá sync.
+
 ## 2026-07
 
 ### /statistiky: přepínatelné rekordní panely

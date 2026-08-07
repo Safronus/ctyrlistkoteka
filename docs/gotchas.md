@@ -730,3 +730,28 @@ Ten skript je **vědomá výjimka z pravidla „neposílej data třetím straná
 (CLAUDE.md §9), schválená vlastníkem: běží ručně, ne za provozu, a posílá
 výhradně souřadnice **nezanonymizovaných** lokalit, které jsou stejně veřejné
 na `/mapa`. Anonymizované se nikdy neodesílají.
+
+## 24. BEZGPS nález nesmí mít souřadnice — a sync je musí umazat
+
+Nález se stavem **BEZGPS** znamená „nevíme, kde se našel". Fotka u něj bývá
+pořízená až po utržení a někde jinde, takže její EXIF GPS o místě nálezu
+nevypovídá nic. Přesto se do 2026-08-05 zapisovala (např. nález 7524 měl
+značku v mapce lokality i proklik na `/mapa`).
+
+Proč to nebyla jednořádková oprava u zápisu: **stav BEZGPS se rozhoduje až
+v `phaseMeta`**, protože autoritativní je `LokaceStavyPoznamky.json` — nález
+může být BEZGPS, aniž by to bylo v názvu souboru. Kontrola u zápisu
+souřadnic (`f.parsed.state !== NO_GPS`) proto hlídala jen varování v logu,
+ne samotný zápis, a u LSP-only případů neplatila vůbec.
+
+Řešeno **sweepem na konci `phaseMeta`**, který po přiřazení stavů umaže
+souřadnice všem BEZGPS nálezům a nahlásí `meta.gps_cleared`. Tím se opravují
+i řádky zapsané dřívějšími synci. Rychlá cesta bez procházení fotek:
+
+```bash
+pnpm sync --only=meta
+```
+
+Nález si **lokalitu ponechá** — patří k místu, jen ho v něm neumíme zapíchnout.
+Detail pak ukáže poznámku „bez GPS" místo značky a `/mapa` ho vynechá z bodové
+vrstvy.

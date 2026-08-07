@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublicSurfaces } from "@/lib/revalidate";
 import { appendAudit } from "@/lib/admin/audit";
 import {
   getAdminSession,
@@ -51,6 +52,7 @@ export async function recropFindAction(
     },
   });
 
+  revalidatePublicSurfaces();
   revalidatePath("/admin/checks");
   revalidatePath("/[locale]/sbirka/[id]", "page");
 

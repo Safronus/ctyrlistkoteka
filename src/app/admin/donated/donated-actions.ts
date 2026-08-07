@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublicSurfaces } from "@/lib/revalidate";
 import { FindState } from "@/generated/prisma/enums";
 import { atomicWrite, ensureDir } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
@@ -29,7 +30,7 @@ async function persist(ids: number[]): Promise<void> {
 function refresh() {
   // The home page reads the board; revalidate the whole locale tree so a
   // toggled clover shows / hides on the next visit.
-  revalidatePath("/", "layout");
+  revalidatePublicSurfaces();
   revalidatePath("/admin/donated");
 }
 

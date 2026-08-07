@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublicSurfaces } from "@/lib/revalidate";
 import { prisma } from "@/lib/db";
 import { appendAudit } from "@/lib/admin/audit";
 import { setFindsAnonymized } from "@/lib/admin/findAnonymize";
@@ -68,6 +69,7 @@ export async function anonymizeAnonLocationFinds(): Promise<AnonymizeAnonLocResu
     },
   });
 
+  revalidatePublicSurfaces();
   revalidatePath("/admin/checks");
   revalidatePath("/admin/files/finds");
   revalidatePath("/admin/json/lokace-stavy-poznamky");
