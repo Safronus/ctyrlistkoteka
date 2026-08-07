@@ -7,6 +7,8 @@
  *   pnpm sync --find=16230     # jednotlivý nález pro debug
  *   pnpm sync --force-regen    # přegeneruj WebP i když existují
  *   pnpm sync --prune          # smaž DB orphany (finds, locations,
+ *                              #   POZOR: jen z plného syncu; s --find je to
+ *                              #   odmítnuto (viz parseArgs)
  *                              #   location_maps) + WebP v generated/,
  *                              #   na které už nic v DB neukazuje
  *
@@ -103,6 +105,19 @@ function parseArgs(argv: readonly string[]): Options {
     } else {
       throw new Error(`Unknown argument: "${a}"`);
     }
+  }
+  // --find scans a SINGLE file, and the prune phase treats "what was scanned"
+  // as the complete on-disk inventory — so the two together would report every
+  // other find as an orphan and delete it. (A real `--find` run logs
+  // `orphan_finds=30222` for exactly this reason; without --prune that's just
+  // a harmless report.) There is no use case for the combination, so it's
+  // rejected rather than documented as dangerous.
+  if (opts.findId !== null && opts.prune) {
+    throw new Error(
+      "--find cannot be combined with --prune: --find scans one file, so " +
+        "prune would consider every other find an orphan and delete it. " +
+        "Run --prune only from a full sync.",
+    );
   }
   return opts;
 }

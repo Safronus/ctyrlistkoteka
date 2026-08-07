@@ -101,15 +101,46 @@ ideální pro browser cache (`Cache-Control: immutable`).
 
 ## CLI rozhraní
 
+Skript zná **pět** přepínačů a nic jiného nepřijme (neznámý argument shodí běh
+hned na startu):
+
+| Přepínač | Co dělá | Zapisuje do DB? |
+| --- | --- | --- |
+| *(bez argumentů)* | Plný import: mapy → nálezy → metadata → kontrola osiřelých | ano |
+| `--dry-run` | Jen naparsuje a vypíše plán | **ne** |
+| `--only=maps` | Jen lokační mapy a lokality | ano |
+| `--only=finds` | Jen nálezy (originály + výřezy); mapy se dočtou z DB | ano |
+| `--only=meta` | Jen `LokaceStavyPoznamky.json` — stavy, poznámky, anonymizace | ano |
+| `--find=16230` | Projde jediný nález, na ladění | ano |
+| `--force-regen` | Přegeneruje WebP, i když už na disku jsou | ano |
+| `--prune` | **Smaže** DB řádky, ke kterým na disku není soubor | ano, mazáním |
+
+Kombinovat se dají volně, s jednou výjimkou:
+
+> **`--find` a `--prune` nelze dohromady** a skript to odmítne. `--find` projde
+> jediný soubor, ale fáze prune bere „co se naskenovalo" jako úplný obsah
+> disku — společně by tedy prohlásily všechny ostatní nálezy za osiřelé a
+> smazaly je. Proto `--find=11336` vypíše `orphan_finds=30222`: bez `--prune`
+> je to jen neškodné hlášení.
+
+`--only` s `--prune` nebezpečné **není**: při `--only=maps` a `--only=meta`
+se fáze prune vůbec nespustí, a při `--only=finds` se seznam map i lokalit
+dočte z databáze, takže se za osiřelé neoznačí.
+
+### Co „osiřelé" znamená
+
+Řádek v DB, ke kterému na disku není odpovídající soubor — typicky po smazání
+fotky nebo mapy. **Bez `--prune` se nikdy nic nemaže**, jen se to vypíše jako
+`prune.report`. Balíček map se navíc bere jako **aditivní** — částečný upload
+nikdy nesmí smazat mapy, které prostě neobsahoval.
+
 ```bash
 pnpm sync                    # standardní import
 pnpm sync --dry-run          # vypiš co by se dělo, nic nezapisuj
-pnpm sync --only=maps        # jen lokační mapy a lokality
-pnpm sync --only=finds       # jen nálezy (originály + výřezy)
-pnpm sync --only=meta        # jen JSON metadata (stavy, poznámky)
+pnpm sync --only=meta        # rychlá cesta: jen stavy, poznámky, anonymizace
 pnpm sync --find=16230       # jen jeden nález (debug)
 pnpm sync --force-regen      # přegeneruj WebP i pokud existují
-pnpm sync --prune            # smaž DB záznamy bez odpovídajícího souboru
+pnpm sync --prune            # smaž DB záznamy bez souboru — jen z plného syncu
 ```
 
 ## Logování
