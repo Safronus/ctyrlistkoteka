@@ -40,16 +40,19 @@ function TotalCardSkeleton() {
 
 export function HighlightsSkeleton() {
   return (
-    <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      {[0, 1, 2].map((i) => (
+    // Four cards in a 2×2 grid — must mirror HighlightsSection, otherwise the
+    // layout jumps when the real content lands. Blocks are centred because
+    // the cards are.
+    <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
-          className="space-y-3 rounded-xl border border-gray-200 bg-white p-5"
+          className="flex flex-col items-center space-y-3 rounded-xl border border-gray-200 bg-white p-5"
         >
-          <Block className="h-3 w-1/4" />
-          <Block className="h-7 w-1/3" />
+          <Block className="h-3 w-1/3" />
+          <Block className="h-6 w-1/2" />
           <Block className="h-4 w-2/3" />
-          <Block className="h-4 w-1/2" />
+          <Block className="h-6 w-1/2" />
         </div>
       ))}
     </section>

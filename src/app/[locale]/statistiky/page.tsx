@@ -490,8 +490,17 @@ function HighestPlaceCard({
             </>
           )}
         </p>
-        <p className="mt-0.5 text-center font-mono text-xs text-gray-500">
-          {formatLocationId(place.id)}
+        {/* Number + code together: the number alone identifies the location
+            for someone who knows the collection, the code names it for
+            everyone else. */}
+        <p className="mt-0.5 flex flex-wrap items-baseline justify-center gap-x-1.5 text-center font-mono text-xs text-gray-500">
+          <span>{formatLocationId(place.id)}</span>
+          {place.code && place.code !== String(place.id) && (
+            <>
+              <span className="text-gray-400">·</span>
+              <span className="break-all">{place.code}</span>
+            </>
+          )}
         </p>
       </div>
 
