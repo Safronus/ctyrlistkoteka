@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Oprava: časy nálezů byly posunuté o hodinu až dvě
+- EXIF `DateTimeOriginal` nenese časovou zónu. Sync ho interpretoval v zóně
+  procesu — a ta je na VPS **UTC** — takže nález pořízený ve 20:39 ve Zlíně
+  se uložil jako 20:39 UTC, tedy o dvě hodiny později, než se stal.
+- **Proč si toho nikdo nevšiml:** většina stránek formátovala čas bez zadané
+  zóny, takže ho vypsala zpátky v UTC a chyba se vyrušila. Jen domovská
+  stránka a detail nálezu zónu zadávaly správně — proto u téhož nálezu
+  ukazovaly 22:39, zatímco seznam 20:39.
+- Opraveno na obou stranách zároveň (jedno bez druhého by časy zhoršilo):
+  EXIF se ukotví jako pražský čas a **každé** vykreslení dostává zónu sbírky
+  explicitně. Převod zvládá i přechody letního času a nezávisí na tom, v jaké
+  zóně proces běží.
+- Data se opraví jedním SQL příkazem, sync není potřeba. Detekce „jen datum
+  bez času" se nově ptá na půlnoc v Praze, ne v UTC.
+
+
 ### Údržba závislostí a úklid mrtvých grafů
 - Bump skupiny `minor-and-patch` (14 balíčků). Podstatný je **Next 16.2.12**,
   který nese bezpečnostní 16.2.11 — devět advisories, z toho čtyři High
