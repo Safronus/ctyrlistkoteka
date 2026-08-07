@@ -243,30 +243,30 @@ export function HighlightCards({
                 position="corner"
               />
               <div className="flex flex-1 flex-col justify-center py-2">
-              <FindBody
-                find={distanceCard}
-                locale={locale}
-                t={t}
-                tTime={tTime}
-              />
-              <p
-                className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-500"
-                title={t("distanceFromDefaultTitle")}
-              >
-                <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
-                <span className="font-mono tabular-nums text-gray-900">
-                  {formatDistance(distanceCard.distanceMeters, locale)}
-                </span>
-                <span>{t("distanceFromMapSuffix")}</span>
-                {recordDirection && (
-                  <span className="text-gray-600">
-                    {t("distanceDirection", { direction: recordDirection })}
+                <FindBody
+                  find={distanceCard}
+                  locale={locale}
+                  t={t}
+                  tTime={tTime}
+                />
+                <p
+                  className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-500"
+                  title={t("distanceFromDefaultTitle")}
+                >
+                  <Compass className="h-3.5 w-3.5 text-brand-700" aria-hidden />
+                  <span className="font-mono tabular-nums text-gray-900">
+                    {formatDistance(distanceCard.distanceMeters, locale)}
                   </span>
-                )}
-              </p>
-              <div className="mt-3">
-                <FindButtons find={distanceCard} t={t} />
-              </div>
+                  <span>{t("distanceFromMapSuffix")}</span>
+                  {recordDirection && (
+                    <span className="text-gray-600">
+                      {t("distanceDirection", { direction: recordDirection })}
+                    </span>
+                  )}
+                </p>
+                <div className="mt-3">
+                  <FindButtons find={distanceCard} t={t} />
+                </div>
               </div>
             </div>
             {rosePoints && (
@@ -292,7 +292,9 @@ export function HighlightCards({
               lowest ? t("highlightLowestPlace") : t("highlightHighestPlace")
             }
             toggle={
-              highestPlace && lowestPlace && highestPlace.id !== lowestPlace.id ? (
+              highestPlace &&
+              lowestPlace &&
+              highestPlace.id !== lowestPlace.id ? (
                 <Toggle
                   value={lowest ? "low" : "high"}
                   options={[
@@ -399,14 +401,20 @@ function CardHeader({
   if (position === "corner") {
     // A row, not an absolutely-positioned overlay: the toggle is up to 180 px
     // wide and the narrow card's column only 364 px, so absolute positioning
-    // put it straight over the end of the title. `flex-1` centres the title in
-    // whatever space is left, and both stay on one line — no extra height.
+    // put it straight over the end of the title.
+    //
+    // The empty left spacer is what makes the title sit centred on the CARD
+    // rather than on whatever width the toggle leaves over — both flanks are
+    // `flex-1`, so they claim equal space and the middle lands on the axis.
+    // Without it the title drifts left by half the toggle's width, which is
+    // exactly what it looked like before.
     return (
       <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center">
-        <h2 className="text-balance text-center text-sm font-semibold uppercase tracking-wide text-brand-700 sm:flex-1">
+        <div className="hidden sm:block sm:flex-1" aria-hidden />
+        <h2 className="text-balance text-center text-sm font-semibold uppercase tracking-wide text-brand-700">
           {title}
         </h2>
-        {toggle && <div className="shrink-0">{toggle}</div>}
+        <div className="flex shrink-0 justify-end sm:flex-1">{toggle}</div>
       </div>
     );
   }
@@ -490,7 +498,9 @@ function FindBody({
   return (
     <>
       <p className="text-center text-base font-semibold text-gray-900">
-        {date ? formatDateTimeCs(date, locale, COLLECTION_TIME_ZONE) : t("missingDate")}
+        {date
+          ? formatDateTimeCs(date, locale, COLLECTION_TIME_ZONE)
+          : t("missingDate")}
       </p>
       {date && (
         <p className="text-center text-xs text-gray-500">

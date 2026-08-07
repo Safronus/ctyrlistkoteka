@@ -561,9 +561,6 @@ export interface StatsCalendarResult {
   /** First year with at least one find — drives the year axis on the
    *  yearly chart so empty leading years render as zero columns. */
   firstYear: number | null;
-  /** Longest run of consecutive calendar days that each had at least one
-   *  find (no day skipped). Null when the collection is empty. */
-  longestDayStreak: DayStreak | null;
 }
 
 export interface DayStreak {
@@ -847,9 +844,7 @@ async function getStatsTimeAndPaceImpl(): Promise<StatsTimeAndPaceResult> {
   // GROUP-BY-EXTRACT under a single sequential scan, so it costs only
   // marginally more than the bare COUNT(*).
   const [anchor, yearlyRows, bestSessionRows] = await Promise.all([
-    prisma.$queryRaw<
-      Array<{ first_found_at: Date | null; total: bigint }>
-    >`
+    prisma.$queryRaw<Array<{ first_found_at: Date | null; total: bigint }>>`
       SELECT MIN(found_at) AS first_found_at,
              COUNT(*) FILTER (WHERE found_at IS NOT NULL) AS total
       FROM finds
@@ -2147,7 +2142,6 @@ async function getStatsCalendarImpl(): Promise<StatsCalendarResult> {
     monthDayRows,
     minuteRows,
     totalsRow,
-    streakRows,
   ] = await Promise.all([
     prisma.$queryRaw<Array<{ year: number; count: bigint }>>`
         SELECT EXTRACT(YEAR FROM found_at)::int AS year, COUNT(*) AS count
@@ -2195,59 +2189,7 @@ async function getStatsCalendarImpl(): Promise<StatsCalendarResult> {
         ORDER BY 1, 2
       `,
     fetchTotalsRow(),
-    // Longest streak of consecutive days each with >=1 find (gaps-and-
-    // islands). The day is the find's UTC wall-clock date — the same
-    // value shown everywhere else — so the streak lines up with what the
-    // visitor reads on each find. `d - row_number()` is constant within a
-    // run of consecutive dates, which groups the runs; the two correlated
-    // subqueries pick the earliest / latest find inside the winning run.
-    prisma.$queryRaw<
-      Array<{
-        len: number;
-        start_d: string;
-        end_d: string;
-        first_id: number | null;
-        last_id: number | null;
-      }>
-    >`
-      WITH per_find AS (
-        SELECT id, found_at, (found_at AT TIME ZONE 'UTC')::date AS d
-        FROM finds WHERE found_at IS NOT NULL
-      ),
-      days AS (SELECT DISTINCT d FROM per_find),
-      grp AS (
-        SELECT d, (d - (ROW_NUMBER() OVER (ORDER BY d))::int) AS g FROM days
-      ),
-      runs AS (
-        SELECT MIN(d) AS start_d, MAX(d) AS end_d, COUNT(*)::int AS len
-        FROM grp GROUP BY g
-      ),
-      best AS (
-        SELECT start_d, end_d, len
-        FROM runs ORDER BY len DESC, start_d ASC LIMIT 1
-      )
-      SELECT
-        b.len,
-        to_char(b.start_d, 'YYYY-MM-DD') AS start_d,
-        to_char(b.end_d, 'YYYY-MM-DD') AS end_d,
-        (SELECT id FROM per_find WHERE d >= b.start_d AND d <= b.end_d
-          ORDER BY found_at ASC, id ASC LIMIT 1) AS first_id,
-        (SELECT id FROM per_find WHERE d >= b.start_d AND d <= b.end_d
-          ORDER BY found_at DESC, id DESC LIMIT 1) AS last_id
-      FROM best b
-    `,
   ]);
-  const streakRow = streakRows[0];
-  const longestDayStreak: DayStreak | null =
-    streakRow && streakRow.first_id !== null && streakRow.last_id !== null
-      ? {
-          days: streakRow.len,
-          startDate: streakRow.start_d,
-          endDate: streakRow.end_d,
-          firstFindId: streakRow.first_id,
-          lastFindId: streakRow.last_id,
-        }
-      : null;
   return {
     byHour: hourRows.map((r) => ({ key: r.hour, count: Number(r.count) })),
     byDayOfWeek: dowRows.map((r) => ({ key: r.dow, count: Number(r.count) })),
@@ -2270,7 +2212,59 @@ async function getStatsCalendarImpl(): Promise<StatsCalendarResult> {
       count: Number(r.count),
     })),
     firstYear: totalsRow?.first_year ?? null,
-    longestDayStreak,
+  };
+}
+
+// Longest streak of consecutive days each with >=1 find (gaps-and-
+// islands). The day is the find's UTC wall-clock date — the same
+// value shown everywhere else — so the streak lines up with what the
+// visitor reads on each find. `d - row_number()` is constant within a
+// run of consecutive dates, which groups the runs; the two correlated
+// subqueries pick the earliest / latest find inside the winning run.
+async function getLongestDayStreakImpl(): Promise<DayStreak | null> {
+  const rows = await prisma.$queryRaw<
+    Array<{
+      len: number;
+      start_d: string;
+      end_d: string;
+      first_id: number | null;
+      last_id: number | null;
+    }>
+  >`
+  WITH per_find AS (
+    SELECT id, found_at, (found_at AT TIME ZONE 'UTC')::date AS d
+    FROM finds WHERE found_at IS NOT NULL
+  ),
+  days AS (SELECT DISTINCT d FROM per_find),
+  grp AS (
+    SELECT d, (d - (ROW_NUMBER() OVER (ORDER BY d))::int) AS g FROM days
+  ),
+  runs AS (
+    SELECT MIN(d) AS start_d, MAX(d) AS end_d, COUNT(*)::int AS len
+    FROM grp GROUP BY g
+  ),
+  best AS (
+    SELECT start_d, end_d, len
+    FROM runs ORDER BY len DESC, start_d ASC LIMIT 1
+  )
+  SELECT
+    b.len,
+    to_char(b.start_d, 'YYYY-MM-DD') AS start_d,
+    to_char(b.end_d, 'YYYY-MM-DD') AS end_d,
+    (SELECT id FROM per_find WHERE d >= b.start_d AND d <= b.end_d
+      ORDER BY found_at ASC, id ASC LIMIT 1) AS first_id,
+    (SELECT id FROM per_find WHERE d >= b.start_d AND d <= b.end_d
+      ORDER BY found_at DESC, id DESC LIMIT 1) AS last_id
+  FROM best b
+`;
+  const row = rows[0];
+  if (!row || row.first_id === null || row.last_id === null) return null;
+  return {
+    days: row.len,
+    startDate: row.start_d,
+    endDate: row.end_d,
+    firstFindId: row.first_id,
+    lastFindId: row.last_id,
   };
 }
 
@@ -2279,9 +2273,7 @@ async function getStatsDistanceImpl(): Promise<StatsDistanceResult> {
   // Anonymized finds and finds without GPS are excluded — same rule as
   // the farthest-find query. Returns sparse (zero buckets are omitted);
   // the page fills them with zeros for a stable axis.
-  const rows = await prisma.$queryRaw<
-    Array<{ bucket: number; count: bigint }>
-  >`
+  const rows = await prisma.$queryRaw<Array<{ bucket: number; count: bigint }>>`
     WITH ref AS (
       SELECT center_point AS pt FROM locations
       WHERE id = ${DISTANCE_ORIGIN_LOCATION_ID}
@@ -2586,7 +2578,10 @@ async function getStatsDeviationsImpl(): Promise<StatsDeviationsResult> {
           meters: top.offset_m,
           mode: top.mode,
           foundAt: top.found_at ? top.found_at.toISOString() : null,
-          location: { code: top.code, displayName: localName(top.id, top.display_name) },
+          location: {
+            code: top.code,
+            displayName: localName(top.id, top.display_name),
+          },
           findLat: top.f_lat,
           findLng: top.f_lng,
           locLat: top.c_lat,
@@ -2676,9 +2671,7 @@ function toPeakBucket(
  *  stats page needs. `getStatsTotals` reads cityCount/countryCount;
  *  `getStatsGeo` reads byCountry/byCity. Both share the cached
  *  `fetchGeoLocRows()` so the heavy LEFT JOIN runs once per request. */
-function buildGeoBreakdowns(
-  rows: ReadonlyArray<GeoLocRow>,
-): {
+function buildGeoBreakdowns(rows: ReadonlyArray<GeoLocRow>): {
   byCountry: CountryPoint[];
   byCity: CategoryPoint[];
   /** Finds per Czech region (kraj). Points outside ČR don't contribute. */
@@ -2825,6 +2818,13 @@ export const getStatsGeo = statsCache(getStatsGeoImpl, "stats-geo");
 export const getStatsCalendar = statsCache(
   getStatsCalendarImpl,
   "stats-calendar",
+);
+// Separate from the calendar bundle since 2026-08: the streak is rendered
+// in the "Odhadovaná doba sbírání" panel, and pulling the whole calendar
+// result there would make that card wait on the minute heatmap query.
+export const getLongestDayStreak = statsCache(
+  getLongestDayStreakImpl,
+  "stats-day-streak",
 );
 export const getStatsDistance = statsCache(
   getStatsDistanceImpl,

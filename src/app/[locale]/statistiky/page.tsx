@@ -50,6 +50,7 @@ import {
   getStatsJubilees,
   getStatsPeaks,
   getStatsTimeAndPace,
+  getLongestDayStreak,
   getStatsTopLocations,
   getStatsTotals,
   type BestSessionEntry,
@@ -237,11 +238,7 @@ async function TopFindsSection() {
     getTopFindsWithThumbs({ limit: 10, windowDays: 30 }),
   ]);
   return (
-    <TopFindsLeaderboard
-      allTime={allTime}
-      yearly={yearly}
-      monthly={monthly}
-    />
+    <TopFindsLeaderboard allTime={allTime} yearly={yearly} monthly={monthly} />
   );
 }
 
@@ -409,7 +406,9 @@ async function HighlightsSection() {
   // Country label + flag are resolved HERE, not in the client component: the
   // lookup pulls in the Natural Earth dataset, which has no business in the
   // browser bundle for one line of text.
-  const toPlaceView = (p: LocationAltitudePoint | null): PlaceCardView | null =>
+  const toPlaceView = (
+    p: LocationAltitudePoint | null,
+  ): PlaceCardView | null =>
     p
       ? {
           id: p.id,
@@ -418,7 +417,11 @@ async function HighlightsSection() {
           altitudeSource: p.altitudeSource,
           city: p.city,
           countryLabel: p.countryName
-            ? localizedCountryName(p.countryName, locale, p.countryCode ?? undefined)
+            ? localizedCountryName(
+                p.countryName,
+                locale,
+                p.countryCode ?? undefined,
+              )
             : null,
           countryFlag: (() => {
             const a2 = p.countryCode ? alpha2FromNumeric(p.countryCode) : null;
@@ -463,19 +466,18 @@ function DeviationsSkeleton() {
 }
 
 async function TimeAndPaceSection() {
-  const data = await getStatsTimeAndPace();
+  const [data, streak] = await Promise.all([
+    getStatsTimeAndPace(),
+    getLongestDayStreak(),
+  ]);
   if (data.totalFindsWithDate === 0) return null;
   const t = await getTranslations("Statistiky");
   const locale = await getLocale();
   return (
     <div className="space-y-6">
-      <TimeAndPaceCard data={data} t={t} locale={locale} />
+      <TimeAndPaceCard data={data} streak={streak} t={t} locale={locale} />
       {data.bestSessions.length > 0 && (
-        <BestSessionsCard
-          sessions={data.bestSessions}
-          t={t}
-          locale={locale}
-        />
+        <BestSessionsCard sessions={data.bestSessions} t={t} locale={locale} />
       )}
     </div>
   );
@@ -554,7 +556,6 @@ const MONTH_KEYS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 async function CalendarSection() {
   const t = await getTranslations("Statistiky");
-  const locale = await getLocale();
   const data = await getStatsCalendar();
   return (
     <CalendarStatsSection
@@ -565,9 +566,7 @@ async function CalendarSection() {
       firstYear={data.firstYear}
       byMonthDay={data.byMonthDay}
       byMinute={data.byMinute}
-      longestDayStreak={data.longestDayStreak}
       t={t}
-      locale={locale}
     />
   );
 }
@@ -616,16 +615,10 @@ function TotalCard({
   const subStatsBorder =
     tone === "brand" ? "border-brand-200" : "border-gray-100";
   return (
-    <div
-      className={`rounded-xl border border-gray-200 ${bg} p-6 text-center`}
-    >
+    <div className={`rounded-xl border border-gray-200 ${bg} p-6 text-center`}>
       {hasCorners ? (
         <div className="grid grid-cols-3 items-start gap-2">
-          {cornerLeft ? (
-            <CornerStat stat={cornerLeft} align="left" />
-          ) : (
-            <div />
-          )}
+          {cornerLeft ? <CornerStat stat={cornerLeft} align="left" /> : <div />}
           <MainNumber
             value={value}
             label={label}
@@ -692,10 +685,16 @@ function TotalCard({
 
 function TimeAndPaceCard({
   data,
+  streak,
   t,
   locale,
 }: {
   data: StatsTimeAndPaceResult;
+  /** Longest run of consecutive find-days. Sits between the estimate and
+   *  the per-year breakdown because it answers the same question they do
+   *  — how the collecting was spread over time — which the calendar
+   *  section's heatmap toggles never did. */
+  streak: DayStreak | null;
   t: StatsT;
   locale: string;
 }) {
@@ -710,6 +709,8 @@ function TimeAndPaceCard({
 
       <TimePaceSummary data={data} t={t} locale={locale} />
 
+      {streak && <DayStreakInfo streak={streak} t={t} locale={locale} />}
+
       {data.perYearStats.length > 0 && (
         <div className="border-t border-gray-100 pt-5">
           <YearlyPaceBlock entries={data.perYearStats} />
@@ -718,7 +719,6 @@ function TimeAndPaceCard({
     </section>
   );
 }
-
 
 /** "Nejvíce čtyřlístků na jeden zátah" — top single collecting bouts
  *  (global 15-min-gap sessions). Mirrors the TimeAndPace top split:
@@ -911,9 +911,7 @@ function DeviationStatsCard({
         <p className="text-sm text-gray-600">{t("deviationNone")}</p>
       ) : (
         <>
-          <p className="text-xs text-gray-500">
-            {t("deviationSubtitle")}
-          </p>
+          <p className="text-xs text-gray-500">{t("deviationSubtitle")}</p>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <DeviationStat label={t("deviationProbabilityLabel")}>
@@ -964,24 +962,24 @@ function DeviationStatsCard({
             {/* Direction rose — dominant octant + 8-way distribution. */}
             <div className="rounded-lg border border-brand-100 bg-white p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                {t("deviationDirectionLabel")}
-              </p>
-              {dom !== null && (
-                <p className="text-sm text-gray-900">
-                  <Compass
-                    className="mr-1 inline h-4 w-4 text-brand-700 align-text-bottom"
-                    aria-hidden
-                  />
-                  <span className="font-semibold">
-                    {t(`compassName${dom}`)}
-                  </span>{" "}
-                  <span className="font-mono text-gray-500">
-                    ({t(`compassAbbr${dom}`)})
-                  </span>
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+                  {t("deviationDirectionLabel")}
                 </p>
-              )}
-            </div>
+                {dom !== null && (
+                  <p className="text-sm text-gray-900">
+                    <Compass
+                      className="mr-1 inline h-4 w-4 text-brand-700 align-text-bottom"
+                      aria-hidden
+                    />
+                    <span className="font-semibold">
+                      {t(`compassName${dom}`)}
+                    </span>{" "}
+                    <span className="font-mono text-gray-500">
+                      ({t(`compassAbbr${dom}`)})
+                    </span>
+                  </p>
+                )}
+              </div>
               <div className="mt-3">
                 <DeviationCompass
                   points={compassPoints}
@@ -992,125 +990,128 @@ function DeviationStatsCard({
             </div>
 
             <div className="flex flex-col gap-3">
-            {data.topLocation && (
-              <DeviationStat
-                label={t("deviationTopLocationLabel")}
-                className="flex-1"
-              >
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <Link
-                    href={locationDetailHref(data.topLocation.id)}
-                    className="inline-flex items-baseline gap-1 font-mono text-sm font-semibold text-brand-700 hover:underline"
-                    title={t("deviationTopLocationAt")}
-                  >
-                    <MapPin
-                      className="h-3.5 w-3.5 shrink-0 translate-y-0.5 text-brand-700"
-                      aria-hidden
-                    />
-                    {data.topLocation.code}
-                  </Link>
-                  <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
-                    {pctFmt.format(data.topLocation.rate)}
-                  </span>
-                </div>
-                {data.topLocation.displayName !== data.topLocation.code && (
-                  <p
-                    className="truncate text-xs text-gray-500"
-                    title={data.topLocation.displayName}
-                  >
-                    {data.topLocation.displayName}
-                  </p>
-                )}
-                <p className="mt-0.5 text-xs text-gray-500">
-                  {t("deviationTopLocationStat", {
-                    deviated: numFmt.format(data.topLocation.deviated),
-                    total: numFmt.format(data.topLocation.total),
-                  })}
-                </p>
-                <div className="mt-auto flex flex-wrap justify-center gap-2 pt-3">
-                  <Link
-                    href={`/mapa?focus=${data.topLocation.id}`}
-                    className={`${DEVIATION_BTN} text-gray-600 hover:text-brand-700`}
-                    title={t("showOnMapTitle")}
-                  >
-                    <MapPin className="h-3.5 w-3.5" aria-hidden />
-                    {t("showOnMapLabel")}
-                  </Link>
-                  <Link
-                    href={`/sbirka?loc=${data.topLocation.id}`}
-                    className={`${DEVIATION_BTN} text-brand-700`}
-                    title={t("deviationShowFindsTitle")}
-                  >
-                    <Search className="h-3.5 w-3.5" aria-hidden />
-                    {t("deviationShowFinds")}
-                  </Link>
-                </div>
-              </DeviationStat>
-            )}
-
-            {data.mostDeviated && (
-              <DeviationStat
-                label={t("deviationMostDeviatedLabel")}
-                className="flex-1"
-              >
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-mono text-sm font-semibold text-brand-700">
-                    #{data.mostDeviated.id}
-                  </span>
-                  <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
-                    {formatDistance(data.mostDeviated.meters, locale)}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {data.mostDeviated.mode === "polygon"
-                      ? t("deviationModePolygon")
-                      : t("deviationModeCenter")}
-                  </span>
-                </div>
-                {data.mostDeviated.location && (
-                  <p className="font-mono text-xs text-gray-500">
-                    {data.mostDeviated.location.code}
-                  </p>
-                )}
-                <dl className="mt-1 space-y-0.5 text-xs">
-                  <div className="flex gap-1.5">
-                    <dt className="text-gray-600">{t("deviationGpsFind")}</dt>
-                    <dd className="font-mono text-gray-600">
-                      {coord(data.mostDeviated.findLat, data.mostDeviated.findLng)}
-                    </dd>
+              {data.topLocation && (
+                <DeviationStat
+                  label={t("deviationTopLocationLabel")}
+                  className="flex-1"
+                >
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <Link
+                      href={locationDetailHref(data.topLocation.id)}
+                      className="inline-flex items-baseline gap-1 font-mono text-sm font-semibold text-brand-700 hover:underline"
+                      title={t("deviationTopLocationAt")}
+                    >
+                      <MapPin
+                        className="h-3.5 w-3.5 shrink-0 translate-y-0.5 text-brand-700"
+                        aria-hidden
+                      />
+                      {data.topLocation.code}
+                    </Link>
+                    <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
+                      {pctFmt.format(data.topLocation.rate)}
+                    </span>
                   </div>
-                  {data.mostDeviated.locLat !== null &&
-                    data.mostDeviated.locLng !== null && (
-                      <div className="flex gap-1.5">
-                        <dt className="text-gray-600">
-                          {t("deviationGpsLocation")}
-                        </dt>
-                        <dd className="font-mono text-gray-600">
-                          {coord(
-                            data.mostDeviated.locLat,
-                            data.mostDeviated.locLng,
-                          )}
-                        </dd>
-                      </div>
-                    )}
-                </dl>
-                <div className="mt-auto flex flex-wrap justify-center gap-2 pt-3">
-                  <Link
-                    href={`/sbirka/${data.mostDeviated.id}`}
-                    className={`${DEVIATION_BTN} text-brand-700`}
-                  >
-                    {t("deviationOpenDetail")}
-                  </Link>
-                  <Link
-                    href={`/mapa?find=${data.mostDeviated.id}`}
-                    className={`${DEVIATION_BTN} text-gray-600 hover:text-brand-700`}
-                    title={t("showOnMapTitle")}
-                  >
-                    <MapPin className="h-3.5 w-3.5" aria-hidden />
-                    {t("showOnMapLabel")}
-                  </Link>
-                </div>
-              </DeviationStat>
-            )}
+                  {data.topLocation.displayName !== data.topLocation.code && (
+                    <p
+                      className="truncate text-xs text-gray-500"
+                      title={data.topLocation.displayName}
+                    >
+                      {data.topLocation.displayName}
+                    </p>
+                  )}
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    {t("deviationTopLocationStat", {
+                      deviated: numFmt.format(data.topLocation.deviated),
+                      total: numFmt.format(data.topLocation.total),
+                    })}
+                  </p>
+                  <div className="mt-auto flex flex-wrap justify-center gap-2 pt-3">
+                    <Link
+                      href={`/mapa?focus=${data.topLocation.id}`}
+                      className={`${DEVIATION_BTN} text-gray-600 hover:text-brand-700`}
+                      title={t("showOnMapTitle")}
+                    >
+                      <MapPin className="h-3.5 w-3.5" aria-hidden />
+                      {t("showOnMapLabel")}
+                    </Link>
+                    <Link
+                      href={`/sbirka?loc=${data.topLocation.id}`}
+                      className={`${DEVIATION_BTN} text-brand-700`}
+                      title={t("deviationShowFindsTitle")}
+                    >
+                      <Search className="h-3.5 w-3.5" aria-hidden />
+                      {t("deviationShowFinds")}
+                    </Link>
+                  </div>
+                </DeviationStat>
+              )}
+
+              {data.mostDeviated && (
+                <DeviationStat
+                  label={t("deviationMostDeviatedLabel")}
+                  className="flex-1"
+                >
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-mono text-sm font-semibold text-brand-700">
+                      #{data.mostDeviated.id}
+                    </span>
+                    <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
+                      {formatDistance(data.mostDeviated.meters, locale)}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {data.mostDeviated.mode === "polygon"
+                        ? t("deviationModePolygon")
+                        : t("deviationModeCenter")}
+                    </span>
+                  </div>
+                  {data.mostDeviated.location && (
+                    <p className="font-mono text-xs text-gray-500">
+                      {data.mostDeviated.location.code}
+                    </p>
+                  )}
+                  <dl className="mt-1 space-y-0.5 text-xs">
+                    <div className="flex gap-1.5">
+                      <dt className="text-gray-600">{t("deviationGpsFind")}</dt>
+                      <dd className="font-mono text-gray-600">
+                        {coord(
+                          data.mostDeviated.findLat,
+                          data.mostDeviated.findLng,
+                        )}
+                      </dd>
+                    </div>
+                    {data.mostDeviated.locLat !== null &&
+                      data.mostDeviated.locLng !== null && (
+                        <div className="flex gap-1.5">
+                          <dt className="text-gray-600">
+                            {t("deviationGpsLocation")}
+                          </dt>
+                          <dd className="font-mono text-gray-600">
+                            {coord(
+                              data.mostDeviated.locLat,
+                              data.mostDeviated.locLng,
+                            )}
+                          </dd>
+                        </div>
+                      )}
+                  </dl>
+                  <div className="mt-auto flex flex-wrap justify-center gap-2 pt-3">
+                    <Link
+                      href={`/sbirka/${data.mostDeviated.id}`}
+                      className={`${DEVIATION_BTN} text-brand-700`}
+                    >
+                      {t("deviationOpenDetail")}
+                    </Link>
+                    <Link
+                      href={`/mapa?find=${data.mostDeviated.id}`}
+                      className={`${DEVIATION_BTN} text-gray-600 hover:text-brand-700`}
+                      title={t("showOnMapTitle")}
+                    >
+                      <MapPin className="h-3.5 w-3.5" aria-hidden />
+                      {t("showOnMapLabel")}
+                    </Link>
+                  </div>
+                </DeviationStat>
+              )}
             </div>
           </div>
         </>
@@ -1181,9 +1182,7 @@ function MainNumber({
        *  tile keeps the same height as the location tile next to it. */}
       <p className="mt-1 text-sm text-gray-600">
         {label}
-        {hint && (
-          <span className="text-gray-600"> ({hint})</span>
-        )}
+        {hint && <span className="text-gray-600"> ({hint})</span>}
       </p>
     </div>
   );
@@ -1312,7 +1311,6 @@ function GeoStatsSection({
   );
 }
 
-
 function fillSeries(
   data: readonly CalendarPoint[],
   keys: readonly number[],
@@ -1330,9 +1328,7 @@ function CalendarStatsSection({
   firstYear,
   byMonthDay,
   byMinute,
-  longestDayStreak,
   t,
-  locale,
 }: {
   byHour: readonly CalendarPoint[];
   byDayOfWeek: readonly CalendarPoint[];
@@ -1341,9 +1337,7 @@ function CalendarStatsSection({
   firstYear: number | null;
   byMonthDay: readonly MonthDayPoint[];
   byMinute: readonly MinuteHeatmapCell[];
-  longestDayStreak: DayStreak | null;
   t: StatsT;
-  locale: string;
 }) {
   const hourly = fillSeries(byHour, HOUR_KEYS);
   const daily = fillSeries(byDayOfWeek, DOW_KEYS);
@@ -1409,22 +1403,17 @@ function CalendarStatsSection({
         <CalendarHeatmapTabs
           daysView={<MonthDayHeatmap data={byMonthDay} t={t} />}
           minuteCells={byMinute}
-          streakSlot={
-            longestDayStreak ? (
-              <DayStreakInfo streak={longestDayStreak} t={t} locale={locale} />
-            ) : null
-          }
         />
       </div>
     </CollapsibleSection>
   );
 }
 
-/** Right-aligned summary in the heatmap toggle row: the longest run of
- *  consecutive days that each had a find, with a click-through to the
- *  first + last find of the run (mirrors the #min → #max link style used
- *  elsewhere). Server-rendered so date formatting + the i18n Link stay
- *  off the client. */
+/** Full-width row inside the "Odhadovaná doba sbírání" card: the longest
+ *  run of consecutive days that each had a find, with a click-through to
+ *  the first + last find of the run (mirrors the #min → #max link style
+ *  used elsewhere). Server-rendered so date formatting + the i18n Link
+ *  stay off the client. */
 function DayStreakInfo({
   streak,
   t,
@@ -1435,11 +1424,11 @@ function DayStreakInfo({
   locale: string;
 }) {
   return (
-    <div className="text-left text-xs leading-snug sm:text-right">
+    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-center text-xs leading-snug">
       <p className="font-medium uppercase tracking-wide text-brand-700">
         {t("streakHeading")}
       </p>
-      <p className="mt-0.5 text-gray-600">
+      <p className="mt-1 text-gray-600">
         <span className="font-semibold text-gray-900">
           {t("streakDays", { count: streak.days })}
         </span>
@@ -1509,8 +1498,18 @@ function monthShortKey(k: number, t: StatsT): string {
 }
 
 const DAYS_PER_MONTH: Record<number, number> = {
-  1: 31, 2: 29, 3: 31, 4: 30, 5: 31, 6: 30,
-  7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31,
+  1: 31,
+  2: 29,
+  3: 31,
+  4: 30,
+  5: 31,
+  6: 30,
+  7: 31,
+  8: 31,
+  9: 30,
+  10: 31,
+  11: 30,
+  12: 31,
 };
 
 const HEATMAP_EMPTY_BG = "oklch(0.97 0.04 145)";
@@ -1705,9 +1704,7 @@ function CalendarSubsection({
       <div className="mt-1 flex h-12 gap-1 sm:h-auto">
         {data.map((d) => (
           <div key={d.key} className="relative flex-1">
-            <span
-              className="absolute right-1/2 top-0 origin-top-right -rotate-45 whitespace-nowrap font-mono text-[10px] text-gray-500 sm:static sm:right-auto sm:block sm:translate-x-0 sm:truncate sm:rotate-0 sm:text-center"
-            >
+            <span className="absolute right-1/2 top-0 origin-top-right -rotate-45 whitespace-nowrap font-mono text-[10px] text-gray-500 sm:static sm:right-auto sm:block sm:translate-x-0 sm:truncate sm:rotate-0 sm:text-center">
               {labelShort(d.key)}
             </span>
           </div>
@@ -1814,10 +1811,8 @@ function PeakBucketsSection({
     peaks.month ||
     peaks.year;
   if (!anyPeak) return null;
-  const anySliding =
-    peaks.slidingHour || peaks.slidingDay || peaks.slidingWeek;
-  const anyFastest =
-    peaks.fastest10 || peaks.fastest100 || peaks.fastest1000;
+  const anySliding = peaks.slidingHour || peaks.slidingDay || peaks.slidingWeek;
+  const anyFastest = peaks.fastest10 || peaks.fastest100 || peaks.fastest1000;
 
   const cards: ReadonlyArray<{
     granularity: PeakGranularity;
@@ -2160,7 +2155,9 @@ function PeakFastestCard({
           </p>
         </>
       ) : (
-        <p className="px-2.5 pb-2.5 pt-1 text-center text-sm text-gray-400">—</p>
+        <p className="px-2.5 pb-2.5 pt-1 text-center text-sm text-gray-400">
+          —
+        </p>
       )}
     </div>
   );
@@ -2222,9 +2219,7 @@ function PeakBucketCard({
   // Only the hour / day / month buckets are tinted grey; minute, week
   // and year stay white.
   const tinted =
-    granularity === "hour" ||
-    granularity === "day" ||
-    granularity === "month";
+    granularity === "hour" || granularity === "day" || granularity === "month";
   return (
     <div
       className={`flex flex-col rounded-xl border border-gray-200 p-2.5 ${
@@ -2375,8 +2370,7 @@ function JubileeFindsSection({
     (_, i) => (i + 1) * 1000,
   );
   type Slot =
-    | { kind: "find"; find: JubileeFind }
-    | { kind: "empty"; id: number };
+    { kind: "find"; find: JubileeFind } | { kind: "empty"; id: number };
   const jubileeById = new Map(jubilees.map((j) => [j.id, j]));
   const buildSlots = (ids: readonly number[]): readonly Slot[] =>
     ids.map((id) => {
@@ -2613,7 +2607,9 @@ function JubileeCard({
           #{find.id}
         </span>
         <span className="text-xs text-gray-500">
-          {date ? formatDateTimeCs(date, locale, COLLECTION_TIME_ZONE) : t("jubileeUnknownDate")}
+          {date
+            ? formatDateTimeCs(date, locale, COLLECTION_TIME_ZONE)
+            : t("jubileeUnknownDate")}
         </span>
       </Link>
       {showMapLink && (

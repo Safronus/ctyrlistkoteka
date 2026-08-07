@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Doladění statistik a filtrů v QR seznamu
+- **Statistiky:** „Nejdelší série dnů s nalezeným 🍀" se přesunula z kalendářní
+  sekce (kde visela vedle přepínačů teplotní mapy) do panelu „Odhadovaná doba
+  sbírání" jako samostatný řádek přes celou šířku nad čárou oddělující
+  „Průměrné tempo v roce". Sedí tam líp — odpovídá na stejnou otázku jako
+  zbytek panelu, tedy jak bylo sbírání rozložené v čase.
+- Titulky panelů „První a poslední 🍀" a „Nejvýše nalezené 🍀" jsou nově na
+  ose panelu, ne na ose zbylého místa vedle přepínače. Dřív se o půlku šířky
+  přepínače posouvaly doleva; přepínač zůstal, kde byl.
+- **`/admin/qr`:** seznam nálezů umí hledat i **v poznámce** (bez ohledu na
+  diakritiku — „zahrade" najde „zahradě") a **řadit podle čísla nálezu**
+  přepínačem Nejnovější / Nejstarší. Výchozí je nejnovější, protože sbírka
+  jenom roste a tisknou se hlavně čerstvé přírůstky.
+
 ### QR kódy: dvě záložky, sbalitelný seznam s výběrem a rušení kódů
 - `/admin/qr` je rozdělená na **dvě záložky** — „QR nálezů" a „QR stránek".
   Každá si nese vlastní počty aktivních kódů a naskenování, takže se čísla

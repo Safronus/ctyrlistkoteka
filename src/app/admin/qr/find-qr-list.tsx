@@ -15,6 +15,7 @@ import {
   Pin,
   RotateCcw,
   Search,
+  StickyNote,
 } from "lucide-react";
 import {
   previewFindQrAction,
@@ -43,11 +44,16 @@ export interface FindQrListItem {
 }
 
 type Filter = "donated" | "pinned" | "all";
+type Order = "desc" | "asc";
 
 const FILTER_OPTS = [
   { v: "donated", l: "Darované" },
   { v: "pinned", l: "Vlastní" },
   { v: "all", l: "Všechny" },
+];
+const ORDER_OPTS = [
+  { v: "desc", l: "Nejnovější", title: "Od nejvyššího čísla nálezu" },
+  { v: "asc", l: "Nejstarší", title: "Od nejnižšího čísla nálezu" },
 ];
 
 export function FindQrList({
@@ -72,32 +78,41 @@ export function FindQrList({
   const [open, setOpen] = useState(true);
   const [filter, setFilter] = useState<Filter>("donated");
   const [query, setQuery] = useState("");
+  const [noteQuery, setNoteQuery] = useState("");
   const [onlyScanned, setOnlyScanned] = useState(false);
+  // Newest first by default: the collection only grows, so the codes worth
+  // printing are almost always the ones just added.
+  const [order, setOrder] = useState<Order>("desc");
   const [busy, startBusy] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
 
   const { active, revoked } = useMemo(() => {
     const q = query.trim();
-    const matches = (i: FindQrListItem) => {
+    // Diacritics-insensitive so "chate" finds "chatě" — the notes are Czech
+    // free text and nobody types the háčky when searching.
+    const nq = fold(noteQuery);
+    const common = (i: FindQrListItem) => {
       if (q && !String(i.findId).includes(q)) return false;
+      if (nq && !fold(i.note ?? "").includes(nq)) return false;
       if (onlyScanned && i.scansTotal === 0) return false;
+      return true;
+    };
+    const byOrder = (a: FindQrListItem, b: FindQrListItem) =>
+      order === "desc" ? b.findId - a.findId : a.findId - b.findId;
+    const matches = (i: FindQrListItem) => {
+      if (!common(i)) return false;
       if (filter === "donated") return i.donated;
       if (filter === "pinned") return i.pinned && !i.donated;
       return true;
     };
     return {
-      active: items.filter((i) => !i.revoked && matches(i)),
+      active: items.filter((i) => !i.revoked && matches(i)).sort(byOrder),
       // Revoked rows ignore the donated/pinned filter — the point of the
       // section is "everything I retired", regardless of how it got listed.
-      revoked: items.filter(
-        (i) =>
-          i.revoked &&
-          (!q || String(i.findId).includes(q)) &&
-          (!onlyScanned || i.scansTotal > 0),
-      ),
+      revoked: items.filter((i) => i.revoked && common(i)).sort(byOrder),
     };
-  }, [items, filter, query, onlyScanned]);
+  }, [items, filter, query, noteQuery, onlyScanned, order]);
 
   const visibleIds = active.map((i) => i.findId);
   const allChecked =
@@ -161,6 +176,25 @@ export function FindQrList({
                 className={`${INPUT_CLS} w-36 py-1 pl-7 text-xs`}
               />
             </div>
+            <div className="relative">
+              <StickyNote
+                className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
+                aria-hidden
+              />
+              <input
+                type="search"
+                value={noteQuery}
+                onChange={(e) => setNoteQuery(e.target.value)}
+                placeholder="Hledat v poznámce"
+                aria-label="Hledat v poznámce nálezu"
+                className={`${INPUT_CLS} w-44 py-1 pl-7 text-xs`}
+              />
+            </div>
+            <Seg
+              value={order}
+              onChange={(v) => setOrder(v as Order)}
+              options={ORDER_OPTS}
+            />
             <label className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-700">
               <input
                 type="checkbox"
@@ -280,6 +314,15 @@ export function FindQrList({
       )}
     </div>
   );
+}
+
+/** Lowercased and stripped of diacritics, so a Czech note search works
+ *  without the user reproducing háčky and čárky. */
+function fold(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function Row({

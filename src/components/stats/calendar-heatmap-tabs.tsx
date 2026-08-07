@@ -20,20 +20,16 @@ type Tab = "days" | "minutes";
 export function CalendarHeatmapTabs({
   daysView,
   minuteCells,
-  streakSlot,
 }: {
   daysView: React.ReactNode;
   minuteCells: readonly MinuteHeatmapCell[];
-  /** Optional right-aligned summary (longest day streak) shown next to
-   *  the day/minute tabs. Server-rendered and passed in pre-built. */
-  streakSlot?: React.ReactNode;
 }) {
   const t = useTranslations("Statistiky");
   const [active, setActive] = useState<Tab>("days");
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div
           role="tablist"
           aria-label={t("heatmapTabsAriaLabel")}
@@ -52,13 +48,15 @@ export function CalendarHeatmapTabs({
             label={t("heatmapTabMinutes")}
           />
         </div>
-        {streakSlot}
       </div>
 
       {active === "days" ? (
         <div role="tabpanel">{daysView}</div>
       ) : (
-        <div role="tabpanel" className="rounded-xl border border-gray-200 bg-white p-5">
+        <div
+          role="tabpanel"
+          className="rounded-xl border border-gray-200 bg-white p-5"
+        >
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-700">
             {t("minuteHeatmapHeading")}
           </h3>
