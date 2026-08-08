@@ -41,8 +41,18 @@ export function AreaPreviewMap({
     <MapContainer
       center={[lat, lng]}
       zoom={zoom}
+      // Read-only on purpose: this shows what the numbers in the form
+      // MEAN, and a map that pans invites you to fix things here rather
+      // than in the fields that are actually saved. Placing cards belongs
+      // to the big map below.
       scrollWheelZoom={false}
-      className="h-64 w-full rounded-lg"
+      dragging={false}
+      doubleClickZoom={false}
+      zoomControl={false}
+      keyboard={false}
+      touchZoom={false}
+      boxZoom={false}
+      className="h-[26rem] w-full rounded-lg"
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

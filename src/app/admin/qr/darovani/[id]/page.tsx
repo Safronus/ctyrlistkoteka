@@ -15,6 +15,7 @@ import {
 import { CampaignSettings } from "./campaign-settings";
 import { AreaEditor } from "./area-editor";
 import { ItemsGrid, type ItemView } from "./items-grid";
+import type { QrDesign } from "./qr-design-fields";
 import { AreaMapPanel } from "./area-map-panel";
 import { XlsxPanel } from "./xlsx-panel";
 
@@ -55,6 +56,43 @@ export default async function DropCampaignPage({
   }
   const totalScans = campaign.items.reduce((s, i) => s + i._count.scans, 0);
 
+  // The wave's design, with every default already applied, so the forms
+  // start from real values rather than from empty strings.
+  const campaignOpts = readDropQrOptions(campaign.qrOptions);
+  const campaignDesign: QrDesign = {
+    titleMode: campaignOpts.titleMode ?? "find",
+    title: campaign.qrTitle ?? "",
+    captionMode: campaignOpts.captionMode ?? "custom",
+    caption: campaign.qrCaption ?? "",
+    sizeCm: String(campaignOpts.sizeCm ?? DROP_SIZE_DEFAULT_CM),
+    density: campaignOpts.density ?? "medium",
+    theme: campaignOpts.theme ?? "brand",
+    moduleStyle: campaignOpts.moduleStyle ?? "clover",
+    center: campaignOpts.center ?? "smiley",
+    centerScale: campaignOpts.centerScale ?? "md",
+    border: campaignOpts.border ?? "none",
+    borderRadius: campaignOpts.borderRadius ?? "soft",
+    borderColor: campaignOpts.borderColor ?? "theme",
+  };
+
+  /** Only what a card actually overrides — the rest layers in from above. */
+  function ownDesignOf(raw: unknown): Partial<QrDesign> {
+    const o = readDropQrOptions(raw);
+    const out: Partial<QrDesign> = {};
+    if (o.titleMode) out.titleMode = o.titleMode;
+    if (o.captionMode) out.captionMode = o.captionMode;
+    if (o.sizeCm !== undefined) out.sizeCm = String(o.sizeCm);
+    if (o.density) out.density = o.density;
+    if (o.theme) out.theme = o.theme;
+    if (o.moduleStyle) out.moduleStyle = o.moduleStyle;
+    if (o.center) out.center = o.center;
+    if (o.centerScale) out.centerScale = o.centerScale;
+    if (o.border) out.border = o.border;
+    if (o.borderRadius) out.borderRadius = o.borderRadius;
+    if (o.borderColor) out.borderColor = o.borderColor;
+    return out;
+  }
+
   const items: ItemView[] = campaign.items.map((i) => ({
     id: i.id,
     findId: i.findId,
@@ -66,7 +104,13 @@ export default async function DropCampaignPage({
     scans: i._count.scans,
     foundAt: i.foundAt ? dateTimeFmt.format(i.foundAt) : null,
     landingUrl: dropLandingUrl(i.token),
+    tokenShort: i.token.split("-")[0] ?? i.token.slice(0, 8),
     hintPublished: i.hintPublished,
+    // What the finder would actually read: the card's own hint, or the
+    // wave's. The grid should show the published TEXT, not the word
+    // "nápověda" — a card whose publish flag is on but whose hint is
+    // empty publishes nothing, and that is worth seeing.
+    hintPreview: (i.hintCs ?? campaign.hintCs ?? "").trim().slice(0, 60),
     // Which fields carry an override — the grid shows a dot so it's
     // obvious at a glance which cards deviate from the campaign.
     overrides: [
@@ -87,10 +131,11 @@ export default async function DropCampaignPage({
       bonusEn: i.bonusEn ?? "",
       qrTitle: i.qrTitle ?? "",
       qrCaption: i.qrCaption ?? "",
-      sizeCm: readDropQrOptions(i.qrOptions).sizeCm?.toString() ?? "",
       hintCs: i.hintCs ?? "",
       hintEn: i.hintEn ?? "",
     },
+    hasOwnDesign: i.qrOptions !== null,
+    ownDesign: ownDesignOf(i.qrOptions),
   }));
 
   return (
@@ -162,9 +207,9 @@ export default async function DropCampaignPage({
           bonusEn: campaign.bonusEn ?? "",
           qrTitle: campaign.qrTitle ?? "",
           qrCaption: campaign.qrCaption ?? "",
-          sizeCm: String(
-            readDropQrOptions(campaign.qrOptions).sizeCm ?? DROP_SIZE_DEFAULT_CM,
-          ),
+          hintCs: campaign.hintCs ?? "",
+          hintEn: campaign.hintEn ?? "",
+          design: campaignDesign,
           placers: campaign.placers.join("\n"),
         }}
       />
@@ -223,11 +268,11 @@ export default async function DropCampaignPage({
           bodyEn: campaign.bodyEn ?? "",
           bonusCs: campaign.bonusCs ?? "",
           bonusEn: campaign.bonusEn ?? "",
+          hintCs: campaign.hintCs ?? "",
+          hintEn: campaign.hintEn ?? "",
           qrTitle: campaign.qrTitle ?? "",
           qrCaption: campaign.qrCaption ?? "",
-          sizeCm: String(
-            readDropQrOptions(campaign.qrOptions).sizeCm ?? DROP_SIZE_DEFAULT_CM,
-          ),
+          design: campaignDesign,
         }}
         items={items}
         areas={campaign.areas.map((a) => ({ id: a.id, name: a.name }))}

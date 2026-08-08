@@ -40,6 +40,7 @@ import {
   SELECT_CLS,
 } from "../../qr-ui";
 import { ItemDialog, type CampaignDefaults } from "./item-dialog";
+import type { QrDesign } from "./qr-design-fields";
 import { DropPrintDialog } from "./print-dialog";
 
 export interface ItemView {
@@ -53,7 +54,12 @@ export interface ItemView {
   scans: number;
   foundAt: string | null;
   landingUrl: string;
+  /** First block of the landing token — a readable handle for the card. */
+  tokenShort: string;
   hintPublished: boolean;
+  /** The hint that would actually be published, campaign default included;
+   *  empty when there is none to show. */
+  hintPreview: string;
   overrides: string[];
   detail: {
     headingCs: string;
@@ -64,11 +70,15 @@ export interface ItemView {
     bonusEn: string;
     qrTitle: string;
     qrCaption: string;
-    /** Empty string means "inherit the campaign's size". */
-    sizeCm: string;
     hintCs: string;
     hintEn: string;
   };
+  /** True when the card carries an option bag of its own, i.e. its look
+   *  no longer follows the wave. */
+  hasOwnDesign: boolean;
+  /** Only the keys the card actually overrides, to layer over the
+   *  campaign's design when the dialog opens. */
+  ownDesign: Partial<QrDesign>;
 }
 
 const STATUS_TONE: Record<DropStatus, string> = {
@@ -665,27 +675,38 @@ const ItemCard = memo(function ItemCard({
           )}
         </p>
         <p className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-1" title="Naskenování">
             <ScanLine className="h-3 w-3" aria-hidden />
             {item.scans}
           </span>
+          {/* The first block of the token: enough to tell two cards apart
+              at a glance and to match a code against its row, which a bare
+              "/d/" never was. The whole URL is in the title and one click
+              away. */}
           <Link
             href={item.landingUrl}
             target="_blank"
             rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
             title={item.landingUrl}
-            className="inline-flex items-center gap-0.5 text-brand-700 hover:underline"
+            className="inline-flex min-w-0 items-center gap-0.5 font-mono text-brand-700 hover:underline"
           >
-            <ExternalLink className="h-3 w-3" aria-hidden />
-            /d/
+            <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
+            {item.tokenShort}
           </Link>
-          {item.hintPublished && (
-            <span className="text-emerald-700" title="Nápověda je zveřejněná">
-              nápověda
-            </span>
-          )}
         </p>
+        {item.hintPublished && item.hintPreview && (
+          <p
+            className="truncate text-emerald-700"
+            title={`Zveřejněná nápověda: ${item.hintPreview}`}
+          >
+            💡 {item.hintPreview}
+          </p>
+        )}
+        {item.hintPublished && !item.hintPreview && (
+          <p className="text-amber-700" title="Zveřejnění je zapnuté, ale text nápovědy je prázdný — na webu se nic neukáže">
+            💡 nápověda zapnutá, ale prázdná
+          </p>
+        )}
         {item.overrides.length > 0 && (
           <p
             className="truncate text-brand-700"

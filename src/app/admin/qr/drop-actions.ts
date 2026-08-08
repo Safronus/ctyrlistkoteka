@@ -19,6 +19,7 @@ import {
   dropLandingUrl,
   mergeDropQrOptions,
   readDropQrOptions,
+  resolveQrLines,
   clampDropSizeCm,
   DROP_SIZE_DEFAULT_CM,
 } from "@/lib/admin/drops";
@@ -82,26 +83,65 @@ export interface CampaignInput {
   bonusEn: string;
   qrTitle: string;
   qrCaption: string;
-  /** Printed width in cm, as typed. Empty falls back to the default. */
-  sizeCm: string;
+  /** Wave-wide default hunt hint; a card may override it. */
+  hintCs: string;
+  hintEn: string;
+  design: QrDesignInput;
   /** Newline- or comma-separated crew names. */
   placers: string;
 }
 
+/** Everything about how a card LOOKS, as the forms send it. */
+export interface QrDesignInput {
+  titleMode: string;
+  captionMode: string;
+  sizeCm: string;
+  density: string;
+  theme: string;
+  moduleStyle: string;
+  center: string;
+  centerScale: string;
+  border: string;
+  borderRadius: string;
+  borderColor: string;
+}
+
 /**
- * Writes the print size into the campaign's option bag without touching
- * the look settings that share it — density, theme, border and friends
- * are set elsewhere and a blind overwrite would silently reset them.
+ * Turns a form's design into the stored option bag.
+ *
+ * Merged onto whatever is already there rather than replacing it, so a
+ * key this build doesn't know about (an older or newer field) survives a
+ * save instead of being quietly dropped. Validation happens on READ via
+ * `readDropQrOptions`, which is the single gate every consumer passes.
  */
-function withSizeCm(existing: unknown, raw: string): Prisma.InputJsonObject {
+function designToBag(
+  existing: unknown,
+  input: QrDesignInput,
+): Prisma.InputJsonObject {
   const bag: Record<string, unknown> = {
     ...(existing && typeof existing === "object"
       ? (existing as Record<string, unknown>)
       : {}),
   };
-  const size = clampDropSizeCm(raw.replace(",", "."));
+  const size = clampDropSizeCm(String(input.sizeCm ?? "").replace(",", "."));
   if (size === undefined) delete bag.sizeCm;
   else bag.sizeCm = size;
+  for (const key of [
+    "titleMode",
+    "captionMode",
+    "density",
+    "theme",
+    "moduleStyle",
+    "center",
+    "centerScale",
+    "border",
+    "borderRadius",
+    "borderColor",
+  ] as const) {
+    const v = str(input[key], 40);
+    if (v) bag[key] = v;
+    else delete bag[key];
+  }
   return bag as Prisma.InputJsonObject;
 }
 
@@ -141,7 +181,9 @@ export async function createCampaignAction(
         bonusEn: nullable(input.bonusEn, 20_000),
         qrTitle: nullable(input.qrTitle, 200),
         qrCaption: nullable(input.qrCaption, 200),
-        qrOptions: withSizeCm(null, str(input.sizeCm, 10)),
+        hintCs: nullable(input.hintCs, 5_000),
+        hintEn: nullable(input.hintEn, 5_000),
+        qrOptions: designToBag(null, input.design),
         placers: parsePlacers(String(input.placers ?? "")),
       },
       select: { id: true },
@@ -183,7 +225,9 @@ export async function updateCampaignAction(
         bonusEn: nullable(input.bonusEn, 20_000),
         qrTitle: nullable(input.qrTitle, 200),
         qrCaption: nullable(input.qrCaption, 200),
-        qrOptions: withSizeCm(current?.qrOptions, str(input.sizeCm, 10)),
+        hintCs: nullable(input.hintCs, 5_000),
+        hintEn: nullable(input.hintEn, 5_000),
+        qrOptions: designToBag(current?.qrOptions, input.design),
         placers: parsePlacers(String(input.placers ?? "")),
       },
     });
@@ -441,8 +485,10 @@ export interface ItemInput {
   bonusEn: string;
   qrTitle: string;
   qrCaption: string;
-  /** Printed width in cm. Empty = inherit the campaign's size. */
-  sizeCm: string;
+  /** When false the card has NO option bag of its own and follows the
+   *  wave; when true `design` is stored as its override. */
+  ownDesign: boolean;
+  design: QrDesignInput;
   hintCs: string;
   hintEn: string;
   hintPublished: boolean;
@@ -476,14 +522,16 @@ export async function saveItemAction(
       where: { id: itemId },
       select: { qrOptions: true },
     });
-    // An item's option bag is an override layer: with no size of its own
-    // it must stay ABSENT rather than become the campaign's value copied
-    // in, otherwise changing the wave's size would stop propagating.
-    const bag = withSizeCm(current?.qrOptions, str(input.sizeCm, 10));
+    // The bag is an override LAYER. Without "own design" ticked it must
+    // stay absent rather than hold a copy of the campaign's values —
+    // otherwise editing the wave's look would stop reaching this card.
+    const bag = input.ownDesign
+      ? designToBag(current?.qrOptions, input.design)
+      : null;
     await prisma.dropItem.update({
       where: { id: itemId },
       data: {
-        qrOptions: Object.keys(bag).length > 0 ? bag : Prisma.DbNull,
+        qrOptions: bag && Object.keys(bag).length > 0 ? bag : Prisma.DbNull,
         areaId: input.areaId,
         status,
         placedBy: nullable(input.placedBy, 120),
@@ -804,6 +852,14 @@ function renderItem(item: DropItemWithCampaign): {
 } {
   const url = dropLandingUrl(item.token);
   const o = mergeDropQrOptions(item.campaign.qrOptions, item.qrOptions);
+  const lines = resolveQrLines(
+    o,
+    item.findId,
+    item.qrTitle,
+    item.campaign.qrTitle,
+    item.qrCaption,
+    item.campaign.qrCaption,
+  );
   return {
     id: item.id,
     findId: item.findId,
@@ -811,8 +867,8 @@ function renderItem(item: DropItemWithCampaign): {
     sizeCm: o.sizeCm ?? DROP_SIZE_DEFAULT_CM,
     svg: renderFindQrSvg(item.findId, {
       url,
-      header: item.qrTitle ?? item.campaign.qrTitle ?? `🍀 #${item.findId}`,
-      footer: item.qrCaption ?? item.campaign.qrCaption ?? null,
+      header: lines.title,
+      footer: lines.caption,
       density: (o.density ?? "medium") as QrDensity,
       theme: o.theme as QrTheme | undefined,
       moduleStyle: o.moduleStyle as QrModuleStyle | undefined,
@@ -828,6 +884,55 @@ function renderItem(item: DropItemWithCampaign): {
 type DropItemWithCampaign = Prisma.DropItemGetPayload<{
   include: { campaign: true };
 }>;
+
+/**
+ * Draws a card from an unsaved design, for the live preview in the forms.
+ *
+ * Deliberately the same renderer the grid and the print sheet use — a
+ * preview drawn any other way would eventually stop matching what comes
+ * out of the printer, which is the one thing it exists to promise. The
+ * URL is a placeholder of realistic LENGTH, because a QR's module count
+ * follows how much it encodes.
+ */
+export async function previewDropQrAction(
+  findId: number,
+  design: QrDesignInput & { title?: string; caption?: string },
+): Promise<Result<{ svg: string }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    const bag = designToBag(null, design);
+    const o = readDropQrOptions(bag);
+    const id = Number.isInteger(findId) && findId > 0 ? findId : 30001;
+    const lines = resolveQrLines(
+      o,
+      id,
+      str(design.title ?? "", 200) || null,
+      null,
+      str(design.caption ?? "", 200) || null,
+      null,
+    );
+    return {
+      ok: true,
+      svg: renderFindQrSvg(id, {
+        // Same shape and length as a real landing URL, so the preview's
+        // module count matches the printed one.
+        url: dropLandingUrl("00000000-0000-4000-8000-000000000000"),
+        header: lines.title,
+        footer: lines.caption,
+        density: (o.density ?? "medium") as QrDensity,
+        theme: o.theme as QrTheme | undefined,
+        moduleStyle: o.moduleStyle as QrModuleStyle | undefined,
+        center: o.center as QrCenter | undefined,
+        centerScale: o.centerScale as QrCenterScale | undefined,
+        border: o.border as QrBorder | undefined,
+        borderRadius: o.borderRadius as QrBorderRadius | undefined,
+        borderColor: o.borderColor as QrBorderColor | undefined,
+      }),
+    };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Náhled selhal") };
+  }
+}
 
 export async function renderDropQrAction(
   itemId: number,
@@ -1015,16 +1120,37 @@ export async function importDropXlsxAction(
         ] as const
       ).forEach(setText);
 
+      // The sheet edits SIZE and the two card texts; everything else in
+      // the card's option bag rides along untouched.
+      const bag: Record<string, unknown> = {
+        ...(item.qrOptions && typeof item.qrOptions === "object"
+          ? (item.qrOptions as Record<string, unknown>)
+          : {}),
+      };
+      const bagBefore = JSON.stringify(bag);
+
       if (v.sizeCm !== undefined) {
-        const bag = withSizeCm(
-          item.qrOptions,
-          v.sizeCm === null ? "" : String(v.sizeCm),
-        );
-        const before = readDropQrOptions(item.qrOptions).sizeCm;
-        const after = readDropQrOptions(bag).sizeCm;
-        if (before !== after) {
-          data.qrOptions = Object.keys(bag).length > 0 ? bag : Prisma.DbNull;
-          if (after === undefined) report.cleared += 1;
+        if (v.sizeCm === null) delete bag.sizeCm;
+        else bag.sizeCm = v.sizeCm;
+      }
+
+      // Typing a title into the sheet has to TURN THE TITLE ON as well,
+      // otherwise the text lands in the column, nothing changes on the
+      // card, and the operator has no way of telling why. Clearing the
+      // cell only clears the text; "no title at all" stays a deliberate
+      // choice made in the form.
+      if (v.qrTitle) bag.titleMode = "custom";
+      if (v.qrCaption) bag.captionMode = "custom";
+
+      if (JSON.stringify(bag) !== bagBefore) {
+        const sizeBefore = readDropQrOptions(item.qrOptions).sizeCm;
+        const sizeAfter = readDropQrOptions(bag).sizeCm;
+        data.qrOptions =
+          Object.keys(bag).length > 0
+            ? (bag as Prisma.InputJsonObject)
+            : Prisma.DbNull;
+        if (sizeBefore !== undefined && sizeAfter === undefined) {
+          report.cleared += 1;
         }
       }
 

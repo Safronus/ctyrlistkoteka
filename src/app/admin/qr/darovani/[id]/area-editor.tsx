@@ -4,6 +4,8 @@ import dynamic from "next/dynamic";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ChevronDown,
+  ChevronRight,
   Globe2,
   Loader2,
   MapPin,
@@ -33,7 +35,7 @@ const AreaPreviewMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-64 w-full items-center justify-center rounded-lg bg-gray-50 text-xs text-gray-400">
+      <div className="flex h-[26rem] w-full items-center justify-center rounded-lg bg-gray-50 text-xs text-gray-400">
         Načítám mapu…
       </div>
     ),
@@ -64,21 +66,44 @@ export function AreaEditor({
   areas: AreaView[];
 }) {
   const [adding, setAdding] = useState(false);
+  // Collapsed by default once the towns are set up: the section carries a
+  // map per open row and is mostly read once per wave.
+  const [open, setOpen] = useState(areas.length === 0);
 
   return (
-    <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-900">Oblasti</h2>
+    <section className="rounded-xl border border-gray-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
         <button
           type="button"
-          onClick={() => setAdding((a) => !a)}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex items-center gap-2 text-left text-sm font-semibold text-gray-900"
         >
-          <Plus className="h-3.5 w-3.5" aria-hidden />
-          Přidat oblast
+          {open ? (
+            <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden />
+          )}
+          Oblasti
+          <span className="font-normal text-xs text-gray-400">
+            ({areas.length}
+            {areas.length > 0 && ` · ${areas.map((a) => a.name).join(", ")}`})
+          </span>
         </button>
+        {open && (
+          <button
+            type="button"
+            onClick={() => setAdding((a) => !a)}
+            className={`${CONTROL_H_SM} inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50`}
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+            Přidat oblast
+          </button>
+        )}
       </div>
 
+      {open && (
+      <div className="space-y-3 border-t border-gray-100 p-4">
       {areas.length === 0 && !adding && (
         <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-4 text-center text-xs text-gray-500">
           Zatím žádná oblast. Přidej třeba „Zlín“ se středem města.
@@ -97,6 +122,8 @@ export function AreaEditor({
           area={null}
           onDone={() => setAdding(false)}
         />
+      )}
+      </div>
       )}
     </section>
   );

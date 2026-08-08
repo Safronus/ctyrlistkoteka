@@ -3,7 +3,14 @@
 import dynamic from "next/dynamic";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Eraser, Loader2, MapPinOff, ScanLine, X } from "lucide-react";
+import {
+  Eraser,
+  Loader2,
+  Maximize2,
+  MapPinOff,
+  ScanLine,
+  X,
+} from "lucide-react";
 import {
   setItemPositionAction,
   clearItemPositionAction,
@@ -20,7 +27,7 @@ import type { MapPoint } from "./drop-map";
 const DropMap = dynamic(() => import("./drop-map").then((m) => m.DropMap), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[28rem] w-full items-center justify-center rounded-lg bg-gray-50 text-sm text-gray-400">
+    <div className="flex h-[56rem] max-h-[80vh] w-full items-center justify-center rounded-lg bg-gray-50 text-sm text-gray-400">
       Načítám mapu…
     </div>
   ),
@@ -69,6 +76,7 @@ export function AreaMapPanel({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
+  const [fitToken, setFitToken] = useState(0);
   const [busy, start] = useTransition();
 
   const area = areas.find((a) => a.id === areaId) ?? null;
@@ -181,7 +189,17 @@ export function AreaMapPanel({
             — jen v adminu, souřadnice se nikam ven nedostanou
           </span>
         </h2>
-        <div className="w-48">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFitToken((t) => t + 1)}
+            title="Nastavit výřez tak, aby byla vidět celá oblast i všechny umístěné kusy"
+            className={`${CONTROL_H_SM} inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50`}
+          >
+            <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+            Vycentrovat
+          </button>
+          <div className="w-48">
           <select
             className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
             aria-label="Oblast"
@@ -197,6 +215,7 @@ export function AreaMapPanel({
               </option>
             ))}
           </select>
+          </div>
         </div>
       </div>
 
@@ -244,6 +263,7 @@ export function AreaMapPanel({
               boundary={readBoundary(area.boundary)}
               points={points}
               selectedId={selectedId}
+              fitToken={fitToken}
               onSelect={setSelectedId}
               onPlace={place}
             />
@@ -361,7 +381,7 @@ function ItemQueue({
         </span>
         {action}
       </p>
-      <ul className="max-h-[26rem] space-y-1 overflow-y-auto pr-1">
+      <ul className="max-h-[54rem] space-y-1 overflow-y-auto pr-1">
         {items.length === 0 && (
           <li className="rounded border border-dashed border-gray-300 bg-gray-50 px-2 py-3 text-center text-[11px] text-gray-500">
             {empty}

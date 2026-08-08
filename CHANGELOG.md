@@ -9,6 +9,28 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Darování ve světě — editor vzhledu a přehlednější formuláře (8. fáze)
+- **Vzhled kartičky jde konečně nastavit.** Hustota kódu, barevnost, tvar
+  bodů, obrázek uprostřed, okraj — u sady i u jednotlivého kusu, vedle
+  živého náhledu, který se kreslí tím samým rendererem jako tisk.
+- **„Bez textu“** nad i pod QR kódem. Dřív prázdné pole znamenalo
+  „vytiskni číslo nálezu“ a o holý kód nešlo požádat vůbec.
+- Kus se drží sady, dokud u něj nezaškrtneš **Vlastní vzhled** — pak se
+  tiskne po svém a na změny sady už nereaguje. Napsáno to je i v dialogu.
+- **Nápověda se dá nastavit pro celou sadu** a u konkrétního kusu přepsat
+  na něco adresného. Zveřejnění zůstává rozhodnutím u jednoho kusu.
+- Formuláře jsou rozdělené do pojmenovaných bloků, které říkají, co je co:
+  **stránka po naskenování** (co uvidí nálezce na mobilu) vs. **vzhled
+  kartičky** (co se fyzicky vytiskne) vs. **nápověda** vs. **tým**.
+- V seznamu kusů je místo neurčitého „/d/“ vidět **začátek odkazu**, podle
+  kterého se kartička pozná, a místo slova „nápověda“ **skutečný text**
+  nápovědy. Kus se zapnutým zveřejněním a prázdnou nápovědou to teď
+  přizná, místo aby tvrdil, že něco zveřejňuje.
+- **Mapa úkrytů je dvakrát vyšší** a má tlačítko **Vycentrovat**, které
+  nastaví výřez na celou oblast i všechny umístěné kusy.
+- Sekce **Oblasti se sbaluje** a náhledová mapa v ní je větší a záměrně
+  nehybná — ukazuje, co dělají čísla ve formuláři, ne místo k editaci.
+
 ### Darování ve světě — drobnosti, co se ukázaly až při práci (7. fáze)
 - **Adresa v QR kódu je vždycky `https://`.** Doteď se brala z nastavení,
   jak byla; teď se schéma vynutí u všeho kromě localhostu. `http://`

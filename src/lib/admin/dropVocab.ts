@@ -59,6 +59,57 @@ export interface DropQrOptions {
    *  bag rather than its own column so it inherits campaign → item for
    *  free, like every other look setting. */
   sizeCm?: number;
+  /** WHETHER there is a line above the code; `qrTitle` says what it reads.
+   *  Two fields because an empty text cannot mean both "use the find
+   *  number" and "print nothing" at once — which is exactly the gap that
+   *  made "no title at all" impossible to ask for. */
+  titleMode?: DropTitleMode;
+  /** Same split for the line under the code. */
+  captionMode?: DropCaptionMode;
+}
+
+/** `find` = the automatic „🍀 #<číslo>“, `custom` = whatever `qrTitle`
+ *  holds, `none` = nothing above the code. */
+export type DropTitleMode = "find" | "custom" | "none";
+export type DropCaptionMode = "custom" | "none";
+
+export const DROP_TITLE_MODE_LABEL: Record<DropTitleMode, string> = {
+  find: "Číslo nálezu",
+  custom: "Vlastní text",
+  none: "Bez textu",
+};
+
+export const DROP_CAPTION_MODE_LABEL: Record<DropCaptionMode, string> = {
+  custom: "Vlastní text",
+  none: "Bez textu",
+};
+
+/**
+ * What actually gets printed above and below one card's code.
+ *
+ * The single place that resolves mode + text + inheritance, so the grid
+ * preview, the single preview and the print sheet cannot disagree about
+ * whether a card has a title.
+ */
+export function resolveQrLines(
+  opts: DropQrOptions,
+  findId: number,
+  itemTitle: string | null,
+  campaignTitle: string | null,
+  itemCaption: string | null,
+  campaignCaption: string | null,
+): { title: string | null; caption: string | null } {
+  const titleMode = opts.titleMode ?? "find";
+  const captionMode = opts.captionMode ?? "custom";
+  const title =
+    titleMode === "none"
+      ? null
+      : titleMode === "custom"
+        ? (itemTitle ?? campaignTitle ?? `🍀 #${findId}`)
+        : `🍀 #${findId}`;
+  const caption =
+    captionMode === "none" ? null : (itemCaption ?? campaignCaption ?? null);
+  return { title, caption };
 }
 
 /** Printed-width bounds, shared by the form, the option reader and the
@@ -100,6 +151,8 @@ export function readDropQrOptions(raw: unknown): DropQrOptions {
     borderRadius: pickOne(o.borderRadius, ["soft", "round"] as const),
     borderColor: pickOne(o.borderColor, ["theme", "gray"] as const),
     sizeCm: clampDropSizeCm(o.sizeCm),
+    titleMode: pickOne(o.titleMode, ["find", "custom", "none"] as const),
+    captionMode: pickOne(o.captionMode, ["custom", "none"] as const),
   };
 }
 

@@ -2,17 +2,30 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Loader2, Save } from "lucide-react";
-import { updateCampaignAction, type CampaignInput } from "../../drop-actions";
 import {
-  DROP_SIZE_DEFAULT_CM,
-  DROP_SIZE_MAX_CM,
-  DROP_SIZE_MIN_CM,
-} from "@/lib/admin/dropVocab";
+  ChevronDown,
+  ChevronRight,
+  Globe,
+  Lightbulb,
+  Loader2,
+  QrCode,
+  Save,
+  Users,
+} from "lucide-react";
+import { updateCampaignAction, type CampaignInput } from "../../drop-actions";
 import { Field, INPUT_CLS } from "../../qr-ui";
+import { QrDesignFields, type QrDesign } from "./qr-design-fields";
+import { QrLivePreview } from "./qr-live-preview";
 
-/** Campaign-wide defaults: the message every card inherits unless it
- *  overrides it, plus the crew roster the item dropdowns are built from. */
+/**
+ * The wave's defaults, in the three groups they actually belong to.
+ *
+ * The grouping is the point. "Nadpis" and "Text" used to sit in one flat
+ * list next to "Titulek na QR", and nothing on screen said that the first
+ * two are read on a phone AFTER scanning while the third is printed on
+ * the card itself — which is the single thing an operator has to keep
+ * straight here.
+ */
 export function CampaignSettings({
   campaignId,
   initial,
@@ -27,8 +40,29 @@ export function CampaignSettings({
   const [saved, setSaved] = useState(false);
   const [busy, start] = useTransition();
 
-  const set = <K extends keyof CampaignInput>(k: K, v: CampaignInput[K]) =>
+  const set = <K extends keyof CampaignInput>(k: K, v: CampaignInput[K]) => {
+    setSaved(false);
     setCfg((c) => ({ ...c, [k]: v }));
+  };
+
+  const design: QrDesign = {
+    ...cfg.design,
+    title: cfg.qrTitle,
+    caption: cfg.qrCaption,
+  } as QrDesign;
+
+  const setDesign = (patch: Partial<QrDesign>) => {
+    setSaved(false);
+    setCfg((c) => {
+      const { title, caption, ...rest } = patch;
+      return {
+        ...c,
+        qrTitle: title ?? c.qrTitle,
+        qrCaption: caption ?? c.qrCaption,
+        design: { ...c.design, ...rest },
+      };
+    });
+  };
 
   const save = () => {
     setError(null);
@@ -57,15 +91,15 @@ export function CampaignSettings({
         ) : (
           <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden />
         )}
-        Texty sady a tým
+        Výchozí nastavení sady
         <span className="ml-2 font-normal text-xs text-gray-400">
-          výchozí pro všechny kusy — kus si je může přepsat
+          platí pro všechny kusy — jednotlivý kus si to může přepsat
         </span>
       </button>
 
       {open && (
-        <div className="space-y-4 border-t border-gray-100 p-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-6 border-t border-gray-100 p-4">
+          <div className="grid items-start gap-4 sm:grid-cols-2">
             <Field label="Název sady">
               <input
                 className={INPUT_CLS}
@@ -82,104 +116,126 @@ export function CampaignSettings({
             </Field>
           </div>
 
-          <div className="grid items-start gap-x-4 gap-y-4 sm:grid-cols-2">
-            <Field label="Nadpis (česky)">
-              <input
-                className={INPUT_CLS}
-                value={cfg.headingCs}
-                onChange={(e) => set("headingCs", e.target.value)}
-              />
-            </Field>
-            <Field label="Nadpis (anglicky)">
-              <input
-                className={INPUT_CLS}
-                value={cfg.headingEn}
-                onChange={(e) => set("headingEn", e.target.value)}
-              />
-            </Field>
-            <Field label="Text (česky)" hint="Prázdný řádek = nový odstavec.">
-              <textarea
-                rows={6}
-                className={`${INPUT_CLS} resize-y`}
-                value={cfg.bodyCs}
-                onChange={(e) => set("bodyCs", e.target.value)}
-              />
-            </Field>
-            <Field label="Text (anglicky)">
-              <textarea
-                rows={6}
-                className={`${INPUT_CLS} resize-y`}
-                value={cfg.bodyEn}
-                onChange={(e) => set("bodyEn", e.target.value)}
-              />
-            </Field>
-            <Field label="Bonusový text (česky)">
-              <textarea
-                rows={3}
-                className={`${INPUT_CLS} resize-y`}
-                value={cfg.bonusCs}
-                onChange={(e) => set("bonusCs", e.target.value)}
-              />
-            </Field>
-            <Field label="Bonusový text (anglicky)">
-              <textarea
-                rows={3}
-                className={`${INPUT_CLS} resize-y`}
-                value={cfg.bonusEn}
-                onChange={(e) => set("bonusEn", e.target.value)}
-              />
-            </Field>
-          </div>
-
-          {/* Card print settings — their own strip, because they describe
-              the physical object rather than the landing page above. */}
-          <div className="grid items-start gap-x-4 gap-y-4 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem]">
-            <Field
-              label="Titulek nad QR"
-              hint="Prázdné = „🍀 #<číslo>“ podle nálezu."
-            >
-              <input
-                className={INPUT_CLS}
-                value={cfg.qrTitle}
-                onChange={(e) => set("qrTitle", e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Text pod QR"
-              hint="Prázdné = pod kódem není nic."
-            >
-              <input
-                className={INPUT_CLS}
-                value={cfg.qrCaption}
-                onChange={(e) => set("qrCaption", e.target.value)}
-                placeholder="např. ctyrlistkoteka.cz"
-              />
-            </Field>
-            <Field label="Velikost tisku" hint={`${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM} cm, šířka kartičky.`}>
-              <div className="flex items-center gap-1.5">
+          {/* ------------------------------------------- landing page */}
+          <Group
+            icon={<Globe className="h-4 w-4 text-sky-600" aria-hidden />}
+            title="Stránka po naskenování QR"
+            note="Co uvidí na mobilu ten, kdo kartičku najde a naskenuje. Na kartičce samotné tyhle texty nejsou."
+          >
+            <div className="grid items-start gap-4 sm:grid-cols-2">
+              <Field label="Nadpis (česky)">
                 <input
-                  type="number"
-                  min={DROP_SIZE_MIN_CM}
-                  max={DROP_SIZE_MAX_CM}
-                  step={0.1}
-                  className={`${INPUT_CLS} tabular-nums`}
-                  value={cfg.sizeCm}
-                  onChange={(e) => set("sizeCm", e.target.value)}
-                  placeholder={String(DROP_SIZE_DEFAULT_CM)}
+                  className={INPUT_CLS}
+                  value={cfg.headingCs}
+                  onChange={(e) => set("headingCs", e.target.value)}
                 />
-                <span className="shrink-0 text-xs text-gray-500">cm</span>
-              </div>
-            </Field>
-          </div>
+              </Field>
+              <Field label="Nadpis (anglicky)">
+                <input
+                  className={INPUT_CLS}
+                  value={cfg.headingEn}
+                  onChange={(e) => set("headingEn", e.target.value)}
+                />
+              </Field>
+              <Field label="Text (česky)" hint="Prázdný řádek = nový odstavec.">
+                <textarea
+                  rows={6}
+                  className={`${INPUT_CLS} resize-y`}
+                  value={cfg.bodyCs}
+                  onChange={(e) => set("bodyCs", e.target.value)}
+                />
+              </Field>
+              <Field label="Text (anglicky)">
+                <textarea
+                  rows={6}
+                  className={`${INPUT_CLS} resize-y`}
+                  value={cfg.bodyEn}
+                  onChange={(e) => set("bodyEn", e.target.value)}
+                />
+              </Field>
+              <Field
+                label="Bonusový text (česky)"
+                hint="Zvláštní rámeček pod hlavním textem."
+              >
+                <textarea
+                  rows={3}
+                  className={`${INPUT_CLS} resize-y`}
+                  value={cfg.bonusCs}
+                  onChange={(e) => set("bonusCs", e.target.value)}
+                />
+              </Field>
+              <Field label="Bonusový text (anglicky)">
+                <textarea
+                  rows={3}
+                  className={`${INPUT_CLS} resize-y`}
+                  value={cfg.bonusEn}
+                  onChange={(e) => set("bonusEn", e.target.value)}
+                />
+              </Field>
+            </div>
+          </Group>
 
-          <Field label="Kdo rozmisťuje" hint="Jedno jméno na řádek.">
-            <textarea
-              rows={4}
-              className={`${INPUT_CLS} resize-y sm:max-w-sm`}
-              value={cfg.placers}
-              onChange={(e) => set("placers", e.target.value)}
-            />
-          </Field>
+          {/* ------------------------------------------------ the card */}
+          <Group
+            icon={<QrCode className="h-4 w-4 text-emerald-600" aria-hidden />}
+            title="Vzhled kartičky s QR kódem"
+            note="Co se fyzicky vytiskne a zalaminuje. Náhled vpravo je ten samý kód, jaký vyjde z tiskárny."
+          >
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_13rem]">
+              <QrDesignFields value={design} onChange={setDesign} />
+              <QrLivePreview
+                design={design}
+                findId={30001}
+                label="Náhled kartičky"
+              />
+            </div>
+          </Group>
+
+          {/* ----------------------------------------------- the hint */}
+          <Group
+            icon={<Lightbulb className="h-4 w-4 text-amber-500" aria-hidden />}
+            title="Nápověda k hledání"
+            note="Výchozí text pro celou sadu; u konkrétního kusu se dá přepsat na něco adresného. Zveřejňuje se ale vždy jen u toho kusu, kde to zaškrtneš — a jde vidět na detailu nálezu ve sbírce."
+          >
+            <div className="grid items-start gap-4 sm:grid-cols-2">
+              <Field
+                label="Nápověda (česky)"
+                hint="NIKDY sem nepiš přesné souřadnice."
+              >
+                <textarea
+                  rows={2}
+                  className={`${INPUT_CLS} resize-y`}
+                  value={cfg.hintCs}
+                  onChange={(e) => set("hintCs", e.target.value)}
+                  placeholder="Hledej u laviček v parku."
+                />
+              </Field>
+              <Field label="Nápověda (anglicky)">
+                <textarea
+                  rows={2}
+                  className={`${INPUT_CLS} resize-y`}
+                  value={cfg.hintEn}
+                  onChange={(e) => set("hintEn", e.target.value)}
+                />
+              </Field>
+            </div>
+          </Group>
+
+          {/* ------------------------------------------------ the crew */}
+          <Group
+            icon={<Users className="h-4 w-4 text-violet-500" aria-hidden />}
+            title="Tým"
+            note="Jména, ze kterých se vybírá u jednotlivých kusů."
+          >
+            <Field label="Kdo rozmisťuje" hint="Jedno jméno na řádek.">
+              <textarea
+                rows={4}
+                className={`${INPUT_CLS} resize-y sm:max-w-sm`}
+                value={cfg.placers}
+                onChange={(e) => set("placers", e.target.value)}
+              />
+            </Field>
+          </Group>
 
           {error && (
             <p className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800">
@@ -188,7 +244,7 @@ export function CampaignSettings({
           )}
           {saved && !error && (
             <p className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-900">
-              Uloženo. Změna se propíše do všech kusů, které si text nepřepsaly.
+              Uloženo. Změna se propíše do všech kusů, které si to nepřepsaly.
             </p>
           )}
 
@@ -208,5 +264,29 @@ export function CampaignSettings({
         </div>
       )}
     </section>
+  );
+}
+
+/** A labelled block that says what its fields are FOR. */
+function Group({
+  icon,
+  title,
+  note,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  note: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+        {icon}
+        {title}
+      </h3>
+      <p className="mb-3 mt-0.5 max-w-3xl text-[11px] text-gray-500">{note}</p>
+      {children}
+    </div>
   );
 }

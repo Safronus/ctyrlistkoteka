@@ -22,7 +22,21 @@ const EMPTY: CampaignInput = {
   bonusEn: "",
   qrTitle: "",
   qrCaption: "",
-  sizeCm: String(DROP_SIZE_DEFAULT_CM),
+  hintCs: "",
+  hintEn: "",
+  design: {
+    titleMode: "find",
+    captionMode: "custom",
+    sizeCm: String(DROP_SIZE_DEFAULT_CM),
+    density: "medium",
+    theme: "brand",
+    moduleStyle: "clover",
+    center: "smiley",
+    centerScale: "md",
+    border: "none",
+    borderRadius: "soft",
+    borderColor: "theme",
+  },
   placers: DEFAULT_PLACERS,
 };
 
@@ -161,16 +175,9 @@ export function NewCampaignButton() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label="Titulek na QR"
-            hint="Prázdné = „🍀 #<číslo>“ podle nálezu."
+            label="Kdo rozmisťuje"
+            hint="Jedno jméno na řádek. Vzhled kartičky nastavíš potom v sadě."
           >
-            <input
-              className={INPUT_CLS}
-              value={cfg.qrTitle}
-              onChange={(e) => set("qrTitle", e.target.value)}
-            />
-          </Field>
-          <Field label="Kdo rozmisťuje" hint="Jedno jméno na řádek.">
             <textarea
               rows={4}
               className={`${INPUT_CLS} resize-y`}

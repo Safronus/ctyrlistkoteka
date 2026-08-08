@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   Circle,
   GeoJSON,
@@ -45,6 +45,7 @@ export function DropMap({
   boundary,
   points,
   selectedId,
+  fitToken,
   onSelect,
   onPlace,
 }: {
@@ -54,6 +55,8 @@ export function DropMap({
   boundary: BoundaryGeometry | null;
   points: MapPoint[];
   selectedId: number | null;
+  /** Bumped by the panel's "fit" button; any change refits the view. */
+  fitToken: number;
   onSelect: (id: number) => void;
   onPlace: (lat: number, lng: number) => void;
 }) {
@@ -65,13 +68,20 @@ export function DropMap({
       // The placing cursor is driven from the WRAPPER in area-map-panel,
       // not from here: react-leaflet reads MapContainer's className once
       // at mount and never again, so toggling it on selection did nothing.
-      className="h-[28rem] w-full rounded-lg"
+      className="h-[56rem] max-h-[80vh] w-full rounded-lg"
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <Recenter center={center} zoom={zoom} />
+      <FitEverything
+        token={fitToken}
+        boundary={boundary}
+        center={center}
+        radiusM={radiusM}
+        points={points}
+      />
       <ClickToPlace onPlace={onPlace} />
 
       {/* Drawn first so markers stay clickable on top of it. */}
@@ -148,6 +158,56 @@ function Recenter({
     // Only when the AREA changes — not on every render, which would fight
     // the operator's own panning.
   }, [map, center[0], center[1], zoom]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
+/**
+ * Frames the whole area on demand: the town outline if there is one, plus
+ * every placed card and the scatter circle.
+ *
+ * On a token rather than on data, because refitting whenever a card moves
+ * would drag the map out from under the operator mid-placement — the one
+ * thing this must not do.
+ */
+function FitEverything({
+  token,
+  boundary,
+  center,
+  radiusM,
+  points,
+}: {
+  token: number;
+  boundary: BoundaryGeometry | null;
+  center: [number, number];
+  radiusM: number | null;
+  points: MapPoint[];
+}) {
+  const map = useMap();
+  const first = useRef(true);
+  useEffect(() => {
+    // Skip the mount pass — the area's own centre/zoom own the first view.
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const bounds = L.latLngBounds([]);
+    if (boundary) {
+      const b = boundaryBBox(boundary);
+      bounds.extend([b.minLat, b.minLng]);
+      bounds.extend([b.maxLat, b.maxLng]);
+    }
+    for (const p of points) bounds.extend([p.lat, p.lng]);
+    if (!boundary && radiusM !== null) {
+      // A circle has no bounds of its own here; approximate from the
+      // radius so "fit" still means something for an area without a shape.
+      const dLat = radiusM / 111_132;
+      const dLng = radiusM / (111_320 * Math.cos((center[0] * Math.PI) / 180));
+      bounds.extend([center[0] - dLat, center[1] - dLng]);
+      bounds.extend([center[0] + dLat, center[1] + dLng]);
+    }
+    if (bounds.isValid()) map.fitBounds(bounds, { padding: [24, 24] });
+    else map.setView(center, 13);
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
 

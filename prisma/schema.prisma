@@ -449,6 +449,12 @@ model DropCampaign {
   qrCaption  String?   @map("qr_caption") @db.VarChar(200)
   qrOptions  Json?     @map("qr_options")
 
+  /// Default hunt hint for the whole wave — "hledej u laviček v parku".
+  /// A card overrides it with something specific to where it actually
+  /// sits; publishing stays a per-card decision (`hintPublished`).
+  hintCs     String?   @map("hint_cs") @db.Text
+  hintEn     String?   @map("hint_en") @db.Text
+
   /// Who can be assigned to hide a card — the crew for this wave. A plain
   /// array rather than a table: it is a short list of names the operator
   /// edits by hand, it changes per wave, and a typo should be fixable

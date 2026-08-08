@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Loader2, RotateCcw, Save, X } from "lucide-react";
-import { saveItemAction } from "../../drop-actions";
 import {
-  DROP_STATUS_LABEL,
-  DROP_STATUS_ORDER,
-  DROP_SIZE_MAX_CM,
-  DROP_SIZE_MIN_CM,
-} from "@/lib/admin/dropVocab";
+  Globe,
+  Lightbulb,
+  Loader2,
+  QrCode,
+  RotateCcw,
+  Save,
+  X,
+} from "lucide-react";
+import { saveItemAction } from "../../drop-actions";
+import { DROP_STATUS_LABEL, DROP_STATUS_ORDER } from "@/lib/admin/dropVocab";
 import { CONTROL_H, Field, INPUT_CLS, SELECT_CLS } from "../../qr-ui";
 import { InheritedField } from "./inherited-field";
+import { QrDesignFields, type QrDesign } from "./qr-design-fields";
+import { QrLivePreview } from "./qr-live-preview";
 import type { ItemView } from "./items-grid";
 
 /**
@@ -28,9 +33,12 @@ export interface CampaignDefaults {
   bodyEn: string;
   bonusCs: string;
   bonusEn: string;
+  hintCs: string;
+  hintEn: string;
   qrTitle: string;
   qrCaption: string;
-  sizeCm: string;
+  /** The wave's card design, already resolved — what an item inherits. */
+  design: QrDesign;
 }
 
 /** Fields whose value is the campaign's until the card says otherwise. */
@@ -41,9 +49,8 @@ const INHERITED_KEYS = [
   "bodyEn",
   "bonusCs",
   "bonusEn",
-  "qrTitle",
-  "qrCaption",
-  "sizeCm",
+  "hintCs",
+  "hintEn",
 ] as const;
 
 export function ItemDialog({
@@ -78,12 +85,23 @@ export function ItemDialog({
         item.lat !== null && item.lng !== null
           ? `${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}`
           : "",
-      hintCs: item.detail.hintCs,
-      hintEn: item.detail.hintEn,
       ...inherited,
       hintPublished: item.hintPublished,
     };
   });
+
+  // The look is a layer of its own: off means the card follows the wave,
+  // on means the fields below are its override. Seeded from the campaign
+  // so switching it on starts from what the card already looks like.
+  const [ownDesign, setOwnDesign] = useState(item.hasOwnDesign);
+  const [design, setDesign] = useState<QrDesign>(() => ({
+    ...campaign.design,
+    title: item.detail.qrTitle || campaign.qrTitle,
+    caption: item.detail.qrCaption || campaign.qrCaption,
+    ...item.ownDesign,
+  }));
+  const patchDesign = (patch: Partial<QrDesign>) =>
+    setDesign((d) => ({ ...d, ...patch }));
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
 
@@ -127,11 +145,12 @@ export function ItemDialog({
         bodyEn: outbound("bodyEn"),
         bonusCs: outbound("bonusCs"),
         bonusEn: outbound("bonusEn"),
-        qrTitle: outbound("qrTitle"),
-        qrCaption: outbound("qrCaption"),
-        sizeCm: outbound("sizeCm"),
-        hintCs: form.hintCs,
-        hintEn: form.hintEn,
+        qrTitle: ownDesign ? design.title : "",
+        qrCaption: ownDesign ? design.caption : "",
+        ownDesign,
+        design,
+        hintCs: outbound("hintCs"),
+        hintEn: outbound("hintEn"),
         hintPublished: form.hintPublished,
       });
       if (!r.ok) {
@@ -224,111 +243,140 @@ export function ItemDialog({
           </Field>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-y border-gray-100 py-2">
-          <p className="text-xs text-gray-500">
-            Pole jsou předvyplněná textem sady. Co přepíšeš, se označí jako{" "}
-            <strong className="font-semibold text-amber-800">upraveno</strong> —
-            zbytek dál sleduje sadu.
-          </p>
-          {overriddenCount > 0 && (
-            <button
-              type="button"
-              onClick={resetAllToCampaign}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-700 transition hover:bg-gray-50"
-            >
-              <RotateCcw className="h-3 w-3" aria-hidden />
-              Vše ze sady ({overriddenCount})
-            </button>
+        {/* -------------------------------------------- landing page */}
+        <DialogGroup
+          icon={<Globe className="h-4 w-4 text-sky-600" aria-hidden />}
+          title="Stránka po naskenování QR"
+          note="Co uvidí na mobilu ten, kdo tuhle kartičku najde. Předvyplněno textem sady — co přepíšeš, se označí jako upraveno a přestane sadu sledovat."
+          action={
+            overriddenCount > 0 ? (
+              <button
+                type="button"
+                onClick={resetAllToCampaign}
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-700 transition hover:bg-gray-50"
+              >
+                <RotateCcw className="h-3 w-3" aria-hidden />
+                Vše ze sady ({overriddenCount})
+              </button>
+            ) : null
+          }
+        >
+          <div className="grid items-start gap-4 sm:grid-cols-2">
+            <InheritedField
+              label="Nadpis (česky)"
+              value={form.headingCs}
+              inherited={campaign.headingCs}
+              onChange={(v) => set("headingCs", v)}
+            />
+            <InheritedField
+              label="Nadpis (anglicky)"
+              value={form.headingEn}
+              inherited={campaign.headingEn}
+              onChange={(v) => set("headingEn", v)}
+            />
+            <InheritedField
+              label="Text (česky)"
+              rows={5}
+              value={form.bodyCs}
+              inherited={campaign.bodyCs}
+              onChange={(v) => set("bodyCs", v)}
+            />
+            <InheritedField
+              label="Text (anglicky)"
+              rows={5}
+              value={form.bodyEn}
+              inherited={campaign.bodyEn}
+              onChange={(v) => set("bodyEn", v)}
+            />
+            <InheritedField
+              label="Bonusový text (česky)"
+              rows={3}
+              value={form.bonusCs}
+              inherited={campaign.bonusCs}
+              onChange={(v) => set("bonusCs", v)}
+            />
+            <InheritedField
+              label="Bonusový text (anglicky)"
+              rows={3}
+              value={form.bonusEn}
+              inherited={campaign.bonusEn}
+              onChange={(v) => set("bonusEn", v)}
+            />
+          </div>
+        </DialogGroup>
+
+        {/* --------------------------------------------------- the card */}
+        <DialogGroup
+          icon={<QrCode className="h-4 w-4 text-emerald-600" aria-hidden />}
+          title="Vzhled kartičky s QR kódem"
+          note={
+            ownDesign
+              ? "Tahle kartička se tiskne po svém — na změny vzhledu sady už nereaguje."
+              : "Kartička se tiskne podle sady. Zapni přepínač, jen když má vypadat jinak než zbytek vlny."
+          }
+          action={
+            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[11px] font-medium text-gray-700">
+              <input
+                type="checkbox"
+                checked={ownDesign}
+                onChange={(e) => setOwnDesign(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30"
+              />
+              Vlastní vzhled
+            </label>
+          }
+        >
+          {ownDesign ? (
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_13rem]">
+              <QrDesignFields
+                value={design}
+                onChange={patchDesign}
+                textPlaceholder="dědí ze sady"
+                inheritedTitle={campaign.qrTitle}
+                inheritedCaption={campaign.qrCaption}
+              />
+              <QrLivePreview
+                design={design}
+                findId={item.findId}
+                label="Náhled této kartičky"
+              />
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-[13rem_minmax(0,1fr)] sm:items-center">
+              <QrLivePreview
+                design={campaign.design}
+                findId={item.findId}
+                label="Podle sady"
+              />
+              <p className="text-xs text-gray-500">
+                Takhle se tahle kartička vytiskne teď. Když v sadě změníš
+                vzhled, změní se i tady.
+              </p>
+            </div>
           )}
-        </div>
+        </DialogGroup>
 
-        <div className="grid items-start gap-4 sm:grid-cols-2">
-          <InheritedField
-            label="Nadpis (česky)"
-            value={form.headingCs}
-            inherited={campaign.headingCs}
-            onChange={(v) => set("headingCs", v)}
-          />
-          <InheritedField
-            label="Nadpis (anglicky)"
-            value={form.headingEn}
-            inherited={campaign.headingEn}
-            onChange={(v) => set("headingEn", v)}
-          />
-          <InheritedField
-            label="Text (česky)"
-            rows={5}
-            value={form.bodyCs}
-            inherited={campaign.bodyCs}
-            onChange={(v) => set("bodyCs", v)}
-          />
-          <InheritedField
-            label="Text (anglicky)"
-            rows={5}
-            value={form.bodyEn}
-            inherited={campaign.bodyEn}
-            onChange={(v) => set("bodyEn", v)}
-          />
-          <InheritedField
-            label="Bonusový text (česky)"
-            rows={3}
-            value={form.bonusCs}
-            inherited={campaign.bonusCs}
-            onChange={(v) => set("bonusCs", v)}
-          />
-          <InheritedField
-            label="Bonusový text (anglicky)"
-            rows={3}
-            value={form.bonusEn}
-            inherited={campaign.bonusEn}
-            onChange={(v) => set("bonusEn", v)}
-          />
-        </div>
-
-        <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem]">
-          <InheritedField
-            label="Titulek nad QR"
-            value={form.qrTitle}
-            inherited={campaign.qrTitle}
-            onChange={(v) => set("qrTitle", v)}
-          />
-          <InheritedField
-            label="Text pod QR"
-            value={form.qrCaption}
-            inherited={campaign.qrCaption}
-            onChange={(v) => set("qrCaption", v)}
-          />
-          <InheritedField
-            label="Velikost tisku (cm)"
-            hint={`${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM} cm.`}
-            mono
-            value={form.sizeCm}
-            inherited={campaign.sizeCm}
-            onChange={(v) => set("sizeCm", v)}
-          />
-        </div>
-
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
+        {/* --------------------------------------------------- the hint */}
+        <DialogGroup
+          icon={<Lightbulb className="h-4 w-4 text-amber-500" aria-hidden />}
+          title="Nápověda k hledání"
+          note="Kde hledat — ukáže se na detailu tohohle nálezu ve sbírce, ale jen když to zaškrtneš. NIKDY sem nepiš přesné souřadnice."
+        >
+          <div className="grid items-start gap-4 sm:grid-cols-2">
+            <InheritedField
               label="Nápověda (česky)"
-              hint="Kde hledat. NIKDY sem nepiš přesné souřadnice."
-            >
-              <textarea
-                rows={2}
-                className={`${INPUT_CLS} resize-y`}
-                value={form.hintCs}
-                onChange={(e) => set("hintCs", e.target.value)}
-              />
-            </Field>
-            <Field label="Nápověda (anglicky)">
-              <textarea
-                rows={2}
-                className={`${INPUT_CLS} resize-y`}
-                value={form.hintEn}
-                onChange={(e) => set("hintEn", e.target.value)}
-              />
-            </Field>
+              rows={2}
+              value={form.hintCs}
+              inherited={campaign.hintCs}
+              onChange={(v) => set("hintCs", v)}
+            />
+            <InheritedField
+              label="Nápověda (anglicky)"
+              rows={2}
+              value={form.hintEn}
+              inherited={campaign.hintEn}
+              onChange={(v) => set("hintEn", v)}
+            />
           </div>
           <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-gray-800">
             <input
@@ -339,7 +387,7 @@ export function ItemDialog({
             />
             Zveřejnit nápovědu na detailu nálezu
           </label>
-        </div>
+        </DialogGroup>
 
         {error && (
           <p className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800">
@@ -375,6 +423,35 @@ export function ItemDialog({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A labelled block inside the dialog, saying what its fields are FOR. */
+function DialogGroup({
+  icon,
+  title,
+  note,
+  action,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  note: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+          {icon}
+          {title}
+        </h4>
+        {action}
+      </div>
+      <p className="mb-3 mt-0.5 max-w-3xl text-[11px] text-gray-500">{note}</p>
+      {children}
     </div>
   );
 }
