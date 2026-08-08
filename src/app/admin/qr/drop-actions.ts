@@ -14,6 +14,7 @@ import {
   type BoundaryCandidate,
 } from "@/lib/admin/dropNominatim";
 import { parseDropXlsx } from "@/lib/admin/dropXlsx";
+import { archiveDropXlsx } from "@/lib/admin/dropXlsxArchive";
 import { renderFindQrSvg } from "@/lib/admin/qr";
 import {
   dropLandingUrl,
@@ -1032,8 +1033,19 @@ export async function importDropXlsxAction(
   }
 
   try {
-    const parsed = await parseDropXlsx(await file.arrayBuffer());
+    const raw = Buffer.from(await file.arrayBuffer());
+    const parsed = await parseDropXlsx(
+      raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength),
+    );
     if (parsed.errors.length > 0) {
+      // Archived even when it lands nowhere: a file somebody spent an
+      // evening on and that bounced is exactly the one worth keeping.
+      await archiveDropXlsx(
+        campaignId,
+        raw,
+        { originalName: file.name, matched: 0, changed: 0, blocked: true },
+        new Date(),
+      );
       return {
         ok: true,
         report: {
@@ -1051,16 +1063,15 @@ export async function importDropXlsxAction(
     const [items, areas, campaign] = await Promise.all([
       prisma.dropItem.findMany({ where: { campaignId } }),
       prisma.dropArea.findMany({ where: { campaignId } }),
-      prisma.dropCampaign.findUnique({
-        where: { id: campaignId },
-        select: { placers: true },
-      }),
+      prisma.dropCampaign.findUnique({ where: { id: campaignId } }),
     ]);
     const byFind = new Map(items.map((i) => [i.findId, i]));
     const areaByName = new Map(
       areas.map((a) => [a.name.trim().toLowerCase(), a.id]),
     );
     const roster = new Set(campaign?.placers ?? []);
+    const campaignSizeCm =
+      readDropQrOptions(campaign?.qrOptions).sizeCm ?? DROP_SIZE_DEFAULT_CM;
 
     const report: ImportReport = {
       matched: 0,
@@ -1084,6 +1095,24 @@ export async function importDropXlsxAction(
       const data: Record<string, unknown> = {};
       const v = row.values;
 
+      // The sheet arrives PRE-FILLED with what each card actually says,
+      // so "same as the campaign" has to keep meaning "still inheriting".
+      // Without this every untouched row would come back as a hundred
+      // fresh overrides and the wave would stop propagating — the same
+      // rule the admin dialog uses, for the same reason.
+      const campaignText: Record<string, string | null> = {
+        headingCs: campaign?.headingCs ?? null,
+        headingEn: campaign?.headingEn ?? null,
+        bodyCs: campaign?.bodyCs ?? null,
+        bodyEn: campaign?.bodyEn ?? null,
+        bonusCs: campaign?.bonusCs ?? null,
+        bonusEn: campaign?.bonusEn ?? null,
+        qrTitle: campaign?.qrTitle ?? null,
+        qrCaption: campaign?.qrCaption ?? null,
+        hintCs: campaign?.hintCs ?? null,
+        hintEn: campaign?.hintEn ?? null,
+      };
+
       const setText = (
         key:
           | "headingCs"
@@ -1098,7 +1127,9 @@ export async function importDropXlsxAction(
           | "hintEn",
       ) => {
         if (v[key] === undefined) return;
-        const next = v[key] === "" ? null : v[key]!;
+        const typed = v[key]!;
+        const inherited = (campaignText[key] ?? "").trim();
+        const next = typed === "" || typed.trim() === inherited ? null : typed;
         const prev = (item as Record<string, unknown>)[key] ?? null;
         if (next !== prev) {
           data[key] = next;
@@ -1129,18 +1160,28 @@ export async function importDropXlsxAction(
       };
       const bagBefore = JSON.stringify(bag);
 
+      // Same "equal to the campaign means still inheriting" rule the
+      // texts get. The size column arrives pre-filled with the wave's
+      // value, so writing it back unconditionally would hand every single
+      // card an option bag of its own — and an option bag is what makes a
+      // card stop following the wave. An untouched sheet must change
+      // nothing.
       if (v.sizeCm !== undefined) {
-        if (v.sizeCm === null) delete bag.sizeCm;
+        if (v.sizeCm === null || v.sizeCm === campaignSizeCm) delete bag.sizeCm;
         else bag.sizeCm = v.sizeCm;
       }
 
       // Typing a title into the sheet has to TURN THE TITLE ON as well,
       // otherwise the text lands in the column, nothing changes on the
-      // card, and the operator has no way of telling why. Clearing the
-      // cell only clears the text; "no title at all" stays a deliberate
-      // choice made in the form.
-      if (v.qrTitle) bag.titleMode = "custom";
-      if (v.qrCaption) bag.captionMode = "custom";
+      // card, and there is no way of telling why. Keyed off the OVERRIDE
+      // (`data.qrTitle`), not off the cell — a cell merely showing what
+      // the wave prints is not a request to pin it.
+      if (typeof data.qrTitle === "string" && data.qrTitle) {
+        bag.titleMode = "custom";
+      }
+      if (typeof data.qrCaption === "string" && data.qrCaption) {
+        bag.captionMode = "custom";
+      }
 
       if (JSON.stringify(bag) !== bagBefore) {
         const sizeBefore = readDropQrOptions(item.qrOptions).sizeCm;
@@ -1226,6 +1267,18 @@ export async function importDropXlsxAction(
       });
       revalidate(campaignId);
     }
+
+    await archiveDropXlsx(
+      campaignId,
+      raw,
+      {
+        originalName: file.name,
+        matched: report.matched,
+        changed: report.changed,
+        blocked: false,
+      },
+      new Date(),
+    );
 
     return { ok: true, report };
   } catch (e) {

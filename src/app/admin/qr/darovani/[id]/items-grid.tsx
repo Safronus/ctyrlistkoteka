@@ -81,6 +81,38 @@ export interface ItemView {
   ownDesign: Partial<QrDesign>;
 }
 
+interface QrPreview {
+  uri: string;
+  w: number;
+  h: number;
+}
+
+/**
+ * SVG markup → a `data:` URI plus its intrinsic size.
+ *
+ * The SIZE is not decoration. An <img> with no dimensions has no
+ * intrinsic ratio until it decodes, so it lays out 0 px tall — and a
+ * zero-height lazy image never enters the viewport, so it never loads,
+ * so it stays zero. Handing over width and height reserves the right box
+ * up front, which both fixes that deadlock and removes the layout shift.
+ *
+ * base64 rather than percent-encoding because the codes carry 🍀 and
+ * other non-Latin-1 text; `btoa` needs the UTF-8 bytes, hence the
+ * TextEncoder round trip.
+ */
+function svgToPreview(svg: string): QrPreview {
+  const bytes = new TextEncoder().encode(svg);
+  let binary = "";
+  // Chunked: String.fromCharCode(...bytes) blows the argument limit on a
+  // 50 kB code.
+  for (let i = 0; i < bytes.length; i += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  }
+  const w = Number(/<svg[^>]*\swidth="(\d+)"/.exec(svg)?.[1] ?? 600);
+  const h = Number(/<svg[^>]*\sheight="(\d+)"/.exec(svg)?.[1] ?? w);
+  return { uri: `data:image/svg+xml;base64,${btoa(binary)}`, w, h };
+}
+
 const STATUS_TONE: Record<DropStatus, string> = {
   PREPARED: "bg-gray-100 text-gray-700",
   PRINTED: "bg-amber-100 text-amber-900",
@@ -122,7 +154,11 @@ export function ItemsGrid({
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openItem, setOpenItem] = useState<ItemView | null>(null);
-  const [svgs, setSvgs] = useState<Record<number, string>>({});
+  // Data URIs, not SVG markup. Inlining the code put ~600 DOM nodes on
+  // every card — 70 000 for a wave of 111, which is what made selecting a
+  // checkbox and opening the dialog crawl. As an <img> each card is ONE
+  // node and the browser decodes it off the main thread.
+  const [svgs, setSvgs] = useState<Record<number, QrPreview>>({});
   const [printing, setPrinting] = useState<number[] | null>(null);
   // Two-step, because zeroing counters is not undoable and the button
   // sits in a strip of one-click bulk edits.
@@ -156,7 +192,7 @@ export function ItemsGrid({
         if (r.ok) {
           setSvgs((prev) => {
             const next = { ...prev };
-            for (const it of r.items) next[it.id] = it.svg;
+            for (const it of r.items) next[it.id] = svgToPreview(it.svg);
             return next;
           });
         }
@@ -605,7 +641,7 @@ const ItemCard = memo(function ItemCard({
 }: {
   item: ItemView;
   /** Pre-rendered by the grid's batched fetch; null until it arrives. */
-  svg: string | null;
+  svg: QrPreview | null;
   areaName: string | null;
   checked: boolean;
   onToggle: (id: number) => void;
@@ -640,9 +676,18 @@ const ItemCard = memo(function ItemCard({
           Editing has its own button below. */}
       <div className="mt-2 rounded border border-gray-100 bg-gray-50 p-1">
         {svg ? (
-          <div
-            className="[&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
-            dangerouslySetInnerHTML={{ __html: svg }}
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={svg.uri}
+            width={svg.w}
+            height={svg.h}
+            alt={`QR kód kusu ${item.findId}`}
+            // No lazy loading: the bytes are already here (a data URI, no
+            // network), so laziness would only defer decoding — and it
+            // buys that at the price of cards that can sit blank. The
+            // win was the node count, not the fetch.
+            decoding="async"
+            className="block h-auto w-full"
           />
         ) : (
           <span className="flex aspect-square items-center justify-center text-gray-300">

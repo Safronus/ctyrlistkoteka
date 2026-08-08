@@ -29,32 +29,125 @@ import {
 
 export const DROP_SHEET_NAME = "Kusy";
 
-/** Column order is also the import contract — headers are matched by
- *  name, so a reordered or partially deleted sheet still works. */
-const COLUMNS = [
-  { key: "findId", header: "Číslo nálezu", width: 14 },
-  { key: "area", header: "Oblast", width: 16 },
-  { key: "status", header: "Stav", width: 14 },
-  { key: "placedBy", header: "Kdo umísťuje", width: 18 },
-  { key: "gps", header: "GPS", width: 26 },
-  { key: "headingCs", header: "Nadpis CZ", width: 28 },
-  { key: "headingEn", header: "Nadpis EN", width: 28 },
-  { key: "bodyCs", header: "Text CZ", width: 40 },
-  { key: "bodyEn", header: "Text EN", width: 40 },
-  { key: "bonusCs", header: "Bonus CZ", width: 32 },
-  { key: "bonusEn", header: "Bonus EN", width: 32 },
-  { key: "qrTitle", header: "Titulek nad QR", width: 20 },
-  { key: "qrCaption", header: "Text pod QR", width: 20 },
-  { key: "sizeCm", header: "Velikost tisku (cm)", width: 18 },
-  { key: "hintCs", header: "Nápověda CZ", width: 32 },
-  { key: "hintEn", header: "Nápověda EN", width: 32 },
-  { key: "hintPublished", header: "Nápověda zveřejněná", width: 20 },
-  { key: "landingUrl", header: "Odkaz (jen ke čtení)", width: 46 },
-  { key: "scans", header: "Naskenování (jen ke čtení)", width: 24 },
-  { key: "foundAt", header: "Nalezeno (jen ke čtení)", width: 22 },
-] as const;
+/** Row holding the field names; row 1 above it holds the group bands. */
+const HEADER_ROW = 2;
 
-const READ_ONLY = new Set(["landingUrl", "scans", "foundAt"]);
+/**
+ * The columns, in groups.
+ *
+ * The sheet is a TEAM document — it goes on a shared drive and several
+ * people type into it at once — so the grouping is not decoration. Three
+ * kinds of text live here and they end up in completely different places:
+ * one is read on a phone after scanning, one is printed on the card, one
+ * is a clue published on the find's page. Colour-banded headers say which
+ * is which without anyone having to remember.
+ */
+const GROUPS = {
+  id: { label: "Kus", fill: "FFE8EDF3", header: "FFCBD5E1" },
+  plan: { label: "Plán", fill: "FFEAF3E8", header: "FFBBD9B4" },
+  landing: {
+    label: "Text na stránce po naskenování",
+    fill: "FFE6F0FA",
+    header: "FFB9D5F0",
+  },
+  card: { label: "Text na kartičce s QR", fill: "FFFDF3E2", header: "FFF2D399" },
+  hint: { label: "Nápověda k hledání", fill: "FFFBEDF7", header: "FFEEC2E0" },
+  ref: { label: "Jen ke čtení", fill: "FFF3F4F6", header: "FFD1D5DB" },
+  free: { label: "Pro tým", fill: "FFFFFBEB", header: "FFFDE68A" },
+} as const;
+
+type GroupKey = keyof typeof GROUPS;
+
+const COLUMNS: ReadonlyArray<{
+  key: string;
+  header: string;
+  width: number;
+  group: GroupKey;
+}> = [
+  { key: "ordinal", header: "Pořadí v sadě", width: 13, group: "id" },
+  { key: "findId", header: "Číslo čtyřlístku", width: 16, group: "id" },
+  { key: "area", header: "Oblast", width: 16, group: "plan" },
+  { key: "status", header: "Stav", width: 14, group: "plan" },
+  { key: "placedBy", header: "Kdo umísťuje", width: 18, group: "plan" },
+  { key: "gps", header: "GPS", width: 26, group: "plan" },
+  { key: "headingCs", header: "Nadpis CZ", width: 28, group: "landing" },
+  { key: "headingEn", header: "Nadpis EN", width: 28, group: "landing" },
+  { key: "bodyCs", header: "Text CZ", width: 40, group: "landing" },
+  { key: "bodyEn", header: "Text EN", width: 40, group: "landing" },
+  { key: "bonusCs", header: "Bonus CZ", width: 32, group: "landing" },
+  { key: "bonusEn", header: "Bonus EN", width: 32, group: "landing" },
+  { key: "qrTitle", header: "Nad QR kódem", width: 22, group: "card" },
+  { key: "qrCaption", header: "Pod QR kódem", width: 22, group: "card" },
+  { key: "sizeCm", header: "Velikost tisku (cm)", width: 18, group: "card" },
+  { key: "hintCs", header: "Nápověda CZ", width: 32, group: "hint" },
+  { key: "hintEn", header: "Nápověda EN", width: 32, group: "hint" },
+  {
+    key: "hintPublished",
+    header: "Nápověda zveřejněná",
+    width: 20,
+    group: "hint",
+  },
+  { key: "landingUrl", header: "Odkaz na stránku kusu", width: 46, group: "ref" },
+  { key: "note", header: "Poznámka týmu", width: 40, group: "free" },
+];
+
+/** Ignored on import: context to read, or a scratchpad for the crew. */
+const READ_ONLY = new Set(["landingUrl", "ordinal", "note"]);
+
+/**
+ * Colour-bands each group and writes the group names above the headers.
+ *
+ * Two header rows, not one: row 1 says WHERE the text ends up, row 2
+ * names the field. Somebody opening this on a shared drive should be able
+ * to tell the landing-page text from what is printed on the card without
+ * being told.
+ */
+function paintGroups(ws: ExcelJS.Worksheet, rowCount: number): void {
+  ws.spliceRows(1, 0, []);
+  const bandRow = ws.getRow(1);
+  const headRow = ws.getRow(2);
+  headRow.font = { bold: true };
+  headRow.alignment = { vertical: "middle", wrapText: true };
+
+  let start = 1;
+  for (let i = 0; i < COLUMNS.length; i++) {
+    const col = COLUMNS[i]!;
+    const next = COLUMNS[i + 1];
+    const g = GROUPS[col.group];
+    for (const row of [bandRow, headRow]) {
+      const cell = row.getCell(i + 1);
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: row === bandRow ? g.header : g.fill },
+      };
+      cell.border = {
+        left: { style: "thin", color: { argb: "FFFFFFFF" } },
+        right: { style: "thin", color: { argb: "FFFFFFFF" } },
+      };
+    }
+    // Tint the data cells too, so a column keeps its meaning as you
+    // scroll away from the header.
+    for (let r = 3; r < 3 + rowCount; r++) {
+      ws.getCell(r, i + 1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: g.fill },
+      };
+    }
+    // One merged label per run of same-group columns.
+    if (!next || next.group !== col.group) {
+      bandRow.getCell(start).value = g.label;
+      if (start !== i + 1) ws.mergeCells(1, start, 1, i + 1);
+      const c = bandRow.getCell(start);
+      c.font = { bold: true, size: 9 };
+      c.alignment = { horizontal: "center", vertical: "middle" };
+      start = i + 2;
+    }
+  }
+  bandRow.height = 18;
+  headRow.height = 28;
+}
 
 /** Spreadsheet column letter for a key, derived from COLUMNS rather than
  *  written down — inserting a column used to silently move a dropdown
@@ -73,6 +166,8 @@ function columnLetter(key: string): string {
 }
 
 export interface DropXlsxRow {
+  /** 1-based position in the wave, by find number. Read-only. */
+  ordinal: number;
   findId: number;
   area: string;
   status: DropStatus;
@@ -93,8 +188,8 @@ export interface DropXlsxRow {
   hintEn: string;
   hintPublished: boolean;
   landingUrl: string;
-  scans: number;
-  foundAt: string;
+  /** Free text for the crew; never read back. */
+  note: string;
 }
 
 export async function buildDropXlsx(
@@ -112,11 +207,11 @@ export async function buildDropXlsx(
     header: c.header,
     width: c.width,
   }));
-  ws.getRow(1).font = { bold: true };
   ws.views = [{ state: "frozen", ySplit: 1 }];
 
   for (const r of rows) {
     ws.addRow({
+      ordinal: r.ordinal,
       findId: r.findId,
       area: r.area,
       status: DROP_STATUS_LABEL[r.status],
@@ -135,19 +230,20 @@ export async function buildDropXlsx(
       hintEn: r.hintEn,
       hintPublished: r.hintPublished ? "ano" : "ne",
       landingUrl: r.landingUrl,
-      scans: r.scans,
-      foundAt: r.foundAt,
+      note: r.note,
     });
   }
+
+  paintGroups(ws, rows.length);
 
   // Dropdowns on the columns with a closed vocabulary, so the sheet
   // teaches its own valid values instead of relying on the operator
   // remembering them.
-  const last = Math.max(2, rows.length + 1);
+  const last = Math.max(HEADER_ROW + 1, rows.length + HEADER_ROW);
   const statusList = `"${DROP_STATUS_ORDER.map((s) => DROP_STATUS_LABEL[s]).join(",")}"`;
   const validate = (key: string, formula: string, allowBlank: boolean) => {
     const col = columnLetter(key);
-    for (let i = 2; i <= last; i++) {
+    for (let i = HEADER_ROW + 1; i <= last; i++) {
       ws.getCell(`${col}${i}`).dataValidation = {
         type: "list",
         allowBlank,
@@ -171,15 +267,25 @@ export async function buildDropXlsx(
   for (const line of [
     `Sada: ${campaignName}`,
     "",
-    "Uprav list „Kusy“ a nahraj soubor zpět v /admin/qr → Darování ve světě.",
+    "Tenhle soubor slouží týmu k domluvě. Klidně ho dejte na sdílený disk a vyplňujte společně;",
+    "hotovou verzi pak někdo nahraje v /admin/qr → Darování ve světě → Tabulka (xlsx).",
     "",
-    "• Řádky se párují podle „Číslo nálezu“. Číslo, které v sadě není, se přeskočí a nahlásí.",
-    "• Prázdná buňka u textu znamená „převzít ze sady“ — stejně jako prázdné pole v adminu.",
+    "JAK SE ČTE",
+    "• Barevné pruhy nad hlavičkou říkají, kam který text patří:",
+    "    – Text na stránce po naskenování = co uvidí na mobilu ten, kdo kartičku najde.",
+    "    – Text na kartičce s QR = co se fyzicky vytiskne nad a pod kódem.",
+    "    – Nápověda k hledání = věta na stránce nálezu ve sbírce, když ji zveřejníte.",
+    "• Buňky jsou předvyplněné tím, co kartička říká teď. Přepsat = udělat výjimku pro ten kus.",
+    "• Když necháte hodnotu shodnou se sadou, kus dál sleduje sadu — pozdější změna sady se do něj propíše.",
+    "• Prázdná buňka u textu = převzít ze sady.",
+    "",
+    "PRAVIDLA IMPORTU",
+    "• Řádky se párují podle „Číslo čtyřlístku“. Číslo, které v sadě není, se přeskočí a nahlásí.",
+    "• „Pořadí v sadě“, „Odkaz“ a „Poznámka týmu“ se při importu ignorují — poznámka je jen pro vás.",
     "• GPS bere desetinné stupně (49.2245, 17.6712), DMS i odkaz z Mapy.cz nebo Google Maps.",
     "• Prázdná GPS pozici smaže.",
-    `• Velikost tisku je šířka kartičky v cm (${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM}). Prázdné = velikost sady.`,
-    "• Text pod QR se tiskne pod kód; prázdné = ze sady, a když ho nemá ani sada, netiskne se nic.",
-    "• Poslední tři sloupce jsou jen ke čtení a při importu se ignorují.",
+    `• Velikost tisku je šířka kartičky v cm (${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM}).`,
+    "• Chyba v jediném řádku zastaví celý soubor a vypíše se i s číslem řádku — nic se neuloží napůl.",
     "• Stav: " + DROP_STATUS_ORDER.map((s) => DROP_STATUS_LABEL[s]).join(", "),
   ]) {
     help.addRow([line]);
@@ -233,6 +339,36 @@ function cellText(v: ExcelJS.CellValue): string {
   return String(v);
 }
 
+/**
+ * Header spellings we still accept.
+ *
+ * A wave takes weeks and the sheet lives on somebody's shared drive, so a
+ * copy made before a rename is a normal thing to receive — refusing it
+ * would throw away real work over a caption.
+ */
+const HEADER_ALIASES: Record<string, string> = {
+  "číslo nálezu": "findId",
+  "titulek qr": "qrTitle",
+  "titulek nad qr": "qrTitle",
+  "text pod qr": "qrCaption",
+};
+
+function readHeaderRow(
+  ws: ExcelJS.Worksheet,
+  rowIndex: number,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  ws.getRow(rowIndex).eachCell((cell, col) => {
+    const text = cellText(cell.value).trim().toLowerCase();
+    if (!text) return;
+    const key =
+      COLUMNS.find((c) => c.header.toLowerCase() === text)?.key ??
+      HEADER_ALIASES[text];
+    if (key && !READ_ONLY.has(key)) out.set(key, col);
+  });
+  return out;
+}
+
 const STATUS_BY_LABEL = new Map<string, DropStatus>(
   DROP_STATUS_ORDER.map((s) => [DROP_STATUS_LABEL[s].toLowerCase(), s]),
 );
@@ -247,26 +383,33 @@ export async function parseDropXlsx(
 
   // Headers are matched by NAME, so reordering columns in Excel — which
   // people do — doesn't silently shift every value one column over.
-  const headerRow = ws.getRow(1);
-  const colByKey = new Map<string, number>();
-  headerRow.eachCell((cell, col) => {
-    const text = cellText(cell.value).trim().toLowerCase();
-    const match = COLUMNS.find((c) => c.header.toLowerCase() === text);
-    if (match && !READ_ONLY.has(match.key)) colByKey.set(match.key, col);
-  });
+  //
+  // The header row is found rather than assumed: the sheet grew a band of
+  // group labels above it, and a copy of an older export (or one somebody
+  // pasted into a fresh Google Sheet) still has its headers on row 1.
+  let colByKey = new Map<string, number>();
+  let headerRowIndex = HEADER_ROW;
+  for (const candidate of [HEADER_ROW, 1, 3]) {
+    const found = readHeaderRow(ws, candidate);
+    if (found.has("findId")) {
+      colByKey = found;
+      headerRowIndex = candidate;
+      break;
+    }
+  }
 
   const errors: string[] = [];
   if (!colByKey.has("findId")) {
     return {
       rows: [],
-      errors: ['Chybí sloupec „Číslo nálezu“ — bez něj se řádky nespárují.'],
+      errors: ['Chybí sloupec „Číslo čtyřlístku“ — bez něj se řádky nespárují.'],
     };
   }
 
   const rows: ParsedDropRow[] = [];
   const seen = new Set<number>();
 
-  for (let r = 2; r <= ws.rowCount; r++) {
+  for (let r = headerRowIndex + 1; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
     const rawId = cellText(row.getCell(colByKey.get("findId")!).value).trim();
     if (!rawId) continue; // blank line — skip silently

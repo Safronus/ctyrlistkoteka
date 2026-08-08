@@ -18,6 +18,7 @@ import { ItemsGrid, type ItemView } from "./items-grid";
 import type { QrDesign } from "./qr-design-fields";
 import { AreaMapPanel } from "./area-map-panel";
 import { XlsxPanel } from "./xlsx-panel";
+import { listDropXlsx } from "@/lib/admin/dropXlsxArchive";
 
 export const metadata: Metadata = {
   title: "Darování ve světě",
@@ -256,7 +257,11 @@ export default async function DropCampaignPage({
         }))}
       />
 
-      <XlsxPanel campaignId={campaign.id} campaignName={campaign.name} />
+      <XlsxPanel
+        campaignId={campaign.id}
+        campaignName={campaign.name}
+        archive={await listDropXlsx(campaign.id)}
+      />
 
       <ItemsGrid
         campaignId={campaign.id}

@@ -9,6 +9,27 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Darování ve světě — tabulka pro tým a konec sekání (9. fáze)
+- **Sekce „Kusy“ přestala sekat.** Každý QR kód se vykresloval jako
+  vložená grafika o šesti stovkách prvků; u vlny 111 kusů z toho bylo přes
+  70 000 prvků na stránce a zaškrtnutí políčka nebo otevření dialogu na to
+  čekalo. Teď je z kódu obrázek — 29 prvků na kartičku místo 646.
+- **Tabulka je teď týmový dokument.** Dá se položit na sdílený disk a
+  vyplňovat ve více lidech:
+  - sloupce jsou v **barevných skupinách** s popisem, kam text patří —
+    stránka po naskenování / kartička s QR / nápověda;
+  - **buňky jsou předvyplněné** tím, co kartička říká teď, takže se
+    upravuje místo dohledávání;
+  - kdo nechá hodnotu shodnou se sadou, ten dál sadu sleduje — stáhnout a
+    hned nahrát zpátky nezmění nic;
+  - první sloupec je **pořadí v sadě**, druhý **číslo čtyřlístku**;
+  - na konci je **poznámka týmu**, která se při importu ignoruje;
+  - zbytečné sloupce (počet naskenování, kdy bylo nalezeno) jsou pryč;
+  - list **Návod** je přepsaný pro člověka, který ten soubor vidí poprvé.
+- **Přehled nahraných tabulek.** Každý upload se uloží tak, jak přišel —
+  i ten, co se kvůli chybě neuložil — s datem, jménem souboru a počtem
+  změn, a dá se stáhnout zpátky. Drží se posledních 20.
+
 ### Darování ve světě — editor vzhledu a přehlednější formuláře (8. fáze)
 - **Vzhled kartičky jde konečně nastavit.** Hustota kódu, barevnost, tvar
   bodů, obrázek uprostřed, okraj — u sady i u jednotlivého kusu, vedle

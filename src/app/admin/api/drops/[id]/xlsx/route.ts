@@ -5,9 +5,14 @@ import {
   isAuthenticated,
   touchSession,
 } from "@/lib/admin/session";
-import { dropLandingUrl, readDropQrOptions } from "@/lib/admin/drops";
+import {
+  dropLandingUrl,
+  readDropQrOptions,
+  mergeDropQrOptions,
+  resolveQrLines,
+  DROP_SIZE_DEFAULT_CM,
+} from "@/lib/admin/drops";
 import { buildDropXlsx, type DropXlsxRow } from "@/lib/admin/dropXlsx";
-import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 
 /**
  * GET /admin/api/drops/<campaign id>/xlsx
@@ -22,15 +27,6 @@ import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const dateTimeFmt = new Intl.DateTimeFormat("cs-CZ", {
-  day: "numeric",
-  month: "numeric",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: COLLECTION_TIME_ZONE,
-});
 
 export async function GET(
   _req: NextRequest,
@@ -63,31 +59,52 @@ export async function GET(
   });
   if (!campaign) return new NextResponse("Not found", { status: 404 });
 
-  const rows: DropXlsxRow[] = campaign.items.map((i) => ({
-    findId: i.findId,
-    area: i.area?.name ?? "",
-    status: i.status,
-    placedBy: i.placedBy ?? "",
-    lat: i.lat,
-    lng: i.lng,
-    headingCs: i.headingCs ?? "",
-    headingEn: i.headingEn ?? "",
-    bodyCs: i.bodyCs ?? "",
-    bodyEn: i.bodyEn ?? "",
-    bonusCs: i.bonusCs ?? "",
-    bonusEn: i.bonusEn ?? "",
-    qrTitle: i.qrTitle ?? "",
-    qrCaption: i.qrCaption ?? "",
-    // Blank when the card has no size of its own — the sheet then reads
-    // "inherits", the same as an empty text cell.
-    sizeCm: readDropQrOptions(i.qrOptions).sizeCm?.toString() ?? "",
-    hintCs: i.hintCs ?? "",
-    hintEn: i.hintEn ?? "",
-    hintPublished: i.hintPublished,
-    landingUrl: dropLandingUrl(i.token),
-    scans: i._count.scans,
-    foundAt: i.foundAt ? dateTimeFmt.format(i.foundAt) : "",
-  }));
+  // Filled in, not left blank.
+  //
+  // An empty cell still MEANS "inherit", but a sheet that shows nothing
+  // is useless to the crew: to adjust one sentence for one card you had
+  // to go and find that sentence first. So every text arrives showing
+  // what the card would actually say, and the import treats a value equal
+  // to the campaign's as "still inheriting" — exactly the rule the admin
+  // dialog uses. Editing a cell is therefore how you override, and
+  // leaving it alone changes nothing.
+  const campaignDesign = readDropQrOptions(campaign.qrOptions);
+  const rows: DropXlsxRow[] = campaign.items.map((i, index) => {
+    const lines = resolveQrLines(
+      mergeDropQrOptions(campaign.qrOptions, i.qrOptions),
+      i.findId,
+      i.qrTitle,
+      campaign.qrTitle,
+      i.qrCaption,
+      campaign.qrCaption,
+    );
+    const own = readDropQrOptions(i.qrOptions);
+    return {
+      ordinal: index + 1,
+      findId: i.findId,
+      area: i.area?.name ?? "",
+      status: i.status,
+      placedBy: i.placedBy ?? "",
+      lat: i.lat,
+      lng: i.lng,
+      headingCs: i.headingCs ?? campaign.headingCs,
+      headingEn: i.headingEn ?? campaign.headingEn ?? "",
+      bodyCs: i.bodyCs ?? campaign.bodyCs,
+      bodyEn: i.bodyEn ?? campaign.bodyEn ?? "",
+      bonusCs: i.bonusCs ?? campaign.bonusCs ?? "",
+      bonusEn: i.bonusEn ?? campaign.bonusEn ?? "",
+      // What is actually printed, "no text" included — the sheet should
+      // not imply a title exists when the card has none.
+      qrTitle: lines.title ?? "",
+      qrCaption: lines.caption ?? "",
+      sizeCm: String(own.sizeCm ?? campaignDesign.sizeCm ?? DROP_SIZE_DEFAULT_CM),
+      hintCs: i.hintCs ?? campaign.hintCs ?? "",
+      hintEn: i.hintEn ?? campaign.hintEn ?? "",
+      hintPublished: i.hintPublished,
+      landingUrl: dropLandingUrl(i.token),
+      note: "",
+    };
+  });
 
   const buf = await buildDropXlsx(
     campaign.name,

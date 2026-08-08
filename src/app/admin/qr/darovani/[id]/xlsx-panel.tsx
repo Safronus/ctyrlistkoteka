@@ -2,7 +2,14 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Download, FileSpreadsheet, Loader2, Upload } from "lucide-react";
+import {
+  Download,
+  FileSpreadsheet,
+  History,
+  Loader2,
+  Upload,
+} from "lucide-react";
+import type { ArchivedXlsx } from "@/lib/admin/dropXlsxArchive";
 import { importDropXlsxAction, type ImportReport } from "../../drop-actions";
 
 /**
@@ -17,9 +24,12 @@ import { importDropXlsxAction, type ImportReport } from "../../drop-actions";
 export function XlsxPanel({
   campaignId,
   campaignName,
+  archive,
 }: {
   campaignId: number;
   campaignName: string;
+  /** Previously uploaded workbooks, newest first. */
+  archive: ArchivedXlsx[];
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -39,7 +49,8 @@ export function XlsxPanel({
         return;
       }
       setReport(r.report);
-      if (r.report.changed > 0) router.refresh();
+      // Always refresh: even a rejected upload joins the archive list.
+      router.refresh();
     });
   };
 
@@ -97,8 +108,71 @@ export function XlsxPanel({
       )}
 
       {report && <Report report={report} />}
+
+      {/* ------------------------------------------------ what came in */}
+      <div className="border-t border-gray-100 pt-3">
+        <h3 className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+          <History className="h-3.5 w-3.5 text-gray-400" aria-hidden />
+          Nahrané tabulky
+          <span className="font-normal text-gray-400">({archive.length})</span>
+        </h3>
+        {archive.length === 0 ? (
+          <p className="mt-1 text-[11px] text-gray-400">
+            Zatím nic nenahráno. Každý nahraný soubor se tu uloží tak, jak
+            přišel — i ten, který se neuložil kvůli chybě.
+          </p>
+        ) : (
+          <ul className="mt-1.5 space-y-1">
+            {archive.map((a) => (
+              <li
+                key={a.name}
+                className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[11px]"
+              >
+                <span className="font-medium tabular-nums text-gray-800">
+                  {formatStamp(a.uploadedAt)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-gray-500">
+                  {a.originalName}
+                </span>
+                {a.blocked ? (
+                  <span className="rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-900">
+                    neuloženo (chyby)
+                  </span>
+                ) : (
+                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-medium tabular-nums text-emerald-900">
+                    {a.changed} změn z {a.matched} řádků
+                  </span>
+                )}
+                <span className="tabular-nums text-gray-400">
+                  {Math.max(1, Math.round(a.bytes / 1024))} kB
+                </span>
+                <a
+                  href={`/admin/api/drops/${campaignId}/xlsx/${encodeURIComponent(a.name)}`}
+                  className="inline-flex items-center gap-0.5 text-brand-700 hover:underline"
+                >
+                  <Download className="h-3 w-3" aria-hidden />
+                  stáhnout
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
+}
+
+const stampFmt = new Intl.DateTimeFormat("cs-CZ", {
+  day: "numeric",
+  month: "numeric",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function formatStamp(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : stampFmt.format(d);
 }
 
 function Report({ report }: { report: ImportReport }) {
