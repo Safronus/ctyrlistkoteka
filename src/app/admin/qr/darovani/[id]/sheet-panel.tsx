@@ -10,6 +10,7 @@ import {
   Link2,
   Loader2,
   RefreshCw,
+  ServerCog,
   Table2,
 } from "lucide-react";
 import {
@@ -51,6 +52,7 @@ export function SheetPanel({
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(!status.url);
+  const [showServer, setShowServer] = useState(false);
   const [busy, start] = useTransition();
 
   const linkDirty = url.trim() !== (status.url ?? "");
@@ -118,14 +120,24 @@ export function SheetPanel({
             </span>
           )}
         </h2>
-        <button
-          type="button"
-          onClick={() => setShowHelp((h) => !h)}
-          className="inline-flex items-center gap-1 text-[11px] text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline"
-        >
-          <HelpCircle className="h-3.5 w-3.5" aria-hidden />
-          {showHelp ? "Skrýt návod" : "Návod"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowHelp((h) => !h)}
+            className="inline-flex items-center gap-1 text-[11px] text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline"
+          >
+            <HelpCircle className="h-3.5 w-3.5" aria-hidden />
+            {showHelp ? "Skrýt návod" : "Návod k tabulce"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowServer((h) => !h)}
+            className="inline-flex items-center gap-1 text-[11px] text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline"
+          >
+            <ServerCog className="h-3.5 w-3.5" aria-hidden />
+            {showServer ? "Skrýt" : "Zapnout automatiku na serveru"}
+          </button>
+        </div>
       </div>
 
       <p className="text-xs text-gray-500">
@@ -134,6 +146,7 @@ export function SheetPanel({
       </p>
 
       {showHelp && <Help />}
+      {showServer && <ServerHelp />}
 
       {/* ------------------------------------------------------ the link */}
       <div className="grid items-start gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
@@ -240,6 +253,22 @@ export function SheetPanel({
             </span>
           </label>
         </div>
+      )}
+
+      {/* Both the button and the timer stamp `syncedAt`, so a mode-run
+          wave that has not been checked in a while means neither has run
+          — which is exactly the state after switching the mode on and
+          forgetting the server half. */}
+      {status.mode && staleSync(status.syncedAt) && (
+        <p className="rounded border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-xs text-violet-900">
+          Režim tabulky běží, ale{" "}
+          {status.syncedAt
+            ? "poslední kontrola je starší než 20 minut"
+            : "tabulka ještě nebyla ani jednou zkontrolována"}
+          . Automatika na serveru nejspíš není zapnutá — návod je nahoře pod{" "}
+          <strong>„Zapnout automatiku na serveru“</strong>. Do té doby stahuj
+          ručně tlačítkem níž.
+        </p>
       )}
 
       {status.error && (
@@ -512,10 +541,100 @@ function Help() {
   );
 }
 
+/** Roughly four missed five-minute ticks — long enough not to cry wolf
+ *  over one slow run, short enough to notice the same afternoon. */
+const STALE_SYNC_MS = 20 * 60 * 1000;
+
+function staleSync(syncedAt: string | null): boolean {
+  if (!syncedAt) return true;
+  const t = new Date(syncedAt).getTime();
+  return Number.isNaN(t) || Date.now() - t > STALE_SYNC_MS;
+}
+
 /** Czech counts three ways: one, a few, many. */
 function plural(n: number, one: string, few: string, many: string): string {
   if (n === 1) return one;
   return n >= 2 && n <= 4 ? few : many;
+}
+
+/**
+ * How to switch the timer on. Kept in the admin rather than only in
+ * deploy/README.md because that is where somebody stands when they decide
+ * to do it — and because it is the one part of this feature that lives on
+ * the server and cannot be clicked.
+ */
+function ServerHelp() {
+  return (
+    <div className="space-y-2 rounded-lg border border-violet-200 bg-violet-50/60 p-3 text-[11px] leading-relaxed text-gray-700">
+      <p className="text-xs font-semibold text-gray-900">
+        Automatická synchronizace každých 5 minut
+      </p>
+      <p>
+        Tlačítko <em>Zkontrolovat změny</em> funguje vždycky. Tohle je navíc
+        — timer na serveru, který tabulku stahuje sám. Dokud ho nezapneš,
+        endpoint <code className="rounded bg-white px-1">/api/admin/drops/sync</code>{" "}
+        vrací 404 a <strong>nic se neděje</strong>; to je v pořádku, ne chyba.
+      </p>
+
+      <p className="pt-1 font-semibold text-gray-900">Postup v Termiusu</p>
+      <ol className="list-decimal space-y-1.5 pl-4">
+        <li>
+          Zkopírovat unit soubory z repozitáře:
+          <Cmd>sudo cp deploy/drop-sheet-sync.&#123;service,timer&#125; /etc/systemd/system/</Cmd>
+        </li>
+        <li>
+          Vygenerovat token:
+          <Cmd>openssl rand -hex 32</Cmd>
+        </li>
+        <li>
+          Ten samý token dát na <strong>dvě místa</strong> — do{" "}
+          <code className="rounded bg-white px-1">.env</code> aplikace jako{" "}
+          <code className="rounded bg-white px-1">DROP_SHEET_SYNC_TOKEN=…</code>{" "}
+          a do souboru jen pro roota:
+          <Cmd>
+            sudo install -m 600 /dev/null /etc/ctyrlistkoteka-sync.env
+          </Cmd>
+          <Cmd>sudo nano /etc/ctyrlistkoteka-sync.env</Cmd>
+          (dovnitř jediný řádek{" "}
+          <code className="rounded bg-white px-1">DROP_SHEET_SYNC_TOKEN=…</code>)
+        </li>
+        <li>
+          Restartovat appku, aby si nový <code className="rounded bg-white px-1">.env</code> načetla:
+          <Cmd>pm2 restart ctyrlistkoteka --update-env</Cmd>
+        </li>
+        <li>
+          Spustit timer:
+          <Cmd>sudo systemctl daemon-reload</Cmd>
+          <Cmd>sudo systemctl enable --now drop-sheet-sync.timer</Cmd>
+        </li>
+        <li>
+          Zkontrolovat, že běží:
+          <Cmd>systemctl list-timers drop-sheet-sync.timer</Cmd>
+          <Cmd>journalctl -u drop-sheet-sync.service -n 20</Cmd>
+        </li>
+      </ol>
+
+      <p className="pt-1">
+        Vypnout se dá kdykoli:{" "}
+        <code className="rounded bg-white px-1">
+          sudo systemctl disable --now drop-sheet-sync.timer
+        </code>
+        . Ruční tlačítko tím nijak netrpí.
+      </p>
+      <p className="text-gray-500">
+        Totéž je v repozitáři v <code className="rounded bg-white px-1">deploy/README.md</code>.
+      </p>
+    </div>
+  );
+}
+
+/** A command line the operator will copy — monospace, its own row. */
+function Cmd({ children }: { children: React.ReactNode }) {
+  return (
+    <code className="mt-1 block overflow-x-auto rounded border border-violet-200 bg-white px-2 py-1 font-mono text-[11px] text-gray-800">
+      {children}
+    </code>
+  );
 }
 
 const stampFmt = new Intl.DateTimeFormat("cs-CZ", {

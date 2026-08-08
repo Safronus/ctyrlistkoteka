@@ -24,6 +24,10 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   nastaveného tokenu je celý endpoint vypnutý.
 - Ruční tlačítko v adminu zůstává a dělá **přesně totéž** co automatika —
   jedna funkce pro obě cesty, takže se nemůžou chovat jinak.
+- **Návod na zapnutí automatiky je přímo v adminu**, i s příkazy k
+  zkopírování — je to jediná část téhle funkce, která žije na serveru a
+  nedá se odklikat. A když režim tabulky běží, ale nic ji dlouho
+  nezkontrolovalo, panel to sám řekne a na návod odkáže.
 
 ### Darování ve světě — synchronizace z Google Sheets (11. fáze)
 - Sada může mít **odkaz na Google Sheets**. Tlačítko *Zkontrolovat změny*
