@@ -38,6 +38,7 @@ function item(over: Partial<PlanItem> = {}): PlanItem {
     qrCaption: null,
     hintCs: null,
     hintEn: null,
+    teamNote: null,
     ...over,
   };
 }
@@ -184,6 +185,29 @@ describe("planDropImport — the rest of a row", () => {
     );
     expect(plan.report.unknownAreas).toEqual(["Neexistuje"]);
     expect(plan.updates).toHaveLength(0);
+  });
+
+  it("takes the crew's note as plain text — nothing to inherit", () => {
+    const plan = planDropImport(
+      [row({ note: "Za knihovnou, u třetí lavičky." })],
+      [item()],
+      CAMPAIGN,
+      AREAS,
+    );
+    expect(plan.updates[0]?.data).toEqual({
+      teamNote: "Za knihovnou, u třetí lavičky.",
+    });
+    expect(plan.changes[0]?.field).toBe("Poznámka týmu");
+  });
+
+  it("clears the note when the cell is emptied", () => {
+    const plan = planDropImport(
+      [row({ note: "" })],
+      [item({ teamNote: "staré" })],
+      CAMPAIGN,
+      AREAS,
+    );
+    expect(plan.updates[0]?.data).toEqual({ teamNote: null });
   });
 
   it("saves a name outside the roster but flags it", () => {

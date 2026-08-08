@@ -1,0 +1,30 @@
+# Pulls every sheet-run "darování ve světě" wave from its Google Sheet.
+#
+# One-way: the sheet is read, never written. The endpoint refuses unless
+# DROP_SHEET_SYNC_TOKEN is set in the app's environment and matches the
+# header below — an install that never configured it answers 404, so the
+# route cannot be poked from outside.
+#
+#   sudo cp deploy/drop-sheet-sync.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now drop-sheet-sync.timer
+#
+# The token lives in /etc/ctyrlistkoteka-sync.env (root-only, 0600):
+#   DROP_SHEET_SYNC_TOKEN=<same value as in the app's .env>
+
+[Unit]
+Description=Čtyřlístkotéka — pull drop campaigns from Google Sheets
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/ctyrlistkoteka-sync.env
+# Localhost only: the app sits behind Nginx, and this never needs to
+# leave the box.
+ExecStart=/usr/bin/curl --fail --silent --show-error --max-time 120 \
+  -X POST \
+  -H "Authorization: Bearer ${DROP_SHEET_SYNC_TOKEN}" \
+  http://127.0.0.1:3000/api/admin/drops/sync
+User=www-data
+Group=www-data

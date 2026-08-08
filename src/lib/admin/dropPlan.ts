@@ -68,6 +68,7 @@ export interface PlanItem {
   qrCaption: string | null;
   hintCs: string | null;
   hintEn: string | null;
+  teamNote: string | null;
 }
 
 export interface PlanCampaign {
@@ -128,6 +129,7 @@ const FIELD_LABEL: Record<string, string> = {
   status: "Stav",
   gps: "GPS",
   hintPublished: "Nápověda zveřejněná",
+  teamNote: "Poznámka týmu",
 };
 
 export function planDropImport(
@@ -202,6 +204,16 @@ export function planDropImport(
         data[key] = next;
         if (next === null) report.cleared += 1;
         note(key, prev, next);
+      }
+    }
+
+    // The crew's note is the one text with no campaign default behind
+    // it — nothing to inherit, so it is a plain overwrite.
+    if (v.note !== undefined) {
+      const next = v.note.trim() === "" ? null : v.note;
+      if (next !== (item.teamNote ?? null)) {
+        data.teamNote = next;
+        note("teamNote", item.teamNote, next);
       }
     }
 

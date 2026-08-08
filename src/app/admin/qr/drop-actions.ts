@@ -13,18 +13,14 @@ import {
   findBoundaries,
   type BoundaryCandidate,
 } from "@/lib/admin/dropNominatim";
-import { parseDropXlsx } from "@/lib/admin/dropXlsx";
+import type { DropPlanReport, DropChange } from "@/lib/admin/dropPlan";
+import { parseSheetUrl, fetchSheetWorkbook, SheetFetchError } from "@/lib/admin/dropSheet";
 import {
-  planDropImport,
-  type DropPlan,
-  type DropPlanReport,
-  type DropChange,
-} from "@/lib/admin/dropPlan";
-import {
-  parseSheetUrl,
-  fetchSheetWorkbook,
-  SheetFetchError,
-} from "@/lib/admin/dropSheet";
+  planFromWorkbook,
+  applyPlan,
+  syncCampaignFromSheet,
+  toArrayBufferForPlan as toArrayBuffer,
+} from "@/lib/admin/dropSheetSync";
 import { archiveDropXlsx } from "@/lib/admin/dropXlsxArchive";
 import { renderFindQrSvg } from "@/lib/admin/qr";
 import {
@@ -503,8 +499,28 @@ export interface ItemInput {
   design: QrDesignInput;
   hintCs: string;
   hintEn: string;
+  /** The crew's note about this card — where it goes, who takes it. */
+  teamNote: string;
   hintPublished: boolean;
 }
+
+/**
+ * Refuses a write to a field the sheet owns.
+ *
+ * The UI already greys these out, but a page left open from before the
+ * mode was switched on would happily post anyway — and the loss would be
+ * invisible, because the next sync would simply overwrite it.
+ */
+async function sheetOwns(campaignId: number): Promise<boolean> {
+  const c = await prisma.dropCampaign.findUnique({
+    where: { id: campaignId },
+    select: { sheetMode: true },
+  });
+  return c?.sheetMode === true;
+}
+
+const SHEET_OWNED_ERROR =
+  "Tuhle sadu řídí Google Sheets — uprav to tam, nebo režim tabulky vypni.";
 
 export async function saveItemAction(
   campaignId: number,
@@ -512,6 +528,9 @@ export async function saveItemAction(
   input: ItemInput,
 ): Promise<VoidResult> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  if (await sheetOwns(campaignId)) {
+    return { ok: false, error: SHEET_OWNED_ERROR };
+  }
   const rawGps = str(input.gps, 200);
   let lat: number | null = null;
   let lng: number | null = null;
@@ -559,6 +578,7 @@ export async function saveItemAction(
         qrCaption: nullable(input.qrCaption, 200),
         hintCs: nullable(input.hintCs, 5_000),
         hintEn: nullable(input.hintEn, 5_000),
+        teamNote: nullable(input.teamNote, 5_000),
         hintPublished: input.hintPublished === true,
         // Ticking "schovaný" by hand stamps when, so the map can show how
         // long a card has been waiting. FOUND is stamped by the scan.
@@ -594,6 +614,9 @@ export async function bulkUpdateItemsAction(
   },
 ): Promise<Result<{ updated: number }>> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  if (await sheetOwns(campaignId)) {
+    return { ok: false, error: SHEET_OWNED_ERROR };
+  }
   const ids = (Array.isArray(itemIds) ? itemIds : []).filter(
     (n) => Number.isInteger(n) && n > 0,
   );
@@ -664,6 +687,9 @@ export async function scatterAreaAction(
   areaId: number,
 ): Promise<Result<{ placed: number; inBoundary: number }>> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  if (await sheetOwns(campaignId)) {
+    return { ok: false, error: SHEET_OWNED_ERROR };
+  }
   try {
     const area = await prisma.dropArea.findUnique({ where: { id: areaId } });
     if (!area) return { ok: false, error: "Oblast nenalezena" };
@@ -785,6 +811,9 @@ export async function clearAreaPositionsAction(
   areaId: number,
 ): Promise<Result<{ cleared: number }>> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  if (await sheetOwns(campaignId)) {
+    return { ok: false, error: SHEET_OWNED_ERROR };
+  }
   try {
     const res = await prisma.dropItem.updateMany({
       where: { campaignId, areaId, lat: { not: null } },
@@ -809,6 +838,9 @@ export async function clearItemPositionAction(
   itemId: number,
 ): Promise<VoidResult> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  if (await sheetOwns(campaignId)) {
+    return { ok: false, error: SHEET_OWNED_ERROR };
+  }
   try {
     await prisma.dropItem.update({
       where: { id: itemId },
@@ -828,6 +860,9 @@ export async function setItemPositionAction(
   lng: number,
 ): Promise<VoidResult> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  if (await sheetOwns(campaignId)) {
+    return { ok: false, error: SHEET_OWNED_ERROR };
+  }
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return { ok: false, error: "Neplatné souřadnice" };
   }
@@ -1022,77 +1057,7 @@ export type ImportReport = DropPlanReport;
  * convenience list, not a constraint, and refusing an import because
  * somebody typed a nickname would be the wrong trade.
  */
-/**
- * Loads everything the planner needs and works out what a workbook would
- * do. Shared by the manual upload and the Google Sheets sync so the two
- * cannot reach different conclusions about the same file.
- */
-async function planFromWorkbook(
-  campaignId: number,
-  data: ArrayBuffer,
-  opts: { tolerant?: boolean } = {},
-): Promise<{ ok: false; errors: string[] } | { ok: true; plan: DropPlan }> {
-  const parsed = await parseDropXlsx(data);
 
-  // Two different failures wear the same clothes here. A sheet with no
-  // usable rows at all — wrong file, missing key column — is fatal either
-  // way. A sheet where SOME cell is malformed is not: for a hand-uploaded
-  // file we still refuse, because the operator is looking at the result
-  // and can fix a typo before retrying; for the shared sheet we do not,
-  // because one person's half-typed coordinate must not stop four other
-  // people's work, on every poll, silently.
-  const fatal = parsed.rows.length === 0 && parsed.errors.length > 0;
-  if (fatal || (parsed.errors.length > 0 && !opts.tolerant)) {
-    return { ok: false, errors: parsed.errors.slice(0, 50) };
-  }
-  const [items, areas, campaign] = await Promise.all([
-    prisma.dropItem.findMany({ where: { campaignId } }),
-    prisma.dropArea.findMany({ where: { campaignId } }),
-    prisma.dropCampaign.findUnique({ where: { id: campaignId } }),
-  ]);
-  if (!campaign) return { ok: false, errors: ["Sada nenalezena"] };
-  const plan = planDropImport(
-    parsed.rows,
-    items,
-    {
-      ...campaign,
-      exportedDefaults: (campaign.exportedDefaults ?? null) as Record<
-        string,
-        string | null
-      > | null,
-    },
-    areas,
-  );
-  // Tolerated problems ride along as warnings, so nothing is skipped
-  // without being named.
-  plan.report.errors = parsed.errors.slice(0, 50);
-  return { ok: true, plan };
-}
-
-/** Writes a plan. One transaction — a sheet lands whole or not at all. */
-async function applyPlan(
-  campaignId: number,
-  plan: DropPlan,
-  source: string,
-): Promise<void> {
-  if (plan.updates.length === 0) return;
-  await prisma.$transaction(
-    plan.updates.map((u) =>
-      prisma.dropItem.update({ where: { id: u.id }, data: u.data }),
-    ),
-  );
-  await appendAudit({
-    action: "settings.update",
-    ip: await getRequestIp(),
-    details: {
-      drops: source,
-      campaignId,
-      changed: plan.report.changed,
-      cleared: plan.report.cleared,
-    },
-  });
-  revalidate(campaignId);
-}
 
 export async function importDropXlsxAction(
   campaignId: number,
@@ -1129,7 +1094,7 @@ export async function importDropXlsxAction(
     // A hand-uploaded file keeps "all or nothing": the operator is
     // looking at the result and can fix a typo before retrying. The
     // background sync deliberately does the opposite — see syncSheet.
-    await applyPlan(campaignId, result.plan, "xlsx-import");
+    await applyPlan(campaignId, result.plan, "xlsx-import", await getRequestIp());
     await archiveDropXlsx(
       campaignId,
       raw,
@@ -1162,13 +1127,6 @@ function emptyReport(errors: string[]): ImportReport {
 
 // ------------------------------------------------------------ Google Sheets
 
-/** Node hands back a Buffer over a pooled allocation; the parser wants
- *  just this file's bytes. */
-function toArrayBuffer(b: Buffer): ArrayBuffer {
-  const out = new ArrayBuffer(b.byteLength);
-  new Uint8Array(out).set(b);
-  return out;
-}
 
 /**
  * Everything the sheet panel shows about one campaign's link.
@@ -1178,6 +1136,8 @@ function toArrayBuffer(b: Buffer): ArrayBuffer {
  */
 export interface SheetStatus {
   url: string | null;
+  /** When true the sheet owns the cards' fields. */
+  mode: boolean;
   syncedAt: string | null;
   changedAt: string | null;
   error: string | null;
@@ -1309,83 +1269,70 @@ export async function previewSheetSyncAction(
   }
 }
 
-/** Fetches again and writes. Re-fetched on purpose: the sheet may have
- *  moved on between the preview and the click, and applying a plan built
- *  from a stale download would write something nobody looked at. */
+/**
+ * Fetches again and writes.
+ *
+ * Re-fetched on purpose: the sheet may have moved on between the preview
+ * and the click, and applying a plan built from a stale download would
+ * write something nobody looked at. The work itself is the same function
+ * the background timer runs, so a manual click and an automatic pull
+ * cannot behave differently.
+ */
 export async function applySheetSyncAction(
   campaignId: number,
 ): Promise<Result<{ report: ImportReport }>> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
-  try {
-    const campaign = await prisma.dropCampaign.findUnique({
-      where: { id: campaignId },
-      select: { sheetUrl: true, sheetHash: true },
-    });
-    const ref = campaign?.sheetUrl ? parseSheetUrl(campaign.sheetUrl) : null;
-    if (!ref) return { ok: false, error: "Sada nemá uložený odkaz na tabulku" };
-
-    const fetched = await fetchSheetWorkbook(ref);
-    const result = await planFromWorkbook(
-      campaignId,
-      toArrayBuffer(fetched.bytes),
-      { tolerant: true },
-    );
-
-    const now = new Date();
-    if (!result.ok) {
-      await prisma.dropCampaign.update({
-        where: { id: campaignId },
-        data: { sheetSyncedAt: now, sheetError: result.errors[0] ?? null },
-      });
-      await archiveDropXlsx(
-        campaignId,
-        fetched.bytes,
-        {
-          originalName: "google-sheets.xlsx",
-          matched: 0,
-          changed: 0,
-          blocked: true,
-        },
-        now,
-      );
-      revalidate(campaignId);
-      return { ok: true, report: emptyReport(result.errors) };
-    }
-
-    await applyPlan(campaignId, result.plan, "sheet-sync");
-    await prisma.dropCampaign.update({
-      where: { id: campaignId },
-      data: {
-        sheetHash: fetched.hash,
-        sheetSyncedAt: now,
-        sheetError: null,
-        ...(fetched.hash !== campaign?.sheetHash
-          ? { sheetChangedAt: now }
-          : {}),
-      },
-    });
-    // The pulled workbook is archived exactly like an uploaded one, so a
-    // sync is as recoverable as a manual import.
-    await archiveDropXlsx(
-      campaignId,
-      fetched.bytes,
-      {
-        originalName: "google-sheets.xlsx",
-        matched: result.plan.report.matched,
-        changed: result.plan.report.changed,
-        blocked: false,
-      },
-      now,
-    );
-    revalidate(campaignId);
-    return { ok: true, report: result.plan.report };
-  } catch (e) {
-    const error =
-      e instanceof SheetFetchError ? e.message : msg(e, "Synchronizace selhala");
-    await prisma.dropCampaign
-      .update({ where: { id: campaignId }, data: { sheetError: error } })
-      .catch(() => undefined);
-    revalidate(campaignId);
-    return { ok: false, error };
+  const outcome = await syncCampaignFromSheet(campaignId, await getRequestIp());
+  if (!outcome.ok) {
+    return { ok: false, error: outcome.error ?? "Synchronizace selhala" };
   }
+  return {
+    ok: true,
+    report: {
+      ...emptyReport([]),
+      changed: outcome.changed ?? 0,
+    },
+  };
+}
+
+/**
+ * Hands the wave over to the sheet, or takes it back.
+ *
+ * With it on, the cards' fields stop being editable in the admin. That is
+ * not decoration: the sync overwrites them, so an edit made here would
+ * survive exactly until the next pull and then vanish without a word —
+ * the quietest kind of data loss there is. Better to grey the field and
+ * say where it lives.
+ *
+ * The campaign's own defaults stay editable (owner's call), which is why
+ * the stale-sheet guard in the planner exists.
+ */
+export async function setSheetModeAction(
+  campaignId: number,
+  on: boolean,
+): Promise<VoidResult> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  if (on) {
+    const c = await prisma.dropCampaign.findUnique({
+      where: { id: campaignId },
+      select: { sheetUrl: true },
+    });
+    if (!c?.sheetUrl) {
+      return {
+        ok: false,
+        error: "Nejdřív ulož odkaz na tabulku — bez ní není co poslouchat.",
+      };
+    }
+  }
+  await prisma.dropCampaign.update({
+    where: { id: campaignId },
+    data: { sheetMode: on },
+  });
+  await appendAudit({
+    action: "settings.update",
+    ip: await getRequestIp(),
+    details: { drops: "sheet-mode", campaignId, on },
+  });
+  revalidate(campaignId);
+  return { ok: true };
 }

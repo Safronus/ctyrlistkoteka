@@ -60,6 +60,8 @@ export interface ItemView {
   /** The hint that would actually be published, campaign default included;
    *  empty when there is none to show. */
   hintPreview: string;
+  /** The crew's note — usually where this one goes. */
+  teamNote: string;
   overrides: string[];
   detail: {
     headingCs: string;
@@ -136,6 +138,7 @@ export function ItemsGrid({
   campaignId,
   campaignName,
   campaignDefaults,
+  sheetMode,
   items,
   areas,
   placers,
@@ -143,6 +146,8 @@ export function ItemsGrid({
   campaignId: number;
   campaignName: string;
   campaignDefaults: CampaignDefaults;
+  /** True when a Google Sheet owns the cards' fields. */
+  sheetMode: boolean;
   items: ItemView[];
   areas: Array<{ id: number; name: string }>;
   placers: string[];
@@ -430,6 +435,12 @@ export function ItemsGrid({
           <span className="font-medium text-brand-900">
             {selected.size} vybráno:
           </span>
+          {sheetMode && (
+            <span className="rounded bg-white px-2 py-1 text-[11px] text-gray-600">
+              Stav, oblast, přiřazení a nápovědu řídí tabulka.
+            </span>
+          )}
+          {!sheetMode && (
           <div className="w-44">
           <select
             className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
@@ -456,6 +467,8 @@ export function ItemsGrid({
             ))}
           </select>
           </div>
+          )}
+          {!sheetMode && (
           <div className="w-44">
           <select
             className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
@@ -483,6 +496,8 @@ export function ItemsGrid({
             ))}
           </select>
           </div>
+          )}
+          {!sheetMode && (
           <div className="w-52">
           <select
             className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
@@ -510,6 +525,7 @@ export function ItemsGrid({
             ))}
           </select>
           </div>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -533,6 +549,7 @@ export function ItemsGrid({
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
             {confirmReset ? "Opravdu vynulovat?" : "Vynulovat skeny"}
           </button>
+          {!sheetMode && (
           <div className="w-52">
           <select
             className={`${SELECT_CLS} ${CONTROL_H_SM} py-0 text-xs`}
@@ -556,6 +573,7 @@ export function ItemsGrid({
             <option value="hide">Skrýt</option>
           </select>
           </div>
+          )}
           <button
             type="button"
             onClick={() =>
@@ -618,6 +636,7 @@ export function ItemsGrid({
         <ItemDialog
           campaignId={campaignId}
           campaign={campaignDefaults}
+          sheetMode={sheetMode}
           item={openItem}
           areas={areas}
           placers={placers}
@@ -748,6 +767,14 @@ const ItemCard = memo(function ItemCard({
             {item.tokenShort}
           </Link>
         </p>
+        {item.teamNote && (
+          <p
+            className="line-clamp-2 rounded bg-amber-50 px-1 py-0.5 text-amber-900"
+            title={item.teamNote}
+          >
+            📍 {item.teamNote}
+          </p>
+        )}
         {item.hintPublished && item.hintPreview && (
           <p
             className="truncate text-emerald-700"

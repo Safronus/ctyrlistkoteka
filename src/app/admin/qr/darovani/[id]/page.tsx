@@ -124,6 +124,7 @@ export default async function DropCampaignPage({
     // "nápověda" — a card whose publish flag is on but whose hint is
     // empty publishes nothing, and that is worth seeing.
     hintPreview: (i.hintCs ?? campaign.hintCs ?? "").trim().slice(0, 60),
+    teamNote: (i.teamNote ?? "").trim(),
     // Which fields carry an override — the grid shows a dot so it's
     // obvious at a glance which cards deviate from the campaign.
     overrides: [
@@ -132,6 +133,7 @@ export default async function DropCampaignPage({
       i.bonusCs || i.bonusEn ? "bonus" : null,
       i.qrTitle ? "titulek QR" : null,
       i.qrCaption ? "text pod QR" : null,
+      i.teamNote ? "poznámka" : null,
       i.qrOptions ? "vzhled QR" : null,
       i.hintCs || i.hintEn ? "nápověda" : null,
     ].filter(Boolean) as string[],
@@ -258,6 +260,7 @@ export default async function DropCampaignPage({
 
       <AreaEditor
         campaignId={campaign.id}
+        sheetMode={campaign.sheetMode}
         areas={campaign.areas.map((a) => ({
           id: a.id,
           name: a.name,
@@ -276,6 +279,7 @@ export default async function DropCampaignPage({
 
       <AreaMapPanel
         campaignId={campaign.id}
+        sheetMode={campaign.sheetMode}
         areas={campaign.areas.map((a) => ({
           id: a.id,
           name: a.name,
@@ -295,6 +299,7 @@ export default async function DropCampaignPage({
           lng: i.lng,
           scans: i._count.scans,
           foundAt: i.foundAt ? dateTimeFmt.format(i.foundAt) : null,
+          teamNote: (i.teamNote ?? "").trim(),
         }))}
       />
 
@@ -308,6 +313,7 @@ export default async function DropCampaignPage({
         campaignId={campaign.id}
         status={{
           url: campaign.sheetUrl,
+          mode: campaign.sheetMode,
           syncedAt: campaign.sheetSyncedAt?.toISOString() ?? null,
           changedAt: campaign.sheetChangedAt?.toISOString() ?? null,
           error: campaign.sheetError,
@@ -317,6 +323,7 @@ export default async function DropCampaignPage({
       <ItemsGrid
         campaignId={campaign.id}
         campaignName={campaign.name}
+        sheetMode={campaign.sheetMode}
         campaignDefaults={{
           headingCs: campaign.headingCs,
           headingEn: campaign.headingEn ?? "",

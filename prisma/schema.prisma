@@ -573,6 +573,12 @@ model DropItem {
   hintEn        String? @map("hint_en") @db.Text
   hintPublished Boolean @default(false) @map("hint_published")
 
+  /// The crew's own note about this card — typically WHERE it goes:
+  /// "u lavičky za knihovnou", "vezme Míša cestou z práce". Filled in the
+  /// shared sheet and shown on the card in the admin. Never public: it
+  /// describes a hiding place as plainly as the coordinates do.
+  teamNote String? @map("team_note") @db.Text
+
   /// Crew member who is to hide (or has hidden) this card. Free text so an
   /// import can carry a name the roster doesn't know yet; the admin offers
   /// the campaign's roster as a dropdown and flags anything outside it.

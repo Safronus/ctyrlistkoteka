@@ -16,6 +16,7 @@ import {
   saveSheetUrlAction,
   previewSheetSyncAction,
   applySheetSyncAction,
+  setSheetModeAction,
   type ImportReport,
   type SheetStatus,
 } from "../../drop-actions";
@@ -186,6 +187,58 @@ export function SheetPanel({
               {status.changedAt ? fmt(status.changedAt) : "—"}
             </strong>
           </span>
+        </div>
+      )}
+
+      {status.url && (
+        <div
+          className={`rounded-lg border px-3 py-2 ${
+            status.mode
+              ? "border-emerald-300 bg-emerald-50"
+              : "border-gray-200 bg-gray-50"
+          }`}
+        >
+          <label className="flex cursor-pointer items-start gap-2">
+            <input
+              type="checkbox"
+              checked={status.mode}
+              disabled={busy}
+              onChange={(e) =>
+                start(async () => {
+                  setError(null);
+                  const r = await setSheetModeAction(
+                    campaignId,
+                    e.target.checked,
+                  );
+                  if (!r.ok) setError(r.error);
+                  router.refresh();
+                })
+              }
+              aria-label="Režim tabulky — tabulka má pravdu"
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30"
+            />
+            <span>
+              <span className="block text-xs font-semibold text-gray-900">
+                Režim tabulky — tabulka má pravdu
+              </span>
+              <span className="mt-0.5 block text-[11px] text-gray-600">
+                {status.mode ? (
+                  <>
+                    Texty, nápovědy, stav, GPS, kdo umísťuje a poznámka jsou
+                    v adminu <strong>jen ke čtení</strong> a klikání do mapy
+                    i Rozhodit je vypnuté. Mění se to v tabulce.
+                  </>
+                ) : (
+                  <>
+                    Zapni, až budeš mít sadu naplánovanou a rozhozenou. Od té
+                    chvíle se kusy mění výhradně v tabulce — admin je přestane
+                    pouštět, aby ti je příští synchronizace nepřepsala pod
+                    rukama.
+                  </>
+                )}
+              </span>
+            </span>
+          </label>
         </div>
       )}
 

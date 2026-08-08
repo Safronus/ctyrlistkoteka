@@ -103,7 +103,7 @@ export async function GET(
       hintEn: i.hintEn ?? campaign.hintEn ?? "",
       hintPublished: i.hintPublished,
       landingUrl: dropLandingUrl(i.token),
-      note: "",
+      note: i.teamNote ?? "",
     };
   });
 

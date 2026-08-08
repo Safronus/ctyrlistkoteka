@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Darování ve světě — režim tabulky, automatika a poznámky týmu (12. fáze)
+- **Poznámka týmu se načítá z tabulky** a ukazuje se u kartičky v adminu
+  i v seznamech u mapy úkrytů. Je to popis místa („Park u Baťovy vily,
+  třetí lavička od kašny“), takže v terénu je to ta nejužitečnější věc na
+  obrazovce. Na web se nikdy nedostane.
+- **Režim tabulky.** Až budeš mít sadu naplánovanou, přepneš ho a od té
+  chvíle vládne tabulka: texty, nápovědy, stav, GPS, přiřazení a poznámka
+  jsou v adminu jen ke čtení, klikání do mapy i Rozhodit se vypnou.
+  Není to jen zšednutí — server to odmítne taky, takže ani stránka
+  otevřená před přepnutím nic nepodstrčí.
+- **Automatická synchronizace každých 5 minut.** Stahuje ji systemd timer
+  na serveru. Když se soubor nezměnil, nic dalšího se neděje. Bez
+  nastaveného tokenu je celý endpoint vypnutý.
+- Ruční tlačítko v adminu zůstává a dělá **přesně totéž** co automatika —
+  jedna funkce pro obě cesty, takže se nemůžou chovat jinak.
+
 ### Darování ve světě — synchronizace z Google Sheets (11. fáze)
 - Sada může mít **odkaz na Google Sheets**. Tlačítko *Zkontrolovat změny*
   tabulku stáhne, porovná a **ukáže, co se změní** — kus po kusu, staré →

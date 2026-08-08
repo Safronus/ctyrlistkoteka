@@ -43,6 +43,8 @@ export interface MapItem {
   lng: number | null;
   scans: number;
   foundAt: string | null;
+  /** The crew's note — the line that says where this one goes. */
+  teamNote: string;
 }
 
 export interface MapArea {
@@ -66,10 +68,14 @@ export function AreaMapPanel({
   campaignId,
   areas,
   items,
+  sheetMode,
 }: {
   campaignId: number;
   areas: MapArea[];
   items: MapItem[];
+  /** With a sheet in charge, positions come from there — placing here
+   *  would only survive until the next pull. */
+  sheetMode: boolean;
 }) {
   const router = useRouter();
   const [areaId, setAreaId] = useState<number | null>(areas[0]?.id ?? null);
@@ -117,6 +123,7 @@ export function AreaMapPanel({
   const selectedItem = areaItems.find((i) => i.id === selectedId) ?? null;
 
   const place = (lat: number, lng: number) => {
+    if (sheetMode) return;
     if (selectedId === null) {
       setError("Nejdřív vyber kus v seznamu, pak klikni do mapy.");
       return;
@@ -219,6 +226,13 @@ export function AreaMapPanel({
         </div>
       </div>
 
+      {sheetMode && (
+        <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+          <strong>Pozice řídí Google Sheets.</strong> Mapa je tu na
+          koukání — souřadnice se zapisují v tabulce, sloupec GPS.
+        </p>
+      )}
+
       <p className="text-xs text-gray-500">
         {selectedItem === null ? (
           <>Vyber kus v některém seznamu a klikni do mapy, kam patří.</>
@@ -248,11 +262,12 @@ export function AreaMapPanel({
           items={todo}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          readOnly={sheetMode}
         />
 
         <div
           className={`relative${
-            selectedId !== null ? " ctyr-drop-map--placing" : ""
+            selectedId !== null && !sheetMode ? " ctyr-drop-map--placing" : ""
           }`}
         >
           {area && (
@@ -285,8 +300,9 @@ export function AreaMapPanel({
           selectedId={selectedId}
           onSelect={setSelectedId}
           onClear={clear}
+          readOnly={sheetMode}
           action={
-            placed.length > 0 ? (
+            placed.length > 0 && !sheetMode ? (
               <button
                 type="button"
                 onClick={() =>
@@ -353,6 +369,7 @@ function ItemQueue({
   onSelect,
   onClear,
   action,
+  readOnly,
 }: {
   title: string;
   count: number;
@@ -365,6 +382,7 @@ function ItemQueue({
   onClear?: (id: number) => void;
   /** Optional control in the queue's header row. */
   action?: React.ReactNode;
+  readOnly?: boolean;
 }) {
   return (
     <div className="min-w-0">
@@ -392,6 +410,7 @@ function ItemQueue({
             <button
               type="button"
               onClick={() => onSelect(i.id)}
+              title={i.teamNote || undefined}
               className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-md border px-2 py-1.5 text-left text-xs transition ${
                 i.id === selectedId
                   ? "border-gray-900 bg-gray-100"
@@ -407,7 +426,7 @@ function ItemQueue({
                 #{i.findId}
               </span>
               <span className="min-w-0 flex-1 truncate text-gray-500">
-                {i.placedBy ?? DROP_STATUS_LABEL[i.status]}
+                {i.teamNote || i.placedBy || DROP_STATUS_LABEL[i.status]}
               </span>
               {i.scans > 0 && (
                 <span className="inline-flex shrink-0 items-center gap-0.5 text-gray-400">
@@ -416,7 +435,7 @@ function ItemQueue({
                 </span>
               )}
             </button>
-            {onClear && (
+            {onClear && !readOnly && (
               <button
                 type="button"
                 onClick={() => onClear(i.id)}

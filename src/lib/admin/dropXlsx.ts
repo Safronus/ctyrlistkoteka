@@ -95,8 +95,8 @@ const COLUMNS: ReadonlyArray<{
   { key: "note", header: "Poznámka týmu", width: 40, group: "free" },
 ];
 
-/** Ignored on import: context to read, or a scratchpad for the crew. */
-const READ_ONLY = new Set(["landingUrl", "ordinal", "note"]);
+/** Ignored on import — context to read, not fields to fill in. */
+const READ_ONLY = new Set(["landingUrl", "ordinal"]);
 
 /**
  * Colour-bands each group and writes the group names above the headers.
@@ -201,7 +201,7 @@ function appendLegend(ws: ExcelJS.Worksheet, rowCount: number): void {
     ["Oblast", "musí přesně sedět s názvem oblasti v adminu, jinak se nepřiřadí."],
     ["", ""],
     ["Pořadí v sadě, Odkaz", "jen ke čtení — při nahrání zpátky se ignorují."],
-    ["Poznámka týmu", "váš prostor. Nikam se neuloží, slouží k domluvě."],
+    ["Poznámka týmu", "kam kus přijde, kdo ho veme — načte se a uvidíš ji v adminu u kartičky."],
     ["", ""],
     [
       "Když je někde chyba",
@@ -318,7 +318,7 @@ export interface DropXlsxRow {
   hintEn: string;
   hintPublished: boolean;
   landingUrl: string;
-  /** Free text for the crew; never read back. */
+  /** The crew's note about this card — usually where it goes. */
   note: string;
 }
 
@@ -418,7 +418,7 @@ export async function buildDropXlsx(
     "",
     "PRAVIDLA IMPORTU",
     "• Řádky se párují podle „Číslo čtyřlístku“. Číslo, které v sadě není, se přeskočí a nahlásí.",
-    "• „Pořadí v sadě“, „Odkaz“ a „Poznámka týmu“ se při importu ignorují — poznámka je jen pro vás.",
+    "• „Pořadí v sadě“ a „Odkaz“ se při importu ignorují; poznámka týmu se naopak načte.",
     "• GPS bere desetinné stupně (49.2245, 17.6712), DMS i odkaz z Mapy.cz nebo Google Maps.",
     "• Prázdná GPS pozici smaže.",
     `• Velikost tisku je šířka kartičky v cm (${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM}).`,
@@ -453,6 +453,7 @@ export interface ParsedDropRow {
     hintCs: string;
     hintEn: string;
     hintPublished: boolean;
+    note: string;
   }>;
 }
 
@@ -582,6 +583,7 @@ export async function parseDropXlsx(
       "qrCaption",
       "hintCs",
       "hintEn",
+      "note",
       "area",
       "placedBy",
     ] as const) {

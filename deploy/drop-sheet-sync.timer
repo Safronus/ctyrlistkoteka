@@ -1,0 +1,17 @@
+# Every five minutes. Not one: the crew edits the sheet live, and a
+# tighter interval mostly increases the chance of catching a row somebody
+# is halfway through typing. The admin has a "Zkontrolovat změny" button
+# for when you want the answer now.
+
+[Unit]
+Description=Čtyřlístkotéka — Google Sheets pull every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+# Spreads the load if several timers land on the same minute.
+RandomizedDelaySec=30s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

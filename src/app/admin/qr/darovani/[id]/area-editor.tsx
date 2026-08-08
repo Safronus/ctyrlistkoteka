@@ -61,9 +61,12 @@ export interface AreaView {
 export function AreaEditor({
   campaignId,
   areas,
+  sheetMode,
 }: {
   campaignId: number;
   areas: AreaView[];
+  /** Scatter writes positions, which a sheet-run wave owns. */
+  sheetMode: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   // Collapsed by default once the towns are set up: the section carries a
@@ -112,7 +115,12 @@ export function AreaEditor({
 
       <ul className="space-y-2">
         {areas.map((a) => (
-          <AreaRow key={a.id} campaignId={campaignId} area={a} />
+          <AreaRow
+            key={a.id}
+            campaignId={campaignId}
+            area={a}
+            sheetMode={sheetMode}
+          />
         ))}
       </ul>
 
@@ -133,10 +141,12 @@ function AreaRow({
   campaignId,
   area,
   onDone,
+  sheetMode,
 }: {
   campaignId: number;
   area: AreaView | null;
   onDone?: () => void;
+  sheetMode?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(area === null);
@@ -224,7 +234,7 @@ function AreaRow({
             {area.boundary ? "hranice" : "bez hranice"}
           </span>
           <div className="flex shrink-0 items-center gap-1.5">
-            {area.unplaced > 0 && area.scatterRadiusM != null && (
+            {area.unplaced > 0 && area.scatterRadiusM != null && !sheetMode && (
               <button
                 type="button"
                 onClick={() =>

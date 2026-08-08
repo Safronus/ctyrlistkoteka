@@ -56,6 +56,7 @@ const INHERITED_KEYS = [
 export function ItemDialog({
   campaignId,
   campaign,
+  sheetMode,
   item,
   areas,
   placers,
@@ -64,6 +65,9 @@ export function ItemDialog({
 }: {
   campaignId: number;
   campaign: CampaignDefaults;
+  /** True when a Google Sheet owns these fields — the form goes read-only
+   *  rather than letting an edit survive until the next sync and vanish. */
+  sheetMode: boolean;
   item: ItemView;
   areas: Array<{ id: number; name: string }>;
   placers: string[];
@@ -86,6 +90,7 @@ export function ItemDialog({
           ? `${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}`
           : "",
       ...inherited,
+      teamNote: item.teamNote,
       hintPublished: item.hintPublished,
     };
   });
@@ -151,6 +156,7 @@ export function ItemDialog({
         design,
         hintCs: outbound("hintCs"),
         hintEn: outbound("hintEn"),
+        teamNote: form.teamNote,
         hintPublished: form.hintPublished,
       });
       if (!r.ok) {
@@ -184,6 +190,16 @@ export function ItemDialog({
           </button>
         </div>
 
+        {sheetMode && (
+          <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+            <strong>Tuhle sadu řídí Google Sheets.</strong> Pole jsou jen ke
+            čtení — kdyby šla měnit tady, příští synchronizace by je
+            přepsala. Uprav to v tabulce, nebo v sekci Google Sheets vypni
+            režim tabulky.
+          </p>
+        )}
+
+        <fieldset disabled={sheetMode} className="contents">
         <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(15rem,1.4fr)]">
           <Field label="Oblast">
             <select
@@ -242,6 +258,19 @@ export function ItemDialog({
             />
           </Field>
         </div>
+
+        <Field
+          label="Poznámka týmu"
+          hint="Kam kus přijde, kdo ho veme. Jen pro vás — na web se nedostane."
+        >
+          <textarea
+            rows={2}
+            className={`${INPUT_CLS} resize-y`}
+            value={form.teamNote}
+            onChange={(e) => set("teamNote", e.target.value)}
+            placeholder="Za knihovnou, u třetí lavičky"
+          />
+        </Field>
 
         {/* -------------------------------------------- landing page */}
         <DialogGroup
@@ -389,6 +418,8 @@ export function ItemDialog({
           </label>
         </DialogGroup>
 
+        </fieldset>
+
         {error && (
           <p className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800">
             {error}
@@ -399,7 +430,7 @@ export function ItemDialog({
           <button
             type="button"
             onClick={save}
-            disabled={busy}
+            disabled={busy || sheetMode}
             className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-50"
           >
             {busy ? (
