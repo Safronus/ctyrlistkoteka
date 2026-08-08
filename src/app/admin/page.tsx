@@ -21,9 +21,9 @@ import {
   PackageOpen,
   Gift,
   ShieldCheck,
+  Settings2,
   Sparkles,
   Sticker,
-  Timer,
   Trophy,
 } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
@@ -38,6 +38,7 @@ import {
   type DiskUsage,
 } from "@/lib/admin/scopes";
 import { prisma } from "@/lib/db";
+import { getDistanceOriginLocationId } from "@/lib/admin/siteSettings";
 
 /** Total on-disk bytes of the source photos (originals + crops). Scanned
  *  sequentially so peak concurrent fs.stat stays at one scope's worth, and
@@ -128,6 +129,7 @@ function formatActivityTimeOnly(ts: string): string {
 
 export default async function AdminHomePage() {
   await ensureAdminAuth();
+  const distanceOriginId = await getDistanceOriginLocationId();
   const [
     credentials,
     recentRaw,
@@ -389,13 +391,13 @@ export default async function AdminHomePage() {
           ]}
         />
         <FeatureCard
-          icon={Timer}
-          title="Rotace na hlavní stránce"
+          icon={Settings2}
+          title="Nastavení"
           status="ok"
           href="/admin/settings"
           lines={[
-            "Délky rotace lístečků, náhodného čtyřlístku",
-            "a full-screen spořiče (v sekundách)",
+            `Vzdálenosti se měří od lokality #${String(distanceOriginId).padStart(5, "0")}`,
+            "Délky rotace prvků na hlavní stránce",
           ]}
         />
       </Group>

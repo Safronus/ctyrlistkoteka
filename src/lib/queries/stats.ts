@@ -28,8 +28,8 @@ import {
   AUTHOR_LOCATION_ID,
   FIND_DEVIATION_RADIUS_M,
   UNKNOWN_LOCATION_ID,
-  DISTANCE_ORIGIN_LOCATION_ID,
 } from "@/lib/constants";
+import { getDistanceOriginLocationId } from "@/lib/admin/siteSettings";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { countryFromCoords } from "@/lib/geo";
 import { czRegionFromCoords } from "@/lib/cz-regions";
@@ -2276,7 +2276,7 @@ async function getStatsDistanceImpl(): Promise<StatsDistanceResult> {
   const rows = await prisma.$queryRaw<Array<{ bucket: number; count: bigint }>>`
     WITH ref AS (
       SELECT center_point AS pt FROM locations
-      WHERE id = ${DISTANCE_ORIGIN_LOCATION_ID}
+      WHERE id = ${await getDistanceOriginLocationId()}
     ),
     distances AS (
       SELECT ST_DistanceSphere(f.coordinates, (SELECT pt FROM ref)) AS dist_m

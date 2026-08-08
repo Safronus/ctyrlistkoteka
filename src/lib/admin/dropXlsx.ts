@@ -149,6 +149,82 @@ function paintGroups(ws: ExcelJS.Worksheet, rowCount: number): void {
   headRow.height = 28;
 }
 
+/**
+ * A legend under the table, in the sheet people actually have open.
+ *
+ * The "Návod" tab exists, but nobody switches tabs mid-typing — and the
+ * questions that come up ("what shape does GPS want?", "is this printed
+ * or is it on the phone?") come up while looking at a column. So the
+ * answers go directly beneath it.
+ */
+function appendLegend(ws: ExcelJS.Worksheet, rowCount: number): void {
+  const first = HEADER_ROW + rowCount + 2;
+  const lines: Array<[string, string]> = [
+    ["JAK TABULKU VYPLNIT", ""],
+    ["", ""],
+    [
+      "Barevné pruhy nad hlavičkou",
+      "říkají, kam který text patří — každá barva je jiné místo.",
+    ],
+    [
+      "Text na stránce po naskenování",
+      "Přečte si to na mobilu ten, kdo kartičku najde a naskenuje QR. Na kartičce to není.",
+    ],
+    [
+      "Text na kartičce s QR",
+      "To, co se fyzicky vytiskne nad a pod kódem. Krátké — je to kartička, ne leták.",
+    ],
+    [
+      "Nápověda k hledání",
+      "Věta na stránce nálezu ve sbírce, aby se dal hledat další kus. Zveřejní se, jen když je „Nápověda zveřejněná“ = ano.",
+    ],
+    ["", ""],
+    ["Buňky jsou předvyplněné", "tím, co kartička říká teď. Přepiš = výjimka jen pro tenhle kus."],
+    [
+      "Necháš hodnotu beze změny",
+      "kus dál sleduje sadu — když se text změní v sadě, propíše se i sem.",
+    ],
+    ["Vymažeš buňku", "kus se vrátí k textu ze sady."],
+    ["", ""],
+    ["GPS", "49.2245, 17.6712 · 49°13'28.2\"S 17°40'16.1\"V · nebo odkaz zkopírovaný z Mapy.cz či Google Maps"],
+    ["Prázdná GPS", "smaže uloženou pozici úkrytu."],
+    [
+      `Velikost tisku`,
+      `šířka celé kartičky v centimetrech, ${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM}. Používej desetinnou čárku i tečku.`,
+    ],
+    ["Stav", DROP_STATUS_ORDER.map((s) => DROP_STATUS_LABEL[s]).join(" · ")],
+    ["Kdo umísťuje", "vyber ze seznamu v buňce; jiné jméno se uloží taky, jen se nahlásí."],
+    ["Oblast", "musí přesně sedět s názvem oblasti v adminu, jinak se nepřiřadí."],
+    ["", ""],
+    ["Pořadí v sadě, Odkaz", "jen ke čtení — při nahrání zpátky se ignorují."],
+    ["Poznámka týmu", "váš prostor. Nikam se neuloží, slouží k domluvě."],
+    ["", ""],
+    [
+      "Když je někde chyba",
+      "nenahraje se NIC — vypíše se, na kterém řádku a co s tím. Nikdy se neuloží jen půlka.",
+    ],
+    ["Číslo čtyřlístku", "je klíč. Řádky se párují podle něj, ne podle pořadí — přeházet je můžete."],
+  ];
+
+  lines.forEach(([term, explain], i) => {
+    const row = ws.getRow(first + i);
+    row.getCell(1).value = term;
+    row.getCell(3).value = explain;
+    if (term && !explain) {
+      row.getCell(1).font = { bold: true, size: 12 };
+    } else if (term) {
+      row.getCell(1).font = { bold: true, size: 10 };
+      row.getCell(3).font = { size: 10 };
+      row.getCell(3).alignment = { wrapText: true, vertical: "top" };
+    }
+    // The term sits in A–B, the explanation runs across the wide columns.
+    if (term) {
+      ws.mergeCells(first + i, 1, first + i, 2);
+      if (explain) ws.mergeCells(first + i, 3, first + i, 9);
+    }
+  });
+}
+
 /** Spreadsheet column letter for a key, derived from COLUMNS rather than
  *  written down — inserting a column used to silently move a dropdown
  *  onto the wrong field. */
@@ -235,6 +311,7 @@ export async function buildDropXlsx(
   }
 
   paintGroups(ws, rows.length);
+  appendLegend(ws, rows.length);
 
   // Dropdowns on the columns with a closed vocabulary, so the sheet
   // teaches its own valid values instead of relying on the operator

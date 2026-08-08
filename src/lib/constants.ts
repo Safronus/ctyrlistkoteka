@@ -154,10 +154,14 @@ export const AUTHOR_LOCATION_ID = 158;
  * a cosmetic hat.
  *
  * Points at the author's home spot (2026-08-05, owner's call): distances read
- * as "how far from home", which is what a visitor actually wonders. Made
- * configurable from /admin later; until then this is the single place to
- * change it, and nothing needs migrating because no distance is ever stored —
- * they're all computed per request from the coordinates.
+ * as "how far from home", which is what a visitor actually wonders.
+ *
+ * NOW ONLY THE DEFAULT. Since 2026-08-08 the live value is settable in
+ * /admin/settings and stored in data/.admin/site-settings.json; read it
+ * through `getDistanceOriginLocationId()` rather than importing this
+ * constant, which is the fallback for an absent or malformed config.
+ * Nothing needs migrating — no distance is ever stored, they're all
+ * computed per request from the coordinates.
  */
 export const DISTANCE_ORIGIN_LOCATION_ID = AUTHOR_LOCATION_ID;
 

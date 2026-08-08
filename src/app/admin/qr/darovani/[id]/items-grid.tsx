@@ -73,6 +73,9 @@ export interface ItemView {
     hintCs: string;
     hintEn: string;
   };
+  /** Changes whenever the card's drawing would change; the preview cache
+   *  is keyed on it. */
+  renderKey: string;
   /** True when the card carries an option bag of its own, i.e. its look
    *  no longer follows the wave. */
   hasOwnDesign: boolean;
@@ -158,7 +161,7 @@ export function ItemsGrid({
   // every card — 70 000 for a wave of 111, which is what made selecting a
   // checkbox and opening the dialog crawl. As an <img> each card is ONE
   // node and the browser decodes it off the main thread.
-  const [svgs, setSvgs] = useState<Record<number, QrPreview>>({});
+  const [svgs, setSvgs] = useState<Record<string, QrPreview>>({});
   const [printing, setPrinting] = useState<number[] | null>(null);
   // Two-step, because zeroing counters is not undoable and the button
   // sits in a strip of one-click bulk edits.
@@ -180,10 +183,13 @@ export function ItemsGrid({
 
   // Render the visible cards' codes in batches rather than one request
   // each: 111 cards used to mean 111 round trips before the page settled.
-  const shownKey = shown.map((i) => i.id).join(",");
+  const shownKey = shown.map((i) => i.renderKey).join("|");
   useEffect(() => {
     let alive = true;
-    const missing = shown.filter((i) => svgs[i.id] === undefined).map((i) => i.id);
+    const byId = new Map(shown.map((i) => [i.id, i.renderKey]));
+    const missing = shown
+      .filter((i) => svgs[i.renderKey] === undefined)
+      .map((i) => i.id);
     if (missing.length === 0) return;
     (async () => {
       for (let i = 0; i < missing.length; i += 40) {
@@ -192,7 +198,10 @@ export function ItemsGrid({
         if (r.ok) {
           setSvgs((prev) => {
             const next = { ...prev };
-            for (const it of r.items) next[it.id] = svgToPreview(it.svg);
+            for (const it of r.items) {
+              const key = byId.get(it.id);
+              if (key) next[key] = svgToPreview(it.svg);
+            }
             return next;
           });
         }
@@ -587,7 +596,7 @@ export function ItemsGrid({
             <ItemCard
               key={i.id}
               item={i}
-              svg={svgs[i.id] ?? null}
+              svg={svgs[i.renderKey] ?? null}
               areaName={areas.find((a) => a.id === i.areaId)?.name ?? null}
               checked={selected.has(i.id)}
               onToggle={toggle}

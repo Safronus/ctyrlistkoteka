@@ -12,11 +12,11 @@ import { unstable_cache } from "next/cache";
 import { locationNameResolver } from "@/lib/locationNameI18n";
 import { prisma } from "@/lib/db";
 import {
-  DISTANCE_ORIGIN_LOCATION_ID,
   FIND_DEVIATION_RADIUS_M,
   POLYGON_FREE_AREA_M2,
   UNKNOWN_LOCATION_ID,
 } from "@/lib/constants";
+import { getDistanceOriginLocationId } from "@/lib/admin/siteSettings";
 import { countryFromCoords } from "@/lib/geo";
 import {
   computeMapOverlayGeometry,
@@ -649,7 +649,7 @@ export async function listLocations(
   >`
     WITH ref AS (
       SELECT center_point AS pt FROM locations
-      WHERE id = ${DISTANCE_ORIGIN_LOCATION_ID}
+      WHERE id = ${await getDistanceOriginLocationId()}
     )
     SELECT id,
            -- Real polygon area (for the "plocha polygonu" field); NULL for

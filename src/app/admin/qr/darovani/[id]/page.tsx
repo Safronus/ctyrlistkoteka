@@ -10,9 +10,13 @@ import {
   DROP_STATUS_ORDER,
   dropLandingUrl,
   readDropQrOptions,
+  mergeDropQrOptions,
+  resolveQrLines,
   DROP_SIZE_DEFAULT_CM,
 } from "@/lib/admin/drops";
 import { CampaignSettings } from "./campaign-settings";
+import { CampaignStats } from "./campaign-stats";
+import { prisma } from "@/lib/db";
 import { AreaEditor } from "./area-editor";
 import { ItemsGrid, type ItemView } from "./items-grid";
 import type { QrDesign } from "./qr-design-fields";
@@ -48,6 +52,13 @@ export default async function DropCampaignPage({
 
   const campaign = await loadCampaign(campaignId);
   if (!campaign) notFound();
+
+  const lastScan = await prisma.dropScan.findFirst({
+    where: { item: { campaignId } },
+    orderBy: { scannedAt: "desc" },
+    select: { scannedAt: true },
+  });
+  const lastScanAt = lastScan?.scannedAt ?? null;
 
   const byStatus = new Map<string, number>();
   let withGps = 0;
@@ -137,6 +148,23 @@ export default async function DropCampaignPage({
     },
     hasOwnDesign: i.qrOptions !== null,
     ownDesign: ownDesignOf(i.qrOptions),
+    // Everything that changes how this card is DRAWN, in one string. The
+    // grid caches rendered codes under it, so editing the wave's look (or
+    // this card's) invalidates exactly the previews it should — caching
+    // by item id meant a saved design never reached the grid until a hard
+    // reload.
+    renderKey: JSON.stringify([
+      i.findId,
+      mergeDropQrOptions(campaign.qrOptions, i.qrOptions),
+      resolveQrLines(
+        mergeDropQrOptions(campaign.qrOptions, i.qrOptions),
+        i.findId,
+        i.qrTitle,
+        campaign.qrTitle,
+        i.qrCaption,
+        campaign.qrCaption,
+      ),
+    ]),
   }));
 
   return (
@@ -194,6 +222,18 @@ export default async function DropCampaignPage({
           </div>
         </div>
       </header>
+
+      <CampaignStats
+        items={campaign.items.map((i) => ({
+          status: i.status,
+          areaId: i.areaId,
+          lat: i.lat,
+          scans: i._count.scans,
+          foundAt: i.foundAt,
+        }))}
+        areas={campaign.areas.map((a) => ({ id: a.id, name: a.name }))}
+        lastScanAt={lastScanAt}
+      />
 
       <CampaignSettings
         campaignId={campaign.id}

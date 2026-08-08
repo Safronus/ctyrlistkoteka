@@ -16,8 +16,8 @@ import {
   DOMINANT_LOCATION_ID,
   FIND_DEVIATION_RADIUS_M,
   UNKNOWN_LOCATION_ID,
-  DISTANCE_ORIGIN_LOCATION_ID,
 } from "@/lib/constants";
+import { getDistanceOriginLocationId } from "@/lib/admin/siteSettings";
 import {
   getFindIdsWithRealPhotos,
   getFindPhotos,
@@ -483,7 +483,7 @@ async function hydrate(
   >`
     WITH ref AS (
       SELECT center_point AS pt FROM locations
-      WHERE id = ${DISTANCE_ORIGIN_LOCATION_ID}
+      WHERE id = ${await getDistanceOriginLocationId()}
     )
     SELECT f.id,
            ST_Y(f.coordinates)::float8 AS lat,
@@ -1156,7 +1156,7 @@ async function listFindsByDistance(
   >`
     WITH ref AS (
       SELECT center_point AS pt FROM locations
-      WHERE id = ${DISTANCE_ORIGIN_LOCATION_ID}
+      WHERE id = ${await getDistanceOriginLocationId()}
     )
     SELECT id,
            CASE WHEN is_anonymized = false

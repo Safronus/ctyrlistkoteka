@@ -9,6 +9,24 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Nastavení v adminu + souhrn sady (10. fáze)
+- **Nová sekce „Nastavení“** na přehledu adminu. Zatím jedna věc, ale ta,
+  co doteď šla změnit jen v kódu: **bod, od kterého se měří vzdálenosti
+  nálezů**. Vybírá se ze seznamu lokalit, které mají střed, takže nejde
+  ukázat nikam. Vzdálenosti se nikde neukládají, počítají se při
+  zobrazení — změna je vidět hned.
+- **Souhrn sady** nahoře na stránce darování: pruh podle stavů, kolik je
+  vytištěných a schovaných, kolik má pozici v mapě, kolik bylo skenů a
+  nálezů, kdy někdo naskenoval naposled. Při více oblastech i tabulka po
+  městech.
+- **Oprava: uložený vzhled kartičky se neprojevil v seznamu kusů.** Kódy
+  se v mřížce držely v paměti podle čísla kusu, takže změna vzhledu sady
+  se do nich nedostala, dokud jsi stránku tvrdě neobnovil. Teď se drží
+  podle toho, jak kartička vypadá — změna se projeví okamžitě.
+- V exportované tabulce je **pod daty vysvětlivka**: co která skupina
+  sloupců znamená, v jakém tvaru se píše GPS, co se při importu ignoruje
+  a co se stane, když někde vznikne chyba.
+
 ### Darování ve světě — tabulka pro tým a konec sekání (9. fáze)
 - **Sekce „Kusy“ přestala sekat.** Každý QR kód se vykresloval jako
   vložená grafika o šesti stovkách prvků; u vlny 111 kusů z toho bylo přes
