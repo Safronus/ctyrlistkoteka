@@ -6,7 +6,7 @@ import { appendAudit } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db";
 import { DropStatus, Prisma } from "@/generated/prisma/client";
 import { parseRanges } from "@/lib/parseRanges";
-import { parseGps, formatGpsDecimal } from "@/lib/parseGps";
+import { parseGps } from "@/lib/parseGps";
 import { newDropToken, scatterPoints } from "@/lib/admin/drops";
 import { readBoundary, scatterInBoundary } from "@/lib/admin/dropBoundary";
 import {
@@ -14,6 +14,17 @@ import {
   type BoundaryCandidate,
 } from "@/lib/admin/dropNominatim";
 import { parseDropXlsx } from "@/lib/admin/dropXlsx";
+import {
+  planDropImport,
+  type DropPlan,
+  type DropPlanReport,
+  type DropChange,
+} from "@/lib/admin/dropPlan";
+import {
+  parseSheetUrl,
+  fetchSheetWorkbook,
+  SheetFetchError,
+} from "@/lib/admin/dropSheet";
 import { archiveDropXlsx } from "@/lib/admin/dropXlsxArchive";
 import { renderFindQrSvg } from "@/lib/admin/qr";
 import {
@@ -995,16 +1006,8 @@ function msg(e: unknown, fallback: string): string {
 
 // -------------------------------------------------------------------- xlsx
 
-export interface ImportReport {
-  matched: number;
-  changed: number;
-  /** Fields cleared back to "inherit from the campaign". */
-  cleared: number;
-  unknownFinds: number[];
-  unknownAreas: string[];
-  unknownPlacers: string[];
-  errors: string[];
-}
+/** Re-exported so the panels keep one import site. */
+export type ImportReport = DropPlanReport;
 
 /**
  * Applies an edited export back onto the campaign.
@@ -1019,6 +1022,78 @@ export interface ImportReport {
  * convenience list, not a constraint, and refusing an import because
  * somebody typed a nickname would be the wrong trade.
  */
+/**
+ * Loads everything the planner needs and works out what a workbook would
+ * do. Shared by the manual upload and the Google Sheets sync so the two
+ * cannot reach different conclusions about the same file.
+ */
+async function planFromWorkbook(
+  campaignId: number,
+  data: ArrayBuffer,
+  opts: { tolerant?: boolean } = {},
+): Promise<{ ok: false; errors: string[] } | { ok: true; plan: DropPlan }> {
+  const parsed = await parseDropXlsx(data);
+
+  // Two different failures wear the same clothes here. A sheet with no
+  // usable rows at all — wrong file, missing key column — is fatal either
+  // way. A sheet where SOME cell is malformed is not: for a hand-uploaded
+  // file we still refuse, because the operator is looking at the result
+  // and can fix a typo before retrying; for the shared sheet we do not,
+  // because one person's half-typed coordinate must not stop four other
+  // people's work, on every poll, silently.
+  const fatal = parsed.rows.length === 0 && parsed.errors.length > 0;
+  if (fatal || (parsed.errors.length > 0 && !opts.tolerant)) {
+    return { ok: false, errors: parsed.errors.slice(0, 50) };
+  }
+  const [items, areas, campaign] = await Promise.all([
+    prisma.dropItem.findMany({ where: { campaignId } }),
+    prisma.dropArea.findMany({ where: { campaignId } }),
+    prisma.dropCampaign.findUnique({ where: { id: campaignId } }),
+  ]);
+  if (!campaign) return { ok: false, errors: ["Sada nenalezena"] };
+  const plan = planDropImport(
+    parsed.rows,
+    items,
+    {
+      ...campaign,
+      exportedDefaults: (campaign.exportedDefaults ?? null) as Record<
+        string,
+        string | null
+      > | null,
+    },
+    areas,
+  );
+  // Tolerated problems ride along as warnings, so nothing is skipped
+  // without being named.
+  plan.report.errors = parsed.errors.slice(0, 50);
+  return { ok: true, plan };
+}
+
+/** Writes a plan. One transaction — a sheet lands whole or not at all. */
+async function applyPlan(
+  campaignId: number,
+  plan: DropPlan,
+  source: string,
+): Promise<void> {
+  if (plan.updates.length === 0) return;
+  await prisma.$transaction(
+    plan.updates.map((u) =>
+      prisma.dropItem.update({ where: { id: u.id }, data: u.data }),
+    ),
+  );
+  await appendAudit({
+    action: "settings.update",
+    ip: await getRequestIp(),
+    details: {
+      drops: source,
+      campaignId,
+      changed: plan.report.changed,
+      cleared: plan.report.cleared,
+    },
+  });
+  revalidate(campaignId);
+}
+
 export async function importDropXlsxAction(
   campaignId: number,
   form: FormData,
@@ -1034,10 +1109,12 @@ export async function importDropXlsxAction(
 
   try {
     const raw = Buffer.from(await file.arrayBuffer());
-    const parsed = await parseDropXlsx(
+    const result = await planFromWorkbook(
+      campaignId,
       raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength),
     );
-    if (parsed.errors.length > 0) {
+
+    if (!result.ok) {
       // Archived even when it lands nowhere: a file somebody spent an
       // evening on and that bounced is exactly the one worth keeping.
       await archiveDropXlsx(
@@ -1046,242 +1123,269 @@ export async function importDropXlsxAction(
         { originalName: file.name, matched: 0, changed: 0, blocked: true },
         new Date(),
       );
-      return {
-        ok: true,
-        report: {
-          matched: 0,
-          changed: 0,
-          cleared: 0,
-          unknownFinds: [],
-          unknownAreas: [],
-          unknownPlacers: [],
-          errors: parsed.errors.slice(0, 50),
-        },
-      };
+      return { ok: true, report: emptyReport(result.errors) };
     }
 
-    const [items, areas, campaign] = await Promise.all([
-      prisma.dropItem.findMany({ where: { campaignId } }),
-      prisma.dropArea.findMany({ where: { campaignId } }),
-      prisma.dropCampaign.findUnique({ where: { id: campaignId } }),
-    ]);
-    const byFind = new Map(items.map((i) => [i.findId, i]));
-    const areaByName = new Map(
-      areas.map((a) => [a.name.trim().toLowerCase(), a.id]),
-    );
-    const roster = new Set(campaign?.placers ?? []);
-    const campaignSizeCm =
-      readDropQrOptions(campaign?.qrOptions).sizeCm ?? DROP_SIZE_DEFAULT_CM;
-
-    const report: ImportReport = {
-      matched: 0,
-      changed: 0,
-      cleared: 0,
-      unknownFinds: [],
-      unknownAreas: [],
-      unknownPlacers: [],
-      errors: [],
-    };
-
-    const updates: Array<{ id: number; data: Record<string, unknown> }> = [];
-
-    for (const row of parsed.rows) {
-      const item = byFind.get(row.findId);
-      if (!item) {
-        report.unknownFinds.push(row.findId);
-        continue;
-      }
-      report.matched += 1;
-      const data: Record<string, unknown> = {};
-      const v = row.values;
-
-      // The sheet arrives PRE-FILLED with what each card actually says,
-      // so "same as the campaign" has to keep meaning "still inheriting".
-      // Without this every untouched row would come back as a hundred
-      // fresh overrides and the wave would stop propagating — the same
-      // rule the admin dialog uses, for the same reason.
-      const campaignText: Record<string, string | null> = {
-        headingCs: campaign?.headingCs ?? null,
-        headingEn: campaign?.headingEn ?? null,
-        bodyCs: campaign?.bodyCs ?? null,
-        bodyEn: campaign?.bodyEn ?? null,
-        bonusCs: campaign?.bonusCs ?? null,
-        bonusEn: campaign?.bonusEn ?? null,
-        qrTitle: campaign?.qrTitle ?? null,
-        qrCaption: campaign?.qrCaption ?? null,
-        hintCs: campaign?.hintCs ?? null,
-        hintEn: campaign?.hintEn ?? null,
-      };
-
-      const setText = (
-        key:
-          | "headingCs"
-          | "headingEn"
-          | "bodyCs"
-          | "bodyEn"
-          | "bonusCs"
-          | "bonusEn"
-          | "qrTitle"
-          | "qrCaption"
-          | "hintCs"
-          | "hintEn",
-      ) => {
-        if (v[key] === undefined) return;
-        const typed = v[key]!;
-        const inherited = (campaignText[key] ?? "").trim();
-        const next = typed === "" || typed.trim() === inherited ? null : typed;
-        const prev = (item as Record<string, unknown>)[key] ?? null;
-        if (next !== prev) {
-          data[key] = next;
-          if (next === null) report.cleared += 1;
-        }
-      };
-      (
-        [
-          "headingCs",
-          "headingEn",
-          "bodyCs",
-          "bodyEn",
-          "bonusCs",
-          "bonusEn",
-          "qrTitle",
-          "qrCaption",
-          "hintCs",
-          "hintEn",
-        ] as const
-      ).forEach(setText);
-
-      // The sheet edits SIZE and the two card texts; everything else in
-      // the card's option bag rides along untouched.
-      const bag: Record<string, unknown> = {
-        ...(item.qrOptions && typeof item.qrOptions === "object"
-          ? (item.qrOptions as Record<string, unknown>)
-          : {}),
-      };
-      const bagBefore = JSON.stringify(bag);
-
-      // Same "equal to the campaign means still inheriting" rule the
-      // texts get. The size column arrives pre-filled with the wave's
-      // value, so writing it back unconditionally would hand every single
-      // card an option bag of its own — and an option bag is what makes a
-      // card stop following the wave. An untouched sheet must change
-      // nothing.
-      if (v.sizeCm !== undefined) {
-        if (v.sizeCm === null || v.sizeCm === campaignSizeCm) delete bag.sizeCm;
-        else bag.sizeCm = v.sizeCm;
-      }
-
-      // Typing a title into the sheet has to TURN THE TITLE ON as well,
-      // otherwise the text lands in the column, nothing changes on the
-      // card, and there is no way of telling why. Keyed off the OVERRIDE
-      // (`data.qrTitle`), not off the cell — a cell merely showing what
-      // the wave prints is not a request to pin it.
-      if (typeof data.qrTitle === "string" && data.qrTitle) {
-        bag.titleMode = "custom";
-      }
-      if (typeof data.qrCaption === "string" && data.qrCaption) {
-        bag.captionMode = "custom";
-      }
-
-      if (JSON.stringify(bag) !== bagBefore) {
-        const sizeBefore = readDropQrOptions(item.qrOptions).sizeCm;
-        const sizeAfter = readDropQrOptions(bag).sizeCm;
-        data.qrOptions =
-          Object.keys(bag).length > 0
-            ? (bag as Prisma.InputJsonObject)
-            : Prisma.DbNull;
-        if (sizeBefore !== undefined && sizeAfter === undefined) {
-          report.cleared += 1;
-        }
-      }
-
-      if (v.area !== undefined) {
-        if (v.area === "") {
-          if (item.areaId !== null) data.areaId = null;
-        } else {
-          const areaId = areaByName.get(v.area.trim().toLowerCase());
-          if (areaId === undefined) {
-            if (!report.unknownAreas.includes(v.area)) {
-              report.unknownAreas.push(v.area);
-            }
-          } else if (areaId !== item.areaId) {
-            data.areaId = areaId;
-          }
-        }
-      }
-
-      if (v.placedBy !== undefined) {
-        const next = v.placedBy === "" ? null : v.placedBy;
-        if (next !== null && !roster.has(next)) {
-          if (!report.unknownPlacers.includes(next)) {
-            report.unknownPlacers.push(next);
-          }
-        }
-        if (next !== (item.placedBy ?? null)) data.placedBy = next;
-      }
-
-      if (v.status !== undefined && v.status !== item.status) {
-        data.status = v.status;
-      }
-      if (v.hintPublished !== undefined && v.hintPublished !== item.hintPublished) {
-        data.hintPublished = v.hintPublished;
-      }
-      if (v.lat !== undefined && v.lng !== undefined) {
-        // Compare at the precision the export writes (6 decimals ≈ 11 cm).
-        // A click on the map stores full double precision, so a plain !==
-        // would flag every untouched row as changed the moment it made a
-        // round trip through the sheet.
-        const same =
-          v.lat === null || v.lng === null || item.lat === null || item.lng === null
-            ? v.lat === item.lat && v.lng === item.lng
-            : formatGpsDecimal(v.lat, v.lng) ===
-              formatGpsDecimal(item.lat, item.lng);
-        if (!same) {
-          data.lat = v.lat;
-          data.lng = v.lng;
-        }
-      }
-
-      if (Object.keys(data).length > 0) {
-        updates.push({ id: item.id, data });
-        report.changed += 1;
-      }
-    }
-
-    if (updates.length > 0) {
-      // One transaction: a spreadsheet either lands whole or not at all.
-      await prisma.$transaction(
-        updates.map((u) =>
-          prisma.dropItem.update({ where: { id: u.id }, data: u.data }),
-        ),
-      );
-      await appendAudit({
-        action: "settings.update",
-        ip: await getRequestIp(),
-        details: {
-          drops: "xlsx-import",
-          campaignId,
-          changed: report.changed,
-          cleared: report.cleared,
-        },
-      });
-      revalidate(campaignId);
-    }
-
+    // A hand-uploaded file keeps "all or nothing": the operator is
+    // looking at the result and can fix a typo before retrying. The
+    // background sync deliberately does the opposite — see syncSheet.
+    await applyPlan(campaignId, result.plan, "xlsx-import");
     await archiveDropXlsx(
       campaignId,
       raw,
       {
         originalName: file.name,
-        matched: report.matched,
-        changed: report.changed,
+        matched: result.plan.report.matched,
+        changed: result.plan.report.changed,
         blocked: false,
       },
       new Date(),
     );
-
-    return { ok: true, report };
+    return { ok: true, report: result.plan.report };
   } catch (e) {
     return { ok: false, error: msg(e, "Import selhal") };
+  }
+}
+
+function emptyReport(errors: string[]): ImportReport {
+  return {
+    matched: 0,
+    changed: 0,
+    cleared: 0,
+    unknownFinds: [],
+    unknownAreas: [],
+    unknownPlacers: [],
+    staleFields: [],
+    errors,
+  };
+}
+
+// ------------------------------------------------------------ Google Sheets
+
+/** Node hands back a Buffer over a pooled allocation; the parser wants
+ *  just this file's bytes. */
+function toArrayBuffer(b: Buffer): ArrayBuffer {
+  const out = new ArrayBuffer(b.byteLength);
+  new Uint8Array(out).set(b);
+  return out;
+}
+
+/**
+ * Everything the sheet panel shows about one campaign's link.
+ *
+ * The URL itself is admin-only data: it is read access to every hiding
+ * coordinate in the wave. It travels to the admin page and nowhere else.
+ */
+export interface SheetStatus {
+  url: string | null;
+  syncedAt: string | null;
+  changedAt: string | null;
+  error: string | null;
+}
+
+export async function saveSheetUrlAction(
+  campaignId: number,
+  url: string,
+): Promise<Result<{ url: string | null }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  const raw = str(url, 500);
+
+  if (!raw) {
+    // Clearing the field unhooks the sheet; the wave goes back to being
+    // managed in the admin. Nothing about the cards is touched.
+    await prisma.dropCampaign.update({
+      where: { id: campaignId },
+      data: {
+        sheetUrl: null,
+        sheetHash: null,
+        sheetError: null,
+        sheetSyncedAt: null,
+        sheetChangedAt: null,
+      },
+    });
+    revalidate(campaignId);
+    return { ok: true, url: null };
+  }
+
+  const ref = parseSheetUrl(raw);
+  if (!ref) {
+    return {
+      ok: false,
+      error:
+        "To nevypadá na odkaz do Google Sheets. Zkopíruj adresu z prohlížeče, když máš tabulku otevřenou.",
+    };
+  }
+
+  // Fetch once on save rather than leaving the first failure for the
+  // background job: "uloženo" that turns out to mean "unreachable" is
+  // exactly the kind of thing nobody notices for a week.
+  try {
+    await fetchSheetWorkbook(ref);
+  } catch (e) {
+    return {
+      ok: false,
+      error:
+        e instanceof SheetFetchError
+          ? e.message
+          : msg(e, "Tabulku se nepodařilo stáhnout"),
+    };
+  }
+
+  await prisma.dropCampaign.update({
+    where: { id: campaignId },
+    data: { sheetUrl: ref.normalizedUrl, sheetError: null },
+  });
+  revalidate(campaignId);
+  return { ok: true, url: ref.normalizedUrl };
+}
+
+export interface SheetPreview {
+  changes: DropChange[];
+  report: ImportReport;
+  /** True when the sheet is byte-identical to the last pull. */
+  unchanged: boolean;
+  /** True when nothing at all could be read — wrong file, missing key
+   *  column. Distinct from "some rows were skipped", which is normal. */
+  fatal: boolean;
+}
+
+/**
+ * Fetches the sheet and works out what it WOULD change, writing nothing.
+ *
+ * Deliberately separate from applying: the whole reason the sync is
+ * one-way and manual is that somebody should see "these twelve cards
+ * change, here is old → new" before it happens.
+ */
+export async function previewSheetSyncAction(
+  campaignId: number,
+): Promise<Result<SheetPreview>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    const campaign = await prisma.dropCampaign.findUnique({
+      where: { id: campaignId },
+      select: { sheetUrl: true, sheetHash: true },
+    });
+    const ref = campaign?.sheetUrl ? parseSheetUrl(campaign.sheetUrl) : null;
+    if (!ref) return { ok: false, error: "Sada nemá uložený odkaz na tabulku" };
+
+    const fetched = await fetchSheetWorkbook(ref);
+    const result = await planFromWorkbook(
+      campaignId,
+      toArrayBuffer(fetched.bytes),
+      { tolerant: true },
+    );
+
+    await prisma.dropCampaign.update({
+      where: { id: campaignId },
+      data: { sheetSyncedAt: new Date(), sheetError: null },
+    });
+
+    if (!result.ok) {
+      return {
+        ok: true,
+        fatal: true,
+        unchanged: false,
+        changes: [],
+        report: emptyReport(result.errors),
+      };
+    }
+    return {
+      ok: true,
+      fatal: false,
+      unchanged:
+        fetched.hash === campaign?.sheetHash &&
+        result.plan.report.changed === 0,
+      changes: result.plan.changes,
+      report: result.plan.report,
+    };
+  } catch (e) {
+    const error =
+      e instanceof SheetFetchError ? e.message : msg(e, "Načtení selhalo");
+    await prisma.dropCampaign
+      .update({ where: { id: campaignId }, data: { sheetError: error } })
+      .catch(() => undefined);
+    revalidate(campaignId);
+    return { ok: false, error };
+  }
+}
+
+/** Fetches again and writes. Re-fetched on purpose: the sheet may have
+ *  moved on between the preview and the click, and applying a plan built
+ *  from a stale download would write something nobody looked at. */
+export async function applySheetSyncAction(
+  campaignId: number,
+): Promise<Result<{ report: ImportReport }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    const campaign = await prisma.dropCampaign.findUnique({
+      where: { id: campaignId },
+      select: { sheetUrl: true, sheetHash: true },
+    });
+    const ref = campaign?.sheetUrl ? parseSheetUrl(campaign.sheetUrl) : null;
+    if (!ref) return { ok: false, error: "Sada nemá uložený odkaz na tabulku" };
+
+    const fetched = await fetchSheetWorkbook(ref);
+    const result = await planFromWorkbook(
+      campaignId,
+      toArrayBuffer(fetched.bytes),
+      { tolerant: true },
+    );
+
+    const now = new Date();
+    if (!result.ok) {
+      await prisma.dropCampaign.update({
+        where: { id: campaignId },
+        data: { sheetSyncedAt: now, sheetError: result.errors[0] ?? null },
+      });
+      await archiveDropXlsx(
+        campaignId,
+        fetched.bytes,
+        {
+          originalName: "google-sheets.xlsx",
+          matched: 0,
+          changed: 0,
+          blocked: true,
+        },
+        now,
+      );
+      revalidate(campaignId);
+      return { ok: true, report: emptyReport(result.errors) };
+    }
+
+    await applyPlan(campaignId, result.plan, "sheet-sync");
+    await prisma.dropCampaign.update({
+      where: { id: campaignId },
+      data: {
+        sheetHash: fetched.hash,
+        sheetSyncedAt: now,
+        sheetError: null,
+        ...(fetched.hash !== campaign?.sheetHash
+          ? { sheetChangedAt: now }
+          : {}),
+      },
+    });
+    // The pulled workbook is archived exactly like an uploaded one, so a
+    // sync is as recoverable as a manual import.
+    await archiveDropXlsx(
+      campaignId,
+      fetched.bytes,
+      {
+        originalName: "google-sheets.xlsx",
+        matched: result.plan.report.matched,
+        changed: result.plan.report.changed,
+        blocked: false,
+      },
+      now,
+    );
+    revalidate(campaignId);
+    return { ok: true, report: result.plan.report };
+  } catch (e) {
+    const error =
+      e instanceof SheetFetchError ? e.message : msg(e, "Synchronizace selhala");
+    await prisma.dropCampaign
+      .update({ where: { id: campaignId }, data: { sheetError: error } })
+      .catch(() => undefined);
+    revalidate(campaignId);
+    return { ok: false, error };
   }
 }

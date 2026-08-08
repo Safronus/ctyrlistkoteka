@@ -13,6 +13,7 @@ import {
   DROP_SIZE_DEFAULT_CM,
 } from "@/lib/admin/drops";
 import { buildDropXlsx, type DropXlsxRow } from "@/lib/admin/dropXlsx";
+import { campaignDefaultsSnapshot } from "@/lib/admin/dropPlan";
 
 /**
  * GET /admin/api/drops/<campaign id>/xlsx
@@ -112,6 +113,18 @@ export async function GET(
     campaign.placers,
     rows,
   );
+
+  // Remember the defaults this workbook was built from. When it comes
+  // back weeks later, the sync can tell "the crew typed this" from "this
+  // is a default that has been changed in the admin since" — and leave
+  // the second kind alone instead of undoing the edit.
+  await prisma.dropCampaign.update({
+    where: { id: campaignId },
+    data: {
+      exportedDefaults: campaignDefaultsSnapshot(campaign),
+      exportedAt: new Date(),
+    },
+  });
 
   const safeName = campaign.name.replace(/[^\p{L}\p{N} _-]/gu, "").trim();
   const filename = `${safeName || "sada"}.xlsx`;

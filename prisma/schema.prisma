@@ -455,6 +455,31 @@ model DropCampaign {
   hintCs     String?   @map("hint_cs") @db.Text
   hintEn     String?   @map("hint_en") @db.Text
 
+  // --- Google Sheets the wave is filled in through -----------------
+  //
+  // The link is READ access to every hiding coordinate in the wave, so
+  // it is admin-only data: never rendered on a public route, never in a
+  // response the landing page can reach.
+
+  /// Sheet the crew edits. Null = the wave is managed in the admin only.
+  sheetUrl       String?   @map("sheet_url") @db.VarChar(500)
+  /// When on, the sheet is the source of truth for the cards' fields.
+  sheetMode      Boolean   @default(false) @map("sheet_mode")
+  /// Fingerprint of the last workbook fetched, so an unchanged sheet
+  /// costs nothing to check.
+  sheetHash      String?   @map("sheet_hash") @db.VarChar(64)
+  /// Last time a fetch succeeded, and last time the content differed.
+  sheetSyncedAt  DateTime? @map("sheet_synced_at") @db.Timestamptz
+  sheetChangedAt DateTime? @map("sheet_changed_at") @db.Timestamptz
+  /// Last hard failure (unreachable, missing key column…), for the panel.
+  sheetError     String?   @map("sheet_error") @db.Text
+
+  /// The campaign defaults as they stood when the workbook was last
+  /// exported. Lets the sync tell "the crew typed this" from "this is a
+  /// superseded default the sheet still carries" — see docs.
+  exportedDefaults Json?     @map("exported_defaults")
+  exportedAt       DateTime? @map("exported_at") @db.Timestamptz
+
   /// Who can be assigned to hide a card — the crew for this wave. A plain
   /// array rather than a table: it is a short list of names the operator
   /// edits by hand, it changes per wave, and a typo should be fixable

@@ -22,6 +22,7 @@ import { ItemsGrid, type ItemView } from "./items-grid";
 import type { QrDesign } from "./qr-design-fields";
 import { AreaMapPanel } from "./area-map-panel";
 import { XlsxPanel } from "./xlsx-panel";
+import { SheetPanel } from "./sheet-panel";
 import { listDropXlsx } from "@/lib/admin/dropXlsxArchive";
 
 export const metadata: Metadata = {
@@ -301,6 +302,16 @@ export default async function DropCampaignPage({
         campaignId={campaign.id}
         campaignName={campaign.name}
         archive={await listDropXlsx(campaign.id)}
+      />
+
+      <SheetPanel
+        campaignId={campaign.id}
+        status={{
+          url: campaign.sheetUrl,
+          syncedAt: campaign.sheetSyncedAt?.toISOString() ?? null,
+          changedAt: campaign.sheetChangedAt?.toISOString() ?? null,
+          error: campaign.sheetError,
+        }}
       />
 
       <ItemsGrid

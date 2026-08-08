@@ -32,6 +32,10 @@ export const DROP_SHEET_NAME = "Kusy";
 /** Row holding the field names; row 1 above it holds the group bands. */
 const HEADER_ROW = 2;
 
+/** First line of the legend under the data. The importer stops here, so
+ *  the explanation block never gets read as rows. */
+const LEGEND_SENTINEL = "JAK TABULKU VYPLNIT";
+
 /**
  * The columns, in groups.
  *
@@ -160,7 +164,7 @@ function paintGroups(ws: ExcelJS.Worksheet, rowCount: number): void {
 function appendLegend(ws: ExcelJS.Worksheet, rowCount: number): void {
   const first = HEADER_ROW + rowCount + 2;
   const lines: Array<[string, string]> = [
-    ["JAK TABULKU VYPLNIT", ""],
+    [LEGEND_SENTINEL, ""],
     ["", ""],
     [
       "Barevné pruhy nad hlavičkou",
@@ -217,11 +221,61 @@ function appendLegend(ws: ExcelJS.Worksheet, rowCount: number): void {
       row.getCell(3).font = { size: 10 };
       row.getCell(3).alignment = { wrapText: true, vertical: "top" };
     }
-    // The term sits in A–B, the explanation runs across the wide columns.
-    if (term) {
-      ws.mergeCells(first + i, 1, first + i, 2);
-      if (explain) ws.mergeCells(first + i, 3, first + i, 9);
+    // Column B — the find number — is left EMPTY on every legend row, and
+    // nothing here is merged across it. That is what lets the importer
+    // walk past the legend: a row without a find number is not data. A
+    // merged A:B cell would report its text in B and the legend would
+    // come back as a hundred "«GPS» není číslo čtyřlístku" errors.
+    if (term && explain) ws.mergeCells(first + i, 3, first + i, 9);
+  });
+}
+
+/**
+ * Locks the parts of the sheet nobody should be typing into.
+ *
+ * Protects the two header rows and the two read-only columns; everything
+ * a person is meant to fill in stays open. The aim is the ACCIDENT — a
+ * stray paste that wipes the header, a dragged fill handle that eats the
+ * find numbers — not a determined editor.
+ *
+ * Note for whoever reads this after uploading to Google: the conversion
+ * carries this over only partly, which is why the admin's instructions
+ * ask for one manual "Chránit list → Zobrazit upozornění" pass. Doing it
+ * here as well means the file is also safe when edited in Excel, and
+ * costs nothing.
+ */
+async function lockStructure(
+  ws: ExcelJS.Worksheet,
+  rowCount: number,
+): Promise<void> {
+  const lastDataRow = HEADER_ROW + rowCount;
+  const readOnlyCols = new Set(
+    [...READ_ONLY].map((k) => COLUMNS.findIndex((c) => c.key === k) + 1),
+  );
+
+  // Everything is locked once the sheet is protected, so open up the
+  // cells people are supposed to edit rather than locking the rest.
+  for (let r = HEADER_ROW + 1; r <= lastDataRow; r++) {
+    for (let c = 1; c <= COLUMNS.length; c++) {
+      if (readOnlyCols.has(c)) continue;
+      ws.getCell(r, c).protection = { locked: false };
     }
+  }
+
+  await ws.protect("", {
+    // Selecting and sorting stay allowed — the sheet is for reading and
+    // rearranging as much as for typing.
+    selectLockedCells: true,
+    selectUnlockedCells: true,
+    formatCells: true,
+    formatColumns: true,
+    formatRows: true,
+    sort: true,
+    autoFilter: true,
+    insertRows: false,
+    deleteRows: false,
+    insertColumns: false,
+    deleteColumns: false,
   });
 }
 
@@ -283,7 +337,12 @@ export async function buildDropXlsx(
     header: c.header,
     width: c.width,
   }));
-  ws.views = [{ state: "frozen", ySplit: 1 }];
+  ws.views = [{ state: "frozen", ySplit: HEADER_ROW }];
+
+  // Coordinates as TEXT. Left to itself a Czech-locale Google Sheet reads
+  // "49.2245, 17.6712" as something to reformat, and the pair comes back
+  // as a number or a date — the one column where that is unrecoverable.
+  ws.getColumn(columnLetter("gps")).numFmt = "@";
 
   for (const r of rows) {
     ws.addRow({
@@ -312,6 +371,7 @@ export async function buildDropXlsx(
 
   paintGroups(ws, rows.length);
   appendLegend(ws, rows.length);
+  await lockStructure(ws, rows.length);
 
   // Dropdowns on the columns with a closed vocabulary, so the sheet
   // teaches its own valid values instead of relying on the operator
@@ -488,6 +548,9 @@ export async function parseDropXlsx(
 
   for (let r = headerRowIndex + 1; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
+    // The explanation block lives under the data; everything from its
+    // heading down is prose, not rows.
+    if (cellText(row.getCell(1).value).trim() === LEGEND_SENTINEL) break;
     const rawId = cellText(row.getCell(colByKey.get("findId")!).value).trim();
     if (!rawId) continue; // blank line — skip silently
     const findId = Number(rawId);

@@ -9,6 +9,28 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Darování ve světě — synchronizace z Google Sheets (11. fáze)
+- Sada může mít **odkaz na Google Sheets**. Tlačítko *Zkontrolovat změny*
+  tabulku stáhne, porovná a **ukáže, co se změní** — kus po kusu, staré →
+  nové. Teprve pak *Použít*. Nic se nikdy neaplikuje bez ukázání.
+- Jde to **jedním směrem**: z tabulky do adminu. Zpátky se nikdy nezapisuje.
+- **Rozbitý řádek nezastaví ostatní.** Když někdo napíše do GPS „asi u
+  parku“, přeskočí se to jedno políčko, nahlásí a zbytek tabulky se
+  použije — protože do tabulky píše víc lidí a jeden překlep nesmí zastavit
+  práci všech. Ruční nahrání souboru si nechává přísné „všechno nebo nic“.
+- **Pojistka proti zastaralé tabulce.** Když v adminu změníš výchozí text
+  sady a tabulka nese starou verzi, sync ji nepoužije — pozná ji jako
+  překonanou, přeskočí a řekne to. Jinak by ti stačilo změnit text a
+  příští synchronizace by ho vrátila zpátky na všech kusech.
+- Sekce ukazuje **stav**: kdy se naposled kontrolovalo, kdy se tabulka
+  naposled změnila, co selhalo. Každá stažená verze se archivuje stejně
+  jako ručně nahraný soubor.
+- **Návod přímo v adminu**: jak tabulku založit, jak ji sdílet, jak
+  doklikat ochranu buněk a jak ji později aktualizovat, aniž bys přišel
+  o odkaz (*Soubor → Importovat → Nahradit aktuální list*).
+- V sešitu jsou zamčené hlavičky a jen-ke-čtení sloupce a **GPS je
+  napevno text**, ať ji Google nepřeformátuje na číslo.
+
 ### Nastavení v adminu + souhrn sady (10. fáze)
 - **Nová sekce „Nastavení“** na přehledu adminu. Zatím jedna věc, ale ta,
   co doteď šla změnit jen v kódu: **bod, od kterého se měří vzdálenosti
