@@ -137,6 +137,41 @@ which node pnpm pm2
 `bash -l` ho tam nenajde. Proto všechny unity v `deploy/` začínají
 `/bin/bash -c '. /home/app/.nvm/nvm.sh && …'`.
 
+### Když `node` a `pnpm` fungují, ale `pm2` pořád ne
+
+Globální npm balíčky jsou v nvm **vázané na konkrétní verzi Node**. Po
+`nvm install --lts` běžíš na nové verzi, ale `pm2` zůstal nainstalovaný
+pod tou starou — proto `which node` odpoví a `which pm2` mlčí.
+
+Kde pm2 doopravdy je:
+
+```bash
+ls /home/app/.nvm/versions/node/*/bin/pm2
+```
+
+**Cokoli potřebuješ udělat hned, jde přes systemd** a PATH neřeší:
+
+```bash
+sudo systemctl restart pm2-app     # restartuje démona i aplikaci
+systemctl status pm2-app --no-pager
+```
+
+**Trvalá náprava** (dělej ve chvíli klidu, restartuje to web):
+
+```bash
+source /home/app/.nvm/nvm.sh
+nvm alias default lts/*            # ať se verze aktivuje i příště
+npm install -g pm2                 # pm2 pod AKTUÁLNÍ verzí Node
+pm2 startup systemd -u app --hp /home/app
+# ...a spustit ten sudo příkaz, který se vypíše
+pm2 save
+```
+
+Ten poslední krok je nutný: unit `pm2-app` má zapečenou absolutní cestu ke
+staré verzi Node. Dokud ta verze na disku existuje, běží to; ve chvíli, kdy
+ji smažeš (`nvm uninstall`), se **PM2 po rebootu nenastartuje a web je
+dole**. Po každém upgradu Node proto unit přegeneruj.
+
 > Pozor i na druhou stranu téhle mince: `pm2 startup` zapéká do systemd
 > unitu absolutní cestu ke *konkrétní* verzi Node z nvm. Po `nvm install
 > --lts` unit ukazuje na starou verzi — viz varování u kroku s PM2 níž.
