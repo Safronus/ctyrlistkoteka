@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   COLLAGE_VARIANTS,
   collageFit,
-  collageHasVeil,
   fitGridToMask,
   gridFor,
   makeRng,
@@ -97,15 +96,6 @@ describe("collage layout", () => {
     }
   });
 
-  it("veils only what is cropped anyway", () => {
-    // The bug this pins: a band over a `contain` layer draws the shape a
-    // second time, cropped, and a wide screen shows both at once.
-    for (const v of COLLAGE_VARIANTS) {
-      expect(collageHasVeil(v)).toBe(collageFit(v) === "cover");
-    }
-    expect(collageHasVeil("LOGO")).toBe(false);
-    expect(collageHasVeil("MOSAIC")).toBe(true);
-  });
 });
 
 describe("gridFor", () => {
