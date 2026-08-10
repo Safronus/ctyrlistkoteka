@@ -102,8 +102,17 @@ problém. Reálná příčina: chybějící cookie. Setrvání u `path=/admin` b
 vyžadovalo přejmenovat API endpointy pod `/admin/api/`, což je invazivnější
 změna.
 
-**Jak aplikovat:** Při psaní auth-gated routes pod jiným prefixem než
-`/admin` (typicky `/api/admin/*`) ověř, že session cookie má `path=/`. Změna
+**Druhý důsledek téhož rozdílu — a horší:** co neodpovídá prefixu `/admin`,
+to **nekryje ani IP maska v Nginxu** (`location /admin`). Šest rout pod
+`/api/admin/` proto viselo na internetu; 2026-08-10 dostal `/api/admin`
+stejný allowlist a `drops/sync` + `revalidate` natvrdo 404. Nginx ale
+nasazuje ruka a CI ne, takže **žádná routa se na masku nesmí spoléhat** —
+každá se musí bránit sama a na selhání vracet 404, nikdy 401. Detaily
+v `docs/admin-overview.md` (gotcha „/api/admin/* je mimo masku“).
+
+**Jak aplikovat:** Novou auth-gated routu piš radši pod `/admin/api/…`,
+kam obojí sedí samo. Když musí být pod `/api/admin/*`, ověř, že session
+cookie má `path=/`, a počítej s tím, že je veřejně adresovatelná. Změna
 z `/admin` na `/` je bezpečná, dokud cookie zůstává `HttpOnly` + `Secure` +
 `SameSite=Strict` a hodnota je iron-session šifrovaná (veřejné routy ji
 stejně nedekódují). Při deploy takové změny musí uživatel smazat starou

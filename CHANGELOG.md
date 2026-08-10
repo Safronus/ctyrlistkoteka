@@ -37,6 +37,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   takže podvrh zvenku neprojde), a každé selhání odpovídá 404, aby se
   nedalo poznat, že tam vůbec něco je. Port 3000 navíc pouští firewall
   jen z loopbacku. Pokrývá to 20 nových testů.
+- **Celý `/api/admin/*` je nově za maskou adminu.** Při té revizi se
+  ukázalo, že mimo ni nevisí jedna routa, ale **šest** — `file`,
+  `blocklist/export`, `sync/start`, `sync/status`, `drops/sync`
+  a `revalidate`. Že prefix `/admin` na `/api/admin/…` nesedí, se přitom
+  vědělo (proto ty routy vracejí 404 místo 401, viz zápis z 2026-05),
+  ale zůstalo u toho, že se každá brání sama. Teď má `/api/admin` v Nginxu
+  **stejný IP allowlist** jako zbytek adminu — volá je jen prohlížeč
+  přihlášeného admina, který stejně chodí z povolené IP — a `drops/sync`
+  s `revalidate` mají natvrdo 404, protože je volá výhradně stroj sám
+  přes loopback, který Nginx obchází.
+- Allowlist se přestěhoval do sdíleného snippetu, protože ho teď potřebují
+  dva bloky a dvě ručně udržované kopie by se dřív nebo později rozešly —
+  načež by admin půl na půl vracel maskovanou 404 bez vysvětlení. Přechod
+  na běžícím stroji dělá `deploy/nginx-add-api-admin.py`; odmítne
+  pokračovat, kdyby snippet nechal admin otevřený nebo tebe venku.
+  **Nginx nasazuje ruka, ne CI** — kód se proto na tuhle masku nikde
+  nespoléhá.
 
 ### Darování ve světě — synchronizace z Google Sheets (11. fáze)
 - Sada může mít **odkaz na Google Sheets**. Tlačítko *Zkontrolovat změny*
