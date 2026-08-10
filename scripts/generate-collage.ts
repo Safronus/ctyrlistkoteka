@@ -71,9 +71,16 @@ const ENCODE_STEPS: Array<{ width: number; quality: number }> = [
   { width: 1600, quality: 60 },
   { width: 1600, quality: 45 },
 ];
-/** Tiles on the scatter layer. Sparse on purpose — it is the variant
- *  meant to sit behind text. */
-const SCATTER_TILES = 700;
+/**
+ * Tiles on the scatter layer.
+ *
+ * Random placement leaves holes: with N tiles covering the canvas λ times
+ * over, the uncovered fraction is about e^-λ. At 700 that was λ≈3.4 and
+ * 3.5 % bare — which showed up as pale angular gaps between the rotated
+ * crops, exactly the shape of the corners they don't fill. 1800 puts λ
+ * near 9, i.e. holes in the per-mille range.
+ */
+const SCATTER_TILES = 1800;
 const SCATTER_SEED = 30000;
 /** Nothing behind the tiles: gaps and the area around a shape stay fully
  *  TRANSPARENT, so the page's own colour shows through and the collage

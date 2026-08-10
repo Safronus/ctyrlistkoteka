@@ -224,6 +224,14 @@ describe("scatterPlan", () => {
     }
   });
 
+  it("stays opaque enough not to read as a hole", () => {
+    // A crop at 0.28 over a light page was indistinguishable from bare
+    // canvas, so the layer looked full of gaps even where it wasn't.
+    for (const p of scatterPlan(500, W, H, makeRng(11))) {
+      expect(p.opacity).toBeGreaterThanOrEqual(0.55);
+    }
+  });
+
   it("fades towards the edges, so the middle stays readable", () => {
     const plan = scatterPlan(800, W, H, makeRng(3));
     const centreish = plan.filter(

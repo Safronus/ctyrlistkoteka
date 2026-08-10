@@ -286,7 +286,11 @@ export function scatterPlan(
       y,
       size,
       rotate: Math.round(rng() * 360),
-      opacity: Number((0.28 + 0.5 * dist * (0.6 + rng() * 0.4)).toFixed(3)),
+      // Floor raised from 0.28: a crop that faint over a light page is
+      // barely distinguishable from a hole, so the middle read as empty
+      // even where it was covered. The page's own opacity slider is the
+      // right place to dial the whole layer down.
+      opacity: Number((0.55 + 0.35 * dist * (0.6 + rng() * 0.4)).toFixed(3)),
     });
   }
   return out;

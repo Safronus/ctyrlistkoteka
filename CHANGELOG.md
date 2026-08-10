@@ -33,6 +33,10 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   s jakou prosvítá pod textem — nahoře na stránce je vždy v plné.
 - Tvarové varianty se **ukazují celé**, ne oříznuté: koláž je na šířku,
   telefon na výšku, a ze čtyřlístku by jinak zbyly dva zelené fleky.
+- **Rozptýlená vrstva je hustá, ne děravá.** Náhodně rozházené ořezy
+  nechávaly kolem 3,5 % plochy holé — a protože ty nejsvětlejší byly skoro
+  neviditelné, působila prázdně i tam, kde prázdná nebyla. Víc dlaždic
+  a méně průhledné ořezy z toho udělaly souvislý koberec.
 - **Průhledné tam, kde nejsou fotky.** Kolem tvaru i v mezerách mezi
   rozptýlenými ořezy prosvítá barva stránky; dřív tam byla zapečená
   světlá výplň, která ladila jen s jedním motivem.
