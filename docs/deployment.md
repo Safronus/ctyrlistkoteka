@@ -185,6 +185,41 @@ pm2 save
 > (`pm2@$(pm2 -v)` nepiš — v situaci, kvůli které sem čteš, `pm2` na PATH
 > není a substituce se rozsype. Proto ten krok 1 přes systemd.)
 
+### Mazání staré verze Node — `dump.pm2` si drží absolutní cestu
+
+Ověřeno 2026-08-10 při úklidu v24.15.0. Než smažeš jakoukoli verzi Node,
+projdi tohle pořadí — jinak se nic nestane **dnes** a web ti nenaskočí až
+při nejbližším rebootu, což je nejhorší možná chvíle na hledání příčiny.
+
+```bash
+# 1) Kdo na starou verzi vůbec odkazuje
+sudo grep -rl 'v24\.15\.0' /etc/systemd/system /home/app/.pm2/dump.pm2 \
+     /home/app/.profile /home/app/.bashrc /var/spool/cron/crontabs 2>/dev/null
+
+# 2) Démon musí běžet z NOVÉ binárky (unit sám nestačí — restart ano)
+sudo systemctl restart pm2-app
+sudo ls -l /proc/$(pgrep -f 'PM2 v' | head -1)/exe     # → …/v24.18.0/bin/node
+
+# 3) Kde v dumpu ta cesta sedí
+grep -o '"[A-Za-z_]*": *"[^"]*v24\.15\.0[^"]*"' /home/app/.pm2/dump.pm2
+
+# 4) `exec_interpreter` přežije i `pm2 reload --update-env`. Jedině
+#    přeložení načisto ho přepíše (pár vteřin výpadku, oba workeři naráz):
+source /home/app/.nvm/nvm.sh && pm2 delete ctyrlistkoteka \
+  && pm2 start /var/www/ctyrlistkoteka/deploy/ecosystem.config.cjs && pm2 save
+
+# 5) Až tohle vrátí 0, teprve pak mazat
+grep -c 'v24\.15\.0' /home/app/.pm2/dump.pm2
+source /home/app/.nvm/nvm.sh && nvm uninstall v24.15.0
+```
+
+**Proč krok 4:** `pm2 save` zapisuje `exec_interpreter` jako **absolutní
+cestu** k node, kterým proces tehdy nastartoval. `pm2 reload --update-env`
+obnoví proměnné prostředí, ale tohle pole ne — po smazání verze by pak
+`pm2 resurrect` neměl čím workery spustit. Runner ani systemd unit tuhle
+cestu nedrží (2026-08-10 ověřeno grepem), takže `dump.pm2` je jediné místo,
+kde se schová.
+
 Ten poslední krok je nutný: unit `pm2-app` má zapečenou absolutní cestu ke
 staré verzi Node. Dokud ta verze na disku existuje, běží to; ve chvíli, kdy
 ji smažeš (`nvm uninstall`), se **PM2 po rebootu nenastartuje a web je
