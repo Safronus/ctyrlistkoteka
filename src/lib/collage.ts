@@ -52,20 +52,40 @@ export const COLLAGE_IMAGE_MASKS: Partial<Record<CollageVariant, string[]>> = {
  * translucent card — a blurred smear behind the text. Textures survive
  * both, because a crop of a carpet is still a carpet.
  */
-export const COLLAGE_MOBILE_CHOICES = ["MOSAIC", "SCATTER", "OFF"] as const;
+export const COLLAGE_MOBILE_CHOICES = [
+  "BY_FIND",
+  "MOSAIC",
+  "SCATTER",
+  "OFF",
+] as const;
 export type CollageMobileChoice = (typeof COLLAGE_MOBILE_CHOICES)[number];
 
 export const COLLAGE_MOBILE_LABEL: Record<CollageMobileChoice, string> = {
+  BY_FIND: "Podle čísla — liché mozaika, sudé rozptyl",
   MOSAIC: "Mozaika",
   SCATTER: "Rozptýlená vrstva",
   OFF: "Bez pozadí",
 };
 
-/** The mobile choice as a variant, or null when the phone gets nothing. */
+/**
+ * The mobile choice as a variant, or null when the phone gets nothing.
+ *
+ * `BY_FIND` here is plain odd/even, NOT the hash the desktop mode uses:
+ * with only two options a hash buys nothing, and odd/even is something
+ * you can check by looking at the card.
+ */
 export function mobileCollageVariant(
   choice: CollageMobileChoice,
+  findId: number,
 ): CollageVariant | null {
-  return choice === "OFF" ? null : choice;
+  switch (choice) {
+    case "OFF":
+      return null;
+    case "BY_FIND":
+      return findId % 2 === 0 ? "SCATTER" : "MOSAIC";
+    default:
+      return choice;
+  }
 }
 
 /** How a wave decides which background a card gets. */

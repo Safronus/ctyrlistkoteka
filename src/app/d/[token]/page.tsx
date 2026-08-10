@@ -118,7 +118,10 @@ export default async function DropLandingPage({
     ? { url: collageUrl(bgVariant), fit: collageFit(bgVariant) }
     : null;
   const phoneVariant = bgVariant
-    ? mobileCollageVariant(item.campaign.bgMobileVariant as CollageMobileChoice)
+    ? mobileCollageVariant(
+        item.campaign.bgMobileVariant as CollageMobileChoice,
+        item.findId,
+      )
     : null;
   const phone = phoneVariant
     ? { url: collageUrl(phoneVariant), fit: collageFit(phoneVariant) }

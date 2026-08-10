@@ -1,4 +1,14 @@
-import { MapPin, Printer, ScanLine, Sparkles } from "lucide-react";
+"use client";
+
+import {
+  ChevronDown,
+  ChevronRight,
+  MapPin,
+  Printer,
+  ScanLine,
+  Sparkles,
+} from "lucide-react";
+import { useRememberedOpen } from "../../use-remembered-open";
 import {
   DROP_STATUS_COLOR,
   DROP_STATUS_LABEL,
@@ -44,6 +54,7 @@ export function CampaignStats({
   /** While true nothing new is counted — see ScanControls. */
   scansPaused: boolean;
 }) {
+  const [open, toggleOpen] = useRememberedOpen("drops.stats", true);
   const total = items.length;
   if (total === 0) return null;
 
@@ -79,20 +90,35 @@ export function CampaignStats({
   return (
     <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-900">
+        <button
+          type="button"
+          onClick={toggleOpen}
+          aria-expanded={open}
+          className="flex items-center gap-2 text-left text-sm font-semibold text-gray-900"
+        >
+          {open ? (
+            <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden />
+          )}
           Souhrn sady
           {scansPaused && (
             <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900">
               skenování pozastaveno
             </span>
           )}
-        </h2>
+        </button>
+        {open && (
         <ScanControls
           campaignId={campaignId}
           paused={scansPaused}
           totalScans={items.reduce((sum, i) => sum + i.scans, 0)}
         />
+        )}
       </div>
+
+      {open && (
+      <>
 
       {/* The wave as one bar: prepared → printed → hidden → found. */}
       <div>
@@ -219,6 +245,8 @@ export function CampaignStats({
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
     </section>
   );

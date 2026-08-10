@@ -21,6 +21,7 @@ import {
 import { DROP_STATUS_COLOR, DROP_STATUS_LABEL } from "@/lib/admin/dropVocab";
 import { readBoundary } from "@/lib/admin/dropBoundary";
 import { CONTROL_H_SM, SELECT_CLS } from "../../qr-ui";
+import { useRememberedOpen } from "../../use-remembered-open";
 import type { DropStatus } from "@/generated/prisma/enums";
 import type { MapPoint } from "./drop-map";
 
@@ -85,7 +86,7 @@ export function AreaMapPanel({
   const [error, setError] = useState<string | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [fitToken, setFitToken] = useState(0);
-  const [mapOpen, setMapOpen] = useState(false);
+  const [mapOpen, toggleMap] = useRememberedOpen("drops.map", false);
 
   /** Across the WHOLE campaign, not the selected area — the collapsed
    *  header has no area picker visible, so an area-scoped count would be
@@ -207,7 +208,7 @@ export function AreaMapPanel({
             "Oblasti" above. */}
         <button
           type="button"
-          onClick={() => setMapOpen((o) => !o)}
+          onClick={() => toggleMap()}
           aria-expanded={mapOpen}
           className="flex items-center gap-2 text-left text-sm font-semibold text-gray-900"
         >

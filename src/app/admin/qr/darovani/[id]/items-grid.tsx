@@ -11,6 +11,8 @@ import {
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  ChevronDown,
+  ChevronRight,
   ExternalLink,
   Eye,
   EyeOff,
@@ -41,6 +43,7 @@ import {
   ROW_CLS,
   SELECT_CLS,
 } from "../../qr-ui";
+import { useRememberedOpen } from "../../use-remembered-open";
 import { ItemDialog, type CampaignDefaults } from "./item-dialog";
 import type { QrDesign } from "./qr-design-fields";
 import { DropPrintDialog } from "./print-dialog";
@@ -176,6 +179,7 @@ export function ItemsGrid({
    *  batched render round trips, so hidden is cheaper as well as
    *  shorter: the effect below doesn't fetch anything until asked. */
   const [showQr, setShowQr] = useState(false);
+  const [open, toggleOpen] = useRememberedOpen("drops.items", true);
   const [printing, setPrinting] = useState<number[] | null>(null);
   // Two-step, because zeroing counters is not undoable and the button
   // sits in a strip of one-click bulk edits.
@@ -280,12 +284,23 @@ export function ItemsGrid({
   return (
     <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-900">
+        <button
+          type="button"
+          onClick={toggleOpen}
+          aria-expanded={open}
+          className="flex items-center gap-2 text-left text-sm font-semibold text-gray-900"
+        >
+          {open ? (
+            <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden />
+          )}
           Kusy{" "}
           <span className="font-normal text-gray-400">
             ({items.length.toLocaleString("cs-CZ")})
           </span>
-        </h2>
+        </button>
+        {open && (
         <button
           type="button"
           disabled={printIds.length === 0}
@@ -297,7 +312,11 @@ export function ItemsGrid({
             ? `Tiskový arch (${selected.size} vybraných)`
             : `Tiskový arch (${printIds.length})`}
         </button>
+        )}
       </div>
+
+      {open && (
+      <>
 
       {/* --------------------------------------------------------- adding
           One grid row: the spec field, the area and the button share a
@@ -681,6 +700,8 @@ export function ItemsGrid({
             router.refresh();
           }}
         />
+      )}
+      </>
       )}
     </section>
   );

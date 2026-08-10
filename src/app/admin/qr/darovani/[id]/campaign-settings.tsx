@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { updateCampaignAction, type CampaignInput } from "../../drop-actions";
 import { Field, INPUT_CLS } from "../../qr-ui";
+import { useRememberedOpen } from "../../use-remembered-open";
 import {
   COLLAGE_MOBILE_CHOICES,
   COLLAGE_MOBILE_LABEL,
@@ -43,7 +44,7 @@ export function CampaignSettings({
   initial: CampaignInput;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, toggleOpen] = useRememberedOpen("drops.settings", false);
   const [cfg, setCfg] = useState<CampaignInput>(initial);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -91,7 +92,7 @@ export function CampaignSettings({
     <section className="rounded-xl border border-gray-200 bg-white">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => toggleOpen()}
         aria-expanded={open}
         className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-gray-900 transition hover:bg-gray-50"
       >
@@ -234,12 +235,18 @@ export function CampaignSettings({
           <Group
             icon={<Images className="h-4 w-4 text-teal-600" aria-hidden />}
             title="Pozadí stránky po naskenování"
-            note="Koláž z ořezů celé sbírky. Nahoře na stránce se ukáže v plné síle, pod textem jen prosvítá — sílu si nastav níž."
+            note="Koláž z ořezů celé sbírky za stránkou, kterou uvidí nálezce."
           >
-            <div className="grid items-start gap-4 sm:grid-cols-3">
+            {/* Three questions in the order they get asked: what shows on
+                a computer, what shows on a phone (never a shape there),
+                and how strong the whole thing is. Cramming all five
+                controls into one row put "síla pozadí" next to "která
+                koláž" as if they were the same kind of decision. */}
+            <SubHead>Na počítači</SubHead>
+            <div className="grid items-start gap-4 sm:grid-cols-2">
               <Field
                 label="Kdy se ukáže"
-                hint="Podle čísla = každá kartička má vždy tu svou."
+                hint="Podle čísla nálezu = každá kartička má vždycky tu svou."
               >
                 <select
                   className={INPUT_CLS}
@@ -274,9 +281,32 @@ export function CampaignSettings({
                   ))}
                 </select>
               </Field>
+            </div>
+
+            <SubHead>Na mobilu</SubHead>
+            <Field
+              label="Která koláž"
+              hint="Tvarové koláže se na telefon nekreslí — na výšku se ořežou a za textem z nich zbude šmouha."
+            >
+              <select
+                className={INPUT_CLS}
+                value={cfg.bgMobileVariant}
+                disabled={cfg.bgMode === "OFF"}
+                onChange={(e) => set("bgMobileVariant", e.target.value)}
+              >
+                {COLLAGE_MOBILE_CHOICES.map((c) => (
+                  <option key={c} value={c}>
+                    {COLLAGE_MOBILE_LABEL[c]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <SubHead>Jak výrazně — platí pro obojí</SubHead>
+            <div className="grid items-start gap-4 sm:grid-cols-2">
               <Field
                 label={`Síla pozadí — ${cfg.bgOpacity} %`}
-                hint="Jak výrazně je koláž vidět."
+                hint="Jak výrazně je koláž vidět za stránkou."
               >
                 <input
                   type="range"
@@ -289,28 +319,9 @@ export function CampaignSettings({
                   onChange={(e) => set("bgOpacity", e.target.value)}
                 />
               </Field>
-            </div>
-            <div className="mt-4 grid items-start gap-4 sm:grid-cols-2">
-              <Field
-                label="Na mobilu"
-                hint="Tvarové koláže se na telefon nekreslí — na výšku se ořežou a za textem z nich zbude šmouha. Telefon dostane vždycky tohle, ať desktop vybere cokoli."
-              >
-                <select
-                  className={INPUT_CLS}
-                  value={cfg.bgMobileVariant}
-                  disabled={cfg.bgMode === "OFF"}
-                  onChange={(e) => set("bgMobileVariant", e.target.value)}
-                >
-                  {COLLAGE_MOBILE_CHOICES.map((c) => (
-                    <option key={c} value={c}>
-                      {COLLAGE_MOBILE_LABEL[c]}
-                    </option>
-                  ))}
-                </select>
-              </Field>
               <Field
                 label={`Krytí karty s textem — ${cfg.bgCardOpacity} %`}
-                hint="100 % = plná bílá jako dosud, níž koláž prosvítá i skrz kartu. Pozor na čitelnost: proti nejtmavším ořezům vychází kontrast textu na 85 % dobře (7,3:1), na 70 % už je nadpis pod normou a na 55 % je pod normou i tělo textu (3,1:1). Doporučené rozmezí je 80–90 %."
+                hint="100 % = plná bílá, níž koláž prosvítá i skrz kartu. Pozor na čitelnost: proti nejtmavším ořezům vychází kontrast textu na 85 % dobře (7,3:1), na 70 % je pod normou nadpis a na 55 % i tělo textu (3,1:1). Doporučené rozmezí je 80–90 %."
               >
                 <input
                   type="range"
@@ -324,6 +335,7 @@ export function CampaignSettings({
                 />
               </Field>
             </div>
+
             <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
               Koláže musí nejdřív vzniknout na serveru — jednorázově příkazem{" "}
               <code className="rounded bg-white px-1">pnpm collage</code>.
@@ -379,6 +391,16 @@ export function CampaignSettings({
 }
 
 /** A labelled block that says what its fields are FOR. */
+/** Small heading inside a Group — splits a long form into the questions
+ *  it is actually asking, without another box around each one. */
+function SubHead({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-gray-400 first:mt-0">
+      {children}
+    </p>
+  );
+}
+
 function Group({
   icon,
   title,

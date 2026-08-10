@@ -20,6 +20,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   nalezené nikým a nikdy.
 - Dokud je počítání pozastavené, je to vidět štítkem u nadpisu souhrnu.
 
+### Admin: sekce se sbalují a pamatují si to
+- Všechny sekce na stránce sady — Souhrn, Nastavení, Oblasti, Mapa úkrytů,
+  Tabulka, Google Sheets i Kusy — jdou sbalit a **stav si prohlížeč
+  pamatuje**. Otevřeš stránku a máš ji složenou tak, jak jsi ji nechal.
+- Nastavení pozadí je rozdělené podle toho, čeho se která volba týká:
+  *Na počítači*, *Na mobilu*, a *Jak výrazně* (platí pro obojí).
+- Mobil umí nově **podle čísla nálezu**: liché číslo mozaika, sudé
+  rozptýlená vrstva.
+
 ### Koláž ze sbírky jako pozadí kartičkových stránek
 - Stránka, kterou uvidí nálezce po naskenování kartičky, může mít **pozadí
   poskládané z ořezů celé sbírky** — oslava 30 000 nálezů složená z nich

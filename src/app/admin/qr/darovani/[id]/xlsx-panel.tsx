@@ -3,6 +3,8 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ChevronDown,
+  ChevronRight,
   Download,
   FileSpreadsheet,
   History,
@@ -11,6 +13,7 @@ import {
 } from "lucide-react";
 import type { ArchivedXlsx } from "@/lib/admin/dropXlsxArchive";
 import { importDropXlsxAction, type ImportReport } from "../../drop-actions";
+import { useRememberedOpen } from "../../use-remembered-open";
 
 /**
  * Bulk editing through a spreadsheet — the thing a web form is worst at.
@@ -34,6 +37,7 @@ export function XlsxPanel({
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
+  const [open, toggleOpen] = useRememberedOpen("drops.xlsx", true);
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
 
@@ -56,10 +60,22 @@ export function XlsxPanel({
 
   return (
     <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+      <button
+        type="button"
+        onClick={toggleOpen}
+        aria-expanded={open}
+        className="flex items-center gap-2 text-left text-sm font-semibold text-gray-900"
+      >
+        {open ? (
+          <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden />
+        )}
         <FileSpreadsheet className="h-4 w-4 text-emerald-600" aria-hidden />
         Tabulka (xlsx)
-      </h2>
+      </button>
+      {open && (
+      <>
       <p className="text-xs text-gray-500">
         Stáhni celou sadu, uprav v Excelu a nahraj zpět. Řádky se párují podle
         čísla nálezu; prázdná buňka u textu znamená „převzít ze sady“. Uvnitř
@@ -158,6 +174,8 @@ export function XlsxPanel({
           </ul>
         )}
       </div>
+      </>
+      )}
     </section>
   );
 }

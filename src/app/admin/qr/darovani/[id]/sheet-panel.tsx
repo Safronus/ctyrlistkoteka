@@ -4,6 +4,8 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  ChevronDown,
+  ChevronRight,
   CircleCheck,
   ExternalLink,
   HelpCircle,
@@ -23,6 +25,7 @@ import {
 } from "../../drop-actions";
 import type { DropChange } from "@/lib/admin/dropPlan";
 import { CONTROL_H, INPUT_CLS } from "../../qr-ui";
+import { useRememberedOpen } from "../../use-remembered-open";
 
 /**
  * The wave's Google Sheet: the link, what state it is in, and the pull.
@@ -53,6 +56,7 @@ export function SheetPanel({
   const [error, setError] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(!status.url);
   const [showServer, setShowServer] = useState(false);
+  const [open, toggleOpen] = useRememberedOpen("drops.sheet", true);
   const [busy, start] = useTransition();
 
   const linkDirty = url.trim() !== (status.url ?? "");
@@ -110,7 +114,17 @@ export function SheetPanel({
   return (
     <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+        <button
+          type="button"
+          onClick={toggleOpen}
+          aria-expanded={open}
+          className="flex items-center gap-2 text-left text-sm font-semibold text-gray-900"
+        >
+          {open ? (
+            <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden />
+          )}
           <Table2 className="h-4 w-4 text-emerald-600" aria-hidden />
           Google Sheets
           {status.error && (
@@ -119,7 +133,8 @@ export function SheetPanel({
               problém
             </span>
           )}
-        </h2>
+        </button>
+        {open && (
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -138,7 +153,11 @@ export function SheetPanel({
             {showServer ? "Skrýt" : "Zapnout automatiku na serveru"}
           </button>
         </div>
+        )}
       </div>
+
+      {open && (
+      <>
 
       <p className="text-xs text-gray-500">
         Tabulka se z odkazu <strong>jen čte</strong>. Zpátky do ní se nikdy
@@ -309,6 +328,8 @@ export function SheetPanel({
       )}
 
       {preview && <Preview preview={preview} busy={busy} onApply={apply} />}
+      </>
+      )}
     </section>
   );
 }

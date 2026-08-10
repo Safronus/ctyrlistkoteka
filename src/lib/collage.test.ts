@@ -92,18 +92,26 @@ describe("mobileCollageVariant", () => {
     // 4:3 shape on a portrait screen behind a card that fills it is a
     // blurred smear under the text.
     for (const c of COLLAGE_MOBILE_CHOICES) {
-      const v = mobileCollageVariant(c);
-      if (v !== null) expect(collageFit(v)).toBe("cover");
+      for (const findId of [30001, 30002]) {
+        const v = mobileCollageVariant(c, findId);
+        if (v !== null) expect(collageFit(v)).toBe("cover");
+      }
     }
   });
 
   it("maps OFF to nothing", () => {
-    expect(mobileCollageVariant("OFF")).toBeNull();
+    expect(mobileCollageVariant("OFF", 30001)).toBeNull();
   });
 
   it("passes the textures straight through", () => {
-    expect(mobileCollageVariant("MOSAIC")).toBe("MOSAIC");
-    expect(mobileCollageVariant("SCATTER")).toBe("SCATTER");
+    expect(mobileCollageVariant("MOSAIC", 30002)).toBe("MOSAIC");
+    expect(mobileCollageVariant("SCATTER", 30001)).toBe("SCATTER");
+  });
+
+  it("splits BY_FIND odd/even", () => {
+    expect(mobileCollageVariant("BY_FIND", 30001)).toBe("MOSAIC");
+    expect(mobileCollageVariant("BY_FIND", 30002)).toBe("SCATTER");
+    expect(mobileCollageVariant("BY_FIND", 30111)).toBe("MOSAIC");
   });
 });
 

@@ -27,6 +27,7 @@ import type { BoundaryCandidate } from "@/lib/admin/dropNominatim";
 import { parseGps } from "@/lib/parseGps";
 import { readBoundary } from "@/lib/admin/dropBoundary";
 import { CONTROL_H, CONTROL_H_SM, Field, INPUT_CLS, LABEL_H, ROW_CLS } from "../../qr-ui";
+import { useRememberedOpen } from "../../use-remembered-open";
 
 /** Leaflet reads `window` at module load — same SSR boundary the rest of
  *  the maps on this page use. */
@@ -71,14 +72,17 @@ export function AreaEditor({
   const [adding, setAdding] = useState(false);
   // Collapsed by default once the towns are set up: the section carries a
   // map per open row and is mostly read once per wave.
-  const [open, setOpen] = useState(areas.length === 0);
+  const [open, toggleOpen] = useRememberedOpen(
+    "drops.areas",
+    areas.length === 0,
+  );
 
   return (
     <section className="rounded-xl border border-gray-200 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => toggleOpen()}
           aria-expanded={open}
           className="flex items-center gap-2 text-left text-sm font-semibold text-gray-900"
         >
