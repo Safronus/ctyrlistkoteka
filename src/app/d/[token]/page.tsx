@@ -131,7 +131,14 @@ export default async function DropLandingPage({
   // which browsers drop — leaving the text sitting straight on the
   // photo. Failing to a SOLID card is the safe direction.
   const cardOpacity = bg === null ? 1 : pct(item.campaign.bgCardOpacity, 100);
-  const blurPx = Math.round((1 - cardOpacity) * 10);
+  // Deliberately weak — 1–2 px, not the 5–6 px this started at. The
+  // strong version averaged the mosaic (tiles land at ~5 CSS px on a
+  // phone) into a flat wash, so a card set to 55 % looked solid, and iOS
+  // renders backdrop blur heavier still. It cannot go to zero though:
+  // measured against the real mosaic, dropping it puts body text at
+  // 3.1:1 and the heading at 2.1:1 over the darkest crops at 55 % — well
+  // under WCAG AA. What the blur removes is exactly those extremes.
+  const blurPx = Math.max(1, Math.round((1 - cardOpacity) * 4));
 
   const labels =
     lang === "en"

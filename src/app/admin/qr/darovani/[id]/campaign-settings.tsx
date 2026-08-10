@@ -310,11 +310,11 @@ export function CampaignSettings({
               </Field>
               <Field
                 label={`Krytí karty s textem — ${cfg.bgCardOpacity} %`}
-                hint="100 % = plná bílá jako dosud. Níž koláž prosvítá i skrz kartu. Čím víc průhlednosti si vezmeš, tím víc se pozadí pod textem rozostří, aby zůstal čitelný — kolem 85 % je vidět zrno koláže, kolem 55 % už i její kresba."
+                hint="100 % = plná bílá jako dosud, níž koláž prosvítá i skrz kartu. Pozor na čitelnost: proti nejtmavším ořezům vychází kontrast textu na 85 % dobře (7,3:1), na 70 % už je nadpis pod normou a na 55 % je pod normou i tělo textu (3,1:1). Doporučené rozmezí je 80–90 %."
               >
                 <input
                   type="range"
-                  min={40}
+                  min={55}
                   max={100}
                   step={5}
                   className="mt-2 w-full accent-brand-600"
