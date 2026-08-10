@@ -576,7 +576,16 @@ function ServerHelp() {
         vrací 404 a <strong>nic se neděje</strong>; to je v pořádku, ne chyba.
       </p>
 
-      <p className="pt-1 font-semibold text-gray-900">Postup v Termiusu</p>
+      <p className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-emerald-900">
+        <strong>Kód už na serveru je.</strong> Push do <code>main</code> spustí
+        GitHub runner přímo na VPS, který sám udělá install, migrace, build a{" "}
+        <code>pm2 reload</code> — včetně unit souborů níž. Nic netahej ručně,
+        ruční build závodí s runnerem.
+      </p>
+
+      <p className="pt-1 font-semibold text-gray-900">
+        Postup v Termiusu — jen tyhle kroky jsou opravdu ruční
+      </p>
       <ol className="list-decimal space-y-1.5 pl-4">
         <li>
           Zkopírovat unit soubory z repozitáře:
@@ -604,14 +613,32 @@ function ServerHelp() {
           <Cmd>pm2 reload ctyrlistkoteka --update-env</Cmd>
         </li>
         <li>
-          Spustit timer:
+          Ověřit, že appka token vidí — <strong>200</strong> = dobrý,{" "}
+          <strong>404</strong> = token nesedí nebo se appka nepřenačetla:
+          <Cmd>
+            curl -s -o /dev/null -w &quot;%&#123;http_code&#125;\n&quot; -X POST -H
+            &quot;Authorization: Bearer TVUJ_TOKEN&quot;
+            http://127.0.0.1:3000/api/admin/drops/sync
+          </Cmd>
+        </li>
+        <li>
+          Načíst unity a zkusit <strong>jeden běh ručně</strong>, ještě než
+          se timer zapne:
           <Cmd>sudo systemctl daemon-reload</Cmd>
+          <Cmd>sudo systemctl start drop-sheet-sync.service</Cmd>
+          <Cmd>journalctl -u drop-sheet-sync.service -n 30 --no-pager</Cmd>
+          (v logu čekej JSON s <code>checked</code>; <code>checked: 0</code>{" "}
+          znamená jen, že žádná sada nemá zapnutý režim tabulky)
+        </li>
+        <li>
+          Teprve teď zapnout timer:
           <Cmd>sudo systemctl enable --now drop-sheet-sync.timer</Cmd>
         </li>
         <li>
-          Zkontrolovat, že běží:
-          <Cmd>systemctl list-timers drop-sheet-sync.timer</Cmd>
-          <Cmd>journalctl -u drop-sheet-sync.service -n 20</Cmd>
+          Zkontrolovat, že tiká:
+          <Cmd>systemctl list-timers drop-sheet-sync.timer --no-pager</Cmd>
+          Za pár minut má v sekci výš zmizet fialové varování a{" "}
+          <em>Naposled zkontrolováno</em> ukazovat čerstvý čas.
         </li>
       </ol>
 
