@@ -500,6 +500,12 @@ model DropCampaign {
   /// How strongly it shows behind the text, 0–100 %. The header always
   /// shows the collage at full strength; this is the veil below it.
   bgOpacity Int    @default(35) @map("bg_opacity") @db.SmallInt
+  /// How opaque the text card itself is, 0–100 %. 100 = the original
+  /// solid white. Below that the collage shows THROUGH the card, which is
+  /// the only way a shaped background is visible on a phone — there the
+  /// card is nearly the whole screen, so anything merely behind it is a
+  /// rumour. A blur comes with it so the text stays readable.
+  bgCardOpacity Int @default(100) @map("bg_card_opacity") @db.SmallInt
 
   /// While true, `/d/<token>` still renders but no scan is recorded and no
   /// card flips to FOUND. For testing the cards, and for the stretch

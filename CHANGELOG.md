@@ -33,6 +33,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   s jakou prosvítá pod textem — nahoře na stránce je vždy v plné.
 - Tvarové varianty se **ukazují celé**, ne oříznuté: koláž je na šířku,
   telefon na výšku, a ze čtyřlístku by jinak zbyly dva zelené fleky.
+- **Průhledné tam, kde nejsou fotky.** Kolem tvaru i v mezerách mezi
+  rozptýlenými ořezy prosvítá barva stránky; dřív tam byla zapečená
+  světlá výplň, která ladila jen s jedním motivem.
+- **Karta s textem se dá zprůsvitnit** (posuvník u sady, 100 % = plná
+  bílá jako dosud). Na mobilu je karta skoro celá obrazovka, takže tvarové
+  varianty za ní nebylo vidět; teď prosvítají skrz ni a text zůstává
+  čitelný díky rozostření pod kartou.
 - Kreslí se **jednou, jako pozadí** přes celou stránku. Chvíli se to
   kreslilo dvakrát — celé vzadu a ještě jednou oříznuté v pruhu nahoře —
   což na širokém monitoru vypadalo jako chyba, protože to chyba byla.

@@ -75,9 +75,11 @@ const ENCODE_STEPS: Array<{ width: number; quality: number }> = [
  *  meant to sit behind text. */
 const SCATTER_TILES = 700;
 const SCATTER_SEED = 30000;
-/** Behind the tiles, so gaps and the shaped variants' background read as
- *  paper rather than black. */
-const BACKDROP = { r: 246, g: 248, b: 244 };
+/** Nothing behind the tiles: gaps and the area around a shape stay fully
+ *  TRANSPARENT, so the page's own colour shows through and the collage
+ *  works on whatever background it lands on. Baking a paper colour in
+ *  meant a pale rectangle that only matched one theme. */
+const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 
 const GENERATED_DIR = process.env.GENERATED_DIR
   ? path.resolve(process.env.GENERATED_DIR)
@@ -264,12 +266,9 @@ async function renderGrid(
   const tile = Math.max(4, Math.floor((OUT_WIDTH * SUPERSAMPLE) / cols));
   const W = tile * cols;
   const H = tile * rows;
-  const canvas = Buffer.alloc(W * H * 3);
-  for (let i = 0; i < canvas.length; i += 3) {
-    canvas[i] = BACKDROP.r;
-    canvas[i + 1] = BACKDROP.g;
-    canvas[i + 2] = BACKDROP.b;
-  }
+  // RGBA, zero-filled — every pixel starts fully transparent and only the
+  // cells that get a crop become opaque.
+  const canvas = Buffer.alloc(W * H * 4);
 
   // Every lit cell gets a tile. When there are more cells than crops the
   // list cycles rather than leaving holes — a gap in the middle of the
@@ -290,7 +289,9 @@ async function renderGrid(
       try {
         px = await sharp(files[i % files.length]!)
           .resize(tile, tile, { fit: "cover", position: "centre" })
-          .removeAlpha()
+          // ensureAlpha, not removeAlpha: the canvas is RGBA, so the rows
+          // have to line up channel for channel.
+          .ensureAlpha()
           .raw()
           .toBuffer();
       } catch {
@@ -299,9 +300,9 @@ async function renderGrid(
       for (let y = 0; y < tile; y++) {
         px.copy(
           canvas,
-          ((cy + y) * W + cx) * 3,
-          y * tile * 3,
-          (y + 1) * tile * 3,
+          ((cy + y) * W + cx) * 4,
+          y * tile * 4,
+          (y + 1) * tile * 4,
         );
       }
       done++;
@@ -319,7 +320,7 @@ async function renderGrid(
 
   return await encodeWithin(
     (w, h) =>
-      sharp(canvas, { raw: { width: W, height: H, channels: 3 } }).resize(w, h, {
+      sharp(canvas, { raw: { width: W, height: H, channels: 4 } }).resize(w, h, {
         fit: "cover",
       }),
     label,
@@ -364,8 +365,8 @@ async function renderScatter(files: string[]): Promise<Buffer> {
     create: {
       width: OUT_WIDTH,
       height: OUT_HEIGHT,
-      channels: 3,
-      background: BACKDROP,
+      channels: 4,
+      background: TRANSPARENT,
     },
   })
     .composite(layers)

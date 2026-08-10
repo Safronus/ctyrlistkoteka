@@ -273,8 +273,8 @@ export function CampaignSettings({
                 </select>
               </Field>
               <Field
-                label={`Síla pod textem — ${cfg.bgOpacity} %`}
-                hint="0 % = pod textem nic, jen v hlavičce."
+                label={`Síla pozadí — ${cfg.bgOpacity} %`}
+                hint="Jak výrazně je koláž vidět."
               >
                 <input
                   type="range"
@@ -285,6 +285,23 @@ export function CampaignSettings({
                   value={cfg.bgOpacity}
                   disabled={cfg.bgMode === "OFF"}
                   onChange={(e) => set("bgOpacity", e.target.value)}
+                />
+              </Field>
+            </div>
+            <div className="mt-4">
+              <Field
+                label={`Krytí karty s textem — ${cfg.bgCardOpacity} %`}
+                hint="100 % = plná bílá jako dosud. Níž koláž prosvítá i skrz kartu — na mobilu je to jediná cesta, jak tvarové varianty vůbec uvidíš, protože karta tam zabírá skoro celou obrazovku. Text zůstane čitelný, pod kartou se rozostří."
+              >
+                <input
+                  type="range"
+                  min={40}
+                  max={100}
+                  step={5}
+                  className="mt-2 w-full accent-brand-600"
+                  value={cfg.bgCardOpacity}
+                  disabled={cfg.bgMode === "OFF"}
+                  onChange={(e) => set("bgCardOpacity", e.target.value)}
                 />
               </Field>
             </div>

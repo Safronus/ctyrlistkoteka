@@ -108,6 +108,8 @@ export interface CampaignInput {
   bgVariant: string;
   /** 0–100 %. */
   bgOpacity: string;
+  /** 0–100 %; 100 = solid card, as it always was. */
+  bgCardOpacity: string;
 }
 
 /** Everything about how a card LOOKS, as the forms send it. */
@@ -226,6 +228,7 @@ function collageFields(input: CampaignInput): {
   bgMode: CollageMode;
   bgVariant: CollageVariant;
   bgOpacity: number;
+  bgCardOpacity: number;
 } {
   const mode = COLLAGE_MODES.includes(input.bgMode as CollageMode)
     ? (input.bgMode as CollageMode)
@@ -233,11 +236,16 @@ function collageFields(input: CampaignInput): {
   const variant = COLLAGE_VARIANTS.includes(input.bgVariant as CollageVariant)
     ? (input.bgVariant as CollageVariant)
     : "MOSAIC";
-  const opacity = Math.min(
-    100,
-    Math.max(0, Math.round(Number(input.bgOpacity))) || 0,
-  );
-  return { bgMode: mode, bgVariant: variant, bgOpacity: opacity };
+  const pct = (raw: string, fallback: number) => {
+    const n = Math.round(Number(raw));
+    return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : fallback;
+  };
+  return {
+    bgMode: mode,
+    bgVariant: variant,
+    bgOpacity: pct(input.bgOpacity, 35),
+    bgCardOpacity: pct(input.bgCardOpacity, 100),
+  };
 }
 
 export async function updateCampaignAction(

@@ -260,6 +260,7 @@ export default async function DropCampaignPage({
           bgMode: campaign.bgMode,
           bgVariant: campaign.bgVariant,
           bgOpacity: String(campaign.bgOpacity),
+          bgCardOpacity: String(campaign.bgCardOpacity),
         }}
       />
 

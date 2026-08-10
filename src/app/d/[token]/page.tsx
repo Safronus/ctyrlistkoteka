@@ -33,6 +33,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
+/** A stored 0–100 percentage as a 0–1 fraction, with a fallback for
+ *  anything that isn't a real number. */
+function pct(value: number, fallback: number): number {
+  const n = Number(value);
+  return (Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : fallback) / 100;
+}
+
 /** Czech unless the browser clearly prefers English; `?lang=` wins so the
  *  in-page switch works without a locale-prefixed route. */
 async function pickLang(explicit: string | undefined): Promise<DropLang> {
@@ -101,7 +108,15 @@ export default async function DropLandingPage({
   });
   const bg = bgVariant ? collageUrl(bgVariant) : null;
   const bgSize = bgVariant ? collageFit(bgVariant) : "cover";
-  const bgOpacity = Math.min(100, Math.max(0, item.campaign.bgOpacity)) / 100;
+  const bgOpacity = pct(item.campaign.bgOpacity, 35);
+  // The card lets the collage through when the wave says so. Blurred as
+  // well as tinted: white at 80 % over a photo of grass is still grass
+  // behind the text, and this page is read outdoors.
+  // Clamped through a finite check, not just min/max: a missing or
+  // garbage value would otherwise reach CSS as `rgba(255,255,255,NaN)`,
+  // which browsers drop — leaving the text sitting straight on the
+  // photo. Failing to a SOLID card is the safe direction.
+  const cardOpacity = bg === null ? 1 : pct(item.campaign.bgCardOpacity, 100);
 
   const labels =
     lang === "en"
@@ -146,7 +161,18 @@ export default async function DropLandingPage({
         </>
       )}
       <main className="relative z-10 mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-5 py-12">
-      <div className="rounded-2xl border border-brand-200 bg-white p-6 shadow-sm sm:p-8">
+      <div
+        className="rounded-2xl border border-brand-200 p-6 shadow-sm sm:p-8"
+        style={{
+          backgroundColor: `rgba(255,255,255,${cardOpacity})`,
+          ...(cardOpacity < 1
+            ? {
+                backdropFilter: "blur(6px)",
+                WebkitBackdropFilter: "blur(6px)",
+              }
+            : {}),
+        }}
+      >
         <p className="text-center text-5xl" aria-hidden>
           🍀
         </p>

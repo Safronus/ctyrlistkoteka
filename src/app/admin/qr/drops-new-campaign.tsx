@@ -27,6 +27,7 @@ const EMPTY: CampaignInput = {
   bgMode: "OFF",
   bgVariant: "MOSAIC",
   bgOpacity: "35",
+  bgCardOpacity: "100",
   design: {
     titleMode: "find",
     captionMode: "custom",
