@@ -33,6 +33,10 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   s jakou prosvítá pod textem — nahoře na stránce je vždy v plné.
 - Tvarové varianty se **ukazují celé**, ne oříznuté: koláž je na šířku,
   telefon na výšku, a ze čtyřlístku by jinak zbyly dva zelené fleky.
+- Obrázek je **nad kartou**, ne za ní — na mobilu je karta skoro celá
+  obrazovka, takže pozadí za ní nikdo neuvidí. Prosvítající vrstvu přes
+  celou stránku mají jen mozaika a rozptyl; u tvarů by nakreslila
+  čtyřlístek podruhé a na širokém monitoru by byly vidět oba naráz.
 - Koláže vznikají jednorázově příkazem `pnpm collage` na serveru. Dokud
   nevzniknou, stránka se vykreslí bez pozadí — nic se nerozbije.
 

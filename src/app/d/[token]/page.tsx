@@ -8,6 +8,7 @@ import { registerDropScan } from "@/lib/dropScan";
 import { resolveDropText, type DropLang } from "@/lib/dropText";
 import {
   collageFit,
+  collageHasVeil,
   collageUrl,
   pickCollageVariant,
   type CollageMode,
@@ -101,6 +102,9 @@ export default async function DropLandingPage({
   });
   const bg = bgVariant ? collageUrl(bgVariant) : null;
   const bgSize = bgVariant ? collageFit(bgVariant) : "cover";
+  // Only the textures get the page-wide veil as well; see the layers
+  // below for why a shape must not have one.
+  const bgVeil = bgVariant !== null && collageHasVeil(bgVariant);
   const bgOpacity = Math.min(100, Math.max(0, item.campaign.bgOpacity)) / 100;
 
   const labels =
@@ -126,26 +130,22 @@ export default async function DropLandingPage({
     <div className="relative min-h-screen">
       {bg && (
         <>
-          {/* Two layers of the same picture. The full-strength band at the
-              top is the "oh, look at that" moment; the veil over the whole
-              page is what the wave's slider controls, because this page is
-              read outdoors on a phone and text over a photo of grass is
-              not text. Both are decorative — aria-hidden, no alt. */}
+          {/* A picture ABOVE the card, always — on a phone the card is
+              nearly the whole screen, so anything behind it is a rumour.
+              The card starts below this band.
+
+              Only the textures get a second, page-wide veil underneath at
+              the wave's opacity: a cropped carpet reads as one background
+              with a strong top edge. Doing the same to a shape draws the
+              clover twice — whole behind everything, cropped on top — and
+              a wide screen shows both at once. Decorative throughout:
+              aria-hidden, no alt. */}
           <div
             aria-hidden
-            className="pointer-events-none fixed inset-0 z-0 bg-center bg-no-repeat"
-            style={{
-              backgroundImage: `url('${bg}')`,
-              backgroundSize: bgSize,
-              opacity: bgOpacity,
-            }}
-          />
-          <div
-            aria-hidden
-            // Tall enough that a 4:3 collage fits inside it whole at
-            // phone width (375 → 281 px), because half a clover is not a
-            // clover. Capped in viewport units so a desktop doesn't get a
-            // 1000 px band. The fade starts late for the same reason.
+            // Tall enough to hold a 4:3 collage whole at phone width
+            // (375 → 281 px), because half a clover is not a clover.
+            // Capped in viewport units so a desktop doesn't get a 1000 px
+            // band. The fade starts late for the same reason.
             className="pointer-events-none absolute inset-x-0 top-0 z-0 h-72 max-h-[45vh] bg-center bg-no-repeat sm:h-96"
             style={{
               backgroundImage: `url('${bg}')`,
@@ -155,12 +155,23 @@ export default async function DropLandingPage({
                 "linear-gradient(to bottom, black 60%, transparent)",
             }}
           />
+          {bgVeil && (
+            <div
+              aria-hidden
+              className="pointer-events-none fixed inset-0 z-0 bg-center bg-no-repeat"
+              style={{
+                backgroundImage: `url('${bg}')`,
+                backgroundSize: bgSize,
+                opacity: bgOpacity,
+              }}
+            />
+          )}
         </>
       )}
-      {/* With a collage on, the card starts BELOW the band instead of
-          being centred — otherwise it lies across the picture and the
-          "full strength in the header" is a sliver of green above a white
-          box. Without one, the original centred layout is untouched. */}
+      {/* The card starts below the band — centred, it would lie across
+          the picture and leave a sliver of green above a white box. With
+          no collage there is nothing to clear, so the original centred
+          layout is untouched. */}
       <main
         className={`relative z-10 mx-auto flex min-h-screen max-w-2xl flex-col px-5 py-12 ${
           bg ? "justify-start pt-72 sm:pt-96" : "justify-center"

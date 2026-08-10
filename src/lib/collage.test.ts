@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   COLLAGE_VARIANTS,
+  collageFit,
+  collageHasVeil,
   fitGridToMask,
   gridFor,
   makeRng,
@@ -80,6 +82,29 @@ describe("pickCollageVariant", () => {
         roll: 0.99999999,
       }),
     ).toBe(COLLAGE_VARIANTS[COLLAGE_VARIANTS.length - 1]);
+  });
+});
+
+describe("collage layout", () => {
+  it("shows shapes whole and lets textures fill", () => {
+    // A 4:3 collage on a portrait phone: `cover` crops the sides away,
+    // which is fine for a carpet and ruinous for a drawn clover.
+    for (const v of ["CLOVER", "N30000", "LOGO", "SMILEY"] as const) {
+      expect(collageFit(v)).toBe("contain");
+    }
+    for (const v of ["MOSAIC", "SCATTER"] as const) {
+      expect(collageFit(v)).toBe("cover");
+    }
+  });
+
+  it("veils only what is cropped anyway", () => {
+    // The bug this pins: a band over a `contain` layer draws the shape a
+    // second time, cropped, and a wide screen shows both at once.
+    for (const v of COLLAGE_VARIANTS) {
+      expect(collageHasVeil(v)).toBe(collageFit(v) === "cover");
+    }
+    expect(collageHasVeil("LOGO")).toBe(false);
+    expect(collageHasVeil("MOSAIC")).toBe(true);
   });
 });
 

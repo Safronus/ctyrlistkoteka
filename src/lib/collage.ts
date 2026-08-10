@@ -127,6 +127,20 @@ export function collageFit(variant: CollageVariant): "cover" | "contain" {
   return variant === "MOSAIC" || variant === "SCATTER" ? "cover" : "contain";
 }
 
+/**
+ * Whether the page also gets a faint copy behind EVERYTHING, under the
+ * band that every collage puts above the card.
+ *
+ * Only the textures do. A `cover` layer is a crop of a carpet, so the
+ * faint one below reads as the same background continuing down the page.
+ * A `contain` layer shows the whole shape — a faint copy of that is a
+ * SECOND clover, and on a wide screen both are visible at once. Shipped
+ * that way on 2026-08-10; it looked like a bug because it was one.
+ */
+export function collageHasVeil(variant: CollageVariant): boolean {
+  return collageFit(variant) === "cover";
+}
+
 /** Integer avalanche (the murmur3 finalizer). Two ids one apart give two
  *  unrelated outputs, which is the whole reason it's here. */
 function hash32(n: number): number {
