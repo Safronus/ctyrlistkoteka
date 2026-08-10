@@ -125,14 +125,13 @@ export default async function DropLandingPage({
     : null;
   const bg = wide ?? phone;
   const bgOpacity = pct(item.campaign.bgOpacity, 35);
-  // The card lets the collage through when the wave says so. Blurred as
-  // well as tinted: white at 80 % over a photo of grass is still grass
-  // behind the text, and this page is read outdoors.
+  // The card lets the collage through when the wave says so.
   // Clamped through a finite check, not just min/max: a missing or
   // garbage value would otherwise reach CSS as `rgba(255,255,255,NaN)`,
   // which browsers drop — leaving the text sitting straight on the
   // photo. Failing to a SOLID card is the safe direction.
   const cardOpacity = bg === null ? 1 : pct(item.campaign.bgCardOpacity, 100);
+  const blurPx = Math.round((1 - cardOpacity) * 10);
 
   const labels =
     lang === "en"
@@ -194,10 +193,16 @@ export default async function DropLandingPage({
         className="rounded-2xl border border-brand-200 p-6 shadow-sm sm:p-8"
         style={{
           backgroundColor: `rgba(255,255,255,${cardOpacity})`,
-          ...(cardOpacity < 1
+          // Blur scaled to how much transparency was asked for, not a
+          // fixed 6 px. The mosaic is fine-grained, and a flat 6 px
+          // averaged it into a uniform wash — the card then looked SOLID,
+          // which is the opposite of what turning the slider down means.
+          // Barely-transparent cards keep the grain; a card dialled well
+          // down gets the readability aid it actually needs.
+          ...(blurPx > 0
             ? {
-                backdropFilter: "blur(6px)",
-                WebkitBackdropFilter: "blur(6px)",
+                backdropFilter: `blur(${blurPx}px)`,
+                WebkitBackdropFilter: `blur(${blurPx}px)`,
               }
             : {}),
         }}

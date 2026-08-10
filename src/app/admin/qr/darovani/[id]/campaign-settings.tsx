@@ -310,7 +310,7 @@ export function CampaignSettings({
               </Field>
               <Field
                 label={`Krytí karty s textem — ${cfg.bgCardOpacity} %`}
-                hint="100 % = plná bílá jako dosud. Níž koláž prosvítá i skrz kartu — na mobilu je to jediná cesta, jak tvarové varianty vůbec uvidíš, protože karta tam zabírá skoro celou obrazovku. Text zůstane čitelný, pod kartou se rozostří."
+                hint="100 % = plná bílá jako dosud. Níž koláž prosvítá i skrz kartu. Čím víc průhlednosti si vezmeš, tím víc se pozadí pod textem rozostří, aby zůstal čitelný — kolem 85 % je vidět zrno koláže, kolem 55 % už i její kresba."
               >
                 <input
                   type="range"
