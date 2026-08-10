@@ -506,6 +506,10 @@ model DropCampaign {
   /// card is nearly the whole screen, so anything merely behind it is a
   /// rumour. A blur comes with it so the text stays readable.
   bgCardOpacity Int @default(100) @map("bg_card_opacity") @db.SmallInt
+  /// MOSAIC | SCATTER | OFF — what a phone gets, whatever `bgMode` picks
+  /// for the desktop. Shapes are excluded on purpose; see
+  /// COLLAGE_MOBILE_CHOICES in src/lib/collage.ts.
+  bgMobileVariant String @default("MOSAIC") @map("bg_mobile_variant") @db.VarChar(16)
 
   /// While true, `/d/<token>` still renders but no scan is recorded and no
   /// card flips to FOUND. For testing the cards, and for the stretch

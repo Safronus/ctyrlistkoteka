@@ -16,6 +16,8 @@ import {
 import { updateCampaignAction, type CampaignInput } from "../../drop-actions";
 import { Field, INPUT_CLS } from "../../qr-ui";
 import {
+  COLLAGE_MOBILE_CHOICES,
+  COLLAGE_MOBILE_LABEL,
   COLLAGE_MODES,
   COLLAGE_MODE_LABEL,
   COLLAGE_VARIANTS,
@@ -288,7 +290,24 @@ export function CampaignSettings({
                 />
               </Field>
             </div>
-            <div className="mt-4">
+            <div className="mt-4 grid items-start gap-4 sm:grid-cols-2">
+              <Field
+                label="Na mobilu"
+                hint="Tvarové koláže se na telefon nekreslí — na výšku se ořežou a za textem z nich zbude šmouha. Telefon dostane vždycky tohle, ať desktop vybere cokoli."
+              >
+                <select
+                  className={INPUT_CLS}
+                  value={cfg.bgMobileVariant}
+                  disabled={cfg.bgMode === "OFF"}
+                  onChange={(e) => set("bgMobileVariant", e.target.value)}
+                >
+                  {COLLAGE_MOBILE_CHOICES.map((c) => (
+                    <option key={c} value={c}>
+                      {COLLAGE_MOBILE_LABEL[c]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
               <Field
                 label={`Krytí karty s textem — ${cfg.bgCardOpacity} %`}
                 hint="100 % = plná bílá jako dosud. Níž koláž prosvítá i skrz kartu — na mobilu je to jediná cesta, jak tvarové varianty vůbec uvidíš, protože karta tam zabírá skoro celou obrazovku. Text zůstane čitelný, pod kartou se rozostří."

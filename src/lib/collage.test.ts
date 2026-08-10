@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  COLLAGE_MOBILE_CHOICES,
   COLLAGE_VARIANTS,
   collageFit,
+  mobileCollageVariant,
   fitGridToMask,
   gridFor,
   makeRng,
@@ -81,6 +83,27 @@ describe("pickCollageVariant", () => {
         roll: 0.99999999,
       }),
     ).toBe(COLLAGE_VARIANTS[COLLAGE_VARIANTS.length - 1]);
+  });
+});
+
+describe("mobileCollageVariant", () => {
+  it("never hands a phone a shape", () => {
+    // The whole reason the mobile choice is a separate, shorter list: a
+    // 4:3 shape on a portrait screen behind a card that fills it is a
+    // blurred smear under the text.
+    for (const c of COLLAGE_MOBILE_CHOICES) {
+      const v = mobileCollageVariant(c);
+      if (v !== null) expect(collageFit(v)).toBe("cover");
+    }
+  });
+
+  it("maps OFF to nothing", () => {
+    expect(mobileCollageVariant("OFF")).toBeNull();
+  });
+
+  it("passes the textures straight through", () => {
+    expect(mobileCollageVariant("MOSAIC")).toBe("MOSAIC");
+    expect(mobileCollageVariant("SCATTER")).toBe("SCATTER");
   });
 });
 

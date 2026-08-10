@@ -36,6 +36,10 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - **Průhledné tam, kde nejsou fotky.** Kolem tvaru i v mezerách mezi
   rozptýlenými ořezy prosvítá barva stránky; dřív tam byla zapečená
   světlá výplň, která ladila jen s jedním motivem.
+- **Mobil má vlastní volbu pozadí** — mozaika, rozptýlená vrstva, nebo nic.
+  Tvarové koláže se na telefon nekreslí: na výšku se ořežou a skrz
+  průsvitnou kartu z nich zbude šmouha pod textem. Telefon přitom stáhne
+  jen ten svůj obrázek, ne oba.
 - **Karta s textem se dá zprůsvitnit** (posuvník u sady, 100 % = plná
   bílá jako dosud). Na mobilu je karta skoro celá obrazovka, takže tvarové
   varianty za ní nebylo vidět; teď prosvítají skrz ni a text zůstává

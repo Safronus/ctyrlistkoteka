@@ -9,7 +9,9 @@ import { resolveDropText, type DropLang } from "@/lib/dropText";
 import {
   collageFit,
   collageUrl,
+  mobileCollageVariant,
   pickCollageVariant,
+  type CollageMobileChoice,
   type CollageMode,
   type CollageVariant,
 } from "@/lib/collage";
@@ -106,8 +108,22 @@ export default async function DropLandingPage({
     // eslint-disable-next-line react-hooks/purity
     roll: Math.random(),
   });
-  const bg = bgVariant ? collageUrl(bgVariant) : null;
-  const bgSize = bgVariant ? collageFit(bgVariant) : "cover";
+  // Two backgrounds, one per screen size. A phone never gets a shape: at
+  // 4:3 on a portrait screen it is cropped to nothing, and behind a
+  // translucent card it is a blurred smear under the text. Both layers
+  // are in the DOM but only one is displayed, and a browser doesn't fetch
+  // the background-image of a `display:none` element — so the phone
+  // downloads one file, not two.
+  const wide = bgVariant
+    ? { url: collageUrl(bgVariant), fit: collageFit(bgVariant) }
+    : null;
+  const phoneVariant = bgVariant
+    ? mobileCollageVariant(item.campaign.bgMobileVariant as CollageMobileChoice)
+    : null;
+  const phone = phoneVariant
+    ? { url: collageUrl(phoneVariant), fit: collageFit(phoneVariant) }
+    : null;
+  const bg = wide ?? phone;
   const bgOpacity = pct(item.campaign.bgOpacity, 35);
   // The card lets the collage through when the wave says so. Blurred as
   // well as tinted: white at 80 % over a photo of grass is still grass
@@ -141,23 +157,36 @@ export default async function DropLandingPage({
     <div className="relative min-h-screen">
       {bg && (
         <>
-          {/* ONE layer, behind everything — it is a background, and a
-              background is what the wave asked for. It used to be drawn
-              twice (whole here, cropped again in a band on top), which on
-              a wide screen showed both copies at once.
+          {/* One layer per screen size, behind everything — a background,
+              which is what the wave asked for. It was briefly drawn twice
+              on the same screen (whole here, cropped again in a band on
+              top) and a wide viewport showed both copies at once.
 
               Shapes are `contain` so the whole clover is there; textures
               `cover` so the carpet fills. Decorative: aria-hidden, no
               alt, and `fixed` so it doesn't scroll with the card. */}
-          <div
-            aria-hidden
-            className="pointer-events-none fixed inset-0 z-0 bg-center bg-no-repeat"
-            style={{
-              backgroundImage: `url('${bg}')`,
-              backgroundSize: bgSize,
-              opacity: bgOpacity,
-            }}
-          />
+          {phone && (
+            <div
+              aria-hidden
+              className="pointer-events-none fixed inset-0 z-0 bg-center bg-no-repeat sm:hidden"
+              style={{
+                backgroundImage: `url('${phone.url}')`,
+                backgroundSize: phone.fit,
+                opacity: bgOpacity,
+              }}
+            />
+          )}
+          {wide && (
+            <div
+              aria-hidden
+              className="pointer-events-none fixed inset-0 z-0 hidden bg-center bg-no-repeat sm:block"
+              style={{
+                backgroundImage: `url('${wide.url}')`,
+                backgroundSize: wide.fit,
+                opacity: bgOpacity,
+              }}
+            />
+          )}
         </>
       )}
       <main className="relative z-10 mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-5 py-12">

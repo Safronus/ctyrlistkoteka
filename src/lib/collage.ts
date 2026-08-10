@@ -44,6 +44,30 @@ export const COLLAGE_IMAGE_MASKS: Partial<Record<CollageVariant, string[]>> = {
   SMILEY: ["public/safronus-face.png", "public/safronus.png"],
 };
 
+/**
+ * What a phone gets instead.
+ *
+ * Only the two textures, never a shape: a 4:3 collage on a portrait screen
+ * behind a card that fills it is either cropped to nothing or — with a
+ * translucent card — a blurred smear behind the text. Textures survive
+ * both, because a crop of a carpet is still a carpet.
+ */
+export const COLLAGE_MOBILE_CHOICES = ["MOSAIC", "SCATTER", "OFF"] as const;
+export type CollageMobileChoice = (typeof COLLAGE_MOBILE_CHOICES)[number];
+
+export const COLLAGE_MOBILE_LABEL: Record<CollageMobileChoice, string> = {
+  MOSAIC: "Mozaika",
+  SCATTER: "Rozptýlená vrstva",
+  OFF: "Bez pozadí",
+};
+
+/** The mobile choice as a variant, or null when the phone gets nothing. */
+export function mobileCollageVariant(
+  choice: CollageMobileChoice,
+): CollageVariant | null {
+  return choice === "OFF" ? null : choice;
+}
+
 /** How a wave decides which background a card gets. */
 export const COLLAGE_MODES = [
   "OFF",

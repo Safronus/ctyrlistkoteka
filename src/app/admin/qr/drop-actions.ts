@@ -7,8 +7,10 @@ import { prisma } from "@/lib/db";
 import { DropStatus, Prisma } from "@/generated/prisma/client";
 import { parseRanges } from "@/lib/parseRanges";
 import {
+  COLLAGE_MOBILE_CHOICES,
   COLLAGE_MODES,
   COLLAGE_VARIANTS,
+  type CollageMobileChoice,
   type CollageMode,
   type CollageVariant,
 } from "@/lib/collage";
@@ -110,6 +112,8 @@ export interface CampaignInput {
   bgOpacity: string;
   /** 0–100 %; 100 = solid card, as it always was. */
   bgCardOpacity: string;
+  /** MOSAIC | SCATTER | OFF — what a phone gets. */
+  bgMobileVariant: string;
 }
 
 /** Everything about how a card LOOKS, as the forms send it. */
@@ -229,6 +233,7 @@ function collageFields(input: CampaignInput): {
   bgVariant: CollageVariant;
   bgOpacity: number;
   bgCardOpacity: number;
+  bgMobileVariant: CollageMobileChoice;
 } {
   const mode = COLLAGE_MODES.includes(input.bgMode as CollageMode)
     ? (input.bgMode as CollageMode)
@@ -245,6 +250,11 @@ function collageFields(input: CampaignInput): {
     bgVariant: variant,
     bgOpacity: pct(input.bgOpacity, 35),
     bgCardOpacity: pct(input.bgCardOpacity, 100),
+    bgMobileVariant: COLLAGE_MOBILE_CHOICES.includes(
+      input.bgMobileVariant as CollageMobileChoice,
+    )
+      ? (input.bgMobileVariant as CollageMobileChoice)
+      : "MOSAIC",
   };
 }
 
