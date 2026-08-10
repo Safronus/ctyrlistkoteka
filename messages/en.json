@@ -815,7 +815,12 @@
     "popupGone": "Former",
     "popupDetail": "Location detail →",
     "popupShowFinds": "Show finds →",
-    "highlightFindHeading": "Find #{id}"
+    "highlightFindHeading": "Find #{id}",
+    "filterCountry": "Country",
+    "filterCountryAll": "All countries",
+    "filterCity": "City",
+    "filterCityAll": "All cities",
+    "filterClear": "Clear filters ({count} locations)"
   },
   "FindDetail": {
     "metaNotFound": "Not found",

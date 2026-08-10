@@ -814,7 +814,12 @@
     "popupGone": "Zaniklá",
     "popupDetail": "Detail lokality →",
     "popupShowFinds": "Ukázat nálezy →",
-    "highlightFindHeading": "Nález #{id}"
+    "highlightFindHeading": "Nález #{id}",
+    "filterCountry": "Stát",
+    "filterCountryAll": "Všechny státy",
+    "filterCity": "Město",
+    "filterCityAll": "Všechna města",
+    "filterClear": "Zrušit filtry ({count} lokalit)"
   },
   "FindDetail": {
     "metaNotFound": "Nenalezeno",

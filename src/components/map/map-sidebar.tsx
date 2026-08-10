@@ -1,7 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ExternalLink, Eye, EyeOff, HelpCircle, Search } from "lucide-react";
+import {
+  ChevronDown,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  FilterX,
+  HelpCircle,
+  Search,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { UNKNOWN_LOCATION_ID } from "@/lib/constants";
@@ -12,6 +20,7 @@ import {
   locationDetailHref,
 } from "@/lib/format";
 import { paddedIdMatches, parseIdQuery } from "@/lib/search";
+import { cityFromCadastralArea } from "@/lib/locationCode";
 
 type MapaT = ReturnType<typeof useTranslations<"Mapa">>;
 
@@ -23,6 +32,8 @@ function toIntlLocale(locale: string): string {
 
 const INPUT_CLS =
   "w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 pl-8 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+const SELECT_CLS =
+  "w-full cursor-pointer appearance-none rounded-md border border-gray-300 bg-white py-1.5 pl-2 pr-7 text-xs text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400";
 
 /**
  * Scrollable list of locations rendered as a control inside the /mapa
@@ -37,6 +48,8 @@ export function MapSidebar({
   enabledChildPolygonIds,
   onToggleChildPolygon,
   anonymizedLocationCount,
+  cities,
+  countries,
 }: {
   locations: readonly LocationListItem[];
   focusId: number | null;
@@ -44,11 +57,23 @@ export function MapSidebar({
   enabledChildPolygonIds: ReadonlySet<number>;
   onToggleChildPolygon: (id: number) => void;
   anonymizedLocationCount: number;
+  /** City + the country it sits in — the same pairing /lokality cascades
+   *  on, from the same `getFilterOptions()`, so the two pages can't
+   *  disagree about which town is in which country. */
+  cities: ReadonlyArray<{ name: string; country: string }>;
+  /** ISO code + localized name, already sorted by the page. */
+  countries: ReadonlyArray<{ code: string; name: string }>;
 }) {
   const t = useTranslations("Mapa");
   const locale = useLocale();
   const numFmt = new Intl.NumberFormat(toIntlLocale(locale));
   const [q, setQ] = useState("");
+  // Local state, not URL params. /lokality filters through the URL because
+  // its list is server-rendered; here the whole list is already in the
+  // client and a navigation would remount the map — a filter must not
+  // throw away the pan/zoom the visitor set up.
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
 
   // NEZNÁMÁ (00000) is pulled OUT of the list and given its own chip in the
   // header — it isn't a place you browse past, it's the bucket you jump to.
@@ -62,22 +87,78 @@ export function MapSidebar({
     [locations],
   );
 
+  /** Country each city sits in, from the shared filter options. */
+  const countryOfCity = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of cities) m.set(c.name, c.country);
+    return m;
+  }, [cities]);
+
+  /** Every listed location tagged with its city and country, so the two
+   *  selects and the list agree on one derivation. `cadastralArea` is the
+   *  plain town (v2 manifest `mesto`), same source /lokality reads. */
+  const tagged = useMemo(
+    () =>
+      realLocations.map((l) => {
+        const town = cityFromCadastralArea(l.cadastralArea);
+        return { loc: l, city: town, country: countryOfCity.get(town) ?? "" };
+      }),
+    [realLocations, countryOfCity],
+  );
+
+  // A chosen city pins its country, exactly as on /lokality — so the
+  // country select shows the right value and the city list narrows.
+  const effectiveCountry = country || countryOfCity.get(city) || "";
+
+  const countryCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const x of tagged) if (x.country) m[x.country] = (m[x.country] ?? 0) + 1;
+    return m;
+  }, [tagged]);
+
+  /** Counted WITHIN the chosen country: a town's number should say how many
+   *  rows picking it would leave, not how many exist elsewhere too. */
+  const cityCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const x of tagged) {
+      if (effectiveCountry && x.country !== effectiveCountry) continue;
+      if (x.city) m[x.city] = (m[x.city] ?? 0) + 1;
+    }
+    return m;
+  }, [tagged, effectiveCountry]);
+
+  const visibleCities = useMemo(
+    () =>
+      (effectiveCountry
+        ? cities.filter((c) => c.country === effectiveCountry)
+        : cities
+      ).filter((c) => (cityCounts[c.name] ?? 0) > 0 || c.name === city),
+    [cities, effectiveCountry, cityCounts, city],
+  );
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return realLocations;
-    const idQuery = parseIdQuery(q);
-    return realLocations.filter((l) => {
-      if (idQuery !== null) {
-        if (l.id === idQuery.exactId) return true;
-        if (paddedIdMatches(l.id, idQuery.digits)) return true;
-      }
-      return (
-        l.code.toLowerCase().includes(needle) ||
-        l.displayName.toLowerCase().includes(needle) ||
-        l.cadastralArea.toLowerCase().includes(needle)
-      );
-    });
-  }, [realLocations, q]);
+    const idQuery = needle ? parseIdQuery(q) : null;
+    return tagged
+      .filter((x) => {
+        if (city && x.city !== city) return false;
+        if (effectiveCountry && x.country !== effectiveCountry) return false;
+        if (!needle) return true;
+        const l = x.loc;
+        if (idQuery !== null) {
+          if (l.id === idQuery.exactId) return true;
+          if (paddedIdMatches(l.id, idQuery.digits)) return true;
+        }
+        return (
+          l.code.toLowerCase().includes(needle) ||
+          l.displayName.toLowerCase().includes(needle) ||
+          l.cadastralArea.toLowerCase().includes(needle)
+        );
+      })
+      .map((x) => x.loc);
+  }, [tagged, q, city, effectiveCountry]);
+
+  const hasFilters = q.trim() !== "" || city !== "" || country !== "";
 
   return (
     <section className="flex min-h-0 flex-1 flex-col">
@@ -134,6 +215,81 @@ export function MapSidebar({
             className={INPUT_CLS}
           />
         </div>
+
+        {/* Stát → Město, cascading the same way /lokality does: a chosen
+            city pins (and locks) its country, changing the country clears
+            the city, and the city list narrows to the chosen country. */}
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="relative">
+            <select
+              value={effectiveCountry}
+              disabled={city !== ""}
+              onChange={(e) => {
+                setCountry(e.currentTarget.value);
+                setCity("");
+              }}
+              aria-label={t("filterCountry")}
+              className={SELECT_CLS}
+            >
+              <option value="">{t("filterCountryAll")}</option>
+              {countries
+                .filter(
+                  (c) =>
+                    (countryCounts[c.code] ?? 0) > 0 ||
+                    c.code === effectiveCountry,
+                )
+                .map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name} ({numFmt.format(countryCounts[c.code] ?? 0)})
+                  </option>
+                ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
+              aria-hidden
+            />
+          </div>
+          <div className="relative">
+            <select
+              value={city}
+              onChange={(e) => {
+                const next = e.currentTarget.value;
+                setCity(next);
+                // Picking a town pins its country so the label matches the
+                // list; clearing it leaves the country as it was.
+                if (next) setCountry(countryOfCity.get(next) ?? country);
+              }}
+              aria-label={t("filterCity")}
+              className={SELECT_CLS}
+            >
+              <option value="">{t("filterCityAll")}</option>
+              {visibleCities.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name} ({numFmt.format(cityCounts[c.name] ?? 0)})
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
+              aria-hidden
+            />
+          </div>
+        </div>
+
+        {hasFilters && (
+          <button
+            type="button"
+            onClick={() => {
+              setQ("");
+              setCity("");
+              setCountry("");
+            }}
+            className="mt-2 inline-flex items-center gap-1 text-[11px] text-gray-500 underline-offset-2 transition hover:text-gray-800 hover:underline"
+          >
+            <FilterX className="h-3 w-3" aria-hidden />
+            {t("filterClear", { count: numFmt.format(filtered.length) })}
+          </button>
+        )}
       </div>
       <ul className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (

@@ -4,6 +4,8 @@ import { FindState } from "@/generated/prisma/enums";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { getMapData } from "@/lib/queries/map";
+import { getFilterOptions } from "@/lib/queries/finds";
+import { localizedCountryName } from "@/lib/world-countries";
 import { listLocations } from "@/lib/queries/locations";
 import {
   getFilteredFindIds,
@@ -139,9 +141,13 @@ export default async function MapaPage({ searchParams }: PageProps) {
   // ones aren't there and showing them with no click target was useless.
   // Former (NEEXISTUJE-) locations stay; their polygons are still on the
   // map.
-  const [data, sidebarRows, highlightFind, highlightIdList] =
+  const [data, filterOptions, sidebarRows, highlightFind, highlightIdList] =
     await Promise.all([
       getMapData(),
+      // Shared with /lokality and /sbirka: cities carry the country they sit
+      // in, which is what lets the sidebar cascade Stát → Město the same way.
+      // One source, so the two pages can't disagree about which town is where.
+      getFilterOptions(),
       // `includeUnknown` — NEZNÁMÁ (00000) is hidden from /lokality but belongs
       // here: its marker is on the map, so the sidebar needs a clickable row.
       listLocations({
@@ -172,6 +178,17 @@ export default async function MapaPage({ searchParams }: PageProps) {
   const tSummary = await getTranslations("FilterSummary");
   const tStates = await getTranslations("States");
   const locale = await getLocale();
+
+  // Country names arrive raw (Natural Earth English); localize at the page
+  // boundary so the upstream query stays cache-shareable across locales —
+  // the same split /lokality uses.
+  const countryOptions = filterOptions.countries
+    .map((c) => ({
+      code: c.code,
+      name: localizedCountryName(c.name, locale, c.code),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, locale === "en" ? "en" : "cs"));
+
   const tSummaryFn = tSummary as unknown as (
     key: string,
     values?: Record<string, string | number>,
@@ -211,6 +228,8 @@ export default async function MapaPage({ searchParams }: PageProps) {
     >
       <div className="flex-1 overflow-hidden">
         <MapaShell
+          cities={filterOptions.cities}
+          countries={countryOptions}
           mapData={data}
           sidebarLocations={sidebarLocations}
           urlFocusId={urlFocusId}

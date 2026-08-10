@@ -35,6 +35,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   neprojevilo a šest kartiček po sobě vyšlo stejně. Přepnout na jednu
   pevnou texturu nebo pozadí vypnout jde pořád.
 
+### Mapa: filtr států a měst v seznamu lokalit
+- Pravý panel na `/mapa` má nově **Stát → Město** se stejnou provázaností
+  jako `/lokality`: vybrané město si připne (a zamkne) svůj stát, změna
+  státu město zruší, seznam měst se zúží na zvolený stát a u obojího jsou
+  počty. Přibylo i „Zrušit filtry“.
+- Filtruje se v prohlížeči, ne přes adresu — celý seznam už v prohlížeči je
+  a navigace by mapu překreslila, čímž by přišlo o výřez a přiblížení, které
+  si člověk nastavil.
+- Města i státy berou z **téhož zdroje jako `/lokality`** (`getFilterOptions()`),
+  takže se obě stránky nemůžou rozejít v tom, které město je ve kterém státě.
+
 ### Dílna na koláže
 - Nová stránka **/admin/collage**: vzor z ořezů si postavíš z **libovolného
   rozsahu čísel nálezů** — klidně z celé sbírky — vybereš které vzory, a

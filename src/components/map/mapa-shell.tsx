@@ -67,7 +67,13 @@ export function MapaShell({
   highlightFind,
   highlightFindIds,
   activeFilterSummary,
+  cities,
+  countries,
 }: {
+  /** Shared with /lokality via getFilterOptions() — city→country pairing
+   *  and localized country names for the sidebar's Stát → Město filter. */
+  cities: ReadonlyArray<{ name: string; country: string }>;
+  countries: ReadonlyArray<{ code: string; name: string }>;
   mapData: MapData;
   sidebarLocations: readonly LocationListItem[];
   urlFocusId: number | null;
@@ -692,6 +698,8 @@ export function MapaShell({
               enabledChildPolygonIds={enabledChildPolygonIds}
               onToggleChildPolygon={handleToggleChildPolygon}
               anonymizedLocationCount={mapData.anonymizedLocationCount}
+              cities={cities}
+              countries={countries}
             />
           </aside>
 
@@ -724,6 +732,8 @@ export function MapaShell({
               enabledChildPolygonIds={enabledChildPolygonIds}
               onToggleChildPolygon={handleToggleChildPolygon}
               anonymizedLocationCount={mapData.anonymizedLocationCount}
+              cities={cities}
+              countries={countries}
             />
           </aside>
         </>
