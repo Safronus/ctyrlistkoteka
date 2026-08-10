@@ -159,23 +159,31 @@ systemctl status pm2-app --no-pager
 **Trvalá náprava** (dělej ve chvíli klidu, restartuje to web):
 
 ```bash
+# 1) Zjisti, jakou verzi má BĚŽÍCÍ démon — na tu se pak trefíš.
+systemctl status pm2-app --no-pager | grep -o 'PM2 v[0-9.]*' | head -1
+
+# 2) Nainstaluj pm2 pod aktuální verzi Node, PŘESNĚ v té verzi.
 source /home/app/.nvm/nvm.sh
 nvm alias default lts/*            # ať se verze aktivuje i příště
-npm install -g pm2@$(pm2 -v)       # pm2 pod AKTUÁLNÍ verzí Node — a ve STEJNÉ verzi
+npm install -g pm2@6.0.14          # ← dosaď číslo z kroku 1, ne holé `pm2`
+
+# 3) Přegeneruj systemd unit na novou cestu k Node.
 pm2 startup systemd -u app --hp /home/app
 # ...a spustit ten sudo příkaz, který se vypíše
 pm2 save
 ```
 
-> **`pm2@$(pm2 -v)`, ne holé `pm2`.** Instalace bez verze vytáhne nejnovější
-> major — 2026-08-10 to znamenalo CLI 7.0.3 proti běžícímu démonovi 6.0.14.
-> Démon žije dál, dokud ho někdo nerestartuje, takže se to projeví jako
-> hláška `In-memory PM2 is out-of-date` a jako **riziko, že příští deploy
-> selže na `pm2 reload`** (runner sáhne po CLI z PATH, démon je pořád starý).
-> Upgrade majoru PM2 na produkci nic nezískává; pokud ho někdy chceš, je to
-> samostatný krok `pm2 update` v klidné chvíli, ne vedlejší efekt opravy
-> PATH. Aktuální verzi démona zjistíš z `pm2 list` v hlavičce nebo
-> ze `systemctl status pm2-app` (`PM2 v6.0.14: God Daemon`).
+> **Verzi dosaď ručně, holé `pm2` neinstaluj.** Instalace bez verze vytáhne
+> nejnovější major — 2026-08-10 to znamenalo CLI 7.0.3 proti běžícímu
+> démonovi 6.0.14. Démon žije dál, dokud ho někdo nerestartuje, takže se to
+> projeví jen jako hláška `In-memory PM2 is out-of-date` — a jako **riziko,
+> že příští deploy selže na `pm2 reload`**, protože runner sáhne po CLI
+> z PATH, zatímco démon je pořád starý. Upgrade majoru PM2 na produkci nic
+> nezískává; pokud ho někdy chceš, je to samostatný krok `pm2 update`
+> v klidné chvíli, ne vedlejší efekt opravy PATH.
+>
+> (`pm2@$(pm2 -v)` nepiš — v situaci, kvůli které sem čteš, `pm2` na PATH
+> není a substituce se rozsype. Proto ten krok 1 přes systemd.)
 
 Ten poslední krok je nutný: unit `pm2-app` má zapečenou absolutní cestu ke
 staré verzi Node. Dokud ta verze na disku existuje, běží to; ve chvíli, kdy
