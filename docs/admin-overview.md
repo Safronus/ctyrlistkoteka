@@ -342,6 +342,26 @@ odvozený název vytvořil druhý soubor pro totéž ID).
   proto porovnává obojí přes `formatGpsDecimal`, aby neupravený soubor
   vyšel jako „žádná změna". Bez toho hlásil změnu u každého řádku
   s pozicí a operátor by přestal reportu věřit.
+- **`/api/admin/drops/sync` NENÍ za nginx maskou adminu.** Ta maska je
+  v `deploy/nginx.conf.template` psaná jako `location /admin` — prefix, a
+  `/api/admin/…` jím nezačíná. Endpoint je tedy z internetu adresovatelný
+  a chrání se sám, ve třech vrstvách (`src/lib/admin/dropSyncGate.ts`):
+  tajemství porovnané v konstantním čase a odmítnuté, když je kratší než
+  24 znaků; **jen loopback**; a 404 na každé selhání, aby prubíř nepoznal,
+  že něco našel. Čtvrtá vrstva je tvar endpointu — nic nepřijímá v těle,
+  stáhne jen odkaz, který sada už má, a `parseSheetUrl` pustí jedině
+  `docs.google.com` (takže to není ani páka na SSRF).
+- **Loopback se nepozná podle chybějící `x-forwarded-for`.** Next si tu
+  hlavičku **dosadí sám** z otevřeného socketu, takže přímé volání
+  z timeru dorazí s `::ffff:127.0.0.1` — první verze kontroly proto
+  odmítala právě ten timer, kvůli kterému vznikla. Správně se čte celý
+  **řetěz** a všechny články musí být loopback: nginx skládá hlavičku jako
+  `$proxy_add_x_forwarded_for`, tedy vždy připojí reálného peera, takže
+  podvržené `127.0.0.1` zvenku nepomůže — vlastní adresa útočníka stojí
+  hned za ním. Zbývá jediný předpoklad, a ten drží firewall:
+  `iifname != "lo" tcp dport 3000 counter drop`
+  v `deploy/nftables-ssh-allowlist.nft`. Kdyby to pravidlo zmizelo, spadne
+  ochrana zpátky na samotný token.
 
 ## 6. Úkoly TODO / open questions
 

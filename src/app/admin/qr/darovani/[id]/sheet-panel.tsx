@@ -594,6 +594,8 @@ function ServerHelp() {
         <li>
           Vygenerovat token:
           <Cmd>openssl rand -hex 32</Cmd>
+          Nevymýšlej ho z hlavy — kratší než 24 znaků endpoint odmítne a do
+          logu napíše <code>drop_sync_token_too_short</code>.
         </li>
         <li>
           Ten samý token dát na <strong>dvě místa</strong> — do{" "}
@@ -655,6 +657,27 @@ function ServerHelp() {
         </code>
         . Ruční tlačítko tím nijak netrpí.
       </p>
+
+      <p className="pt-1 font-semibold text-gray-900">
+        Proč se tou adresou nedá dostat dovnitř
+      </p>
+      <p>
+        Maska adminu v Nginxu hlídá adresy začínající{" "}
+        <code className="rounded bg-white px-1">/admin</code> — a tahle jimi
+        nezačíná, takže se endpoint musí ubránit sám. Brání se čtyřikrát:
+        přijímá <strong>jen volání z tohohle stroje</strong> (zvenku dostaneš
+        404, i kdyby ses tvářil jako localhost — Nginx k hlavičce vždycky
+        připojí tvoji skutečnou adresu a port 3000 stejně pouští firewall jen
+        z loopbacku); <strong>token</strong> porovnává v konstantním čase, aby
+        se nedal uhodnout po znacích; na jakékoli selhání odpovídá{" "}
+        <strong>404</strong>, ne „špatné heslo“, takže se nedá ani zjistit, že
+        tam něco je; a nakonec <strong>nic nepřijímá</strong> — nedá se mu
+        podstrčit adresa ani data, stáhne jen odkaz, který sada už má, a jedině
+        z <code className="rounded bg-white px-1">docs.google.com</code>.
+        Nejhorší, co uniklý token svede, je vynutit stažení, které by stejně
+        za pět minut proběhlo.
+      </p>
+
       <p className="text-gray-500">
         Totéž je v repozitáři v <code className="rounded bg-white px-1">deploy/README.md</code>.
       </p>

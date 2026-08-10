@@ -28,6 +28,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   zkopírování — je to jediná část téhle funkce, která žije na serveru a
   nedá se odklikat. A když režim tabulky běží, ale nic ji dlouho
   nezkontrolovalo, panel to sám řekne a na návod odkáže.
+- **Zesílená ochrana synchronizačního endpointu.** Maska adminu v Nginxu
+  hlídá adresy začínající `/admin`, a `/api/admin/drops/sync` jí prochází
+  mimo — endpoint se tedy musí ubránit sám. Nově: tajemství se porovnává
+  v konstantním čase a kratší než 24 znaků se rovnou odmítne, přijímá se
+  **jen volání z loopbacku** (a to podle celého řetězu `x-forwarded-for`,
+  ne podle jeho nepřítomnosti — Nginx k němu vždy připojí reálnou adresu,
+  takže podvrh zvenku neprojde), a každé selhání odpovídá 404, aby se
+  nedalo poznat, že tam vůbec něco je. Port 3000 navíc pouští firewall
+  jen z loopbacku. Pokrývá to 20 nových testů.
 
 ### Darování ve světě — synchronizace z Google Sheets (11. fáze)
 - Sada může mít **odkaz na Google Sheets**. Tlačítko *Zkontrolovat změny*

@@ -36,7 +36,7 @@ krok za krokem. Tento README je rychlý katalog.
 | `permaban-refresh.cron` | `/etc/cron.d/permaban-refresh` | Cron entry — denně 4:30 přepoč permaban setu z TSV (self-healing pojistka). Nově volá `firewall-deny`; legacy `nginx-deny` zakomentované. |
 | `logrotate-permaban.conf` | `/etc/logrotate.d/permaban` | Měsíční rotace permaban-firewall/permaban-nginx debug logů + cron rebuild logu. |
 | `systemd-sync.service` | `/etc/systemd/system/` | Volitelné: noční auto-sync. |
-| `drop-sheet-sync.service` | `/etc/systemd/system/` | **(nový)** Stažení sad „darování ve světě“ z Google Sheets. Jen čtení. Vyžaduje `DROP_SHEET_SYNC_TOKEN` v `.env` aplikace **i** v `/etc/ctyrlistkoteka-sync.env` (root, 0600). Bez tokenu vrací endpoint 404. |
+| `drop-sheet-sync.service` | `/etc/systemd/system/` | **(nový)** Stažení sad „darování ve světě“ z Google Sheets. Jen čtení. Vyžaduje `DROP_SHEET_SYNC_TOKEN` v `.env` aplikace **i** v `/etc/ctyrlistkoteka-sync.env` (root, 0600). Bez tokenu — a stejně tak s tokenem kratším než 24 znaků — vrací endpoint 404. Generuj `openssl rand -hex 32`. Endpoint **není** za `location /admin` maskou (prefix nesedí), brání se sám: loopback-only + konstantní porovnání + 404 na všechno. Drž proto v nftables pravidlo `iifname != "lo" tcp dport 3000 counter drop`. |
 | `drop-sheet-sync.timer` | `/etc/systemd/system/` | Spouští ho každých 5 minut: `systemctl enable --now drop-sheet-sync.timer`. |
 | `systemd-sync.timer` | `/etc/systemd/system/` | Zapnout přes `systemctl enable --now ctyrlistkoteka-sync.timer`. |
 | `backup.sh` | (git, spouští se odtud) | Denní `pg_dump` + rotace. Do crontab uživatele `app`. |
