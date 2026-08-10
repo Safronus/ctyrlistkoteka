@@ -21,6 +21,9 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - Dokud je počítání pozastavené, je to vidět štítkem u nadpisu souhrnu.
 
 ### Admin: sekce se sbalují a pamatují si to
+- V nastavení sady je seznam **hotových koláží ke stažení** v plné
+  velikosti, i s tím, kdy vznikly. Co ještě není vygenerované, je vypsané
+  našedle — odkaz do prázdna by byl jen 404 k luštění.
 - Všechny sekce na stránce sady — Souhrn, Nastavení, Oblasti, Mapa úkrytů,
   Tabulka, Google Sheets i Kusy — jdou sbalit a **stav si prohlížeč
   pamatuje**. Otevřeš stránku a máš ji složenou tak, jak jsi ji nechal.

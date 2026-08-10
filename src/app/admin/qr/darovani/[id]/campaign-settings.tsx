@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronRight,
+  Download,
   Globe,
   Images,
   Lightbulb,
@@ -16,6 +17,7 @@ import {
 import { updateCampaignAction, type CampaignInput } from "../../drop-actions";
 import { Field, INPUT_CLS } from "../../qr-ui";
 import { useRememberedOpen } from "../../use-remembered-open";
+import type { CollageFile } from "@/lib/admin/collageFiles";
 import {
   COLLAGE_MOBILE_CHOICES,
   COLLAGE_MOBILE_LABEL,
@@ -39,9 +41,12 @@ import { QrLivePreview } from "./qr-live-preview";
 export function CampaignSettings({
   campaignId,
   initial,
+  collages,
 }: {
   campaignId: number;
   initial: CampaignInput;
+  /** Which backgrounds actually exist on disk, for the download list. */
+  collages: CollageFile[];
 }) {
   const router = useRouter();
   const [open, toggleOpen] = useRememberedOpen("drops.settings", false);
@@ -336,12 +341,42 @@ export function CampaignSettings({
               </Field>
             </div>
 
-            <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
-              Koláže musí nejdřív vzniknout na serveru — jednorázově příkazem{" "}
-              <code className="rounded bg-white px-1">pnpm collage</code>.
-              Dokud tam nejsou, stránka se vykreslí bez pozadí, nic se
-              nerozbije.
-            </p>
+            <SubHead>Hotové koláže</SubHead>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <ul className="grid gap-1.5 sm:grid-cols-2">
+                {collages.map((c) => (
+                  <li key={c.variant}>
+                    {c.exists ? (
+                      <a
+                        href={c.url}
+                        download={`ctyrlistkoteka-${c.variant.toLowerCase()}.webp`}
+                        className="inline-flex items-center gap-1.5 text-xs text-brand-700 hover:underline"
+                      >
+                        <Download className="h-3.5 w-3.5" aria-hidden />
+                        {COLLAGE_VARIANT_LABEL[c.variant]}
+                        <span className="text-gray-400">
+                          ({Math.round(c.bytes / 1024)} kB
+                          {c.builtAt ? ` · ${fmtBuilt(c.builtAt)}` : ""})
+                        </span>
+                      </a>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs text-gray-400">
+                        <Download className="h-3.5 w-3.5" aria-hidden />
+                        {COLLAGE_VARIANT_LABEL[c.variant]}
+                        <span>(zatím nevygenerovaná)</span>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-gray-600">
+                Stahuje se plná velikost, tak jak leží na serveru. Vznikají
+                jednorázově příkazem{" "}
+                <code className="rounded bg-white px-1">pnpm collage</code> —
+                dokud tam nejsou, stránka se vykreslí bez pozadí a nic se
+                nerozbije.
+              </p>
+            </div>
           </Group>
 
           {/* ------------------------------------------------ the crew */}
@@ -391,6 +426,20 @@ export function CampaignSettings({
 }
 
 /** A labelled block that says what its fields are FOR. */
+const builtFmt = new Intl.DateTimeFormat("cs-CZ", {
+  day: "numeric",
+  month: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** When the picture was built — a collage is frozen until someone reruns
+ *  the generator, so its age is the useful fact about it. */
+function fmtBuilt(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : builtFmt.format(d);
+}
+
 /** Small heading inside a Group — splits a long form into the questions
  *  it is actually asking, without another box around each one. */
 function SubHead({ children }: { children: React.ReactNode }) {

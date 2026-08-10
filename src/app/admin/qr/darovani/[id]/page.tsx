@@ -24,6 +24,7 @@ import { AreaMapPanel } from "./area-map-panel";
 import { XlsxPanel } from "./xlsx-panel";
 import { SheetPanel } from "./sheet-panel";
 import { listDropXlsx } from "@/lib/admin/dropXlsxArchive";
+import { listCollageFiles } from "@/lib/admin/collageFiles";
 
 export const metadata: Metadata = {
   title: "Darování ve světě",
@@ -51,6 +52,7 @@ export default async function DropCampaignPage({
   const campaignId = Number(id);
   if (!Number.isInteger(campaignId) || campaignId <= 0) notFound();
 
+  const collages = await listCollageFiles();
   const campaign = await loadCampaign(campaignId);
   if (!campaign) notFound();
 
@@ -242,6 +244,7 @@ export default async function DropCampaignPage({
 
       <CampaignSettings
         campaignId={campaign.id}
+        collages={collages}
         initial={{
           name: campaign.name,
           note: campaign.note ?? "",
