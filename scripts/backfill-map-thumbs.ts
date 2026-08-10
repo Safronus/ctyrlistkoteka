@@ -7,6 +7,12 @@
  *
  *   GENERATED_DIR=/var/ctyrlistkoteka/generated pnpm backfill-map-thumbs
  */
+// Before anything reads process.env: without this a standalone tsx
+// script falls back to ./data and ./public/generated instead of the
+// configured paths — writing to the wrong directory in silence, which
+// is worse than failing.
+import "dotenv/config";
+
 import { access, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import sharp from "sharp";

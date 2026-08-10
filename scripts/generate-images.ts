@@ -8,6 +8,12 @@
  *   pnpm generate-images --force      # regenerate everything
  */
 
+// Before anything reads process.env: without this a standalone tsx
+// script falls back to ./data and ./public/generated instead of the
+// configured paths — writing to the wrong directory in silence, which
+// is worse than failing.
+import "dotenv/config";
+
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { generateWebPVariants } from "../src/lib/images";

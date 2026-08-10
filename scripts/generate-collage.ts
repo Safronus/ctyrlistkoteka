@@ -18,6 +18,13 @@
  * where a few hundred inputs is fine.
  */
 
+// FIRST, before anything reads process.env: a standalone tsx script gets
+// no .env loading from Next, so DATABASE_URL and GENERATED_DIR would both
+// be undefined — Prisma reports that as "client password must be a
+// string", which says nothing about the actual cause. Same first line as
+// scripts/sync.ts, for the same reason.
+import "dotenv/config";
+
 import { access, mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
