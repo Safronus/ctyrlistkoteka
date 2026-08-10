@@ -100,6 +100,61 @@ Od teď přihlašuj jako `app`: `ssh app@<ip>`.
 
 ---
 
+## 2b. ⚠️ `pm2: command not found` — přečti dřív, než začneš cokoli spouštět
+
+Node, pnpm i PM2 jsou nainstalované **přes nvm**, ne přes apt. nvm se
+registruje z `~/.bashrc`, takže v části sezení (Termius, `ssh app@ip
+"<příkaz>"`, cron, systemd) prostě **nejsou na PATH** a shell odpoví
+`Command 'pm2' not found, did you mean: pmw…`.
+
+Není to rozbitá instalace. Chybí jen inicializace nvm.
+
+**Rychlá záplata pro jeden příkaz:**
+
+```bash
+source /home/app/.nvm/nvm.sh && pm2 status
+```
+
+**Trvale, ať to nemusíš psát pořád** — přidá inicializaci i do neinteraktivních
+shellů:
+
+```bash
+grep -q 'NVM_DIR' ~/.profile || cat >> ~/.profile <<'EOF'
+
+# nvm — bez tohohle nejsou node/pnpm/pm2 na PATH mimo interaktivní bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+EOF
+```
+
+Pak se odhlas a přihlas znovu a ověř:
+
+```bash
+which node pnpm pm2
+```
+
+**V systemd unitech se nvm musí sourcovat vždycky explicitně** — ani
+`bash -l` ho tam nenajde. Proto všechny unity v `deploy/` začínají
+`/bin/bash -c '. /home/app/.nvm/nvm.sh && …'`.
+
+> Pozor i na druhou stranu téhle mince: `pm2 startup` zapéká do systemd
+> unitu absolutní cestu ke *konkrétní* verzi Node z nvm. Po `nvm install
+> --lts` unit ukazuje na starou verzi — viz varování u kroku s PM2 níž.
+
+### Nejčastější příkazy, jak je opravdu napsat
+
+| Chci | Příkaz |
+| --- | --- |
+| Stav aplikace | `source /home/app/.nvm/nvm.sh && pm2 status` |
+| Načíst nový `.env` | `source /home/app/.nvm/nvm.sh && pm2 reload ctyrlistkoteka --update-env` |
+| Logy | `source /home/app/.nvm/nvm.sh && pm2 logs ctyrlistkoteka --lines 50` |
+| Ruční sync dat | `cd /var/www/ctyrlistkoteka && source /home/app/.nvm/nvm.sh && pnpm sync` |
+
+Deploy sám nic z tohohle nepotřebuje — běží přes self-hosted GitHub runner
+na VPS a nvm si sourcuje sám (`.github/workflows/deploy.yml`).
+
+---
+
 ## 3. Instalace software
 
 Jako `app` (sudo podle potřeby):

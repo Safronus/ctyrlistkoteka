@@ -609,8 +609,14 @@ function ServerHelp() {
         </li>
         <li>
           Načíst nový <code className="rounded bg-white px-1">.env</code> do
-          běžící aplikace:
-          <Cmd>pm2 reload ctyrlistkoteka --update-env</Cmd>
+          běžící aplikace. <strong>To </strong>
+          <code className="rounded bg-white px-1">source</code>
+          <strong> na začátku tam patří</strong> — pm2 je z nvm a bez něj
+          shell odpoví „command not found“:
+          <Cmd>
+            source /home/app/.nvm/nvm.sh &amp;&amp; pm2 reload ctyrlistkoteka
+            --update-env
+          </Cmd>
         </li>
         <li>
           Ověřit, že appka token vidí — <strong>200</strong> = dobrý,{" "}

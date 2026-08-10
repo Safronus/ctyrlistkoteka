@@ -469,11 +469,14 @@ curl -s https://ctyrlistkoteka.cz/.well-known/security.txt
 Deploy je fast-forward, ne rebase. Rollback:
 
 ```bash
-# Na VPS
+# Na VPS. `source nvm.sh` tam patří — node/pnpm/pm2 jsou z nvm a mimo
+# interaktivní bash nejsou na PATH (docs/deployment.md §2b).
 cd /var/www/ctyrlistkoteka
+source /home/app/.nvm/nvm.sh
 git log --oneline -5              # najdi předchozí commit
 git reset --hard <commit>
 pnpm install --frozen-lockfile
+pnpm prisma generate
 pnpm build
 pm2 reload ctyrlistkoteka
 ```
