@@ -28,7 +28,7 @@ const EMPTY: CampaignInput = {
   bgVariant: "MOSAIC",
   bgOpacity: "35",
   bgCardOpacity: "100",
-  bgMobileVariant: "MOSAIC",
+  bgMobileVariant: "BY_FIND",
   design: {
     titleMode: "find",
     captionMode: "custom",

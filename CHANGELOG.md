@@ -26,8 +26,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   pamatuje**. Otevřeš stránku a máš ji složenou tak, jak jsi ji nechal.
 - Nastavení pozadí je rozdělené podle toho, čeho se která volba týká:
   *Na počítači*, *Na mobilu*, a *Jak výrazně* (platí pro obojí).
-- Mobil umí nově **podle čísla nálezu**: liché číslo mozaika, sudé
-  rozptýlená vrstva.
+- Mobil jede **podle čísla nálezu**: liché číslo mozaika, sudé rozptýlená
+  vrstva. Je to **výchozí stav** — přišlo to nejdřív jako jedna z voleb,
+  jenže sady si držely to, co v nich bylo, takže se pravidlo nikde
+  neprojevilo a šest kartiček po sobě vyšlo stejně. Přepnout na jednu
+  pevnou texturu nebo pozadí vypnout jde pořád.
 
 ### Koláž ze sbírky jako pozadí kartičkových stránek
 - Stránka, kterou uvidí nálezce po naskenování kartičky, může mít **pozadí

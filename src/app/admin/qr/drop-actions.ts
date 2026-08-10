@@ -254,7 +254,7 @@ function collageFields(input: CampaignInput): {
       input.bgMobileVariant as CollageMobileChoice,
     )
       ? (input.bgMobileVariant as CollageMobileChoice)
-      : "MOSAIC",
+      : "BY_FIND",
   };
 }
 
