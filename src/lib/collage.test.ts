@@ -32,9 +32,9 @@ describe("pickCollageVariant", () => {
   });
 
   it("does not hand consecutive finds a repeating cycle", () => {
-    // The reason for the ×7: a wave is consecutive ids, so `id % 4` would
-    // make neighbours alternate in lockstep — cards sitting in the same
-    // box would come out in a visible pattern.
+    // Why the hash: a wave is consecutive ids, so any plain modulo deals
+    // neighbours out in lockstep — the cards sitting together in one box
+    // would come out in a visible repeating pattern.
     const ids = Array.from({ length: 8 }, (_, i) => 30001 + i);
     const picks = ids.map((findId) =>
       pickCollageVariant({ mode: "BY_FIND", fixed, findId }),
@@ -112,8 +112,8 @@ describe("fitGridToMask", () => {
   const quarter = (cols: number, rows: number) =>
     Math.floor((cols * rows) / 4);
 
-  it("finds the smallest grid that fits the tiles", () => {
-    const got = fitGridToMask(1000, 4 / 3, quarter);
+  it("finds the smallest grid that fits the tiles", async () => {
+    const got = await fitGridToMask(1000, 4 / 3, quarter);
     expect(got).not.toBeNull();
     expect(quarter(got!.cols, got!.rows)).toBeGreaterThanOrEqual(1000);
     // ...and one column narrower would not have been enough.
@@ -121,10 +121,31 @@ describe("fitGridToMask", () => {
     expect(quarter(got!.cols - 1, rowsFor(got!.cols - 1))).toBeLessThan(1000);
   });
 
-  it("returns null rather than quietly dropping crops", () => {
+  it("returns null rather than quietly dropping crops", async () => {
     // A mask with almost no room, asked to hold 30 000.
     const sliver = () => 3;
-    expect(fitGridToMask(30000, 4 / 3, sliver)).toBeNull();
+    await expect(fitGridToMask(30000, 4 / 3, sliver)).resolves.toBeNull();
+  });
+
+  it("asks the counter about the resolution it actually returns", async () => {
+    // The bug this guards: answering from a nearby HIGHER resolution
+    // overstates the room, and the search stops at a grid that cannot
+    // hold the tiles. On the first real run the clover reported success
+    // while placing 24 057 of 30 000 crops.
+    const asked: number[] = [];
+    const got = await fitGridToMask(1000, 4 / 3, (cols, rows) => {
+      asked.push(cols);
+      return Math.floor((cols * rows) / 4);
+    });
+    expect(asked).toContain(got!.cols);
+    expect(quarter(got!.cols, got!.rows)).toBeGreaterThanOrEqual(1000);
+  });
+
+  it("accepts an async counter", async () => {
+    const got = await fitGridToMask(1000, 4 / 3, async (c, r) =>
+      Promise.resolve(quarter(c, r)),
+    );
+    expect(quarter(got!.cols, got!.rows)).toBeGreaterThanOrEqual(1000);
   });
 });
 

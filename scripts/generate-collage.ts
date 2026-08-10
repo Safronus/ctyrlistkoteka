@@ -27,7 +27,7 @@ import "dotenv/config";
 
 import { access, mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import sharp from "sharp";
+import sharp, { type Sharp } from "sharp";
 import { createPrismaClient } from "@/lib/prismaClient";
 import {
   COLLAGE_IMAGE_MASKS,
@@ -50,7 +50,27 @@ const OUT_HEIGHT = Math.round(OUT_WIDTH / OUT_ASPECT);
 /** Grid variants render larger and downscale, so the tiny tiles get
  *  antialiased down rather than aliasing at final size. */
 const SUPERSAMPLE = 1.4;
-const QUALITY = 72;
+/** Byte ceiling for a finished background. This page is opened outdoors,
+ *  on mobile data, by someone standing over a laminated card — the first
+ *  real run produced a 1.67 MB mosaic, which is several seconds of
+ *  staring at nothing. Dense variants get re-encoded down to fit. */
+const MAX_BYTES = 700 * 1024;
+/**
+ * Tried in order until one fits the ceiling.
+ *
+ * Width comes down before quality goes低 — a carpet of 30 000 crops has
+ * 12-pixel tiles nobody can resolve anyway, so fewer pixels costs less
+ * than mushier ones. The shaped variants sit on a plain backdrop, compress
+ * easily and never leave the first step.
+ */
+const ENCODE_STEPS: Array<{ width: number; quality: number }> = [
+  { width: 2400, quality: 72 },
+  { width: 2400, quality: 60 },
+  { width: 1920, quality: 65 },
+  { width: 1920, quality: 55 },
+  { width: 1600, quality: 60 },
+  { width: 1600, quality: 45 },
+];
 /** Tiles on the scatter layer. Sparse on purpose — it is the variant
  *  meant to sit behind text. */
 const SCATTER_TILES = 700;
@@ -184,6 +204,42 @@ async function sampleMask(
     .toBuffer();
 }
 
+/**
+ * Encodes to WebP, stepping quality down until it fits the byte ceiling.
+ *
+ * Only the busiest variants ever need the lower steps: a shape on a plain
+ * backdrop compresses far better than a full-bleed carpet of photos. The
+ * step that was used gets logged, so a background that had to be squeezed
+ * says so instead of quietly looking worse.
+ */
+async function encodeWithin(
+  pipeline: (width: number, height: number) => Sharp,
+  label: string,
+): Promise<Buffer> {
+  // Seeded with the first step's result inside the loop; ENCODE_STEPS is
+  // never empty, so by the warn below this always holds a buffer.
+  let last = Buffer.alloc(0);
+  for (const [i, step] of ENCODE_STEPS.entries()) {
+    const height = Math.round(step.width / OUT_ASPECT);
+    last = await pipeline(step.width, height)
+      .webp({ quality: step.quality })
+      .toBuffer();
+    if (last.length <= MAX_BYTES) {
+      if (i > 0) {
+        console.log(
+          `  ${label}: ${step.width} px / kvalita ${step.quality} (aby se vešlo pod ${Math.round(MAX_BYTES / 1024)} kB)`,
+        );
+      }
+      return last;
+    }
+  }
+  const worst = ENCODE_STEPS[ENCODE_STEPS.length - 1]!;
+  console.warn(
+    `  ${label}: ani ${worst.width} px / kvalita ${worst.quality} se nevešlo pod ${Math.round(MAX_BYTES / 1024)} kB (${Math.round(last.length / 1024)} kB) — nechávám tak.`,
+  );
+  return last;
+}
+
 /** Cells the mask lights up, in reading order. */
 function onCells(mask: Buffer, cols: number, rows: number): number[] {
   const out: number[] = [];
@@ -261,10 +317,13 @@ async function renderGrid(
       ` — mřížka ${cols}×${rows}, dlaždice ${tile} px`,
   );
 
-  return await sharp(canvas, { raw: { width: W, height: H, channels: 3 } })
-    .resize(OUT_WIDTH, OUT_HEIGHT, { fit: "cover" })
-    .webp({ quality: QUALITY })
-    .toBuffer();
+  return await encodeWithin(
+    (w, h) =>
+      sharp(canvas, { raw: { width: W, height: H, channels: 3 } }).resize(w, h, {
+        fit: "cover",
+      }),
+    label,
+  );
 }
 
 /** Scatter: a few hundred crops, rotated, part-transparent, overlapping. */
@@ -298,7 +357,10 @@ async function renderScatter(files: string[]): Promise<Buffer> {
   }
   console.log(`  SCATTER: ${layers.length}/${plan.length} dlaždic`);
 
-  return await sharp({
+  // The scatter layer is planned at OUT_WIDTH, so it composites there and
+  // is only resized afterwards — re-planning per step would move every
+  // tile and break the seed's reproducibility.
+  const full = sharp({
     create: {
       width: OUT_WIDTH,
       height: OUT_HEIGHT,
@@ -307,8 +369,12 @@ async function renderScatter(files: string[]): Promise<Buffer> {
     },
   })
     .composite(layers)
-    .webp({ quality: QUALITY })
-    .toBuffer();
+    .png();
+  const flat = await full.toBuffer();
+  return await encodeWithin(
+    (w, h) => sharp(flat).resize(w, h, { fit: "cover" }),
+    "SCATTER",
+  );
 }
 
 async function buildVariant(
@@ -339,35 +405,34 @@ async function buildVariant(
     return m;
   };
 
-  // fitGridToMask wants a synchronous probe, so pre-sample the candidate
-  // resolutions the binary search will visit. MAX_COLS has to be one of
-  // them: the search asks about it first to decide whether the shape can
-  // hold the crops at all, and a missing sample there reads as "nothing
-  // fits" — which is exactly what it did on the first run.
+  // Probe the mask at exactly the resolution being asked about. The
+  // binary search visits ~11 of them and each is one small resize, so
+  // sampling for real costs a second and buys a correct answer — the
+  // earlier "nearest sampled resolution" shortcut overstated the room and
+  // left 6 000 crops out of the clover.
   const MAX_COLS = 1200;
-  const probes = new Map<number, number>();
-  for (let c = 1; c < MAX_COLS; c = Math.ceil(c * 1.15) + 1) {
-    const r = Math.max(1, Math.round(c / OUT_ASPECT));
-    probes.set(c, onCells(await maskFor(c, r), c, r).length);
-  }
-  {
-    const r = Math.max(1, Math.round(MAX_COLS / OUT_ASPECT));
-    probes.set(MAX_COLS, onCells(await maskFor(MAX_COLS, r), MAX_COLS, r).length);
-  }
-  const probeCols = [...probes.keys()].sort((a, b) => a - b);
-  const countOn = (cols: number) => {
-    // Nearest sampled resolution at or above `cols`; the count grows
-    // monotonically with resolution, so this rounds down the grid rather
-    // than over-promising how much room the shape has.
-    for (const c of probeCols) if (c >= cols) return probes.get(c)!;
-    return probes.get(probeCols[probeCols.length - 1]!) ?? 0;
+  const counted = new Map<number, number>();
+  const countOn = async (cols: number, rows: number) => {
+    const hit = counted.get(cols);
+    if (hit !== undefined) return hit;
+    const n = onCells(await maskFor(cols, rows), cols, rows).length;
+    counted.set(cols, n);
+    return n;
   };
 
-  const fitted = fitGridToMask(files.length, OUT_ASPECT, (c) => countOn(c));
-  const { cols, rows } = fitted ?? { cols: 1200, rows: Math.round(1200 / OUT_ASPECT) };
+  const fitted = await fitGridToMask(
+    files.length,
+    OUT_ASPECT,
+    countOn,
+    MAX_COLS,
+  );
+  const { cols, rows } = fitted ?? {
+    cols: MAX_COLS,
+    rows: Math.round(MAX_COLS / OUT_ASPECT),
+  };
   if (!fitted) {
     console.warn(
-      `  ${variant}: tvar nepobere všech ${files.length} ořezů ani při 1200 sloupcích — vejde se jich míň, zbytek se nekreslí.`,
+      `  ${variant}: tvar nepobere všech ${files.length} ořezů ani při ${MAX_COLS} sloupcích — vejde se jich míň, zbytek se nekreslí.`,
     );
   }
   const cells = onCells(await maskFor(cols, rows), cols, rows);

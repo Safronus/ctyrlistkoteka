@@ -171,21 +171,25 @@ export function gridFor(
  * Returns null when even `maxCols` isn't enough; the caller then knows to
  * place what fits and say so rather than silently dropping the rest.
  */
-export function fitGridToMask(
+export async function fitGridToMask(
   tiles: number,
   aspect: number,
-  countOn: (cols: number, rows: number) => number,
+  countOn: (cols: number, rows: number) => Promise<number> | number,
   maxCols = 1200,
-): { cols: number; rows: number } | null {
+): Promise<{ cols: number; rows: number } | null> {
   if (tiles <= 0) return { cols: 0, rows: 0 };
   const rowsFor = (cols: number) => Math.max(1, Math.round(cols / aspect));
-  if (countOn(maxCols, rowsFor(maxCols)) < tiles) return null;
+  if ((await countOn(maxCols, rowsFor(maxCols))) < tiles) return null;
 
   let lo = 1;
   let hi = maxCols;
   while (lo < hi) {
     const mid = Math.floor((lo + hi) / 2);
-    if (countOn(mid, rowsFor(mid)) >= tiles) hi = mid;
+    // Each probe MUST sample the mask at exactly `mid`. Answering from a
+    // nearby higher resolution overstates the room — that shipped once,
+    // and the clover came out holding 24 057 of 30 000 crops while
+    // reporting success.
+    if ((await countOn(mid, rowsFor(mid))) >= tiles) hi = mid;
     else lo = mid + 1;
   }
   return { cols: lo, rows: rowsFor(lo) };
