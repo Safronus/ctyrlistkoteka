@@ -529,11 +529,26 @@ Otestuj: `curl -I http://127.0.0.1:3000` → měl by vrátit 200.
 
 ```bash
 sudo cp /var/www/ctyrlistkoteka/deploy/nginx.conf.template /etc/nginx/sites-available/ctyrlistkoteka
-# Uprav server_name, doplň reálné IP do allowlistu /admin
+# Uprav server_name
+sudo nano /etc/nginx/snippets/admin-allowlist.conf   # reálné IP, viz níž
 sudo ln -s /etc/nginx/sites-available/ctyrlistkoteka /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+Obsah `admin-allowlist.conf` (do gitu **nepatří**, repo je veřejné):
+
+```nginx
+allow 1.2.3.4;       # statická domácí IP
+allow 5.6.7.8;       # zálohní IP #1
+allow 9.10.11.12;    # zálohní IP #2
+# allow 10.0.0.0/24; # WireGuard tunel, až bude nasazený
+deny all;
+```
+
+Vlastní soubor proto, že ho `include`ují **dva** bloky — `/admin`
+i `/api/admin`. Dvě ručně udržované kopie by se dřív nebo později rozešly
+a admin by pak půl na půl vracel maskovanou 404 bez vysvětlení.
 
 Otestuj bez SSL: `curl -I http://ctyrlistkoteka.cz`.
 
@@ -546,7 +561,7 @@ co běží. Živý soubor se od něj legitimně liší:
 | --- | --- |
 | `listen 443 ssl` + `ssl_certificate…` | dopsal Certbot při vydání certifikátu |
 | samostatné `server {}` pro `www` a pro port 80 | Certbot + kanonický redirect |
-| reálné IP v `allow` u `/admin` | **do gitu nepatří** (repo je veřejné) |
+| `include snippets/admin-allowlist.conf` s reálnými IP | **do gitu nepatří** (repo je veřejné) |
 | `include snippets/permaban-list.conf` | generuje fail2ban/permaban, viz §10 |
 | `proxy_pass http://localhost:3000` | šablona má `127.0.0.1`; funkčně totéž |
 

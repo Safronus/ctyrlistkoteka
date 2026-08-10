@@ -153,12 +153,23 @@ server {
     # Větší upload limit (50M) — admin nahrává HEIC/JPEG; veřejný web
     # zachovává 1M cap nahoře v server bloku.
     # -----------------------------------------------------------------
+    # Allowlist žije v samostatném snippetu, protože ho potřebují DVA
+    # bloky (`/admin` i `/api/admin`) a dvě ručně udržované kopie by se
+    # dřív nebo později rozešly. Rozejít se přitom nesmí: admin by pak
+    # půl na půl vracel 404 a maska ti schválně neřekne proč.
+    #
+    #   sudo nano /etc/nginx/snippets/admin-allowlist.conf
+    #
+    #     allow 1.2.3.4;       # statická domácí IP — DOPLŇ
+    #     allow 5.6.7.8;       # zálohní IP #1 — DOPLŇ
+    #     allow 9.10.11.12;    # zálohní IP #2 — DOPLŇ
+    #     # allow 10.0.0.0/24; # WireGuard tunel — až bude nasazený
+    #     deny all;
+    #
+    # Do gitu ten soubor NEPATŘÍ (repo je veřejné) — proto snippet, ne
+    # hodnoty v šabloně.
     location /admin {
-        # allow 1.2.3.4;            # statická domácí IP — DOPLŇ
-        # allow 5.6.7.8;            # zálohní IP #1 — DOPLŇ
-        # allow 9.10.11.12;         # zálohní IP #2 — DOPLŇ
-        # allow 10.0.0.0/24;        # WireGuard tunel — DOPLŇ až bude WG nasazený
-        deny all;
+        include /etc/nginx/snippets/admin-allowlist.conf;
         error_page 403 = @admin_notfound;
 
         # Sized to match `experimental.serverActions.bodySizeLimit` in
@@ -194,16 +205,10 @@ server {
     # `sync/start` + `sync/status`. Ten chodí z povolené IP, jinak by se
     # do adminu vůbec nedostal, takže ho allowlist nemůže překvapit.
     #
-    # DOPLŇ TU STEJNOU SADU IP JAKO V `location /admin` VÝŠ. Když se
-    # rozejdou, admin bude napůl fungovat a napůl vracet 404 — což se
-    # ladí mizerně, protože maska schválně nic neříká.
+    # Tentýž snippet jako `/admin` výš — schválně, viz komentář tam.
     # -----------------------------------------------------------------
     location /api/admin {
-        # allow 1.2.3.4;            # statická domácí IP — DOPLŇ
-        # allow 5.6.7.8;            # zálohní IP #1 — DOPLŇ
-        # allow 9.10.11.12;         # zálohní IP #2 — DOPLŇ
-        # allow 10.0.0.0/24;        # WireGuard tunel — DOPLŇ až bude WG nasazený
-        deny all;
+        include /etc/nginx/snippets/admin-allowlist.conf;
         error_page 403 = @admin_notfound;
 
         proxy_pass http://127.0.0.1:3000;
