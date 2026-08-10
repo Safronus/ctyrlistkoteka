@@ -182,6 +182,52 @@ server {
         proxy_read_timeout 300s;          # větší upload může chvíli trvat
     }
 
+    # -----------------------------------------------------------------
+    # /api/admin/* — patří k adminu, ale maska výš na ně NESEDÍ.
+    # `location /admin` je prefix a `/api/admin/…` jím prostě nezačíná,
+    # takže šest rout viselo na internetu (bránily se samy — 404 pro
+    # neautentizovaného — ale existovaly a daly se zkoušet). Ať pro ně
+    # platí přesně to samé pravidlo jako pro zbytek adminu.
+    #
+    # Kdo je volá: **prohlížeč přihlášeného admina** — `file` (náhledy
+    # souborů), `blocklist/export` (odkazy ke stažení v auditu),
+    # `sync/start` + `sync/status`. Ten chodí z povolené IP, jinak by se
+    # do adminu vůbec nedostal, takže ho allowlist nemůže překvapit.
+    #
+    # DOPLŇ TU STEJNOU SADU IP JAKO V `location /admin` VÝŠ. Když se
+    # rozejdou, admin bude napůl fungovat a napůl vracet 404 — což se
+    # ladí mizerně, protože maska schválně nic neříká.
+    # -----------------------------------------------------------------
+    location /api/admin {
+        # allow 1.2.3.4;            # statická domácí IP — DOPLŇ
+        # allow 5.6.7.8;            # zálohní IP #1 — DOPLŇ
+        # allow 9.10.11.12;         # zálohní IP #2 — DOPLŇ
+        # allow 10.0.0.0/24;        # WireGuard tunel — DOPLŇ až bude WG nasazený
+        deny all;
+        error_page 403 = @admin_notfound;
+
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+    }
+
+    # Dvě routy pod /api/admin, které volá VÝHRADNĚ tenhle stroj sám přes
+    # loopback: `drops/sync` (systemd timer, deploy/drop-sheet-sync.*) a
+    # `revalidate` (CLI sync přes src/lib/revalidatePing.ts). Loopback míří
+    # na 127.0.0.1:3000 přímo a Nginxem neprochází, takže tudy nemá dorazit
+    # ani jedno volání — a co nemá dorazit, ať neexistuje.
+    #
+    # `location =` je přesná shoda a v Nginxu má nejvyšší prioritu, takže
+    # tyhle dva řádky vyhrají nad allowlistem výš bez ohledu na pořadí.
+    # Nezruš je v domnění, že jsou nadbytečné vedle allowlistu: allowlist
+    # pouští tvoji domácí IP, tohle nepouští nikoho.
+    location = /api/admin/drops/sync { return 404; }
+    location = /api/admin/revalidate { return 404; }
+
     # Maskovaná 404 pro IP, které neprošly /admin allowlistem. `internal`
     # znamená, že nelze hitnout přímo zvenku — jen jako cíl error_page.
     location @admin_notfound {

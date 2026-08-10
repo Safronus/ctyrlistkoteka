@@ -161,11 +161,21 @@ systemctl status pm2-app --no-pager
 ```bash
 source /home/app/.nvm/nvm.sh
 nvm alias default lts/*            # ať se verze aktivuje i příště
-npm install -g pm2                 # pm2 pod AKTUÁLNÍ verzí Node
+npm install -g pm2@$(pm2 -v)       # pm2 pod AKTUÁLNÍ verzí Node — a ve STEJNÉ verzi
 pm2 startup systemd -u app --hp /home/app
 # ...a spustit ten sudo příkaz, který se vypíše
 pm2 save
 ```
+
+> **`pm2@$(pm2 -v)`, ne holé `pm2`.** Instalace bez verze vytáhne nejnovější
+> major — 2026-08-10 to znamenalo CLI 7.0.3 proti běžícímu démonovi 6.0.14.
+> Démon žije dál, dokud ho někdo nerestartuje, takže se to projeví jako
+> hláška `In-memory PM2 is out-of-date` a jako **riziko, že příští deploy
+> selže na `pm2 reload`** (runner sáhne po CLI z PATH, démon je pořád starý).
+> Upgrade majoru PM2 na produkci nic nezískává; pokud ho někdy chceš, je to
+> samostatný krok `pm2 update` v klidné chvíli, ne vedlejší efekt opravy
+> PATH. Aktuální verzi démona zjistíš z `pm2 list` v hlavičce nebo
+> ze `systemctl status pm2-app` (`PM2 v6.0.14: God Daemon`).
 
 Ten poslední krok je nutný: unit `pm2-app` má zapečenou absolutní cestu ke
 staré verzi Node. Dokud ta verze na disku existuje, běží to; ve chvíli, kdy
@@ -572,6 +582,8 @@ na to, kde jsou napsané.
 | `location /generated/` | Fotky servíruje Nginx přímo z disku (`alias`), mimo Node i mimo rate limit. `expires 1y` + `immutable` — soubory mají sha1 v názvu. |
 | `location /_next/static/` | Buildové JS/CSS. **Mimo rate limit** — viz past č. 3 níž. |
 | `location /admin` | IP allowlist → `deny all`, 403 se přepisuje na 404 přes `@admin_notfound` (scanner nezjistí, že `/admin` existuje). `client_max_body_size 200M` musí sedět s `serverActions.bodySizeLimit` v `next.config.ts`. |
+| `location /api/admin` | **(2026-08-10)** Tentýž allowlist. Prefix `/admin` na `/api/admin/…` nesedí, takže šest rout (`file`, `blocklist/export`, `sync/start`, `sync/status`, `drops/sync`, `revalidate`) viselo mimo masku. Volá je jen prohlížeč admina, tedy z povolené IP. **Sadu `allow` drž shodnou s `/admin`** — rozejdou-li se, admin bude půl na půl vracet 404 a maska ti schválně neřekne proč. |
+| `location = /api/admin/drops/sync`<br>`location = /api/admin/revalidate` | Natvrdo `return 404`. Obojí volá výhradně stroj sám přes loopback (systemd timer / `revalidatePing.ts`), který Nginx obchází — přes proxy nemá dorazit ani jedno. Přesná shoda má v Nginxu nejvyšší prioritu, takže vyhraje nad allowlistem bez ohledu na pořadí. |
 | `location /` | Všechno ostatní na Next.js, s rate limitem `ctyr_main`. |
 | `location @admin_notfound` | `internal` — jen cíl pro `error_page`. |
 

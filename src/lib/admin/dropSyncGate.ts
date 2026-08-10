@@ -3,11 +3,15 @@ import { createHash, timingSafeEqual } from "node:crypto";
 /**
  * The two checks guarding the background sync endpoint.
  *
- * Extracted from the route so they can be tested directly — they are the
- * whole security boundary of an endpoint that sits OUTSIDE the Nginx
- * admin cloak (that cloak matches the prefix `/admin`, and
- * `/api/admin/...` does not start with it), so getting them wrong is not
- * a cosmetic mistake.
+ * Extracted from the route so they can be tested directly. The endpoint
+ * sits OUTSIDE the Nginx admin cloak — that cloak matches the prefix
+ * `/admin`, and `/api/admin/...` does not start with it — so getting
+ * these wrong is not a cosmetic mistake.
+ *
+ * `deploy/nginx.conf.template` now also answers 404 for this path, but
+ * treat that as a second lock, never as the reason to relax anything
+ * here: Nginx is edited by hand on the box and CI does not deploy it, so
+ * the config that is actually running may not be the one in the repo.
  */
 
 /** Constant-time token check. */

@@ -342,10 +342,17 @@ odvozený název vytvořil druhý soubor pro totéž ID).
   proto porovnává obojí přes `formatGpsDecimal`, aby neupravený soubor
   vyšel jako „žádná změna". Bez toho hlásil změnu u každého řádku
   s pozicí a operátor by přestal reportu věřit.
-- **`/api/admin/drops/sync` NENÍ za nginx maskou adminu.** Ta maska je
-  v `deploy/nginx.conf.template` psaná jako `location /admin` — prefix, a
-  `/api/admin/…` jím nezačíná. Endpoint je tedy z internetu adresovatelný
-  a chrání se sám, ve třech vrstvách (`src/lib/admin/dropSyncGate.ts`):
+- **Pod `/api/admin/*` žije šest rout a maska adminu na ně NESEDÍ.** Ta
+  maska je v `deploy/nginx.conf.template` psaná jako `location /admin` —
+  prefix, a `/api/admin/…` jím nezačíná. Šablona proto od 2026-08-10 dává
+  `/api/admin` **stejný allowlist** (volá je jen prohlížeč přihlášeného
+  admina, tedy z povolené IP) a navíc `location =` s `return 404` na
+  `drops/sync` a `revalidate`, které volá výhradně stroj sám přes
+  loopback. **Nginx ale nasazuje ruka, ne CI** — živý soubor se od
+  šablony liší a žádná routa se na tu masku nesmí spolehnout. Každá se
+  brání i sama a při neúspěchu vrací 404, ne 401.
+- **Sync endpoint se brání sám, ve třech vrstvách**
+  (`src/lib/admin/dropSyncGate.ts`):
   tajemství porovnané v konstantním čase a odmítnuté, když je kratší než
   24 znaků; **jen loopback**; a 404 na každé selhání, aby prubíř nepoznal,
   že něco našel. Čtvrtá vrstva je tvar endpointu — nic nepřijímá v těle,
