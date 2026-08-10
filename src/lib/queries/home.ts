@@ -11,8 +11,6 @@ import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { locationNameResolver } from "@/lib/locationNameI18n";
 import {
-  MISSING_CLOVER_ID_MAX,
-  MISSING_CLOVER_ID_MIN,
   STATS_REVALIDATE,
   UNKNOWN_LOCATION_ID,
 } from "@/lib/constants";
@@ -26,12 +24,6 @@ export interface CollectionFreshness {
   latestCreatedAt: string | null;
   /** How many finds the latest upload added at the top of the collection. */
   latestFoundCount: number;
-  /** Earliest find INSERT (created_at), ISO — the founding date. */
-  firstCreatedAt: string | null;
-  /** Most recent gap-filler INSERT in the historical id window, ISO. */
-  lastBackfillCreatedAt: string | null;
-  /** Finds in that last backfill batch (same Prague day). */
-  lastBackfillCount: number;
 }
 
 /**
@@ -42,16 +34,13 @@ export interface CollectionFreshness {
  * tag so a sync's revalidation refreshes it too.
  */
 async function getCollectionFreshnessImpl(): Promise<CollectionFreshness> {
-  const [countsRows, backfillRows] = await Promise.all([
-    prisma.$queryRaw<
-      Array<{
-        first_created_at: Date | null;
-        latest_created_at: Date | null;
-        latest_found_count: number;
-      }>
-    >`
+  const countsRows = await prisma.$queryRaw<
+    Array<{
+      latest_created_at: Date | null;
+      latest_found_count: number;
+    }>
+  >`
       SELECT
-        (SELECT MIN(created_at) FROM finds) AS first_created_at,
         (SELECT MAX(created_at) FROM finds) AS latest_created_at,
         (
           WITH lu AS (
@@ -68,43 +57,13 @@ async function getCollectionFreshnessImpl(): Promise<CollectionFreshness> {
           WHERE (f.created_at AT TIME ZONE 'Europe/Prague')::date = lu.d
             AND f.id > pm.pmax
         ) AS latest_found_count
-    `,
-    prisma.$queryRaw<
-      Array<{ last_backfill_at: Date | null; last_backfill_count: number }>
-    >`
-      WITH last AS (
-        SELECT MAX(created_at) AS last_at
-        FROM finds
-        WHERE id >= ${MISSING_CLOVER_ID_MIN} AND id <= ${MISSING_CLOVER_ID_MAX}
-      )
-      SELECT
-        last.last_at AS last_backfill_at,
-        (
-          SELECT COUNT(*)::int
-          FROM finds f
-          WHERE f.id >= ${MISSING_CLOVER_ID_MIN}
-            AND f.id <= ${MISSING_CLOVER_ID_MAX}
-            AND last.last_at IS NOT NULL
-            AND (f.created_at AT TIME ZONE 'Europe/Prague')::date
-                = (last.last_at AT TIME ZONE 'Europe/Prague')::date
-        ) AS last_backfill_count
-      FROM last
-    `,
-  ]);
+    `;
   const c = countsRows[0];
-  const b = backfillRows[0];
   return {
     latestCreatedAt: c?.latest_created_at
       ? c.latest_created_at.toISOString()
       : null,
     latestFoundCount: c ? Number(c.latest_found_count) : 0,
-    firstCreatedAt: c?.first_created_at
-      ? c.first_created_at.toISOString()
-      : null,
-    lastBackfillCreatedAt: b?.last_backfill_at
-      ? b.last_backfill_at.toISOString()
-      : null,
-    lastBackfillCount: b ? Number(b.last_backfill_count) : 0,
   };
 }
 
@@ -181,21 +140,8 @@ export interface HomeTotals {
    *  before that upload. Spans however many found-days the batch covers
    *  (it's "what the last upload added", not a single found day). Shown
    *  next to the "Poslední aktualizace sbírky" line. Backfill (ids below
-   *  the prior max) is excluded — that's the lastBackfill fields. */
+   *  the prior max) is excluded. */
   latestFoundCount: number;
-  /** ISO timestamp of the most recent INSERT of a find whose ID falls in
-   *  the historical "missing clovers" window (MISSING_CLOVER_ID_MIN..MAX
-   *  in constants.ts) — i.e. when the user last uploaded an older
-   *  gap-filling find. New finds added above that window don't affect
-   *  it. Null when the table has no find in the range. */
-  lastBackfillCreatedAt: string | null;
-  /** How many gap-window finds were uploaded in that last backfill —
-   *  counted as the finds in the range whose `created_at` falls on the
-   *  same calendar day (Europe/Prague) as `lastBackfillCreatedAt`. Sync
-   *  inserts gap fills one row at a time (no shared batch timestamp), so
-   *  same-day is the robust proxy for "the last upload". 0 when the
-   *  range is empty. */
-  lastBackfillCount: number;
 }
 
 export interface HomeHighlights {
@@ -204,10 +150,6 @@ export interface HomeHighlights {
   /** ISO timestamp of the user's earliest find. Drives the precise
    *  "before X years, Y days, Z hours" hint below the headline year. */
   firstFoundAt: string | null;
-  /** ISO timestamp of the first upload (MIN created_at). Drives the
-   *  "První čtyřlístek zaevidován" line — when the earliest clover was
-   *  first written to the web, not its EXIF found date. */
-  firstCreatedAt: string | null;
   /** Single calendar day with the most finds. Mirrors the `peaks.day`
    *  bucket used on /statistiky. */
   peakDay: {
@@ -278,7 +220,6 @@ export async function getHomePageData(): Promise<HomePageData> {
     topLocRows,
     monthlyRows,
     geoLocRows,
-    backfillRows,
   ] = await Promise.all([
     prisma.$queryRaw<
       Array<{
@@ -291,7 +232,6 @@ export async function getHomePageData(): Promise<HomePageData> {
         last_year: number | null;
         first_found_at: Date | null;
         latest_found_at: Date | null;
-        first_created_at: Date | null;
         latest_created_at: Date | null;
         latest_found_count: number;
       }>
@@ -318,9 +258,7 @@ export async function getHomePageData(): Promise<HomePageData> {
         (SELECT MAX(found_at) FROM finds) AS latest_found_at,
         -- Upload timestamps: created_at is when sync wrote the row to the DB
         -- (when the clover reached the web), NOT the EXIF found date.
-        -- first_created_at anchors "První čtyřlístek zaevidován";
         -- latest_created_at anchors "Poslední aktualizace sbírky".
-        (SELECT MIN(created_at) FROM finds) AS first_created_at,
         (SELECT MAX(created_at) FROM finds) AS latest_created_at,
         -- "Last update" = how many finds the most recent upload added at
         -- the TOP of the collection: finds inserted on the latest
@@ -328,7 +266,6 @@ export async function getHomePageData(): Promise<HomePageData> {
         -- the max id that existed before that upload. Spans however many
         -- found-days the batch covers — it's about the upload, not a
         -- single found day. Backfill (ids at/below the prior max) is
-        -- excluded; it's tracked by the lastBackfill fields below.
         (
           WITH lu AS (
             SELECT (MAX(created_at) AT TIME ZONE 'Europe/Prague')::date AS d
@@ -516,40 +453,6 @@ export async function getHomePageData(): Promise<HomePageData> {
       )
     `,
 
-    // "Last backfill" — most recent INSERT of a find whose ID sits in
-    // the historical "missing clovers" window
-    // (MISSING_CLOVER_ID_MIN..MAX). Only gap-fillers in that fixed range
-    // count: new finds added at the high end (id > MAX) don't move this
-    // status, and neither do the already-complete low ids (< MIN). The
-    // earlier "id below the running max" heuristic falsely tripped on
-    // batch uploads whose created_at order didn't match id order.
-    // created_at is the first-insert time (upserts don't touch it), so
-    // MAX(created_at) over the range = when the last gap-filler landed.
-    prisma.$queryRaw<
-      Array<{ last_backfill_at: Date | null; last_backfill_count: number }>
-    >`
-      WITH last AS (
-        SELECT MAX(created_at) AS last_at
-        FROM finds
-        WHERE id >= ${MISSING_CLOVER_ID_MIN} AND id <= ${MISSING_CLOVER_ID_MAX}
-      )
-      SELECT
-        last.last_at AS last_backfill_at,
-        (
-          -- Count gap-window finds inserted on the SAME calendar day
-          -- (Europe/Prague) as the most recent one = the last upload
-          -- batch. Per-row created_at means there's no shared batch
-          -- timestamp, so same-day is the robust grouping.
-          SELECT COUNT(*)::int
-          FROM finds f
-          WHERE f.id >= ${MISSING_CLOVER_ID_MIN}
-            AND f.id <= ${MISSING_CLOVER_ID_MAX}
-            AND last.last_at IS NOT NULL
-            AND (f.created_at AT TIME ZONE 'Europe/Prague')::date
-                = (last.last_at AT TIME ZONE 'Europe/Prague')::date
-        ) AS last_backfill_count
-      FROM last
-    `,
   ]);
 
   const c = countsRows[0];
@@ -569,8 +472,6 @@ export async function getHomePageData(): Promise<HomePageData> {
     }
   }
 
-  const lastBackfill = backfillRows[0]?.last_backfill_at ?? null;
-  const lastBackfillCount = backfillRows[0]?.last_backfill_count ?? 0;
   const totals: HomeTotals = {
     finds: c ? Number(c.finds) : 0,
     maxFindId: c?.max_find_id ?? null,
@@ -585,8 +486,6 @@ export async function getHomePageData(): Promise<HomePageData> {
       ? c.latest_created_at.toISOString()
       : null,
     latestFoundCount: c ? Number(c.latest_found_count) : 0,
-    lastBackfillCreatedAt: lastBackfill ? lastBackfill.toISOString() : null,
-    lastBackfillCount: Number(lastBackfillCount),
   };
 
   const toHomeFind = (
@@ -636,9 +535,6 @@ export async function getHomePageData(): Promise<HomePageData> {
   const highlights: HomeHighlights = {
     firstYear: c?.first_year ?? null,
     firstFoundAt: c?.first_found_at ? c.first_found_at.toISOString() : null,
-    firstCreatedAt: c?.first_created_at
-      ? c.first_created_at.toISOString()
-      : null,
     peakDay: peakDayRow
       ? {
           startsAt: peakDayRow.bucket.toISOString(),

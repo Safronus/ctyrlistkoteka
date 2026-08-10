@@ -1,17 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  Activity,
-  BarChart3,
   Database,
   FileJson,
-  FolderTree,
   Gauge,
-  Gift,
-  Languages,
+  ListChecks,
+  PackageOpen,
   QrCode,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 import { getAdminSession, isAuthenticated } from "@/lib/admin/session";
 import { LogoutButton } from "./logout-button";
@@ -49,36 +45,33 @@ export default async function AdminLayout({
           </Link>
           {authed && (
             <>
+              {/* Only the sections reached often enough to deserve a
+                  permanent slot. Everything else (Soubory, Překlady,
+                  Efekty, Rozdané, Návštěvnost, Audit) keeps its tile on
+                  the overview — dropping it from here shortens the bar,
+                  it doesn't hide the page. */}
               <nav
                 aria-label="Admin sekce"
                 className="flex flex-1 items-center justify-center gap-1 text-sm"
               >
                 <NavLink href="/admin" icon={Gauge} label="Přehled" />
-                <NavLink href="/admin/files" icon={FolderTree} label="Soubory" />
+                <NavLink href="/admin/sync" icon={Database} label="Sync" />
+                <NavLink href="/admin/qr" icon={QrCode} label="QR" />
+                <NavLink
+                  href="/admin/import"
+                  icon={PackageOpen}
+                  label="Import balíčků"
+                />
+                <NavLink
+                  href="/admin/checks"
+                  icon={ListChecks}
+                  label="Kontroly"
+                />
                 <NavLink
                   href="/admin/json/lokace-stavy-poznamky"
                   icon={FileJson}
                   label="JSON"
                 />
-                <NavLink
-                  href="/admin/translations"
-                  icon={Languages}
-                  label="Překlady"
-                />
-                <NavLink href="/admin/sync" icon={Database} label="Sync" />
-                <NavLink href="/admin/qr" icon={QrCode} label="QR" />
-                <NavLink
-                  href="/admin/special"
-                  icon={Sparkles}
-                  label="Efekty"
-                />
-                <NavLink href="/admin/donated" icon={Gift} label="Rozdané" />
-                <NavLink
-                  href="/admin/visitors"
-                  icon={BarChart3}
-                  label="Návštěvnost"
-                />
-                <NavLink href="/admin/audit" icon={Activity} label="Audit" />
               </nav>
               <div className="flex shrink-0 items-center gap-3 text-sm text-gray-600">
                 <span className="hidden lg:inline">

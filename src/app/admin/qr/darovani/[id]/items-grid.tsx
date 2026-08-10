@@ -12,6 +12,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ExternalLink,
+  Eye,
+  EyeOff,
   Loader2,
   Pencil,
   Plus,
@@ -167,6 +169,13 @@ export function ItemsGrid({
   // checkbox and opening the dialog crawl. As an <img> each card is ONE
   // node and the browser decodes it off the main thread.
   const [svgs, setSvgs] = useState<Record<string, QrPreview>>({});
+  /** Codes start hidden. A wave is a hundred-plus cards and the pictures
+   *  are the tallest thing on each one, so showing them by default meant
+   *  scrolling past a wall of QR to reach the numbers — which is what
+   *  this list is actually read for. Turning them on also costs the
+   *  batched render round trips, so hidden is cheaper as well as
+   *  shorter: the effect below doesn't fetch anything until asked. */
+  const [showQr, setShowQr] = useState(false);
   const [printing, setPrinting] = useState<number[] | null>(null);
   // Two-step, because zeroing counters is not undoable and the button
   // sits in a strip of one-click bulk edits.
@@ -190,6 +199,9 @@ export function ItemsGrid({
   // each: 111 cards used to mean 111 round trips before the page settled.
   const shownKey = shown.map((i) => i.renderKey).join("|");
   useEffect(() => {
+    // Nothing to draw while the codes are hidden — and nothing to ask
+    // the server for either. Flipping the toggle on re-runs this.
+    if (!showQr) return;
     let alive = true;
     const byId = new Map(shown.map((i) => [i.id, i.renderKey]));
     const missing = shown
@@ -218,7 +230,7 @@ export function ItemsGrid({
     // `svgs` is deliberately out of the deps: it is what the effect fills
     // in, and including it would re-run the effect after every chunk.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shownKey]);
+  }, [shownKey, showQr]);
 
   // Identity-stable, so the memoised cards actually skip re-rendering:
   // an inline arrow would be a new prop on every keystroke in the filter.
@@ -423,6 +435,28 @@ export function ItemsGrid({
         >
           {allShownChecked ? "Odznačit" : `Označit (${shown.length})`}
         </button>
+        <button
+          type="button"
+          onClick={() => setShowQr((v) => !v)}
+          aria-pressed={showQr}
+          title={
+            showQr
+              ? "Skrýt obrázky QR kódů — zůstanou čísla a popisy"
+              : "Zobrazit obrázky QR kódů (vykreslí se až teď)"
+          }
+          className={`${CONTROL_H_SM} inline-flex items-center gap-1.5 rounded-md border px-2.5 font-medium transition ${
+            showQr
+              ? "border-brand-300 bg-brand-50 text-brand-800 hover:bg-brand-100"
+              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+          }`}
+        >
+          {showQr ? (
+            <EyeOff className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <Eye className="h-3.5 w-3.5" aria-hidden />
+          )}
+          {showQr ? "Skrýt QR" : "Zobrazit QR"}
+        </button>
         <span className="text-gray-500">
           {shown.length} z {items.length}
           {selected.size > 0 && ` · vybráno ${selected.size}`}
@@ -614,7 +648,8 @@ export function ItemsGrid({
             <ItemCard
               key={i.id}
               item={i}
-              svg={svgs[i.renderKey] ?? null}
+              svg={showQr ? (svgs[i.renderKey] ?? null) : null}
+              showQr={showQr}
               areaName={areas.find((a) => a.id === i.areaId)?.name ?? null}
               checked={selected.has(i.id)}
               onToggle={toggle}
@@ -662,6 +697,7 @@ export function ItemsGrid({
 const ItemCard = memo(function ItemCard({
   item,
   svg,
+  showQr,
   areaName,
   checked,
   onToggle,
@@ -670,6 +706,9 @@ const ItemCard = memo(function ItemCard({
   item: ItemView;
   /** Pre-rendered by the grid's batched fetch; null until it arrives. */
   svg: QrPreview | null;
+  /** False hides the picture entirely — not a blank placeholder, which
+   *  would keep the height the toggle exists to reclaim. */
+  showQr: boolean;
   areaName: string | null;
   checked: boolean;
   onToggle: (id: number) => void;
@@ -702,6 +741,7 @@ const ItemCard = memo(function ItemCard({
       {/* The code is a picture, not a control: it is here to be looked
           at, and clicking a 4 cm QR to reach a form was a guessing game.
           Editing has its own button below. */}
+      {showQr && (
       <div className="mt-2 rounded border border-gray-100 bg-gray-50 p-1">
         {svg ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -723,6 +763,7 @@ const ItemCard = memo(function ItemCard({
           </span>
         )}
       </div>
+      )}
 
       <button
         type="button"

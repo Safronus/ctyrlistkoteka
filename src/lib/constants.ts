@@ -166,17 +166,6 @@ export const AUTHOR_LOCATION_ID = 158;
 export const DISTANCE_ORIGIN_LOCATION_ID = AUTHOR_LOCATION_ID;
 
 /**
- * Historical "missing clovers" backfill window — the inclusive find-ID
- * range the user is gradually filling in (older finds that were never
- * scanned/uploaded). The home page's "Poslední nahrání chybějících
- * čtyřlístků" status reflects ONLY inserts whose id falls in this range;
- * finds below it are considered complete and finds above it are new
- * additions at the high end, not gap-fillers. Adjust as the gap closes.
- */
-export const MISSING_CLOVER_ID_MIN = 667;
-export const MISSING_CLOVER_ID_MAX = 13599;
-
-/**
  * The "Czech record" find — the milestone of the largest four-leaf clover
  * collection in ČR. Used only as the default seed for the admin-assignable
  * special-find config (src/lib/specialFinds.*): on a fresh deploy with no

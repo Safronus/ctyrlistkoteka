@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -200,6 +200,7 @@ export function SheetPanel({
               {status.changedAt ? fmt(status.changedAt) : "—"}
             </strong>
           </span>
+          {status.mode && <NextSyncCountdown syncedAt={status.syncedAt} />}
         </div>
       )}
 
@@ -543,6 +544,56 @@ function Help() {
 
 /** Roughly four missed five-minute ticks — long enough not to cry wolf
  *  over one slow run, short enough to notice the same afternoon. */
+/** How often the systemd timer pulls — `OnUnitActiveSec=5min` in
+ *  `deploy/drop-sheet-sync.timer`. Change one, change the other. */
+const SYNC_INTERVAL_MS = 5 * 60 * 1000;
+
+/**
+ * Counts down to the next expected pull.
+ *
+ * It is an ESTIMATE and says so, because the app cannot see systemd's
+ * schedule: `syncedAt` is stamped on every check (unchanged, changed and
+ * failed alike), and the timer fires 5 minutes after the previous run
+ * finished — so "last check + 5 min" is the best the app can honestly
+ * know. When that moment passes without a new check, the countdown says
+ * the pull is overdue rather than counting into negative numbers, and
+ * the stale-sync warning below takes over from 20 minutes.
+ */
+function NextSyncCountdown({ syncedAt }: { syncedAt: string | null }) {
+  // `null` until mounted, on purpose: the server has no idea what time it
+  // is on the operator's machine, so rendering a countdown into the HTML
+  // would ship a number that is already wrong and mismatch on hydration.
+  // The one extra render that costs is the whole point of the pattern —
+  // it happens once, on mount, and never cascades.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!syncedAt || now === null) return null;
+  const last = new Date(syncedAt).getTime();
+  if (Number.isNaN(last)) return null;
+
+  const remaining = last + SYNC_INTERVAL_MS - now;
+  return (
+    <span className="text-gray-500">
+      Další kontrola:{" "}
+      <strong className={remaining > 0 ? "text-gray-800" : "text-amber-700"}>
+        {remaining > 0 ? `za ${mmss(remaining)}` : "měla už proběhnout"}
+      </strong>
+    </span>
+  );
+}
+
+/** `m:ss` for a positive duration in milliseconds. */
+function mmss(ms: number): string {
+  const total = Math.ceil(ms / 1000);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 const STALE_SYNC_MS = 20 * 60 * 1000;
 
 function staleSync(syncedAt: string | null): boolean {

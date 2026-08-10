@@ -9,6 +9,29 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Admin: kratší lišta, kratší stránka sady
+- **Horní menu drží jen to, co se otevírá často** — Přehled, Sync, QR, Import
+  balíčků, Kontroly, JSON. Ostatní sekce nikam nezmizely, jen se na ně chodí
+  z dlaždic na Přehledu.
+- **Náhledy QR v Kusech jsou nově vypnuté**, přepínačem nad seznamem se
+  zapnou. U vlny přes sto kusů byly obrázky to nejvyšší na každé kartičce a
+  čísla, kvůli kterým se seznam čte, kvůli nim utekla z obrazovky. Dokud se
+  nezapnou, kódy se ani nevykreslují.
+- **Mapa úkrytů se sbaluje**, ve sbaleném stavu ukazuje kolik kusů je
+  umístěno. Byla vysoká přes půl obrazovky a odsouvala všechno pod sebou.
+- **U Google Sheets je vidět odpočet do další kontroly.** Je to odhad
+  z poslední kontroly, ne pohled do systemd — a když čas uplyne bez nové
+  kontroly, řekne to rovnou.
+
+### Patička: jen poslední aktualizace
+- Ze tří řádků o aktualizacích zůstal **jeden**. „První čtyřlístek zaevidován“
+  a „Poslední nahrání chybějících čtyřlístků“ odpovídaly na otázky, které se
+  zavřely — mezera ve sbírce je zaplněná, takže druhý řádek natrvalo hlásil
+  poslední z něčeho, co už se nestane. Zmizel s nimi i rozbalovací ⓘ.
+- Vedlejší efekt: patička nepotřebuje klientský JavaScript a ze sestavy
+  stránky vypadly **dva SQL dotazy** (jeden na každé vykreslení jakékoli
+  stránky, druhý z dat domovské stránky).
+
 ### Koš se konečně sám uklízí
 - **`data/.trash/` má retenci 30 dnů.** CLAUDE.md ji slibovala od začátku,
   ale kód pro ni nikdy nevznikl — na serveru se nasbíralo 197 MB smazaných

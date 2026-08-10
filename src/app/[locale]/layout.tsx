@@ -168,43 +168,20 @@ export default async function PublicLayout({
           {/* 5 — visit counter */}
           <VisitCounter />
         </div>
-        {/* Second row — collection freshness ("Poslední aktualizace sbírky"
-            + ⓘ founding / last backfill). Moved here from the home hero so it
-            rides every page's footer. Dates are formatted server-side
-            (formatShortDateTimeCs isn't TZ-pinned, so formatting client-side
-            would risk a hydration mismatch). */}
-        {(freshness.latestCreatedAt || freshness.firstCreatedAt) && (
+        {/* Second row — collection freshness ("Poslední aktualizace sbírky").
+            Moved here from the home hero so it rides every page's footer.
+            The date is formatted server-side (formatShortDateTimeCs isn't
+            TZ-pinned, so formatting client-side would risk a hydration
+            mismatch). */}
+        {freshness.latestCreatedAt && (
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <CollectionFreshnessNote
-              lastUpdated={
-                freshness.latestCreatedAt
-                  ? formatShortDateTimeCs(
-                      new Date(freshness.latestCreatedAt),
-                      locale,
-                      COLLECTION_TIME_ZONE,
-                    )
-                  : null
-              }
+              lastUpdated={formatShortDateTimeCs(
+                new Date(freshness.latestCreatedAt),
+                locale,
+                COLLECTION_TIME_ZONE,
+              )}
               latestCount={freshness.latestFoundCount}
-              firstFound={
-                freshness.firstCreatedAt
-                  ? formatShortDateTimeCs(
-                      new Date(freshness.firstCreatedAt),
-                      locale,
-                      COLLECTION_TIME_ZONE,
-                    )
-                  : null
-              }
-              lastBackfill={
-                freshness.lastBackfillCreatedAt
-                  ? formatShortDateTimeCs(
-                      new Date(freshness.lastBackfillCreatedAt),
-                      locale,
-                      COLLECTION_TIME_ZONE,
-                    )
-                  : null
-              }
-              backfillCount={freshness.lastBackfillCount}
             />
           </div>
         )}

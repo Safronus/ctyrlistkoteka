@@ -4,6 +4,8 @@ import dynamic from "next/dynamic";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ChevronDown,
+  ChevronRight,
   Eraser,
   Loader2,
   Maximize2,
@@ -83,6 +85,15 @@ export function AreaMapPanel({
   const [error, setError] = useState<string | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [fitToken, setFitToken] = useState(0);
+  const [mapOpen, setMapOpen] = useState(false);
+
+  /** Across the WHOLE campaign, not the selected area — the collapsed
+   *  header has no area picker visible, so an area-scoped count would be
+   *  a number without a subject. */
+  const placedTotal = useMemo(
+    () => items.filter((i) => i.lat !== null).length,
+    [items],
+  );
   const [busy, start] = useTransition();
 
   const area = areas.find((a) => a.id === areaId) ?? null;
@@ -190,12 +201,29 @@ export function AreaMapPanel({
   return (
     <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-900">
+        {/* Collapsed by default: the map is 56rem tall and pushes the
+            sections below it off the screen, and most visits to this page
+            are not about placing pins. Same disclosure pattern as
+            "Oblasti" above. */}
+        <button
+          type="button"
+          onClick={() => setMapOpen((o) => !o)}
+          aria-expanded={mapOpen}
+          className="flex items-center gap-2 text-left text-sm font-semibold text-gray-900"
+        >
+          {mapOpen ? (
+            <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden />
+          )}
           Mapa úkrytů{" "}
           <span className="font-normal text-xs text-gray-400">
-            — jen v adminu, souřadnice se nikam ven nedostanou
+            {mapOpen
+              ? "— jen v adminu, souřadnice se nikam ven nedostanou"
+              : `(${placedTotal} z ${items.length} umístěno)`}
           </span>
-        </h2>
+        </button>
+        {mapOpen && (
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -224,8 +252,11 @@ export function AreaMapPanel({
           </select>
           </div>
         </div>
+        )}
       </div>
 
+      {mapOpen && (
+      <>
       {sheetMode && (
         <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
           <strong>Pozice řídí Google Sheets.</strong> Mapa je tu na
@@ -348,6 +379,8 @@ export function AreaMapPanel({
           </button>
         )}
       </div>
+      </>
+      )}
     </section>
   );
 }
