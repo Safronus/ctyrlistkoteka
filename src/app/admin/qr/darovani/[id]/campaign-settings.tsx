@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   Globe,
+  Images,
   Lightbulb,
   Loader2,
   QrCode,
@@ -14,6 +15,12 @@ import {
 } from "lucide-react";
 import { updateCampaignAction, type CampaignInput } from "../../drop-actions";
 import { Field, INPUT_CLS } from "../../qr-ui";
+import {
+  COLLAGE_MODES,
+  COLLAGE_MODE_LABEL,
+  COLLAGE_VARIANTS,
+  COLLAGE_VARIANT_LABEL,
+} from "@/lib/collage";
 import { QrDesignFields, type QrDesign } from "./qr-design-fields";
 import { QrLivePreview } from "./qr-live-preview";
 
@@ -219,6 +226,74 @@ export function CampaignSettings({
                 />
               </Field>
             </div>
+          </Group>
+
+          {/* ------------------------------------------ the background */}
+          <Group
+            icon={<Images className="h-4 w-4 text-teal-600" aria-hidden />}
+            title="Pozadí stránky po naskenování"
+            note="Koláž z ořezů celé sbírky. Nahoře na stránce se ukáže v plné síle, pod textem jen prosvítá — sílu si nastav níž."
+          >
+            <div className="grid items-start gap-4 sm:grid-cols-3">
+              <Field
+                label="Kdy se ukáže"
+                hint="Podle čísla = každá kartička má vždy tu svou."
+              >
+                <select
+                  className={INPUT_CLS}
+                  value={cfg.bgMode}
+                  onChange={(e) => set("bgMode", e.target.value)}
+                >
+                  {COLLAGE_MODES.map((m) => (
+                    <option key={m} value={m}>
+                      {COLLAGE_MODE_LABEL[m]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label="Která koláž"
+                hint={
+                  cfg.bgMode === "FIXED"
+                    ? "Tahle bude na všech kartičkách sady."
+                    : "Uplatní se jen u volby „Jedna zvolená“."
+                }
+              >
+                <select
+                  className={INPUT_CLS}
+                  value={cfg.bgVariant}
+                  disabled={cfg.bgMode !== "FIXED"}
+                  onChange={(e) => set("bgVariant", e.target.value)}
+                >
+                  {COLLAGE_VARIANTS.map((v) => (
+                    <option key={v} value={v}>
+                      {COLLAGE_VARIANT_LABEL[v]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label={`Síla pod textem — ${cfg.bgOpacity} %`}
+                hint="0 % = pod textem nic, jen v hlavičce."
+              >
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  className="mt-2 w-full accent-brand-600"
+                  value={cfg.bgOpacity}
+                  disabled={cfg.bgMode === "OFF"}
+                  onChange={(e) => set("bgOpacity", e.target.value)}
+                />
+              </Field>
+            </div>
+            <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+              Koláže musí nejdřív vzniknout na serveru — jednorázově příkazem{" "}
+              <code className="rounded bg-white px-1">pnpm collage</code>.
+              Dokud tam nejsou, stránka se vykreslí bez pozadí, nic se
+              nerozbije.
+            </p>
           </Group>
 
           {/* ------------------------------------------------ the crew */}

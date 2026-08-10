@@ -24,6 +24,9 @@ const EMPTY: CampaignInput = {
   qrCaption: "",
   hintCs: "",
   hintEn: "",
+  bgMode: "OFF",
+  bgVariant: "MOSAIC",
+  bgOpacity: "35",
   design: {
     titleMode: "find",
     captionMode: "custom",

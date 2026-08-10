@@ -6,6 +6,13 @@ import { ArrowRight, Home, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { registerDropScan } from "@/lib/dropScan";
 import { resolveDropText, type DropLang } from "@/lib/dropText";
+import {
+  collageFit,
+  collageUrl,
+  pickCollageVariant,
+  type CollageMode,
+  type CollageVariant,
+} from "@/lib/collage";
 
 /**
  * Landing page of one in-the-wild card (`/d/<uuid>`).
@@ -73,6 +80,29 @@ export default async function DropLandingPage({
   const t = resolveDropText(item, item.campaign, lang);
   const other: DropLang = lang === "cs" ? "en" : "cs";
 
+  // The collage behind the page. Chosen here rather than in CSS because
+  // three of the five modes need to know which card this is. If the wave
+  // asks for a collage that hasn't been generated yet, the <div> simply
+  // has no image to paint and the page looks exactly as it did before —
+  // no check, no cost, no broken layout.
+  const bgVariant = pickCollageVariant({
+    mode: item.campaign.bgMode as CollageMode,
+    fixed: item.campaign.bgVariant as CollageVariant,
+    findId: item.findId,
+    // The clock and the dice are the point of two of the modes, and this
+    // route is `force-dynamic`, so it renders once per request and there
+    // is no re-render for them to disagree with. `pickCollageVariant`
+    // itself stays pure — it takes these as arguments precisely so it can
+    // be tested without either.
+    // eslint-disable-next-line react-hooks/purity
+    dayIndex: Math.floor(Date.now() / 86_400_000),
+    // eslint-disable-next-line react-hooks/purity
+    roll: Math.random(),
+  });
+  const bg = bgVariant ? collageUrl(bgVariant) : null;
+  const bgSize = bgVariant ? collageFit(bgVariant) : "cover";
+  const bgOpacity = Math.min(100, Math.max(0, item.campaign.bgOpacity)) / 100;
+
   const labels =
     lang === "en"
       ? {
@@ -93,7 +123,49 @@ export default async function DropLandingPage({
         };
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-5 py-12">
+    <div className="relative min-h-screen">
+      {bg && (
+        <>
+          {/* Two layers of the same picture. The full-strength band at the
+              top is the "oh, look at that" moment; the veil over the whole
+              page is what the wave's slider controls, because this page is
+              read outdoors on a phone and text over a photo of grass is
+              not text. Both are decorative — aria-hidden, no alt. */}
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-0 z-0 bg-center bg-no-repeat"
+            style={{
+              backgroundImage: `url('${bg}')`,
+              backgroundSize: bgSize,
+              opacity: bgOpacity,
+            }}
+          />
+          <div
+            aria-hidden
+            // Tall enough that a 4:3 collage fits inside it whole at
+            // phone width (375 → 281 px), because half a clover is not a
+            // clover. Capped in viewport units so a desktop doesn't get a
+            // 1000 px band. The fade starts late for the same reason.
+            className="pointer-events-none absolute inset-x-0 top-0 z-0 h-72 max-h-[45vh] bg-center bg-no-repeat sm:h-96"
+            style={{
+              backgroundImage: `url('${bg}')`,
+              backgroundSize: bgSize,
+              maskImage: "linear-gradient(to bottom, black 60%, transparent)",
+              WebkitMaskImage:
+                "linear-gradient(to bottom, black 60%, transparent)",
+            }}
+          />
+        </>
+      )}
+      {/* With a collage on, the card starts BELOW the band instead of
+          being centred — otherwise it lies across the picture and the
+          "full strength in the header" is a sliver of green above a white
+          box. Without one, the original centred layout is untouched. */}
+      <main
+        className={`relative z-10 mx-auto flex min-h-screen max-w-2xl flex-col px-5 py-12 ${
+          bg ? "justify-start pt-72 sm:pt-96" : "justify-center"
+        }`}
+      >
       <div className="rounded-2xl border border-brand-200 bg-white p-6 shadow-sm sm:p-8">
         <p className="text-center text-5xl" aria-hidden>
           🍀
@@ -177,6 +249,7 @@ export default async function DropLandingPage({
           </Link>
         </p>
       </div>
-    </main>
+      </main>
+    </div>
   );
 }

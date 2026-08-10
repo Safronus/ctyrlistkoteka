@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Koláž ze sbírky jako pozadí kartičkových stránek
+- Stránka, kterou uvidí nálezce po naskenování kartičky, může mít **pozadí
+  poskládané z ořezů celé sbírky** — oslava 30 000 nálezů složená z nich
+  samotných.
+- **Šest podob**: mozaika přes celou plochu, volně rozeseté ořezy (nejlépe
+  snese text přes sebe), a čtyři, kde ořezy **tvoří obrazec** — jednoduchý
+  čtyřlístek, číslo 30 000, kreslený čtyřlístek webu a smajlík.
+- U sady se nastaví, **kdy se která ukáže**: vypnuto, jedna zvolená, podle
+  čísla nálezu (kartička má pak vždycky tu svou a dvě různé se dají
+  porovnat), náhodně při každém načtení, nebo rotace po dnech. Plus síla,
+  s jakou prosvítá pod textem — nahoře na stránce je vždy v plné.
+- Tvarové varianty se **ukazují celé**, ne oříznuté: koláž je na šířku,
+  telefon na výšku, a ze čtyřlístku by jinak zbyly dva zelené fleky.
+- Koláže vznikají jednorázově příkazem `pnpm collage` na serveru. Dokud
+  nevzniknou, stránka se vykreslí bez pozadí — nic se nerozbije.
+
 ### Admin: kratší lišta, kratší stránka sady
 - **Horní menu drží jen to, co se otevírá často** — Přehled, Sync, QR, Import
   balíčků, Kontroly, JSON. Ostatní sekce nikam nezmizely, jen se na ně chodí

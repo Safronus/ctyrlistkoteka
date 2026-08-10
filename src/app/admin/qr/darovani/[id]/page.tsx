@@ -255,6 +255,9 @@ export default async function DropCampaignPage({
           hintEn: campaign.hintEn ?? "",
           design: campaignDesign,
           placers: campaign.placers.join("\n"),
+          bgMode: campaign.bgMode,
+          bgVariant: campaign.bgVariant,
+          bgOpacity: String(campaign.bgOpacity),
         }}
       />
 

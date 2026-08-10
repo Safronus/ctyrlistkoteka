@@ -29,12 +29,19 @@ export const COLLAGE_VARIANT_LABEL: Record<CollageVariant, string> = {
   SMILEY: "Smajlík",
 };
 
-/** The shaped variants that take their outline from a picture in
- *  `public/` rather than from generated SVG. Kept here so the generator
- *  and the admin agree on which files matter. */
-export const COLLAGE_IMAGE_MASKS: Partial<Record<CollageVariant, string>> = {
-  LOGO: "public/clover.png",
-  SMILEY: "public/safronus-face.png",
+/**
+ * The shaped variants that take their outline from a picture in `public/`
+ * rather than from generated SVG. Kept here so the generator and the
+ * admin agree on which files matter.
+ *
+ * Listed in preference order: the generator takes the first that exists
+ * and says which. That is how SMILEY can use the small footer icon today
+ * and a cleaner drawing later — dropping `safronus-face.png` in is enough,
+ * and nothing has to overwrite `safronus.png`, which the footer still uses.
+ */
+export const COLLAGE_IMAGE_MASKS: Partial<Record<CollageVariant, string[]>> = {
+  LOGO: ["public/clover.png"],
+  SMILEY: ["public/safronus-face.png", "public/safronus.png"],
 };
 
 /** How a wave decides which background a card gets. */
@@ -99,6 +106,25 @@ export function pickCollageVariant(opts: {
         Math.min(n - 1, Math.floor((opts.roll ?? 0) * n))
       ]!;
   }
+}
+
+/** Where the generator puts a finished collage. Nginx aliases
+ *  `/generated/` straight to the disk, so this is also the public URL. */
+export function collageUrl(variant: CollageVariant): string {
+  return `/generated/collage/${variant.toLowerCase()}.webp`;
+}
+
+/**
+ * How the background should fill its box.
+ *
+ * The collages are 4:3 and phones are the opposite, so `cover` crops the
+ * sides away — which is fine for a carpet of crops and ruinous for a
+ * shape: on a 375 px screen the drawn clover came out as a few green
+ * smudges from its middle. Shapes therefore get `contain` and are seen
+ * whole; only the two texture variants fill the box.
+ */
+export function collageFit(variant: CollageVariant): "cover" | "contain" {
+  return variant === "MOSAIC" || variant === "SCATTER" ? "cover" : "contain";
 }
 
 /** Integer avalanche (the murmur3 finalizer). Two ids one apart give two

@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "drop_campaigns" ADD COLUMN     "bg_mode" VARCHAR(16) NOT NULL DEFAULT 'OFF',
+ADD COLUMN     "bg_opacity" SMALLINT NOT NULL DEFAULT 35,
+ADD COLUMN     "bg_variant" VARCHAR(16) NOT NULL DEFAULT 'MOSAIC';

@@ -307,6 +307,7 @@ async function renderScatter(files: string[]): Promise<Buffer> {
 async function buildVariant(
   variant: CollageVariant,
   files: string[],
+  maskFile: string | undefined,
 ): Promise<Buffer> {
   if (variant === "SCATTER") return await renderScatter(files);
   if (variant === "MOSAIC") {
@@ -317,7 +318,6 @@ async function buildVariant(
 
   // Shaped: find the grid at which the shape has room for every crop, so
   // the crops really do form the clover rather than a sampled sketch of it.
-  const maskFile = COLLAGE_IMAGE_MASKS[variant];
   const svg = variant === "CLOVER" ? cloverMaskSvg : numberMaskSvg;
   const cache = new Map<string, Buffer>();
   const maskFor = async (cols: number, rows: number) => {
@@ -367,6 +367,19 @@ async function buildVariant(
   return await renderGrid(files, cols, rows, cells, variant);
 }
 
+/** First path that exists, or undefined. */
+async function firstExisting(paths: string[]): Promise<string | undefined> {
+  for (const p of paths) {
+    try {
+      await access(path.resolve(p));
+      return p;
+    } catch {
+      // keep looking
+    }
+  }
+  return undefined;
+}
+
 /** Tiles from a plain directory — the `--from-dir` path. */
 async function dirFiles(dir: string): Promise<string[]> {
   const names = await readdir(dir);
@@ -399,19 +412,22 @@ async function main() {
   const wanted = opts.only ? [opts.only] : [...COLLAGE_VARIANTS];
   for (const v of wanted) {
     // A variant whose outline lives in a file can't be drawn without it.
-    // Skip it and say which file is missing — silently emitting a blank
+    // Skip it and name the files it looked for — silently emitting a blank
     // background would look like the generator worked.
-    const maskFile = COLLAGE_IMAGE_MASKS[v];
-    if (maskFile) {
-      try {
-        await access(path.resolve(maskFile));
-      } catch {
-        console.warn(`⚠ ${v}: chybí předloha ${maskFile} — přeskakuji.`);
+    const candidates = COLLAGE_IMAGE_MASKS[v];
+    let maskFile: string | undefined;
+    if (candidates) {
+      maskFile = await firstExisting(candidates);
+      if (!maskFile) {
+        console.warn(
+          `⚠ ${v}: nenašel jsem předlohu (${candidates.join(" ani ")}) — přeskakuji.`,
+        );
         continue;
       }
+      console.log(`  ${v}: předloha ${maskFile}`);
     }
     const started = Date.now();
-    const buf = await buildVariant(v, files);
+    const buf = await buildVariant(v, files, maskFile);
     const out = path.join(outDir, `${v.toLowerCase()}.webp`);
     await writeFile(out, buf);
     console.log(

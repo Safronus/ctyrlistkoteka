@@ -485,6 +485,22 @@ model DropCampaign {
   /// edits by hand, it changes per wave, and a typo should be fixable
   /// without a migration. `DropItem.placedBy` holds the chosen name.
   placers String[] @default([])
+
+  // --- Collage background on the landing page ----------------------
+  //
+  // Built from the collection's own crops by `pnpm collage`; see
+  // src/lib/collage.ts for the variants and how a card is assigned one.
+  // Plain strings rather than Postgres enums: adding a variant should be
+  // a code change, not a migration, and an unknown value degrades to no
+  // background rather than a 500.
+  /// OFF | FIXED | BY_FIND | RANDOM | DAILY
+  bgMode    String @default("OFF") @map("bg_mode") @db.VarChar(16)
+  /// Which collage, when bgMode = FIXED.
+  bgVariant String @default("MOSAIC") @map("bg_variant") @db.VarChar(16)
+  /// How strongly it shows behind the text, 0–100 %. The header always
+  /// shows the collage at full strength; this is the veil below it.
+  bgOpacity Int    @default(35) @map("bg_opacity") @db.SmallInt
+
   archivedAt DateTime? @map("archived_at") @db.Timestamptz
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz

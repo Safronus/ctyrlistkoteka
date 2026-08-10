@@ -6,6 +6,12 @@ import { appendAudit } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db";
 import { DropStatus, Prisma } from "@/generated/prisma/client";
 import { parseRanges } from "@/lib/parseRanges";
+import {
+  COLLAGE_MODES,
+  COLLAGE_VARIANTS,
+  type CollageMode,
+  type CollageVariant,
+} from "@/lib/collage";
 import { parseGps } from "@/lib/parseGps";
 import { newDropToken, scatterPoints } from "@/lib/admin/drops";
 import { readBoundary, scatterInBoundary } from "@/lib/admin/dropBoundary";
@@ -97,6 +103,11 @@ export interface CampaignInput {
   design: QrDesignInput;
   /** Newline- or comma-separated crew names. */
   placers: string;
+  /** Landing-page background — see src/lib/collage.ts. */
+  bgMode: string;
+  bgVariant: string;
+  /** 0–100 %. */
+  bgOpacity: string;
 }
 
 /** Everything about how a card LOOKS, as the forms send it. */
@@ -193,6 +204,7 @@ export async function createCampaignAction(
         hintEn: nullable(input.hintEn, 5_000),
         qrOptions: designToBag(null, input.design),
         placers: parsePlacers(String(input.placers ?? "")),
+        ...collageFields(input),
       },
       select: { id: true },
     });
@@ -201,6 +213,31 @@ export async function createCampaignAction(
   } catch (e) {
     return { ok: false, error: msg(e, "Založení sady selhalo") };
   }
+}
+
+/**
+ * The three background columns, validated.
+ *
+ * Values arrive as strings from a form, so anything unrecognised is
+ * dropped back to a safe default rather than written through — an
+ * unknown variant would render as a missing image on a public page.
+ */
+function collageFields(input: CampaignInput): {
+  bgMode: CollageMode;
+  bgVariant: CollageVariant;
+  bgOpacity: number;
+} {
+  const mode = COLLAGE_MODES.includes(input.bgMode as CollageMode)
+    ? (input.bgMode as CollageMode)
+    : "OFF";
+  const variant = COLLAGE_VARIANTS.includes(input.bgVariant as CollageVariant)
+    ? (input.bgVariant as CollageVariant)
+    : "MOSAIC";
+  const opacity = Math.min(
+    100,
+    Math.max(0, Math.round(Number(input.bgOpacity))) || 0,
+  );
+  return { bgMode: mode, bgVariant: variant, bgOpacity: opacity };
 }
 
 export async function updateCampaignAction(
@@ -237,6 +274,7 @@ export async function updateCampaignAction(
         hintEn: nullable(input.hintEn, 5_000),
         qrOptions: designToBag(current?.qrOptions, input.design),
         placers: parsePlacers(String(input.placers ?? "")),
+        ...collageFields(input),
       },
     });
     revalidate(id);
