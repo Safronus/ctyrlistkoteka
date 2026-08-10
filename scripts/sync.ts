@@ -38,7 +38,8 @@ import {
 } from "../src/lib/parseFilename";
 import { readExifSafe } from "../src/lib/admin/exif";
 import { ADMIN_ROOTS, safeJoin } from "../src/lib/admin/paths";
-import { ensureDir, trashTimestamp } from "../src/lib/admin/atomic";
+import { trashTimestamp } from "../src/lib/admin/atomic";
+import { prepareTrashDir } from "../src/lib/admin/trash";
 import {
   computeLocationDrift,
   planLocationRenumber,
@@ -671,8 +672,7 @@ async function renameFindPhotos(
         });
         continue;
       }
-      const trashDir = join(ADMIN_ROOTS.trash, ts, root.key);
-      await ensureDir(trashDir);
+      const trashDir = await prepareTrashDir(root.key, ts);
       await copyFile(oldPath, join(trashDir, oldName));
       await rename(oldPath, newPath);
       renamed++;

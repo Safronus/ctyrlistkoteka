@@ -2,13 +2,14 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ImageType } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
-import { atomicWrite, ensureDir, trashTimestamp } from "@/lib/admin/atomic";
+import { atomicWrite, ensureDir } from "@/lib/admin/atomic";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
 import {
   LOKACE_STAVY_POZNAMKY_FILENAME,
   lokaceStavyPoznamkySchema,
 } from "@/lib/admin/jsonSchema";
 import { ADMIN_ROOTS, safeBaseName, safeJoin } from "@/lib/admin/paths";
+import { prepareTrashDir } from "@/lib/admin/trash";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import { parseFindFilename } from "@/lib/parseFilename";
 import { compactToRanges, parseRanges } from "@/lib/parseRanges";
@@ -228,8 +229,7 @@ export async function applyAnonJson(
     ANONYMIZOVANE: compactToRanges([...set].sort((a, b) => a - b)),
   };
 
-  const trashDir = path.join(ADMIN_ROOTS.trash, trashTimestamp(), "meta");
-  await ensureDir(trashDir);
+  const trashDir = await prepareTrashDir("meta");
   await fs.copyFile(
     META_TARGET_PATH,
     path.join(trashDir, LOKACE_STAVY_POZNAMKY_FILENAME),

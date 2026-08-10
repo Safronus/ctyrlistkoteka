@@ -3,7 +3,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
-import { atomicWrite, ensureDir, trashTimestamp } from "@/lib/admin/atomic";
+import { atomicWrite, ensureDir } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
 import {
@@ -11,6 +11,7 @@ import {
   lokaceStavyPoznamkySchema,
 } from "@/lib/admin/jsonSchema";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
+import { prepareTrashDir } from "@/lib/admin/trash";
 import {
   getAdminSession,
   getRequestIp,
@@ -118,8 +119,7 @@ export async function saveLokaceStavyPoznamky(
   // an undo path even though the editor itself doesn't surface one.
   try {
     await fs.access(META_TARGET_PATH);
-    const trashDir = path.join(ADMIN_ROOTS.trash, trashTimestamp(), "meta");
-    await ensureDir(trashDir);
+    const trashDir = await prepareTrashDir("meta");
     await fs.copyFile(
       META_TARGET_PATH,
       path.join(trashDir, LOKACE_STAVY_POZNAMKY_FILENAME),

@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { revalidatePublicSurfaces } from "../revalidate";
 import { ADMIN_ROOTS } from "./paths";
 import { atomicWrite, ensureDir, trashTimestamp } from "./atomic";
+import { expiredBuckets } from "./trash";
 import { writeLastSyncSuccess } from "./syncNeeded";
 
 /** State machine for the admin sync runner.
@@ -43,6 +44,45 @@ export interface SyncStatus {
 const ADMIN_DIR = path.join(ADMIN_ROOTS.meta, "..", ".admin");
 const STATUS_FILE = path.join(ADMIN_DIR, "sync-status.json");
 const LOG_DIR = path.join(ADMIN_DIR, "logs");
+
+/**
+ * Drops sync logs past the trash retention window.
+ *
+ * One file per run, named `sync-<runId>.log` where the run id is a
+ * `trashTimestamp()` — so the same dating rules apply, and a file whose
+ * name we can't read is a file we leave alone. Runs when a sync starts,
+ * for the same reason the trash prunes on write: the directory only
+ * grows when a run happens.
+ *
+ * Never throws — failing to tidy old logs must not stop a sync.
+ */
+async function pruneSyncLogs(): Promise<void> {
+  try {
+    const names = await fs.readdir(LOG_DIR);
+    const stamps = names
+      .map((n) => /^sync-(\d{8}T\d{6})\.log$/.exec(n))
+      .filter((m): m is RegExpExecArray => m !== null);
+    const expired = new Set(
+      expiredBuckets(
+        stamps.map((m) => m[1]!),
+        new Date(),
+      ),
+    );
+    await Promise.all(
+      stamps
+        .filter((m) => expired.has(m[1]!))
+        .map((m) => fs.rm(path.join(LOG_DIR, m[0]), { force: true })),
+    );
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "sync_log_prune_failed",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+}
 
 /** Pid liveness check via `kill -0`. Returns true when the process
  *  exists, false on ESRCH (no such process), throws on EPERM (which
@@ -118,6 +158,7 @@ export async function startRun(opts: StartOptions): Promise<SyncStatus> {
   const runId = trashTimestamp();
   await ensureDir(LOG_DIR);
   await ensureDir(ADMIN_DIR);
+  await pruneSyncLogs();
   const logFile = path.join(LOG_DIR, `sync-${runId}.log`);
 
   // Open the log file before spawn so child stdout is written from

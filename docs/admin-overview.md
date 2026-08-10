@@ -342,6 +342,17 @@ odvozený název vytvořil druhý soubor pro totéž ID).
   proto porovnává obojí přes `formatGpsDecimal`, aby neupravený soubor
   vyšel jako „žádná změna". Bez toho hlásil změnu u každého řádku
   s pozicí a operátor by přestal reportu věřit.
+- **Do koše se zapisuje jedině přes `prepareTrashDir()`.** Na tom helperu
+  (`src/lib/admin/trash.ts`) visí prune 30 dnů — ruční
+  `path.join(ADMIN_ROOTS.trash, trashTimestamp(), scope)` ho obejde a koš
+  zase začne růst donekonečna. Přesně to se stalo: CLAUDE.md §9 retenci
+  slibovala od začátku, ale kód pro ni nikdy nevznikl a na VPS se do
+  2026-08-10 nasbíralo 197 MB. Prune běží **při zápisu**, ne z timeru —
+  koš roste jen tehdy, když se do něj píše, takže tam se to i vyplatí
+  hlídat a nepřibývá věc, která může na serveru tiše přestat běžet.
+  Maže jen přímé potomky `.trash`, jejichž jméno umí přečíst jako datum;
+  co nepozná, nechá být. Stejným pravidlem se řídí i `sync-*.log`
+  v `data/.admin/logs/` (prune při startu syncu).
 - **Pod `/api/admin/*` žije šest rout a maska adminu na ně NESEDÍ.** Ta
   maska je v `deploy/nginx.conf.template` psaná jako `location /admin` —
   prefix, a `/api/admin/…` jím nezačíná. Šablona proto od 2026-08-10 dává
@@ -375,7 +386,9 @@ odvozený název vytvořil druhý soubor pro totéž ID).
 (Doplň při dalších změnách. Pokud máš PR/issue tracker, link sem.)
 
 - [ ] PR cleanup pro CONTEXT_BACKUP.txt v repo rootu (gitignore?)
-- [ ] Trash management UI (browse + restore + manual purge mimo audit)
+- [ ] Trash management UI (browse + restore + manual purge mimo audit) —
+      retence 30 dnů už běží sama (`src/lib/admin/trash.ts`), chybí jen
+      prohlížení a ruční obnova
 - [ ] Passkey management UI (list + remove, teď jen `/admin/setup`)
 
 ## 7. Pokračování v jiném prostředí

@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Koš se konečně sám uklízí
+- **`data/.trash/` má retenci 30 dnů.** CLAUDE.md ji slibovala od začátku,
+  ale kód pro ni nikdy nevznikl — na serveru se nasbíralo 197 MB smazaných
+  věcí, které tam měly ležet měsíc. Nově se při každém zápisu do koše
+  zahodí, co je starší; maže se jen to, čemu se dá z názvu přečíst datum,
+  takže nic cizího ani rozepsaného nezmizí.
+- Úklid běží **při mazání**, ne z časovače na serveru: koš roste jen tehdy,
+  když do něj něco padne, takže právě tehdy má smysl se podívat — a
+  nepřibyla věc, která může tiše přestat běžet.
+- Stejně tak logy syncu (`sync-*.log`), které taky nikdo nemazal.
+- Pod kapotou: 21 míst si cestu do koše skládalo ručně, teď vede přes
+  jediný `prepareTrashDir()`. Proto tam dřív nebylo kam ten úklid pověsit.
+
 ### Darování ve světě — režim tabulky, automatika a poznámky týmu (12. fáze)
 - **Poznámka týmu se načítá z tabulky** a ukazuje se u kartičky v adminu
   i v seznamech u mapy úkrytů. Je to popis místa („Park u Baťovy vily,

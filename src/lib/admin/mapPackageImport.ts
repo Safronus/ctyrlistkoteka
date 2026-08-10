@@ -4,16 +4,11 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import type { Entry, ZipFile } from "yauzl";
 import { prisma } from "@/lib/db";
-import { atomicWrite, ensureDir, trashTimestamp } from "./atomic";
-import { ADMIN_ROOTS, safeJoin } from "./paths";
-import {
-  parseMapPackageManifest,
-  entryNumber,
-  mergeManifests,
-  type MapPackageManifest,
-  type MapPackageEntry,
-} from "@/lib/mapPackage";
+import { atomicWrite, ensureDir } from "./atomic";
+import { safeJoin } from "./paths";
+import { parseMapPackageManifest, entryNumber, mergeManifests, type MapPackageManifest } from "@/lib/mapPackage";
 import { readZipEntry } from "./importZip";
+import { prepareTrashDir } from "./trash";
 
 /**
  * Iterate a zip decoding entry names as **UTF-8 ourselves**, not via yauzl's
@@ -281,8 +276,7 @@ async function mergeManifestIntoDisk(
   }
   if (existingRaw !== null) {
     // Back the current manifest up before we touch it — cheap insurance.
-    const trashDir = path.join(ADMIN_ROOTS.trash, trashTimestamp(), "maps");
-    await ensureDir(trashDir);
+    const trashDir = await prepareTrashDir("maps");
     await fs.writeFile(path.join(trashDir, MANIFEST_NAME), existingRaw, "utf8");
 
     const parsedExisting = parseMapPackageManifest(existingRaw);

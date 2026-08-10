@@ -3,7 +3,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
-import { atomicWrite, ensureDir, trashTimestamp } from "@/lib/admin/atomic";
+import { atomicWrite, ensureDir } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { formatJsonCompactArrays } from "@/lib/admin/jsonFormat";
 import {
@@ -13,6 +13,7 @@ import {
   cloverTranslationsFileSchema,
 } from "@/lib/admin/jsonSchema";
 import { ADMIN_ROOTS } from "@/lib/admin/paths";
+import { prepareTrashDir } from "@/lib/admin/trash";
 import {
   getAdminSession,
   getRequestIp,
@@ -109,15 +110,17 @@ export async function saveCloverTexts(formData: FormData): Promise<SaveResult> {
   const enFormatted = formatJsonCompactArrays(enResult.data) + "\n";
 
   // Snapshot both files into a single trash bucket so a single restore
-  // brings them back in lockstep — they're paired data.
-  const trashDir = path.join(ADMIN_ROOTS.trash, trashTimestamp(), "meta");
+  // brings them back in lockstep — they're paired data. Opened lazily
+  // and reused: neither file existing must not leave an empty bucket
+  // behind, and the second file must land in the first one's directory.
+  let trashDir: string | null = null;
   for (const [src, name] of [
     [TEXTS_PATH, CLOVER_TEXTS_FILENAME],
     [TRANSLATIONS_PATH, CLOVER_TRANSLATIONS_FILENAME],
   ] as const) {
     try {
       await fs.access(src);
-      await ensureDir(trashDir);
+      trashDir ??= await prepareTrashDir("meta");
       await fs.copyFile(src, path.join(trashDir, name));
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") {

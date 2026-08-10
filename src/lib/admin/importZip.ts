@@ -14,6 +14,7 @@ import {
   computeWholeFileMerge,
   type WholeFileMergeSections,
 } from "./lspMerge";
+import { prepareTrashDir } from "./trash";
 
 /**
  * Streaming reader + read-only analyzer for a "web package" ZIP. yauzl opens
@@ -509,8 +510,7 @@ async function placeFile<K extends string | number>(
   const destPath = safeJoin(rootKey, name);
 
   if (collides) {
-    const trashDir = path.join(ADMIN_ROOTS.trash, ts, scope);
-    await ensureDir(trashDir);
+    const trashDir = await prepareTrashDir(scope, ts);
     for (const oldName of olds) {
       await fs
         .rename(safeJoin(rootKey, oldName), path.join(trashDir, oldName))

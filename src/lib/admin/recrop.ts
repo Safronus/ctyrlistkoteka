@@ -8,8 +8,9 @@ import {
   DEFAULT_WATERMARK_OPTIONS,
   getWatermarkBuffer,
 } from "@/lib/watermark";
-import { atomicWrite, ensureDir, trashTimestamp } from "./atomic";
+import { atomicWrite, ensureDir } from "./atomic";
 import { ADMIN_ROOTS, GENERATED_ROOT, safeBaseName, safeJoin } from "./paths";
+import { prepareTrashDir } from "./trash";
 
 /**
  * Re-crop a find's CROP image from its ORIGINAL. The admin selects a square
@@ -181,8 +182,7 @@ export async function recropFind(
 
   // Snapshot the current crop to the trash before overwriting it.
   try {
-    const trashDir = path.join(ADMIN_ROOTS.trash, trashTimestamp(), "crops");
-    await ensureDir(trashDir);
+    const trashDir = await prepareTrashDir("crops");
     await fs.copyFile(cropPath, path.join(trashDir, cropName));
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") {

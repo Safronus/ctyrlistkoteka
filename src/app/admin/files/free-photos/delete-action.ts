@@ -4,9 +4,10 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { ensureDir, trashTimestamp } from "@/lib/admin/atomic";
+import { trashTimestamp } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
 import { ADMIN_ROOTS, safeBaseName } from "@/lib/admin/paths";
+import { prepareTrashDir } from "@/lib/admin/trash";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
   getAdminSession,
@@ -47,12 +48,7 @@ async function performDeleteFreePhoto(formData: FormData): Promise<void> {
     throw new Error("Cíl není soubor");
   }
 
-  const trashDir = path.join(
-    ADMIN_ROOTS.trash,
-    trashTimestamp(),
-    TRASH_SUBDIR,
-  );
-  await ensureDir(trashDir);
+  const trashDir = await prepareTrashDir(TRASH_SUBDIR);
   const trashAbs = path.join(trashDir, resolved.name);
 
   await fs.rename(resolved.absolutePath, trashAbs);
@@ -119,8 +115,7 @@ export async function deleteFreePhotosBulk(
   }
 
   const ts = trashTimestamp();
-  const trashDir = path.join(ADMIN_ROOTS.trash, ts, TRASH_SUBDIR);
-  await ensureDir(trashDir);
+  const trashDir = await prepareTrashDir(TRASH_SUBDIR, ts);
 
   const results: BulkDeleteResult[] = [];
   for (const raw of rawNames) {

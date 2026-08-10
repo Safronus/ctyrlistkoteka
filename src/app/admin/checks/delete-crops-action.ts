@@ -6,9 +6,9 @@ import { revalidatePath } from "next/cache";
 import { revalidatePublicSurfaces } from "@/lib/revalidate";
 import { prisma } from "@/lib/db";
 import { wholePhotoCropOffenders } from "@/lib/admin/checks";
-import { ensureDir, trashTimestamp } from "@/lib/admin/atomic";
+import { trashTimestamp } from "@/lib/admin/atomic";
 import { appendAudit } from "@/lib/admin/audit";
-import { ADMIN_ROOTS } from "@/lib/admin/paths";
+import { prepareTrashDir } from "@/lib/admin/trash";
 import { resolveDiskPath } from "@/lib/admin/scopes";
 import {
   getAdminSession,
@@ -48,8 +48,7 @@ export async function deleteWholePhotoCropsAction(): Promise<DeleteCropsResult> 
   if (offenders.length === 0) return { ok: true, trashed: 0, rowsDeleted: 0 };
 
   const ts = trashTimestamp();
-  const trashDir = path.join(ADMIN_ROOTS.trash, ts, "crops");
-  await ensureDir(trashDir);
+  const trashDir = await prepareTrashDir("crops", ts);
 
   let trashed = 0;
   const findIds: number[] = [];
