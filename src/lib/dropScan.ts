@@ -14,11 +14,23 @@ import { DropStatus } from "@/generated/prisma/client";
  *
  * Best-effort throughout: a write failure must never stop the finder from
  * reading the message they walked up to.
+ *
+ * A wave can also have counting PAUSED — for testing the cards, and for
+ * the stretch between printing them and leaving them out there. Without
+ * it the first scans of every wave are the crew's own.
  */
 const SCAN_LOG_THROTTLE_MS = 10_000;
 const lastScanLoggedAt = new Map<number, number>();
 
-export async function registerDropScan(itemId: number): Promise<void> {
+export async function registerDropScan(
+  itemId: number,
+  opts: { paused: boolean },
+): Promise<void> {
+  // A paused wave still serves its landing page — it just doesn't count.
+  // The flag comes from the caller because the page already has the
+  // campaign in hand; looking it up here would be a second query on the
+  // one path that has to stay quick.
+  if (opts.paused) return;
   const now = Date.now();
   const prev = lastScanLoggedAt.get(itemId);
   if (prev !== undefined && now - prev < SCAN_LOG_THROTTLE_MS) return;

@@ -227,6 +227,8 @@ export default async function DropCampaignPage({
       </header>
 
       <CampaignStats
+        campaignId={campaign.id}
+        scansPaused={campaign.scansPaused}
         items={campaign.items.map((i) => ({
           status: i.status,
           areaId: i.areaId,

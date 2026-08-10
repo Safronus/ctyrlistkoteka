@@ -25,6 +25,7 @@ export type AuditAction =
   | "vote.reset_all"
   | "qr.revoke"
   | "qr.scans_reset"
+  | "qr.scans_paused"
   | "settings.update";
 
 export interface AuditEntry {

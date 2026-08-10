@@ -63,7 +63,7 @@ export default async function DropLandingPage({
   });
   if (!item) notFound();
 
-  await registerDropScan(item.id);
+  await registerDropScan(item.id, { paused: item.campaign.scansPaused });
 
   // "3. ze 111" — where this card sits in its wave. Ordered by find
   // number, which is the order the wave was assembled in and the only one

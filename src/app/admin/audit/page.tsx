@@ -24,6 +24,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   "vote.reset_all": "Reset všech hlasů",
   "qr.revoke": "Zrušení QR kódu nálezu",
   "qr.scans_reset": "Vynulování naskenování QR",
+  "qr.scans_paused": "Pozastavení/spuštění počítání skenů",
   "settings.update": "Úprava nastavení",
 };
 
@@ -47,6 +48,7 @@ const ACTION_TONE: Record<AuditAction, string> = {
   "vote.reset_all": "bg-rose-100 text-rose-800",
   "qr.revoke": "bg-amber-100 text-amber-800",
   "qr.scans_reset": "bg-rose-100 text-rose-800",
+  "qr.scans_paused": "bg-sky-100 text-sky-800",
   "settings.update": "bg-violet-100 text-violet-800",
 };
 

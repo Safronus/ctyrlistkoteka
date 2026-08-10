@@ -843,6 +843,73 @@ export async function resetScansAction(
   }
 }
 
+/**
+ * Zeroes the scan counters of the WHOLE wave.
+ *
+ * Same three steps as the per-selection reset and for the same reason: a
+ * scan writes a row, stamps `foundAt` and flips the card to FOUND, so
+ * deleting only the rows would leave a wave of cards "found, by nobody,
+ * never". Cards moved to FOUND by hand are reverted too — after a reset
+ * nothing in the wave has been found, which is the point of asking.
+ */
+export async function resetCampaignScansAction(
+  campaignId: number,
+): Promise<Result<{ cleared: number }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    const [deleted] = await prisma.$transaction([
+      prisma.dropScan.deleteMany({ where: { item: { campaignId } } }),
+      prisma.dropItem.updateMany({
+        where: { campaignId },
+        data: { foundAt: null },
+      }),
+      prisma.dropItem.updateMany({
+        where: { campaignId, status: DropStatus.FOUND },
+        data: { status: DropStatus.HIDDEN },
+      }),
+    ]);
+    await appendAudit({
+      action: "qr.scans_reset",
+      ip: await getRequestIp(),
+      details: { drops: "reset-scans-campaign", campaignId },
+    });
+    revalidate(campaignId);
+    return { ok: true, cleared: deleted.count };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Vynulování skenů selhalo") };
+  }
+}
+
+/**
+ * Stops (or resumes) counting scans for the wave.
+ *
+ * The landing page keeps working while paused — it just doesn't record
+ * anything and no card flips to FOUND. That covers testing the printed
+ * cards and the weeks between printing them and leaving them out there,
+ * where otherwise the first scans of the wave are all the crew's own.
+ */
+export async function setScansPausedAction(
+  campaignId: number,
+  paused: boolean,
+): Promise<VoidResult> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    await prisma.dropCampaign.update({
+      where: { id: campaignId },
+      data: { scansPaused: Boolean(paused) },
+    });
+    await appendAudit({
+      action: "qr.scans_paused",
+      ip: await getRequestIp(),
+      details: { drops: "scans-paused", campaignId, paused: Boolean(paused) },
+    });
+    revalidate(campaignId);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Změna počítání skenů selhala") };
+  }
+}
+
 /** Takes the position off every placed card of an area at once. */
 export async function clearAreaPositionsAction(
   campaignId: number,

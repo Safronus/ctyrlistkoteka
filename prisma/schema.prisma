@@ -501,6 +501,12 @@ model DropCampaign {
   /// shows the collage at full strength; this is the veil below it.
   bgOpacity Int    @default(35) @map("bg_opacity") @db.SmallInt
 
+  /// While true, `/d/<token>` still renders but no scan is recorded and no
+  /// card flips to FOUND. For testing the cards, and for the stretch
+  /// between printing them and actually leaving them somewhere — without
+  /// it, the first hundred scans of a wave are the crew's own.
+  scansPaused Boolean @default(false) @map("scans_paused")
+
   archivedAt DateTime? @map("archived_at") @db.Timestamptz
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz

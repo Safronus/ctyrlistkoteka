@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Skenování jde pozastavit a vynulovat
+- V souhrnu sady jsou dvě nová tlačítka. **Pozastavit počítání** zastaví
+  zapisování naskenování — stránka po naskenování funguje dál, jen se nic
+  nepočítá a nic se nepřepne na „nalezeno“. Je to pro zkoušení hotových
+  kartiček a pro tu dobu, než opravdu půjdou ven; bez toho jsou první
+  desítky skenů každé vlny vaše vlastní.
+- **Vynulovat počty** smaže naskenování celé sady najednou (dvoukrokově) a
+  „nalezené“ kusy vrátí na „schované“ — jinak by po vynulování zůstaly
+  nalezené nikým a nikdy.
+- Dokud je počítání pozastavené, je to vidět štítkem u nadpisu souhrnu.
+
 ### Koláž ze sbírky jako pozadí kartičkových stránek
 - Stránka, kterou uvidí nálezce po naskenování kartičky, může mít **pozadí
   poskládané z ořezů celé sbírky** — oslava 30 000 nálezů složená z nich
