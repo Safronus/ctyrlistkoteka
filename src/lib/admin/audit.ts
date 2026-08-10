@@ -26,6 +26,7 @@ export type AuditAction =
   | "qr.revoke"
   | "qr.scans_reset"
   | "qr.scans_paused"
+  | "collage.run"
   | "settings.update";
 
 export interface AuditEntry {

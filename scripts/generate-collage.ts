@@ -3,7 +3,8 @@
  *
  *   pnpm collage                 # all four
  *   pnpm collage --only=SCATTER  # one
- *   pnpm collage --max-id=30000  # crops up to this find (default 30000)
+ *   pnpm collage --min-id=1 --max-id=30000   # the range to draw from
+ *   pnpm collage --out-dir=…                 # somewhere other than the live one
  *
  * Runs where the crops live (the VPS), reads `find_images` for the CROP
  * thumbnails and writes `${GENERATED_DIR}/collage/<variant>.webp`.
@@ -94,6 +95,8 @@ const GENERATED_DIR = process.env.GENERATED_DIR
 
 interface Opts {
   only: CollageVariant | null;
+  /** Inclusive find-number range the crops come from. */
+  minId: number;
   maxId: number;
   /** Take the tiles from a directory instead of the DB. For trying the
    *  look on a sample (and for testing the compositing on a machine that
@@ -105,7 +108,13 @@ interface Opts {
 }
 
 function parseArgs(argv: string[]): Opts {
-  const opts: Opts = { only: null, maxId: 30000, fromDir: null, outDir: null };
+  const opts: Opts = {
+    only: null,
+    minId: 1,
+    maxId: 30000,
+    fromDir: null,
+    outDir: null,
+  };
   for (const a of argv) {
     if (a.startsWith("--from-dir=")) {
       opts.fromDir = path.resolve(a.slice(11));
@@ -125,9 +134,20 @@ function parseArgs(argv: string[]): Opts {
         throw new Error("--max-id musí být kladné celé číslo");
       }
       opts.maxId = n;
+    } else if (a.startsWith("--min-id=")) {
+      const n = Number(a.slice(9));
+      if (!Number.isInteger(n) || n <= 0) {
+        throw new Error("--min-id musí být kladné celé číslo");
+      }
+      opts.minId = n;
     } else if (a !== "") {
       throw new Error(`Neznámý argument: ${a}`);
     }
+  }
+  if (opts.minId > opts.maxId) {
+    throw new Error(
+      `Prázdný rozsah: --min-id=${opts.minId} je víc než --max-id=${opts.maxId}`,
+    );
   }
   return opts;
 }
@@ -137,14 +157,14 @@ function parseArgs(argv: string[]): Opts {
  *  Anonymized finds are included deliberately (owner's call, 2026-08-10):
  *  a crop is the leaf alone — no GPS, no note, no location — and /sbirka
  *  already shows those crops. */
-async function cropFiles(maxId: number): Promise<string[]> {
+async function cropFiles(minId: number, maxId: number): Promise<string[]> {
   const prisma = createPrismaClient();
   try {
     const rows = await prisma.$queryRaw<Array<{ thumb_path: string }>>`
       SELECT fi.thumb_path
       FROM find_images fi
       WHERE fi.image_type = 'CROP'
-        AND fi.find_id BETWEEN 1 AND ${maxId}
+        AND fi.find_id BETWEEN ${minId} AND ${maxId}
       ORDER BY fi.find_id, fi.sort_order
     `;
     return rows
@@ -473,17 +493,17 @@ async function main() {
   const opts = parseArgs(process.argv.slice(2));
   const files = opts.fromDir
     ? await dirFiles(opts.fromDir)
-    : await cropFiles(opts.maxId);
+    : await cropFiles(opts.minId, opts.maxId);
   if (files.length === 0) {
     throw new Error(
       opts.fromDir
         ? `V ${opts.fromDir} nejsou žádné obrázky.`
-        : `Žádné ořezy pro nálezy 1–${opts.maxId}. Zkontroluj GENERATED_DIR (${GENERATED_DIR}) a DB.`,
+        : `Žádné ořezy pro nálezy ${opts.minId}–${opts.maxId}. Zkontroluj GENERATED_DIR (${GENERATED_DIR}) a DB.`,
     );
   }
   console.log(
     `Ořezů k dispozici: ${files.length}` +
-      (opts.fromDir ? ` (z ${opts.fromDir})` : ` (nálezy 1–${opts.maxId})`),
+      (opts.fromDir ? ` (z ${opts.fromDir})` : ` (nálezy ${opts.minId}–${opts.maxId})`),
   );
 
   const outDir = opts.outDir ?? path.join(GENERATED_DIR, "collage");

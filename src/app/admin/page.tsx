@@ -10,18 +10,19 @@ import {
   Crop,
   Database,
   FileCog,
+  Gift,
   HardDrive,
   Image as ImageIcon,
+  Images,
   Images as ImagesIcon,
-  ListChecks,
   Languages,
-  MapPinned,
+  ListChecks,
   Map as MapIcon,
+  MapPinned,
   Megaphone,
   PackageOpen,
-  Gift,
-  ShieldCheck,
   Settings2,
+  ShieldCheck,
   Sparkles,
   Sticker,
   Trophy,
@@ -351,6 +352,16 @@ export default async function AdminHomePage() {
           lines={[
             "Trigger tsx scripts/sync.ts",
             "Live log, dry-run, --only filtr",
+          ]}
+        />
+        <FeatureCard
+          icon={Images}
+          title="Dílna na koláže"
+          status="ok"
+          href="/admin/collage"
+          lines={[
+            "Vzory z ořezů libovolného rozsahu nálezů",
+            "Uloží se ke stažení; ostrá pozadí zůstanou",
           ]}
         />
         <FeatureCard

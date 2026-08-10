@@ -33,6 +33,15 @@ v jiném prostředí. Aktualizuje se při větších změnách.
 > co má kdo složené, je právě preference UI. Hodnota se čte až v efektu, ne při
 > renderu: server ji nezná a inicializace z ní by roztrhla hydrataci.
 
+> **Dílna na koláže** (`/admin/collage`) — tentýž generátor, ale s formulářem:
+> libovolný rozsah čísel nálezů, výběr vzorů, běh na pozadí (`collageRunner`,
+> stejný vzor jako `syncRunner` — stav v souboru, aby ho viděly oba PM2
+> workery a nespustily dva běhy naráz), živý log, seznam hotových dávek ke
+> stažení. Dávky padají do `generated/collage/vzory/<runId>/`; **ostrá pozadí
+> kartiček se přepíšou jen se zvlášť zaškrtnutou volbou**, protože ta jsou
+> zmražená na 30 000 schválně. V navigaci není, chodí se tam z dlaždice na
+> Přehledu.
+
 ### Další admin sekce (mimo původní fáze)
 
 Přibyly v provozu, ve stejném auth + atomic-write + audit patternu:

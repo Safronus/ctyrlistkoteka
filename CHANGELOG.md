@@ -35,6 +35,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   neprojevilo a šest kartiček po sobě vyšlo stejně. Přepnout na jednu
   pevnou texturu nebo pozadí vypnout jde pořád.
 
+### Dílna na koláže
+- Nová stránka **/admin/collage**: vzor z ořezů si postavíš z **libovolného
+  rozsahu čísel nálezů** — klidně z celé sbírky — vybereš které vzory, a
+  stáhneš si výsledek v plné velikosti. Generátor byl dosud jen příkaz na
+  serveru napsaný pro jednu příležitost; takhle se neztratí.
+- Běží na pozadí s živým logem (jeden vzor z celé sbírky kolem minuty),
+  dva běhy naráz nejdou spustit, a **ostrá pozadí kartiček zůstanou
+  nedotčená** — přepsat je jde jen zvlášť zaškrtnutou volbou.
+
 ### Koláž ze sbírky jako pozadí kartičkových stránek
 - Stránka, kterou uvidí nálezce po naskenování kartičky, může mít **pozadí
   poskládané z ořezů celé sbírky** — oslava 30 000 nálezů složená z nich
