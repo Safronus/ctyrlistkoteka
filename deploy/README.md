@@ -40,6 +40,7 @@ krok za krokem. Tento README je rychlý katalog.
 | `drop-sheet-sync.timer` | `/etc/systemd/system/` | Spouští ho každých 5 minut: `systemctl enable --now drop-sheet-sync.timer`. |
 | `systemd-sync.timer` | `/etc/systemd/system/` | Zapnout přes `systemctl enable --now ctyrlistkoteka-sync.timer`. |
 | `backup.sh` | (git, spouští se odtud) | Denní `pg_dump` + rotace. Do crontab uživatele `app`. |
+| `nginx-add-api-admin.py` | (git, spouští se odtud) | **(jednorázový, 2026-08-10)** Dostane `/api/admin` za masku adminu a allowlist do sdíleného snippetu. `sudo python3 deploy/nginx-add-api-admin.py && sudo nginx -t && sudo systemctl reload nginx`. Idempotentní, dělá si vlastní zálohu, odmítne pokračovat, když by snippet nechal admin otevřený. Po doběhnutí na všech strojích může zmizet. |
 
 Spárované s:
 - `.github/workflows/deploy.yml` — GitHub Actions CI/CD

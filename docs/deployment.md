@@ -536,6 +536,15 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
+**Na už běžícím stroji** tenhle přechod nedělej ručně — celý config má přes
+200 řádků a paste přes Termius se 2026-08-10 utnul v půlce (`nginx -t` pak
+hlásil `unexpected end of file`). Skript v repu udělá jen ty tři změny
+a ostatního se nedotkne:
+
+```bash
+sudo python3 /var/www/ctyrlistkoteka/deploy/nginx-add-api-admin.py && sudo nginx -t && sudo systemctl reload nginx
+```
+
 Obsah `admin-allowlist.conf` (do gitu **nepatří**, repo je veřejné):
 
 ```nginx
