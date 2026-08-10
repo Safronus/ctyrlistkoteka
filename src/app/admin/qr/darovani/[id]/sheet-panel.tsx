@@ -599,8 +599,9 @@ function ServerHelp() {
           <code className="rounded bg-white px-1">DROP_SHEET_SYNC_TOKEN=…</code>)
         </li>
         <li>
-          Restartovat appku, aby si nový <code className="rounded bg-white px-1">.env</code> načetla:
-          <Cmd>pm2 restart ctyrlistkoteka --update-env</Cmd>
+          Načíst nový <code className="rounded bg-white px-1">.env</code> do
+          běžící aplikace:
+          <Cmd>pm2 reload ctyrlistkoteka --update-env</Cmd>
         </li>
         <li>
           Spustit timer:

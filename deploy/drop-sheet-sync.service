@@ -19,6 +19,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# Read by systemd AS ROOT before it drops to `app`, so the token file can
+# stay 0600 root:root — the app user never needs to read it itself.
 EnvironmentFile=/etc/ctyrlistkoteka-sync.env
 # Localhost only: the app sits behind Nginx, and this never needs to
 # leave the box.
@@ -26,5 +28,7 @@ ExecStart=/usr/bin/curl --fail --silent --show-error --max-time 120 \
   -X POST \
   -H "Authorization: Bearer ${DROP_SHEET_SYNC_TOKEN}" \
   http://127.0.0.1:3000/api/admin/drops/sync
-User=www-data
-Group=www-data
+# Everything on this box runs as `app` (see docs/deployment.md) — the
+# repo, the logs, the PM2 units. `www-data` may not even exist here.
+User=app
+Group=app
