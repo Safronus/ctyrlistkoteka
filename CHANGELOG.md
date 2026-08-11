@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Údržba závislostí
+- Bump skupiny `minor-and-patch` (8 balíčků). Podstatný je **Next 16.3.0**,
+  který aktualizuje vendorovaný lodash na 4.17.23 kvůli **CVE-2025-13465**;
+  totéž nese `eslint-config-next` 16.3.0. Dál lucide-react 1.30, next-intl
+  4.13.5, postcss 8.5.26, tsx 4.23.11 a typy `@types/d3-geo` / `@types/leaflet`.
+- GitHub Actions: `pnpm/action-setup` 6.0.9 → 6.0.10 (pinnuté na SHA).
+- Ověřeno proti baseline na `main`: lint beze změny (0 chyb, 65 varování),
+  typecheck čistý, 335 testů zelených, produkční build projde a `/`, `/sbirka`,
+  `/mapa` i `/statistiky` se v dev serveru vykreslují. Přejmenované emoji ikony
+  v lucide 1.30 se nás netýkají — typecheck by chybějící export zachytil.
+- `next-intl` označilo `setRequestLocale` za zastaralé (používá ho
+  `src/app/[locale]/layout.tsx`). Zatím jen varování; náhrada je
+  `next/root-params` a chce vlastní úkol, ne bump.
+
 ### Skenování jde pozastavit a vynulovat
 - V souhrnu sady jsou dvě nová tlačítka. **Pozastavit počítání** zastaví
   zapisování naskenování — stránka po naskenování funguje dál, jen se nic
