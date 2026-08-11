@@ -23,6 +23,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   `src/app/[locale]/layout.tsx`). Zatím jen varování; náhrada je
   `next/root-params` a chce vlastní úkol, ne bump.
 
+### Tranzitivní bezpečnostní záplaty přes `overrides`
+- Na tyhle balíčky dependabot PR neotevírá — nikdo je nemá přímo, lezou
+  přes cizí závislosti. Doplněny tedy chirurgické `pnpm.overrides`:
+  **dompurify** `^3.4.13` (zvednuto z 3.4.11, dvě XSS advisories přes jspdf),
+  **brace-expansion** `^1.1.18` a **js-yaml** `^4.3.1` (obojí DoS, tahá je
+  eslint).
+- **Vědomě neřešeno**, ať je jasné, že to není opomenutí:
+  - `vite` a `esbuild` — obě advisories jsou **jen pro Windows** (obejití
+    `server.fs.deny`, čtení souborů přes dev server). Vývoj běží na macOS,
+    produkce na Ubuntu a vite se tu používá výhradně jako runner pod
+    vitestem. Override na `vite` navíc neprojde, drží ho vitest jako
+    optional peer.
+  - `uuid` — chyba je v `v3/v5/v6` při předání vlastního bufferu, kdežto
+    `exceljs` volá jen `v4()` bez bufferu. Skok 8 → 11 je major u knihovny
+    v cestě k xlsx exportu, tedy riziko bez užitku.
+
 ### Skenování jde pozastavit a vynulovat
 - V souhrnu sady jsou dvě nová tlačítka. **Pozastavit počítání** zastaví
   zapisování naskenování — stránka po naskenování funguje dál, jen se nic
