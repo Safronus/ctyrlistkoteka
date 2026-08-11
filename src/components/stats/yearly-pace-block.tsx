@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Info } from "lucide-react";
 import type { YearlyPaceEntry } from "@/lib/queries/stats";
 import { formatLongDuration } from "@/lib/format";
+import { PaceCell } from "./pace-cell";
 
 function toIntlLocale(locale: string): string {
   if (locale === "cs") return "cs-CZ";
@@ -104,7 +105,13 @@ export function YearlyPaceBlock({
         <PaceCell label={t("perDay")} value={fmtPace.format(selected.perDay)} />
         <PaceCell label={t("perWeek")} value={fmtPace.format(selected.perWeek)} />
         <PaceCell label={t("perMonth")} value={fmtPace.format(selected.perMonth)} />
-        <PaceCell label={t("perYearLabel")} value={fmtPace.format(selected.perYear)} />
+        {/* Wide on a phone — see the `wide` prop; the fifth tile would
+            otherwise sit alone on its own row. */}
+        <PaceCell
+          label={t("perYearLabel")}
+          value={fmtPace.format(selected.perYear)}
+          wide
+        />
       </ul>
 
       {partialNote && (
@@ -153,13 +160,3 @@ export function YearlyPaceBlock({
   );
 }
 
-function PaceCell({ label, value }: { label: string; value: string }) {
-  return (
-    <li className="rounded-md border border-gray-200 bg-gray-50 p-2 text-center">
-      <p className="font-mono text-sm font-semibold tabular-nums text-gray-900">
-        {value}
-      </p>
-      <p className="mt-0.5 text-[11px] text-gray-500">{label}</p>
-    </li>
-  );
-}

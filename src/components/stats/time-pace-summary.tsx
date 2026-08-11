@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { formatLongDuration } from "@/lib/format";
 import type { StatsTimeAndPaceResult } from "@/lib/queries/stats";
+import { PaceCell } from "./pace-cell";
 
 type StatsT = Awaited<ReturnType<typeof getTranslations<"Statistiky">>>;
 
@@ -81,9 +82,12 @@ export function TimePaceSummary({
             label={t("perMonth")}
             value={fmtPace.format(data.perMonth)}
           />
+          {/* Wide on a phone: five tiles in two columns leave this one
+              alone on the last row, which read as a layout bug. */}
           <PaceCell
             label={t("perYearLabel")}
             value={fmtPace.format(data.perYear)}
+            wide
           />
         </ul>
         {firstAtLabel && (
@@ -96,13 +100,3 @@ export function TimePaceSummary({
   );
 }
 
-function PaceCell({ label, value }: { label: string; value: string }) {
-  return (
-    <li className="rounded-md border border-gray-200 bg-gray-50 p-2 text-center">
-      <p className="font-mono text-sm font-semibold tabular-nums text-gray-900">
-        {value}
-      </p>
-      <p className="mt-0.5 text-[11px] text-gray-500">{label}</p>
-    </li>
-  );
-}

@@ -65,6 +65,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   neprojevilo a šest kartiček po sobě vyšlo stejně. Přepnout na jednu
   pevnou texturu nebo pozadí vypnout jde pořád.
 
+### Statistiky: poslední dlaždice tempa na mobilu už nevisí sama
+- V „Odhadovaná doba sbírání“ je řádek průměrného tempa pět dlaždic. Na
+  telefonu se lámaly 2 + 2 + 1 a ta poslední („/ rok“) zůstávala sama, což
+  vypadalo jako chyba layoutu — teď zabere celý řádek. Platí pro tempo od
+  počátku sbírání i pro tempo ve zvoleném roce.
+- Ta dlaždice byla ve dvou souborech dvakrát identicky opsaná; teď je
+  jedna, takže se příští úprava nemusí pamatovat na obě.
+
 ### Mapa: filtr států a měst v seznamu lokalit
 - Pravý panel na `/mapa` má nově **Stát → Město** se stejnou provázaností
   jako `/lokality`: vybrané město si připne (a zamkne) svůj stát, změna
