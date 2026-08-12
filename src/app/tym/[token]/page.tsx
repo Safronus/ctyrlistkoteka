@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { readBoundary } from "@/lib/admin/dropBoundary";
 import { resolveDropText } from "@/lib/dropText";
+import { resolveChainHint } from "@/lib/dropChain";
 import { dropLandingUrl } from "@/lib/admin/drops";
 import { CREW_TOKEN_RE, crewCookieName, crewCookieOk } from "@/lib/crewMap";
 import { CrewUnlockForm } from "./unlock-form";
@@ -82,7 +83,7 @@ export default async function CrewMapPage({
   const campaign = await prisma.dropCampaign.findUnique({
     where: { id: area.campaignId },
     include: {
-      areas: { select: { id: true, name: true } },
+      areas: { select: { id: true, name: true, chainEnabled: true } },
       items: {
         orderBy: { findId: "asc" },
         include: { _count: { select: { scans: true } } },
@@ -93,12 +94,30 @@ export default async function CrewMapPage({
 
   const areaName = new Map(campaign.areas.map((a) => [a.id, a.name]));
 
+  // The hunt, per area. Built once here rather than per card: the crew
+  // needs to see WHICH cards are strung together and in what order,
+  // because that is the thing they cannot deduce from a map.
+  const chains = new Map<number, { itemId: number; findId: number }[]>();
+  for (const a of campaign.areas) {
+    if (!a.chainEnabled) continue;
+    const links = campaign.items
+      .filter((i) => i.areaId === a.id && i.chainOrder != null)
+      .sort((x, y) => x.chainOrder! - y.chainOrder!)
+      .map((i) => ({ itemId: i.id, findId: i.findId }));
+    if (links.length > 0) chains.set(a.id, links);
+  }
+
   const cards: CrewCard[] = campaign.items.map((i) => {
     // Only this area's cards carry a place. Everything else in the wave is
     // listed so the crew can look a number up, but without saying where it
     // is — one link, one area's secrets.
     const mine = i.areaId === area.id;
     const t = resolveDropText(i, campaign, "cs");
+    const links = i.areaId === null ? undefined : chains.get(i.areaId);
+    const at = links?.findIndex((l) => l.itemId === i.id) ?? -1;
+    // Card's own hint, else the wave's — exactly what the previous link
+    // reveals and what /sbirka shows when it is published.
+    const hint = resolveChainHint(i, campaign, "cs");
     return {
       id: i.id,
       findId: i.findId,
@@ -114,6 +133,16 @@ export default async function CrewMapPage({
       landingUrl: dropLandingUrl(i.token),
       heading: t.heading,
       body: t.body,
+      hint,
+      hintPublished: i.hintPublished,
+      chain:
+        links && at >= 0
+          ? {
+              position: at + 1,
+              total: links.length,
+              nextFindId: links[at + 1]?.findId ?? null,
+            }
+          : null,
     };
   });
 

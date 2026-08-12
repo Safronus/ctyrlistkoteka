@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Mapa pro tým — heslo s „Č“ a řetěz v seznamu
+- **Heslo s háčkem šlo vložit ze schránky, ale ne napsat.** Mrtvá klávesa na
+  macOS pošle „Č“ jako `C` + U+030C (NFD), schránka jako jeden znak U+010C
+  (NFC). Vypadá to stejně, hashuje se jinak → „Heslo nesedí“. Všechno hašování
+  hesla teď jde přes NFC normalizaci na obou stranách porovnání i při ukládání
+  (`src/lib/crewMap.ts`), takže se stará i nová uložená hesla chovají stejně.
+  Stejná mina, jakou projekt zná u názvů souborů — dopsáno do `docs/gotchas.md`.
+- **Na týmové stránce je vidět řetěz i nápovědy.** U kartičky je „Řetěz 2/3 →
+  #103“ (poslední článek to řekne), nápověda, kterou vydává, a jestli je
+  zveřejněná i na stránce nálezu, jen v řetězu, nebo zatím nikde. Chybějící
+  nápověda u článku řetězu je označená — na ní by hledání skončilo. V souhrnu
+  nahoře je délka řetězu.
+
 ### Mapa pro tým — doladění po první zkoušce
 - **Admin: zapnutí a vypnutí je binární.** Dřív tam byl checkbox, který šel
   odškrtnout, i když ještě nebylo co vypínat, a druhé „Uložit“ vedle toho od

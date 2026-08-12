@@ -6,6 +6,8 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Lightbulb,
+  Link2,
   Maximize2,
   MapPin,
   QrCode,
@@ -43,6 +45,12 @@ export interface CrewCard extends Omit<CrewPoint, "lat" | "lng"> {
   landingUrl: string;
   heading: string;
   body: string;
+  /** The clue this card publishes: its own, else the wave's. */
+  hint: string | null;
+  /** Shown on the find's public detail page, not just in the hunt. */
+  hintPublished: boolean;
+  /** Where it sits in its area's "řetězec čtyřlístků", if it is in one. */
+  chain: { position: number; total: number; nextFindId: number | null } | null;
 }
 
 export interface SheetStatus {
@@ -109,6 +117,7 @@ export function CrewView({
       scans,
       found,
       placed: mine.filter((c) => c.lat !== null).length,
+      chainLength: mine.filter((c) => c.chain !== null).length,
     };
   }, [mine]);
 
@@ -176,6 +185,16 @@ export function CrewView({
             </strong>{" "}
             naskenování
           </span>
+          {stats.chainLength > 0 && (
+            <span className="inline-flex items-center gap-1 text-violet-800">
+              <Link2 className="h-3.5 w-3.5" aria-hidden />
+              řetěz o{" "}
+              <strong className="font-mono tabular-nums">
+                {stats.chainLength}
+              </strong>{" "}
+              kartičkách
+            </span>
+          )}
           {sheet.mode && (
             <>
               <span className="hidden text-gray-300 sm:inline">·</span>
@@ -423,6 +442,56 @@ function CrewRow({
       {card.teamNote && (
         <p className="mt-1.5 whitespace-pre-line rounded-md bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
           {card.teamNote}
+        </p>
+      )}
+
+      {/* The hunt. Both halves matter in the field: which card this one
+          sends people to, and what clue it hands out — a chained card
+          whose clue is empty is a dead end, and that is worth seeing
+          BEFORE it is laminated. */}
+      {card.chain && (
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 rounded-md bg-violet-50 px-2.5 py-1.5 text-[11px] text-violet-900">
+          <Link2 className="h-3 w-3 shrink-0" aria-hidden />
+          <span>
+            Řetěz{" "}
+            <strong className="font-mono tabular-nums">
+              {card.chain.position}/{card.chain.total}
+            </strong>
+          </span>
+          {card.chain.nextFindId !== null ? (
+            <span className="font-mono">→ #{card.chain.nextFindId}</span>
+          ) : (
+            <span className="text-violet-700">· poslední, tady řetěz končí</span>
+          )}
+        </p>
+      )}
+
+      {(card.hint || card.hintPublished || card.chain) && (
+        <p className="mt-1.5 flex items-start gap-1.5 rounded-md bg-gray-50 px-2.5 py-1.5 text-[11px] text-gray-700">
+          <Lightbulb className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" aria-hidden />
+          <span>
+            {card.hint ? (
+              <>
+                <span className="font-medium">Nápověda:</span> {card.hint}
+              </>
+            ) : (
+              <span className="text-amber-700">
+                Nápověda není napsaná
+                {card.chain && card.chain.nextFindId !== null
+                  ? " — předchozí kartička nemá co odkrýt."
+                  : "."}
+              </span>
+            )}
+            {card.hint && (
+              <span className="ml-1 text-gray-400">
+                {card.hintPublished
+                  ? "· zveřejněná i na stránce nálezu"
+                  : card.chain
+                    ? "· jen v řetězu, na stránce nálezu není"
+                    : "· zatím se nikde neukazuje"}
+              </span>
+            )}
+          </span>
         </p>
       )}
 

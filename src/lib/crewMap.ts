@@ -51,6 +51,23 @@ export function crewCookieName(token: string): string {
 }
 
 /**
+ * Unicode-canonical form of a password.
+ *
+ * The one that bit us: macOS hands a dead-key "Č" over as C + combining
+ * caron (NFD) while the same character pasted from the clipboard is a
+ * single precomposed code point (NFC). They look identical, hash
+ * differently, and the result is a password that works when pasted and
+ * "nesedí" when typed. Same trap as the filenames in docs/gotchas.md.
+ *
+ * Everything that hashes a password goes through here, on both sides of
+ * every comparison, so it does not matter which form the DB happens to
+ * hold.
+ */
+function canonical(password: string): string {
+  return password.normalize("NFC");
+}
+
+/**
  * What a successfully unlocked browser stores.
  *
  * A derivation of (token, password), not a session id: there is no server
@@ -61,7 +78,7 @@ export function crewCookieName(token: string): string {
  * and pretending otherwise by mixing in a server key would only hide that.
  */
 export function crewCookieValue(token: string, password: string): string {
-  return sha256(`${token}:${password}`);
+  return sha256(`${token}:${canonical(password)}`);
 }
 
 /** Constant-time compare of a presented cookie against the expected one. */
@@ -76,11 +93,18 @@ export function crewCookieOk(
   return timingSafeEqual(Buffer.from(presented), Buffer.from(expected));
 }
 
-/** Constant-time compare of a typed password against the stored one. */
+/** Constant-time compare of a typed password against the stored one,
+ *  both in canonical form — see `canonical` above. */
 export function crewPasswordOk(typed: string, stored: string): boolean {
-  const a = Buffer.from(sha256(typed), "hex");
-  const b = Buffer.from(sha256(stored), "hex");
+  const a = Buffer.from(sha256(canonical(typed)), "hex");
+  const b = Buffer.from(sha256(canonical(stored)), "hex");
   return timingSafeEqual(a, b);
+}
+
+/** The form a password is STORED in, so the admin shows back exactly what
+ *  the crew will type. */
+export function normalizeCrewPassword(password: string): string {
+  return canonical(password);
 }
 
 function sha256(s: string): string {

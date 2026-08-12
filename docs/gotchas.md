@@ -31,6 +31,14 @@ nematchoval Reykjavík mapu, dokud se na obě strany nepřidalo
   NFC-normalizuj obě strany.
 - Helper `makeKey()` v `src/lib/locationPhotos.ts` je referenční implementace;
   kopíruj ten pattern.
+- **Netýká se to jen souborů — chytlo to i heslo.** Mapa pro tým
+  (`/tym/<token>`) porovnávala hesla přes sha256 syrového řetězce, takže heslo
+  s „Č“ šlo *vložit* ze schránky (NFC, U+010C), ale **napsat ne**: mrtvá klávesa
+  na macOS pošle `C` + U+030C (NFD). Vypadá to stejně, hashuje se jinak,
+  uživatel vidí „Heslo nesedí“. Od 2026-08-12 jde všechno hašování hesla přes
+  `canonical()` v `src/lib/crewMap.ts` (`normalize("NFC")`) na obou stranách
+  porovnání a i při ukládání. Kdekoli se bude porovnávat další uživatelem psaný
+  text, udělej to samé.
 - Pokud se v budoucnu přidá `pnpm geocode` nebo jiný adresářový lookup
   s uživatelskými jmény, replikuj tu normalizaci.
 - **Netýká se** existujícího sync pipeline (location maps + finds) — ten

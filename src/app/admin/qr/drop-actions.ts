@@ -19,6 +19,7 @@ import {
   CREW_PASSWORD_MAX,
   CREW_PASSWORD_MIN,
   newCrewToken,
+  normalizeCrewPassword,
 } from "@/lib/crewMap";
 import { buildChainOrder, type ChainMode } from "@/lib/dropChain";
 import { newDropToken, scatterPoints } from "@/lib/admin/drops";
@@ -539,7 +540,11 @@ export async function saveCrewMapAction(
       return { ok: true, token: null };
     }
 
-    const password = String(input.password ?? "").slice(0, CREW_PASSWORD_MAX);
+    // Stored canonical, so what the admin shows back is byte-for-byte what
+    // a phone keyboard will produce.
+    const password = normalizeCrewPassword(
+      String(input.password ?? "").slice(0, CREW_PASSWORD_MAX),
+    );
     if (password.trim().length < CREW_PASSWORD_MIN) {
       return {
         ok: false,

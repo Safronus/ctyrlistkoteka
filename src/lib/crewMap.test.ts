@@ -6,6 +6,7 @@ import {
   crewCookieValue,
   crewPasswordOk,
   newCrewToken,
+  normalizeCrewPassword,
   rateLimitCrewUnlock,
   resetCrewUnlockLimits,
 } from "./crewMap";
@@ -77,6 +78,34 @@ describe("crew map password compare", () => {
 
   it("compares different lengths without throwing", () => {
     expect(crewPasswordOk("a", "much-longer-password")).toBe(false);
+  });
+
+  it("accepts a typed accent as well as a pasted one", () => {
+    // The bug this exists for: a dead-key "Č" on macOS is C + U+030C
+    // (NFD), the same character from the clipboard is U+010C (NFC). They
+    // render identically and hash differently, so the password worked
+    // when pasted and "nesedělo" when typed.
+    const pasted = "Ctyrlistek-\u010C";
+    // Exactly what the keyboard hands over: the decomposed form.
+    const typed = pasted.normalize("NFD");
+    expect(typed).not.toBe(pasted);
+    expect([...typed]).toHaveLength([...pasted].length + 1);
+    expect(crewPasswordOk(typed, pasted)).toBe(true);
+    expect(crewPasswordOk(pasted, typed)).toBe(true);
+    // And the cookie minted from one form opens a page storing the other.
+    expect(crewCookieOk(crewCookieValue("tok", typed), "tok", pasted)).toBe(
+      true,
+    );
+  });
+
+  it("still tells genuinely different passwords apart", () => {
+    expect(crewPasswordOk("Č", "C")).toBe(false);
+    expect(crewPasswordOk("heslo", "Heslo")).toBe(false);
+  });
+
+  it("stores the canonical form", () => {
+    expect(normalizeCrewPassword("C\u030Cesko")).toBe("\u010Cesko");
+    expect(normalizeCrewPassword("uz-je-NFC")).toBe("uz-je-NFC");
   });
 });
 
