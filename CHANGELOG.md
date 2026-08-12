@@ -9,6 +9,39 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Mapa pro tým (`/tym/<token>`)
+- Čtecí mapa jedné oblasti pro lidi, kteří kartičky schovávají: pozice, stav,
+  poznámka týmu, filtry podle stavu, hledání podle čísla a souřadnice na
+  jedno kliknutí do schránky. Zapíná se **per oblast** v jejím formuláři
+  v `/admin/qr/darovani/<id>`.
+- **Je to vědomá výjimka z pravidla „souřadnice úkrytů nikdy na veřejnou
+  routu“** (CLAUDE.md §6) a stojí na dvou zámcích: náhodná adresa
+  (18 náhodných bajtů) **a heslo**. Bez hesla stránka neprozradí ani název
+  oblasti; vypnutí i tlačítko *Nový odkaz* dělají ze starého odkazu 404,
+  takže zneplatnění je na jedno kliknutí. Cookie je HttpOnly, odvozená
+  z (token, heslo) — změna hesla odhlásí všechny — a scoped na
+  `path=/tym/<token>`. Deset pokusů o heslo na 10 minut a IP.
+- Heslo je v DB v čitelné podobě schválně: je to slovo do skupinového chatu,
+  ne přihlašovací údaj, a majitel ho musí umět přečíst zpátky, aby ho měl
+  komu říct. Hashování by jen předstíralo, že je to credential.
+- Route je `noindex`, přidaná do `robots.txt` a testem držená mimo sitemap
+  (`src/app/sitemap.test.ts`, nově i `src/app/robots.test.ts`).
+
+### Režim tabulky zamyká i výchozí nastavení sady
+- Sekce *Výchozí nastavení sady* šla v režimu tabulky editovat, přestože
+  Google Sheets nese ty samé texty předvyplněné v každém řádku. Změna tady
+  udělá z celého sloupce „zastaralý“ (`exportedDefaults` v `dropPlan.ts`)
+  a příští synchronizace ho **tiše přeskočí** — tedy tichá cesta, jak přijít
+  o editace týmu. Zamčené je teď totéž co u jednotlivého kusu: nadpisy,
+  texty, bonus, nápověda, titulek a podpis u QR a velikost tisku. Název,
+  poznámka, vzhled kódu, pozadí a seznam týmu editovat jdou dál.
+- Zámek je i na serveru (`updateCampaignAction`), ne jen v UI — zapomenutá
+  záložka nesmí zapsat něco, co příští sync smaže.
+- **Zamčená pole konečně vypadají zamčeně.** `<fieldset disabled>` ovládání
+  opravdu vypne, ale prohlížeč pole s vlastním `bg-white` nijak neobarví,
+  takže „nejde měnit“ nebylo poznat. `INPUT_CLS`/`SELECT_CLS` a segmentové
+  přepínače proto nesou `disabled:` variantu.
+
 ### Údržba závislostí
 - Bump skupiny `minor-and-patch` (8 balíčků). Podstatný je **Next 16.3.0**,
   který aktualizuje vendorovaný lodash na 4.17.23 kvůli **CVE-2025-13465**;

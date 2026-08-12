@@ -43,6 +43,7 @@ export function CampaignSettings({
   initial,
   collages,
   pxPerCm,
+  sheetMode,
 }: {
   campaignId: number;
   initial: CampaignInput;
@@ -50,6 +51,17 @@ export function CampaignSettings({
   collages: CollageFile[];
   /** Screen calibration, so the card preview is life-size. */
   pxPerCm: number;
+  /**
+   * A Google Sheet runs this wave.
+   *
+   * The defaults here are not pulled from the workbook — but they were
+   * exported into it, pre-filled in every row. Editing one makes that
+   * column stale: the next sync sees cells matching a default that no
+   * longer exists, treats the sheet as out of date and stops applying
+   * them (dropPlan.ts). Which is a silent way to lose the crew's edits,
+   * so they are locked and marked, exactly as in one card's dialog.
+   */
+  sheetMode: boolean;
 }) {
   const router = useRouter();
   const [open, toggleOpen] = useRememberedOpen("drops.settings", false);
@@ -117,6 +129,17 @@ export function CampaignSettings({
 
       {open && (
         <div className="space-y-6 border-t border-gray-100 p-4">
+          {sheetMode && (
+            <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+              <strong>Tuhle sadu řídí Google Sheets.</strong> Výchozí texty
+              sady — nadpis, text, bonus, nápověda i titulek a podpis u QR a
+              velikost tisku — jsou předvyplněné v každém řádku tabulky, takže
+              tady jsou jen ke čtení. Kdyby je šlo měnit, tabulka by se stala
+              neaktuální a příští synchronizace by ta políčka přeskočila.{" "}
+              <strong>Název, poznámka, vzhled kódu, pozadí a tým v tabulce
+              nejsou</strong> — ty měnit jde.
+            </p>
+          )}
           <div className="grid items-start gap-4 sm:grid-cols-2">
             <Field label="Název sady">
               <input
@@ -140,22 +163,32 @@ export function CampaignSettings({
             title="Stránka po naskenování QR"
             note="Co uvidí na mobilu ten, kdo kartičku najde a naskenuje. Na kartičce samotné tyhle texty nejsou."
           >
-            <div className="grid items-start gap-4 sm:grid-cols-2">
-              <Field label="Nadpis (česky)">
+            {/* Every field in this block is a column in the workbook, so
+                the whole block is one fieldset rather than ten disabled
+                inputs. */}
+            <fieldset
+              disabled={sheetMode}
+              className="grid items-start gap-4 sm:grid-cols-2"
+            >
+              <Field label="Nadpis (česky)" sheetLocked={sheetMode}>
                 <input
                   className={INPUT_CLS}
                   value={cfg.headingCs}
                   onChange={(e) => set("headingCs", e.target.value)}
                 />
               </Field>
-              <Field label="Nadpis (anglicky)">
+              <Field label="Nadpis (anglicky)" sheetLocked={sheetMode}>
                 <input
                   className={INPUT_CLS}
                   value={cfg.headingEn}
                   onChange={(e) => set("headingEn", e.target.value)}
                 />
               </Field>
-              <Field label="Text (česky)" hint="Prázdný řádek = nový odstavec.">
+              <Field
+                label="Text (česky)"
+                sheetLocked={sheetMode}
+                hint="Prázdný řádek = nový odstavec."
+              >
                 <textarea
                   rows={6}
                   className={`${INPUT_CLS} resize-y`}
@@ -163,7 +196,7 @@ export function CampaignSettings({
                   onChange={(e) => set("bodyCs", e.target.value)}
                 />
               </Field>
-              <Field label="Text (anglicky)">
+              <Field label="Text (anglicky)" sheetLocked={sheetMode}>
                 <textarea
                   rows={6}
                   className={`${INPUT_CLS} resize-y`}
@@ -173,6 +206,7 @@ export function CampaignSettings({
               </Field>
               <Field
                 label="Bonusový text (česky)"
+                sheetLocked={sheetMode}
                 hint="Zvláštní rámeček pod hlavním textem."
               >
                 <textarea
@@ -182,7 +216,7 @@ export function CampaignSettings({
                   onChange={(e) => set("bonusCs", e.target.value)}
                 />
               </Field>
-              <Field label="Bonusový text (anglicky)">
+              <Field label="Bonusový text (anglicky)" sheetLocked={sheetMode}>
                 <textarea
                   rows={3}
                   className={`${INPUT_CLS} resize-y`}
@@ -190,7 +224,7 @@ export function CampaignSettings({
                   onChange={(e) => set("bonusEn", e.target.value)}
                 />
               </Field>
-            </div>
+            </fieldset>
           </Group>
 
           {/* ------------------------------------------------ the card */}
@@ -200,7 +234,11 @@ export function CampaignSettings({
             note="Co se fyzicky vytiskne a zalaminuje. Náhled vpravo je ten samý kód, jaký vyjde z tiskárny."
           >
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_13rem]">
-              <QrDesignFields value={design} onChange={setDesign} />
+              <QrDesignFields
+                value={design}
+                onChange={setDesign}
+                sheetLocked={sheetMode}
+              />
               <QrLivePreview
                 design={design}
                 findId={30001}
@@ -216,9 +254,13 @@ export function CampaignSettings({
             title="Nápověda k hledání"
             note="Výchozí text pro celou sadu; u konkrétního kusu se dá přepsat na něco adresného. Zveřejňuje se ale vždy jen u toho kusu, kde to zaškrtneš — a jde vidět na detailu nálezu ve sbírce."
           >
-            <div className="grid items-start gap-4 sm:grid-cols-2">
+            <fieldset
+              disabled={sheetMode}
+              className="grid items-start gap-4 sm:grid-cols-2"
+            >
               <Field
                 label="Nápověda (česky)"
+                sheetLocked={sheetMode}
                 hint="NIKDY sem nepiš přesné souřadnice."
               >
                 <textarea
@@ -229,7 +271,7 @@ export function CampaignSettings({
                   placeholder="Hledej u laviček v parku."
                 />
               </Field>
-              <Field label="Nápověda (anglicky)">
+              <Field label="Nápověda (anglicky)" sheetLocked={sheetMode}>
                 <textarea
                   rows={2}
                   className={`${INPUT_CLS} resize-y`}
@@ -237,7 +279,7 @@ export function CampaignSettings({
                   onChange={(e) => set("hintEn", e.target.value)}
                 />
               </Field>
-            </div>
+            </fieldset>
           </Group>
 
           {/* ------------------------------------------ the background */}

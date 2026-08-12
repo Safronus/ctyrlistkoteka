@@ -13,9 +13,11 @@ export default function robots(): MetadataRoute.Robots {
         // the QR scan targets — page codes, find codes and the
         // in-the-wild drop landing pages. They exist to be reached by
         // scanning a printed code, so a crawler listing them would both
-        // spoil the game and inflate the scan counts. The public pages
-        // they lead to stay indexable; src/app/sitemap.test.ts keeps them
-        // out of the sitemap too.
+        // spoil the game and inflate the scan counts. /tym/ is the
+        // password-gated crew map; a crawler would only ever see the
+        // password form, but there is no reason for it to knock at all.
+        // The public pages they lead to stay indexable;
+        // src/app/sitemap.test.ts keeps them out of the sitemap too.
         //
         // /admin is DELIBERATELY not listed here: robots.txt is world-
         // readable, so a `Disallow: /admin/` line would advertise the admin
@@ -26,7 +28,7 @@ export default function robots(): MetadataRoute.Robots {
         // actually SEE the noindex), and protected by WebAuthn/iron-session
         // auth (plus the optional Nginx IP-allowlist cloak in
         // deploy/nginx.conf.template). Don't add it back.
-        disallow: ["/api/", "/go/", "/n/", "/d/"],
+        disallow: ["/api/", "/go/", "/n/", "/d/", "/tym/"],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

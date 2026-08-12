@@ -13,6 +13,7 @@ import {
   Save,
   Shuffle,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import {
@@ -28,6 +29,7 @@ import { parseGps } from "@/lib/parseGps";
 import { readBoundary } from "@/lib/admin/dropBoundary";
 import { CONTROL_H, CONTROL_H_SM, Field, INPUT_CLS, LABEL_H, ROW_CLS } from "../../qr-ui";
 import { useRememberedOpen } from "../../use-remembered-open";
+import { CrewMapFields } from "./crew-map-fields";
 
 /** Leaflet reads `window` at module load — same SSR boundary the rest of
  *  the maps on this page use. */
@@ -55,6 +57,11 @@ export interface AreaView {
   boundaryLabel: string | null;
   itemCount: number;
   unplaced: number;
+  /** Crew map (`/tym/<token>`): null when it has never been switched on.
+   *  Admin-only page, so the password travels here in the clear — the
+   *  operator has to be able to read it back to pass it on. */
+  crewToken: string | null;
+  crewPassword: string | null;
 }
 
 /** Areas are the towns a wave is spread across: each owns a map centre, a
@@ -63,11 +70,14 @@ export function AreaEditor({
   campaignId,
   areas,
   sheetMode,
+  siteOrigin,
 }: {
   campaignId: number;
   areas: AreaView[];
   /** Scatter writes positions, which a sheet-run wave owns. */
   sheetMode: boolean;
+  /** Origin the crew-map links are built from. */
+  siteOrigin: string;
 }) {
   const [adding, setAdding] = useState(false);
   // Collapsed by default once the towns are set up: the section carries a
@@ -124,6 +134,7 @@ export function AreaEditor({
             campaignId={campaignId}
             area={a}
             sheetMode={sheetMode}
+            siteOrigin={siteOrigin}
           />
         ))}
       </ul>
@@ -132,6 +143,7 @@ export function AreaEditor({
         <AreaRow
           campaignId={campaignId}
           area={null}
+          siteOrigin={siteOrigin}
           onDone={() => setAdding(false)}
         />
       )}
@@ -146,11 +158,13 @@ function AreaRow({
   area,
   onDone,
   sheetMode,
+  siteOrigin,
 }: {
   campaignId: number;
   area: AreaView | null;
   onDone?: () => void;
   sheetMode?: boolean;
+  siteOrigin: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(area === null);
@@ -237,6 +251,17 @@ function AreaRow({
             <Globe2 className="h-3 w-3" aria-hidden />
             {area.boundary ? "hranice" : "bez hranice"}
           </span>
+          {/* Coordinates on a reachable URL is the one state worth seeing
+              without opening the row. */}
+          {area.crewToken && (
+            <span
+              className={`${CONTROL_H_SM} inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-100 px-2 text-[11px] font-medium text-amber-900`}
+              title="Mapa pro tým je zapnutá — odkaz je chráněný heslem"
+            >
+              <Users className="h-3 w-3" aria-hidden />
+              mapa pro tým
+            </span>
+          )}
           <div className="flex shrink-0 items-center gap-1.5">
             {area.unplaced > 0 && area.scatterRadiusM != null && !sheetMode && (
               <button
@@ -465,6 +490,19 @@ function AreaRow({
             Zavřít nabídku
           </button>
         </div>
+      )}
+
+      {/* Only for a saved area: the switch writes straight to the row, so
+          there has to be a row. */}
+      {area && (
+        <CrewMapFields
+          campaignId={campaignId}
+          areaId={area.id}
+          areaName={area.name}
+          token={area.crewToken}
+          password={area.crewPassword}
+          siteOrigin={siteOrigin}
+        />
       )}
 
       {previewLat !== null && previewLng !== null && (

@@ -550,6 +550,22 @@ model DropArea {
   /// can tell "Zlín the town" from "Zlín the district".
   boundaryLabel  String? @map("boundary_label") @db.VarChar(300)
 
+  // --- Read-only map for the crew ---------------------------------
+  //
+  // An unlisted page showing this area's hiding spots so the team can
+  // check them on a map instead of squinting at GPS in a spreadsheet.
+  // It carries EVERY hiding coordinate, so it is gated twice: an
+  // unguessable token AND a password, both set in the admin. The owner
+  // accepted that risk knowingly (2026-08-11) on the same terms as the
+  // shared Google Sheet — the password is what keeps a forwarded link
+  // from being enough on its own.
+  /// Null until the operator turns the crew map on.
+  crewToken    String? @unique @map("crew_token") @db.VarChar(64)
+  /// Plain text on purpose: it is a shared word for a group chat, not a
+  /// login. Never reused elsewhere, and the page is noindex + out of the
+  /// sitemap. Hashing it would only pretend it is a credential.
+  crewPassword String? @map("crew_password") @db.VarChar(120)
+
   sortOrder Int      @default(0) @map("sort_order") @db.SmallInt
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 

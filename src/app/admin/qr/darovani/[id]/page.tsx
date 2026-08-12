@@ -26,6 +26,7 @@ import { SheetPanel } from "./sheet-panel";
 import { listDropXlsx } from "@/lib/admin/dropXlsxArchive";
 import { listCollageFiles } from "@/lib/admin/collageFiles";
 import { readQrPrefs } from "@/lib/admin/qrPrefs";
+import { printableSiteUrl } from "@/lib/printableSiteUrl";
 
 export const metadata: Metadata = {
   title: "Darování ve světě",
@@ -250,6 +251,7 @@ export default async function DropCampaignPage({
         campaignId={campaign.id}
         collages={collages}
         pxPerCm={pxPerCm}
+        sheetMode={campaign.sheetMode}
         initial={{
           name: campaign.name,
           note: campaign.note ?? "",
@@ -276,6 +278,7 @@ export default async function DropCampaignPage({
       <AreaEditor
         campaignId={campaign.id}
         sheetMode={campaign.sheetMode}
+        siteOrigin={printableSiteUrl()}
         areas={campaign.areas.map((a) => ({
           id: a.id,
           name: a.name,
@@ -285,6 +288,8 @@ export default async function DropCampaignPage({
           scatterRadiusM: a.scatterRadiusM,
           boundary: a.boundary,
           boundaryLabel: a.boundaryLabel,
+          crewToken: a.crewToken,
+          crewPassword: a.crewPassword,
           itemCount: campaign.items.filter((i) => i.areaId === a.id).length,
           unplaced: campaign.items.filter(
             (i) => i.areaId === a.id && i.lat === null,

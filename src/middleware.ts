@@ -171,6 +171,9 @@ export const config = {
     // fragile: an unlisted `clover-illustration.png` got locale-rewritten to
     // `/cs/clover-illustration.png` and 404'd. robots.txt / sitemap.xml stay
     // explicit (not image extensions).
-    "/((?!api|go|n/|d/|og|indexnow-key|_next/static|_next/image|robots.txt|sitemap.xml|.*\\.(?:png|jpe?g|webp|gif|ico|svg|avif)$).*)",
+    // `tym/` is the password-gated crew map — like `d/` it is a bare,
+    // locale-less path, so letting next-intl rewrite it to `/cs/tym/…`
+    // would 404 every link handed to the people hiding the cards.
+    "/((?!api|go|n/|d/|tym/|og|indexnow-key|_next/static|_next/image|robots.txt|sitemap.xml|.*\\.(?:png|jpe?g|webp|gif|ico|svg|avif)$).*)",
   ],
 };

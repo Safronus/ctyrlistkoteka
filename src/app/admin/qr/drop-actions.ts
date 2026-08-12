@@ -15,6 +15,11 @@ import {
   type CollageVariant,
 } from "@/lib/collage";
 import { parseGps } from "@/lib/parseGps";
+import {
+  CREW_PASSWORD_MAX,
+  CREW_PASSWORD_MIN,
+  newCrewToken,
+} from "@/lib/crewMap";
 import { newDropToken, scatterPoints } from "@/lib/admin/drops";
 import { readBoundary, scatterInBoundary } from "@/lib/admin/dropBoundary";
 import {
@@ -273,24 +278,55 @@ export async function updateCampaignAction(
   try {
     const current = await prisma.dropCampaign.findUnique({
       where: { id },
-      select: { qrOptions: true },
+      select: { qrOptions: true, sheetMode: true },
     });
+    // In sheet mode the wave's DEFAULT texts are frozen too. They are not
+    // pulled from the workbook — but they were exported INTO it, sitting
+    // pre-filled in every row, and changing one here makes that whole
+    // column stale: the next sync sees cells that match a default which
+    // no longer exists, decides the sheet is out of date and skips them
+    // (see PlanCampaign.exportedDefaults in dropPlan.ts). The crew's
+    // edits to that column then stop arriving, silently. So the same
+    // fields the item dialog locks are locked here.
+    const sheetRuns = current?.sheetMode === true;
+    const keep = sheetRuns
+      ? await prisma.dropCampaign.findUnique({
+          where: { id },
+          select: {
+            headingCs: true,
+            headingEn: true,
+            bodyCs: true,
+            bodyEn: true,
+            bonusCs: true,
+            bonusEn: true,
+            qrTitle: true,
+            qrCaption: true,
+            hintCs: true,
+            hintEn: true,
+          },
+        })
+      : null;
+    const posted = designToBag(current?.qrOptions, input.design);
     await prisma.dropCampaign.update({
       where: { id },
       data: {
         name,
         note: nullable(input.note, 5_000),
-        headingCs,
-        headingEn: nullable(input.headingEn, 200),
-        bodyCs,
-        bodyEn: nullable(input.bodyEn, 20_000),
-        bonusCs: nullable(input.bonusCs, 20_000),
-        bonusEn: nullable(input.bonusEn, 20_000),
-        qrTitle: nullable(input.qrTitle, 200),
-        qrCaption: nullable(input.qrCaption, 200),
-        hintCs: nullable(input.hintCs, 5_000),
-        hintEn: nullable(input.hintEn, 5_000),
-        qrOptions: designToBag(current?.qrOptions, input.design),
+        headingCs: keep?.headingCs ?? headingCs,
+        headingEn: keep ? keep.headingEn : nullable(input.headingEn, 200),
+        bodyCs: keep?.bodyCs ?? bodyCs,
+        bodyEn: keep ? keep.bodyEn : nullable(input.bodyEn, 20_000),
+        bonusCs: keep ? keep.bonusCs : nullable(input.bonusCs, 20_000),
+        bonusEn: keep ? keep.bonusEn : nullable(input.bonusEn, 20_000),
+        qrTitle: keep ? keep.qrTitle : nullable(input.qrTitle, 200),
+        qrCaption: keep ? keep.qrCaption : nullable(input.qrCaption, 200),
+        hintCs: keep ? keep.hintCs : nullable(input.hintCs, 5_000),
+        hintEn: keep ? keep.hintEn : nullable(input.hintEn, 5_000),
+        // The look of the card is the admin's, except the three keys the
+        // workbook also carries — same rule as one card's own design.
+        qrOptions: sheetRuns
+          ? (keepSheetOwnedDesign(current?.qrOptions, posted) ?? Prisma.DbNull)
+          : posted,
         placers: parsePlacers(String(input.placers ?? "")),
         ...collageFields(input),
       },
@@ -461,6 +497,80 @@ export async function clearAreaBoundaryAction(
     return { ok: true };
   } catch (e) {
     return { ok: false, error: msg(e, "Smazání hranice selhalo") };
+  }
+}
+
+/**
+ * Turns the crew map (`/tym/<token>`) on or off for one area.
+ *
+ * The one switch in the whole admin that puts hiding coordinates on a
+ * world-reachable URL, so it is deliberately explicit: enabling needs a
+ * password of its own, "Nový odkaz" mints a fresh token (which kills the
+ * old link instantly), and switching off clears both — after which the
+ * URL 404s like any other.
+ *
+ * Every path here is audited. Nothing about the password or the token is
+ * ever written to the audit details.
+ */
+export async function saveCrewMapAction(
+  campaignId: number,
+  areaId: number,
+  input: { enabled: boolean; password: string; regenerate: boolean },
+): Promise<Result<{ token: string | null }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    const area = await prisma.dropArea.findUnique({
+      where: { id: areaId },
+      select: { crewToken: true, crewPassword: true },
+    });
+    if (!area) return { ok: false, error: "Oblast neexistuje" };
+
+    if (!input.enabled) {
+      await prisma.dropArea.update({
+        where: { id: areaId },
+        data: { crewToken: null, crewPassword: null },
+      });
+      await appendAudit({
+        action: "settings.update",
+        ip: await getRequestIp(),
+        details: { drops: "crew-map-off", campaignId, areaId },
+      });
+      revalidate(campaignId);
+      return { ok: true, token: null };
+    }
+
+    const password = String(input.password ?? "").slice(0, CREW_PASSWORD_MAX);
+    if (password.trim().length < CREW_PASSWORD_MIN) {
+      return {
+        ok: false,
+        error: `Heslo musí mít aspoň ${CREW_PASSWORD_MIN} znaků — je to jediné, co odkaz chrání.`,
+      };
+    }
+    // A fresh token on first enable, and whenever the operator asks —
+    // that is how a link that got forwarded too far is revoked.
+    const token =
+      input.regenerate || !area.crewToken ? newCrewToken() : area.crewToken;
+
+    await prisma.dropArea.update({
+      where: { id: areaId },
+      data: { crewToken: token, crewPassword: password },
+    });
+    await appendAudit({
+      action: "settings.update",
+      ip: await getRequestIp(),
+      details: {
+        drops: "crew-map-on",
+        campaignId,
+        areaId,
+        // Whether the link changed matters when reading the log back; the
+        // link itself never goes anywhere near it.
+        newLink: token !== area.crewToken,
+      },
+    });
+    revalidate(campaignId);
+    return { ok: true, token };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Uložení mapy pro tým selhalo") };
   }
 }
 

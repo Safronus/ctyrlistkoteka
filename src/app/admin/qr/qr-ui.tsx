@@ -8,11 +8,23 @@ import { Lock } from "lucide-react";
  * without either owning the other's markup.
  */
 
+/**
+ * The `disabled:` half is not decoration.
+ *
+ * A control inside a disabled `<fieldset>` gets no styling of its own from
+ * the browser once a background is set explicitly — so the sheet-locked
+ * fields were genuinely unusable while looking exactly like the editable
+ * ones next to them. These three utilities are what makes "nejde měnit"
+ * visible before the operator clicks and wonders why nothing types.
+ */
+const DISABLED_CLS =
+  "disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-500";
+
 export const SELECT_CLS =
-  "w-full cursor-pointer rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
+  `w-full cursor-pointer rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${DISABLED_CLS}`;
 
 export const INPUT_CLS =
-  "w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
+  `w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${DISABLED_CLS}`;
 
 /**
  * One height for every single-line control sitting in a row together.
@@ -101,7 +113,7 @@ export function Seg({
             onClick={() => onChange(o.v)}
             aria-pressed={active}
             title={o.title}
-            className={`px-2.5 py-1.5 text-xs font-medium transition ${
+            className={`px-2.5 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
               i > 0 ? "border-l border-gray-300" : ""
             } ${
               active

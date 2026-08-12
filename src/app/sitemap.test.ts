@@ -8,7 +8,9 @@ import { describe, expect, it, vi } from "vitest";
  * printed code. Listing one in the sitemap would hand search engines — and
  * anyone reading it — a directory of codes that are supposed to be found in
  * the physical world, and would inflate their scan counts with crawler
- * traffic. robots.txt disallows them and the handlers send
+ * traffic. `/tym/<token>` is worse still: behind its password sits every
+ * hiding coordinate of an area, so it must never be advertised anywhere.
+ * robots.txt disallows them and the handlers send
  * `X-Robots-Tag: noindex`; this test is the third lock, because the sitemap
  * is built from queries and a future "add every route" refactor is exactly
  * the kind of change that would quietly undo the other two.
@@ -24,7 +26,7 @@ vi.mock("@/lib/queries/locations", () => ({
   listLocations: async () => [{ id: 3 }, { id: 26 }],
 }));
 
-const TRACKING_PREFIXES = ["/go/", "/n/", "/d/"];
+const TRACKING_PREFIXES = ["/go/", "/n/", "/d/", "/tym/"];
 
 describe("sitemap", () => {
   it("lists no tracking-redirect URLs", async () => {
