@@ -31,3 +31,8 @@ jobs:
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # gitleaks finds .gitleaks.toml in the source root on its own,
+          # but say it out loud: the file holds the reviewed exceptions,
+          # and a silent fallback to the bare default rules would fail the
+          # build on things we have already looked at.
+          GITLEAKS_CONFIG: .gitleaks.toml

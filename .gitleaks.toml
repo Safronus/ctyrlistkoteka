@@ -1,0 +1,45 @@
+# gitleaks — repo config
+#
+# The default rule set does the work; this file exists only to name the
+# findings we have looked at and decided are not secrets. Keep every
+# exception NARROW (a path plus the literal string), never a whole rule and
+# never a whole directory: the repo is public, so a real key committed here
+# is exposed the second it lands.
+#
+# Scans run in .github/workflows/gitleaks.yml — the push event scans the
+# pushed range, a manual run scans the whole history. That is why an old
+# commit still needs an entry even after the string is gone from HEAD.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """
+Test fixture in the crew-map unit test (commit 65a496c, 2026-08-12).
+
+`Zm9vYmFyYmF6cXV1eHh4eA` is base64 of "foobarbazquuxxxx" — a stand-in for
+a /tym/<token> address, used to check that a cookie minted for one area is
+refused for another. It never unlocked anything: crew tokens live in the
+`drop_areas` table and are minted per area in the admin.
+
+gitleaks was right to shout, though — a base64 blob in a source file is
+indistinguishable from a leaked key. HEAD now spells the fixture out as
+`crew-map-test-token-not-a-secret`; this entry only keeps a full-history
+scan from re-reporting the commit that introduced it.
+"""
+paths = ['''src/lib/crewMap\.test\.ts''']
+regexes = ['''Zm9vYmFyYmF6cXV1eHh4eA''']
+
+[[allowlists]]
+description = """
+The QR token alphabet, not a token.
+
+`ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789` in
+src/app/admin/qr/qr-actions.ts is the set of characters a /go/<token> is
+built FROM — every letter and digit except the ones a human misreads
+(0/O/1/l/I). Its entropy is high for the obvious reason: it is one of
+each. Found by a full-history scan, never by a push scan, which is why it
+sat there unnoticed since June.
+"""
+paths = ['''src/app/admin/qr/qr-actions\.ts''']
+regexes = ['''ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789''']

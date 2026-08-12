@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### gitleaks: `.gitleaks.toml` s prověřenými výjimkami
+- Scan spadl na `src/lib/crewMap.test.ts` — testovací fixture
+  `Zm9vYmFyYmF6cXV1eHh4eA` (base64 „foobarbazquuxxxx“) vypadal jako
+  uniklý klíč. **Nic neodemykal**, crew tokeny žijí v tabulce `drop_areas`.
+  Ale gitleaks měl pravdu, že base64 blob ve zdrojáku je k nerozeznání od
+  klíče, takže fixture je teď čitelný `crew-map-test-token-not-a-secret`.
+- Nový `.gitleaks.toml` drží prověřené výjimky — vždy úzce, cesta + přesný
+  řetězec, nikdy celé pravidlo nebo adresář. Kromě fixture je tam
+  `TOKEN_ALPHABET` z `qr-actions.ts`: abeceda, ze které se tokeny skládají,
+  ne token. Ta v historii ležela od června a nikdy nespadla, protože push
+  scan kouká jen na nově pushnuté commity — plnou historii projde až ruční
+  spuštění. Ověřeno lokálně (docker, 1055 commitů, čisté).
+
 ### Tiskový arch: rub, volné místo a náhled
 - **Text na zadní straně** pro oboustranný tisk. Za každou stránku s kartičkami
   se vloží druhá, zrcadlená podle hrany, kterou tiskárna otáčí papír (delší je

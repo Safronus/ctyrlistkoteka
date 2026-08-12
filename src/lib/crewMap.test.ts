@@ -30,7 +30,11 @@ describe("crew map token", () => {
 });
 
 describe("crew map cookie", () => {
-  const token = "Zm9vYmFyYmF6cXV1eHh4eA";
+  // Deliberately readable rather than a realistic 18-byte token: a
+  // base64-looking blob in a test file is indistinguishable from a leaked
+  // key, and gitleaks rightly said so. The pattern is what matters here,
+  // not the entropy.
+  const token = "crew-map-test-token-not-a-secret";
 
   it("accepts the value it minted", () => {
     const v = crewCookieValue(token, "ctyrlistek2026");
@@ -44,7 +48,7 @@ describe("crew map cookie", () => {
 
   it("is not transferable between areas", () => {
     const v = crewCookieValue(token, "spolecne-heslo");
-    expect(crewCookieOk(v, "jinyTokenJinaOblast12", "spolecne-heslo")).toBe(
+    expect(crewCookieOk(v, "crew-map-other-area-token-fake", "spolecne-heslo")).toBe(
       false,
     );
   });
@@ -57,7 +61,7 @@ describe("crew map cookie", () => {
   });
 
   it("names the cookie per area, not per site", () => {
-    expect(crewCookieName(token)).not.toBe(crewCookieName("jinyToken1234567890ab"));
+    expect(crewCookieName(token)).not.toBe(crewCookieName("crew-map-second-area-token-fake"));
     expect(crewCookieName(token)).toBe(crewCookieName(token));
     // The token itself must not be readable off the cookie name.
     expect(crewCookieName(token)).not.toContain(token);
