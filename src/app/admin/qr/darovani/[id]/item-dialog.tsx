@@ -57,6 +57,7 @@ export function ItemDialog({
   campaignId,
   campaign,
   sheetMode,
+  pxPerCm,
   item,
   areas,
   placers,
@@ -68,6 +69,8 @@ export function ItemDialog({
   /** True when a Google Sheet owns these fields — the form goes read-only
    *  rather than letting an edit survive until the next sync and vanish. */
   sheetMode: boolean;
+  /** Screen calibration, so the preview is life-size. */
+  pxPerCm: number;
   item: ItemView;
   areas: Array<{ id: number; name: string }>;
   placers: string[];
@@ -192,10 +195,12 @@ export function ItemDialog({
 
         {sheetMode && (
           <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
-            <strong>Tuhle sadu řídí Google Sheets.</strong> Pole jsou jen ke
-            čtení — kdyby šla měnit tady, příští synchronizace by je
-            přepsala. Uprav to v tabulce, nebo v sekci Google Sheets vypni
-            režim tabulky.
+            <strong>Tuhle sadu řídí Google Sheets.</strong> Co je v tabulce
+            — texty, nápověda, stav, oblast, kdo umísťuje, GPS, titulek a
+            podpis u QR a velikost tisku — je tady jen ke čtení; kdyby to
+            šlo měnit, příští synchronizace by to přepsala.{" "}
+            <strong>Vzhled kartičky v tabulce není</strong>, takže ten
+            měnit jde a uloží se.
           </p>
         )}
 
@@ -334,6 +339,12 @@ export function ItemDialog({
           </div>
         </DialogGroup>
 
+        {/* The look of the card is NOT in the workbook — density, dot
+            shape, colour, centre image, border and the per-card override
+            live only here. So it stays editable while a sheet runs the
+            wave; the fieldset closes around it and picks up after. */}
+        </fieldset>
+
         {/* --------------------------------------------------- the card */}
         <DialogGroup
           icon={<QrCode className="h-4 w-4 text-emerald-600" aria-hidden />}
@@ -368,6 +379,7 @@ export function ItemDialog({
                 design={design}
                 findId={item.findId}
                 label="Náhled této kartičky"
+                pxPerCm={pxPerCm}
               />
             </div>
           ) : (
@@ -376,6 +388,7 @@ export function ItemDialog({
                 design={campaign.design}
                 findId={item.findId}
                 label="Podle sady"
+                pxPerCm={pxPerCm}
               />
               <p className="text-xs text-gray-500">
                 Takhle se tahle kartička vytiskne teď. Když v sadě změníš
@@ -384,6 +397,8 @@ export function ItemDialog({
             </div>
           )}
         </DialogGroup>
+
+        <fieldset disabled={sheetMode} className="contents">
 
         {/* --------------------------------------------------- the hint */}
         <DialogGroup
@@ -430,7 +445,7 @@ export function ItemDialog({
           <button
             type="button"
             onClick={save}
-            disabled={busy || sheetMode}
+            disabled={busy}
             className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-50"
           >
             {busy ? (

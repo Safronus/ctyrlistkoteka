@@ -584,9 +584,13 @@ export async function saveItemAction(
   input: ItemInput,
 ): Promise<VoidResult> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
-  if (await sheetOwns(campaignId)) {
-    return { ok: false, error: SHEET_OWNED_ERROR };
-  }
+  // In sheet mode the workbook owns SOME of this card, not all of it. The
+  // columns it carries are the texts, the hint, status, area, who places
+  // it, the GPS, the two QR captions and the print size — everything else
+  // about how the card LOOKS (density, dot shape, colour, centre image,
+  // border) exists only here, and refusing the whole dialog meant those
+  // could not be touched at all while a wave was run from a sheet.
+  const sheetRuns = await sheetOwns(campaignId);
   const rawGps = str(input.gps, 200);
   let lat: number | null = null;
   let lng: number | null = null;
@@ -617,7 +621,14 @@ export async function saveItemAction(
       : null;
     await prisma.dropItem.update({
       where: { id: itemId },
-      data: {
+      data: sheetRuns
+        ? {
+            // Look only. Writing anything the sheet owns would survive
+            // until the next pull and then vanish without a trace.
+            qrOptions:
+              bag && Object.keys(bag).length > 0 ? bag : Prisma.DbNull,
+          }
+        : {
         qrOptions: bag && Object.keys(bag).length > 0 ? bag : Prisma.DbNull,
         areaId: input.areaId,
         status,

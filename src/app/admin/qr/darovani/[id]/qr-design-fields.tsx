@@ -87,6 +87,15 @@ const BORDER_COLOR_OPTS = [
   { v: "gray", l: "Šedá" },
 ];
 
+/** Small heading that splits the panel into the questions it asks. */
+function SubHead({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+      {children}
+    </p>
+  );
+}
+
 export function QrDesignFields({
   value,
   onChange,
@@ -104,7 +113,13 @@ export function QrDesignFields({
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem]">
+      {/* Grouped by what the setting is ABOUT, because a flat two-column
+          flow put "Hustota" next to "Barevnost" and "Okraj" under
+          "Obrázek" purely by height — the panel read as scattered.
+          Three questions: what is written on it, how the code looks, and
+          how the card itself is cut. */}
+      <SubHead>Texty na kartičce</SubHead>
+      <div className="grid items-start gap-4 sm:grid-cols-2">
         <Field
           label="Nad QR kódem"
           hint={
@@ -161,25 +176,9 @@ export function QrDesignFields({
           </div>
         </Field>
 
-        <Field
-          label="Velikost tisku"
-          hint={`${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM} cm, šířka kartičky.`}
-        >
-          <div className="flex items-center gap-1.5">
-            <input
-              type="number"
-              min={DROP_SIZE_MIN_CM}
-              max={DROP_SIZE_MAX_CM}
-              step={0.1}
-              className={`${INPUT_CLS} ${CONTROL_H} tabular-nums`}
-              value={value.sizeCm}
-              onChange={(e) => onChange({ sizeCm: e.target.value })}
-            />
-            <span className="shrink-0 text-xs text-gray-500">cm</span>
-          </div>
-        </Field>
       </div>
 
+      <SubHead>Vzhled kódu</SubHead>
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <Field
           label="Hustota kódu"
@@ -221,6 +220,27 @@ export function QrDesignFields({
             )}
           </div>
         </Field>
+      </div>
+
+      <SubHead>Samotná kartička</SubHead>
+      <div className="grid items-start gap-4 sm:grid-cols-2">
+        <Field
+          label="Velikost tisku"
+          hint={`${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM} cm, šířka kartičky. Náhled se jí drží.`}
+        >
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              min={DROP_SIZE_MIN_CM}
+              max={DROP_SIZE_MAX_CM}
+              step={0.1}
+              className={`${INPUT_CLS} ${CONTROL_H} w-24 tabular-nums`}
+              value={value.sizeCm}
+              onChange={(e) => onChange({ sizeCm: e.target.value })}
+            />
+            <span className="shrink-0 text-xs text-gray-500">cm</span>
+          </div>
+        </Field>
         <Field label="Okraj kartičky">
           <Seg
             value={value.border}
@@ -229,6 +249,7 @@ export function QrDesignFields({
           />
         </Field>
         {value.border !== "none" && (
+          <div className="sm:col-span-2">
           <Field label="Styl okraje">
             <div className="flex flex-wrap items-center gap-2">
               <Seg
@@ -243,6 +264,7 @@ export function QrDesignFields({
               />
             </div>
           </Field>
+          </div>
         )}
       </div>
     </div>

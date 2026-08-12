@@ -42,11 +42,14 @@ export function CampaignSettings({
   campaignId,
   initial,
   collages,
+  pxPerCm,
 }: {
   campaignId: number;
   initial: CampaignInput;
   /** Which backgrounds actually exist on disk, for the download list. */
   collages: CollageFile[];
+  /** Screen calibration, so the card preview is life-size. */
+  pxPerCm: number;
 }) {
   const router = useRouter();
   const [open, toggleOpen] = useRememberedOpen("drops.settings", false);
@@ -202,6 +205,7 @@ export function CampaignSettings({
                 design={design}
                 findId={30001}
                 label="Náhled kartičky"
+                pxPerCm={pxPerCm}
               />
             </div>
           </Group>

@@ -147,6 +147,7 @@ export function ItemsGrid({
   items,
   areas,
   placers,
+  pxPerCm,
 }: {
   campaignId: number;
   campaignName: string;
@@ -156,6 +157,8 @@ export function ItemsGrid({
   items: ItemView[];
   areas: Array<{ id: number; name: string }>;
   placers: string[];
+  /** Screen calibration, passed through to the card preview. */
+  pxPerCm: number;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
@@ -688,6 +691,7 @@ export function ItemsGrid({
 
       {openItem && (
         <ItemDialog
+          pxPerCm={pxPerCm}
           campaignId={campaignId}
           campaign={campaignDefaults}
           sheetMode={sheetMode}

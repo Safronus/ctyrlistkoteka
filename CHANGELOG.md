@@ -65,6 +65,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   neprojevilo a šest kartiček po sobě vyšlo stejně. Přepnout na jednu
   pevnou texturu nebo pozadí vypnout jde pořád.
 
+### Darování ve světě: vzhled jde měnit i v režimu tabulky
+- Když sadu řídí Google Sheets, byl celý dialog kusu zamčený. Jenže
+  **vzhled kartičky v tabulce vůbec není** — hustota, tvar bodů, barevnost,
+  obrázek uprostřed, okraj — takže se nedal měnit vůbec. Teď zamčené
+  zůstává jen to, co tabulka opravdu nese, a vzhled se uloží.
+- Sekce „Vzhled kartičky s QR kódem“ je přeskládaná do tří skupin podle
+  toho, čeho se která volba týká: **texty na kartičce**, **vzhled kódu**,
+  **samotná kartička** (velikost tisku + okraj). Dřív to plynulo do dvou
+  sloupců podle výšky polí a působilo to rozházeně.
+- **Náhled je ve skutečné velikosti** — drží se zadaných centimetrů podle
+  kalibrace obrazovky z QR stránky, takže 4 cm na monitoru jsou 4 cm
+  v ruce.
+
 ### Statistiky: poslední dlaždice tempa na mobilu už nevisí sama
 - V „Odhadovaná doba sbírání“ je řádek průměrného tempa pět dlaždic. Na
   telefonu se lámaly 2 + 2 + 1 a ta poslední („/ rok“) zůstávala sama, což

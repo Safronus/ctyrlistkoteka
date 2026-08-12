@@ -25,6 +25,7 @@ import { XlsxPanel } from "./xlsx-panel";
 import { SheetPanel } from "./sheet-panel";
 import { listDropXlsx } from "@/lib/admin/dropXlsxArchive";
 import { listCollageFiles } from "@/lib/admin/collageFiles";
+import { readQrPrefs } from "@/lib/admin/qrPrefs";
 
 export const metadata: Metadata = {
   title: "Darování ve světě",
@@ -53,6 +54,9 @@ export default async function DropCampaignPage({
   if (!Number.isInteger(campaignId) || campaignId <= 0) notFound();
 
   const collages = await listCollageFiles();
+  // Measured px-per-cm from the QR page's calibration, so both card
+  // previews on this page are life-size rather than "some rectangle".
+  const { pxPerCm } = await readQrPrefs();
   const campaign = await loadCampaign(campaignId);
   if (!campaign) notFound();
 
@@ -245,6 +249,7 @@ export default async function DropCampaignPage({
       <CampaignSettings
         campaignId={campaign.id}
         collages={collages}
+        pxPerCm={pxPerCm}
         initial={{
           name: campaign.name,
           note: campaign.note ?? "",
@@ -331,6 +336,7 @@ export default async function DropCampaignPage({
       />
 
       <ItemsGrid
+        pxPerCm={pxPerCm}
         campaignId={campaign.id}
         campaignName={campaign.name}
         sheetMode={campaign.sheetMode}

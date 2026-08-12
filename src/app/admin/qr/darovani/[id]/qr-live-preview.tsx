@@ -17,11 +17,17 @@ export function QrLivePreview({
   design,
   findId,
   label,
+  pxPerCm,
 }: {
   design: QrDesign;
   /** Number to draw with; the preview never needs a real card. */
   findId: number;
   label: string;
+  /** Screen calibration from `data/.admin/qr-prefs.json`. CSS insists a
+   *  centimetre is 37.8 px while a real monitor disagrees, so the QR page
+   *  keeps a measured value — reused here so "4 cm" on screen is 4 cm in
+   *  the hand. */
+  pxPerCm: number;
 }) {
   // `{ svg, forKey }` in one piece of state: the "is this preview stale"
   // question is answered by comparing keys at render time, which keeps the
@@ -46,13 +52,29 @@ export function QrLivePreview({
   const svg = state?.svg ?? null;
   const pending = state?.forKey !== key;
 
+  // True physical width, and how much of it the column can actually hold.
+  // A 12 cm card is ~450 px on a calibrated screen and the panel is
+  // narrower than that, so it gets scaled down — and says so, because a
+  // preview that silently lies about size is worse than no preview.
+  const sizeCm = Number(design.sizeCm);
+  const wantPx =
+    Number.isFinite(sizeCm) && sizeCm > 0 ? sizeCm * pxPerCm : null;
+
   return (
     <div className="space-y-1.5">
-      <p className="text-xs font-medium text-gray-700">{label}</p>
+      <p className="flex items-baseline justify-between gap-2 text-xs font-medium text-gray-700">
+        {label}
+        {wantPx && (
+          <span className="font-normal text-[11px] text-gray-400">
+            {sizeCm} cm ve skutečné velikosti
+          </span>
+        )}
+      </p>
       <div className="relative flex min-h-[12rem] items-center justify-center rounded-lg border border-gray-200 bg-white p-2">
         {svg ? (
           <div
-            className="w-full [&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
+            className="mx-auto w-full max-w-full [&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
+            style={wantPx ? { width: `${Math.round(wantPx)}px` } : undefined}
             dangerouslySetInnerHTML={{ __html: svg }}
           />
         ) : (
