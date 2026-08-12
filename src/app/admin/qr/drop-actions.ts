@@ -37,13 +37,12 @@ import {
 } from "@/lib/admin/dropSheetSync";
 import { archiveDropXlsx } from "@/lib/admin/dropXlsxArchive";
 import { renderFindQrSvg } from "@/lib/admin/qr";
+import { renderDropItemQr as renderItem } from "@/lib/admin/dropQrRender";
 import {
   dropLandingUrl,
-  mergeDropQrOptions,
   readDropQrOptions,
   resolveQrLines,
   clampDropSizeCm,
-  DROP_SIZE_DEFAULT_CM,
 } from "@/lib/admin/drops";
 import type {
   QrTheme,
@@ -822,7 +821,7 @@ export async function saveItemAction(
   try {
     const current = await prisma.dropItem.findUnique({
       where: { id: itemId },
-      select: { qrOptions: true },
+      select: { qrOptions: true, areaId: true },
     });
     // The bag is an override LAYER. Without "own design" ticked it must
     // stay absent rather than hold a copy of the campaign's values —
@@ -849,6 +848,9 @@ export async function saveItemAction(
         : {
         qrOptions: bag && Object.keys(bag).length > 0 ? bag : Prisma.DbNull,
         areaId: input.areaId,
+        // Moving a card to another town takes it out of the old town's
+        // chain — a position only means anything inside its own area.
+        ...(input.areaId !== current?.areaId ? { chainOrder: null } : {}),
         status,
         placedBy: nullable(input.placedBy, 120),
         lat,
@@ -1233,56 +1235,6 @@ export async function setItemPositionAction(
   }
 }
 
-/** Renders one card's QR exactly as it will print. */
-/**
- * One card's code, exactly as it will print.
- *
- * Title, caption and every look setting resolve item-over-campaign here
- * and nowhere else, so the grid preview, the single preview and the print
- * sheet cannot drift apart — the whole point of previewing in centimetres
- * is that what you see is what comes out of the printer.
- */
-function renderItem(item: DropItemWithCampaign): {
-  id: number;
-  findId: number;
-  svg: string;
-  url: string;
-  sizeCm: number;
-} {
-  const url = dropLandingUrl(item.token);
-  const o = mergeDropQrOptions(item.campaign.qrOptions, item.qrOptions);
-  const lines = resolveQrLines(
-    o,
-    item.findId,
-    item.qrTitle,
-    item.campaign.qrTitle,
-    item.qrCaption,
-    item.campaign.qrCaption,
-  );
-  return {
-    id: item.id,
-    findId: item.findId,
-    url,
-    sizeCm: o.sizeCm ?? DROP_SIZE_DEFAULT_CM,
-    svg: renderFindQrSvg(item.findId, {
-      url,
-      header: lines.title,
-      footer: lines.caption,
-      density: (o.density ?? "medium") as QrDensity,
-      theme: o.theme as QrTheme | undefined,
-      moduleStyle: o.moduleStyle as QrModuleStyle | undefined,
-      center: o.center as QrCenter | undefined,
-      centerScale: o.centerScale as QrCenterScale | undefined,
-      border: o.border as QrBorder | undefined,
-      borderRadius: o.borderRadius as QrBorderRadius | undefined,
-      borderColor: o.borderColor as QrBorderColor | undefined,
-    }),
-  };
-}
-
-type DropItemWithCampaign = Prisma.DropItemGetPayload<{
-  include: { campaign: true };
-}>;
 
 /**
  * Draws a card from an unsaved design, for the live preview in the forms.

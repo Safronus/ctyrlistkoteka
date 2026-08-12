@@ -242,3 +242,36 @@ describe("planDropImport — the rest of a row", () => {
     expect(plan.changes[0]?.field).toBe("GPS");
   });
 });
+
+describe("planDropImport — the chain follows the area", () => {
+  // "Řetězec čtyřlístků" is an order WITHIN one area, so a card that moves
+  // town has to leave its old chain behind. Otherwise a #4 from Zlín walks
+  // into Ratiboř's hunt as its #4 — a bug nobody would spot until somebody
+  // followed a clue to the wrong end of the country.
+  const chained = () => item({ areaId: null, chainOrder: 4 } as never);
+
+  it("clears the chain position when the card joins an area", () => {
+    const plan = planDropImport([row({ area: "Zlín" })], [chained()], CAMPAIGN, AREAS);
+    expect(plan.updates[0]?.data).toMatchObject({ areaId: 7, chainOrder: null });
+  });
+
+  it("clears it when the card leaves its area", () => {
+    const plan = planDropImport(
+      [row({ area: "" })],
+      [item({ areaId: 7, chainOrder: 2 } as never)],
+      CAMPAIGN,
+      AREAS,
+    );
+    expect(plan.updates[0]?.data).toMatchObject({ areaId: null, chainOrder: null });
+  });
+
+  it("leaves the chain alone when the area does not change", () => {
+    const plan = planDropImport(
+      [row({ area: "Zlín" })],
+      [item({ areaId: 7, chainOrder: 2 } as never)],
+      CAMPAIGN,
+      AREAS,
+    );
+    expect(plan.updates).toHaveLength(0);
+  });
+});

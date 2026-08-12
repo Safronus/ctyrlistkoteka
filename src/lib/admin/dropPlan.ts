@@ -254,10 +254,16 @@ export function planDropImport(
     }
 
     // ----------------------------------------------------------- area
+    //
+    // A card that changes town leaves its old chain behind: the "řetězec
+    // čtyřlístků" is an order WITHIN one area, so a stale position would
+    // otherwise splice the card into the new area's hunt at whatever
+    // number it happened to hold.
     if (v.area !== undefined) {
       if (v.area === "") {
         if (item.areaId !== null) {
           data.areaId = null;
+          data.chainOrder = null;
           note("area", areaById.get(item.areaId), null);
         }
       } else {
@@ -268,6 +274,7 @@ export function planDropImport(
           }
         } else if (areaId !== item.areaId) {
           data.areaId = areaId;
+          data.chainOrder = null;
           note(
             "area",
             item.areaId === null ? null : areaById.get(item.areaId),

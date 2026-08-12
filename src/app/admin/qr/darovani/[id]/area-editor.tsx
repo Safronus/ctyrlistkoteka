@@ -321,6 +321,21 @@ function AreaRow({
             {error}
           </p>
         )}
+
+        {/* Deliberately OUTSIDE the edit form: the link and the password
+            are things the operator comes here to read and pass on, and a
+            second "Uložit" inside a form that already has one is a coin
+            toss about which button saves what. */}
+        <div className="mt-3">
+          <CrewMapFields
+            campaignId={campaignId}
+            areaId={area.id}
+            areaName={area.name}
+            token={area.crewToken}
+            password={area.crewPassword}
+            siteOrigin={siteOrigin}
+          />
+        </div>
       </li>
     );
   }
@@ -490,19 +505,6 @@ function AreaRow({
             Zavřít nabídku
           </button>
         </div>
-      )}
-
-      {/* Only for a saved area: the switch writes straight to the row, so
-          there has to be a row. */}
-      {area && (
-        <CrewMapFields
-          campaignId={campaignId}
-          areaId={area.id}
-          areaName={area.name}
-          token={area.crewToken}
-          password={area.crewPassword}
-          siteOrigin={siteOrigin}
-        />
       )}
 
       {previewLat !== null && previewLng !== null && (

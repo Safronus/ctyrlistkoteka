@@ -9,6 +9,33 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Mapa pro tým — doladění po první zkoušce
+- **Admin: zapnutí a vypnutí je binární.** Dřív tam byl checkbox, který šel
+  odškrtnout, i když ještě nebylo co vypínat, a druhé „Uložit“ vedle toho od
+  oblasti. Teď je to buď *Zapnout* (jedno pole na heslo), nebo — když to
+  běží — *Nový odkaz* a *Vypnout* s potvrzením.
+- **Odkaz a heslo jsou vidět bez otevírání editace oblasti**, s tlačítky na
+  zkopírování a okem na skrytí hesla. Přesně kvůli tomu se sem chodí.
+- **Týmová stránka využívá celou obrazovku**: mapa vlevo, seznam vpravo (na
+  mobilu pod sebou). Ta předchozí prťavá mapička byla k ničemu.
+- Seznam nese **celou sadu** včetně nezařazených kusů — ale **souřadnice a
+  značky jen z téhle oblasti**; odkaz pro Zlín nesmí vydat Ratiboř. U kusu
+  je stav, kdo schoval, poznámka týmu, souřadnice na kliknutí do schránky,
+  proklik na landing page, rozbalovací text kartičky a za přepínačem náhled
+  QR. Nahoře souhrn skenů a **stav synchronizace s tabulkou + odpočet do
+  další kontroly**.
+- Náhledy QR se tahají po jednom z `/tym/<token>/qr/<itemId>`, chráněné
+  stejnou cookie jako stránka — sto inline SVG je megabajt HTML, který si
+  nikdo nevyžádal.
+- **Oprava, na kterou by se přišlo až v terénu:** mapě teď velikost určuje
+  layout, ne pevná výška, takže se mohla připojit do nulově vysokého boxu —
+  Leaflet si ty rozměry zapamatuje, vykreslí jednu dlaždici do rohu a už se
+  z toho nevzpamatuje. `ResizeObserver` mu říká pravdu a při první skutečné
+  velikosti se pohled znovu nastaví; to samé řeší otočení telefonu.
+- Když kus změní oblast (ručně i ze sheetu), maže se mu pozice v řetězu —
+  pořadí platí jen uvnitř své oblasti, jinak by se kus vloudil do cizího
+  řetězu. S testy.
+
 ### Řetězec čtyřlístků
 - Hra přes **podmnožinu jedné oblasti**: vybrané kartičky dostanou pořadí
   (náhodně nebo podle čísla nálezu, s tlačítkem *Promíchat*) a kdo takovou

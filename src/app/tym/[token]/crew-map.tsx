@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   Circle,
   GeoJSON,
@@ -59,7 +59,9 @@ export function CrewMap({
       center={center}
       zoom={zoom}
       scrollWheelZoom
-      className="h-[32rem] max-h-[70vh] w-full rounded-xl"
+      // Fills whatever the layout gives it: half the screen on a phone,
+      // the whole left column on a desktop.
+      className="h-full w-full"
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -121,7 +123,18 @@ export function CrewMap({
   );
 }
 
-/** Frames the town outline, the scatter circle and every card. */
+/**
+ * Frames the town outline, the scatter circle and every card — and keeps
+ * Leaflet honest about how big its container is.
+ *
+ * Both jobs belong together because they fail together. This map is sized
+ * by the page's flex layout, not by a fixed height, so it can mount into a
+ * box that is still zero pixels tall: Leaflet then caches those dimensions,
+ * fits to nothing, and paints one lonely tile in a corner forever. The
+ * ResizeObserver tells it the truth, and the first time the box has a real
+ * size the view is fitted again — which is also what makes a phone rotating
+ * or a window resizing behave.
+ */
 function FitEverything({
   token,
   boundary,
@@ -137,40 +150,65 @@ function FitEverything({
 }) {
   const map = useMap();
   const first = useRef(true);
-  useEffect(() => {
-    // Unlike the admin's version this DOES run on mount: a crew member
-    // opening the link wants to see the cards, not the operator's saved
-    // zoom on an empty corner of town.
-    //
-    // On mount the CARDS decide the view and the town outline is ignored:
-    // an OSM boundary can be the whole district, and fitting it drops
-    // eleven markers into a thumbnail in the middle of nowhere. The
-    // "celá oblast" button then does include it — that is what it is for.
-    const initial = first.current && points.length > 0;
-    const bounds = L.latLngBounds([]);
-    if (boundary && !initial) {
-      const b = boundaryBBox(boundary);
-      bounds.extend([b.minLat, b.minLng]);
-      bounds.extend([b.maxLat, b.maxLng]);
-    }
-    for (const p of points) bounds.extend([p.lat, p.lng]);
-    if (!boundary && !initial && radiusM !== null) {
-      const dLat = radiusM / 111_132;
-      const dLng = radiusM / (111_320 * Math.cos((center[0] * Math.PI) / 180));
-      bounds.extend([center[0] - dLat, center[1] - dLng]);
-      bounds.extend([center[0] + dLat, center[1] + dLng]);
-    }
-    if (bounds.isValid()) {
+  const everSized = useRef(false);
+
+  const fit = useCallback(
+    (initial: boolean) => {
+      // On the first pass the CARDS decide the view and the town outline
+      // is ignored: an OSM boundary can be the whole district, and fitting
+      // it drops eleven markers into a thumbnail in the middle of nowhere.
+      // The "celá oblast" button then does include it — that is what it is
+      // for.
+      const cardsOnly = initial && points.length > 0;
+      const bounds = L.latLngBounds([]);
+      if (boundary && !cardsOnly) {
+        const b = boundaryBBox(boundary);
+        bounds.extend([b.minLat, b.minLng]);
+        bounds.extend([b.maxLat, b.maxLng]);
+      }
+      for (const p of points) bounds.extend([p.lat, p.lng]);
+      if (!boundary && !cardsOnly && radiusM !== null) {
+        const dLat = radiusM / 111_132;
+        const dLng =
+          radiusM / (111_320 * Math.cos((center[0] * Math.PI) / 180));
+        bounds.extend([center[0] - dLat, center[1] - dLng]);
+        bounds.extend([center[0] + dLat, center[1] + dLng]);
+      }
+      if (!bounds.isValid()) return;
       map.fitBounds(bounds, {
         padding: [24, 24],
-        animate: !first.current,
+        animate: !initial,
         // A single card would otherwise fit to street level; back off so
         // the surroundings are recognisable.
         maxZoom: 16,
       });
-    }
+    },
+    // `points` is rebuilt on every filter change; that is fine, the
+    // callback is only CALLED from the two effects below.
+    [map, boundary, center, radiusM, points],
+  );
+
+  // The "celá oblast" button, and the first mount.
+  useEffect(() => {
+    fit(first.current);
     first.current = false;
+    // Deliberately only on the token: refitting whenever a card is
+    // filtered out would drag the map out from under whoever is reading it.
   }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const el = map.getContainer();
+    const ro = new ResizeObserver(() => {
+      map.invalidateSize();
+      if (!everSized.current && el.clientWidth > 0 && el.clientHeight > 0) {
+        everSized.current = true;
+        fit(true);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [map, fit]);
+
   return null;
 }
 
