@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import {
   Check,
   Copy,
+  Crosshair,
   ExternalLink,
   Lightbulb,
   Link2,
@@ -12,7 +13,9 @@ import {
   MapPin,
   QrCode,
   Search,
+  X,
 } from "lucide-react";
+import { formatGpsDecimal } from "@/lib/parseGps";
 import {
   DROP_STATUS_COLOR,
   DROP_STATUS_LABEL,
@@ -100,6 +103,10 @@ export function CrewView({
   const [query, setQuery] = useState("");
   const [showQr, setShowQr] = useState(false);
   const [onlyMine, setOnlyMine] = useState(true);
+  /** The spot last tapped on the map — a ruler, not a pen. */
+  const [picked, setPicked] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
 
   const mine = useMemo(() => cards.filter((c) => c.mine), [cards]);
 
@@ -229,7 +236,10 @@ export function CrewView({
             selectedId={selected}
             fitToken={fitToken}
             onSelect={setSelected}
+            onPick={(lat, lng) => setPicked({ lat, lng })}
+            picked={picked}
           />
+          <PickedCoords picked={picked} onClose={() => setPicked(null)} />
           <button
             type="button"
             onClick={() => setFitToken((t) => t + 1)}
@@ -342,6 +352,83 @@ export function CrewView({
   );
 }
 
+/**
+ * The coordinates of wherever the map was last tapped, ready to be pasted
+ * into the shared spreadsheet.
+ *
+ * The crew fills that sheet by hand, and "what are the coordinates of that
+ * bench" otherwise means a detour through a third-party map app. Written
+ * in exactly the form the workbook's GPS column is parsed from
+ * (`formatGpsDecimal`), so what is copied here goes in without editing.
+ *
+ * It reads; it never writes. The page has no way to save a position, and
+ * the panel says so — otherwise a tap on the map looks like it might have
+ * moved a card.
+ */
+function PickedCoords({
+  picked,
+  onClose,
+}: {
+  picked: { lat: number; lng: number } | null;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  if (!picked) {
+    return (
+      <p className="pointer-events-none absolute bottom-3 left-1/2 z-[500] -translate-x-1/2 rounded-full bg-white/95 px-3 py-1.5 text-[11px] text-gray-600 shadow-sm">
+        Klepni do mapy a přečteš souřadnice pro tabulku.
+      </p>
+    );
+  }
+
+  const text = formatGpsDecimal(picked.lat, picked.lng);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard blocked — the number is on screen to read off.
+    }
+  };
+
+  return (
+    <div className="absolute bottom-3 left-1/2 z-[500] w-[min(22rem,calc(100%-1.5rem))] -translate-x-1/2 rounded-xl border border-violet-200 bg-white/97 p-3 shadow-lg">
+      <div className="flex items-center gap-2">
+        <Crosshair className="h-4 w-4 shrink-0 text-violet-600" aria-hidden />
+        <p className="text-xs font-semibold text-gray-900">
+          Souřadnice pro tabulku
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Zavřít"
+          className="ml-auto rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={copy}
+        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 font-mono text-sm text-violet-900 transition hover:bg-violet-100"
+      >
+        {copied ? (
+          <Check className="h-4 w-4 text-emerald-600" aria-hidden />
+        ) : (
+          <Copy className="h-4 w-4" aria-hidden />
+        )}
+        {text}
+      </button>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-gray-500">
+        Zkopíruj a vlož do sloupce <strong>GPS</strong> ve sdílené tabulce.
+        Odsud se nikam nic nezapisuje.
+      </p>
+    </div>
+  );
+}
+
 function CrewRow({
   token,
   card,
@@ -357,9 +444,11 @@ function CrewRow({
 }) {
   const [copied, setCopied] = useState(false);
   const [openText, setOpenText] = useState(false);
+  // Same helper the workbook's GPS column is written with, so a coordinate
+  // copied from a row pastes back in unchanged.
   const coords =
     card.lat !== null && card.lng !== null
-      ? `${card.lat.toFixed(6)}, ${card.lng.toFixed(6)}`
+      ? formatGpsDecimal(card.lat, card.lng)
       : null;
 
   const copy = async () => {

@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Mapa pro tým — pravítko na souřadnice
+- Klepnutí do mapy přečte souřadnice toho místa a nabídne je ke zkopírování
+  **ve formátu, který bere sloupec GPS ve sdílené tabulce** (`formatGpsDecimal`
+  — přesně to, co `parseGps` při importu spolkne; round-trip je otestovaný).
+  Konec objížďky přes cizí mapovou appku, když člen týmu vyplňuje tabulku ručně.
+- Je to **pravítko, ne pero**: odsud se nikam nic nezapisuje a panel to říká,
+  aby klepnutí do mapy nevypadalo jako přesun kartičky. Klepnutí na značku
+  kartičky ji dál jen vybere, souřadnice pod ní nečte.
+
 ### Mapa pro tým — heslo s „Č“ a řetěz v seznamu
 - **Heslo s háčkem šlo vložit ze schránky, ale ne napsat.** Mrtvá klávesa na
   macOS pošle „Č“ jako `C` + U+030C (NFD), schránka jako jeden znak U+010C

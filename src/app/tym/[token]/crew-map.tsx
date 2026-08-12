@@ -9,6 +9,7 @@ import {
   TileLayer,
   Tooltip,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -43,6 +44,8 @@ export function CrewMap({
   selectedId,
   fitToken,
   onSelect,
+  onPick,
+  picked,
 }: {
   center: [number, number];
   zoom: number;
@@ -53,6 +56,11 @@ export function CrewMap({
   /** Bumped by the "celá oblast" button; any change refits the view. */
   fitToken: number;
   onSelect: (id: number) => void;
+  /** A tap on empty map reads out that spot's coordinates. Nothing is
+   *  written anywhere — it is a ruler, not a pen. */
+  onPick: (lat: number, lng: number) => void;
+  /** The spot last read out, so it stays marked while being copied. */
+  picked: { lat: number; lng: number } | null;
 }) {
   return (
     <MapContainer
@@ -75,6 +83,7 @@ export function CrewMap({
         points={points}
       />
       <PanToSelected points={points} selectedId={selectedId} />
+      <ClickToRead onPick={onPick} />
 
       {boundary && (
         <GeoJSON
@@ -104,12 +113,27 @@ export function CrewMap({
         />
       )}
 
+      {picked && (
+        <Marker
+          position={[picked.lat, picked.lng]}
+          icon={crosshairIcon()}
+          interactive={false}
+        />
+      )}
+
       {points.map((p) => (
         <Marker
           key={p.id}
           position={[p.lat, p.lng]}
           icon={dropCloverIcon(DROP_STATUS_COLOR[p.status], p.id === selectedId)}
-          eventHandlers={{ click: () => onSelect(p.id) }}
+          eventHandlers={{
+            click: (e) => {
+              // Selecting a card must not also read out the coordinates
+              // under it — stop the click before the map handler sees it.
+              e.originalEvent.stopPropagation();
+              onSelect(p.id);
+            },
+          }}
         >
           <Tooltip direction="top" offset={[0, -10]}>
             <span className="text-xs">
@@ -210,6 +234,46 @@ function FitEverything({
   }, [map, fit]);
 
   return null;
+}
+
+/**
+ * Reads out the coordinates of wherever the map is tapped.
+ *
+ * The crew fills the shared spreadsheet by hand, and "what are the
+ * coordinates of that bench" is otherwise a trip through a third-party map
+ * app. Strictly one-way: this page never writes anything back.
+ */
+function ClickToRead({
+  onPick,
+}: {
+  onPick: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+/** The spot being read out. Deliberately unlike a card's clover — this is
+ *  a measurement, not a hiding place. */
+let crosshair: L.DivIcon | null = null;
+function crosshairIcon(): L.DivIcon {
+  crosshair ??= L.divIcon({
+    className: "",
+    html: `
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
+        <circle cx="16" cy="16" r="9" fill="none" stroke="#ffffff" stroke-width="4" />
+        <circle cx="16" cy="16" r="9" fill="none" stroke="#7c3aed" stroke-width="2" />
+        <path d="M16 1v8M16 23v8M1 16h8M23 16h8" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />
+        <path d="M16 1v8M16 23v8M1 16h8M23 16h8" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" />
+        <circle cx="16" cy="16" r="1.5" fill="#7c3aed" />
+      </svg>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+  return crosshair;
 }
 
 /** Brings the card picked in the list into view without changing zoom. */
