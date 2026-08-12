@@ -25,9 +25,6 @@ export interface CloverIconOpts {
   /** Ring in the colour of whoever hides this card — the crew map tints
    *  by person while the clover itself keeps saying the status. */
   ring?: string | null;
-  /** Somebody else is picked in the filter; fade rather than hide, so the
-   *  rest of the town stays readable as context. */
-  dimmed?: boolean;
 }
 
 export function dropCloverIcon(
@@ -36,14 +33,13 @@ export function dropCloverIcon(
   opts: CloverIconOpts = {},
 ): L.DivIcon {
   const ring = opts.ring ?? "";
-  const dimmed = opts.dimmed === true;
-  const key = `${color}|${selected}|${ring}|${dimmed}`;
+  const key = `${color}|${selected}|${ring}`;
   const hit = iconCache.get(key);
   if (hit) return hit;
   const icon = L.divIcon({
     className: "",
     html: `
-      <svg viewBox="0 0 32 32" width="${ICON_BOX}" height="${ICON_BOX}" aria-hidden="true" focusable="false"${dimmed ? ' opacity="0.35"' : ""}>
+      <svg viewBox="0 0 32 32" width="${ICON_BOX}" height="${ICON_BOX}" aria-hidden="true" focusable="false">
         <circle cx="16" cy="16" r="15" fill="#ffffff" opacity="0.9" />
         ${ring ? `<circle cx="16" cy="16" r="14" fill="none" stroke="${ring}" stroke-width="3" />` : ""}
         ${selected ? '<circle cx="16" cy="16" r="15" fill="none" stroke="#111827" stroke-width="2.5" />' : ""}

@@ -28,8 +28,6 @@ export interface CrewPoint {
   teamNote: string;
   /** Colour of the crew member responsible, or null when nobody is. */
   crewColor?: string | null;
-  /** Somebody else is picked in the crew filter. */
-  dimmed?: boolean;
 }
 
 /**
@@ -50,6 +48,7 @@ export function CrewMap({
   onSelect,
   onPick,
   picked,
+  focus,
 }: {
   center: [number, number];
   zoom: number;
@@ -65,6 +64,8 @@ export function CrewMap({
   onPick: (lat: number, lng: number) => void;
   /** The spot last read out, so it stays marked while being copied. */
   picked: { lat: number; lng: number } | null;
+  /** Ask the map to fly to one card; the token makes a repeat click work. */
+  focus: { id: number; token: number } | null;
 }) {
   return (
     <MapContainer
@@ -88,6 +89,7 @@ export function CrewMap({
       />
       <PanToSelected points={points} selectedId={selectedId} />
       <ClickToRead onPick={onPick} />
+      <FlyToCard points={points} focus={focus} />
 
       {boundary && (
         <GeoJSON
@@ -131,7 +133,6 @@ export function CrewMap({
           position={[p.lat, p.lng]}
           icon={dropCloverIcon(DROP_STATUS_COLOR[p.status], p.id === selectedId, {
             ring: p.crewColor,
-            dimmed: p.dimmed,
           })}
           eventHandlers={{
             click: (e) => {
@@ -283,6 +284,53 @@ function crosshairIcon(): L.DivIcon {
   return crosshair;
 }
 
+/**
+ * Whether a map move should skip its animation.
+ *
+ * Two honest reasons, not a workaround: somebody who asked for reduced
+ * motion should not be flown across a town, and an animation in a hidden
+ * tab never runs at all — requestAnimationFrame is frozen there, so an
+ * animated move would silently never arrive. Leaflet turns `animate:
+ * false` into a plain setView, which lands either way.
+ */
+function prefersInstant(): boolean {
+  if (typeof document !== "undefined" && document.hidden) return true;
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+  );
+}
+
+/**
+ * Flies to one card when the list asks.
+ *
+ * Zooms IN rather than just panning — the list's "na mapě" is asked when a
+ * pin is somewhere off screen or lost in a cluster of others, and a pan at
+ * town zoom answers neither. Never zooms out: if the reader is already
+ * closer than street level, that is where they wanted to be.
+ */
+function FlyToCard({
+  points,
+  focus,
+}: {
+  points: CrewPoint[];
+  focus: { id: number; token: number } | null;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (!focus) return;
+    const p = points.find((q) => q.id === focus.id);
+    if (p) {
+      map.flyTo([p.lat, p.lng], Math.max(map.getZoom(), 17), {
+        animate: !prefersInstant(),
+      });
+    }
+    // On the token, not the id: asking for the same card twice (after
+    // panning away) has to work.
+  }, [focus?.token]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 /** Brings the card picked in the list into view without changing zoom. */
 function PanToSelected({
   points,
@@ -295,7 +343,7 @@ function PanToSelected({
   useEffect(() => {
     if (selectedId === null) return;
     const p = points.find((q) => q.id === selectedId);
-    if (p) map.panTo([p.lat, p.lng], { animate: true });
+    if (p) map.panTo([p.lat, p.lng], { animate: !prefersInstant() });
   }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }

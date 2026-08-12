@@ -4,8 +4,11 @@ import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import {
   Check,
+  ChevronDown,
+  ChevronRight,
   Copy,
   Crosshair,
+  EyeOff,
   ExternalLink,
   Lightbulb,
   Link2,
@@ -149,9 +152,21 @@ export function CrewView({
   const [picked, setPicked] = useState<{ lat: number; lng: number } | null>(
     null,
   );
-  /** Whose cards to show; null = everybody's. */
-  const [crew, setCrew] = useState<string | null>(null);
+  /**
+   * Whose cards are hidden — by name, with "" standing for the unassigned.
+   *
+   * Hiding rather than single-select filtering, because the question in the
+   * field is "which are mine" and the answer wanted is everybody else GONE,
+   * from the map as well. A person can be put back with one click.
+   */
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  /** Groups the reader has folded away. */
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [grouped, setGrouped] = useState(true);
+  /** Bumped to fly the map to one card; the id says which. */
+  const [focus, setFocus] = useState<{ id: number; token: number } | null>(
+    null,
+  );
 
   // Everybody who actually appears on a card, roster first so the colours
   // follow the roster's order, then anyone the sheet introduced.
@@ -163,6 +178,9 @@ export function CrewView({
     for (const n of seen) if (!ordered.includes(n)) ordered.push(n);
     return ordered;
   }, [cards, placers]);
+
+  /** One key for both real names and the unassigned bucket. */
+  const keyOf = (name: string | null) => name ?? "";
 
   const colorOf = (name: string | null): string | null =>
     name === null
@@ -193,12 +211,12 @@ export function CrewView({
     const q = query.trim().replace(/^#/, "");
     return cards.filter((c) => {
       if (onlyMine && !c.mine) return false;
-      if (crew !== null && c.placedBy !== crew) return false;
+      if (hidden.has(keyOf(c.placedBy))) return false;
       if (statuses.size > 0 && !statuses.has(c.status)) return false;
       if (q && !String(c.findId).includes(q)) return false;
       return true;
     });
-  }, [cards, statuses, query, onlyMine, crew]);
+  }, [cards, statuses, query, onlyMine, hidden]);
 
   /**
    * The list, in sections by crew member.
@@ -212,13 +230,47 @@ export function CrewView({
     if (!grouped) return [{ name: null as string | null, cards: visible }];
     const out: { name: string | null; cards: CrewCard[] }[] = [];
     for (const name of crewNames) {
-      const mineHere = visible.filter((c) => c.placedBy === name);
-      if (mineHere.length > 0) out.push({ name, cards: mineHere });
+      const theirs = visible.filter((c) => c.placedBy === name);
+      if (theirs.length > 0) out.push({ name, cards: theirs });
     }
     const orphans = visible.filter((c) => !c.placedBy);
     if (orphans.length > 0) out.push({ name: null, cards: orphans });
     return out;
   }, [visible, crewNames, grouped]);
+
+  /** Everybody who has cards here, for the hide/show controls. */
+  const crewBuckets = useMemo(() => {
+    const pool = cards.filter((c) => !onlyMine || c.mine);
+    const out: { name: string | null; count: number }[] = crewNames
+      .map((name) => ({
+        name: name as string | null,
+        count: pool.filter((c) => c.placedBy === name).length,
+      }))
+      .filter((b) => b.count > 0);
+    const orphans = pool.filter((c) => !c.placedBy).length;
+    if (orphans > 0) out.push({ name: null, count: orphans });
+    return out;
+  }, [cards, crewNames, onlyMine]);
+
+  const toggleHidden = (name: string | null) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      const k = keyOf(name);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+
+  /** "Just mine": everybody else away, or back again on a second click. */
+  const soloCrew = (name: string | null) =>
+    setHidden((prev) => {
+      const others = crewBuckets
+        .filter((b) => keyOf(b.name) !== keyOf(name))
+        .map((b) => keyOf(b.name));
+      const alreadySolo =
+        prev.size === others.length && others.every((k) => prev.has(k));
+      return alreadySolo ? new Set() : new Set(others);
+    });
 
   // Only placed cards of THIS area are drawn; the filter follows the list
   // so hiding a status hides its pins too.
@@ -230,15 +282,17 @@ export function CrewView({
       cards
         .filter((c) => c.mine && c.lat !== null && c.lng !== null)
         .filter((c) => statuses.size === 0 || statuses.has(c.status))
+        // Hiding a person takes their pins off the map too — that is the
+        // whole point of hiding rather than merely filtering the list.
+        .filter((c) => !hidden.has(keyOf(c.placedBy)))
         .map((c) => ({
           ...c,
           lat: c.lat!,
           lng: c.lng!,
           crewColor: colorOf(c.placedBy),
-          dimmed: crew !== null && c.placedBy !== crew,
         })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cards, statuses, crew, crewNames],
+    [cards, statuses, hidden, crewNames],
   );
 
   const toggleStatus = (s: DropStatus) =>
@@ -342,6 +396,7 @@ export function CrewView({
             onSelect={setSelected}
             onPick={(lat, lng) => setPicked({ lat, lng })}
             picked={picked}
+            focus={focus}
           />
           <PickedCoords picked={picked} onClose={() => setPicked(null)} />
           <button
@@ -388,39 +443,46 @@ export function CrewView({
               })}
             </div>
 
-            {crewNames.length > 1 && (
+            {crewBuckets.length > 1 && (
               <div className="flex flex-wrap items-center gap-1.5">
-                {crewNames.map((name) => {
-                  const on = crew === name;
-                  const count = cards.filter(
-                    (c) => (!onlyMine || c.mine) && c.placedBy === name,
-                  ).length;
+                {crewBuckets.map((b) => {
+                  const off = hidden.has(keyOf(b.name));
+                  const color = colorOf(b.name) ?? "#9ca3af";
                   return (
                     <button
-                      key={name}
+                      key={keyOf(b.name)}
                       type="button"
-                      onClick={() => setCrew(on ? null : name)}
-                      aria-pressed={on}
+                      onClick={() => toggleHidden(b.name)}
+                      aria-pressed={!off}
+                      title={off ? "Zobrazit zpátky" : "Skrýt ze seznamu i z mapy"}
                       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                        on
-                          ? "border-gray-900 bg-gray-900 text-white"
-                          : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                        off
+                          ? "border-gray-200 bg-gray-50 text-gray-400 line-through"
+                          : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50"
                       }`}
+                      style={
+                        off ? undefined : { borderColor: color, color }
+                      }
                     >
                       <span
-                        className="h-2 w-2 rounded-full ring-2"
-                        style={{
-                          backgroundColor: colorOf(name) ?? "#9ca3af",
-                          // @ts-expect-error -- CSS custom property for the ring
-                          "--tw-ring-color": `${colorOf(name)}33`,
-                        }}
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: off ? "#d1d5db" : color }}
                         aria-hidden
                       />
-                      {name}
-                      <span className="tabular-nums opacity-70">{count}</span>
+                      {b.name ?? "Bez přiřazení"}
+                      <span className="tabular-nums opacity-70">{b.count}</span>
                     </button>
                   );
                 })}
+                {hidden.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setHidden(new Set())}
+                    className="text-[11px] text-gray-500 underline-offset-2 hover:underline"
+                  >
+                    zobrazit všechny
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setGrouped((v) => !v)}
@@ -484,42 +546,104 @@ export function CrewView({
 
           {/* -------------------------------------------------------- list */}
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            {sections.map((s) => (
-              <section key={s.name ?? "—"} className="mb-3 last:mb-0">
-                {grouped && crewNames.length > 1 && (
-                  <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{
-                        backgroundColor: colorOf(s.name) ?? "#9ca3af",
-                      }}
-                      aria-hidden
-                    />
-                    {s.name ?? "Bez přiřazení"}
-                    <span className="font-normal tabular-nums text-gray-400">
-                      {s.cards.length}
-                    </span>
-                  </p>
-                )}
-                <ul className="space-y-2">
-                  {s.cards.map((c) => (
-                    <CrewRow
-                      key={c.id}
-                      token={token}
-                      card={c}
-                      total={total}
-                      crewColor={colorOf(c.placedBy)}
-                      showQr={showQr}
-                      selected={c.id === selected}
-                      onSelect={() => setSelected(c.id)}
-                    />
-                  ))}
-                </ul>
-              </section>
-            ))}
+            {sections.map((s) => {
+              const grouping = grouped && crewBuckets.length > 1;
+              const color = colorOf(s.name) ?? "#9ca3af";
+              const fold = collapsed.has(keyOf(s.name));
+              return (
+                <section
+                  key={keyOf(s.name)}
+                  className={
+                    grouping
+                      ? "mb-3 rounded-lg border-l-4 bg-gray-50/60 p-1.5 last:mb-0"
+                      : "mb-3 last:mb-0"
+                  }
+                  style={grouping ? { borderLeftColor: color } : undefined}
+                >
+                  {grouping && (
+                    <div className="flex items-center gap-1 px-1 py-0.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCollapsed((prev) => {
+                            const next = new Set(prev);
+                            const k = keyOf(s.name);
+                            if (next.has(k)) next.delete(k);
+                            else next.add(k);
+                            return next;
+                          })
+                        }
+                        aria-expanded={!fold}
+                        className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-[11px] font-semibold uppercase tracking-wide"
+                        style={{ color }}
+                      >
+                        {fold ? (
+                          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                        )}
+                        {s.name ?? "Bez přiřazení"}
+                        <span className="font-normal tabular-nums opacity-70">
+                          {s.cards.length}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => soloCrew(s.name)}
+                        title="Nechat na mapě i v seznamu jen tyhle"
+                        className="rounded px-1.5 py-0.5 text-[10px] font-medium text-gray-500 transition hover:bg-white hover:text-gray-800"
+                      >
+                        jen tyhle
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleHidden(s.name)}
+                        title="Skrýt ze seznamu i z mapy"
+                        aria-label={`Skrýt ${s.name ?? "nepřiřazené"}`}
+                        className="rounded p-1 text-gray-400 transition hover:bg-white hover:text-gray-700"
+                      >
+                        <EyeOff className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                    </div>
+                  )}
+                  {!fold && (
+                    <ul className="space-y-2">
+                      {s.cards.map((c) => (
+                        <CrewRow
+                          key={c.id}
+                          token={token}
+                          card={c}
+                          total={total}
+                          crewColor={colorOf(c.placedBy)}
+                          showQr={showQr}
+                          selected={c.id === selected}
+                          onSelect={() => setSelected(c.id)}
+                          onFocus={() =>
+                            setFocus((f) => ({
+                              id: c.id,
+                              token: (f?.token ?? 0) + 1,
+                            }))
+                          }
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              );
+            })}
             {visible.length === 0 && (
               <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-6 text-center text-xs text-gray-500">
                 Nic neodpovídá filtru.
+              </p>
+            )}
+            {hidden.size > 0 && (
+              <p className="mt-2 text-center text-[11px] text-gray-400">
+                Skryto{" "}
+                {crewBuckets
+                  .filter((b) => hidden.has(keyOf(b.name)))
+                  .map((b) => b.name ?? "bez přiřazení")
+                  .join(", ")}{" "}
+                — i na mapě.
               </p>
             )}
           </div>
@@ -614,6 +738,7 @@ function CrewRow({
   showQr,
   selected,
   onSelect,
+  onFocus,
 }: {
   token: string;
   card: CrewCard;
@@ -622,6 +747,8 @@ function CrewRow({
   showQr: boolean;
   selected: boolean;
   onSelect: () => void;
+  /** Fly the map to this card — the list's answer to "kde to je". */
+  onFocus: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [openText, setOpenText] = useState(false);
@@ -683,6 +810,23 @@ function CrewRow({
             </span>
           </span>
         </button>
+        {/* Selecting a row already nudges the map; this zooms right in on
+            it, which is the other half of "kde to vlastně je". Only for
+            cards that have a place at all. */}
+        {card.lat !== null && card.lng !== null && (
+          <button
+            type="button"
+            onClick={() => {
+              onSelect();
+              onFocus();
+            }}
+            title="Zaměřit na mapě"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-600 transition hover:bg-gray-50"
+          >
+            <Crosshair className="h-3 w-3" aria-hidden />
+            na mapě
+          </button>
+        )}
         <a
           href={card.landingUrl}
           target="_blank"

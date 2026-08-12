@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Mapa pro tým — skupiny po lidech a zaostření z řádku
+- Seznam je **seskupený po členech týmu** a každá skupina má svou barvu:
+  pruh u seznamu a prstenec kolem čtyřlístku na mapě (samotný čtyřlístek dál
+  drží barvu stavu). Skupina jde **sbalit**, **skrýt** — a skrytí platí i na
+  mapě — nebo tlačítkem *jen tyhle* nechat jen ji. Míša si tak jedním klikem
+  nechá svoje. Co je skryté, se vypisuje pod seznamem, ať prázdná mapa
+  nevypadá jako chyba.
+- Z řádku vede **„na mapě“**, které kartičku zaostří (přiblíží aspoň na 17,
+  nikdy neoddálí) — protiváha k tomu, že kliknutí do mapy zvýrazní řádek.
+- Animace přesunu se vynechá při `prefers-reduced-motion` **a ve skryté
+  záložce**: `requestAnimationFrame` tam neběží, takže animovaný přesun by
+  nikdy nedojel a mapa by zůstala stát. Leaflet z `animate: false` udělá
+  obyčejný `setView`, který dorazí vždycky.
+
 ### Stav v režimu tabulky: tabulka rozhoduje, sken přebíjí
 - *Připravený / vytištěný / schovaný* se v režimu tabulky berou **z buňky
   a odnikud jinud** — tým má vidět přesně to, co napsal.
