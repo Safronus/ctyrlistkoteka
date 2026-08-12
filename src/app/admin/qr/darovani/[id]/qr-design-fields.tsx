@@ -104,12 +104,22 @@ export function QrDesignFields({
   /** Item level shows what the campaign would print instead. */
   inheritedTitle,
   inheritedCaption,
+  sheetLocked = false,
 }: {
   value: QrDesign;
   onChange: (patch: Partial<QrDesign>) => void;
   textPlaceholder?: string;
   inheritedTitle?: string;
   inheritedCaption?: string;
+  /**
+   * A Google Sheet runs this wave.
+   *
+   * Three of these fields ARE columns in the workbook — the two QR
+   * captions and the print size — while everything else about the look
+   * exists only here. So the panel is half locked and half not, and each
+   * locked field says which it is.
+   */
+  sheetLocked?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -119,9 +129,11 @@ export function QrDesignFields({
           Three questions: what is written on it, how the code looks, and
           how the card itself is cut. */}
       <SubHead>Texty na kartičce</SubHead>
+      <fieldset disabled={sheetLocked} className="contents">
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <Field
           label="Nad QR kódem"
+          sheetLocked={sheetLocked}
           hint={
             value.titleMode === "find"
               ? "Vytiskne se „🍀 #<číslo nálezu>“."
@@ -151,6 +163,7 @@ export function QrDesignFields({
 
         <Field
           label="Pod QR kódem"
+          sheetLocked={sheetLocked}
           hint={
             value.captionMode === "none"
               ? "Pod kódem nebude nic."
@@ -177,6 +190,7 @@ export function QrDesignFields({
         </Field>
 
       </div>
+      </fieldset>
 
       <SubHead>Vzhled kódu</SubHead>
       <div className="grid items-start gap-4 sm:grid-cols-2">
@@ -226,10 +240,12 @@ export function QrDesignFields({
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <Field
           label="Velikost tisku"
+          sheetLocked={sheetLocked}
           hint={`${DROP_SIZE_MIN_CM}–${DROP_SIZE_MAX_CM} cm, šířka kartičky. Náhled se jí drží.`}
         >
           <div className="flex items-center gap-1.5">
             <input
+              disabled={sheetLocked}
               type="number"
               min={DROP_SIZE_MIN_CM}
               max={DROP_SIZE_MAX_CM}

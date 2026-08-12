@@ -70,6 +70,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   **vzhled kartičky v tabulce vůbec není** — hustota, tvar bodů, barevnost,
   obrázek uprostřed, okraj — takže se nedal měnit vůbec. Teď zamčené
   zůstává jen to, co tabulka opravdu nese, a vzhled se uloží.
+- **Co tabulka řídí, je označené.** Pole, která nese tabulka, jsou neaktivní
+  a mají u sebe odznak „z tabulky“ — v režimu tabulky je totiž půlka panelu
+  zamčená a půlka ne, a bez označení nešlo poznat která je která. Týká se to
+  i titulku, podpisu a velikosti tisku, které sedí uvnitř bloku vzhledu:
+  ty tabulka nese, takže zůstávají zamčené a **neuloží se, ani kdyby je
+  formulář poslal**.
 - Sekce „Vzhled kartičky s QR kódem“ je přeskládaná do tří skupin podle
   toho, čeho se která volba týká: **texty na kartičce**, **vzhled kódu**,
   **samotná kartička** (velikost tisku + okraj). Dřív to plynulo do dvou

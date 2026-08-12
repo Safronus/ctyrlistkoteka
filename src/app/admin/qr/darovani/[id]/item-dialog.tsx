@@ -374,6 +374,7 @@ export function ItemDialog({
                 textPlaceholder="dědí ze sady"
                 inheritedTitle={campaign.qrTitle}
                 inheritedCaption={campaign.qrCaption}
+                sheetLocked={sheetMode}
               />
               <QrLivePreview
                 design={design}

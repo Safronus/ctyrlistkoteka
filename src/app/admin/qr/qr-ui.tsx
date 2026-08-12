@@ -1,5 +1,7 @@
 "use client";
 
+import { Lock } from "lucide-react";
+
 /**
  * Form primitives shared by both QR generators on this page (page codes
  * and find codes). Extracted so the two forms stay visually identical
@@ -34,19 +36,42 @@ export const LABEL_H = "mt-5";
  *  hanging below without pushing anything out of line. */
 export const ROW_CLS = "grid items-start gap-3";
 
+/**
+ * Marks a field the Google Sheet owns.
+ *
+ * A greyed-out input says "not now" but not why, and in a wave run from a
+ * sheet HALF the panel is greyed and half isn't — so the badge is the only
+ * thing that tells the two apart at a glance.
+ */
+export function SheetLockBadge() {
+  return (
+    <span
+      title="Tohle pole je ve sdílené tabulce — uprav ho tam, jinak to příští synchronizace přepíše."
+      className="ml-1.5 inline-flex items-center gap-1 rounded bg-sky-100 px-1.5 py-0.5 align-middle text-[9px] font-semibold uppercase tracking-wide text-sky-900"
+    >
+      <Lock className="h-2.5 w-2.5" aria-hidden />
+      z tabulky
+    </span>
+  );
+}
+
 export function Field({
   label,
   hint,
   children,
+  sheetLocked = false,
 }: {
   label: string;
   hint?: string;
   children: React.ReactNode;
+  /** Show the "z tabulky" badge next to the label. */
+  sheetLocked?: boolean;
 }) {
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-medium text-gray-700">
         {label}
+        {sheetLocked && <SheetLockBadge />}
       </span>
       {children}
       {hint && (

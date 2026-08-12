@@ -578,6 +578,36 @@ async function sheetOwns(campaignId: number): Promise<boolean> {
 const SHEET_OWNED_ERROR =
   "Tuhle sadu řídí Google Sheets — uprav to tam, nebo režim tabulky vypni.";
 
+/** Keys of the design bag that the workbook also carries. */
+const SHEET_OWNED_DESIGN_KEYS = ["sizeCm", "titleMode", "captionMode"] as const;
+
+/**
+ * The posted design bag with the sheet's own keys reverted.
+ *
+ * Everything else about the look is the admin's; these three are columns
+ * in the workbook, so a form that posts them must not win — the next pull
+ * would undo it anyway, silently.
+ */
+function keepSheetOwnedDesign(
+  current: Prisma.JsonValue | null | undefined,
+  posted: Prisma.InputJsonObject | null,
+): Prisma.InputJsonObject | null {
+  const before =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Prisma.InputJsonObject)
+      : {};
+  // Built as a plain record — Prisma's InputJsonObject is read-only, so
+  // the copy is mutated before it takes that type.
+  const out: Record<string, unknown> = { ...(posted ?? {}) };
+  for (const key of SHEET_OWNED_DESIGN_KEYS) {
+    if (key in before) out[key] = (before as Record<string, unknown>)[key];
+    else delete out[key];
+  }
+  return Object.keys(out).length > 0
+    ? (out as Prisma.InputJsonObject)
+    : null;
+}
+
 export async function saveItemAction(
   campaignId: number,
   itemId: number,
@@ -624,9 +654,16 @@ export async function saveItemAction(
       data: sheetRuns
         ? {
             // Look only. Writing anything the sheet owns would survive
-            // until the next pull and then vanish without a trace.
-            qrOptions:
-              bag && Object.keys(bag).length > 0 ? bag : Prisma.DbNull,
+            // until the next pull and then vanish without a trace — and
+            // three of the design bag's keys ARE sheet columns (print size
+            // and the two caption MODES), so they keep whatever they had
+            // rather than whatever the form posted.
+            qrOptions: (() => {
+              const kept = keepSheetOwnedDesign(current?.qrOptions, bag);
+              return kept && Object.keys(kept).length > 0
+                ? kept
+                : Prisma.DbNull;
+            })(),
           }
         : {
         qrOptions: bag && Object.keys(bag).length > 0 ? bag : Prisma.DbNull,
