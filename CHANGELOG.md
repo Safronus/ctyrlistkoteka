@@ -9,6 +9,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Tiskový arch: rub, volné místo a náhled
+- **Text na zadní straně** pro oboustranný tisk. Za každou stránku s kartičkami
+  se vloží druhá, zrcadlená podle hrany, kterou tiskárna otáčí papír (delší je
+  obvyklá, přepínač je i pro kratší — špatná volba se pozná hned na první
+  zkušební stránce). Text jde k hornímu nebo dolnímu okraji a doladí se ±2 mm.
+- **Volné místo nad a pod kartičkou** (0–30 mm): prázdný pruh, který se ustřihne
+  *spolu* s ní — na dírkovačku, na přeložení nebo na ruční popisek. Ořezová
+  linka i stránkování s ním počítají.
+- **Náhled jedné hotové kartičky** ve skutečné velikosti, včetně volného místa
+  a rubu. Milimetry v posuvnících si nikdo nepředstaví.
+- Zadní text se rastruje v prohlížeči, ne přes `pdf.text()`: vestavěné fonty
+  jsPDF jsou WinAnsi, takže by z „Čtyřlístkotéky“ udělaly kaši.
+- Geometrie archu je nově čistý modul `src/lib/printSheet.ts` s testy. Chyba
+  v ní je vidět až po vytištění, otočení a stříhání stovky kartiček; ověřeno
+  navíc rozborem hotového PDF (zrcadlení, vycentrování, posun i volné místo
+  sedí na setiny milimetru).
+
 ### Mapa pro tým (`/tym/<token>`)
 - Čtecí mapa jedné oblasti pro lidi, kteří kartičky schovávají: pozice, stav,
   poznámka týmu, filtry podle stavu, hledání podle čísla a souřadnice na

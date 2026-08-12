@@ -685,6 +685,7 @@ export function ItemsGrid({
         <DropPrintDialog
           itemIds={printing}
           campaignName={campaignName}
+          pxPerCm={pxPerCm}
           onClose={() => setPrinting(null)}
         />
       )}
