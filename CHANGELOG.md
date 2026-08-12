@@ -9,6 +9,24 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Řetězec čtyřlístků
+- Hra přes **podmnožinu jedné oblasti**: vybrané kartičky dostanou pořadí
+  (náhodně nebo podle čísla nálezu, s tlačítkem *Promíchat*) a kdo takovou
+  kartičku najde, uvidí na její stránce tlačítko „Odkrýt nápovědu na
+  čtyřlístek #X“.
+- **Ven jde jen text nápovědy** — nikdy souřadnice ani token té další.
+  Prokliknout se řetězem od stolu tedy nejde: každý krok chce fyzicky
+  předchozí kartičku, protože nápověda se odkryje jen na stránce, na kterou
+  se člověk dostane naskenováním.
+- Když je další kartička už naskenovaná, řekne to („běž se podívat, je to
+  hezká procházka“). Poslední článek řekne, že řetěz končí — nezacyklí se.
+- **Vypnuto per oblast**, výchozí stav; vypnutí sestavené pořadí nezahodí.
+  Admin varuje u kartiček bez nápovědy — na těch by řetěz utnul.
+- Logika je čistá a otestovaná (`src/lib/dropChain.ts`). Pozor na jeden
+  detail, který si vysloužil test: „je v řetězu“ se ptá `!= null`, ne
+  `!== null` — kdyby dotaz zapomněl `chainOrder`, `undefined` by přepnul
+  řetěz na celou vlnu.
+
 ### gitleaks: `.gitleaks.toml` s prověřenými výjimkami
 - Scan spadl na `src/lib/crewMap.test.ts` — testovací fixture
   `Zm9vYmFyYmF6cXV1eHh4eA` (base64 „foobarbazquuxxxx“) vypadal jako

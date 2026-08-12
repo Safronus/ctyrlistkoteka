@@ -20,6 +20,7 @@ import {
   CREW_PASSWORD_MIN,
   newCrewToken,
 } from "@/lib/crewMap";
+import { buildChainOrder, type ChainMode } from "@/lib/dropChain";
 import { newDropToken, scatterPoints } from "@/lib/admin/drops";
 import { readBoundary, scatterInBoundary } from "@/lib/admin/dropBoundary";
 import {
@@ -571,6 +572,76 @@ export async function saveCrewMapAction(
     return { ok: true, token };
   } catch (e) {
     return { ok: false, error: msg(e, "Uložení mapy pro tým selhalo") };
+  }
+}
+
+/**
+ * Builds (or reshuffles, or clears) one area's "řetězec čtyřlístků".
+ *
+ * The chain is a SUBSET of an area, so this rewrites the whole area at
+ * once: the chosen cards get 1..N, everything else in the area is set back
+ * to null. Doing it in one transaction matters — a half-written chain
+ * would send finders to a card that no longer has a successor.
+ *
+ * Nothing here touches the sheet's fields, so it stays available in sheet
+ * mode: the workbook has no column for the chain.
+ */
+export async function saveChainAction(
+  campaignId: number,
+  areaId: number,
+  input: { enabled: boolean; itemIds: number[]; mode: ChainMode },
+): Promise<Result<{ ordered: number }>> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  try {
+    const area = await prisma.dropArea.findUnique({
+      where: { id: areaId },
+      select: { campaignId: true },
+    });
+    if (!area || area.campaignId !== campaignId) {
+      return { ok: false, error: "Oblast do téhle sady nepatří" };
+    }
+
+    // Only this area's cards may be chained: an id posted from a stale tab
+    // (or a hand-crafted request) must not drag a card out of its town.
+    const mine = await prisma.dropItem.findMany({
+      where: { areaId, id: { in: input.itemIds } },
+      select: { id: true, findId: true },
+    });
+    const ordered = buildChainOrder(mine, input.mode);
+
+    await prisma.$transaction([
+      prisma.dropArea.update({
+        where: { id: areaId },
+        data: { chainEnabled: input.enabled },
+      }),
+      prisma.dropItem.updateMany({
+        where: { areaId },
+        data: { chainOrder: null },
+      }),
+      ...ordered.map((id, i) =>
+        prisma.dropItem.update({
+          where: { id },
+          data: { chainOrder: i + 1 },
+        }),
+      ),
+    ]);
+
+    await appendAudit({
+      action: "settings.update",
+      ip: await getRequestIp(),
+      details: {
+        drops: "chain",
+        campaignId,
+        areaId,
+        enabled: input.enabled,
+        length: ordered.length,
+        mode: input.mode,
+      },
+    });
+    revalidate(campaignId);
+    return { ok: true, ordered: ordered.length };
+  } catch (e) {
+    return { ok: false, error: msg(e, "Uložení řetězu selhalo") };
   }
 }
 

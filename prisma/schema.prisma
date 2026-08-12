@@ -559,6 +559,12 @@ model DropArea {
   // accepted that risk knowingly (2026-08-11) on the same terms as the
   // shared Google Sheet — the password is what keeps a forwarded link
   // from being enough on its own.
+  /// Off by default: a wave is a scatter of unrelated cards unless the
+  /// operator deliberately strings some of them together. Turning it off
+  /// hides the chain from every landing page at once without losing the
+  /// order that was built.
+  chainEnabled Boolean @default(false) @map("chain_enabled")
+
   /// Null until the operator turns the crew map on.
   crewToken    String? @unique @map("crew_token") @db.VarChar(64)
   /// Plain text on purpose: it is a shared word for a group chat, not a
@@ -636,6 +642,17 @@ model DropItem {
   /// First scan, i.e. when somebody found it. Set once, by the landing page.
   foundAt  DateTime? @map("found_at") @db.Timestamptz
 
+  /// Position in this area's "řetězec čtyřlístků" — the hunt where each
+  /// card's landing page reveals a hint towards the next one. Null (the
+  /// default) means the card is simply not in the chain: it is a SUBSET of
+  /// an area, chosen in the admin. Numbers are 1..N and dense within an
+  /// area; the chain ends at the highest one, it does not wrap.
+  ///
+  /// Deliberately an order rather than a `nextItemId` link: reshuffling is
+  /// then a rewrite of N small integers instead of a linked list that can
+  /// grow a cycle or a fork, and "who comes after me" is one indexed query.
+  chainOrder Int? @map("chain_order") @db.SmallInt
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -644,6 +661,7 @@ model DropItem {
   @@index([campaignId])
   @@index([areaId])
   @@index([status])
+  @@index([areaId, chainOrder])
   @@map("drop_items")
 }
 

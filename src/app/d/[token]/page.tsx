@@ -6,6 +6,8 @@ import { ArrowRight, Home, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { registerDropScan } from "@/lib/dropScan";
 import { resolveDropText, type DropLang } from "@/lib/dropText";
+import { chainStep, isChainEnd } from "@/lib/dropChain";
+import { ChainHint } from "./chain-hint";
 import {
   collageFit,
   collageUrl,
@@ -68,7 +70,10 @@ export default async function DropLandingPage({
 
   const item = await prisma.dropItem.findUnique({
     where: { token },
-    include: { campaign: true },
+    // The area is loaded for one boolean: whether its "řetězec čtyřlístků"
+    // is switched on. Nothing else about the area — least of all where
+    // anything is hidden — is read on this page.
+    include: { campaign: true, area: { select: { chainEnabled: true } } },
   });
   if (!item) notFound();
 
@@ -85,9 +90,34 @@ export default async function DropLandingPage({
     prisma.dropItem.count({ where: { campaignId: item.campaignId } }),
   ]);
 
+  // The chain, when this card is in one. Only the area's own cards, and
+  // only the fields the hunt needs — never a coordinate, never another
+  // card's token.
+  const chainOn =
+    item.area?.chainEnabled === true &&
+    item.areaId !== null &&
+    item.chainOrder !== null;
+  const chainItems = chainOn
+    ? await prisma.dropItem.findMany({
+        where: { areaId: item.areaId! },
+        select: {
+          id: true,
+          findId: true,
+          chainOrder: true,
+          hintCs: true,
+          hintEn: true,
+          foundAt: true,
+        },
+      })
+    : [];
+
   const lang = await pickLang(langParam);
   const t = resolveDropText(item, item.campaign, lang);
   const other: DropLang = lang === "cs" ? "en" : "cs";
+  const step = chainOn
+    ? chainStep(item, chainItems, item.campaign, lang)
+    : null;
+  const chainEnded = chainOn && isChainEnd(item, chainItems);
 
   // The collage behind the page. Chosen here rather than in CSS because
   // three of the five modes need to know which card this is. If the wave
@@ -152,6 +182,12 @@ export default async function DropLandingPage({
           hintTail: "Each one leaves a clue on its own page.",
           switch: "Česky",
           ordinal: `No. ${position} of ${total} in this batch`,
+          chainLead: step
+            ? `This clover is part of a trail — it is ${step.position} of ${step.total}.`
+            : "",
+          chainReveal: step ? `Reveal a clue to clover #${step.next.findId}` : "",
+          chainFound: "Somebody has already found that one — but go and look, it is a nice walk.",
+          chainEnd: "This is the last clover of the trail. Nothing further to look for.",
         }
       : {
           openFind: "Otevřít tenhle čtyřlístek",
@@ -160,6 +196,16 @@ export default async function DropLandingPage({
           hintTail: "Ke každému je nápověda na jeho vlastní stránce.",
           switch: "English",
           ordinal: `${position}. ze ${total} v této sadě`,
+          chainLead: step
+            ? `Tenhle čtyřlístek je součástí řetězu — je ${step.position}. z ${step.total}.`
+            : "",
+          chainReveal: step
+            ? `Odkrýt nápovědu na čtyřlístek #${step.next.findId}`
+            : "",
+          chainFound:
+            "Tenhle už někdo našel před tebou — ale běž se podívat, je to hezká procházka.",
+          chainEnd:
+            "Tímhle čtyřlístkem řetěz končí. Dál už se hledat nemusí.",
         };
 
   return (
@@ -281,6 +327,27 @@ export default async function DropLandingPage({
             {labels.home}
           </Link>
         </div>
+
+        {/* The chain: a clue towards the next clover, revealed on a tap.
+            Only ever rendered on a page reached by scanning THIS card, so
+            the trail cannot be clicked through from a desk. */}
+        {step?.hint && (
+          <ChainHint
+            findId={step.next.findId}
+            hint={step.hint}
+            alreadyFound={step.alreadyFound}
+            labels={{
+              lead: labels.chainLead,
+              reveal: labels.chainReveal,
+              found: labels.chainFound,
+            }}
+          />
+        )}
+        {chainEnded && (
+          <p className="mt-6 rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-center text-xs text-violet-900">
+            {labels.chainEnd}
+          </p>
+        )}
 
         {/* Only when the operator published hints — otherwise saying
             "there are more" would be a tease with nothing behind it. */}

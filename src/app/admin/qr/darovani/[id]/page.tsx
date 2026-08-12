@@ -21,6 +21,7 @@ import { AreaEditor } from "./area-editor";
 import { ItemsGrid, type ItemView } from "./items-grid";
 import type { QrDesign } from "./qr-design-fields";
 import { AreaMapPanel } from "./area-map-panel";
+import { ChainPanel } from "./chain-panel";
 import { XlsxPanel } from "./xlsx-panel";
 import { SheetPanel } from "./sheet-panel";
 import { listDropXlsx } from "@/lib/admin/dropXlsxArchive";
@@ -320,6 +321,28 @@ export default async function DropCampaignPage({
           scans: i._count.scans,
           foundAt: i.foundAt ? dateTimeFmt.format(i.foundAt) : null,
           teamNote: (i.teamNote ?? "").trim(),
+        }))}
+      />
+
+      <ChainPanel
+        campaignId={campaign.id}
+        areas={campaign.areas.map((a) => ({
+          id: a.id,
+          name: a.name,
+          chainEnabled: a.chainEnabled,
+          items: campaign.items
+            .filter((i) => i.areaId === a.id)
+            .map((i) => ({
+              id: i.id,
+              findId: i.findId,
+              chainOrder: i.chainOrder,
+              // What the finder would actually be shown: the card's own
+              // hint, or the wave's. A chained card with neither is a dead
+              // end, and the panel says so.
+              hasHint: Boolean(
+                (i.hintCs ?? i.hintEn ?? campaign.hintCs ?? campaign.hintEn ?? "").trim(),
+              ),
+            })),
         }))}
       />
 
