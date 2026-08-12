@@ -1430,6 +1430,7 @@ function emptyReport(errors: string[]): ImportReport {
     unknownAreas: [],
     unknownPlacers: [],
     staleFields: [],
+    foundKept: [],
     errors,
   };
 }

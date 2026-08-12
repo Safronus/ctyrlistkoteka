@@ -494,6 +494,7 @@ function Warnings({ report }: { report: ImportReport }) {
   if (
     bits.length === 0 &&
     report.staleFields.length === 0 &&
+    report.foundKept.length === 0 &&
     skipped.length === 0
   ) {
     return null;
@@ -520,6 +521,14 @@ function Warnings({ report }: { report: ImportReport }) {
           {b}
         </p>
       ))}
+      {report.foundKept.length > 0 && (
+        <p className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-emerald-900">
+          <strong>Nalezené zůstalo nalezené.</strong> U{" "}
+          {report.foundKept.map((id) => `#${id}`).join(", ")} má tabulka jiný
+          stav, ale ty kartičky už někdo naskenoval — sken je důkaz, buňka jen
+          záměr. Kdyby se měly vrátit do hry, vynuluj u nich naskenování.
+        </p>
+      )}
       {report.staleFields.length > 0 && (
         <p className="rounded border border-amber-300 bg-amber-100 px-2 py-1 text-amber-900">
           <strong>Tabulka je starší než texty sady.</strong> Pole{" "}

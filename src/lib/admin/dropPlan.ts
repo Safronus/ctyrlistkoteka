@@ -30,6 +30,8 @@ export interface DropPlanReport {
   unknownPlacers: string[];
   /** Fields skipped because they carry a superseded campaign default. */
   staleFields: string[];
+  /** Cards whose "Nalezený" the sheet tried to take away — see below. */
+  foundKept: number[];
   errors: string[];
 }
 
@@ -56,6 +58,8 @@ export interface PlanItem {
   lat: number | null;
   lng: number | null;
   status: string;
+  /** First scan, i.e. proof somebody picked the card up. */
+  foundAt: Date | null;
   hintPublished: boolean;
   qrOptions: unknown;
   headingCs: string | null;
@@ -155,6 +159,7 @@ export function planDropImport(
     unknownAreas: [],
     unknownPlacers: [],
     staleFields: [],
+    foundKept: [],
     errors: [],
   };
   const updates: DropPlan["updates"] = [];
@@ -299,12 +304,38 @@ export function planDropImport(
     }
 
     // --------------------------------------------------------- status
-    if (v.status !== undefined && v.status !== item.status) {
-      data.status = v.status;
+    //
+    // In a sheet-run wave the table owns the lifecycle — připravený,
+    // vytištěný, schovaný come from the cell and from nowhere else, so
+    // that what the crew types is what the crew sees.
+    //
+    // "Nalezený" is the one exception, and it goes the other way: a scan
+    // is EVIDENCE that somebody picked the card up, while a cell is only
+    // an intention. So a card with a first scan reads as found no matter
+    // what the column says, and a column that says found is honoured even
+    // with no scan (somebody can be told in person). Never silently: the
+    // report names every card whose "found" the sheet tried to take away.
+    const scanned = item.foundAt !== null;
+    const wanted =
+      v.status !== undefined
+        ? scanned && v.status !== "FOUND"
+          ? "FOUND"
+          : v.status
+        : scanned && item.status !== "FOUND"
+          ? "FOUND"
+          : undefined;
+
+    if (v.status !== undefined && scanned && v.status !== "FOUND") {
+      if (!report.foundKept.includes(row.findId)) {
+        report.foundKept.push(row.findId);
+      }
+    }
+    if (wanted !== undefined && wanted !== item.status) {
+      data.status = wanted;
       note(
         "status",
         DROP_STATUS_LABEL[item.status as keyof typeof DROP_STATUS_LABEL],
-        DROP_STATUS_LABEL[v.status],
+        DROP_STATUS_LABEL[wanted as keyof typeof DROP_STATUS_LABEL],
       );
     }
 

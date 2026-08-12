@@ -26,6 +26,7 @@ function item(over: Partial<PlanItem> = {}): PlanItem {
     lat: null,
     lng: null,
     status: "PREPARED",
+    foundAt: null,
     hintPublished: false,
     qrOptions: null,
     headingCs: null,
@@ -272,6 +273,63 @@ describe("planDropImport — the chain follows the area", () => {
       CAMPAIGN,
       AREAS,
     );
+    expect(plan.updates).toHaveLength(0);
+  });
+});
+
+describe("planDropImport — status in a sheet-run wave", () => {
+  // The rule the crew asked for: připravený / vytištěný / schovaný come
+  // from the table and from nowhere else, so what they type is what they
+  // see. "Nalezený" is the exception and goes the other way — a scan is
+  // evidence, a cell is only an intention.
+  const scanned = (over = {}) =>
+    item({ status: "FOUND", foundAt: new Date("2026-08-01"), ...over });
+
+  it("takes připravený / vytištěný / schovaný straight from the table", () => {
+    for (const s of ["PREPARED", "PRINTED", "HIDDEN"] as const) {
+      const plan = planDropImport(
+        [row({ status: s })],
+        [item({ status: "PREPARED" })],
+        CAMPAIGN,
+        AREAS,
+      );
+      if (s === "PREPARED") expect(plan.updates).toHaveLength(0);
+      else expect(plan.updates[0]?.data).toEqual({ status: s });
+    }
+  });
+
+  it("refuses to un-find a card somebody has scanned", () => {
+    const plan = planDropImport([row({ status: "HIDDEN" })], [scanned()], CAMPAIGN, AREAS);
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.report.foundKept).toEqual([30001]);
+  });
+
+  it("repairs a scanned card the table left as schovaný", () => {
+    // Same evidence, but the database had drifted — say it out loud.
+    const plan = planDropImport(
+      [row({ status: "HIDDEN" })],
+      [scanned({ status: "HIDDEN" })],
+      CAMPAIGN,
+      AREAS,
+    );
+    expect(plan.updates[0]?.data).toEqual({ status: "FOUND" });
+    expect(plan.report.foundKept).toEqual([30001]);
+    expect(plan.changes[0]).toMatchObject({ field: "Stav", after: "Nalezený" });
+  });
+
+  it("honours a table that says found before anybody scanned", () => {
+    const plan = planDropImport(
+      [row({ status: "FOUND" })],
+      [item({ status: "HIDDEN" })],
+      CAMPAIGN,
+      AREAS,
+    );
+    expect(plan.updates[0]?.data).toEqual({ status: "FOUND" });
+    expect(plan.report.foundKept).toEqual([]);
+  });
+
+  it("leaves an untouched status column alone", () => {
+    const plan = planDropImport([row({})], [item({ status: "HIDDEN" })], CAMPAIGN, AREAS);
     expect(plan.updates).toHaveLength(0);
   });
 });

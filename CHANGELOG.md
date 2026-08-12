@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Stav v režimu tabulky: tabulka rozhoduje, sken přebíjí
+- *Připravený / vytištěný / schovaný* se v režimu tabulky berou **z buňky
+  a odnikud jinud** — tým má vidět přesně to, co napsal.
+- **Nalezený** jde opačným směrem: sken je důkaz, buňka jen záměr. Naskenovaná
+  kartička zůstane nalezená, i kdyby tabulka tvrdila „schovaný“ (dřív ji příští
+  synchronizace vrátila do hry, takže kartička s 60 skeny hlásila „schovaný“).
+  A „nalezený“ z tabulky se respektuje i bez skenu — někdo to může říct osobně.
+- Když se stavy takhle rozejdou, **náhled synchronizace to vypíše** i s čísly
+  kusů; nic se neděje potichu. Zpátky do hry se kartička vrátí vynulováním
+  naskenování.
+
 ### Mapa pro tým — všechno, co se dá přečíst
 - U kartičky je **kompletní text**: česky, anglicky i bonus. Anglická část se
   staví **jen z anglických polí** — `resolveDropText` by pod nadpisem
