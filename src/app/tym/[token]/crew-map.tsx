@@ -26,6 +26,10 @@ export interface CrewPoint {
   lng: number;
   placedBy: string | null;
   teamNote: string;
+  /** Colour of the crew member responsible, or null when nobody is. */
+  crewColor?: string | null;
+  /** Somebody else is picked in the crew filter. */
+  dimmed?: boolean;
 }
 
 /**
@@ -125,7 +129,10 @@ export function CrewMap({
         <Marker
           key={p.id}
           position={[p.lat, p.lng]}
-          icon={dropCloverIcon(DROP_STATUS_COLOR[p.status], p.id === selectedId)}
+          icon={dropCloverIcon(DROP_STATUS_COLOR[p.status], p.id === selectedId, {
+            ring: p.crewColor,
+            dimmed: p.dimmed,
+          })}
           eventHandlers={{
             click: (e) => {
               // Selecting a card must not also read out the coordinates

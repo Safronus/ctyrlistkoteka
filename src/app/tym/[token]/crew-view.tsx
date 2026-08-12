@@ -13,6 +13,9 @@ import {
   MapPin,
   QrCode,
   Search,
+  StickyNote,
+  Table2,
+  Users,
   X,
 } from "lucide-react";
 import { formatGpsDecimal } from "@/lib/parseGps";
@@ -48,6 +51,19 @@ export interface CrewCard extends Omit<CrewPoint, "lat" | "lng"> {
   landingUrl: string;
   heading: string;
   body: string;
+  /** Bonus block, item's own or the wave's. */
+  bonus: string | null;
+  /** English side, built from English fields only — null when there is
+   *  none, because a Czech fallback under "anglicky" would be a lie. */
+  en: { heading: string; body: string; bonus: string | null } | null;
+  /** Which texts this card says itself instead of inheriting. */
+  ownText: string[];
+  /** What is physically printed on it. */
+  printed: { title: string | null; caption: string | null; sizeCm: number };
+  /** Position in the wave by find number — the same "13. ze 111" the
+   *  finder is shown. */
+  ordinal: number;
+  lastScanAt: string | null;
   /** The clue this card publishes: its own, else the wave's. */
   hint: string | null;
   /** Shown on the find's public detail page, not just in the hunt. */
@@ -61,6 +77,9 @@ export interface SheetStatus {
   syncedAt: string | null;
   changedAt: string | null;
   error: string | null;
+  /** The shared spreadsheet, but only when the admin ticked "show it to
+   *  the crew" — null otherwise, and then nothing is rendered. */
+  url: string | null;
 }
 
 /**
@@ -76,8 +95,27 @@ export interface SheetStatus {
  * often than a position) but carry no coordinates and never reach the
  * map — one link must not give away another area's hiding places.
  */
+/**
+ * One colour per crew member, assigned by their place in the wave's roster
+ * so it never shifts between page loads. Deliberately far apart in hue —
+ * these sit as a thin ring around a status-coloured clover, and two people
+ * whose colours are neighbours are worse than no colours at all.
+ */
+const CREW_COLORS = [
+  "#7c3aed",
+  "#db2777",
+  "#0891b2",
+  "#ca8a04",
+  "#4d7c0f",
+  "#b45309",
+  "#4f46e5",
+  "#be123c",
+];
+
 export function CrewView({
   token,
+  placers,
+  total,
   areaName,
   campaignName,
   center,
@@ -88,6 +126,10 @@ export function CrewView({
   sheet,
 }: {
   token: string;
+  /** The wave's roster, in its own order — drives the colours. */
+  placers: string[];
+  /** Cards in the whole wave, for the "13. ze 111" line. */
+  total: number;
   areaName: string;
   campaignName: string;
   center: [number, number];
@@ -107,6 +149,25 @@ export function CrewView({
   const [picked, setPicked] = useState<{ lat: number; lng: number } | null>(
     null,
   );
+  /** Whose cards to show; null = everybody's. */
+  const [crew, setCrew] = useState<string | null>(null);
+  const [grouped, setGrouped] = useState(true);
+
+  // Everybody who actually appears on a card, roster first so the colours
+  // follow the roster's order, then anyone the sheet introduced.
+  const crewNames = useMemo(() => {
+    const seen = new Set(
+      cards.map((c) => c.placedBy).filter((n): n is string => !!n),
+    );
+    const ordered = placers.filter((p) => seen.has(p));
+    for (const n of seen) if (!ordered.includes(n)) ordered.push(n);
+    return ordered;
+  }, [cards, placers]);
+
+  const colorOf = (name: string | null): string | null =>
+    name === null
+      ? null
+      : (CREW_COLORS[crewNames.indexOf(name) % CREW_COLORS.length] ?? null);
 
   const mine = useMemo(() => cards.filter((c) => c.mine), [cards]);
 
@@ -132,20 +193,52 @@ export function CrewView({
     const q = query.trim().replace(/^#/, "");
     return cards.filter((c) => {
       if (onlyMine && !c.mine) return false;
+      if (crew !== null && c.placedBy !== crew) return false;
       if (statuses.size > 0 && !statuses.has(c.status)) return false;
       if (q && !String(c.findId).includes(q)) return false;
       return true;
     });
-  }, [cards, statuses, query, onlyMine]);
+  }, [cards, statuses, query, onlyMine, crew]);
+
+  /**
+   * The list, in sections by crew member.
+   *
+   * Splitting a town between people is the normal case, and "which ones
+   * are mine" is then the first question — a flat list answers it only by
+   * reading every row. One section per person, in roster order, with the
+   * unassigned last.
+   */
+  const sections = useMemo(() => {
+    if (!grouped) return [{ name: null as string | null, cards: visible }];
+    const out: { name: string | null; cards: CrewCard[] }[] = [];
+    for (const name of crewNames) {
+      const mineHere = visible.filter((c) => c.placedBy === name);
+      if (mineHere.length > 0) out.push({ name, cards: mineHere });
+    }
+    const orphans = visible.filter((c) => !c.placedBy);
+    if (orphans.length > 0) out.push({ name: null, cards: orphans });
+    return out;
+  }, [visible, crewNames, grouped]);
 
   // Only placed cards of THIS area are drawn; the filter follows the list
   // so hiding a status hides its pins too.
   const points = useMemo(
     () =>
-      visible
+      // Not `visible`: a crew filter FADES the others rather than removing
+      // them, because a hiding place two streets away is context even when
+      // it is somebody else's.
+      cards
         .filter((c) => c.mine && c.lat !== null && c.lng !== null)
-        .map((c) => ({ ...c, lat: c.lat!, lng: c.lng! })),
-    [visible],
+        .filter((c) => statuses.size === 0 || statuses.has(c.status))
+        .map((c) => ({
+          ...c,
+          lat: c.lat!,
+          lng: c.lng!,
+          crewColor: colorOf(c.placedBy),
+          dimmed: crew !== null && c.placedBy !== crew,
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cards, statuses, crew, crewNames],
   );
 
   const toggleStatus = (s: DropStatus) =>
@@ -214,6 +307,17 @@ export function CrewView({
                 </strong>
               </span>
               <NextSyncCountdown syncedAt={sheet.syncedAt} />
+              {sheet.url && (
+                <a
+                  href={sheet.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-900 transition hover:bg-emerald-100"
+                >
+                  <Table2 className="h-3.5 w-3.5" aria-hidden />
+                  Otevřít tabulku
+                </a>
+              )}
               {sheet.error && (
                 <span className="text-amber-700">
                   Poslední kontrola hlásí chybu — dej vědět majiteli.
@@ -284,6 +388,56 @@ export function CrewView({
               })}
             </div>
 
+            {crewNames.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {crewNames.map((name) => {
+                  const on = crew === name;
+                  const count = cards.filter(
+                    (c) => (!onlyMine || c.mine) && c.placedBy === name,
+                  ).length;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setCrew(on ? null : name)}
+                      aria-pressed={on}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                        on
+                          ? "border-gray-900 bg-gray-900 text-white"
+                          : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <span
+                        className="h-2 w-2 rounded-full ring-2"
+                        style={{
+                          backgroundColor: colorOf(name) ?? "#9ca3af",
+                          // @ts-expect-error -- CSS custom property for the ring
+                          "--tw-ring-color": `${colorOf(name)}33`,
+                        }}
+                        aria-hidden
+                      />
+                      {name}
+                      <span className="tabular-nums opacity-70">{count}</span>
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setGrouped((v) => !v)}
+                  aria-pressed={grouped}
+                  title="Seskupit seznam po lidech"
+                  className={`ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                    grouped
+                      ? "border-gray-900 bg-gray-900 text-white"
+                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5" aria-hidden />
+                  po lidech
+                </button>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-1.5">
               <label className="relative flex-1">
                 <span className="sr-only">Hledat číslo čtyřlístku</span>
@@ -329,23 +483,46 @@ export function CrewView({
           </div>
 
           {/* -------------------------------------------------------- list */}
-          <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-            {visible.map((c) => (
-              <CrewRow
-                key={c.id}
-                token={token}
-                card={c}
-                showQr={showQr}
-                selected={c.id === selected}
-                onSelect={() => setSelected(c.id)}
-              />
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            {sections.map((s) => (
+              <section key={s.name ?? "—"} className="mb-3 last:mb-0">
+                {grouped && crewNames.length > 1 && (
+                  <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{
+                        backgroundColor: colorOf(s.name) ?? "#9ca3af",
+                      }}
+                      aria-hidden
+                    />
+                    {s.name ?? "Bez přiřazení"}
+                    <span className="font-normal tabular-nums text-gray-400">
+                      {s.cards.length}
+                    </span>
+                  </p>
+                )}
+                <ul className="space-y-2">
+                  {s.cards.map((c) => (
+                    <CrewRow
+                      key={c.id}
+                      token={token}
+                      card={c}
+                      total={total}
+                      crewColor={colorOf(c.placedBy)}
+                      showQr={showQr}
+                      selected={c.id === selected}
+                      onSelect={() => setSelected(c.id)}
+                    />
+                  ))}
+                </ul>
+              </section>
             ))}
             {visible.length === 0 && (
-              <li className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-6 text-center text-xs text-gray-500">
+              <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-6 text-center text-xs text-gray-500">
                 Nic neodpovídá filtru.
-              </li>
+              </p>
             )}
-          </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -432,12 +609,16 @@ function PickedCoords({
 function CrewRow({
   token,
   card,
+  total,
+  crewColor,
   showQr,
   selected,
   onSelect,
 }: {
   token: string;
   card: CrewCard;
+  total: number;
+  crewColor: string | null;
   showQr: boolean;
   selected: boolean;
   onSelect: () => void;
@@ -485,9 +666,21 @@ function CrewRow({
           </span>
           <span className="text-[11px] text-gray-500">
             {DROP_STATUS_LABEL[card.status]}
-            {card.placedBy && <> · {card.placedBy}</>}
-            {card.scans > 0 && <> · {card.scans}× sken</>}
-            {card.foundAt && <> · {card.foundAt}</>}
+            {card.placedBy && (
+              <>
+                {" · "}
+                <span
+                  className="inline-block h-2 w-2 translate-y-[1px] rounded-full"
+                  style={{ backgroundColor: crewColor ?? "#9ca3af" }}
+                  aria-hidden
+                />{" "}
+                {card.placedBy}
+              </>
+            )}
+            {" · "}
+            <span className="tabular-nums">
+              {card.ordinal}. ze {total}
+            </span>
           </span>
         </button>
         <a
@@ -501,6 +694,23 @@ function CrewRow({
           stránka
         </a>
       </div>
+
+      {(card.scans > 0 || card.foundAt) && (
+        <p className="mt-1 text-[11px] text-gray-500">
+          {card.scans > 0 ? (
+            <>
+              <span className="font-mono tabular-nums">{card.scans}×</span>{" "}
+              naskenováno
+              {card.lastScanAt && <> · naposledy {card.lastScanAt}</>}
+            </>
+          ) : (
+            "zatím bez naskenování"
+          )}
+          {card.foundAt && (
+            <span className="text-emerald-700"> · nalezeno {card.foundAt}</span>
+          )}
+        </p>
+      )}
 
       {!card.mine && (
         <p className="mt-1.5 text-[11px] text-gray-500">
@@ -528,10 +738,18 @@ function CrewRow({
         <p className="mt-1.5 text-[11px] text-amber-700">Zatím bez pozice.</p>
       )}
 
+      {/* Labelled, because it sits next to the hint and the two say very
+          different things: the note is the crew's own description of the
+          hiding place, the hint is what a finder is told. Unlabelled they
+          were guesswork. */}
       {card.teamNote && (
-        <p className="mt-1.5 whitespace-pre-line rounded-md bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
-          {card.teamNote}
-        </p>
+        <div className="mt-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
+          <p className="flex items-center gap-1.5 font-semibold uppercase tracking-wide">
+            <StickyNote className="h-3 w-3" aria-hidden />
+            Poznámka týmu
+          </p>
+          <p className="mt-0.5 whitespace-pre-line">{card.teamNote}</p>
+        </div>
       )}
 
       {/* The hunt. Both halves matter in the field: which card this one
@@ -590,14 +808,76 @@ function CrewRow({
         aria-expanded={openText}
         className="mt-1.5 text-[11px] text-gray-500 underline-offset-2 hover:underline"
       >
-        {openText ? "Skrýt text kartičky" : "Text kartičky"}
+        {openText ? "Skrýt detail kartičky" : "Detail kartičky"}
       </button>
       {openText && (
-        <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2">
-          <p className="text-xs font-semibold text-gray-900">{card.heading}</p>
-          <p className="mt-1 whitespace-pre-line text-[11px] leading-relaxed text-gray-600">
-            {card.body}
-          </p>
+        <div className="mt-1 space-y-2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              Stránka po naskenování · česky
+            </p>
+            <p className="mt-0.5 text-xs font-semibold text-gray-900">
+              {card.heading}
+            </p>
+            <p className="mt-0.5 whitespace-pre-line text-[11px] leading-relaxed text-gray-600">
+              {card.body}
+            </p>
+            {card.bonus && (
+              <p className="mt-1 whitespace-pre-line rounded border border-brand-200 bg-brand-50/70 px-2 py-1 text-[11px] leading-relaxed text-gray-700">
+                <span className="font-semibold">Bonus:</span> {card.bonus}
+              </p>
+            )}
+          </div>
+
+          {card.en && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                Anglicky
+              </p>
+              {card.en.heading && (
+                <p className="mt-0.5 text-xs font-semibold text-gray-900">
+                  {card.en.heading}
+                </p>
+              )}
+              {card.en.body && (
+                <p className="mt-0.5 whitespace-pre-line text-[11px] leading-relaxed text-gray-600">
+                  {card.en.body}
+                </p>
+              )}
+              {card.en.bonus && (
+                <p className="mt-1 whitespace-pre-line rounded border border-brand-200 bg-brand-50/70 px-2 py-1 text-[11px] leading-relaxed text-gray-700">
+                  <span className="font-semibold">Bonus:</span> {card.en.bonus}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              Natištěno na kartičce
+            </p>
+            <p className="mt-0.5 text-[11px] text-gray-600">
+              Nad kódem:{" "}
+              <span className="font-medium text-gray-800">
+                {card.printed.title ?? "nic"}
+              </span>{" "}
+              · pod kódem:{" "}
+              <span className="font-medium text-gray-800">
+                {card.printed.caption ?? "nic"}
+              </span>{" "}
+              · šířka{" "}
+              <span className="font-mono tabular-nums text-gray-800">
+                {card.printed.sizeCm} cm
+              </span>
+            </p>
+          </div>
+
+          {card.ownText.length > 0 && (
+            <p className="text-[10px] text-gray-400">
+              Vlastní text kartičky: {card.ownText.join(", ")} — zbytek se
+              dědí ze sady.
+            </p>
+          )}
         </div>
       )}
 

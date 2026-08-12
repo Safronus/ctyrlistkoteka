@@ -463,6 +463,15 @@ model DropCampaign {
 
   /// Sheet the crew edits. Null = the wave is managed in the admin only.
   sheetUrl       String?   @map("sheet_url") @db.VarChar(500)
+  /// Whether the crew page (`/tym/<token>`) may show a link to that sheet.
+  ///
+  /// OFF by default and deliberately its own switch: CLAUDE.md §9 makes the
+  /// sheet URL admin-only data, because the sheet carries EVERY area's
+  /// coordinates and is usually shared for editing — strictly more than one
+  /// area's crew map gives away. The owner can hand it to the crew anyway
+  /// (2026-08-12), but it has to be a decision, not a side effect of turning
+  /// the crew map on.
+  sheetShareCrew Boolean   @default(false) @map("sheet_share_crew")
   /// When on, the sheet is the source of truth for the cards' fields.
   sheetMode      Boolean   @default(false) @map("sheet_mode")
   /// Fingerprint of the last workbook fetched, so an unchanged sheet

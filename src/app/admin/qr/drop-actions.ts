@@ -1447,6 +1447,9 @@ export interface SheetStatus {
   url: string | null;
   /** When true the sheet owns the cards' fields. */
   mode: boolean;
+  /** When true the crew page may link to the sheet — see
+   *  setSheetShareCrewAction for why that is its own decision. */
+  shareCrew: boolean;
   syncedAt: string | null;
   changedAt: string | null;
   error: string | null;
@@ -1616,6 +1619,33 @@ export async function applySheetSyncAction(
  * The campaign's own defaults stay editable (owner's call), which is why
  * the stale-sheet guard in the planner exists.
  */
+/**
+ * Whether the crew page may link to the shared sheet.
+ *
+ * Its own action, and its own column, because it is its own decision: the
+ * sheet URL is admin-only data (CLAUDE.md §9) — the sheet holds every
+ * area's coordinates and is usually shared for editing, which is strictly
+ * more than one area's crew map gives away. Turning the crew map on must
+ * not quietly turn this on with it.
+ */
+export async function setSheetShareCrewAction(
+  campaignId: number,
+  on: boolean,
+): Promise<VoidResult> {
+  if (!(await auth())) return { ok: false, error: "Neautentizováno" };
+  await prisma.dropCampaign.update({
+    where: { id: campaignId },
+    data: { sheetShareCrew: on },
+  });
+  await appendAudit({
+    action: "settings.update",
+    ip: await getRequestIp(),
+    details: { drops: "sheet-share-crew", campaignId, on },
+  });
+  revalidate(campaignId);
+  return { ok: true };
+}
+
 export async function setSheetModeAction(
   campaignId: number,
   on: boolean,

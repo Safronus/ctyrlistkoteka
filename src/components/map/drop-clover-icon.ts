@@ -21,15 +21,31 @@ import L from "leaflet";
 const ICON_BOX = 24;
 const iconCache = new Map<string, L.DivIcon>();
 
-export function dropCloverIcon(color: string, selected: boolean): L.DivIcon {
-  const key = `${color}|${selected}`;
+export interface CloverIconOpts {
+  /** Ring in the colour of whoever hides this card — the crew map tints
+   *  by person while the clover itself keeps saying the status. */
+  ring?: string | null;
+  /** Somebody else is picked in the filter; fade rather than hide, so the
+   *  rest of the town stays readable as context. */
+  dimmed?: boolean;
+}
+
+export function dropCloverIcon(
+  color: string,
+  selected: boolean,
+  opts: CloverIconOpts = {},
+): L.DivIcon {
+  const ring = opts.ring ?? "";
+  const dimmed = opts.dimmed === true;
+  const key = `${color}|${selected}|${ring}|${dimmed}`;
   const hit = iconCache.get(key);
   if (hit) return hit;
   const icon = L.divIcon({
     className: "",
     html: `
-      <svg viewBox="0 0 32 32" width="${ICON_BOX}" height="${ICON_BOX}" aria-hidden="true" focusable="false">
+      <svg viewBox="0 0 32 32" width="${ICON_BOX}" height="${ICON_BOX}" aria-hidden="true" focusable="false"${dimmed ? ' opacity="0.35"' : ""}>
         <circle cx="16" cy="16" r="15" fill="#ffffff" opacity="0.9" />
+        ${ring ? `<circle cx="16" cy="16" r="14" fill="none" stroke="${ring}" stroke-width="3" />` : ""}
         ${selected ? '<circle cx="16" cy="16" r="15" fill="none" stroke="#111827" stroke-width="2.5" />' : ""}
         <g fill="${color}">
           <circle cx="16" cy="11" r="5" />

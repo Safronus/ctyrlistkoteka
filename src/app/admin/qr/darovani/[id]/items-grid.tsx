@@ -834,12 +834,16 @@ const ItemCard = memo(function ItemCard({
             {item.tokenShort}
           </Link>
         </p>
+        {/* Labelled rather than a bare pin: this line sits under a card
+            that also shows a hint, a token and an override list, and "📍
+            u lavičky" read as any of them. */}
         {item.teamNote && (
           <p
             className="line-clamp-2 rounded bg-amber-50 px-1 py-0.5 text-amber-900"
-            title={item.teamNote}
+            title={`Poznámka týmu: ${item.teamNote}`}
           >
-            📍 {item.teamNote}
+            <span className="font-semibold">📍 Poznámka týmu:</span>{" "}
+            {item.teamNote}
           </p>
         )}
         {item.hintPublished && item.hintPreview && (
@@ -847,7 +851,8 @@ const ItemCard = memo(function ItemCard({
             className="truncate text-emerald-700"
             title={`Zveřejněná nápověda: ${item.hintPreview}`}
           >
-            💡 {item.hintPreview}
+            <span className="font-semibold">💡 Nápověda:</span>{" "}
+            {item.hintPreview}
           </p>
         )}
         {item.hintPublished && !item.hintPreview && (

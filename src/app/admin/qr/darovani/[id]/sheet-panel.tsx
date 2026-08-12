@@ -20,6 +20,7 @@ import {
   previewSheetSyncAction,
   applySheetSyncAction,
   setSheetModeAction,
+  setSheetShareCrewAction,
   type ImportReport,
   type SheetStatus,
 } from "../../drop-actions";
@@ -270,6 +271,43 @@ export function SheetPanel({
                     rukama.
                   </>
                 )}
+              </span>
+            </span>
+          </label>
+
+          {/* A separate line, not a sub-option of the mode: the sheet URL
+              is admin-only data by default (CLAUDE.md §9) because the sheet
+              carries EVERY area's coordinates and is usually shared for
+              editing — more than one area's crew map gives away. Handing it
+              to the crew is allowed, but it has to be ticked on purpose. */}
+          <label className="mt-2 flex cursor-pointer items-start gap-2 border-t border-gray-200 pt-2">
+            <input
+              type="checkbox"
+              checked={status.shareCrew}
+              disabled={busy}
+              onChange={(e) =>
+                start(async () => {
+                  setError(null);
+                  const r = await setSheetShareCrewAction(
+                    campaignId,
+                    e.target.checked,
+                  );
+                  if (!r.ok) setError(r.error);
+                  router.refresh();
+                })
+              }
+              aria-label="Ukázat odkaz na tabulku i na mapě pro tým"
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30"
+            />
+            <span className="min-w-0">
+              <span className="block text-xs font-medium text-gray-900">
+                Ukázat odkaz na tabulku i na mapě pro tým
+              </span>
+              <span className="mt-0.5 block text-[11px] text-gray-600">
+                Tým se pak z <code className="rounded bg-white px-1">/tym/…</code>{" "}
+                proklikne rovnou do tabulky. Pozor: v tabulce jsou úkryty{" "}
+                <strong>všech oblastí</strong> a obvykle i právo je měnit —
+                víc, než ukazuje jedna mapa pro tým.
               </span>
             </span>
           </label>

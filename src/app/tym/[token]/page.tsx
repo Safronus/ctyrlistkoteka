@@ -6,7 +6,12 @@ import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
 import { readBoundary } from "@/lib/admin/dropBoundary";
 import { resolveDropText } from "@/lib/dropText";
 import { resolveChainHint } from "@/lib/dropChain";
-import { dropLandingUrl } from "@/lib/admin/drops";
+import {
+  dropLandingUrl,
+  mergeDropQrOptions,
+  resolveQrLines,
+  DROP_SIZE_DEFAULT_CM,
+} from "@/lib/admin/drops";
 import { CREW_TOKEN_RE, crewCookieName, crewCookieOk } from "@/lib/crewMap";
 import { CrewUnlockForm } from "./unlock-form";
 import { CrewView, type CrewCard } from "./crew-view";
@@ -86,7 +91,12 @@ export default async function CrewMapPage({
       areas: { select: { id: true, name: true, chainEnabled: true } },
       items: {
         orderBy: { findId: "asc" },
-        include: { _count: { select: { scans: true } } },
+        include: {
+          _count: { select: { scans: true } },
+          // Just the newest one: "kdy naposledy někdo naskenoval" is the
+          // half of the history that says whether anything is happening.
+          scans: { orderBy: { scannedAt: "desc" }, take: 1 },
+        },
       },
     },
   });
@@ -107,7 +117,7 @@ export default async function CrewMapPage({
     if (links.length > 0) chains.set(a.id, links);
   }
 
-  const cards: CrewCard[] = campaign.items.map((i) => {
+  const cards: CrewCard[] = campaign.items.map((i, index) => {
     // Only this area's cards carry a place. Everything else in the wave is
     // listed so the crew can look a number up, but without saying where it
     // is — one link, one area's secrets.
@@ -133,6 +143,24 @@ export default async function CrewMapPage({
       landingUrl: dropLandingUrl(i.token),
       heading: t.heading,
       body: t.body,
+      // The English side is built from English fields ONLY. resolveDropText
+      // would fall back to Czech per field, which under a heading saying
+      // "anglicky" is worse than an honest gap.
+      en: englishOf(i, campaign),
+      bonus: (i.bonusCs ?? campaign.bonusCs ?? "").trim() || null,
+      // Which of these the CARD says itself, rather than inheriting from
+      // the wave — the difference matters when something reads oddly.
+      ownText: [
+        i.headingCs || i.headingEn ? "nadpis" : null,
+        i.bodyCs || i.bodyEn ? "text" : null,
+        i.bonusCs || i.bonusEn ? "bonus" : null,
+        i.hintCs || i.hintEn ? "nápověda" : null,
+      ].filter(Boolean) as string[],
+      printed: printedOf(i, campaign),
+      ordinal: index + 1,
+      lastScanAt: i.scans[0]
+        ? dateTimeFmt.format(i.scans[0].scannedAt)
+        : null,
       hint,
       hintPublished: i.hintPublished,
       chain:
@@ -149,6 +177,8 @@ export default async function CrewMapPage({
   return (
     <CrewView
       token={token}
+      placers={campaign.placers}
+      total={campaign.items.length}
       areaName={area.name}
       campaignName={campaign.name}
       center={[area.centerLat, area.centerLng]}
@@ -161,7 +191,49 @@ export default async function CrewMapPage({
         syncedAt: campaign.sheetSyncedAt?.toISOString() ?? null,
         changedAt: campaign.sheetChangedAt?.toISOString() ?? null,
         error: campaign.sheetError,
+        // Only when the operator ticked it. The sheet URL is admin-only
+        // data by default (CLAUDE.md §9): that document carries every
+        // area's coordinates and usually the right to edit them, which is
+        // more than this page is allowed to give away on its own.
+        url: campaign.sheetShareCrew ? campaign.sheetUrl : null,
       }}
     />
   );
+}
+
+/** The English side of a card, built only from English fields. */
+function englishOf(
+  item: { headingEn: string | null; bodyEn: string | null; bonusEn: string | null },
+  campaign: { headingEn: string | null; bodyEn: string | null; bonusEn: string | null },
+): { heading: string; body: string; bonus: string | null } | null {
+  const pick = (a: string | null, b: string | null) =>
+    (a ?? b ?? "").trim() || null;
+  const heading = pick(item.headingEn, campaign.headingEn);
+  const body = pick(item.bodyEn, campaign.bodyEn);
+  const bonus = pick(item.bonusEn, campaign.bonusEn);
+  if (!heading && !body && !bonus) return null;
+  return { heading: heading ?? "", body: body ?? "", bonus };
+}
+
+/** What is physically on the card: the two lines around the code and how
+ *  wide it prints. Resolved item-over-campaign, the same way the printer
+ *  resolves it. */
+function printedOf(
+  item: { findId: number; qrTitle: string | null; qrCaption: string | null; qrOptions: unknown },
+  campaign: { qrTitle: string | null; qrCaption: string | null; qrOptions: unknown },
+): { title: string | null; caption: string | null; sizeCm: number } {
+  const o = mergeDropQrOptions(campaign.qrOptions, item.qrOptions);
+  const lines = resolveQrLines(
+    o,
+    item.findId,
+    item.qrTitle,
+    campaign.qrTitle,
+    item.qrCaption,
+    campaign.qrCaption,
+  );
+  return {
+    title: lines.title,
+    caption: lines.caption,
+    sizeCm: o.sizeCm ?? DROP_SIZE_DEFAULT_CM,
+  };
 }

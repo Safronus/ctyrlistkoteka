@@ -9,6 +9,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Mapa pro tým — všechno, co se dá přečíst
+- U kartičky je **kompletní text**: česky, anglicky i bonus. Anglická část se
+  staví **jen z anglických polí** — `resolveDropText` by pod nadpisem
+  „Anglicky“ ukázal češtinu, což je horší než poctivá mezera.
+- Dál **co je natištěné** (titulek nad QR, podpis pod ním, šířka v cm),
+  **historie skenů** (kolikrát a kdy naposledy) a **pořadí v sadě** („4. ze 11“).
+- **Filtr a seskupení podle člena týmu.** Každý má svou barvu — prstenec kolem
+  čtyřlístku, samotný čtyřlístek dál drží barvu stavu. Při zvoleném člověku
+  ostatní značky jen zešednou, nezmizí: cizí úkryt o dvě ulice dál je kontext.
+- **Poznámka týmu je konečně popsaná** — tady i v adminu v sekci Kusy. Stála
+  vedle nápovědy a nepopsané se ty dvě pletly.
+- **Proklik do sdílené tabulky**, ale za přepínačem v sekci Google Sheets
+  (`sheet_share_crew`, výchozí vypnuto). Odkaz je podle CLAUDE.md §9 admin-only
+  data, protože tabulka nese úkryty **všech** oblastí a obvykle i právo je
+  měnit — víc, než ukazuje jedna mapa pro tým. Pustit to ven je legitimní
+  rozhodnutí, ale musí být zakliknuté, ne vedlejší efekt zapnutí mapy.
+
 ### Mapa pro tým — pravítko na souřadnice
 - Klepnutí do mapy přečte souřadnice toho místa a nabídne je ke zkopírování
   **ve formátu, který bere sloupec GPS ve sdílené tabulce** (`formatGpsDecimal`

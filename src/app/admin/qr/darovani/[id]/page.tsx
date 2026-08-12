@@ -357,6 +357,7 @@ export default async function DropCampaignPage({
         status={{
           url: campaign.sheetUrl,
           mode: campaign.sheetMode,
+          shareCrew: campaign.sheetShareCrew,
           syncedAt: campaign.sheetSyncedAt?.toISOString() ?? null,
           changedAt: campaign.sheetChangedAt?.toISOString() ?? null,
           error: campaign.sheetError,
