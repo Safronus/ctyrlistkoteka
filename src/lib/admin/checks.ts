@@ -690,9 +690,13 @@ async function loadOriginalParsedByFindId(): Promise<
 
 /** Map from JSON stavy keys → the FindState enum the filename's
  *  STATE segment must resolve to so the two are consistent. Only
- *  the states encodable in a filename appear here; JSON-only states
- *  (LOST, GIGANT, LOCATION_*…) live entirely in JSON and don't
- *  flag the filename either way. */
+ *  the states encodable in a filename appear here; the JSON-only ones
+ *  (GIGANT, the derived LOCATION_*…) live entirely in JSON and don't
+ *  flag the filename either way.
+ *
+ *  ZTRACENY joined the list on 2026-08-14: the collection does keep it in
+ *  both places (all seven lost finds carry it in the name AND in the
+ *  JSON), so cross-checking it reports real drift rather than noise. */
 const FILENAME_ENCODED_STATE_KEYS: ReadonlyArray<{
   jsonKey: string;
   state: FindState;
@@ -702,6 +706,7 @@ const FILENAME_ENCODED_STATE_KEYS: ReadonlyArray<{
   { jsonKey: "DAROVANY", state: FindState.DONATED, jsonLabel: "DAROVANY", filenameLabel: "DAROVANÝ" },
   { jsonKey: "BEZGPS", state: FindState.NO_GPS, jsonLabel: "BEZGPS", filenameLabel: "BEZGPS" },
   { jsonKey: "BEZFOTKY", state: FindState.NO_PHOTO, jsonLabel: "BEZFOTKY", filenameLabel: "BEZFOTKY" },
+  { jsonKey: "ZTRACENY", state: FindState.LOST, jsonLabel: "ZTRACENY", filenameLabel: "ZTRACENY" },
 ];
 
 /** Check — every original on disk must have its segments backed by

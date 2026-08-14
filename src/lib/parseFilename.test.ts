@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { FindState } from "@/generated/prisma/enums";
+import { formatFilenameStates, FILENAME_STATE_MAP } from "./stateMapping";
 import {
   findPhotoMapNumber,
   parseFindFilename,
@@ -445,5 +446,51 @@ describe("toAsciiCode", () => {
     ["ZLíN_JSVAHY", "ZLiN_JSVAHY"], // case preserved
   ])("%s → %s", (input, expected) => {
     expect(toAsciiCode(input)).toBe(expected);
+  });
+});
+
+describe("zapsaná podoba stavu", () => {
+  /**
+   * The archive spells DAROVANY and ZTRACENY without diacritics while
+   * NORMÁLNÍ keeps them. A rename must follow the collection, not the
+   * dictionary — otherwise `grep DAROVANY` stops finding everything, and
+   * the archive ends up with two spellings of one state. This has already
+   * gone wrong once, hence the test.
+   */
+  it("píše tokeny tak, jak je píše sbírka", () => {
+    expect(formatFilenameStates([FindState.DONATED])).toBe("DAROVANY");
+    expect(formatFilenameStates([FindState.LOST])).toBe("ZTRACENY");
+    expect(formatFilenameStates([FindState.NORMAL])).toBe("NORMÁLNÍ");
+    expect(formatFilenameStates([FindState.DONATED, FindState.LOST])).toBe(
+      "DAROVANY,ZTRACENY",
+    );
+  });
+
+  it("co zapíše, to zase přečte", () => {
+    for (const s of [
+      FindState.NORMAL,
+      FindState.DONATED,
+      FindState.LOST,
+      FindState.NO_GPS,
+      FindState.NO_PHOTO,
+      FindState.NOT_PICKED,
+      FindState.LOCATION_MISSING,
+      FindState.LOCATION_GONE,
+    ]) {
+      const token = formatFilenameStates([s]);
+      expect(FILENAME_STATE_MAP.get(token), token).toBe(s);
+    }
+  });
+
+  it("rozparsuje skutečný název ze sbírky", () => {
+    const r = parseFindFilename(
+      "14561+00009+CZ_ZLÍN_JIŽNÍSVAHY_NAHONECHI_001+ZTRACENY+NE+Ztracený při hledání čísla 14609 -> cca 21-9-2025 v 0953 kvůli větru.jpg",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.findId).toBe(14561);
+    expect(r.value.states).toEqual([FindState.LOST]);
+    expect(r.value.isAnonymized).toBe(false);
+    expect(r.value.hasNote).toBe(true);
   });
 });

@@ -28,6 +28,10 @@ import { FindState } from "@/generated/prisma/enums";
  */
 export const FILENAME_STATE_MAP: ReadonlyMap<string, FindState> = new Map([
   ["NORMÁLNÍ", FindState.NORMAL],
+  // The only accented token whose ASCII form was missing here, while
+  // DAROVANY / ZTRACENY / NEUTRZEN were all accepted. Reading is tolerant
+  // by design; writing stays on the form above.
+  ["NORMALNI", FindState.NORMAL],
   ["BEZGPS", FindState.NO_GPS],
   ["BEZFOTKY", FindState.NO_PHOTO],
   ["DAROVANÝ", FindState.DONATED],
@@ -58,22 +62,27 @@ export const FILENAME_STATE_MAP: ReadonlyMap<string, FindState> = new Map([
 export const STATE_SEPARATOR = ",";
 
 /**
- * The token a state is written as in a filename — the canonical, accented
- * form, i.e. the one to WRITE. Reading accepts the ASCII variants too
- * (FILENAME_STATE_MAP above).
+ * The token a state is written as in a filename — the form to WRITE.
+ * Reading stays tolerant (FILENAME_STATE_MAP above accepts both spellings).
  *
- * States with no token are JSON-only (GIGANT, LOST via the JSON, the
- * derived ones); nothing may put them in a name, so they map to null and a
- * caller has to say what to do about it.
+ * These follow THE COLLECTION, not the dictionary: the real archive spells
+ * the states that have diacritics without them — `ZTRACENY`, `DAROVANY` —
+ * while NORMÁLNÍ keeps its accents. Whatever the reason (the naming tool
+ * transliterates some tokens and not others), a rename must not invent a
+ * second spelling of a state that already exists in a thousand names;
+ * `grep DAROVANY` has to keep finding everything.
+ *
+ * States with no token are JSON-only (GIGANT, ANONYMIZED); nothing may put
+ * them in a name, so they map to null and a caller has to decide.
  */
 export const STATE_FILENAME_TOKEN: Readonly<Record<FindState, string | null>> =
   {
     [FindState.NORMAL]: "NORMÁLNÍ",
     [FindState.NO_GPS]: "BEZGPS",
     [FindState.NO_PHOTO]: "BEZFOTKY",
-    [FindState.DONATED]: "DAROVANÝ",
-    [FindState.LOST]: "ZTRACENÝ",
-    [FindState.NOT_PICKED]: "NEUTRŽEN",
+    [FindState.DONATED]: "DAROVANY",
+    [FindState.LOST]: "ZTRACENY",
+    [FindState.NOT_PICKED]: "NEUTRZEN",
     [FindState.LOCATION_MISSING]: "BEZLOKACE",
     [FindState.LOCATION_GONE]: "LOKACE-NEEXISTUJE",
     [FindState.ANONYMIZED]: null,

@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Přejmenování v adminu píše stavy tak, jak je píše sbírka
+- Oprava regrese z předchozí změny: „Označit jako darovaný“ začalo zapisovat
+  `DAROVANÝ` s diakritikou, zatímco archiv používá `DAROVANY`. Parser sní
+  obojí, ale `grep DAROVANY` by přestal nacházet všechno a v archivu by
+  vznikla dvě psaní téhož stavu. Kanonická podoba k **zápisu** je teď
+  `DAROVANY`, `ZTRACENY`, `NEUTRZEN` bez diakritiky a `NORMÁLNÍ` s ní —
+  přesně jak to sbírka má. Hlídá to test.
+- **Čtení** nově bere i `NORMALNI` bez diakritiky. Byl to jediný akcentovaný
+  token, kterému ASCII varianta chyběla, zatímco DAROVANY/ZTRACENY/NEUTRZEN
+  ji měly.
+- **`ZTRACENY` přibyl do Kontrol konzistence.** Dřív se křížem kontrolovaly
+  jen DAROVANY, BEZGPS a BEZFOTKY. Ověřeno na datech: všech sedm ztracených
+  nálezů má stav v názvu i v JSONu, takže kontrola hlásí skutečné rozejití,
+  ne šum.
+
 ### Název souboru unese víc stavů najednou
 - Pole 4 (`STATE`) může nově nést **libovolný počet stavů oddělených čárkou**:
   `…+DAROVANÝ,ZTRACENÝ,BEZGPS+…`. Jeden stav i beze změny, jak to bylo.

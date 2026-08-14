@@ -82,9 +82,18 @@ Enumerace (v originálním českém znění):
 | `BEZLOKACE` | `LOCATION_MISSING` | Bez lokality |
 | `LOKACE-NEEXISTUJE` | `LOCATION_GONE` | Lokalita zanikla |
 
-Každý token jde zapsat i bez diakritiky (`DAROVANY`, `ZTRACENY`, …) — JSON
-`stavy` je ASCII-only, tak aby se ty dva zápisy nerozcházely. Na disku
-transliterováno: `NORMA_LNI_` (NORMÁLNÍ), `DAROVAN_` (DAROVANÝ) atd.
+Každý token jde **číst** i bez diakritiky (`DAROVANY`, `ZTRACENY`, `NORMALNI`,
+…) — JSON `stavy` je ASCII-only, tak aby se ty dva zápisy nerozcházely.
+
+**Zapisuje se ale jen jedna podoba, a to ta, kterou používá sbírka:**
+`DAROVANY`, `ZTRACENY`, `NEUTRZEN` bez diakritiky, `NORMÁLNÍ` s ní. Ať už je
+důvod jakýkoli (pojmenovávací nástroj část tokenů transliteruje a část ne),
+přejmenování v adminu se toho musí držet — jinak by v archivu vznikla dvě
+psaní téhož stavu a `grep DAROVANY` by přestal nacházet všechno. Kanonická
+podoba je `STATE_FILENAME_TOKEN` v `src/lib/stateMapping.ts` a hlídá ji test.
+
+Na disku historicky transliterováno: `NORMA_LNI_` (NORMÁLNÍ), `DAROVAN_`
+(DAROVANÝ) atd. — čtení je bere, zápis ne.
 
 ##### Víc stavů najednou (od 2026-08-14)
 
