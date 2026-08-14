@@ -1154,7 +1154,8 @@ async function phaseFinds(
     const unknownLocRefs = all.filter(
       (f) => !mapToLocation.has(f.parsed.mapNumber),
     ).length;
-    const byState = countBy(all.map((f) => f.parsed.state));
+    // A name may now list several states; every one of them counts.
+    const byState = countBy(all.flatMap((f) => f.parsed.states));
     const anonCount = all.filter((f) => f.parsed.isAnonymized).length;
     // No would_relink here: in dry-run mapToLocation is a mapId→mapId
     // stand-in (see phaseMaps), so a re-link count would be meaningless.
@@ -1383,12 +1384,12 @@ async function phaseFinds(
       // Filename's STATE = BEZGPS legitimately has no GPS — don't flag.
       // Anything else is suspicious: we couldn't read EXIF coords from a
       // file the user expected to have them.
-      if (f.parsed.state !== FindState.NO_GPS) {
+      if (!f.parsed.states.includes(FindState.NO_GPS)) {
         unexpectedNoGps += 1;
         ctx.log.failure({
           file: f.path,
           reason: "no_exif_gps",
-          details: `find #${f.parsed.findId} has no readable GPS in EXIF (state ${f.parsed.state})`,
+          details: `find #${f.parsed.findId} has no readable GPS in EXIF (state ${f.parsed.states.join(", ")})`,
         });
       }
     }

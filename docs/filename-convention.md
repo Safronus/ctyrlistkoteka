@@ -77,8 +77,44 @@ Enumerace (v originálním českém znění):
 | `BEZGPS` | `NO_GPS` | Chybí GPS souřadnice |
 | `BEZFOTKY` | `NO_PHOTO` | Evidován, ale bez fotografie |
 | `DAROVANÝ` | `DONATED` | Darován třetí osobě |
+| `ZTRACENÝ` | `LOST` | Ztracen |
+| `NEUTRŽEN` | `NOT_PICKED` | Neutržen |
+| `BEZLOKACE` | `LOCATION_MISSING` | Bez lokality |
+| `LOKACE-NEEXISTUJE` | `LOCATION_GONE` | Lokalita zanikla |
 
-Na disku transliterováno: `NORMA_LNI_` (NORMÁLNÍ), `DAROVAN_` (DAROVANÝ) atd.
+Každý token jde zapsat i bez diakritiky (`DAROVANY`, `ZTRACENY`, …) — JSON
+`stavy` je ASCII-only, tak aby se ty dva zápisy nerozcházely. Na disku
+transliterováno: `NORMA_LNI_` (NORMÁLNÍ), `DAROVAN_` (DAROVANÝ) atd.
+
+##### Víc stavů najednou (od 2026-08-14)
+
+Segment může nést **libovolný počet stavů oddělených čárkou**:
+
+```
+16230+00031+RATIBOŘ_POLE001f+DAROVANÝ,ZTRACENÝ,BEZGPS+ANO+BezPoznámky.HEIC
+```
+
+Pravidla, která parser **vynucuje** (porušení = soubor se neimportuje a skončí
+v `sync-failures.jsonl`, ať je to vidět):
+
+- **`NORMÁLNÍ` nelze kombinovat.** Znamená „není co hlásit“, takže spolu s
+  reálným stavem je to spor, ne zkratka.
+- **Prázdný kus je chyba** — `DAROVANÝ,`, `,DAROVANÝ`, `A,,B` i samotná `,`.
+- **Neznámý token je chyba** i uvnitř jinak platného seznamu.
+- **Duplicita chybou není**, jen se sloučí (`DAROVANÝ,DAROVANY` → jeden stav).
+- **Na pořadí nezáleží** — všechno se porovnává jako množina. Parser pořadí
+  z názvu zachová, aby přejmenování nešustilo bez důvodu.
+- Mezery kolem čárky se tolerují.
+
+**Proč čárka a ne `|`:** `|` zakazuje exFAT i NTFS, což je obvyklý formát
+externího disku sdíleného s Windows — záloha archivu by název odmítla nebo
+zmršila. Čárka je legální na APFS, ext4, exFAT i NTFS a v bashi a zsh je
+inertní, takže ruční `mv` nepotřebuje uvozovky. Čárka v **poznámce** nevadí:
+poznámka je segment 6 a parsuje se zvlášť.
+
+**Do DB se STATE segment stále nepromítá** — stavy nálezů plní výhradně
+`LokaceStavyPoznamky.json` (viz níž). Název je jejich čitelný otisk a admin
+Kontroly konzistence hlídají, že se ty dva zdroje nerozešly.
 
 #### 5. `ANON_FLAG` — příznak anonymizace
 - `NE` = veřejná lokace, GPS se zobrazují

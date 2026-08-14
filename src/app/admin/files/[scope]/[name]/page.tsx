@@ -158,9 +158,12 @@ export default async function AdminFileDetailPage({ params }: PageProps) {
   // anon toggle picks the right side.
   const findParsed =
     scope.slug === "finds" ? parseFindFilename(info.name) : null;
-  const findStateInName = findParsed?.ok ? findParsed.value.state : null;
-  const canMarkDonated = findStateInName === FindState.NORMAL;
-  const canUnmarkDonated = findStateInName === FindState.DONATED;
+  // A name may list several states; both buttons work on ONE of them, so
+  // they ask about membership rather than about the whole segment.
+  const findStatesInName = findParsed?.ok ? findParsed.value.states : [];
+  const canMarkDonated =
+    findParsed?.ok === true && !findStatesInName.includes(FindState.DONATED);
+  const canUnmarkDonated = findStatesInName.includes(FindState.DONATED);
   const findAnonInName = findParsed?.ok
     ? findParsed.value.isAnonymized
     : false;

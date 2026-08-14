@@ -9,6 +9,26 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Název souboru unese víc stavů najednou
+- Pole 4 (`STATE`) může nově nést **libovolný počet stavů oddělených čárkou**:
+  `…+DAROVANÝ,ZTRACENÝ,BEZGPS+…`. Jeden stav i beze změny, jak to bylo.
+- **Čárka, ne `|`.** Svislítko zakazuje exFAT a NTFS — obvyklý formát externího
+  disku sdíleného s Windows — takže záloha archivu by název odmítla nebo
+  zmršila. Čárka je legální všude, kam sbírka sahá, a v shellu je inertní.
+  Čárka v poznámce nevadí, poznámka je segment 6 a parsuje se zvlášť.
+- Parser **odmítne** (a sync to zaloguje do `sync-failures.jsonl`): `NORMÁLNÍ`
+  v kombinaci s reálným stavem, prázdný kus (`A,,B`, `A,`) a neznámý token
+  uvnitř jinak platného seznamu. Duplicita se jen sloučí, na pořadí nezáleží.
+- Sync, kontroly konzistence i odznaky v adminu porovnávají **množiny**, ne
+  řetězce — jinak by se `DAROVANÝ,ZTRACENÝ` a obrácené pořadí hlásilo jako
+  neshoda.
+- Akce *Označit jako darovaný* / *Zrušit darování* stav v názvu **přidávají
+  a ubírají ze seznamu**, ne že by segment přepsaly celý — jinak by darování
+  smazalo ostatní stavy. `NORMÁLNÍ` se z názvu vytratí, jakmile přibude reálný
+  stav, a vrátí se, když poslední odejde.
+- **Do DB se nic nemění**: stavy plní výhradně LSP.json a `find_state_assignments`
+  je M:N. Multistav v názvu je jen čitelnější otisk téhož.
+
 ### Mapa pro tým — skupiny po lidech a zaostření z řádku
 - Seznam je **seskupený po členech týmu** a každá skupina má svou barvu:
   pruh u seznamu a prstenec kolem čtyřlístku na mapě (samotný čtyřlístek dál

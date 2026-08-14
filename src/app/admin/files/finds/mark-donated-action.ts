@@ -21,13 +21,13 @@ import {
   touchSession,
 } from "@/lib/admin/session";
 import { parseFindFilename } from "@/lib/parseFilename";
+import { formatFilenameStates } from "@/lib/stateMapping";
 import { compactToRanges, parseRanges } from "@/lib/parseRanges";
 
 /** Token written into segment[3] of the find filename. The
  *  filename-state map accepts both DAROVANY and DAROVANÝ for the
  *  DONATED enum; we standardise on the ASCII spelling so the JSON
  *  `stavy.DAROVANY` key matches without an additional alias step. */
-const DONATED_TOKEN = "DAROVANY";
 const STATE_SEGMENT_INDEX = 3;
 const NOTE_SEGMENT_START = 5;
 
@@ -120,13 +120,21 @@ export async function markFindDonated(
       error: `Název nelze rozparsovat: ${parsed.error}`,
     };
   }
-  if (parsed.value.state !== FindState.NORMAL) {
+  // A name may carry several states, so this ADDS one instead of taking
+  // the segment over: a donated card that is also ZTRACENÝ keeps saying so.
+  // NORMÁLNÍ is the one that goes — it means "nothing to report", which
+  // stops being true the moment a real state joins it.
+  if (parsed.value.states.includes(FindState.DONATED)) {
     return {
       ok: false,
       filename: resolved.name,
-      error: `Stav v názvu musí být NORMÁLNÍ (je: ${parsed.value.state}).`,
+      error: "Nález už je v názvu označený jako DAROVANÝ.",
     };
   }
+  const nextStates = [
+    ...parsed.value.states.filter((s) => s !== FindState.NORMAL),
+    FindState.DONATED,
+  ];
 
   const dot = resolved.name.lastIndexOf(".");
   if (dot === -1) {
@@ -147,7 +155,7 @@ export async function markFindDonated(
     };
   }
 
-  segments[STATE_SEGMENT_INDEX] = DONATED_TOKEN;
+  segments[STATE_SEGMENT_INDEX] = formatFilenameStates(nextStates);
   // Replace everything from index 5 onwards with the new note. Notes
   // are normally a single segment; if the legacy file had a multi-
   // segment note (rare — parser rejoins with '+'), this collapses

@@ -45,6 +45,55 @@ export const FILENAME_STATE_MAP: ReadonlyMap<string, FindState> = new Map([
 ]);
 
 /**
+ * Separator between several states in the STATE segment.
+ *
+ * A comma, not a pipe: `|` is forbidden on exFAT and NTFS — the usual
+ * format of an external disk shared with Windows — so a backup of the
+ * archive would refuse the name or mangle it. A comma is legal on every
+ * filesystem the collection touches, is inert in bash and zsh (no quoting
+ * needed for a hand-typed `mv`), and reads as the list it is. It cannot
+ * clash with a note that contains commas either: the note is segment 6 and
+ * is parsed on its own.
+ */
+export const STATE_SEPARATOR = ",";
+
+/**
+ * The token a state is written as in a filename — the canonical, accented
+ * form, i.e. the one to WRITE. Reading accepts the ASCII variants too
+ * (FILENAME_STATE_MAP above).
+ *
+ * States with no token are JSON-only (GIGANT, LOST via the JSON, the
+ * derived ones); nothing may put them in a name, so they map to null and a
+ * caller has to say what to do about it.
+ */
+export const STATE_FILENAME_TOKEN: Readonly<Record<FindState, string | null>> =
+  {
+    [FindState.NORMAL]: "NORMÁLNÍ",
+    [FindState.NO_GPS]: "BEZGPS",
+    [FindState.NO_PHOTO]: "BEZFOTKY",
+    [FindState.DONATED]: "DAROVANÝ",
+    [FindState.LOST]: "ZTRACENÝ",
+    [FindState.NOT_PICKED]: "NEUTRŽEN",
+    [FindState.LOCATION_MISSING]: "BEZLOKACE",
+    [FindState.LOCATION_GONE]: "LOKACE-NEEXISTUJE",
+    [FindState.ANONYMIZED]: null,
+    [FindState.GIGANT]: null,
+  };
+
+/**
+ * States back into one STATE segment, in the order given.
+ *
+ * Order carries no meaning — comparisons everywhere are by SET — but a
+ * stable order keeps a rename from churning the name for nothing, so the
+ * caller's order is preserved as-is.
+ */
+export function formatFilenameStates(states: readonly FindState[]): string {
+  return states
+    .map((s) => STATE_FILENAME_TOKEN[s] ?? s)
+    .join(STATE_SEPARATOR);
+}
+
+/**
  * Mapping from JSON "stavy" keys to DB enum (docs/filename-convention.md, D).
  * JSON keys stay ASCII.
  *

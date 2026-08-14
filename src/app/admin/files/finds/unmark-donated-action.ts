@@ -21,6 +21,7 @@ import {
   touchSession,
 } from "@/lib/admin/session";
 import { parseFindFilename } from "@/lib/parseFilename";
+import { formatFilenameStates } from "@/lib/stateMapping";
 import { compactToRanges, parseRanges } from "@/lib/parseRanges";
 
 /** Inverse of `markFindDonated`: rewrites segment[3] back to NORMÁLNÍ
@@ -28,7 +29,6 @@ import { compactToRanges, parseRanges } from "@/lib/parseRanges";
  *  FILENAME_STATE_MAP) and the note tail back to BezPoznámky, and
  *  cleans up the matching JSON entries so the next sync drops the
  *  DONATED state assignment + Find.notes value. */
-const NORMAL_TOKEN = "NORMÁLNÍ";
 const NO_NOTE_MARKER = "BezPoznámky";
 const STATE_SEGMENT_INDEX = 3;
 const NOTE_SEGMENT_START = 5;
@@ -78,13 +78,20 @@ export async function unmarkFindDonated(
       error: `Název nelze rozparsovat: ${parsed.error}`,
     };
   }
-  if (parsed.value.state !== FindState.DONATED) {
+  // Removes DAROVANÝ from the list rather than flattening the segment to
+  // NORMÁLNÍ — the card may carry other states that have nothing to do
+  // with the donation. NORMÁLNÍ comes back only when nothing is left.
+  if (!parsed.value.states.includes(FindState.DONATED)) {
     return {
       ok: false,
       filename: resolved.name,
-      error: `Stav v názvu musí být DAROVANY (je: ${parsed.value.state}).`,
+      error: `Stav v názvu musí obsahovat DAROVANÝ (je: ${formatFilenameStates(
+        parsed.value.states,
+      )}).`,
     };
   }
+  const remaining = parsed.value.states.filter((s) => s !== FindState.DONATED);
+  const nextStates = remaining.length > 0 ? remaining : [FindState.NORMAL];
 
   const dot = resolved.name.lastIndexOf(".");
   if (dot === -1) {
@@ -105,7 +112,7 @@ export async function unmarkFindDonated(
     };
   }
 
-  segments[STATE_SEGMENT_INDEX] = NORMAL_TOKEN;
+  segments[STATE_SEGMENT_INDEX] = formatFilenameStates(nextStates);
   // Collapse a multi-segment legacy note back into the BezPoznámky
   // marker — symmetric with markFindDonated, which collapses any
   // existing tail into a single segment.

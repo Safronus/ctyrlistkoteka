@@ -20,7 +20,7 @@ describe("parseFindFilename — real format (+ separators, diacritics)", () => {
       findId: 16230,
       mapNumber: 31,
       locationCode: "RATIBOŘ_POLE001f",
-      state: FindState.NORMAL,
+      states: [FindState.NORMAL],
       isAnonymized: false,
       hasNote: false,
       note: null,
@@ -65,7 +65,77 @@ describe("parseFindFilename — real format (+ separators, diacritics)", () => {
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.state).toBe(expected);
+    expect(r.value.states).toEqual([expected]);
+  });
+
+  it.each([
+    ["DAROVANÝ,ZTRACENÝ", [FindState.DONATED, FindState.LOST]],
+    // Accented and ASCII spellings mix freely — both are in the map.
+    ["DAROVANY,ZTRACENÝ", [FindState.DONATED, FindState.LOST]],
+    // A repeat says nothing extra, so it collapses instead of failing.
+    ["DAROVANÝ,DAROVANY", [FindState.DONATED]],
+    // A stray space is a slip, not a reason to refuse a whole photo.
+    ["DAROVANÝ, ZTRACENÝ", [FindState.DONATED, FindState.LOST]],
+    ["BEZGPS,DAROVANÝ,ZTRACENÝ", [
+      FindState.NO_GPS,
+      FindState.DONATED,
+      FindState.LOST,
+    ]],
+  ])("reads the state list %s", (segment, expected) => {
+    const r = parseFindFilename(
+      `300+00007+ZLÍN_ČEPKOV001+${segment}+NE+BezPoznámky.HEIC`,
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.states).toEqual(expected);
+  });
+
+  it.each([
+    // NORMAL means "nothing to report"; combining it is a contradiction,
+    // and swallowing it would leave the collection quietly wrong.
+    ["NORMÁLNÍ,DAROVANÝ", /NORM/],
+    ["DAROVANÝ,NORMÁLNÍ", /NORM/],
+    // Stray separators — a slip while editing the name.
+    ["DAROVANÝ,", /Empty STATE/],
+    [",DAROVANÝ", /Empty STATE/],
+    ["DAROVANÝ,,ZTRACENÝ", /Empty STATE/],
+    [",", /Empty STATE/],
+    // A typo inside an otherwise valid list must not pass.
+    ["DAROVANÝ,DAROVANEJ", /DAROVANEJ/],
+  ])("refuses the state list %s", (segment, message) => {
+    const r = parseFindFilename(
+      `300+00007+BRNO_LES003a+${segment}+NE+BezPoznámky.HEIC`,
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toMatch(message);
+  });
+
+  it("treats the same states in a different order as the same fact", () => {
+    // Everything downstream compares by set; the parser keeps whatever
+    // order the name used, so a rename never churns for nothing.
+    const a = parseFindFilename(
+      "300+00007+ZLÍN_ČEPKOV001+DAROVANÝ,ZTRACENÝ,BEZGPS+NE+BezPoznámky.HEIC",
+    );
+    const b = parseFindFilename(
+      "300+00007+ZLÍN_ČEPKOV001+BEZGPS,DAROVANÝ,ZTRACENÝ+NE+BezPoznámky.HEIC",
+    );
+    expect(a.ok && b.ok).toBe(true);
+    if (!a.ok || !b.ok) return;
+    expect(a.value.states).not.toEqual(b.value.states);
+    expect([...a.value.states].sort()).toEqual([...b.value.states].sort());
+  });
+
+  it("leaves a note full of commas alone", () => {
+    // The note is segment 6 and is parsed on its own — the comma in the
+    // STATE segment cannot reach into it.
+    const r = parseFindFilename(
+      "300+00007+BRNO_LES003a+DAROVANÝ,ZTRACENÝ+NE+Zlín, Čepkov, u lávky.HEIC",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.states).toEqual([FindState.DONATED, FindState.LOST]);
+    expect(r.value.note).toBe("Zlín, Čepkov, u lávky");
   });
 
   it("accepts legacy transliterated NORMA_LNI_", () => {
@@ -74,7 +144,7 @@ describe("parseFindFilename — real format (+ separators, diacritics)", () => {
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.state).toBe(FindState.NORMAL);
+    expect(r.value.states).toEqual([FindState.NORMAL]);
   });
 
   it.each([

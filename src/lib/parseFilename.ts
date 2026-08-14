@@ -11,7 +11,7 @@
  */
 
 import { FindState } from "@/generated/prisma/enums";
-import { FILENAME_STATE_MAP } from "./stateMapping";
+import { FILENAME_STATE_MAP, STATE_SEPARATOR } from "./stateMapping";
 
 export type ParseResult<T> =
   | { ok: true; value: T }
@@ -22,7 +22,16 @@ export interface ParsedFindFilename {
   mapNumber: number;
   /** Raw location code — opaque, contains diacritics and optional spaces. */
   locationCode: string;
-  state: FindState;
+  /**
+   * Every state the STATE segment carries, deduplicated.
+   *
+   * One or more: the segment may list several, separated by
+   * `STATE_SEPARATOR`. Order is meaningless — everything compares by set —
+   * and NORMAL is only ever alone, which the parser enforces rather than
+   * hoping for. The DB is unaffected either way: find states come from
+   * LokaceStavyPoznamky.json, and the name is their readable imprint.
+   */
+  states: FindState[];
   /** Filename pole 5 = ANO. OR-ed with JSON.anonymizace in sync. */
   isAnonymized: boolean;
   hasNote: boolean;
@@ -82,10 +91,9 @@ export function parseFindFilename(
     return fail(`LOCATION_CODE is empty`);
   }
 
-  const state = FILENAME_STATE_MAP.get(stateStr!);
-  if (!state) {
-    return fail(`Unknown STATE token: "${stateStr}"`);
-  }
+  const statesResult = parseStates(stateStr!, filename);
+  if (!statesResult.ok) return statesResult;
+  const states = statesResult.value;
 
   if (anonFlag !== "NE" && anonFlag !== "ANO") {
     return fail(`ANON_FLAG must be NE or ANO, got "${anonFlag}"`);
@@ -101,12 +109,58 @@ export function parseFindFilename(
     findId: Number(findIdStr),
     mapNumber: Number(mapNumStr),
     locationCode,
-    state,
+    states,
     isAnonymized: anonFlag === "ANO",
     hasNote,
     note: hasNote ? noteRaw : null,
     extension,
   });
+}
+
+/**
+ * The STATE segment into a set of states.
+ *
+ * Every failure here stops the whole file from importing, which is the
+ * point: a mistyped state is a fact about the collection that would
+ * otherwise be silently wrong, and sync logs the refusal to
+ * sync-failures.jsonl where it can be seen and fixed.
+ *
+ *   • an unknown token — a typo, or a state nobody defined,
+ *   • an empty piece ("A,,B", a trailing comma) — a slip while editing,
+ *   • NORMÁLNÍ together with anything else — NORMAL means "nothing to
+ *     report", so combining it with a real state is a contradiction, not
+ *     a shorthand.
+ *
+ * Duplicates are NOT an error, just collapsed: "DAROVANÝ,DAROVANÝ" says
+ * exactly what one of them says.
+ */
+function parseStates(
+  segment: string,
+  filename: string,
+): ParseResult<FindState[]> {
+  const out: FindState[] = [];
+  for (const raw of segment.split(STATE_SEPARATOR)) {
+    const token = raw.trim();
+    if (!token) {
+      return fail(
+        `Empty STATE token in "${segment}" (stray separator): "${filename}"`,
+      );
+    }
+    const state = FILENAME_STATE_MAP.get(token);
+    if (!state) {
+      return fail(`Unknown STATE token: "${token}"`);
+    }
+    if (!out.includes(state)) out.push(state);
+  }
+  if (out.length === 0) {
+    return fail(`STATE segment is empty: "${filename}"`);
+  }
+  if (out.includes(FindState.NORMAL) && out.length > 1) {
+    return fail(
+      `NORMÁLNÍ cannot be combined with another state: "${segment}"`,
+    );
+  }
+  return ok(out);
 }
 
 /**

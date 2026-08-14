@@ -152,9 +152,10 @@ const MAP_NOTE_HINT =
   "Zobrazí se jako popisek pod mapou (v detailu nálezu i lokality). Nezávislé na názvu souboru (ten se nemění). Předvyplněno aktuálním popisem z názvu; EN je podklad z češtiny — přelož ho. Prázdná obě pole = smazat override; prázdné EN = v EN se ukáže česky s upozorněním.";
 
 interface FindNameInfo {
-  /** Filename's state token (DAROVANY, BEZGPS, …). NORMAL stays
-   *  hidden — it's the default and would just clutter the row. */
-  state: FindState | null;
+  /** Filename's state tokens (DAROVANY, BEZGPS, …) — a name may list
+   *  several. NORMAL stays hidden: it's the default and would just
+   *  clutter the row. */
+  states: FindState[];
   /** Filename's pole 5 — true when the name carries `+ANO+`. JSON
    *  anonymizace can flip a NE find to anon at sync time, but that
    *  state isn't visible in the filename and would need a server
@@ -169,7 +170,7 @@ function parseFindNameForBadges(filename: string): FindNameInfo | null {
   const r = parseFindFilename(filename);
   if (!r.ok) return null;
   return {
-    state: r.value.state,
+    states: r.value.states,
     isAnonymizedInName: r.value.isAnonymized,
   };
 }
@@ -747,15 +748,17 @@ export function FilesListClient({
                   if (!info) return null;
                   return (
                     <>
-                      {info.state !== null &&
-                        info.state !== FindState.NORMAL && (
+                      {info.states
+                        .filter((s) => s !== FindState.NORMAL)
+                        .map((s) => (
                           <span
-                            className={`shrink-0 rounded px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide ${STATE_BADGE[info.state]}`}
-                            title={`Stav v názvu: ${STATE_LABELS[info.state]}`}
+                            key={s}
+                            className={`shrink-0 rounded px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide ${STATE_BADGE[s]}`}
+                            title={`Stav v názvu: ${STATE_LABELS[s]}`}
                           >
-                            {STATE_LABELS[info.state]}
+                            {STATE_LABELS[s]}
                           </span>
-                        )}
+                        ))}
                       {info.isAnonymizedInName && (
                         <span
                           className="shrink-0 rounded bg-purple-100 px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide text-purple-800"

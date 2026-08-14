@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { collectNotesToTranslate } from "@/lib/noteTranslations";
 import { readCheckAckSet } from "./checkAcks";
 import { parseRanges } from "@/lib/parseRanges";
+import { formatFilenameStates } from "@/lib/stateMapping";
 import {
   parseFindFilename,
   type ParsedFindFilename,
@@ -777,7 +778,10 @@ async function checkFilenameNotInJson(): Promise<FindCheckResult> {
     // checked. NORMAL filenames need nothing; JSON-only states
     // (LOST, GIGANT, …) can sit on a NORMÁLNÍ filename.
     for (const spec of FILENAME_ENCODED_STATE_KEYS) {
-      if (parsed.state === spec.state) {
+      // By SET, never by string: a name may carry several states and their
+      // order means nothing, so "DAROVANÝ,ZTRACENÝ" and the reverse are
+      // the same fact.
+      if (parsed.states.includes(spec.state)) {
         const members = stavyMembers.get(spec.jsonKey);
         if (!members || !members.has(findId)) {
           offenders.push({
@@ -914,13 +918,13 @@ async function checkJsonNotInFilename(): Promise<FindCheckResult> {
         recordMissing(id, `JSON.stavy.${spec.jsonLabel}`);
         continue;
       }
-      if (parsed.state !== spec.state) {
+      if (!parsed.states.includes(spec.state)) {
         offenders.push({
           findId: id,
           locationCode: parsed.locationCode,
           filename: parsed.filename,
           subCategory: "Stav",
-          detail: `JSON.stavy.${spec.jsonLabel} obsahuje nález, název souboru má stav ${stateToFilenameLabel(parsed.state)}.`,
+          detail: `JSON.stavy.${spec.jsonLabel} obsahuje nález, název souboru má stav ${formatFilenameStates(parsed.states)}.`,
         });
       }
     }
@@ -1030,25 +1034,6 @@ async function checkJsonNotInFilename(): Promise<FindCheckResult> {
   return { ...baseResult, offenders };
 }
 
-/** Converts a FindState to the Czech label a filename would carry.
- *  Inverse of FILENAME_STATE_MAP from stateMapping.ts, restricted
- *  to the states a filename can carry. Unknown states (anything
- *  beyond the four encodable ones) get the literal enum value as a
- *  fallback — better than a confusing empty string. */
-function stateToFilenameLabel(state: FindState): string {
-  switch (state) {
-    case FindState.NORMAL:
-      return "NORMÁLNÍ";
-    case FindState.DONATED:
-      return "DAROVANÝ";
-    case FindState.NO_GPS:
-      return "BEZGPS";
-    case FindState.NO_PHOTO:
-      return "BEZFOTKY";
-    default:
-      return state;
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────
 //  Filename cross-ref checks (group: filename-cross-ref)
