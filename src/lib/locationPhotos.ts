@@ -1,5 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { parsePhotoName } from "@/lib/locationPhotoPackage";
+import { readCaptions } from "@/lib/locationPhotoCaptions";
 
 /**
  * On-disk lookup for the optional "real photo" each location-map can have.
@@ -11,6 +13,12 @@ import path from "node:path";
  *     naming it the same as the location map's source filename WITHOUT
  *     extension, plus the suffix `_reálné foto*.png` (free trailing
  *     descriptor allowed — e.g. "…_reálné foto ve střední velikosti.png").
+ *
+ * Since 2026-08-23 a location can have SEVERAL photos, imported as a
+ * package from the desktop app (`/admin/import`). Those are named by the
+ * location NUMBER — `00126_foto001.webp` — which is the same number the
+ * manual convention's trailing MAP_ID carries, so both live in one
+ * directory and one index. Manual uploads keep working untouched.
  *
  * Lookup path uses the `originalFilename` field on the locationMap (which
  * preserves diacritics + plus signs as the user typed them — the
@@ -27,15 +35,29 @@ const PHOTO_SUFFIX_PREFIX = "_reálné foto";
 const ALLOWED_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 const DIR_CACHE_TTL_MS = 5 * 60 * 1000;
 
+/** One photo file on disk, before captions are attached. */
+export interface LocationPhotoFile {
+  /** Exact filename — case and diacritics preserved for the URL. */
+  filename: string;
+  /**
+   * Order within the location. Package photos carry it in the name
+   * (`_foto002`); a manually uploaded photo has none and sorts first, so
+   * a location that had one photo before an import keeps showing it in
+   * the same place.
+   */
+  order: number;
+  /** True for `<číslo>_fotoNNN.*` — the ones an import wrote. */
+  fromPackage: boolean;
+}
+
 interface DirCache {
   /** Map number (MAP_ID = the trailing 5-digit run of the map's basename)
-   *  → exact filename on disk. Keyed by number rather than full basename
-   *  because the v1→v2 migration RENAMED the map files (v2 nested Nosná
-   *  basenames), which broke the old full-basename match — but the MAP_ID
-   *  at the end of the name is invariant, and both the photo filename and
-   *  the map's `originalFilename` carry it. Storing the exact filename
-   *  preserves case/diacritics for the URL we hand to the browser. */
-  byMapId: Map<number, string>;
+   *  → every photo on disk for it, ordered. Keyed by number rather than
+   *  full basename because the v1→v2 migration RENAMED the map files (v2
+   *  nested Nosná basenames), which broke the old full-basename match —
+   *  but the MAP_ID at the end of the name is invariant, and both the
+   *  photo filename and the map's `originalFilename` carry it. */
+  byMapId: Map<number, LocationPhotoFile[]>;
   loadedAt: number;
 }
 
@@ -63,10 +85,29 @@ async function loadDirCache(): Promise<DirCache> {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
     // Directory doesn't exist yet — treat as empty index, don't crash.
   }
-  const byMapId = new Map<number, string>();
+  const byMapId = new Map<number, LocationPhotoFile[]>();
+  const add = (mapId: number, file: LocationPhotoFile) => {
+    const list = byMapId.get(mapId);
+    if (list) list.push(file);
+    else byMapId.set(mapId, [file]);
+  };
   for (const name of entries) {
     const ext = path.extname(name).toLowerCase();
     if (!ALLOWED_EXTS.has(ext)) continue;
+    // Thumbnails live in their own subdirectory, so a readdir of this one
+    // never mistakes one for another photo.
+
+    // Package convention first — `00126_foto002.webp`, keyed by the
+    // location number itself.
+    const pkg = parsePhotoName(name);
+    if (pkg) {
+      add(pkg.locationId, {
+        filename: name.normalize("NFC"),
+        order: pkg.order,
+        fromPackage: true,
+      });
+      continue;
+    }
     // Strip extension, then the `_reálné foto*` suffix to recover the
     // location-map's basename, then pull its trailing MAP_ID — the stable
     // join key (the full basename changed in the v1→v2 rename).
@@ -77,9 +118,12 @@ async function loadDirCache(): Promise<DirCache> {
     const stem = normalized.slice(0, idx);
     const mapId = extractMapNumber(stem);
     if (mapId === null) continue; // stem doesn't end in a MAP_ID → skip
-    // First match wins — if two photos share a MAP_ID, the alphabetically
-    // earliest one (readdir's natural order on most filesystems) is rendered.
-    if (!byMapId.has(mapId)) byMapId.set(mapId, name);
+    // Manual upload: no order of its own, so it sorts ahead of imported
+    // ones. Several of them for the same map keep readdir's order.
+    add(mapId, { filename: normalized, order: 0, fromPackage: false });
+  }
+  for (const list of byMapId.values()) {
+    list.sort((a, b) => a.order - b.order || a.filename.localeCompare(b.filename, "cs"));
   }
   return { byMapId, loadedAt: Date.now() };
 }
@@ -153,12 +197,60 @@ export async function resolveLocationMapPhoto(params: {
   const mapId = extractMapNumber(stem);
   if (mapId === null) return null;
   const cache = await getDirCache();
-  const filename = cache.byMapId.get(mapId);
-  if (!filename) return null;
+  const first = cache.byMapId.get(mapId)?.[0];
+  if (!first) return null;
   // Encode every path segment — the filename can carry diacritics, plus
   // signs, and spaces, all of which need percent-encoding for the URL.
   return {
-    filename,
-    url: `${URL_PREFIX}/${encodeURIComponent(filename)}`,
+    filename: first.filename,
+    url: `${URL_PREFIX}/${encodeURIComponent(first.filename)}`,
   };
+}
+
+/** One photo as a page renders it. */
+export interface LocationPhoto {
+  filename: string;
+  url: string;
+  /** Small variant, when the import made one; null for manual uploads,
+   *  where the full image is all there is. */
+  thumbUrl: string | null;
+  /** Text from the desktop app, shown under the photo. */
+  caption: string | null;
+  order: number;
+}
+
+/**
+ * Every real photo of a location, in order.
+ *
+ * Anonymized maps short-circuit to an empty list, exactly as the single
+ * lookup does: a hidden location must not leak a photograph of itself.
+ */
+export async function getLocationPhotos(params: {
+  originalFilename: string;
+  isAnonymized: boolean;
+}): Promise<LocationPhoto[]> {
+  if (params.isAnonymized) return [];
+  const ext = path.extname(params.originalFilename);
+  const stem = params.originalFilename
+    .slice(0, params.originalFilename.length - ext.length)
+    .normalize("NFC");
+  const mapId = extractMapNumber(stem);
+  if (mapId === null) return [];
+  const cache = await getDirCache();
+  const files = cache.byMapId.get(mapId);
+  if (!files || files.length === 0) return [];
+
+  const captions = await readCaptions();
+  const number = String(mapId).padStart(5, "0");
+  return files.map((f) => ({
+    filename: f.filename,
+    url: `${URL_PREFIX}/${encodeURIComponent(f.filename)}`,
+    thumbUrl: f.fromPackage
+      ? `${URL_PREFIX}/thumb/${encodeURIComponent(f.filename)}`
+      : null,
+    caption: f.fromPackage
+      ? (captions[number]?.[String(f.order)] ?? null)
+      : null,
+    order: f.order,
+  }));
 }

@@ -9,6 +9,27 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Import umí třetí druh balíčku: reálné fotky lokalit
+- `/admin/import` bere balíček `typ: "fotky-lokaci"` z desktopové aplikace —
+  fotky místa s vyznačenými plochami, párované **číslem lokace**
+  (`00126_foto002.png` → `locations.id = 126`). Celé flow jako u ostatních
+  balíčků: analýza (nic nezapíše) → přehled → potvrzení → zápis.
+- **Přehled je po lokalitách**, ne po souborech: u každé je vidět, co balíček
+  nese (pořadí + popisek), co už na webu je — zvlášť **z dřívějšího importu**
+  a zvlášť **ručně nahrané** — a co se přepíše. Nahrazené soubory jdou do koše.
+  Ručně nahranou fotku import nechá být, dokud se výslovně nezaškrtne, že má
+  jít taky pryč.
+- **Konverze při importu**: 9,4 MB PNG → 753 kB WebP (1600 px) + 39 kB náhled.
+  Bez toho by veřejná stránka tahala deset megabajtů na fotku.
+- **Lokalita může mít víc fotek** a stránka lokality je ukazuje jako galerii
+  s náhledy, počítadlem a **popiskem z desktopu** pod fotkou. Jedna fotka
+  vypadá přesně jako dřív; ručně nahrané fotky fungují dál a řadí se první.
+- Detekce druhu balíčku jde podle `manifest.json` → `typ`. Mapová větev dřív
+  brala **jakýkoli** manifest, takže by fotkový balíček spolkla a odmítla ho
+  jako neplatný manifest map.
+- Lokalita, kterou web nezná, se **nenaimportuje** a řekne se to — fotka
+  přiřazená k neexistujícímu číslu by byla neviditelná a nedohledatelná.
+
 ### Přejmenování v adminu píše stavy tak, jak je píše sbírka
 - Oprava regrese z předchozí změny: „Označit jako darovaný“ začalo zapisovat
   `DAROVANÝ` s diakritikou, zatímco archiv používá `DAROVANY`. Parser sní

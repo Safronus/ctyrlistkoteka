@@ -15,16 +15,23 @@ import {
   analyzeMapPackageZip,
   type MapPackageImportPlan,
 } from "@/lib/admin/mapPackageImport";
+import {
+  isPhotoPackageZip,
+  analyzePhotoPackageZip,
+  type PhotoPackagePlan,
+} from "@/lib/admin/photoPackageImport";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 interface AnalyzeResponse {
   ok: boolean;
-  /** "v1" = flat finds/crops/maps/meta package; "v2" = location-map package. */
-  packageType?: "v1" | "v2";
+  /** "v1" = flat finds/crops/maps/meta package; "v2" = location-map
+   *  package; "photos" = real photographs of locations. */
+  packageType?: "v1" | "v2" | "photos";
   plan?: ImportPlan;
   mapPlan?: MapPackageImportPlan;
+  photoPlan?: PhotoPackagePlan;
   error?: string;
 }
 
@@ -60,6 +67,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
+    // Photo packages are asked about FIRST: their manifest sits at the same
+    // path as the map package's, so whoever asks first has to be the one
+    // that can tell them apart by `typ`.
+    if (await isPhotoPackageZip(zipPath)) {
+      const photoPlan = await analyzePhotoPackageZip(zipPath);
+      if ("error" in photoPlan) {
+        return json({ ok: false, error: photoPlan.error }, 400);
+      }
+      return json({ ok: true, packageType: "photos", photoPlan });
+    }
     // A v2 map package (manifest.json at the zip root) takes the map-package
     // analyzer; anything else is a classic v1 flat package.
     if (await isMapPackageZip(zipPath)) {

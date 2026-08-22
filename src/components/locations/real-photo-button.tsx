@@ -4,18 +4,31 @@ import { Camera, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
+export interface RealPhoto {
+  url: string;
+  /** Small variant for the strip; null for hand-uploaded photos, which
+   *  have no generated thumbnail. */
+  thumbUrl: string | null;
+  /** The photographer's own words, from the desktop app. */
+  caption: string | null;
+}
+
 /**
  * Top-right affordance for the "Mapa lokality" panel that opens a modal
- * pop-up with the real-life photo of the location (with the AOI sketched
- * on top by the author). Native `<dialog>` so focus trap, ESC-to-close
- * and inert background semantics come for free — same pattern as the
- * missing-IDs banner on /sbirka.
+ * pop-up with the real-life photos of the location (with the areas where
+ * clovers grow already drawn in by the author). Native `<dialog>` so focus
+ * trap, ESC-to-close and inert background semantics come for free — same
+ * pattern as the missing-IDs banner on /sbirka.
+ *
+ * A location can hold several photos since the desktop app started sending
+ * packages of them; with one, the strip is not drawn at all and this looks
+ * exactly as it did before.
  */
 export function RealPhotoButton({
-  photoUrl,
+  photos,
   caption,
 }: {
-  photoUrl: string;
+  photos: RealPhoto[];
   /** Surfaced under the modal image — typically the location code or the
    *  parent map's caption. Helps the visitor confirm which spot they're
    *  looking at when several maps belong to one location. */
@@ -24,7 +37,9 @@ export function RealPhotoButton({
   const t = useTranslations("RealPhotoButton");
   const tCommon = useTranslations("Common");
   const [open, setOpen] = useState(false);
+  const [index, setIndex] = useState(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const current = photos[Math.min(index, photos.length - 1)];
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -81,14 +96,51 @@ export function RealPhotoButton({
               the "Otevřít originál" link below. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={photoUrl}
+            src={current?.url}
             alt={t("modalAlt", { caption })}
             className="block h-auto w-full rounded-md"
           />
+          {current?.caption && (
+            <p className="mt-2 text-center text-sm text-gray-600">
+              {current.caption}
+            </p>
+          )}
+          {photos.length > 1 && (
+            <ul className="mt-3 flex flex-wrap justify-center gap-2">
+              {photos.map((p, i) => (
+                <li key={p.url}>
+                  <button
+                    type="button"
+                    onClick={() => setIndex(i)}
+                    aria-current={i === index}
+                    title={p.caption ?? undefined}
+                    className={`block overflow-hidden rounded-md border-2 transition ${
+                      i === index
+                        ? "border-brand-600"
+                        : "border-transparent hover:border-gray-300"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.thumbUrl ?? p.url}
+                      alt=""
+                      loading="lazy"
+                      className="block h-16 w-16 object-cover"
+                    />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-4 py-2 text-xs">
+          {photos.length > 1 && (
+            <span className="mr-auto tabular-nums text-gray-500">
+              {index + 1} / {photos.length}
+            </span>
+          )}
           <a
-            href={photoUrl}
+            href={current?.url}
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium text-brand-700 hover:underline"

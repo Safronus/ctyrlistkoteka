@@ -24,6 +24,11 @@ import {
   type MapPackageImportSummary,
 } from "@/lib/admin/mapPackageImport";
 import {
+  isPhotoPackageZip,
+  commitPhotoPackageZip,
+  type PhotoPackageSummary,
+} from "@/lib/admin/photoPackageImport";
+import {
   mergeWholeFile,
   type WholeFileMergeResult,
 } from "@/app/admin/json/lokace-stavy-poznamky/merge-whole-action";
@@ -34,9 +39,10 @@ export const dynamic = "force-dynamic";
 interface CommitResponse {
   ok: boolean;
   error?: string;
-  packageType?: "v1" | "v2";
+  packageType?: "v1" | "v2" | "photos";
   summary?: ImportFileSummary;
   mapSummary?: MapPackageImportSummary;
+  photoSummary?: PhotoPackageSummary;
   /** Result of the LSP whole-file merge, or null when the package had none. */
   lsp?: WholeFileMergeResult | null;
 }
@@ -56,9 +62,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const ip = await getRequestIp();
   await touchSession();
 
-  let body: { uploadId?: string; onCollision?: string };
+  let body: {
+    uploadId?: string;
+    onCollision?: string;
+    replaceManual?: boolean;
+  };
   try {
-    body = (await request.json()) as { uploadId?: string; onCollision?: string };
+    body = (await request.json()) as {
+      uploadId?: string;
+      onCollision?: string;
+      replaceManual?: boolean;
+    };
   } catch {
     return json({ ok: false, error: "Neplatné tělo požadavku." }, 400);
   }
@@ -80,6 +94,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
+    // Photos land straight in generated/ as WebP — no sync afterwards,
+    // they are servable the moment they are written. Asked first for the
+    // same reason as in the analyzer: both packages carry a manifest.json.
+    if (await isPhotoPackageZip(zipPath)) {
+      const photoSummary = await commitPhotoPackageZip(zipPath, {
+        collision: onCollision,
+        replaceManual: body.replaceManual === true,
+      });
+      await appendAudit({
+        action: "file.replace",
+        ip,
+        credentialLabel,
+        details: {
+          scope: "import-photo-package",
+          imported: photoSummary.imported,
+          replaced: photoSummary.replaced,
+          skipped: photoSummary.skipped,
+          manualTrashed: photoSummary.manualTrashed,
+          errorCount: photoSummary.errors.length,
+        },
+      });
+      // The in-process directory index is what actually makes the public
+      // site notice (commitPhotoPackageZip already dropped it); these just
+      // bust Next's RSC cache for the pages that show the photos.
+      revalidatePath("/[locale]/lokality/[mapId]", "page");
+      revalidatePath("/[locale]/lokality", "page");
+      revalidatePath("/admin/files/location-photos");
+      return json({ ok: true, packageType: "photos", photoSummary });
+    }
+
     // A v2 map package stages the manifest + Nosné/Rendered trees into
     // data/maps/ and writes no DB; the operator runs /admin/sync after.
     if (await isMapPackageZip(zipPath)) {

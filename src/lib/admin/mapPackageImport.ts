@@ -8,6 +8,7 @@ import { atomicWrite, ensureDir } from "./atomic";
 import { safeJoin } from "./paths";
 import { parseMapPackageManifest, entryNumber, mergeManifests, type MapPackageManifest } from "@/lib/mapPackage";
 import { readZipEntry } from "./importZip";
+import { readPackageTyp } from "@/lib/locationPhotoPackage";
 import { prepareTrashDir } from "./trash";
 
 /**
@@ -21,7 +22,7 @@ import { prepareTrashDir } from "./trash";
  *
  * v1 importZip.iterateZip is left as-is; this is v2-only.
  */
-async function iterateZipUtf8(
+export async function iterateZipUtf8(
   zipPath: string,
   onEntry: (
     zipPath: string,
@@ -125,10 +126,31 @@ export async function readManifestFromZip(
   return { ok: true, manifest: parsed.value };
 }
 
-/** True when this zip is a v2 map package (has a root manifest.json). */
+/**
+ * True when this zip is a v2 map package.
+ *
+ * A root manifest.json is necessary but NOT sufficient any more: the
+ * location-photo package has one too, and claiming it here would answer a
+ * photo import with a complaint about an invalid map manifest. The photo
+ * importer is asked first (see the analyze route) and this now also
+ * refuses a manifest that names another `typ`.
+ */
 export async function isMapPackageZip(zipPath: string): Promise<boolean> {
-  const r = await readManifestFromZip(zipPath);
-  return r !== null;
+  const raw = await readManifestRawFromZip(zipPath);
+  if (raw === null) return false;
+  const typ = readPackageTyp(raw);
+  return typ === null || typ === "lokacni-mapy";
+}
+
+/** The manifest's bytes as text, or null when the zip has none. */
+export async function readManifestRawFromZip(
+  zipPath: string,
+): Promise<string | null> {
+  let buf: Buffer | null = null;
+  await iterateZipUtf8(zipPath, async (zp, zip, raw) => {
+    if (zp === MANIFEST_NAME) buf = await readZipEntry(zip, raw);
+  });
+  return buf === null ? null : (buf as Buffer).toString("utf8");
 }
 
 /**

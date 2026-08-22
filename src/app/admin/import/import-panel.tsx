@@ -23,12 +23,17 @@ import type {
   ImportScopeStat,
 } from "@/lib/admin/importZip";
 import type {
+  PhotoPackagePlan,
+  PhotoPackageSummary,
+} from "@/lib/admin/photoPackageImport";
+import type {
   MapPackageImportPlan,
   MapPackageImportSummary,
 } from "@/lib/admin/mapPackageImport";
 // lspMerge is a pure lib (no node/"use server"), so importing its diff type
 // is safe for the client bundle.
 import type { WholeFileMergeSectionDiff } from "@/lib/admin/lspMerge";
+import { pluralCs } from "@/lib/format";
 import { compactToRanges } from "@/lib/parseRanges";
 
 /** Structural subset of the server's WholeFileMergeResult. Declared locally
@@ -69,6 +74,13 @@ type Phase =
       packageType: "v2";
       mapPlan: MapPackageImportPlan;
     }
+  | {
+      kind: "review";
+      uploadId: string;
+      fileName: string;
+      packageType: "photos";
+      photoPlan: PhotoPackagePlan;
+    }
   | { kind: "committing"; fileName: string }
   | {
       kind: "done";
@@ -82,6 +94,12 @@ type Phase =
       fileName: string;
       packageType: "v2";
       mapSummary: MapPackageImportSummary;
+    }
+  | {
+      kind: "done";
+      fileName: string;
+      packageType: "photos";
+      photoSummary: PhotoPackageSummary;
     }
   | { kind: "error"; message: string };
 
@@ -197,12 +215,21 @@ export function ImportPanel() {
       setPhase({ kind: "analyzing", fileName: file.name });
       const res = await postJson<{
         ok: true;
-        packageType: "v1" | "v2";
+        packageType: "v1" | "v2" | "photos";
         plan?: ImportPlan;
         mapPlan?: MapPackageImportPlan;
+        photoPlan?: PhotoPackagePlan;
       }>("/admin/api/import/analyze", { uploadId });
       abortRef.current = null;
-      if (res.packageType === "v2" && res.mapPlan) {
+      if (res.packageType === "photos" && res.photoPlan) {
+        setPhase({
+          kind: "review",
+          uploadId,
+          fileName: file.name,
+          packageType: "photos",
+          photoPlan: res.photoPlan,
+        });
+      } else if (res.packageType === "v2" && res.mapPlan) {
         setPhase({
           kind: "review",
           uploadId,
@@ -239,18 +266,31 @@ export function ImportPanel() {
   }, [discardUpload]);
 
   const confirm = useCallback(
-    async (uploadId: string, fileName: string, onCollision: CollisionChoice) => {
+    async (
+      uploadId: string,
+      fileName: string,
+      onCollision: CollisionChoice,
+      replaceManual = false,
+    ) => {
       setPhase({ kind: "committing", fileName });
       try {
         const res = await postJson<{
           ok: true;
-          packageType: "v1" | "v2";
+          packageType: "v1" | "v2" | "photos";
           summary?: ImportFileSummary;
           mapSummary?: MapPackageImportSummary;
+          photoSummary?: PhotoPackageSummary;
           lsp?: LspMergeResult | null;
-        }>("/admin/api/import/commit", { uploadId, onCollision });
+        }>("/admin/api/import/commit", { uploadId, onCollision, replaceManual });
         uploadIdRef.current = null; // commit's finally already deleted the ZIP
-        if (res.packageType === "v2" && res.mapSummary) {
+        if (res.packageType === "photos" && res.photoSummary) {
+          setPhase({
+            kind: "done",
+            fileName,
+            packageType: "photos",
+            photoSummary: res.photoSummary,
+          });
+        } else if (res.packageType === "v2" && res.mapSummary) {
           setPhase({ kind: "done", fileName, packageType: "v2", mapSummary: res.mapSummary });
         } else if (res.summary) {
           setPhase({ kind: "done", fileName, packageType: "v1", summary: res.summary, lsp: res.lsp ?? null });
@@ -317,6 +357,25 @@ export function ImportPanel() {
   }
 
   if (phase.kind === "review") {
+    if (phase.packageType === "photos") {
+      return (
+        <PhotoReviewCard
+          photoPlan={phase.photoPlan}
+          fileName={phase.fileName}
+          collision={collision}
+          onCollisionChange={setCollision}
+          onConfirm={(replaceManual) =>
+            void confirm(
+              phase.uploadId,
+              phase.fileName,
+              collision,
+              replaceManual,
+            )
+          }
+          onCancel={reset}
+        />
+      );
+    }
     if (phase.packageType === "v2") {
       return (
         <MapReviewCard
@@ -357,6 +416,11 @@ export function ImportPanel() {
   }
 
   if (phase.kind === "done") {
+    if (phase.packageType === "photos") {
+      return (
+        <PhotoDoneCard photoSummary={phase.photoSummary} onReset={reset} />
+      );
+    }
     if (phase.packageType === "v2") {
       return <MapDoneCard mapSummary={phase.mapSummary} onReset={reset} />;
     }
@@ -817,6 +881,287 @@ function LspSectionCard({
 // ── Done ─────────────────────────────────────────────────────────────────
 
 // ── v2 map package: review + done ────────────────────────────────────────
+
+/**
+ * Review of a location-photo package.
+ *
+ * Organised by LOCATION rather than by file, because the question the
+ * operator has is never "which files are in this zip" — it is "what is
+ * about to happen to Zlín". So each row is a location: what it already
+ * holds, what the package brings, and which of the two wins.
+ */
+function PhotoReviewCard({
+  photoPlan,
+  fileName,
+  collision,
+  onCollisionChange,
+  onConfirm,
+  onCancel,
+}: {
+  photoPlan: PhotoPackagePlan;
+  fileName: string;
+  collision: CollisionChoice;
+  onCollisionChange: (c: CollisionChoice) => void;
+  onConfirm: (replaceManual: boolean) => void;
+  onCancel: () => void;
+}) {
+  const [replaceManual, setReplaceManual] = useState(false);
+  const known = photoPlan.locations.filter((l) => l.locationId !== null);
+  const withManual = known.filter((l) => l.existingManual.length > 0);
+  const importable = known.reduce((n, l) => n + l.photos.length, 0);
+
+  return (
+    <Card>
+      <header className="mb-3 flex items-center gap-2">
+        <PackageOpen className="h-5 w-5 text-brand-600" aria-hidden />
+        <h2 className="text-sm font-semibold text-gray-900">
+          Balíček reálných fotek lokací — kontrola
+        </h2>
+      </header>
+      <p className="mb-3 text-xs text-gray-500">
+        {fileName} — <strong>{photoPlan.totalPhotos}</strong>{" "}
+        {pluralCs(photoPlan.totalPhotos, ["fotka", "fotky", "fotek"])} pro{" "}
+        <strong>{photoPlan.locations.length}</strong>{" "}
+        {pluralCs(photoPlan.locations.length, [
+          "lokalitu",
+          "lokality",
+          "lokalit",
+        ])}{" "}
+        (
+        <span className="text-emerald-700">{photoPlan.add} nových</span> ·{" "}
+        <span className="text-amber-700">{photoPlan.replace} přepsáno</span>) ·{" "}
+        {fmtBytes(photoPlan.totalBytes)} v balíčku
+        {photoPlan.createdAt ? ` · zabaleno ${photoPlan.createdAt}` : ""}
+      </p>
+
+      {photoPlan.unknownNumbers.length > 0 && (
+        <Note tone="amber">
+          {photoPlan.unknownNumbers.length} čísel lokace web nezná — jejich
+          fotky se <strong>nenahrají</strong>:
+          <span className="mt-1 block font-mono text-[11px]">
+            {photoPlan.unknownNumbers.join(" · ")}
+          </span>
+        </Note>
+      )}
+      {photoPlan.invalidNames.length > 0 && (
+        <Note tone="amber">
+          {photoPlan.invalidNames.length} souborů nemá tvar
+          <code className="mx-1">00126_foto001.png</code>a přeskočí se.
+        </Note>
+      )}
+      {photoPlan.orphanFiles.length > 0 && (
+        <Note tone="amber">
+          {photoPlan.orphanFiles.length} souborů v ZIPu manifest nezmiňuje —
+          nechávám je být.
+        </Note>
+      )}
+      {photoPlan.warnings.map((w) => (
+        <Note key={w} tone="amber">
+          {w}
+        </Note>
+      ))}
+
+      <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-gray-200">
+        <table className="w-full text-left text-xs">
+          <thead className="sticky top-0 bg-gray-50 text-gray-500">
+            <tr>
+              <th className="px-2 py-1.5 font-semibold">Číslo</th>
+              <th className="px-2 py-1.5 font-semibold">Lokalita</th>
+              <th className="px-2 py-1.5 font-semibold">Fotky v balíčku</th>
+              <th className="px-2 py-1.5 font-semibold">Už na webu</th>
+            </tr>
+          </thead>
+          <tbody>
+            {photoPlan.locations.map((l) => (
+              <tr key={l.number} className="border-t border-gray-100 align-top">
+                <td className="px-2 py-1 font-mono text-gray-700">{l.number}</td>
+                <td className="px-2 py-1 text-gray-600">
+                  {l.locationId === null ? (
+                    <span className="text-red-700">neznámá — přeskočí se</span>
+                  ) : (
+                    (l.locationName ?? "—")
+                  )}
+                </td>
+                <td className="px-2 py-1 text-gray-700">
+                  {l.photos.map((p) => (
+                    <span key={p.storedName} className="mr-2 whitespace-nowrap">
+                      <span className="font-mono">#{p.order}</span>{" "}
+                      {p.action === "add" ? (
+                        <span className="text-emerald-700">nová</span>
+                      ) : (
+                        <span className="text-amber-700">přepsat</span>
+                      )}
+                      {p.caption && (
+                        <span className="text-gray-400"> · {p.caption}</span>
+                      )}
+                    </span>
+                  ))}
+                </td>
+                <td className="px-2 py-1 text-gray-500">
+                  {l.existingImported.length === 0 &&
+                  l.existingManual.length === 0
+                    ? "—"
+                    : [
+                        l.existingImported.length > 0
+                          ? `${l.existingImported.length} z importu`
+                          : null,
+                        l.existingManual.length > 0
+                          ? `${l.existingManual.length} ručně nahraná`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <fieldset className="mt-3">
+        <legend className="text-xs font-medium text-gray-700">
+          Když už fotka se stejným číslem a pořadím existuje
+        </legend>
+        <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-700">
+          {(["overwrite", "skip"] as const).map((c) => (
+            <label key={c} className="inline-flex items-center gap-1.5">
+              <input
+                type="radio"
+                name="photo-collision"
+                checked={collision === c}
+                onChange={() => onCollisionChange(c)}
+                className="h-3.5 w-3.5 text-brand-600"
+              />
+              {c === "overwrite"
+                ? "Přepsat novou (stará jde do koše)"
+                : "Nechat starou a novou přeskočit"}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {withManual.length > 0 && (
+        <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <input
+            type="checkbox"
+            checked={replaceManual}
+            onChange={(e) => setReplaceManual(e.target.checked)}
+            className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-brand-600"
+          />
+          <span>
+            Odstranit i <strong>ručně nahrané</strong> fotky u{" "}
+            {withManual.length}{" "}
+            {pluralCs(withManual.length, ["lokality", "lokalit", "lokalit"])},
+            které balíček
+            obnovuje ({withManual
+              .flatMap((l) => l.existingManual)
+              .slice(0, 3)
+              .join(", ")}
+            {withManual.flatMap((l) => l.existingManual).length > 3 ? " …" : ""}
+            ). Přesunou se do koše, ne smažou. Bez zaškrtnutí zůstanou vedle
+            nových a ukážou se v galerii jako první.
+          </span>
+        </label>
+      )}
+
+      <p className="mt-3 text-xs text-gray-500">
+        Fotky se převedou na WebP ({WEB_HINT}) a uloží pod{" "}
+        <code>generated/location-photos/</code> — žádný sync není potřeba,
+        na webu se objeví hned. Plochy jsou do obrázku vypálené už z desktopu.
+      </p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onConfirm(replaceManual)}
+          disabled={importable === 0}
+          className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
+        >
+          <PackageOpen className="h-4 w-4" aria-hidden />
+          Nahrát {importable}{" "}
+          {pluralCs(importable, ["fotku", "fotky", "fotek"])}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <X className="h-4 w-4" aria-hidden />
+          Zrušit
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+/** Human-readable form of the two sizes the importer writes. */
+const WEB_HINT = "1600 px + náhled 400 px";
+
+function PhotoDoneCard({
+  photoSummary,
+  onReset,
+}: {
+  photoSummary: PhotoPackageSummary;
+  onReset: () => void;
+}) {
+  return (
+    <Card>
+      <header className="mb-3 flex items-center gap-2">
+        <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden />
+        <h2 className="text-sm font-semibold text-gray-900">
+          Fotky lokalit nahrány
+        </h2>
+      </header>
+
+      <p className="text-xs text-gray-700">
+        <strong className="text-emerald-700">{photoSummary.imported}</strong>{" "}
+        nových ·{" "}
+        <strong className="text-amber-700">{photoSummary.replaced}</strong>{" "}
+        přepsaných
+        {photoSummary.skipped > 0 && (
+          <> · {photoSummary.skipped} přeskočeno</>
+        )}
+        {photoSummary.manualTrashed > 0 && (
+          <> · {photoSummary.manualTrashed} ručních do koše</>
+        )}{" "}
+        · zapsáno {fmtBytes(photoSummary.bytesWritten)}
+      </p>
+
+      {photoSummary.errors.length > 0 && (
+        <Note tone="amber">
+          {photoSummary.errors.length} chyb:
+          <span className="mt-1 block font-mono text-[11px]">
+            {photoSummary.errors.slice(0, 5).join(" · ")}
+            {photoSummary.errors.length > 5 ? " …" : ""}
+          </span>
+        </Note>
+      )}
+
+      <p className="mt-3 text-xs text-gray-500">
+        Na stránce lokality se ukážou hned — sync není potřeba. Nahrazené
+        soubory leží v koši (<code>data/.trash/</code>) po 30 dní.
+      </p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Link
+          href="/lokality"
+          className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
+        >
+          Otevřít lokality
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
+        <button
+          type="button"
+          onClick={onReset}
+          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <RotateCcw className="h-4 w-4" aria-hidden />
+          Nahrát další
+        </button>
+      </div>
+    </Card>
+  );
+}
 
 function MapReviewCard({
   mapPlan,

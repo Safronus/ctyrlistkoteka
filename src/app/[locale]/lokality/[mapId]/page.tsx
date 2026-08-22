@@ -389,11 +389,21 @@ async function FullDetail({
         <Panel
           title={t("panelMap")}
           rightSlot={(() => {
+            // Every photo of every map of this location, in map order —
+            // the button opens them as one gallery rather than making the
+            // visitor guess which map carries which picture.
+            const photos = maps.flatMap((m) =>
+              m.realPhotos.map((p) => ({
+                url: p.url,
+                thumbUrl: p.thumbUrl,
+                caption: p.caption,
+              })),
+            );
             const photoMap = maps.find((m) => m.realPhotoUrl !== null);
-            if (!photoMap || !photoMap.realPhotoUrl) return undefined;
+            if (!photoMap || photos.length === 0) return undefined;
             return (
               <RealPhotoButton
-                photoUrl={photoMap.realPhotoUrl}
+                photos={photos}
                 caption={
                   (mapNoteOverrides.get(photoMap.id)?.cs ||
                     photoMap.description) ??

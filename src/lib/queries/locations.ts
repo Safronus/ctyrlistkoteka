@@ -27,7 +27,11 @@ import {
   type MapIndicator,
   type MapOverlayGeometry,
 } from "@/lib/mapOverlay";
-import { getLocationMapPhotoUrl } from "@/lib/locationPhotos";
+import {
+  getLocationMapPhotoUrl,
+  getLocationPhotos,
+  type LocationPhoto,
+} from "@/lib/locationPhotos";
 import { cityFromCadastralArea, isLocationGone } from "@/lib/locationCode";
 import { paddedIdMatches, parseIdQuery } from "@/lib/search";
 
@@ -1405,6 +1409,11 @@ export interface LocationDetailMap {
    *  exists in `${GENERATED_DIR}/location-photos/`. Resolved at request
    *  time via filename match; see src/lib/locationPhotos.ts. */
   realPhotoUrl: string | null;
+  /** Every real photo bound to this map, in order: the imported package's
+   *  ones by their `poradi`, a hand-uploaded one first. Empty when the
+   *  location is anonymized or has none. `realPhotoUrl` above is this
+   *  list's first entry, kept for callers that only want one. */
+  realPhotos: LocationPhoto[];
   /** GPS centre of this PNG, parsed from its filename at sync time.
    *  Used to position the overlay dot/halo on the rendered image
    *  (combined with `imageBounds` below). */
@@ -1647,9 +1656,11 @@ export async function getLocationDetailById(
   // lookup is a hashmap hit against a TTL-cached directory listing, so
   // running them concurrently just avoids holding up the response on
   // the very first request after a cache eviction.
-  const photoUrls = await Promise.all(
+  // A location may hold SEVERAL photos since the package import; the
+  // whole list travels to the page, which shows them as a gallery.
+  const photoLists: LocationPhoto[][] = await Promise.all(
     mapRows.map((m) =>
-      getLocationMapPhotoUrl({
+      getLocationPhotos({
         originalFilename: m.originalFilename,
         isAnonymized: m.isAnonymized,
       }),
@@ -1703,7 +1714,8 @@ export async function getLocationDetailById(
         imageWidth: m.imageWidth,
         imageHeight: m.imageHeight,
         description: m.description,
-        realPhotoUrl: photoUrls[i] ?? null,
+        realPhotoUrl: photoLists[i]?.[0]?.url ?? null,
+        realPhotos: photoLists[i] ?? [],
         centerLat: m.centerLat,
         centerLng: m.centerLng,
         imageBounds,
