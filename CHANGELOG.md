@@ -29,6 +29,10 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   jako neplatný manifest map.
 - Lokalita, kterou web nezná, se **nenaimportuje** a řekne se to — fotka
   přiřazená k neexistujícímu číslu by byla neviditelná a nedohledatelná.
+- Admin říká, že se fotka na webu objeví **do pěti minut**, ne hned:
+  index složky s fotkami je v paměti s 5min platností a PM2 běží v clusteru,
+  takže commit vyčistí index jen svému workeru. Soubor je na disku okamžitě —
+  ale dokud to admin netvrdil správně, vypadalo to, že se import nepovedl.
 
 ### Přejmenování v adminu píše stavy tak, jak je píše sbírka
 - Oprava regrese z předchozí změny: „Označit jako darovaný“ začalo zapisovat

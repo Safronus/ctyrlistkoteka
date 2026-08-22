@@ -1066,8 +1066,10 @@ function PhotoReviewCard({
 
       <p className="mt-3 text-xs text-gray-500">
         Fotky se převedou na WebP ({WEB_HINT}) a uloží pod{" "}
-        <code>generated/location-photos/</code> — žádný sync není potřeba,
-        na webu se objeví hned. Plochy jsou do obrázku vypálené už z desktopu.
+        <code>generated/location-photos/</code>. Sync není potřeba; na stránce
+        lokality se ukážou <strong>do pěti minut</strong> — server běží ve víc
+        procesech a každý si drží vlastní index složky. Plochy jsou do obrázku
+        vypálené už z desktopu.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -1138,8 +1140,11 @@ function PhotoDoneCard({
       )}
 
       <p className="mt-3 text-xs text-gray-500">
-        Na stránce lokality se ukážou hned — sync není potřeba. Nahrazené
-        soubory leží v koši (<code>data/.trash/</code>) po 30 dní.
+        Sync není potřeba. Na stránce lokality se ukážou <strong>do pěti
+        minut</strong>: index složky s fotkami si každý běžící proces drží
+        vlastní a obnovuje ho po pěti minutách, takže hned po importu je může
+        část requestů ještě míjet. Nahrazené soubory leží v koši (
+        <code>data/.trash/</code>) po 30 dní.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
