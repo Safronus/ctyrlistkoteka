@@ -468,7 +468,7 @@ export function ImportPanel() {
           </button>
         </p>
         <p className="text-xs text-gray-500">
-          Balíček nálezů: <code className="font-mono">finds/</code>{" "}
+          Balíček 🍀: <code className="font-mono">finds/</code>{" "}
           <code className="font-mono">crops/</code>{" "}
           <code className="font-mono">maps/</code>{" "}
           <code className="font-mono">meta/LokaceStavyPoznamky.json</code>
@@ -477,6 +477,11 @@ export function ImportPanel() {
           Balíček map v2: <code className="font-mono">manifest.json</code>{" "}
           <code className="font-mono">Nosné mapy/</code>{" "}
           <code className="font-mono">Rendered mapy/</code>
+        </p>
+        <p className="text-xs text-gray-500">
+          Balíček reálných fotek lokalit:{" "}
+          <code className="font-mono">manifest.json</code>{" "}
+          <code className="font-mono">location-photos/&lt;číslo&gt;/</code>
         </p>
         <input
           ref={inputRef}

@@ -25,17 +25,43 @@ export default async function AdminImportPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-900">Import balíčku pro web</h1>
         <p className="text-sm text-gray-500">
-          Nahraj jeden <strong>ZIP „balíček pro web“</strong> — originály nálezů,
-          výřezy, mapy lokalit a{" "}
-          <code className="font-mono">meta/LokaceStavyPoznamky.json</code> —
-          najednou. Balíček se nejdřív analyzuje (nic se nezapisuje), ukáže se
-          přehled a teprve po tvém potvrzení se soubory nahrají na disk a
-          metadata se sloučí. Databázi a náhledy pak vytvoří{" "}
-          <Link href="/admin/sync" className="text-brand-700 hover:underline">
-            sync
-          </Link>
-          . Opakovaný import stejného balíčku soubory přepíše (nezduplikuje).
+          Nahraj jeden <strong>ZIP „balíček pro web“</strong>. Druh se pozná sám
+          podle obsahu — nemusíš nic přepínat. Balíček se nejdřív analyzuje (nic
+          se nezapisuje), ukáže se přehled a teprve po tvém potvrzení se zapíše.
+          Opakovaný import stejného balíčku soubory přepíše (nezduplikuje) a
+          nahrazené jdou do koše.
         </p>
+        <ul className="space-y-1.5 text-sm text-gray-500">
+          <li>
+            <strong className="text-gray-700">Balíček 🍀</strong> — originály
+            nálezů, výřezy, mapy lokalit a{" "}
+            <code className="font-mono">meta/LokaceStavyPoznamky.json</code>.
+            Soubory se připraví na disk; databázi a náhledy pak vytvoří{" "}
+            <Link href="/admin/sync" className="text-brand-700 hover:underline">
+              sync
+            </Link>
+            .
+          </li>
+          <li>
+            <strong className="text-gray-700">Balíček map v2</strong> — nosné
+            mapy lokalit a jejich{" "}
+            <code className="font-mono">manifest.json</code>. Taky se jen
+            připraví pro sync; párování jde přes číslo lokace.
+          </li>
+          <li>
+            <strong className="text-gray-700">
+              Balíček reálných fotek lokalit
+            </strong>{" "}
+            — fotky místa s vyznačenými plochami, kde čtyřlístky rostou, z
+            desktopové aplikace. Páruje se <strong>číslem lokace</strong> (
+            <code className="font-mono">00126_foto002.png</code> → lokalita
+            126). Přehled ukáže po lokalitách, co balíček nese a co u nich už
+            na webu je, ať víš, co se přepíše. Fotky se převedou na WebP a
+            uloží rovnou — <strong>sync není potřeba</strong>, na stránce
+            lokality se ukážou do pěti minut. Lokalita může mít víc fotek;
+            zobrazí se jako galerie s popiskem.
+          </li>
+        </ul>
       </header>
 
       <ImportPanel />
