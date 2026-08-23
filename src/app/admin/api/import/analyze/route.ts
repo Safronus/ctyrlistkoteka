@@ -15,6 +15,8 @@ import {
   analyzeMapPackageZip,
   type MapPackageImportPlan,
 } from "@/lib/admin/mapPackageImport";
+import { recordImportEvent } from "@/lib/admin/importHistory";
+import { pluralCs } from "@/lib/format";
 import {
   isPhotoPackageZip,
   analyzePhotoPackageZip,
@@ -45,9 +47,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
   await touchSession();
 
-  let body: { uploadId?: string };
+  let body: { uploadId?: string; fileName?: string };
   try {
-    body = (await request.json()) as { uploadId?: string };
+    body = (await request.json()) as { uploadId?: string; fileName?: string };
   } catch {
     return json({ ok: false, error: "Neplatné tělo požadavku." }, 400);
   }
@@ -57,14 +59,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const zipPath = importZipPath(uploadId);
+  let bytes = 0;
   try {
-    await fs.access(zipPath);
+    bytes = (await fs.stat(zipPath)).size;
   } catch {
     return json(
       { ok: false, error: "Nahraný balíček nenalezen — nahraj ho znovu." },
       404,
     );
   }
+  // The client knows the file's name; the server only ever sees the id.
+  const fileName = (body.fileName ?? "").slice(0, 200) || uploadId;
 
   try {
     // Photo packages are asked about FIRST: their manifest sits at the same
@@ -73,8 +78,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (await isPhotoPackageZip(zipPath)) {
       const photoPlan = await analyzePhotoPackageZip(zipPath);
       if ("error" in photoPlan) {
+        await recordImportEvent({
+          uploadId, fileName, bytes,
+          packageType: "photos",
+          outcome: "failed",
+          error: photoPlan.error,
+        });
         return json({ ok: false, error: photoPlan.error }, 400);
       }
+      await recordImportEvent({
+        uploadId, fileName, bytes,
+        packageType: "photos",
+        outcome: "analyzed",
+        summary:
+          `${photoPlan.totalPhotos} ${pluralCs(photoPlan.totalPhotos, ["fotka", "fotky", "fotek"])}` +
+          ` pro ${photoPlan.locations.length} ${pluralCs(photoPlan.locations.length, ["lokalitu", "lokality", "lokalit"])}`,
+      });
       return json({ ok: true, packageType: "photos", photoPlan });
     }
     // A v2 map package (manifest.json at the zip root) takes the map-package
@@ -82,13 +101,39 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (await isMapPackageZip(zipPath)) {
       const mapPlan = await analyzeMapPackageZip(zipPath);
       if ("error" in mapPlan) {
+        await recordImportEvent({
+          uploadId, fileName, bytes,
+          packageType: "v2",
+          outcome: "failed",
+          error: mapPlan.error,
+        });
         return json({ ok: false, error: mapPlan.error }, 400);
       }
+      await recordImportEvent({
+        uploadId, fileName, bytes,
+        packageType: "v2",
+        outcome: "analyzed",
+        summary: `${mapPlan.total} ${pluralCs(mapPlan.total, ["mapa", "mapy", "map"])}`,
+      });
       return json({ ok: true, packageType: "v2", mapPlan });
     }
     const plan = await analyzeImportZip(zipPath);
+    await recordImportEvent({
+      uploadId, fileName, bytes,
+      packageType: "v1",
+      outcome: "analyzed",
+      summary:
+        `${plan.finds.total} ${pluralCs(plan.finds.total, ["nález", "nálezy", "nálezů"])}` +
+        `, ${plan.crops.total} ${pluralCs(plan.crops.total, ["výřez", "výřezy", "výřezů"])}`,
+    });
     return json({ ok: true, packageType: "v1", plan });
   } catch (err) {
+    await recordImportEvent({
+      uploadId, fileName, bytes,
+      packageType: "unknown",
+      outcome: "failed",
+      error: (err as Error).message,
+    });
     console.error("[admin/import/analyze] failed", {
       uploadId,
       message: (err as Error).message,

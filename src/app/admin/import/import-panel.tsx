@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -134,6 +135,7 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 type CollisionChoice = "overwrite" | "skip";
 
 export function ImportPanel() {
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [dragActive, setDragActive] = useState(false);
   // What to do with finds/crops/maps whose id already exists on the server.
@@ -149,23 +151,36 @@ export function ImportPanel() {
   /** Tell the server to delete the temp ZIP now (frees disk immediately
    *  instead of waiting for the import-tmp cron). Fire-and-forget, no-op on
    *  an already-gone id. */
-  const discardUpload = useCallback((uploadId: string) => {
-    fetch("/admin/api/import/cancel", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ uploadId }),
-    }).catch(() => undefined);
-  }, []);
+  const discardUpload = useCallback(
+    (uploadId: string, reviewed?: { fileName: string; packageType: string }) => {
+      fetch("/admin/api/import/cancel", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ uploadId, ...reviewed }),
+      }).catch(() => undefined);
+    },
+    [],
+  );
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     const id = uploadIdRef.current;
     uploadIdRef.current = null;
-    if (id) discardUpload(id); // discard a partial/uploaded ZIP off disk
+    // A cancel FROM the review is worth remembering ("looked at it, backed
+    // out"); one during the upload leaves nothing worth a line.
+    if (id) {
+      discardUpload(
+        id,
+        phase.kind === "review"
+          ? { fileName: phase.fileName, packageType: phase.packageType }
+          : undefined,
+      );
+    }
     setPhase({ kind: "idle" });
     if (inputRef.current) inputRef.current.value = "";
-  }, [discardUpload]);
+    router.refresh();
+  }, [discardUpload, phase, router]);
 
   const start = useCallback(async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".zip")) {
@@ -219,7 +234,7 @@ export function ImportPanel() {
         plan?: ImportPlan;
         mapPlan?: MapPackageImportPlan;
         photoPlan?: PhotoPackagePlan;
-      }>("/admin/api/import/analyze", { uploadId });
+      }>("/admin/api/import/analyze", { uploadId, fileName: file.name });
       abortRef.current = null;
       if (res.packageType === "photos" && res.photoPlan) {
         setPhase({
@@ -281,7 +296,12 @@ export function ImportPanel() {
           mapSummary?: MapPackageImportSummary;
           photoSummary?: PhotoPackageSummary;
           lsp?: LspMergeResult | null;
-        }>("/admin/api/import/commit", { uploadId, onCollision, replaceManual });
+        }>("/admin/api/import/commit", {
+          uploadId,
+          onCollision,
+          replaceManual,
+          fileName,
+        });
         uploadIdRef.current = null; // commit's finally already deleted the ZIP
         if (res.packageType === "photos" && res.photoSummary) {
           setPhase({
@@ -470,7 +490,6 @@ export function ImportPanel() {
         <p className="text-xs text-gray-500">
           Balíček 🍀: <code className="font-mono">finds/</code>{" "}
           <code className="font-mono">crops/</code>{" "}
-          <code className="font-mono">maps/</code>{" "}
           <code className="font-mono">meta/LokaceStavyPoznamky.json</code>
         </p>
         <p className="text-xs text-gray-500">

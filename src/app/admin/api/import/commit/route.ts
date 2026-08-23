@@ -23,6 +23,8 @@ import {
   commitMapPackage,
   type MapPackageImportSummary,
 } from "@/lib/admin/mapPackageImport";
+import { recordImportEvent } from "@/lib/admin/importHistory";
+import { pluralCs } from "@/lib/format";
 import {
   isPhotoPackageZip,
   commitPhotoPackageZip,
@@ -66,12 +68,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     uploadId?: string;
     onCollision?: string;
     replaceManual?: boolean;
+    fileName?: string;
   };
   try {
     body = (await request.json()) as {
       uploadId?: string;
       onCollision?: string;
       replaceManual?: boolean;
+      fileName?: string;
     };
   } catch {
     return json({ ok: false, error: "Neplatné tělo požadavku." }, 400);
@@ -84,8 +88,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const onCollision: CollisionMode = body.onCollision === "skip" ? "skip" : "overwrite";
 
   const zipPath = importZipPath(uploadId);
+  const fileName = (body.fileName ?? "").slice(0, 200) || uploadId;
+  let bytes = 0;
   try {
-    await fs.access(zipPath);
+    bytes = (await fs.stat(zipPath)).size;
   } catch {
     return json(
       { ok: false, error: "Nahraný balíček nenalezen — nahraj ho znovu." },
@@ -118,6 +124,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // The in-process directory index is what actually makes the public
       // site notice (commitPhotoPackageZip already dropped it); these just
       // bust Next's RSC cache for the pages that show the photos.
+      await recordImportEvent({
+        uploadId, fileName, bytes,
+        packageType: "photos",
+        outcome: "committed",
+        summary:
+          `${photoSummary.imported} nových, ${photoSummary.replaced} přepsaných` +
+          (photoSummary.skipped > 0 ? `, ${photoSummary.skipped} přeskočeno` : "") +
+          (photoSummary.errors.length > 0 ? `, ${photoSummary.errors.length} chyb` : ""),
+      });
       revalidatePath("/[locale]/lokality/[mapId]", "page");
       revalidatePath("/[locale]/lokality", "page");
       revalidatePath("/admin/files/location-photos");
@@ -141,6 +156,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           manifestTotal: mapSummary.manifestTotal ?? null,
           errorCount: mapSummary.errors.length,
         },
+      });
+      await recordImportEvent({
+        uploadId, fileName, bytes,
+        packageType: "v2",
+        outcome: "committed",
+        summary:
+          `${mapSummary.staged} ${pluralCs(mapSummary.staged, ["soubor", "soubory", "souborů"])}` +
+          (mapSummary.errors.length > 0 ? `, ${mapSummary.errors.length} chyb` : ""),
       });
       revalidatePath("/admin/sync");
       return json({ ok: true, packageType: "v2", mapSummary });
@@ -173,11 +196,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
     });
 
+    // Written + replaced is what actually landed; skipped files are not
+    // news worth a line here.
+    const finds = summary.finds.written + summary.finds.replaced;
+    const crops = summary.crops.written + summary.crops.replaced;
+    const maps = summary.maps.written + summary.maps.replaced;
+    await recordImportEvent({
+      uploadId, fileName, bytes,
+      packageType: "v1",
+      outcome: "committed",
+      summary:
+        `${finds} ${pluralCs(finds, ["nález", "nálezy", "nálezů"])}, ` +
+        `${crops} ${pluralCs(crops, ["výřez", "výřezy", "výřezů"])}` +
+        (maps > 0 ? `, ${maps} ${pluralCs(maps, ["mapa", "mapy", "map"])}` : "") +
+        (lsp?.ok ? ", LSP sloučen" : "") +
+        (summary.errors.length > 0 ? `, ${summary.errors.length} chyb` : ""),
+    });
     revalidatePath("/admin/files/finds", "layout");
     revalidatePath("/admin/sync");
 
     return json({ ok: true, packageType: "v1", summary, lsp });
   } catch (err) {
+    await recordImportEvent({
+      uploadId, fileName, bytes,
+      packageType: "unknown",
+      outcome: "failed",
+      error: (err as Error).message,
+    });
     console.error("[admin/import/commit] failed", {
       uploadId,
       message: (err as Error).message,

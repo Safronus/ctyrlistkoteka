@@ -6,8 +6,11 @@ import {
 } from "@/lib/admin/session";
 import {
   cleanupImportUpload,
+  importZipPath,
   isValidUploadId,
 } from "@/lib/admin/importPackage";
+import { recordImportEvent } from "@/lib/admin/importHistory";
+import { promises as fs } from "node:fs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +25,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
   await touchSession();
 
-  let body: { uploadId?: string };
+  let body: { uploadId?: string; fileName?: string; packageType?: string };
   try {
-    body = (await request.json()) as { uploadId?: string };
+    body = (await request.json()) as {
+      uploadId?: string;
+      fileName?: string;
+      packageType?: string;
+    };
   } catch {
     return NextResponse.json(
       { ok: false, error: "Neplatné tělo požadavku." },
@@ -33,7 +40,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
   const uploadId = body.uploadId ?? "";
   if (isValidUploadId(uploadId)) {
+    // Size first — cleanup deletes the file this reads.
+    const bytes = await fs
+      .stat(importZipPath(uploadId))
+      .then((s) => s.size)
+      .catch(() => 0);
     await cleanupImportUpload(uploadId);
+    // Only when the operator actually saw a plan and backed out. A cancel
+    // during upload leaves nothing worth a line.
+    if (body.packageType) {
+      await recordImportEvent({
+        uploadId,
+        fileName: (body.fileName ?? "").slice(0, 200) || uploadId,
+        bytes,
+        packageType:
+          body.packageType === "v1" ||
+          body.packageType === "v2" ||
+          body.packageType === "photos"
+            ? body.packageType
+            : "unknown",
+        outcome: "cancelled",
+      });
+    }
   }
   return NextResponse.json({ ok: true });
 }

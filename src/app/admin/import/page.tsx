@@ -2,11 +2,14 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ensureAdminAuth } from "@/lib/admin/guard";
 import { ImportPanel } from "./import-panel";
+import { ImportHistory } from "./import-history";
+import { readImportHistory } from "@/lib/admin/importHistory";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminImportPage() {
   await ensureAdminAuth();
+  const history = await readImportHistory();
 
   return (
     <div className="space-y-4">
@@ -34,13 +37,13 @@ export default async function AdminImportPage() {
         <ul className="space-y-1.5 text-sm text-gray-500">
           <li>
             <strong className="text-gray-700">Balíček 🍀</strong> — originály
-            nálezů, výřezy, mapy lokalit a{" "}
+            nálezů, výřezy a{" "}
             <code className="font-mono">meta/LokaceStavyPoznamky.json</code>.
             Soubory se připraví na disk; databázi a náhledy pak vytvoří{" "}
             <Link href="/admin/sync" className="text-brand-700 hover:underline">
               sync
             </Link>
-            .
+            . Mapy sem už nepatří — od v2 chodí vlastním balíčkem níž.
           </li>
           <li>
             <strong className="text-gray-700">Balíček map v2</strong> — nosné
@@ -65,6 +68,8 @@ export default async function AdminImportPage() {
       </header>
 
       <ImportPanel />
+
+      <ImportHistory entries={history} />
     </div>
   );
 }

@@ -9,6 +9,20 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### /admin/import: historie nahrávání a popis třetího balíčku
+- **Pod polem pro balíček je historie posledních nahrání** — dokončených,
+  jen zkontrolovaných (analýza bez potvrzení), zrušených i chybných, s druhem
+  balíčku, názvem souboru, velikostí a jednořádkovým souhrnem (kolik nálezů,
+  map nebo fotek pro kolik lokalit). Import je dvoufázový a chunkovaný, takže
+  „nedošlo to, nebo jsem to jen nepotvrdil?“ se nedalo zjistit odnikud;
+  odpověď byla leda v serverovém logu. Zapisuje se do `secure/import-history.jsonl`
+  (JSONL, drží se 200 posledních záznamů, ukazuje se 30). Zpětně to nejde
+  dopočítat — historie začíná dnem, kdy se to nasadilo.
+- **Popis stránky mluví o všech třech druzích balíčku**, včetně reálných fotek
+  lokalit. Do té doby byl vidět jen ten první.
+- „Balíček nálezů“ se jmenuje **„Balíček 🍀“** a **už nenese mapy** — od v2
+  chodí vlastním balíčkem, takže je zbytečné je u něj vypisovat.
+
 ### /sbirka: přepínání zobrazení a filtry data
 - **Přepnutí na dlaždice někdy nereagovalo** a projevilo se až po refreshi.
   Filtr, který se rovná výchozí hodnotě, se z URL maže, aby odkazy zůstaly
