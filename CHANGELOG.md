@@ -9,6 +9,23 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### /sbirka: přepínání zobrazení a filtry data
+- **Přepnutí na dlaždice někdy nereagovalo** a projevilo se až po refreshi.
+  Filtr, který se rovná výchozí hodnotě, se z URL maže, aby odkazy zůstaly
+  čisté — jenže zobrazení si stránka pamatuje i v cookie, takže vykreslený
+  stav se od výchozího lišil, zatímco v URL nebylo nic. Kliknutí pak vyrobilo
+  úplně stejnou adresu, `router.push` to vzal jako „nikam se nejde“ a nestalo
+  se nic; cookie se ale přepsala, proto po refreshi dlaždice naskočily. Když
+  se dotaz nezmění, řekne se serveru, ať vykreslí znovu.
+- **Datum od–do jde konečně vypsat rukou.** `<input type="date">` hlásí změnu
+  ve chvíli, kdy tři části dají platné datum, takže psaní 15. 3. 2019 nejdřív
+  odfiltrovalo rok 0002 a odtrhlo stránku pod rukama. Hodnota je teď lokální
+  a filtr se použije až po opuštění pole nebo Enterem; výběr z kalendáře platí
+  hned, protože kliknutí na den JE rozhodnutí. Esc vrátí původní hodnotu.
+- **Vedle každého data je rozbalovačka roku** — nativní kalendář listuje po
+  měsících a dostat se na 2019 znamenalo desítky kliknutí. „Od“ skočí na
+  1. ledna zvoleného roku, „do“ na 31. prosince, takže rok znamená celý rok.
+
 ### Import umí třetí druh balíčku: reálné fotky lokalit
 - `/admin/import` bere balíček `typ: "fotky-lokaci"` z desktopové aplikace —
   fotky místa s vyznačenými plochami, párované **číslem lokace**

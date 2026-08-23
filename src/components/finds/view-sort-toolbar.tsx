@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import {
   ArrowUpDown,
@@ -76,13 +76,29 @@ export function ViewSortToolbar({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
+  /**
+   * Writes one filter into the URL.
+   *
+   * A value equal to the default drops the parameter, so shared links stay
+   * clean. That has one trap, and the view switch fell into it: the page
+   * also remembers a choice in a cookie, so what is RENDERED can differ
+   * from the default while the URL carries no parameter at all. Clicking
+   * the default value then produced the very same URL, `router.push`
+   * treated it as no navigation, and nothing happened — until a manual
+   * reload, when the server read the new cookie. Hence the compare: an
+   * unchanged query means asking the server to render again, not pushing.
+   */
   const setParam = (key: string, value: string, defaultValue: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value === defaultValue) params.delete(key);
     else params.set(key, value);
     params.delete("page");
+    const next = params.toString();
+    const current = new URLSearchParams(searchParams.toString());
+    current.delete("page");
     startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`);
+      if (next === current.toString()) router.refresh();
+      else router.push(next ? `${pathname}?${next}` : pathname);
     });
   };
 
@@ -218,75 +234,163 @@ export function ViewSortToolbar({
         <span className="text-xs font-medium uppercase tracking-wide text-brand-700">
           {t("dateLabel")}
         </span>
-        <div className="inline-flex items-center gap-0.5">
-          <input
-            type="date"
-            aria-label={t("dateFrom")}
-            value={dateFrom || minDate || ""}
-            min={minDate || undefined}
-            max={dateTo || maxDate || undefined}
-            onChange={(e) => setParam("from", e.currentTarget.value, "")}
-            className={DATE_INPUT_CLS}
-          />
-          {/* Per-input "Dnes" shortcut. The native date picker
-              opens at the input's current value; with no `from`
-              set the field falls back to `minDate` (the very
-              first find from years ago) and reaching today by
-              hand means clicking through dozens of months.
-              One click here sets the value to today, so the next
-              picker click opens at today's month and tweaking
-              ±a few days back is one motion. */}
-          <DateTodayButton
-            label={t("dateToday")}
-            onClick={() => setParam("from", todayInPrague(), "")}
-          />
-        </div>
+        <DateField
+          ariaLabel={t("dateFrom")}
+          yearLabel={t("dateYear")}
+          todayLabel={t("dateToday")}
+          value={dateFrom || minDate || ""}
+          min={minDate || undefined}
+          max={dateTo || maxDate || undefined}
+          minYear={yearOf(minDate)}
+          maxYear={yearOf(maxDate)}
+          /** Jumping to a year lands on its FIRST day — "od roku 2019". */
+          yearEdge="start"
+          onCommit={(v) => setParam("from", v, "")}
+          onToday={() => setParam("from", todayInPrague(), "")}
+        />
         <span aria-hidden className="text-gray-400">
           –
         </span>
-        <div className="inline-flex items-center gap-0.5">
-          <input
-            type="date"
-            aria-label={t("dateTo")}
-            value={dateTo || maxDate || ""}
-            min={dateFrom || minDate || undefined}
-            max={maxDate || undefined}
-            onChange={(e) => setParam("to", e.currentTarget.value, "")}
-            className={DATE_INPUT_CLS}
-          />
-          <DateTodayButton
-            label={t("dateToday")}
-            onClick={() => setParam("to", todayInPrague(), "")}
-          />
-        </div>
+        <DateField
+          ariaLabel={t("dateTo")}
+          yearLabel={t("dateYear")}
+          todayLabel={t("dateToday")}
+          value={dateTo || maxDate || ""}
+          min={dateFrom || minDate || undefined}
+          max={maxDate || undefined}
+          minYear={yearOf(minDate)}
+          maxYear={yearOf(maxDate)}
+          /** …and the upper bound on its LAST day, so "2019" means the
+           *  whole year rather than a single January morning. */
+          yearEdge="end"
+          onCommit={(v) => setParam("to", v, "")}
+          onToday={() => setParam("to", todayInPrague(), "")}
+        />
       </div>
     </div>
   );
 }
 
-/** Tight icon-only square button that sits flush against a date
- *  input. Same `h-8` height as DATE_INPUT_CLS so the pair reads as
- *  a single compound control rather than two stacked widgets.
- *  Single click sets the input's URL param to today — the next
- *  picker click then opens at today's month, which makes "back N
- *  days from today" a fast follow-up motion. */
-function DateTodayButton({
-  label,
-  onClick,
+/** The year part of an ISO date, as a number — null when there is none. */
+function yearOf(iso: string | null): number | null {
+  const m = iso ? /^(\d{4})-/.exec(iso) : null;
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * One end of the date range: a native date input, a year jump and "dnes".
+ *
+ * Two things it fixes. The input no longer filters WHILE being typed —
+ * `<input type="date">` fires a change the moment the three parts form a
+ * valid date, so typing 15. 3. 2019 filtered on the year "0002" first and
+ * yanked the page away mid-keystroke. The value is now local until the
+ * field is left or Enter is pressed; the picker still applies at once,
+ * because picking a day IS the decision.
+ *
+ * And the year dropdown, because the native picker walks months one at a
+ * time — reaching 2019 from today is dozens of clicks. It keeps the day
+ * and month where sensible and otherwise snaps to the year's edge, so
+ * "od 2019" means 1 January and "do 2019" means 31 December.
+ */
+function DateField({
+  ariaLabel,
+  yearLabel,
+  todayLabel,
+  value,
+  min,
+  max,
+  minYear,
+  maxYear,
+  yearEdge,
+  onCommit,
+  onToday,
 }: {
-  label: string;
-  onClick: () => void;
+  ariaLabel: string;
+  yearLabel: string;
+  todayLabel: string;
+  value: string;
+  min?: string;
+  max?: string;
+  minYear: number | null;
+  maxYear: number | null;
+  yearEdge: "start" | "end";
+  onCommit: (value: string) => void;
+  onToday: () => void;
 }) {
+  const [draft, setDraft] = useState(value);
+  // The URL is the truth: a filter cleared elsewhere (or the back button)
+  // has to show here, and only when the field is not being edited.
+  const [editing, setEditing] = useState(false);
+  if (!editing && draft !== value) setDraft(value);
+
+  const commit = (v: string) => {
+    setEditing(false);
+    if (v !== value) onCommit(v);
+  };
+
+  const years: number[] = [];
+  if (minYear !== null && maxYear !== null) {
+    for (let y = maxYear; y >= minYear; y--) years.push(y);
+  }
+  const currentYear = yearOf(draft);
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-500 transition hover:border-gray-400 hover:bg-gray-50 hover:text-gray-700"
-    >
-      <CalendarCheck className="h-3.5 w-3.5" aria-hidden />
-    </button>
+    <div className="inline-flex items-center gap-0.5">
+      {years.length > 1 && (
+        <select
+          aria-label={yearLabel}
+          title={yearLabel}
+          value={currentYear ?? ""}
+          onChange={(e) => {
+            const y = e.currentTarget.value;
+            if (!y) return;
+            const next = `${y}-${yearEdge === "start" ? "01-01" : "12-31"}`;
+            setDraft(next);
+            commit(next);
+          }}
+          className={`${DATE_INPUT_CLS} cursor-pointer px-1 tabular-nums`}
+        >
+          {currentYear === null && <option value="">—</option>}
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+      )}
+      <input
+        type="date"
+        aria-label={ariaLabel}
+        value={draft}
+        min={min}
+        max={max}
+        onFocus={() => setEditing(true)}
+        onChange={(e) => setDraft(e.currentTarget.value)}
+        onBlur={(e) => commit(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit(e.currentTarget.value);
+          } else if (e.key === "Escape") {
+            setDraft(value);
+            setEditing(false);
+          }
+        }}
+        className={DATE_INPUT_CLS}
+      />
+      {/* "Dnes" shortcut: with no value the field falls back to the very
+          first find years ago, and reaching today by hand means clicking
+          through dozens of months. */}
+      <button
+        type="button"
+        onClick={onToday}
+        title={todayLabel}
+        aria-label={todayLabel}
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-500 transition hover:border-gray-400 hover:bg-gray-50 hover:text-gray-700"
+      >
+        <CalendarCheck className="h-3.5 w-3.5" aria-hidden />
+      </button>
+    </div>
   );
 }
 

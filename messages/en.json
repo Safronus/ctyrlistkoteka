@@ -228,6 +228,7 @@
     "dateLabel": "Date",
     "dateFrom": "Date from",
     "dateTo": "Date to",
+    "dateYear": "Year",
     "dateToday": "Today",
     "sort": "Sort",
     "sortDesc": "Newest",
