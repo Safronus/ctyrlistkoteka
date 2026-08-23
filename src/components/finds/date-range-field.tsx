@@ -2,6 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
+import {
+  clampDate,
+  dateInputPlaceholder,
+  isoToDisplay,
+  parseTypedDate,
+} from "@/lib/dateInput";
 
 /**
  * One end of the /sbirka date range.
@@ -67,14 +73,14 @@ export function DateRangeField({
   inputClassName,
 }: DateRangeFieldProps) {
   const shown = value || fallback || "";
-  const [draft, setDraft] = useState(() => toDisplay(shown, locale));
+  const [draft, setDraft] = useState(() => isoToDisplay(shown, locale));
   const [editing, setEditing] = useState(false);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   // The URL is the truth: a filter cleared elsewhere, or the back button,
   // has to show here — but never while the field is being typed into.
-  const display = toDisplay(shown, locale);
+  const display = isoToDisplay(shown, locale);
   if (!editing && draft !== display) setDraft(display);
 
   useEffect(() => {
@@ -95,13 +101,13 @@ export function DateRangeField({
 
   const commitText = (text: string) => {
     setEditing(false);
-    const iso = parseTyped(text);
+    const iso = parseTypedDate(text);
     // Unparseable input snaps back rather than filtering on a guess.
     if (iso === null) {
       setDraft(display);
       return;
     }
-    const clamped = clamp(iso, min, max);
+    const clamped = clampDate(iso, min, max);
     if (clamped !== value) onCommit(clamped);
     else setDraft(display);
   };
@@ -113,7 +119,7 @@ export function DateRangeField({
         inputMode="numeric"
         aria-label={ariaLabel}
         value={draft}
-        placeholder={placeholderFor(locale)}
+        placeholder={dateInputPlaceholder(locale)}
         onFocus={() => setEditing(true)}
         onChange={(e) => setDraft(e.currentTarget.value)}
         onBlur={(e) => commitText(e.currentTarget.value)}
@@ -126,7 +132,12 @@ export function DateRangeField({
             setEditing(false);
           }
         }}
-        className={`${inputClassName} w-[7.5rem] tabular-nums`}
+        // Centred, and just wide enough for the longest value there can
+        // be — "31. 12. 2026" and the English "2026-12-31" both measure
+        // under 7rem with the padding. Fixed rather than sized to the
+        // content: a field that grows as the date is typed makes the
+        // whole toolbar row twitch.
+        className={`${inputClassName} w-[7rem] text-center tabular-nums`}
       />
       <button
         type="button"
@@ -188,7 +199,7 @@ function Calendar({
   clearLabel: string;
   onPick: (iso: string) => void;
 }) {
-  const anchor = value || clamp(today, min, max);
+  const anchor = value || clampDate(today, min, max);
   const [cursor, setCursor] = useState(() => ({
     year: Number(anchor.slice(0, 4)),
     month: Number(anchor.slice(5, 7)) - 1,
@@ -328,7 +339,7 @@ function Calendar({
       <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2">
         <button
           type="button"
-          onClick={() => onPick(clamp(today, min, max))}
+          onClick={() => onPick(clampDate(today, min, max))}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-700 transition hover:bg-brand-50"
         >
           <CalendarCheck className="h-3.5 w-3.5" aria-hidden />
@@ -355,47 +366,3 @@ function yearsAround(year: number, min: number, max: number): number[] {
   return out.length > 0 ? out : [year];
 }
 
-/** ISO → what the reader types: `14.06.2021` in Czech, `2021-06-14` in EN. */
-function toDisplay(iso: string, locale: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
-  if (locale === "en") return iso;
-  return `${iso.slice(8)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
-}
-
-/**
- * What the reader typed → ISO, or null when it is not a date yet.
- *
- * Deliberately forgiving about separators and leading zeros — `1.3.2019`,
- * `01. 03. 2019` and `2019-03-01` all mean the same day — because the
- * whole point of this field is that a typed date is not judged until it
- * is finished.
- */
-function parseTyped(text: string): string | null {
-  const s = text.trim();
-  if (s === "") return "";
-  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
-  const cs = /^(\d{1,2})\s*[.\/-]\s*(\d{1,2})\s*[.\/-]\s*(\d{4})$/.exec(s);
-  const [y, m, d] = iso
-    ? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
-    : cs
-      ? [Number(cs[3]), Number(cs[2]), Number(cs[1])]
-      : [0, 0, 0];
-  if (!y || m < 1 || m > 12 || d < 1 || d > 31) return null;
-  // Reject a day the month does not have (31 February) rather than let
-  // Date roll it over into March.
-  const probe = new Date(Date.UTC(y, m - 1, d));
-  if (probe.getUTCMonth() !== m - 1) return null;
-  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
-function placeholderFor(locale: string): string {
-  return locale === "en" ? "yyyy-mm-dd" : "d. m. rrrr";
-}
-
-/** Keeps a date inside the collection's own span. */
-function clamp(iso: string, min: string | null, max: string | null): string {
-  if (!iso) return iso;
-  if (min && iso < min) return min;
-  if (max && iso > max) return max;
-  return iso;
-}

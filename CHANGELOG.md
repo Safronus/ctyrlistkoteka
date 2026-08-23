@@ -9,6 +9,34 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Bezpečnostní aktualizace závislostí
+- Zavřeno pět hlášení Dependabotu, všechna tranzitivní: **deepmerge-ts**
+  (vysoké — vyčerpání zásobníku na rekurzivním grafu; táhne ho `@prisma/config`),
+  **uuid** (chybějící kontrola mezí; táhne ho `exceljs`) a **vite** + **esbuild**
+  (jen vývojové; obě chyby ve vite jsou windowsové). Prisma ani exceljs opravenou
+  verzi zatím nevydaly, takže první dvě jdou přes `pnpm.overrides` — mechanismus,
+  který repo už používá.
+- `vite` je nově **přímá vývojová závislost na 8.2.2**. U vitestu je to *optional
+  peer*, a na ten `overrides` nesedne — proto zůstával na 7.3.2, i když se přepis
+  do zámku zapsal. Vite 8 navíc esbuild nepotřebuje vůbec, takže s ním zmizela
+  i ta pátá zranitelnost.
+- Ověřeno, že to nic nerozbilo: `prisma validate` i `generate` projdou s
+  deepmerge-ts 8, exceljs si uuid 11 vyžádá bez potíží (`v4` je v CJS dál) a
+  celá sada testů běží na vite 8.
+
+### /sbirka: datum česky, na střed a bez zbytečného místa
+- Pole ukazovalo `14.06.2021`, zatímco jeho vlastní nápověda slibovala
+  `d. m. rrrr`. Teď píše **`14. 6. 2021`** — tak, jak se to česky píše a jak to
+  ukazuje zbytek webu. Skládá se ručně, ne přes `Intl`: hodnota se renderuje i
+  na serveru a rozdíl ICU mezi Nodem a prohlížečem by z detailu formátu udělal
+  chybu hydratace.
+- Text je **na střed** a pole **široké přesně na nejdelší datum** (změřeno:
+  `31. 12. 2026` i anglické `2026-12-31` se vejdou pod 7 rem). Šířka je pevná
+  schválně — pole rostoucí během psaní by cukalo celým řádkem nástrojů.
+- Formátování a parsování se přestěhovalo do `src/lib/dateInput.ts` a má testy:
+  že se zobrazený tvar shoduje s nápovědou, že se přečte zpátky, že `31. 2.`
+  neprojde a `29. 2. 2024` ano.
+
 ### /admin/import: historie nahrávání a popis třetího balíčku
 - **Pod polem pro balíček je historie posledních nahrání** — dokončených,
   jen zkontrolovaných (analýza bez potvrzení), zrušených i chybných, s druhem
