@@ -31,6 +31,15 @@ export interface DateRangeFieldProps {
   yearLabel: string;
   /** ISO `YYYY-MM-DD`, or "" for an unset end. */
   value: string;
+  /**
+   * Shown when nothing is set — the collection's own first/last day, so an
+   * unfiltered range still says what it covers instead of two empty boxes.
+   *
+   * Deliberately NOT the value: picking exactly the date on display has to
+   * set the filter, not be swallowed as "no change". That is the same trap
+   * the view switch fell into.
+   */
+  fallback: string | null;
   /** Bounds of the collection — nothing outside them is selectable. */
   min: string | null;
   max: string | null;
@@ -49,6 +58,7 @@ export function DateRangeField({
   monthLabel,
   yearLabel,
   value,
+  fallback,
   min,
   max,
   today,
@@ -56,14 +66,15 @@ export function DateRangeField({
   onCommit,
   inputClassName,
 }: DateRangeFieldProps) {
-  const [draft, setDraft] = useState(() => toDisplay(value, locale));
+  const shown = value || fallback || "";
+  const [draft, setDraft] = useState(() => toDisplay(shown, locale));
   const [editing, setEditing] = useState(false);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   // The URL is the truth: a filter cleared elsewhere, or the back button,
   // has to show here — but never while the field is being typed into.
-  const display = toDisplay(value, locale);
+  const display = toDisplay(shown, locale);
   if (!editing && draft !== display) setDraft(display);
 
   useEffect(() => {
@@ -92,7 +103,7 @@ export function DateRangeField({
     }
     const clamped = clamp(iso, min, max);
     if (clamped !== value) onCommit(clamped);
-    else setDraft(toDisplay(value, locale));
+    else setDraft(display);
   };
 
   return (
@@ -130,7 +141,7 @@ export function DateRangeField({
 
       {open && (
         <Calendar
-          value={value}
+          value={shown}
           min={min}
           max={max}
           today={today}
@@ -142,6 +153,8 @@ export function DateRangeField({
           onPick={(iso) => {
             setOpen(false);
             setEditing(false);
+            // Compared against the real filter, not the displayed
+            // fallback — picking the date on show must still filter.
             if (iso !== value) onCommit(iso);
           }}
         />

@@ -243,6 +243,7 @@ export function ViewSortToolbar({
           monthLabel={t("dateMonth")}
           yearLabel={t("dateYear")}
           value={dateFrom || ""}
+          fallback={minDate}
           min={minDate}
           max={dateTo || maxDate}
           today={todayInPrague()}
@@ -261,6 +262,7 @@ export function ViewSortToolbar({
           monthLabel={t("dateMonth")}
           yearLabel={t("dateYear")}
           value={dateTo || ""}
+          fallback={maxDate}
           min={dateFrom || minDate}
           max={maxDate}
           today={todayInPrague()}
