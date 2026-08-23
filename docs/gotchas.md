@@ -807,3 +807,27 @@ WHERE found_at IS NOT NULL;
 Pozn.: detekce „jen datum, bez času" se proto ptá na půlnoc **v Praze**
 (`(found_at AT TIME ZONE 'Europe/Prague')::time <> '00:00:00'`), ne na
 půlnoc UTC — to bylo totéž jen díky tomu posunu.
+
+---
+
+## 26. `pnpm.overrides` nesedne na *optional peer* závislost
+
+**Co:** Dependabot hlásil dvě zranitelnosti ve `vite` (7.3.2, jen vývojové).
+Do `pnpm.overrides` šlo `"vite@<8.0.0": "^8.2.2"`, přepis se zapsal i do
+`pnpm-lock.yaml` — a `pnpm why vite` dál hlásilo **7.3.2**. Nepomohl ani
+`pnpm install --force`, ani `pnpm update vite`.
+
+**Proč:** `vitest` nemá vite jako závislost, ale jako **optional
+peerDependency**. Do stromu se dostane přes auto-install-peers a `overrides`
+mu přepíšou jen deklarovaný rozsah — samotná instalace už si drží dřívější
+řešení a znovu ho neřeší. V zámku pak vedle sebe stojí `vite: ^8.2.2` (spec)
+a `vite: 7.3.2` (resolved), což vypadá jako chyba pnpm, ale je to tenhle
+rozdíl.
+
+**Jak aplikovat:** Když má být tranzitivní balíček na konkrétní verzi a je to
+*peer*, **deklaruj ho napřímo** v `devDependencies` (`"vite": "^8.2.2"`) a
+override zruš — dvě místa, která říkají totéž, se stejně dřív nebo později
+rozejdou. Po každém přepisu **ověř skutečně nainstalovanou verzi**
+(`pnpm why <balíček>`), ne to, co je v `package.json`; zápis do zámku není
+důkaz. Vedlejší efekt, který stojí za zapamatování: vite 8 už nezávisí na
+`esbuild`, takže s tím upgradem zmizela i zranitelnost esbuildu.
