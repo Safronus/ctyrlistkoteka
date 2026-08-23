@@ -31,6 +31,7 @@ import {
   formatDistance,
   formatLocationId,
   locationDetailHref,
+  titleCaseCs,
 } from "@/lib/format";
 import {
   FIND_DEVIATION_RADIUS_M,
@@ -49,7 +50,11 @@ import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { localePath, ogLocale, seoAlternates } from "@/lib/seo";
 import { breadcrumbSchema, findImageSchema } from "@/lib/schema";
 import { JsonLd } from "@/components/seo/json-ld";
-import { isLocationGone } from "@/lib/locationCode";
+import { cityFromCadastralArea, isLocationGone } from "@/lib/locationCode";
+import { countryFromCoords } from "@/lib/geo";
+import { alpha2FromNumeric, countryFlagEmoji } from "@/lib/countryCodes";
+import { localizedCountryName } from "@/lib/world-countries";
+import { prisma } from "@/lib/db";
 import {
   getAdjacentFindIds,
   getAllFindIds,
@@ -178,6 +183,59 @@ export default async function FindDetailPage({ params }: PageProps) {
           getLocationFindCountRank(find.location.id),
         ])
       : [null, null];
+
+  // Where in the world this is — the flag, the country and the town, drawn
+  // over the top of the location map. The map itself shows streets without
+  // ever saying which country's; on a collection that reaches Iceland and
+  // Japan that is the first thing a reader wants. The town comes from the
+  // cadastral area (same derivation as /sbirka's city filter) and the
+  // country from the location's centre point (same point-in-polygon the
+  // filters and /statistiky use), so all three agree.
+  //
+  // Skipped for anonymized finds and for the NEZNÁMÁ location: naming a
+  // place is exactly what the first must not do, and the second has none.
+  const placeLocation =
+    !find.isAnonymized &&
+    find.location &&
+    find.location.id !== UNKNOWN_LOCATION_ID
+      ? find.location
+      : null;
+  const place =
+    placeLocation !== null
+      ? await (async () => {
+          const [row] = await prisma.$queryRaw<
+            Array<{ lat: number | null; lng: number | null }>
+          >`
+            SELECT ST_Y(center_point)::float8 AS lat,
+                   ST_X(center_point)::float8 AS lng
+            FROM locations WHERE id = ${placeLocation.id}
+          `;
+          const country =
+            row?.lat != null && row?.lng != null
+              ? countryFromCoords(row.lat, row.lng)
+              : null;
+          const alpha2 = country && country.code !== "??"
+            ? alpha2FromNumeric(country.code)
+            : null;
+          // The city is stored upper-case for matching; the country name
+          // arrives in the dataset's English. Both go through the same
+          // display helpers the filter bar uses, so the overlay and the
+          // dropdowns say the same words.
+          const rawCity = cityFromCadastralArea(placeLocation.cadastralArea);
+          const city = rawCity ? titleCaseCs(rawCity) : null;
+          const name =
+            country && country.code !== "??"
+              ? localizedCountryName(country.name, locale, country.code)
+              : null;
+          return name || city
+            ? {
+                flag: alpha2 ? countryFlagEmoji(alpha2) : null,
+                country: name,
+                city,
+              }
+            : null;
+        })()
+      : null;
 
   // Each find has at most one main photo (ORIGINAL) and at most one crop
   // (CROP). If imports leave duplicates behind, we still pick a single
@@ -574,6 +632,8 @@ export default async function FindDetailPage({ params }: PageProps) {
                   ? formatLocationId(find.location.id)
                   : null
               }
+              /* Flag + country + town, centred above the map — see `place`. */
+              place={place}
               /* Match the map exactly to the find photo's displayed width so
                the two line up (falls back to max-w-2xl when there's no
                photo to measure against). */
@@ -915,6 +975,7 @@ function LocationMapsGallery({
   isUnknownLocation = false,
   locationId,
   locationBadge = null,
+  place = null,
   figureWidth,
   locale,
   t,
@@ -952,6 +1013,10 @@ function LocationMapsGallery({
    *  map image's top-left corner. Null for anonymized finds (the
    *  placeholder must not carry a real-looking id). */
   locationBadge?: string | null;
+  /** Flag, country and town of this location, drawn centred at the top of
+   *  the map image. Null for anonymized finds and for NEZNÁMÁ — naming a
+   *  place is what the first must not do, and the second has none. */
+  place?: { flag: string | null; country: string | null; city: string | null } | null;
   /** CSS width to match the map figure to the find photo above it (the
    *  photo's displayed width). Undefined → the default max-w-2xl cap. */
   figureWidth?: string;
@@ -1049,6 +1114,32 @@ function LocationMapsGallery({
                 <div className="absolute left-2 top-2 z-10">
                   <span className="rounded-md bg-white/95 px-2 py-1 text-sm font-bold text-brand-700 shadow-md ring-1 ring-black/5 backdrop-blur">
                     {locationBadge}
+                  </span>
+                </div>
+              )}
+              {/* Country and town, centred at the top. The map shows streets
+                  without ever saying whose; on a collection that reaches
+                  Iceland and Japan that is the first thing a reader wants.
+                  Between the two corner overlays, so it stays out of their
+                  way — and `max-w` + truncate keep a long town name from
+                  running under them on a narrow screen. */}
+              {place && (place.country || place.city) && (
+                <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-24">
+                  <span className="flex max-w-full items-center gap-1.5 truncate rounded-md bg-white/95 px-2 py-1 text-xs font-medium text-gray-800 shadow-md ring-1 ring-black/5 backdrop-blur">
+                    {place.flag && (
+                      <span aria-hidden className="text-sm leading-none">
+                        {place.flag}
+                      </span>
+                    )}
+                    {place.country && <span>{place.country}</span>}
+                    {place.country && place.city && (
+                      <span aria-hidden className="text-gray-400">
+                        ·
+                      </span>
+                    )}
+                    {place.city && (
+                      <span className="truncate text-gray-600">{place.city}</span>
+                    )}
                   </span>
                 </div>
               )}

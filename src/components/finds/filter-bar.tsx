@@ -7,6 +7,7 @@ import { ChevronDown } from "lucide-react";
 import type { FacetCounts, FilterOptions } from "@/lib/queries/finds";
 import type { FindState } from "@/generated/prisma/enums";
 import { RETIRED_STATES } from "@/lib/stateLabels";
+import { titleCaseCs } from "@/lib/format";
 import { StateMultiSelect } from "./state-multi-select";
 import { LocationCombobox } from "./location-combobox";
 
@@ -14,17 +15,6 @@ const INPUT_CLS =
   "h-10 rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
 const SELECT_CLS = `${INPUT_CLS} cursor-pointer appearance-none pr-10`;
 
-/** "DUBLIN" → "Dublin", "ÚSTÍ NAD LABEM" → "Ústí Nad Labem". Only the
- *  displayed label is title-cased; the stored value stays the raw
- *  (upper-case) cadastral-area string the filter query matches on. */
-function titleCase(s: string): string {
-  return s
-    .toLocaleLowerCase("cs")
-    .replace(
-      /(^|[\s\-–/(])(\p{L})/gu,
-      (_, sep, ch) => sep + ch.toLocaleUpperCase("cs"),
-    );
-}
 
 /** Buckets items under their country, ordered like the Stát dropdown
  *  (`countries` order; any stray country not in that list is appended so
@@ -401,7 +391,7 @@ export function FilterBar({
                     <optgroup key={g.code} label={g.name}>
                       {g.items.map((c) => (
                         <option key={c.name} value={c.name}>
-                          {withCount(titleCase(c.name), facets.cities[c.name])}
+                          {withCount(titleCaseCs(c.name), facets.cities[c.name])}
                         </option>
                       ))}
                     </optgroup>
@@ -410,7 +400,7 @@ export function FilterBar({
                     .flatMap((g) => g.items)
                     .map((c) => (
                       <option key={c.name} value={c.name}>
-                        {withCount(titleCase(c.name), facets.cities[c.name])}
+                        {withCount(titleCaseCs(c.name), facets.cities[c.name])}
                       </option>
                     ))}
             </select>

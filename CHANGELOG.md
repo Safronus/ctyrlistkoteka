@@ -22,9 +22,26 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   odfiltrovalo rok 0002 a odtrhlo stránku pod rukama. Hodnota je teď lokální
   a filtr se použije až po opuštění pole nebo Enterem; výběr z kalendáře platí
   hned, protože kliknutí na den JE rozhodnutí. Esc vrátí původní hodnotu.
-- **Vedle každého data je rozbalovačka roku** — nativní kalendář listuje po
-  měsících a dostat se na 2019 znamenalo desítky kliknutí. „Od“ skočí na
-  1. ledna zvoleného roku, „do“ na 31. prosince, takže rok znamená celý rok.
+- **Vlastní kalendář s přeskakováním roků.** Nativní listuje po měsících a
+  dostat se na 2019 znamenalo desítky kliknutí; roky přeskakovat neumí a
+  přizpůsobit se nedá. Kliknutí na záhlaví teď rozbalí mřížku roků (jen ty,
+  ve kterých sbírka něco má), pod ní je měsíc a dny, dole „Dnes“ a „Vymazat“.
+  Psát datum jde dál rukou — `1.3.2022` i `2022-03-01` — a použije se až
+  Enterem nebo odchodem z pole.
+- Do textu se vejde i to, co první pokus rozbil: samostatné pole s rokem
+  vedle data roztrhlo řádek nástrojů i na velkém monitoru, takže je pryč.
+
+### Detail nálezu: stát a město nad mapkou lokality
+- Nad mapou lokality je teď uprostřed nahoře **vlaječka, stát a město**. Mapa
+  ukazuje ulice, ale nikdy neřekne čí — u sbírky, která sahá na Island a do
+  Japonska, je to první, co čtenáře zajímá.
+- Město se bere z katastrálního území a stát z těžiště lokality — stejnými
+  cestami, jakými to počítají filtry na /sbirka, takže overlay a rozbalovačky
+  říkají totéž. Jméno státu je lokalizované („Česko“, ne „Czechia“) a město
+  se přepíše z verzálek („PRAHA“ → „Praha“); ten převod byl schovaný ve
+  filtrech, teď je v `format.ts` a používají ho obě místa.
+- U anonymizovaných nálezů a u lokality NEZNÁMÁ se nezobrazí nic — pojmenovat
+  místo je přesně to, co první nesmí, a druhá žádné nemá.
 
 ### Import umí třetí druh balíčku: reálné fotky lokalit
 - `/admin/import` bere balíček `typ: "fotky-lokaci"` z desktopové aplikace —

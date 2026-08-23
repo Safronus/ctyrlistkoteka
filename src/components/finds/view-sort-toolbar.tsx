@@ -1,16 +1,16 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
-import { useTranslations } from "next-intl";
+import { useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowUpDown,
-  CalendarCheck,
   Camera,
   EyeOff,
   LayoutGrid,
   List,
 } from "lucide-react";
+import { DateRangeField } from "./date-range-field";
 import type { FindSort } from "@/lib/queries/finds";
 
 export type FindView = "grid" | "list";
@@ -71,6 +71,7 @@ export function ViewSortToolbar({
   dominantLocationCode: string | null;
 }) {
   const t = useTranslations("ViewSortToolbar");
+  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -234,170 +235,44 @@ export function ViewSortToolbar({
         <span className="text-xs font-medium uppercase tracking-wide text-brand-700">
           {t("dateLabel")}
         </span>
-        <DateField
+        <DateRangeField
           ariaLabel={t("dateFrom")}
-          yearLabel={t("dateYear")}
+          openLabel={t("dateOpen")}
           todayLabel={t("dateToday")}
-          value={dateFrom || minDate || ""}
-          min={minDate || undefined}
-          max={dateTo || maxDate || undefined}
-          minYear={yearOf(minDate)}
-          maxYear={yearOf(maxDate)}
-          /** Jumping to a year lands on its FIRST day — "od roku 2019". */
-          yearEdge="start"
+          clearLabel={t("dateClear")}
+          monthLabel={t("dateMonth")}
+          yearLabel={t("dateYear")}
+          value={dateFrom || ""}
+          min={minDate}
+          max={dateTo || maxDate}
+          today={todayInPrague()}
+          locale={locale}
           onCommit={(v) => setParam("from", v, "")}
-          onToday={() => setParam("from", todayInPrague(), "")}
+          inputClassName={DATE_INPUT_CLS}
         />
         <span aria-hidden className="text-gray-400">
           –
         </span>
-        <DateField
+        <DateRangeField
           ariaLabel={t("dateTo")}
-          yearLabel={t("dateYear")}
+          openLabel={t("dateOpen")}
           todayLabel={t("dateToday")}
-          value={dateTo || maxDate || ""}
-          min={dateFrom || minDate || undefined}
-          max={maxDate || undefined}
-          minYear={yearOf(minDate)}
-          maxYear={yearOf(maxDate)}
-          /** …and the upper bound on its LAST day, so "2019" means the
-           *  whole year rather than a single January morning. */
-          yearEdge="end"
+          clearLabel={t("dateClear")}
+          monthLabel={t("dateMonth")}
+          yearLabel={t("dateYear")}
+          value={dateTo || ""}
+          min={dateFrom || minDate}
+          max={maxDate}
+          today={todayInPrague()}
+          locale={locale}
           onCommit={(v) => setParam("to", v, "")}
-          onToday={() => setParam("to", todayInPrague(), "")}
+          inputClassName={DATE_INPUT_CLS}
         />
       </div>
     </div>
   );
 }
 
-/** The year part of an ISO date, as a number — null when there is none. */
-function yearOf(iso: string | null): number | null {
-  const m = iso ? /^(\d{4})-/.exec(iso) : null;
-  return m ? Number(m[1]) : null;
-}
-
-/**
- * One end of the date range: a native date input, a year jump and "dnes".
- *
- * Two things it fixes. The input no longer filters WHILE being typed —
- * `<input type="date">` fires a change the moment the three parts form a
- * valid date, so typing 15. 3. 2019 filtered on the year "0002" first and
- * yanked the page away mid-keystroke. The value is now local until the
- * field is left or Enter is pressed; the picker still applies at once,
- * because picking a day IS the decision.
- *
- * And the year dropdown, because the native picker walks months one at a
- * time — reaching 2019 from today is dozens of clicks. It keeps the day
- * and month where sensible and otherwise snaps to the year's edge, so
- * "od 2019" means 1 January and "do 2019" means 31 December.
- */
-function DateField({
-  ariaLabel,
-  yearLabel,
-  todayLabel,
-  value,
-  min,
-  max,
-  minYear,
-  maxYear,
-  yearEdge,
-  onCommit,
-  onToday,
-}: {
-  ariaLabel: string;
-  yearLabel: string;
-  todayLabel: string;
-  value: string;
-  min?: string;
-  max?: string;
-  minYear: number | null;
-  maxYear: number | null;
-  yearEdge: "start" | "end";
-  onCommit: (value: string) => void;
-  onToday: () => void;
-}) {
-  const [draft, setDraft] = useState(value);
-  // The URL is the truth: a filter cleared elsewhere (or the back button)
-  // has to show here, and only when the field is not being edited.
-  const [editing, setEditing] = useState(false);
-  if (!editing && draft !== value) setDraft(value);
-
-  const commit = (v: string) => {
-    setEditing(false);
-    if (v !== value) onCommit(v);
-  };
-
-  const years: number[] = [];
-  if (minYear !== null && maxYear !== null) {
-    for (let y = maxYear; y >= minYear; y--) years.push(y);
-  }
-  const currentYear = yearOf(draft);
-
-  return (
-    <div className="inline-flex items-center gap-0.5">
-      {years.length > 1 && (
-        <select
-          aria-label={yearLabel}
-          title={yearLabel}
-          value={currentYear ?? ""}
-          onChange={(e) => {
-            const y = e.currentTarget.value;
-            if (!y) return;
-            const next = `${y}-${yearEdge === "start" ? "01-01" : "12-31"}`;
-            setDraft(next);
-            commit(next);
-          }}
-          className={`${DATE_INPUT_CLS} cursor-pointer px-1 tabular-nums`}
-        >
-          {currentYear === null && <option value="">—</option>}
-          {years.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-      )}
-      <input
-        type="date"
-        aria-label={ariaLabel}
-        value={draft}
-        min={min}
-        max={max}
-        onFocus={() => setEditing(true)}
-        onChange={(e) => setDraft(e.currentTarget.value)}
-        onBlur={(e) => commit(e.currentTarget.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            commit(e.currentTarget.value);
-          } else if (e.key === "Escape") {
-            setDraft(value);
-            setEditing(false);
-          }
-        }}
-        className={DATE_INPUT_CLS}
-      />
-      {/* "Dnes" shortcut: with no value the field falls back to the very
-          first find years ago, and reaching today by hand means clicking
-          through dozens of months. */}
-      <button
-        type="button"
-        onClick={onToday}
-        title={todayLabel}
-        aria-label={todayLabel}
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-500 transition hover:border-gray-400 hover:bg-gray-50 hover:text-gray-700"
-      >
-        <CalendarCheck className="h-3.5 w-3.5" aria-hidden />
-      </button>
-    </div>
-  );
-}
-
-/** `(N)` count chip appended to a toggle label — monospace, faded so
- *  it reads as metadata, color flips to white-ish when the toggle is
- *  pressed (brand-600 bg). Hidden when value is 0. Mirrors the
- *  LocationsToolbar count chip on /lokality. */
 function ToggleCount({
   value,
   pressed,

@@ -547,3 +547,19 @@ export function formatDensity(densityPer100m2: number): string {
   const unit = areaM2 === 1 ? "m²" : `${areaM2} m²`;
   return `${label} 🍀/${unit}`;
 }
+
+/**
+ * Cadastral areas are stored upper-case ("PRAHA", "ZLÍN"), which is the
+ * form the filters match on — but shouting a town's name at the reader is
+ * not. Lower-cases and re-capitalises each word, including after a hyphen,
+ * a slash or an opening bracket ("ÚSTÍ NAD LABEM-STŘEKOV" → "Ústí Nad
+ * Labem-Střekov"). Czech casing rules, so "Ď"/"ď" and friends survive.
+ */
+export function titleCaseCs(s: string): string {
+  return s
+    .toLocaleLowerCase("cs")
+    .replace(
+      /(^|[\s\-–/(])(\p{L})/gu,
+      (_, sep: string, ch: string) => sep + ch.toLocaleUpperCase("cs"),
+    );
+}
