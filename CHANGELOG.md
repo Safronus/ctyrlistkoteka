@@ -9,6 +9,25 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### Údržba závislostí
+- Bump skupiny `minor-and-patch` (4 balíčky), samé patch/minor bez zásahu do
+  API: **Next 16.3.2** a `eslint-config-next` 16.3.2 (jen backportované opravy —
+  catch-all routy ani asset prefix tenhle web nepoužívá, takže z nich reálně
+  nic netěží), **lucide-react** 1.33.0 (jen nové ikony, nic se neodebírá) a
+  **next-intl** 4.13.7.
+- Jediná věc, která stála za pohled: next-intl 4.13.7 **připnulo `@swc/core`**
+  na rozsah kompatibilní se svým extraktorovým pluginem, čímž ho v zámku stáhlo
+  z **1.16.0 na 1.15.47**. Extraktor tu nepoužíváme (v `next.config.ts` je
+  obyčejný `createNextIntlPlugin`), ale `@swc/core` visí v zámku na 39 místech,
+  takže jde o build-time změnu, kterou typecheck nechytí.
+- Ověřeno proti baseline na `main`: lint beze změny (0 chyb, 65 varování),
+  typecheck čistý, **460 testů** zelených a log produkčního buildu je proti
+  baseline **znak po znaku shodný** až na řádek s verzí Next — včetně
+  „Compiled successfully“, což je právě ten důkaz, že přepnutí `@swc/core`
+  nic nerozbilo. Build lokálně dojde jen ke „collecting page data“ a spadne na
+  `ECONNREFUSED` k Postgresu (docker neběžel) — **stejně před bumpem i po něm**;
+  úplný build tedy prokázal až deploy na VPS, kde databáze je.
+
 ### Bezpečnostní aktualizace závislostí
 - Zavřeno pět hlášení Dependabotu, všechna tranzitivní: **deepmerge-ts**
   (vysoké — vyčerpání zásobníku na rekurzivním grafu; táhne ho `@prisma/config`),
