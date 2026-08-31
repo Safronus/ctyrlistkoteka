@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-08
 
+### /mapa: ztlumené nálezy se přestaly sčítat do plné barvy
+- Když je zvolená lokalita, ostatní nálezy se ztlumí — jenže krytí 20 % platilo
+  na **každou ikonu zvlášť** a překryvy se skládaly. Dvanáct ztlumených ikon na
+  jednom místě vydalo 93 %, což se od plné ikony okem nepozná. V poli u Ratiboře
+  to nebyl kraj: z 16 646 ztlumených nálezů ve výřezu jich **11 028 leží v
+  místech s 16+ překryvy**, takže zaostření na dílčí část tam prakticky nic
+  neztlumilo a nálezy sousedních lokalit vypadaly, jako by patřily do vybrané.
+- Ztlumené se teď kreslí na vlastní bitmapu a ta se ztlumí **naráz**. Osamocený
+  nález zůstal na 19 %, hustý shluk končí na 54,5 % a výš už vrstva nejde —
+  hustota je pořád čitelná, ale ztlumené nikdy nepředstírá plné.
+- Nešlo o špatně zařazený nález: odchýlenost se počítá proti *vlastní* lokalitě
+  nálezu, ne proti zakliknuté, a ten sporný nález patřil rodičovské lokalitě,
+  uvnitř které správně leží. Ověřeno na produkčních datech — všech 5 266 nálezů
+  lokality přeměřeno bodem v polygonu, mimo něj neleží ani jeden (tři jsou přesně
+  na hranici, kterou `ST_Covers` počítá dovnitř).
+
 ### Údržba závislostí
 - Bump skupiny `minor-and-patch` (4 balíčky), samé patch/minor bez zásahu do
   API: **Next 16.3.2** a `eslint-config-next` 16.3.2 (jen backportované opravy —

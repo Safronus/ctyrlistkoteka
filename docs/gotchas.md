@@ -831,3 +831,26 @@ rozejdou. Po každém přepisu **ověř skutečně nainstalovanou verzi**
 (`pnpm why <balíček>`), ne to, co je v `package.json`; zápis do zámku není
 důkaz. Vedlejší efekt, který stojí za zapamatování: vite 8 už nezávisí na
 `esbuild`, takže s tím upgradem zmizela i zranitelnost esbuildu.
+
+---
+
+## 27. Průhlednost na canvasu se sčítá — ztlumení není strop
+
+**Co:** Na `/mapa` se při zvolené lokalitě ostatní nálezy kreslily s
+`globalAlpha = 0.2` na ikonu. Kde jich leželo víc přes sebe, krytí se složilo:
+4 ikony = 59 %, 8 = 83 %, 12 = 93 %. Uživatel oprávněně hlásil „tenhle nález
+se tváří, že patří do vybrané lokality" — ve skutečnosti byl ztlumený, jen
+dvanáctkrát.
+
+**Proč:** `globalAlpha` platí na **jedno kreslení**, ne na vrstvu. Každý další
+`drawImage` skládá přes to předchozí (`1 − 0.8ⁿ`). Při 30 000 nálezech a ikoně
+~2,4 m na zemi je překryv pravidlem, ne výjimkou.
+
+**Jak aplikovat:** Když má být ztlumená celá **vrstva**, nakresli ji na
+offscreen canvas a **složit ji jednou** (`ctx.globalAlpha = X;
+ctx.drawImage(offscreen, 0, 0)`). Dvě čísla místo jednoho: krytí ikony na
+offscreenu (hustota zůstane vidět) a krytí vrstvy (strop). Pozor na dvě věci:
+přiřazení `canvas.width/height` bitmapu **maže a resetuje transformaci**, takže
+na ni sahej jen při skutečné změně velikosti; a offscreen je už v device
+pixelech, takže se blituje `setTransform(1,0,0,1,0,0)`, ne přes DPR transformaci
+— jinak se zvětší podruhé.

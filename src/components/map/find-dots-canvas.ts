@@ -45,9 +45,22 @@ const TONE_COLORS: ReadonlyArray<{ leaf: string; dark: string }> = [
   { leaf: "#f59e0b", dark: "#8a4a06" }, // 1 amber — within a location map
   { leaf: "#f43f5e", dark: "#8a1030" }, // 2 rose  — outside all maps
 ];
-// Alpha applied to finds outside the currently bright set. Light enough
-// to read as "secondary" while still hinting at density.
-const DIM_ALPHA = 0.2;
+// How the "everything else" layer fades when a location is focused.
+//
+// Two numbers, not one, because a single per-icon alpha does not survive
+// overlap: at 0.2 apiece, twelve icons on the same 2.4 m composite to 93 %
+// and read as a full-opacity dot. In the Ratiboř field that is not an edge
+// case — 11 000 of the 16 600 dimmed finds there sit under 16+ overlaps, so
+// focusing a sub-part dimmed almost nothing.
+//
+// So the dim finds are drawn onto their own bitmap and that bitmap is
+// composited ONCE. DOT is the per-icon alpha on the offscreen (density
+// still shows: a lone find is faint, a cluster fills in), LAYER is the
+// ceiling the whole layer can never pass. A lone dimmed find lands at
+// 0.35 × 0.55 ≈ 0.19 — where it has always been — and a dense clump tops
+// out at 0.55, comfortably below the focused location's finds.
+const DIM_DOT_ALPHA = 0.35;
+const DIM_LAYER_ALPHA = 0.55;
 
 interface FindDotsLayerOptions extends L.LayerOptions {
   coords: ReadonlyArray<FindCoord>;
@@ -77,6 +90,9 @@ interface FindDotsLayerOptions extends L.LayerOptions {
 type FindDotsLayerInstance = {
   _map: L.Map;
   _canvas: HTMLCanvasElement;
+  /** Offscreen bitmap the dimmed finds are drawn onto, so the whole layer
+   *  can be faded in one go. Allocated on first focused redraw. */
+  _dimCanvas: HTMLCanvasElement | null;
   /** One pre-rendered sprite per tone (green / amber / rose). */
   _sprites: HTMLCanvasElement[];
   _coords: ReadonlyArray<FindCoord>;
@@ -107,6 +123,8 @@ const FindDotsLayer = L.Layer.extend({
   onAdd(this: FindDotsLayerInstance, map: L.Map) {
     this._map = map;
     this._dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
+
+    this._dimCanvas = null;
 
     const canvas = L.DomUtil.create("canvas", "leaflet-find-dots leaflet-layer");
     canvas.style.pointerEvents = "none";
@@ -149,6 +167,7 @@ const FindDotsLayer = L.Layer.extend({
 
   onRemove(this: FindDotsLayerInstance, map: L.Map) {
     L.DomUtil.remove(this._canvas);
+    this._dimCanvas = null;
     map.off("moveend", this._reset, this);
     map.off("resize", this._reset, this);
     map.off("zoomanim", this._animateZoom, this);
@@ -249,30 +268,62 @@ const FindDotsLayer = L.Layer.extend({
       return focusLocs.has(c[2]);
     };
 
-    const paint = (c: FindCoord) => {
+    const paint = (target: CanvasRenderingContext2D, c: FindCoord) => {
       const lat = c[0];
       const lng = c[1];
       if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) return;
       const lp = map.latLngToLayerPoint([lat, lng]);
       const x = lp.x - topLeft.x - half;
       const y = lp.y - topLeft.y - half;
-      ctx.drawImage(spriteFor(c), x, y, box, box);
+      target.drawImage(spriteFor(c), x, y, box, box);
     };
 
-    // Two-pass paint when a dim filter is active: dim ones first so the
-    // bright dots end up on top. Single pass otherwise.
+    // Two-pass paint when a dim filter is active: the dimmed ones onto
+    // their own bitmap (composited under a ceiling — see DIM_LAYER_ALPHA),
+    // then the bright ones straight onto the map canvas so they end up on
+    // top. Single pass otherwise.
     if (isBright !== null) {
-      ctx.globalAlpha = DIM_ALPHA;
-      for (let i = 0; i < coords.length; i++) {
-        const c = coords[i];
-        if (!c || shouldHide(c) || isBright(c)) continue;
-        paint(c);
+      const dimCanvas =
+        this._dimCanvas ?? (this._dimCanvas = document.createElement("canvas"));
+      // Assigning width/height also clears the bitmap and resets its
+      // transform, so only touch them on a real size change.
+      if (dimCanvas.width !== this._canvas.width) {
+        dimCanvas.width = this._canvas.width;
+      }
+      if (dimCanvas.height !== this._canvas.height) {
+        dimCanvas.height = this._canvas.height;
+      }
+      const dimCtx = dimCanvas.getContext("2d");
+      if (dimCtx) {
+        dimCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        dimCtx.clearRect(0, 0, cssWidth, cssHeight);
+        dimCtx.globalAlpha = DIM_DOT_ALPHA;
+        for (let i = 0; i < coords.length; i++) {
+          const c = coords[i];
+          if (!c || shouldHide(c) || isBright(c)) continue;
+          paint(dimCtx, c);
+        }
+        ctx.globalAlpha = DIM_LAYER_ALPHA;
+        // The bitmap is already in device pixels; blit it 1:1 rather than
+        // through the dpr transform, which would scale it a second time.
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawImage(dimCanvas, 0, 0);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      } else {
+        // No 2D context for the offscreen (shouldn't happen): fall back to
+        // per-icon dimming rather than dropping the layer entirely.
+        ctx.globalAlpha = DIM_DOT_ALPHA * DIM_LAYER_ALPHA;
+        for (let i = 0; i < coords.length; i++) {
+          const c = coords[i];
+          if (!c || shouldHide(c) || isBright(c)) continue;
+          paint(ctx, c);
+        }
       }
       ctx.globalAlpha = 1;
       for (let i = 0; i < coords.length; i++) {
         const c = coords[i];
         if (!c || shouldHide(c) || !isBright(c)) continue;
-        paint(c);
+        paint(ctx, c);
       }
       return;
     }
@@ -280,7 +331,7 @@ const FindDotsLayer = L.Layer.extend({
     for (let i = 0; i < coords.length; i++) {
       const c = coords[i];
       if (!c || shouldHide(c)) continue;
-      paint(c);
+      paint(ctx, c);
     }
   },
 });
