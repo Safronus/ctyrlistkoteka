@@ -7,6 +7,50 @@ seskupené po datech. Vyčerpávající historie je v `git log` — sem patří
 jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 (pravidlo: docs / changelog / readme se drží aktuální).
 
+## 2026-09
+
+### Bezpečnostní aktualizace závislostí
+- **Next 16.3.2 → 16.3.4** zavírá dvě hlášení o neautentizovaném RCE:
+  [GHSA-p293-qw3h-jr36](https://github.com/vercel/next.js/security/advisories/GHSA-p293-qw3h-jr36)
+  (jen hosti na Windows — nás se netýká, VPS je Ubuntu) a
+  [GHSA-2xp9-vwfh-vxw4](https://github.com/vercel/next.js/security/advisories/GHSA-2xp9-vwfh-vxw4)
+  (Image Optimization API při AVIF vstupu). To druhé se týkat mohlo:
+  `next.config.ts` nemá blok `images`, takže `/_next/image` běží na výchozím
+  nastavení a je veřejně dostupné. Sbírka sama servíruje hotové WebP přes Nginx,
+  takže stojí za samostatnou úvahu, jestli ten endpoint vůbec potřebujeme mít
+  otevřený — to je ale úkol na jindy, ne součást bumpu.
+
+### Údržba závislostí
+- Bump skupiny `minor-and-patch` (12 balíčků). Kromě Nextu výše: **Prisma 7.10.0**
+  (v rámci v7, beze změny enginu — novinka `@prisma/prisma7` je jen kompatibilní
+  obal pro souběh s Prisma 8 a k ničemu nás nenutí; opravy jsou v mapování
+  PG chyb, deadlock → P2034), **sharp 0.35.4** (libvips 8.18.6, meze u resize
+  a composite), **zod 4.5.4**, **next-intl 4.14.2**, `postcss` 8.5.28,
+  `tsx` 4.23.13 a `@types/react-dom` 19.2.7.
+- Dvě věci, které typecheck nechytí, a proto stály za ruční kontrolu:
+  - **lucide-react 1.33 → 1.41** odebral ikonu `trash` ve prospěch `trash-2`.
+    V repu se používá výhradně `Trash2`, takže bez dopadu.
+  - Tentýž release **překreslil ikonu `leaf`**. Ta je v `theme-toggle.tsx` ikonou
+    motivu „Čtyřlístkové“, tedy prvek viditelný v hlavičce každé stránky.
+    Vzhled se změnil; ponecháno vědomě, ne omylem.
+  - **next-intl 4.14** má breaking poznámku k `useExtracted` a formátu `po` —
+    `useExtracted` se v repu nikde nepoužívá.
+- `sharp` se drží vzoru `as typeof import("sharp").default` (gotcha #12), patch
+  s tím nehnul.
+
+### Bump přišel se zámkem bez `overrides` a shodil deploy
+- Dependabot vygeneroval `pnpm-lock.yaml` **úplně bez sekce `overrides:`**,
+  zatímco `package.json` jich deklaruje sedm (ty z tranzitivních hlášení
+  zavřených v srpnu). `pnpm install --frozen-lockfile` tuhle kombinaci odmítá
+  s `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`, a protože `--frozen-lockfile` používá
+  jak CI job, tak krok na VPS, **deploy spadl hned v prvním jobu** a na server
+  se nedostalo nic. Produkce mezitím běžela dál na starém kódu.
+- Zámek přegenerován přes `pnpm install --no-frozen-lockfile`; `overrides:` je
+  zpátky a **žádná verze balíčku se přitom nehnula** (diff 129/125 řádků).
+- Poučení: u skupinových bumpů typu „across 1 directory“ se vyplatí kouknout,
+  jestli zámek pořád nese `overrides:` — zelené SonarCloud ani gitleaks tenhle
+  druh rozpadu nezachytí, protože se láme až na `--frozen-lockfile`.
+
 ## 2026-08
 
 ### /mapa: ztlumené nálezy se přestaly sčítat do plné barvy
