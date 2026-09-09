@@ -854,3 +854,34 @@ přiřazení `canvas.width/height` bitmapu **maže a resetuje transformaci**, ta
 na ni sahej jen při skutečné změně velikosti; a offscreen je už v device
 pixelech, takže se blituje `setTransform(1,0,0,1,0,0)`, ne přes DPR transformaci
 — jinak se zvětší podruhé.
+
+---
+
+## 28. Dependabot umí poslat zámek **bez sekce `overrides:`** → deploy padne na `--frozen-lockfile`
+
+**Co:** Skupinový bump `minor-and-patch` (PR #29, varianta „across 1 directory")
+přinesl `pnpm-lock.yaml`, ve kterém **chyběl celý blok `overrides:`**, zatímco
+`package.json` jich dál deklaroval sedm. Na PR bylo všechno zelené — SonarCloud
+prošel, gitleaks prošel, CodeQL se přeskočil — takže PR vypadal jako běžný
+bezpečný bump. Po mergi do `main` spadl **`Deploy to VPS` hned v prvním jobu**
+na `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` a na server se nedostalo nic.
+
+**Proč:** `pnpm install --frozen-lockfile` porovnává konfiguraci v zámku proti
+`package.json` a při rozdílu odmítne pokračovat — právem, jinak by tiše
+nainstaloval jiný strom, než jaký je zamčený. Kontroly na PR tenhle rozpor
+neviděly, protože žádná z nich `--frozen-lockfile` nespouští; teprve deploy
+workflow ho má na **dvou místech** (CI job i krok na VPS). Zdroj nesouladu je
+mimo repo — zámek generuje Dependabot ve svém prostředí.
+
+**Jak aplikovat:** U skupinových bumpů (hlavně těch „across 1 directory")
+zkontroluj **před mergem**, že zámek pořád nese `overrides:`:
+
+```bash
+grep -c '^overrides:' pnpm-lock.yaml   # musí být 1, dokud package.json overrides má
+```
+
+Oprava je `pnpm install --no-frozen-lockfile` + commit zámku; verze balíčků se
+přitom nehnou, mění se jen chybějící sekce. Obecněji: **zelené kontroly na PR
+neznamenají, že projde deploy** — ty dvě sady se tady liší a `--frozen-lockfile`
+je jen v té druhé. Souvisí s [#26](#26-pnpmoverrides-nesedne-na-optional-peer-závislost),
+ale je to jiná porucha: tam se override neuplatnil, tady v zámku vůbec nebyl.
