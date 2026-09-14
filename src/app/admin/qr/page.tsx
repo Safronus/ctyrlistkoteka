@@ -17,6 +17,7 @@ import type { CasqbListItem } from "./casqb-types";
 import type { FindQrInput } from "./qr-types";
 import { CASQB_DEFAULT_STYLE, parseCasqbStyle } from "@/lib/admin/casqbQr";
 import { casqbSparklines } from "@/lib/admin/casqbStats";
+import { casqbEncodedBase, casqbEncodedUrl } from "@/lib/admin/casqbEncoded";
 
 export const metadata: Metadata = {
   title: "QR kódy",
@@ -119,7 +120,7 @@ export default async function AdminQrPage({
             <Summary value={casqbScans} label="naskenování" />
           </>
         }
-        casqbPanel={<CasqbPanel items={casqbItems} />}
+        casqbPanel={<CasqbPanel items={casqbItems} encodedBase={casqbEncodedBase()} />}
         pagePanel={
           <section className="space-y-4 rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
             <p className="text-xs text-gray-600">
@@ -249,6 +250,7 @@ async function loadCasqbCodes(
     id: c.id,
     label: c.label,
     token: c.token,
+    encodedUrl: casqbEncodedUrl(c.token),
     targetUrl: c.targetUrl ?? "",
     createdAt: dateFmt.format(c.createdAt),
     archived: c.archivedAt !== null,

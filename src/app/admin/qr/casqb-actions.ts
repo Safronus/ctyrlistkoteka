@@ -12,13 +12,10 @@ import {
 } from "@/lib/admin/casqbQr";
 import { parseCasqbTargetUrl } from "@/lib/admin/casqbTarget";
 import { genQrToken } from "@/lib/admin/qrToken";
+import { casqbEncodedUrl } from "@/lib/admin/casqbEncoded";
 import { appendAudit } from "@/lib/admin/audit";
 
 import type { CasqbInput } from "./casqb-types";
-
-const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz"
-).replace(/\/$/, "");
 
 /** Six characters (57⁶ ≈ 3·10¹⁰): one QR version smaller than the page
  *  codes' eight, which matters on a business card. */
@@ -67,11 +64,7 @@ function normalizeCasqb(
 }
 
 function svgFor(style: CasqbStyle, token: string): string {
-  return renderCasqbQrSvg({
-    url: `${SITE_URL}/go/${token}`,
-    style,
-    px: SVG_PX,
-  });
+  return renderCasqbQrSvg({ url: casqbEncodedUrl(token), style, px: SVG_PX });
 }
 
 function isUniqueViolation(e: unknown): boolean {
@@ -103,7 +96,7 @@ export async function previewCasqbAction(
 
 export async function createCasqbAction(
   input: CasqbInput,
-): Promise<ActionResult<{ id: number; token: string; svg: string }>> {
+): Promise<ActionResult<{ id: number; token: string; svg: string; encodedUrl: string }>> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
   const n = normalizeCasqb(input);
   if (!n.ok) return n;
@@ -139,6 +132,7 @@ export async function createCasqbAction(
       id: created.id,
       token: created.token,
       svg: svgFor(n.value.style, created.token),
+      encodedUrl: casqbEncodedUrl(created.token),
     };
   } catch (e) {
     return {
@@ -186,7 +180,17 @@ export async function updateCasqbAction(
 /** Re-render a stored code for download. */
 export async function getCasqbSvgAction(
   id: number,
-): Promise<ActionResult<{ svg: string; token: string; label: string; style: CasqbStyle; targetUrl: string }>> {
+): Promise<
+  ActionResult<{
+    svg: string;
+    token: string;
+    label: string;
+    style: CasqbStyle;
+    targetUrl: string;
+    /** The URL inside the code — for the print-size check. */
+    encodedUrl: string;
+  }>
+> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
   const row = await prisma.qrCode.findUnique({ where: { id } });
   if (!row || row.kind !== "casqb") return { ok: false, error: "Kód nenalezen." };
@@ -198,6 +202,7 @@ export async function getCasqbSvgAction(
     label: row.label,
     style,
     targetUrl: row.targetUrl ?? "",
+    encodedUrl: casqbEncodedUrl(row.token),
   };
 }
 

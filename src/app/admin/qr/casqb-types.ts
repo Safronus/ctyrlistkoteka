@@ -14,6 +14,8 @@ export interface CasqbListItem {
   id: number;
   label: string;
   token: string;
+  /** What the code encodes (see lib/admin/casqbEncoded.ts). */
+  encodedUrl: string;
   targetUrl: string;
   createdAt: string;
   archived: boolean;

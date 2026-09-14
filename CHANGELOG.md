@@ -9,6 +9,18 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-09
 
+### CaSQB: co telefon ukáže po naskenování je nastavitelné
+- Telefon ve štítku ukazuje **zakódovanou doménu**, ne cíl — přesměrování
+  dopředu nesleduje žádný, je to ochrana proti phishingu. Aby štítek říkal
+  casqb.org, musí být v kódu doména CaSQB, která na naše `/go/<token>`
+  skočí. Nová proměnná `CASQB_QR_BASE_URL` (výchozí = náš `/go`) říká, co
+  nové kódy kódují; admin i statistiky ukazují tu skutečnou adresu.
+  Vytištěné kódy fungují dál, `/go/<token>` u nás nikdy nepřestane platit.
+- K tomu vzor `deploy/nginx-casqb-go.conf.template` pro variantu
+  „subdoména `qr.casqb.org` namířená na VPS“: obsluhuje jen `/<token>`,
+  proxyuje na `/go/<token>`, jinak 404; postup (DNS → nginx → certbot →
+  .env) je v hlavičce souboru.
+
 ### Bezpečnostní přepisy: js-yaml a mysql2
 - Zavřena tři hlášení Dependabotu, obě tranzitivní: **js-yaml** (přes
   ESLint, jen vývoj — přepis posunut na 4.3.2) a **mysql2** (vysoké +

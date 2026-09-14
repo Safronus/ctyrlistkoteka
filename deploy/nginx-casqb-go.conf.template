@@ -1,0 +1,71 @@
+# Nginx config pro qr.casqb.org — brána, aby QR kódy CaSQB ukazovaly ve
+# štítku telefonu doménu CaSQB a přitom se počítaly u nás.
+#
+# Umístění: /etc/nginx/sites-available/casqb-go
+# Symlink:  /etc/nginx/sites-enabled/casqb-go
+# Po změně: sudo nginx -t && sudo systemctl reload nginx
+#
+# Předpoklady (v tomhle pořadí):
+#   1. DNS u casqb.org:  qr  CNAME  ctyrlistkoteka.cz.   (nebo A na IP VPS)
+#      — dělá správce domény casqb.org, u nás nic.
+#   2. Tenhle soubor na VPS, symlink, `nginx -t`, reload.
+#   3. Certifikát:  sudo certbot --nginx -d qr.casqb.org
+#      (certbot doplní ssl_certificate řádky níže).
+#   4. V /var/www/ctyrlistkoteka/.env:  CASQB_QR_BASE_URL=https://qr.casqb.org
+#      a  pm2 reload ctyrlistkoteka  (source /home/app/.nvm/nvm.sh && …).
+#
+# Host obsluhuje JEN /<token> — šest znaků z abecedy tokenů — a všechno
+# ostatní vrací 404. Na tomhle jménu nemá být web, jen skok.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name qr.casqb.org;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name qr.casqb.org;
+
+    # SSL — certbot doplní při `certbot --nginx -d qr.casqb.org`:
+    # ssl_certificate /etc/letsencrypt/live/qr.casqb.org/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/qr.casqb.org/privkey.pem;
+    # include /etc/letsencrypt/options-ssl-nginx.conf;
+    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    server_tokens off;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # Nikdy neindexovat — jsou to skoky, ne stránky.
+    add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+
+    # Stejná ochrana proti floodu jako hlavní web (zóna je v http {} kontextu
+    # hlavního configu / nginx.conf).
+    limit_req zone=ctyr_main burst=20 nodelay;
+
+    # /<token>  →  aplikace /go/<token>  (token = 6 znaků, viz
+    # src/lib/admin/qrToken.ts). Aplikace sken zapíše a přesměruje na cíl.
+    location ~ "^/([A-Za-z0-9]{6})$" {
+        proxy_pass http://127.0.0.1:3000/go/$1;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Nic jiného tu není.
+    location / {
+        return 404;
+    }
+}

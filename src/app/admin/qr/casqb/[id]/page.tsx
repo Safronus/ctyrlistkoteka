@@ -15,6 +15,7 @@ import {
   type CasqbHorizon,
 } from "@/lib/admin/casqbStats";
 import { COLLECTION_TIME_ZONE } from "@/lib/collectionTime";
+import { casqbEncodedLabel, casqbEncodedUrl } from "@/lib/admin/casqbEncoded";
 import { pluralCs } from "@/lib/format";
 import { Columns } from "./columns";
 import { StatsActions } from "./stats-actions";
@@ -25,8 +26,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
-
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz").replace(/\/$/, "");
 
 const HORIZON_LABELS: Record<CasqbHorizon, string> = {
   7: "7 dní",
@@ -81,7 +80,7 @@ export default async function CasqbStatsPage({
   if (!stats) notFound();
 
   const style = parseCasqbStyle(code.style) ?? CASQB_DEFAULT_STYLE;
-  const url = `${SITE_URL}/go/${code.token}`;
+  const url = casqbEncodedUrl(code.token);
   const thumb = renderCasqbQrSvg({ url, style, px: 64 }).replace(
     /<svg([^>]*)\swidth="\d+"\sheight="\d+"/,
     '<svg$1 width="64" height="64"',
@@ -118,7 +117,7 @@ export default async function CasqbStatsPage({
               <ExternalLink className="h-3 w-3 text-gray-400" aria-hidden />
               <span className="text-gray-700">{code.targetUrl}</span>
               <span className="text-gray-400">·</span>
-              <span className="font-mono text-gray-600">/go/{code.token}</span>
+              <span className="font-mono text-gray-600">{casqbEncodedLabel(code.token)}</span>
               <span className="text-gray-400">· vytvořen {dateFmt.format(code.createdAt)}</span>
               {code.archivedAt && (
                 <span className="text-gray-400">· vyřazen {dateFmt.format(code.archivedAt)}</span>

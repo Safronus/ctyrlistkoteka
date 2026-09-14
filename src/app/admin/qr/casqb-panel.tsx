@@ -74,13 +74,6 @@ const SCALE_LABELS: Record<CasqbLogoScale, string> = { sm: "Menší", md: "Stře
  *  clear the manual's 5 mm. */
 const PDF_WIDTHS_MM = [30, 40, 50, 60, 80, 100];
 
-const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz")
-  .replace(/^https?:\/\//, "")
-  .replace(/\/$/, "");
-/** Mirrors the preview token length in casqb-actions — only for the
- *  caption under the preview. */
-const PREVIEW_URL = `${SITE_HOST}/go/xxxxxx`;
-
 interface FormState {
   label: string;
   targetUrl: string;
@@ -93,14 +86,23 @@ const EMPTY_FORM: FormState = {
   style: CASQB_DEFAULT_STYLE,
 };
 
-export function CasqbPanel({ items }: { items: CasqbListItem[] }) {
+export function CasqbPanel({
+  items,
+  encodedBase,
+}: {
+  items: CasqbListItem[];
+  /** Prefix the codes encode, e.g. `https://ctyrlistkoteka.cz/go` — the
+   *  server decides (lib/admin/casqbEncoded.ts); the client only shows it. */
+  encodedBase: string;
+}) {
+  const encodedHost = encodedBase.replace(/^https:\/\//, "");
   const router = useRouter();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{ id: number; token: string; svg: string } | null>(null);
+  const [created, setCreated] = useState<{ id: number; token: string; svg: string; encodedUrl: string } | null>(null);
   const [busy, startBusy] = useTransition();
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -138,7 +140,7 @@ export function CasqbPanel({ items }: { items: CasqbListItem[] }) {
           setError(r.error);
           return;
         }
-        setCreated({ id: r.id, token: r.token, svg: r.svg });
+        setCreated({ id: r.id, token: r.token, svg: r.svg, encodedUrl: r.encodedUrl });
         setForm((f) => ({ ...f, label: "" }));
       } else {
         const r = await updateCasqbAction(editingId, form);
@@ -198,8 +200,9 @@ export function CasqbPanel({ items }: { items: CasqbListItem[] }) {
     <div className="space-y-6" ref={topRef}>
       <section className="space-y-4 rounded-xl border border-[#FAC1BC] bg-[#FBDFDB]/30 p-4 sm:p-5">
         <p className="text-xs text-gray-600">
-          Kód pro <strong>Czech and Slovak Quality Board</strong>. Vede přes{" "}
-          <span className="font-mono">/go/&lt;token&gt;</span>, aby šlo počítat
+          Kód pro <strong>Czech and Slovak Quality Board</strong>. Kóduje{" "}
+          <span className="font-mono">{encodedHost}/&lt;token&gt;</span> — to je
+          adresa, kterou telefon ukáže po naskenování —, aby šlo počítat
           naskenování, a hned přesměruje na zadanou adresu — s{" "}
           <span className="font-mono">utm_source=qr</span>, takže si ho analytika
           cílového webu spočítá taky. Vzhled podle design manuálu: barvy z palety,
@@ -393,7 +396,7 @@ export function CasqbPanel({ items }: { items: CasqbListItem[] }) {
               )}
               <div className="text-center">
                 <p className="font-mono text-xs text-gray-600">
-                  {created ? `${SITE_HOST}/go/${created.token}` : PREVIEW_URL}
+                  {created ? created.encodedUrl.replace(/^https:\/\//, "") : `${encodedHost}/xxxxxx`}
                 </p>
                 <p className="truncate text-xs text-gray-500">→ {form.targetUrl || "…"}</p>
               </div>
@@ -420,7 +423,7 @@ export function CasqbPanel({ items }: { items: CasqbListItem[] }) {
                     svg={created.svg}
                     token={created.token}
                     style={form.style}
-                    url={`https://${SITE_HOST}/go/${created.token}`}
+                    url={created.encodedUrl}
                   />
                 </div>
               </div>
@@ -746,7 +749,7 @@ function CodeRow({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [thumb, setThumb] = useState<string | null>(null);
-  const url = `https://${SITE_HOST}/go/${item.token}`;
+  const url = item.encodedUrl;
 
   const load = async () => {
     const r = await getCasqbSvgAction(item.id);
@@ -812,7 +815,7 @@ function CodeRow({
             <ExternalLink className="h-3 w-3 text-gray-400" aria-hidden />
             <span className="text-gray-700">{item.targetUrl}</span>
             <span className="text-gray-400">·</span>
-            <span className="font-mono text-gray-600">/go/{item.token}</span>
+            <span className="font-mono text-gray-600">{item.encodedUrl.replace(/^https:\/\//, "")}</span>
             <span className="text-gray-400">· {item.createdAt}</span>
           </p>
         </div>
