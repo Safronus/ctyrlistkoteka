@@ -35,7 +35,7 @@
     "githubAria": "Zdrojový kód aplikace na GitHubu",
     "githubTitle": "Zdrojový kód na GitHubu",
     "commitCountTitle": "Číslo buildu (počet commitů)",
-    "abuseipdbCount": "Počet IP reportováno: {count, number}",
+    "abuseipdbCount": "IP: {count, number}",
     "abuseipdbTitle": "Útočné IP z našich logů nahlášené do databáze AbuseIPDB",
     "claudeTitle": "Claude od Anthropic",
     "claudeCodeTitle": "Claude Code",

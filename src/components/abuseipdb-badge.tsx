@@ -7,7 +7,9 @@ import {
 
 /**
  * Footer item crediting the site's AbuseIPDB contributions:
- * "AbuseIPDB · Počet IP reportováno: {N}", linking the contributor profile.
+ * "AbuseIPDB · IP: {N}", linking the contributor profile. Kept that terse
+ * on purpose: the footer is one line, and the longer wording pushed the
+ * visitor counter onto a second one. The tooltip carries the explanation.
  *
  * Rendered SYNCHRONOUSLY (no Suspense): the site's strict nonce-CSP stops
  * Next's streaming Suspense-reveal from completing, so a boundary here would

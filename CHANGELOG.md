@@ -9,6 +9,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-09
 
+### Patička: kratší odznak AbuseIPDB
+- „Počet IP reportováno: 10 140“ → **„IP: 10 140“** (anglicky „IPs: …“).
+  Delší text posílal počítadlo návštěv na druhý řádek i na širokém monitoru;
+  vysvětlení zůstává v tooltipu.
+
 ### pnpm: přepisy do `pnpm-workspace.yaml` a 24h karence nových verzí
 - Všechny běhy „Dependabot Updates“ padaly. Příčina v logu: Dependabot ověřuje
   zámek proti **24h karenci** nových verzí a dnešní přepis `mysql2` přitáhl
