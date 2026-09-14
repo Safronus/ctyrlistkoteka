@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-09
 
+### Bezpečnostní přepisy: js-yaml a mysql2
+- Zavřena tři hlášení Dependabotu, obě tranzitivní: **js-yaml** (přes
+  ESLint, jen vývoj — přepis posunut na 4.3.2) a **mysql2** (vysoké +
+  střední; Prisma ho nese napevno 3.15.3 jako MySQL driver, který se
+  s Postgresem nikdy nenačte — přepis na ^3.24.4). Ověřeno: `prisma
+  validate` i `generate` projdou, lint a testy beze změny.
+
 ### /admin/qr: záložka CaSQB — QR kódy na libovolnou adresu ve firemních barvách
 - Čtvrtá záložka pro **Czech and Slovak Quality Board**: kód míří na
   libovolnou https adresu (typicky casqb.org), ale kóduje `/go/<token>` — jen
