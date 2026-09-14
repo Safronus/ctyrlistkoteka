@@ -120,7 +120,9 @@ export default async function AdminQrPage({
             <Summary value={casqbScans} label="naskenování" />
           </>
         }
-        casqbPanel={<CasqbPanel items={casqbItems} encodedBase={casqbEncodedBase()} />}
+        casqbPanel={
+          <CasqbPanel items={casqbItems} encodedBase={casqbEncodedBase()} last={prefs.casqb} />
+        }
         pagePanel={
           <section className="space-y-4 rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
             <p className="text-xs text-gray-600">

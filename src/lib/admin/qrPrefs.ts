@@ -2,6 +2,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { atomicWrite, ensureDir } from "./atomic";
 import { ADMIN_ROOTS } from "./paths";
+import { parseCasqbStyle, type CasqbStyle } from "./casqbQr";
+import { parseCasqbTargetUrl } from "./casqbTarget";
 
 /**
  * Operator preferences for the QR admin page: the screen calibration and
@@ -75,6 +77,26 @@ export interface QrPrefs {
   sizeCm: number;
   /** Last-used find-QR form setup. */
   form: FindQrFormPrefs;
+  /** Last-used CaSQB setup (destination + look), so the next code starts
+   *  where the previous one ended. Null until one was saved. */
+  casqb: CasqbLastPrefs | null;
+}
+
+export interface CasqbLastPrefs {
+  targetUrl: string;
+  style: CasqbStyle;
+}
+
+/** Both halves validated the same way the actions validate them — a
+ *  hand-edited or stale file must never seed the form with something
+ *  the save would then refuse. */
+function coerceCasqb(raw: unknown): CasqbLastPrefs | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const style = parseCasqbStyle(obj.style);
+  const target = parseCasqbTargetUrl(obj.targetUrl);
+  if (!style || !target.ok) return null;
+  return { targetUrl: target.url, style };
 }
 
 /** Which values each form key may take. Anything else in the file is
@@ -113,6 +135,7 @@ export async function readQrPrefs(): Promise<QrPrefs> {
     calibrated: false,
     sizeCm: DEFAULT_SIZE_CM,
     form: defaultForm(),
+    casqb: null,
   };
 
   let raw: string;
@@ -145,6 +168,7 @@ export async function readQrPrefs(): Promise<QrPrefs> {
         ? size
         : DEFAULT_SIZE_CM,
     form: coerceForm(parsed.form),
+    casqb: coerceCasqb(parsed.casqb),
   };
 }
 
@@ -156,6 +180,7 @@ async function patchPrefs(patch: Record<string, unknown>): Promise<void> {
     ...(current.calibrated ? { pxPerCm: current.pxPerCm } : {}),
     sizeCm: current.sizeCm,
     form: current.form,
+    ...(current.casqb ? { casqb: current.casqb } : {}),
     ...patch,
   };
   await ensureDir(ADMIN_DIR);
@@ -198,4 +223,9 @@ export async function writeFindQrFormPrefs(
  *  is a property of the monitor, not of a print job). */
 export async function resetFindQrFormPrefs(): Promise<void> {
   await patchPrefs({ sizeCm: DEFAULT_SIZE_CM, form: defaultForm() });
+}
+
+/** Remembers the CaSQB destination and look after every save. */
+export async function writeCasqbPrefs(last: CasqbLastPrefs): Promise<void> {
+  await patchPrefs({ casqb: last });
 }

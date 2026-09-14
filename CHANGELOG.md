@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-09
 
+### CaSQB: čitelnost soudí čtečka, riskantní kombinace jdou uložit, nastavení se pamatuje
+- Majitel chtěl tmavé tečky s červenými zornicemi na Quality Blue a formulář
+  to odmítal kvůli 2,5 : 1 u zornice. Změřeno: poměr kontrastu čtení
+  nepředpovídá — ta červená sedí přesně na prahu šedi dekodéru (`jsqr` ji
+  přečte ve 3 ze 4 velikostí), zatímco šedá zornice 3,4 : 1 na bílé nepřečte
+  vůbec. Proto teď **každý náhled projde skutečnou čtečkou** ve čtyřech
+  velikostech: nepřečtené nikde se neuloží, přečtené jen někde jde uložit
+  tlačítkem *Vytvořit i tak* s jasným varováním a výzvou vyzkoušet na
+  telefonu. Tvrdě se blokují jen moduly a rámečky očí pod 3 : 1.
+- **Poslední nastavení** (cíl + styl) se ukládá na serveru do `qr-prefs.json`
+  a formulář jím po obnovení začíná; popisek se maže, ostatní zůstává.
+- `jsqr` se tím stává běžnou závislostí (dřív jen v testech).
+
 ### CaSQB: co telefon ukáže po naskenování je nastavitelné
 - Telefon ve štítku ukazuje **zakódovanou doménu**, ne cíl — přesměrování
   dopředu nesleduje žádný, je to ochrana proti phishingu. Aby štítek říkal

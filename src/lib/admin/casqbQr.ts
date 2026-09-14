@@ -176,36 +176,53 @@ export function casqbLogoFill(bg: string): string {
   return luminance(bg) >= 0.4 ? CASQB_QUALITY_RED : CASQB_WHITE;
 }
 
-/** Human-readable reasons a style must not be saved. Empty = fine. */
-export function casqbStyleProblems(style: CasqbStyle): string[] {
+const fmtRatio = (n: number) => n.toFixed(1).replace(".", ",");
+
+/**
+ * Reasons a style must not be saved — the data itself would be
+ * unreadable. Deliberately only the two colour pairs a decoder cannot do
+ * without: modules against the ground, and the finder ring against the
+ * ground. Everything subtler goes to `casqbStyleWarnings`, and the real
+ * verdict comes from running a decoder (`casqbDecodeCheck`).
+ */
+export function casqbStyleBlockers(style: CasqbStyle): string[] {
   const out: string[] = [];
-  const fmt = (n: number) => n.toFixed(1).replace(".", ",");
   const fg = contrastRatio(style.fg, style.bg);
   if (fg < CASQB_MIN_CONTRAST) {
     out.push(
-      `Moduly a pozadí mají kontrast ${fmt(fg)} : 1 — čtečka potřebuje aspoň ${CASQB_MIN_CONTRAST} : 1.`,
+      `Moduly a pozadí mají kontrast ${fmtRatio(fg)} : 1 — čtečka potřebuje aspoň ${CASQB_MIN_CONTRAST} : 1.`,
     );
   }
   const eye = contrastRatio(style.eyeOuter, style.bg);
   if (eye < CASQB_MIN_CONTRAST) {
-    out.push(`Oči a pozadí mají kontrast ${fmt(eye)} : 1 — pod ${CASQB_MIN_CONTRAST} : 1.`);
-  }
-  const inner = contrastRatio(style.eyeInner, style.bg);
-  if (inner < CASQB_MIN_CONTRAST) {
-    out.push(
-      `Zornice očí a pozadí mají kontrast ${fmt(inner)} : 1 — pod ${CASQB_MIN_CONTRAST} : 1.`,
-    );
+    out.push(`Rámečky očí a pozadí mají kontrast ${fmtRatio(eye)} : 1 — pod ${CASQB_MIN_CONTRAST} : 1.`);
   }
   if (style.logo === "custom" && !style.custom) {
     out.push("Vlastní logo je zvolené, ale žádný obrázek není nahraný.");
   }
-  // The manual's red logo on a red ground would vanish; the fill rule
-  // above flips to white there, but a mid-tone ground defeats both.
+  return out;
+}
+
+/**
+ * Things worth saying that do not by themselves stop a save: a pupil
+ * near the decoder's threshold (some readers will miss the finder), and
+ * a logo that will be hard to see. The pupil case is exactly the one the
+ * owner wanted allowed — red pupils on the manual's light blue — so it
+ * warns, and the decoder check says how risky it really is.
+ */
+export function casqbStyleWarnings(style: CasqbStyle): string[] {
+  const out: string[] = [];
+  const inner = contrastRatio(style.eyeInner, style.bg);
+  if (inner < CASQB_MIN_CONTRAST) {
+    out.push(
+      `Zornice očí mají k pozadí jen ${fmtRatio(inner)} : 1 — část čteček je nemusí najít; před tiskem vyzkoušej na telefonu.`,
+    );
+  }
   if (style.logo === "symbol" || style.logo === "wordmark") {
     const c = contrastRatio(casqbLogoFill(style.bg), style.bg);
     if (c < CASQB_MIN_CONTRAST) {
       out.push(
-        `Logo by na tomhle pozadí mělo kontrast jen ${fmt(c)} : 1 — zvol světlejší nebo tmavší pozadí.`,
+        `Logo bude na tomhle pozadí málo vidět (${fmtRatio(c)} : 1). Čtení to neovlivní.`,
       );
     }
   }

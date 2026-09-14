@@ -9,7 +9,8 @@ import {
   casqbLogoBox,
   casqbLogoFill,
   casqbLogoHeightMm,
-  casqbStyleProblems,
+  casqbStyleBlockers,
+  casqbStyleWarnings,
   contrastRatio,
   moduleCountFor,
   parseCasqbStyle,
@@ -123,12 +124,26 @@ describe("colour rules", () => {
     expect(contrastRatio(CASQB_QUALITY_BLUE, CASQB_WHITE)).toBeLessThan(1.6);
   });
 
-  it("refuses an unreadable pair and a custom logo without an image", () => {
-    expect(casqbStyleProblems(CASQB_DEFAULT_STYLE)).toEqual([]);
-    expect(casqbStyleProblems({ ...CASQB_DEFAULT_STYLE, fg: CASQB_QUALITY_BLUE })).toHaveLength(1);
-    expect(casqbStyleProblems({ ...CASQB_DEFAULT_STYLE, logo: "custom" })).toHaveLength(1);
-    // A mid-tone ground defeats both official logo variants.
-    expect(casqbStyleProblems({ ...CASQB_DEFAULT_STYLE, fg: CASQB_WHITE, eyeOuter: CASQB_WHITE, eyeInner: CASQB_WHITE, bg: "#76A5BB" }).join(" ")).toMatch(/Logo/);
+  it("blocks an unreadable pair and a custom logo without an image", () => {
+    expect(casqbStyleBlockers(CASQB_DEFAULT_STYLE)).toEqual([]);
+    expect(casqbStyleBlockers({ ...CASQB_DEFAULT_STYLE, fg: CASQB_QUALITY_BLUE })).toHaveLength(1);
+    expect(casqbStyleBlockers({ ...CASQB_DEFAULT_STYLE, logo: "custom" })).toHaveLength(1);
+  });
+
+  it("only warns about a low-contrast pupil or logo — the owner's blue-and-red case", () => {
+    const blueRed: CasqbStyle = {
+      ...CASQB_DEFAULT_STYLE,
+      modules: "dot",
+      fg: "#151C1F",
+      eyeOuter: "#151C1F",
+      eyeInner: CASQB_QUALITY_RED,
+      bg: CASQB_QUALITY_BLUE,
+    };
+    expect(casqbStyleBlockers(blueRed)).toEqual([]);
+    expect(casqbStyleWarnings(blueRed).join(" ")).toMatch(/Zornice/);
+    // A mid-tone ground defeats both official logo variants — visually only.
+    expect(casqbStyleWarnings({ ...CASQB_DEFAULT_STYLE, fg: CASQB_WHITE, eyeOuter: CASQB_WHITE, eyeInner: CASQB_WHITE, bg: "#76A5BB" }).join(" ")).toMatch(/Logo/);
+    expect(casqbStyleWarnings(CASQB_DEFAULT_STYLE)).toEqual([]);
   });
 });
 

@@ -5,11 +5,15 @@ import { requireAuth, getRequestIp } from "@/lib/admin/session";
 import { prisma } from "@/lib/db";
 import {
   CASQB_DEFAULT_STYLE,
-  casqbStyleProblems,
+  casqbStyleBlockers,
+  casqbStyleWarnings,
+  moduleCountFor,
   parseCasqbStyle,
   renderCasqbQrSvg,
   type CasqbStyle,
 } from "@/lib/admin/casqbQr";
+import { casqbDecodeCheck, type CasqbDecodeResult } from "@/lib/admin/casqbDecode";
+import { writeCasqbPrefs } from "@/lib/admin/qrPrefs";
 import { parseCasqbTargetUrl } from "@/lib/admin/casqbTarget";
 import { genQrToken } from "@/lib/admin/qrToken";
 import { casqbEncodedUrl } from "@/lib/admin/casqbEncoded";
@@ -44,12 +48,16 @@ interface NormalizedCasqb {
   style: CasqbStyle;
 }
 
-/** Everything the client sent, coerced or refused. The style goes
- *  through the schema and then the readability rules — a code that
- *  cannot be scanned is refused here, not discovered at the printer. */
-function normalizeCasqb(
+/**
+ * Everything the client sent, coerced or refused. The style goes through
+ * the schema, the hard colour rules, and then a real decoder: a code no
+ * decoder reads at any size is refused here, not discovered at the
+ * printer. A code that reads at some sizes is allowed — the owner asked
+ * for that — and the preview has already said so in amber.
+ */
+async function normalizeCasqb(
   input: CasqbInput,
-): { ok: true; value: NormalizedCasqb } | { ok: false; error: string } {
+): Promise<{ ok: true; value: NormalizedCasqb } | { ok: false; error: string }> {
   const label = String(input.label ?? "")
     .trim()
     .slice(0, 200);
@@ -58,9 +66,20 @@ function normalizeCasqb(
   if (!target.ok) return target;
   const style = parseCasqbStyle({ ...CASQB_DEFAULT_STYLE, ...(input.style ?? {}) });
   if (!style) return { ok: false, error: "Styl kódu je neplatný." };
-  const problems = casqbStyleProblems(style);
-  if (problems.length > 0) return { ok: false, error: problems.join(" ") };
+  const blockers = casqbStyleBlockers(style);
+  if (blockers.length > 0) return { ok: false, error: blockers.join(" ") };
+  const decode = await decodeCheckFor(style);
+  if (decode.verdict === "fail") {
+    return { ok: false, error: "Tuhle kombinaci čtečka nepřečetla v žádné velikosti — kód by byl slepý." };
+  }
   return { ok: true, value: { label, targetUrl: target.url, style } };
+}
+
+/** Runs the decoder on a preview-length URL — the same matrix size a
+ *  real token gives, so the verdict transfers. */
+function decodeCheckFor(style: CasqbStyle): Promise<CasqbDecodeResult> {
+  const url = casqbEncodedUrl(PREVIEW_TOKEN);
+  return casqbDecodeCheck(renderCasqbQrSvg({ url, style, px: 400 }), url, moduleCountFor(url));
 }
 
 function svgFor(style: CasqbStyle, token: string): string {
@@ -78,19 +97,34 @@ function isUniqueViolation(e: unknown): boolean {
 /** Live preview. The style is validated but a missing label or URL is
  *  fine here — the preview should follow the picker, not wait for the
  *  form to be complete. */
-export async function previewCasqbAction(
-  style: unknown,
-): Promise<ActionResult<{ svg: string; problems: string[] }>> {
+export async function previewCasqbAction(style: unknown): Promise<
+  ActionResult<{
+    svg: string;
+    /** Stops the save. */
+    blockers: string[];
+    /** Worth knowing; the save goes ahead. */
+    warnings: string[];
+    /** What a real decoder made of it. */
+    decode: CasqbDecodeResult;
+  }>
+> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
   const parsed = parseCasqbStyle({
     ...CASQB_DEFAULT_STYLE,
     ...((style ?? {}) as object),
   });
   if (!parsed) return { ok: false, error: "Styl kódu je neplatný." };
+  const blockers = casqbStyleBlockers(parsed);
+  const decode = await decodeCheckFor(parsed);
+  if (decode.verdict === "fail") {
+    blockers.push("Čtečka tuhle kombinaci nepřečetla v žádné velikosti.");
+  }
   return {
     ok: true,
     svg: svgFor(parsed, PREVIEW_TOKEN),
-    problems: casqbStyleProblems(parsed),
+    blockers,
+    warnings: casqbStyleWarnings(parsed),
+    decode,
   };
 }
 
@@ -98,7 +132,7 @@ export async function createCasqbAction(
   input: CasqbInput,
 ): Promise<ActionResult<{ id: number; token: string; svg: string; encodedUrl: string }>> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
-  const n = normalizeCasqb(input);
+  const n = await normalizeCasqb(input);
   if (!n.ok) return n;
   try {
     let created: { id: number; token: string } | null = null;
@@ -121,6 +155,7 @@ export async function createCasqbAction(
       }
     }
     if (!created) return { ok: false, error: "Nepodařilo se vytvořit token." };
+    await writeCasqbPrefs({ targetUrl: n.value.targetUrl, style: n.value.style });
     await appendAudit({
       action: "casqb.create",
       ip: await getRequestIp(),
@@ -149,7 +184,7 @@ export async function updateCasqbAction(
   input: CasqbInput,
 ): Promise<ActionResult<{ svg: string }>> {
   if (!(await auth())) return { ok: false, error: "Neautentizováno" };
-  const n = normalizeCasqb(input);
+  const n = await normalizeCasqb(input);
   if (!n.ok) return n;
   try {
     const row = await prisma.qrCode.update({
@@ -161,6 +196,7 @@ export async function updateCasqbAction(
       },
       select: { token: true },
     });
+    await writeCasqbPrefs({ targetUrl: n.value.targetUrl, style: n.value.style });
     await appendAudit({
       action: "casqb.update",
       ip: await getRequestIp(),

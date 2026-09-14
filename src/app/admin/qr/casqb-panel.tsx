@@ -89,18 +89,27 @@ const EMPTY_FORM: FormState = {
 export function CasqbPanel({
   items,
   encodedBase,
+  last,
 }: {
   items: CasqbListItem[];
   /** Prefix the codes encode, e.g. `https://ctyrlistkoteka.cz/go` — the
    *  server decides (lib/admin/casqbEncoded.ts); the client only shows it. */
   encodedBase: string;
+  /** The destination and look of the last saved code (server-side prefs),
+   *  so the form opens where the previous one ended. */
+  last: { targetUrl: string; style: CasqbStyle } | null;
 }) {
   const encodedHost = encodedBase.replace(/^https:\/\//, "");
+  const startForm: FormState = last
+    ? { label: "", targetUrl: last.targetUrl, style: last.style }
+    : EMPTY_FORM;
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [form, setForm] = useState<FormState>(startForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [problems, setProblems] = useState<string[]>([]);
+  const [blockers, setBlockers] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [decode, setDecode] = useState<{ verdict: "ok" | "risky" | "fail"; okCount: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: number; token: string; svg: string; encodedUrl: string } | null>(null);
   const [busy, startBusy] = useTransition();
@@ -120,9 +129,15 @@ export function CasqbPanel({
       if (cancelled) return;
       if (r.ok) {
         setPreview(r.svg);
-        setProblems(r.problems);
+        setBlockers(r.blockers);
+        setWarnings(r.warnings);
+        setDecode({
+          verdict: r.decode.verdict,
+          okCount: r.decode.sizes.filter((s) => s.ok).length,
+          total: r.decode.sizes.length,
+        });
       } else {
-        setProblems([r.error]);
+        setBlockers([r.error]);
       }
     }, 200);
     return () => {
@@ -141,6 +156,8 @@ export function CasqbPanel({
           return;
         }
         setCreated({ id: r.id, token: r.token, svg: r.svg, encodedUrl: r.encodedUrl });
+        // Label cleared for the next code; destination and look stay —
+        // the server remembers them too, so a reload starts the same way.
         setForm((f) => ({ ...f, label: "" }));
       } else {
         const r = await updateCasqbAction(editingId, form);
@@ -149,7 +166,7 @@ export function CasqbPanel({
           return;
         }
         setEditingId(null);
-        setForm(EMPTY_FORM);
+        setForm((f) => ({ ...f, label: "" }));
       }
       router.refresh();
     });
@@ -165,7 +182,7 @@ export function CasqbPanel({
 
   const cancelEdit = () => {
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    setForm(startForm);
     setError(null);
   };
 
@@ -345,9 +362,25 @@ export function CasqbPanel({
               </div>
             </Field>
 
-            {problems.length > 0 && (
+            {blockers.length > 0 && (
+              <p className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800">
+                {blockers.join(" ")}
+              </p>
+            )}
+            {blockers.length === 0 && (warnings.length > 0 || decode?.verdict === "risky") && (
               <p className="rounded border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900">
-                {problems.join(" ")}
+                {decode?.verdict === "risky" && (
+                  <>
+                    <strong>Čtečka přečetla {decode.okCount} ze {decode.total} velikostí</strong> — kód
+                    jde uložit, ale před tiskem ho vyzkoušej na telefonu, ideálně na dvou.{" "}
+                  </>
+                )}
+                {warnings.join(" ")}
+              </p>
+            )}
+            {blockers.length === 0 && warnings.length === 0 && decode?.verdict === "ok" && (
+              <p className="text-xs text-brand-800">
+                Čtečka přečetla všechny {decode.total} zkoušené velikosti.
               </p>
             )}
             {error && (
@@ -360,7 +393,7 @@ export function CasqbPanel({
               <button
                 type="button"
                 onClick={onSubmit}
-                disabled={busy || !form.label.trim() || problems.length > 0}
+                disabled={busy || !form.label.trim() || blockers.length > 0}
                 className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-800 transition hover:border-brand-400 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy ? (
@@ -370,7 +403,13 @@ export function CasqbPanel({
                 ) : (
                   <Plus className="h-4 w-4" aria-hidden />
                 )}
-                {editingId !== null ? "Uložit změny" : "Vytvořit QR kód"}
+                {editingId !== null
+                  ? decode?.verdict === "risky"
+                    ? "Uložit i tak"
+                    : "Uložit změny"
+                  : decode?.verdict === "risky"
+                    ? "Vytvořit i tak"
+                    : "Vytvořit QR kód"}
               </button>
               {editingId === null && (
                 <span className="text-xs text-gray-500">
