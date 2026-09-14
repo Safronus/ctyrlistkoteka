@@ -9,6 +9,41 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-09
 
+### /admin/qr: záložka CaSQB — QR kódy na libovolnou adresu ve firemních barvách
+- Čtvrtá záložka pro **Czech and Slovak Quality Board**: kód míří na
+  libovolnou https adresu (typicky casqb.org), ale kóduje `/go/<token>` — jen
+  tak jde naskenování spočítat — a teprve redirect pošle dál s
+  `utm_source=qr&utm_medium=casqb&utm_campaign=<popisek>`. Adresa i vzhled se
+  dají kdykoli změnit **bez přetisku**, token zůstává. V panelu je návod, kde
+  to v GA4 / Plausible / Matomo najít.
+- **Vzhled podle design manuálu** (casqb.visualbook.pro): barvy z palety
+  1 : 1, tvar modulů (čtverec, zaoblený, tečky, plynulý), tvar očí, a
+  uprostřed **oficiální logo** — symbol Q nebo základní logo jako vektor
+  zkopírovaný ze stažených SVG, nikdy překreslený ani přebarvený (červené na
+  světlém, bílé na tmavém — dvě varianty, které manuál vydává). Otvor v kódu
+  se počítá z ochranné zóny manuálu (25 % u symbolu, 40 % u loga) a export do
+  PDF odmítne šířku, při které by logo kleslo pod 5 mm. Vlastní obrázek jde
+  nahrát (SVG/PNG); na serveru se vždy přerastruje na PNG, takže do
+  stahovatelného SVG nic spustitelného nevleze.
+- **Čitelnost se hlídá, ne doufá**: kontrast pod 3 : 1 se neuloží, korekce
+  chyb je vždy H a testy každou předvolbu i každý tvar dekódují (`jsqr`), na
+  velkém obrázku i na třech pixelech na modul. Quality Blue je proto jen
+  pozadí — na bílé má 1,5 : 1.
+- **Export**: SVG, PNG 2048 px, **vektorové PDF** se stránkou přesně na kód
+  (`svg2pdf.js`, křivky místo obrázku — tiskárna dostane artwork) a rastrový
+  A4 arch jako u ostatních kódů.
+- **Statistiky** z pouhého času skenu: celkem, horizont 7/30/90/365 dní,
+  skeny po dnech, denní doba, den v týdnu, nejsilnější den, CSV. Nic
+  jiného se neukládá — žádná IP, zařízení ani jazyk, a proto ani „unikátní
+  návštěvníci“: bez otisku zařízení se nepoznají a otisk je osobní údaj.
+- **Vyřazený kód dál přesměrovává** (vizitka na stole žije i za rok), jen se
+  nepočítá mezi aktivní; skeny po vyřazení se ukazují zvlášť. Vynulování maže
+  log skenů, smazání i kód.
+- Kódy stránek a CaSQB sdílí tabulku `qr_codes` (`kind`, `target_url`,
+  `style`) i generátor tokenů (`lib/admin/qrToken.ts`, dřív dvakrát
+  opsaný). CaSQB tokeny mají 6 znaků — o jednu verzi QR menší, což se na
+  vizitce pozná.
+
 ### Bezpečnostní aktualizace závislostí
 - **Next 16.3.2 → 16.3.4** zavírá dvě hlášení o neautentizovaném RCE:
   [GHSA-p293-qw3h-jr36](https://github.com/vercel/next.js/security/advisories/GHSA-p293-qw3h-jr36)

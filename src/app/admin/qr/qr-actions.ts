@@ -1,6 +1,5 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/admin/session";
 import { prisma } from "@/lib/db";
@@ -20,16 +19,12 @@ import {
 import { centerFitsDensity } from "@/lib/admin/qrDensity";
 import { QR_TARGET_KEYS, qrTargetUrl } from "@/lib/admin/qrTargets";
 import { siteName } from "@/lib/siteName";
+import { genQrToken } from "@/lib/admin/qrToken";
 import type { QrInput } from "./qr-types";
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz"
 ).replace(/\/$/, "");
-
-// Unambiguous alphabet (no 0/O/1/l/I) — tokens occasionally get read by
-// a human off the URL, and we never want a typo'd collision.
-const TOKEN_ALPHABET =
-  "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
 
 // QrInput (the raw option bag from the client) lives in ./qr-types — a
 // "use server" module may only export async functions. Everything is
@@ -147,15 +142,6 @@ function isUniqueViolation(e: unknown): boolean {
   );
 }
 
-function genToken(len = 8): string {
-  const bytes = randomBytes(len);
-  let s = "";
-  for (let i = 0; i < len; i++) {
-    s += TOKEN_ALPHABET[bytes[i]! % TOKEN_ALPHABET.length];
-  }
-  return s;
-}
-
 type ActionResult<T> = (T & { ok: true }) | { ok: false; error: string };
 
 async function auth(): Promise<boolean> {
@@ -196,7 +182,7 @@ export async function createQrAction(
   try {
     let created: { id: number; token: string } | null = null;
     for (let i = 0; i < 5 && !created; i++) {
-      const token = genToken(8);
+      const token = genQrToken(8);
       try {
         const row = await prisma.qrCode.create({
           data: {

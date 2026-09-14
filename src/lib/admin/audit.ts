@@ -26,6 +26,12 @@ export type AuditAction =
   | "qr.revoke"
   | "qr.scans_reset"
   | "qr.scans_paused"
+  | "casqb.create"
+  | "casqb.update"
+  | "casqb.retire"
+  | "casqb.restore"
+  | "casqb.scans_reset"
+  | "casqb.delete"
   | "collage.run"
   | "settings.update";
 

@@ -12,7 +12,11 @@ import { FindQrSection } from "./find-qr-section";
 import { type FindQrListItem } from "./find-qr-list";
 import { QrTabs } from "./qr-tabs";
 import { DropsPanel } from "./drops-panel";
+import { CasqbPanel } from "./casqb-panel";
+import type { CasqbListItem } from "./casqb-types";
 import type { FindQrInput } from "./qr-types";
+import { CASQB_DEFAULT_STYLE, parseCasqbStyle } from "@/lib/admin/casqbQr";
+import { casqbSparklines } from "@/lib/admin/casqbStats";
 
 export const metadata: Metadata = {
   title: "QR kódy",
@@ -38,12 +42,15 @@ export default async function AdminQrPage({
   const since7 = new Date(now - 7 * DAY_MS);
   const since30 = new Date(now - 30 * DAY_MS);
 
-  const [pageItems, findItems, prefs, dropCount] = await Promise.all([
+  const [pageItems, findItems, prefs, dropCount, casqbItems] = await Promise.all([
     loadPageCodes(since7, since30),
     loadFindCodes(since7, since30),
     readQrPrefs(),
     prisma.dropItem.count(),
+    loadCasqbCodes(since7, since30),
   ]);
+  const casqbScans = casqbItems.reduce((s, c) => s + c.scansTotal, 0);
+  const casqbActive = casqbItems.filter((c) => !c.archived).length;
 
   const findScans = findItems.reduce((s, c) => s + c.scansTotal, 0);
   const findActive = findItems.filter((c) => !c.revoked).length;
@@ -58,8 +65,9 @@ export default async function AdminQrPage({
           QR kódy sbírky
         </h1>
         <p className="mt-0.5 text-sm text-gray-500">
-          Dvě nezávislé sady: kódy na jednotlivé nálezy a kódy na veřejné
-          stránky. Obě se dají trackovat.
+          Nezávislé sady: kódy na jednotlivé nálezy, na veřejné stránky,
+          kartičky do světa — a CaSQB, kódy na libovolnou adresu ve firemních
+          barvách. Všechny se dají trackovat.
         </p>
       </header>
 
@@ -104,6 +112,14 @@ export default async function AdminQrPage({
         }
         dropLabel={`Darování ve světě (${dropCount.toLocaleString("cs-CZ")})`}
         dropPanel={<DropsPanel />}
+        casqbLabel={`CaSQB (${casqbItems.length.toLocaleString("cs-CZ")})`}
+        casqbSummary={
+          <>
+            <Summary value={casqbActive} label="aktivních QR" />
+            <Summary value={casqbScans} label="naskenování" />
+          </>
+        }
+        casqbPanel={<CasqbPanel items={casqbItems} />}
         pagePanel={
           <section className="space-y-4 rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
             <p className="text-xs text-gray-600">
@@ -155,6 +171,7 @@ async function loadPageCodes(
   since30: Date,
 ): Promise<QrListItem[]> {
   const codes = await prisma.qrCode.findMany({
+    where: { kind: "page" },
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { scans: true } } },
   });
@@ -184,6 +201,63 @@ async function loadPageCodes(
     scansTotal: c._count.scans,
     scans30: map30.get(c.id) ?? 0,
     scans7: map7.get(c.id) ?? 0,
+  }));
+}
+
+/**
+ * CaSQB codes: the same shape as page codes plus the external URL, the
+ * stored look, a two-week sparkline and how many scans came in after the
+ * code was retired (it keeps redirecting on purpose).
+ */
+async function loadCasqbCodes(
+  since7: Date,
+  since30: Date,
+): Promise<CasqbListItem[]> {
+  const codes = await prisma.qrCode.findMany({
+    where: { kind: "casqb" },
+    orderBy: { createdAt: "desc" },
+    include: { _count: { select: { scans: true } } },
+  });
+  if (codes.length === 0) return [];
+  const ids = codes.map((c) => c.id);
+  const [g7, g30, sparks, after] = await Promise.all([
+    prisma.qrScan.groupBy({
+      by: ["qrCodeId"],
+      where: { qrCodeId: { in: ids }, scannedAt: { gte: since7 } },
+      _count: true,
+    }),
+    prisma.qrScan.groupBy({
+      by: ["qrCodeId"],
+      where: { qrCodeId: { in: ids }, scannedAt: { gte: since30 } },
+      _count: true,
+    }),
+    casqbSparklines(14),
+    prisma.$queryRaw<Array<{ id: number; n: bigint }>>`
+      SELECT c.id, COUNT(s.id) AS n
+      FROM qr_codes c
+      JOIN qr_scans s ON s.qr_code_id = c.id AND s.scanned_at > c.archived_at
+      WHERE c.kind = 'casqb' AND c.archived_at IS NOT NULL
+      GROUP BY c.id
+    `,
+  ]);
+  const map7 = new Map(g7.map((r) => [r.qrCodeId, r._count]));
+  const map30 = new Map(g30.map((r) => [r.qrCodeId, r._count]));
+  const mapAfter = new Map(after.map((r) => [r.id, Number(r.n)]));
+  const empty = new Array<number>(14).fill(0);
+
+  return codes.map((c) => ({
+    id: c.id,
+    label: c.label,
+    token: c.token,
+    targetUrl: c.targetUrl ?? "",
+    createdAt: dateFmt.format(c.createdAt),
+    archived: c.archivedAt !== null,
+    scansTotal: c._count.scans,
+    scans30: map30.get(c.id) ?? 0,
+    scans7: map7.get(c.id) ?? 0,
+    afterRetire: mapAfter.get(c.id) ?? 0,
+    spark: sparks.get(c.id) ?? empty,
+    style: parseCasqbStyle(c.style) ?? CASQB_DEFAULT_STYLE,
   }));
 }
 

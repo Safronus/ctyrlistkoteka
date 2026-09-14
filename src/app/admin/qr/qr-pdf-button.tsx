@@ -11,7 +11,26 @@ const PIECE_OPTS = [
   { mm: 60, l: "60 mm" },
 ];
 
-export function QrPdfButton({ id }: { id: number }) {
+/** What the sheet needs from whichever code family is being printed. */
+export type QrPdfSource = () => Promise<
+  { ok: true; svg: string; token: string; label: string } | { ok: false; error: string }
+>;
+
+export function QrPdfButton({
+  id,
+  load,
+  filePrefix = "ctyrlistkoteka-qr",
+  text = "PDF",
+}: {
+  id: number;
+  /** Where the SVG comes from; defaults to the page-code action. The
+   *  CaSQB tab passes its own so the same sheet dialog serves both. */
+  load?: QrPdfSource;
+  filePrefix?: string;
+  /** Button caption — the CaSQB tab sits this next to a vector PDF and
+   *  needs the two told apart. */
+  text?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [pieceMm, setPieceMm] = useState(40);
   const [fill, setFill] = useState(true);
@@ -37,7 +56,7 @@ export function QrPdfButton({ id }: { id: number }) {
     setBusy(true);
     setError(null);
     try {
-      const r = await getQrSvgAction(id);
+      const r = await (load ? load() : getQrSvgAction(id));
       if (!r.ok) {
         setError(r.error);
         return;
@@ -48,7 +67,7 @@ export function QrPdfButton({ id }: { id: number }) {
           : labelMode === "name"
             ? r.label
             : undefined;
-      await generateQrPdf(r.svg, `ctyrlistkoteka-qr-${r.token}-tisk.pdf`, {
+      await generateQrPdf(r.svg, `${filePrefix}-${r.token}-tisk.pdf`, {
         pieceMm,
         count: fill ? "fill" : Math.max(1, Math.min(500, count)),
         cutGuides,
@@ -72,7 +91,7 @@ export function QrPdfButton({ id }: { id: number }) {
         className="inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-1.5 text-gray-700 transition hover:bg-gray-50"
       >
         <FileDown className="h-3.5 w-3.5" aria-hidden />
-        <span className="ml-1 text-[11px]">PDF</span>
+        <span className="ml-1 text-[11px]">{text}</span>
       </button>
 
       {open && (

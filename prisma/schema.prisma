@@ -317,15 +317,32 @@ model FindStateAssignment {
 //  Render options are stored so the same QR re-downloads identically.
 //  Retiring a physical QR sets `archivedAt` ("Zničený"): the redirect
 //  keeps working for stray scans and the scan history is preserved.
+//
+//  Two kinds share the table (2026-09): `page` codes point at one of the
+//  site's own pages; `casqb` codes (Czech and Slovak Quality Board) point
+//  at any https URL held in `targetUrl` and are styled by the brand
+//  manual rather than the site's themes — their look lives in `style`.
+//  One table because 90 % is identical: token, redirect, scan log,
+//  retirement. The redirect, the lists and the stats branch on `kind`.
 
 model QrCode {
   id           Int       @id @default(autoincrement())
   /// Short unique slug encoded in the QR (the /go/<token> path).
   token        String    @unique @db.VarChar(16)
+  /// `page` (site page, `target`) or `casqb` (external URL, `targetUrl`).
+  kind         String    @default("page") @db.VarChar(8)
   /// Human label for the evidence list (e.g. where it's stuck).
   label        String    @db.VarChar(200)
-  /// Target public page key: home | sbirka | lokality | mapa | statistiky
+  /// Target public page key: home | sbirka | lokality | mapa | statistiky.
+  /// Ignored for `casqb` rows, which keep the page key `home` as a
+  /// harmless default so the column can stay NOT NULL.
   target       String    @db.VarChar(20)
+  /// `casqb` only: the https destination. Editable — a printed code keeps
+  /// its token, so re-pointing it never needs a reprint.
+  targetUrl    String?   @map("target_url") @db.VarChar(2048)
+  /// `casqb` only: module/eye shapes, colours and the centre logo, as
+  /// validated by `parseCasqbStyle` in lib/admin/casqbQr.ts.
+  style        Json?
   /// Locale the QR links to: cs | en
   locale       String    @default("cs") @db.VarChar(5)
   // render options (stored so re-download reproduces the same image)
@@ -350,6 +367,7 @@ model QrCode {
   scans QrScan[]
 
   @@index([archivedAt])
+  @@index([kind])
   @@map("qr_codes")
 }
 

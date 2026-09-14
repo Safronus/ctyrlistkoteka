@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { QrCode, Leaf, Globe2 } from "lucide-react";
+import { QrCode, Leaf, Globe2, BadgeCheck } from "lucide-react";
 
 /**
- * Tab shell for the two independent QR worlds (finds vs. pages).
+ * Tab shell for the independent QR worlds (finds, pages, drops, CaSQB).
  *
  * Both panels are rendered on the server and handed in as props — only
  * the visibility toggle is client-side. Keeping the inactive panel
@@ -20,6 +20,9 @@ export function QrTabs({
   pagePanel,
   dropLabel,
   dropPanel,
+  casqbLabel,
+  casqbSummary,
+  casqbPanel,
 }: {
   findLabel: string;
   findSummary: React.ReactNode;
@@ -29,8 +32,11 @@ export function QrTabs({
   pagePanel: React.ReactNode;
   dropLabel: string;
   dropPanel: React.ReactNode;
+  casqbLabel: string;
+  casqbSummary: React.ReactNode;
+  casqbPanel: React.ReactNode;
 }) {
-  const [tab, setTab] = useState<"finds" | "pages" | "drops">("finds");
+  const [tab, setTab] = useState<"finds" | "pages" | "drops" | "casqb">("finds");
 
   return (
     <div className="space-y-4">
@@ -57,8 +63,22 @@ export function QrTabs({
           icon={<Globe2 className="h-4 w-4" aria-hidden />}
           label={dropLabel}
         />
+        <Tab
+          active={tab === "casqb"}
+          onClick={() => setTab("casqb")}
+          // Quality Red from the CaSQB manual — the one place the admin
+          // wears another brand's colour, and only on the badge.
+          icon={<BadgeCheck className="h-4 w-4 text-[#EF4635]" aria-hidden />}
+          label={casqbLabel}
+        />
         <div className="ml-auto flex items-center gap-4 pb-2 text-center">
-          {tab === "finds" ? findSummary : tab === "pages" ? pageSummary : null}
+          {tab === "finds"
+            ? findSummary
+            : tab === "pages"
+              ? pageSummary
+              : tab === "casqb"
+                ? casqbSummary
+                : null}
         </div>
       </div>
 
@@ -70,6 +90,9 @@ export function QrTabs({
       </div>
       <div role="tabpanel" hidden={tab !== "drops"}>
         {dropPanel}
+      </div>
+      <div role="tabpanel" hidden={tab !== "casqb"}>
+        {casqbPanel}
       </div>
     </div>
   );

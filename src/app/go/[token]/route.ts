@@ -1,16 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { qrTargetPath } from "@/lib/admin/qrTargets";
+import { casqbDestination, parseCasqbTargetUrl } from "@/lib/admin/casqbTarget";
 
 /**
  * QR scan resolver. Generated QR codes encode `/go/<token>`; this handler
  * looks the token up, records a scan (timestamp only — no IP/UA/PII), and
- * 302-redirects to the chosen public page with `?ref=qr` appended so the
- * landing is also attributable in GoatCounter.
+ * 302-redirects: a `page` code to the chosen public page with `?ref=qr`
+ * appended so the landing is also attributable in GoatCounter; a `casqb`
+ * code to its external https URL, tagged with utm_* so the destination's
+ * own analytics can tell scans apart. The site-wide Referrer-Policy
+ * (strict-origin-when-cross-origin, set in next.config and again by
+ * nginx) means the destination sees only our origin as the referrer,
+ * never the /go/<token> path — nothing to add here, and a per-response
+ * `no-referrer` would lose to nginx's header anyway.
  *
- * Archived ("Zničený") codes still resolve — a stray scan of an old
- * printout shouldn't 404, and seeing scans on a retired code is useful.
- * Unknown tokens fall back to the homepage.
+ * Archived ("Zničený" / "Vyřazený") codes still resolve — a stray scan of
+ * an old printout shouldn't 404, and seeing scans on a retired code is
+ * useful; the stats show them as scans after retirement. Unknown tokens
+ * fall back to the homepage.
  */
 export const dynamic = "force-dynamic";
 
@@ -43,14 +51,29 @@ export async function GET(
 
   let target = "home";
   let locale = "cs";
+  let external: URL | null = null;
   if (typeof token === "string" && /^[A-Za-z0-9]{1,16}$/.test(token)) {
     const qr = await prisma.qrCode.findUnique({
       where: { token },
-      select: { id: true, target: true, locale: true },
+      select: {
+        id: true,
+        kind: true,
+        target: true,
+        locale: true,
+        targetUrl: true,
+        label: true,
+      },
     });
     if (qr) {
       target = qr.target;
       locale = qr.locale;
+      if (qr.kind === "casqb") {
+        // Re-validated on every hop, not just on save: the row is the
+        // owner's, but a redirect is the one place a bad URL would go
+        // straight to a stranger's phone.
+        const parsed = parseCasqbTargetUrl(qr.targetUrl);
+        if (parsed.ok) external = casqbDestination(parsed.url, qr.label);
+      }
       // Best-effort scan log; never block the redirect on a write error.
       // Throttled per token so a rapid burst logs at most one scan per
       // window (abuse guard — see note above).
@@ -67,6 +90,7 @@ export async function GET(
     }
   }
 
+  if (external) return noindex(NextResponse.redirect(external, 302));
   const dest = new URL(qrTargetPath(target, locale), siteUrl);
   dest.searchParams.set("ref", "qr");
   return noindex(NextResponse.redirect(dest, 302));

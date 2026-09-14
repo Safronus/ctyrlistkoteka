@@ -885,3 +885,23 @@ přitom nehnou, mění se jen chybějící sekce. Obecněji: **zelené kontroly 
 neznamenají, že projde deploy** — ty dvě sady se tady liší a `--frozen-lockfile`
 je jen v té druhé. Souvisí s [#26](#26-pnpmoverrides-nesedne-na-optional-peer-závislost),
 ale je to jiná porucha: tam se override neuplatnil, tady v zámku vůbec nebyl.
+
+---
+
+## 29. Hlavička nastavená v route handleru prohraje s `next.config` i s nginx
+
+**Co:** Redirect `/go/<token>` pro CaSQB kódy chtěl poslat `Referrer-Policy:
+no-referrer`, aby cílový web neviděl ani naši doménu. Odpověď ale nesla
+`strict-origin-when-cross-origin` — hodnota z handleru zmizela.
+
+**Proč:** Dvě vrstvy nad handlerem. `headers()` v `next.config.ts` platí na
+`/(.*)` a **přepisuje** stejnojmennou hlavičku z handleru. A i kdyby ne, na
+produkci přidává nginx `add_header Referrer-Policy … always`; když jich
+prohlížeč dostane víc, platí **poslední rozpoznaná** — tedy ta z nginx.
+
+**Jak aplikovat:** Bezpečnostní hlavičky ber jako **site-wide rozhodnutí**, ne
+per-route: chceš-li výjimku, patří do `next.config` (specifičtější `source`
+až za globální) *a zároveň* do nginx `location`, jinak je to jen zdání. Než
+takovou výjimku uděláš, ověř, že ji vůbec potřebuješ — tady
+`strict-origin-when-cross-origin` cestu `/go/…` skrývá už sama (cizí web vidí
+jen origin) a hlavička navíc by byla mrtvý kód.
