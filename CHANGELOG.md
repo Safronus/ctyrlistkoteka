@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-09
 
+### pnpm: přepisy do `pnpm-workspace.yaml` a 24h karence nových verzí
+- Všechny běhy „Dependabot Updates“ padaly. Příčina v logu: Dependabot ověřuje
+  zámek proti **24h karenci** nových verzí a dnešní přepis `mysql2` přitáhl
+  `sql-escaper@1.5.2` vydaný týž den v noci — celý zámek pak odmítl. Karence
+  je teď stejná i lokálně (`minimumReleaseAge: 1440`), pnpm vzal 1.5.1 a
+  do zámku už nic mladšího než den nevleze.
+- Zároveň stejný log říká, že novější pnpm 10 už **nečte `package.json#pnpm`**
+  — to je kořen týden staré příhody se zámkem bez `overrides` (gotcha 28).
+  Přepisy jsou proto v `pnpm-workspace.yaml`, kde je čte každá verze.
+  Zámek se nezměnil jinak než v té jedné verzi. Gotcha 30.
+
 ### CaSQB: čitelnost soudí čtečka, riskantní kombinace jdou uložit, nastavení se pamatuje
 - Majitel chtěl tmavé tečky s červenými zornicemi na Quality Blue a formulář
   to odmítal kvůli 2,5 : 1 u zornice. Změřeno: poměr kontrastu čtení

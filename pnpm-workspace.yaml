@@ -1,0 +1,23 @@
+# pnpm settings. From pnpm 10 these live here, not in package.json#pnpm —
+# newer 10.x (the one Dependabot and pnpm/action-setup "version: 10" pick)
+# ignores that field outright, which is how a Dependabot lockfile once
+# arrived without the overrides (docs/gotchas.md #28).
+
+# Nothing published in the last 24 h gets resolved into the lockfile.
+# Dependabot enforces the same window on its side and REJECTS a lockfile
+# holding anything younger — every one of its jobs then fails (#30). The
+# price: an override to a fix released today waits a day, or goes through
+# `minimumReleaseAgeExclude` with a reason.
+minimumReleaseAge: 1440
+
+# Security floors for transitive packages upstream has not bumped yet.
+# Keep each one until the direct dependency that drags it in moves on.
+overrides:
+  "postcss@<8.5.10": "^8.5.10"
+  "dompurify@<3.4.13": "^3.4.13"
+  "@babel/core@<7.29.6": "^7.29.6"
+  "brace-expansion@<1.1.18": "^1.1.18"
+  "js-yaml@<4.3.2": "^4.3.2"
+  "mysql2@<3.23.1": "^3.24.4"
+  "deepmerge-ts@<8.0.0": "^8.0.2"
+  "uuid@<11.1.1": "^11.1.1"

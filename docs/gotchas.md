@@ -886,6 +886,12 @@ neznamenají, že projde deploy** — ty dvě sady se tady liší a `--frozen-lo
 je jen v té druhé. Souvisí s [#26](#26-pnpmoverrides-nesedne-na-optional-peer-závislost),
 ale je to jiná porucha: tam se override neuplatnil, tady v zámku vůbec nebyl.
 
+**Kořen (dohledáno 2026-09-14, #30):** Dependabot běží s novějším pnpm 10.34,
+které pole `package.json#pnpm` **už nečte** (`[WARN] The "pnpm" field in
+package.json is no longer read by pnpm`) — proto jeho zámek přišel bez
+`overrides`. Od 2026-09-14 jsou přepisy v **`pnpm-workspace.yaml`**, kde je
+čte každá verze pnpm 10. Kontrola výše platí dál.
+
 ---
 
 ## 29. Hlavička nastavená v route handleru prohraje s `next.config` i s nginx
@@ -905,3 +911,31 @@ až za globální) *a zároveň* do nginx `location`, jinak je to jen zdání. N
 takovou výjimku uděláš, ověř, že ji vůbec potřebuješ — tady
 `strict-origin-when-cross-origin` cestu `/go/…` skrývá už sama (cizí web vidí
 jen origin) a hlavička navíc by byla mrtvý kód.
+
+---
+
+## 30. Dependabot odmítne celý zámek, když je v něm balíček mladší než 24 h
+
+**Co:** Po přepisu `mysql2` na 3.24.4 začaly padat **všechny** běhy
+„Dependabot Updates“ (iron-session, vitest, @simplewebauthn, skupinový bump)
+s `unknown_error`. Naše workflow (Deploy, gitleaks, CodeQL) byly zelené, takže
+to vypadalo jako porucha na straně GitHubu.
+
+**Proč:** Hluboko v logu:
+`[ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION] sql-escaper@1.5.2 was published at
+2026-09-14T01:14Z, within the minimumReleaseAge cutoff`. Dependabot spouští
+pnpm s **24hodinovou karencí** (`minimumReleaseAge`, jeho výchozí ochrana
+proti supply-chain útokům) a **ověřuje proti ní celý zámek**, ne jen to, co
+sám mění. `mysql2@3.24.4` táhne `sql-escaper@^1.5.1`, pnpm mi lokálně vzalo
+nejnovější 1.5.2 vydanou týž den v noci — a Dependabot pak celý zámek zahodil.
+Zatímco já jsem karenci neměl, on ano; každý můj `pnpm install` tak mohl
+Dependabota vyřadit na den.
+
+**Jak aplikovat:** Stejná karence je teď i lokálně:
+`minimumReleaseAge: 1440` v `pnpm-workspace.yaml`. pnpm při řešení bere
+nejnovější verzi **starší než 24 h** (tady 1.5.1), takže do zámku nikdy
+nevleze nic, co by Dependabot odmítl. Důsledky: přepis na opravu vydanou
+*dnes* počká do zítřka — nebo projde přes `minimumReleaseAgeExclude` s
+důvodem v komentáři; a když „Dependabot Updates“ padají hromadně, hledej v
+logu `MINIMUM_RELEASE_AGE`, ne chybu v repu. Ruční spuštění po opravě:
+Insights → Dependency graph → Dependabot → *Check for updates*.
