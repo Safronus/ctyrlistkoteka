@@ -17,7 +17,6 @@ import { getAdminSession, getRequestIp } from "@/lib/admin/session";
 import { appendAudit } from "@/lib/admin/audit";
 import type {
   AuthenticationResponseJSON,
-  AuthenticatorTransportFuture,
   PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/server";
 
@@ -44,7 +43,7 @@ export async function startAuthenticationAction(): Promise<{
     rpID: RP_ID,
     allowCredentials: credentials.map((c) => ({
       id: c.id,
-      transports: c.transports as AuthenticatorTransportFuture[] | undefined,
+      transports: c.transports,
     })),
     userVerification: "preferred",
   });
@@ -93,9 +92,7 @@ export async function finishAuthenticationAction(
         id: credential.id,
         publicKey: Buffer.from(credential.publicKey, "base64url"),
         counter: credential.counter,
-        transports: credential.transports as
-          | AuthenticatorTransportFuture[]
-          | undefined,
+        transports: credential.transports,
       },
       requireUserVerification: false,
     });

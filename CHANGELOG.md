@@ -9,6 +9,25 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-09
 
+### Závislosti: iron-session 9, SimpleWebAuthn 14, Vitest 5, pnpm/action-setup 6.1
+- Pět Dependabot PR (#30, #32–#35) vzato najednou. Všechny tři majory
+  mají jediný společný breaking change — **Node ≥ 22.13** — a VPS běží na
+  v24.18, takže runtime beze změny.
+- **iron-session 8 → 9**: `AdminSessionData` má jen primitiva a volitelná
+  pole, `logout` po `destroy()` nezapisuje, cookies v8↔v9 se čtou navzájem
+  → nikdo se neodhlásí. Balíček je ESM-only.
+- **@simplewebauthn/server 13 → 14**: `transports` je nově `string[]`,
+  takže zmizely casty na `AuthenticatorTransportFuture` (typ už není
+  exportovaný — jediná věc, kterou bump rozbil). Server nově preferuje
+  ML-DSA-44 při registraci, existující ES256 passkeys to nemění.
+- **Vitest 4 → 5**: 41 souborů / 485 testů beze změny. Konfigurace je teď
+  `vitest.config.mts` s `import.meta.dirname` — Vite hlásil ESM syntaxi
+  v CJS souboru a plánuje to přestat načítat.
+- **brace-expansion 5.0.9** přes override: `pnpm audit` hlásil dvě high
+  DoS (GHSA-rgw5-rvv9-x895) jen přes `eslint-plugin-sonarjs → minimatch`,
+  tj. lint, ne runtime. Dependabot na tranzitivní balíček PR nezakládá.
+  Audit je čistý.
+
 ### Patička: kratší odznak AbuseIPDB
 - „Počet IP reportováno: 10 140“ → **„IP: 10 140“** (anglicky „IPs: …“).
   Delší text posílal počítadlo návštěv na druhý řádek i na širokém monitoru;

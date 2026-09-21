@@ -15,7 +15,6 @@ import {
 import { getAdminSession, getRequestIp } from "@/lib/admin/session";
 import { appendAudit } from "@/lib/admin/audit";
 import type {
-  AuthenticatorTransportFuture,
   PublicKeyCredentialCreationOptionsJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
@@ -49,7 +48,7 @@ export async function startRegistrationAction(formData: FormData): Promise<{
   // (which would be a no-op registration).
   const excludeCredentials = existing.map((c) => ({
     id: c.id,
-    transports: c.transports as AuthenticatorTransportFuture[] | undefined,
+    transports: c.transports,
   }));
 
   const options = await generateRegistrationOptions({
