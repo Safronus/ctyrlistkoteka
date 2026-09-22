@@ -41,6 +41,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   postižené nebyly**, ty ho používaly od začátku.
 - Už vytištěné kódy fungují dál (nginx je přesměruje); nové nesou https.
 
+### CaSQB brána `qr.casqb.org` — spuštěna
+- Nasazeno a ověřeno z obou konců: admin ukazuje `qr.casqb.org/<token>`,
+  telefon po naskenování zobrazí doménu CaSQB a skončí na cíli. Zvenku
+  změřeno: token → 302, kořen i ostatní cesty 404, `:80` → 301, certifikát
+  do 21. 12. 2026 s automatickou obnovou, HSTS, funkční po IPv4 i IPv6.
+- Kratší adresa zmenšila kód z **37 × 37 na 33 × 33 modulů** — při stejné
+  velikosti tisku jsou body o pětinu větší, takže se čte z větší dálky.
+
 ### CaSQB brána `qr.casqb.org`: šablona otestovaná proti nginx 1.28
 - DNS je hotové (`qr` CNAME → ctyrlistkoteka.cz → 51.68.123.44). Šablona
   `deploy/nginx-casqb-go.conf.template` prošla testem v kontejneru se
