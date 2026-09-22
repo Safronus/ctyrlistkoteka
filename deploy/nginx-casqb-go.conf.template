@@ -28,6 +28,11 @@
 # X-Robots-Tag sedí; ACME challenge se obslouží. Query string se na
 # backend nepřenáší (proxy_pass s proměnnou) — redirect si utm_* skládá
 # sám, takže na tom nezáleží.
+#
+# TLS: i bez `options-ssl-nginx.conf` je výchozí nastavení nginx 1.28
+# bezpečné — změřeno proti témuž kontejneru: TLS 1.0 i 1.1 odmítnuty,
+# projde jen 1.2 (ECDHE-RSA-AES256-GCM-SHA384) a 1.3. Ty dva volitelné
+# řádky jsou tedy pohodlí, ne podmínka.
 
 server {
     listen 80;
@@ -64,6 +69,12 @@ server {
     # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     server_tokens off;
+    # HSTS stejně jako hlavní web. Platí jen pro tohle jméno a jeho
+    # případné subdomény — HSTS se dědí směrem DOLŮ, takže na casqb.org
+    # ani na jiné subdomény CaSQB to nijak nesahá. Posílá se výhradně přes
+    # https (v :80 bloku žádná hlavička není); přes http ho klient podle
+    # RFC 6797 stejně musí ignorovat.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;

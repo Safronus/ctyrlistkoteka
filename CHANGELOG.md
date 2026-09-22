@@ -36,6 +36,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   na https, hlavičky sedí a ACME challenge se obslouží.
 - Opraveno `listen 443 ssl http2` → `listen 443 ssl` + `http2 on`; ve staré
   formě nginx 1.28 hlásil dvě varování při `nginx -t`.
+- **HSTS** (`max-age=31536000; includeSubDomains`) stejně jako hlavní web —
+  dědí se jen směrem dolů, takže na casqb.org ani jiné subdomény CaSQB
+  nesahá; posílá se výhradně přes https (ověřeno, na :80 hlavička není).
+  Změřeno i to, co platí bez volitelných certbotích parametrů: nginx 1.28
+  odmítá TLS 1.0 i 1.1 a nabízí jen 1.2 a 1.3.
 - Postup v hlavičce souboru upřesněn: certifikát se bere **dřív** než se
   config nasadí (`certonly --webroot`, ne `--nginx`) — blok s `listen 443
   ssl` bez certifikátu by `nginx -t` shodil, a hlavní :80 blok jako default
