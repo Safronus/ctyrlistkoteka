@@ -52,9 +52,14 @@ server {
     http2 on;
     server_name qr.casqb.org;
 
-    # SSL — certbot doplní při `certbot --nginx -d qr.casqb.org`:
-    # ssl_certificate /etc/letsencrypt/live/qr.casqb.org/fullchain.pem;
-    # ssl_certificate_key /etc/letsencrypt/live/qr.casqb.org/privkey.pem;
+    # SSL. Aktivní, ne zakomentované jako v hlavním configu: ten psal
+    # `certbot --nginx` sám, kdežto `certonly` do configu nesahá — kdyby
+    # tyhle dva řádky chyběly, `nginx -t` blok s `listen 443 ssl` odmítne.
+    ssl_certificate /etc/letsencrypt/live/qr.casqb.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/qr.casqb.org/privkey.pem;
+    # Doporučené parametry certbota. Odkomentuj, POKUD na serveru existují
+    # (`ls /etc/letsencrypt/options-ssl-nginx.conf /etc/letsencrypt/ssl-dhparams.pem`)
+    # — bez nich platí výchozí nastavení nginx, které je dnes taky TLS 1.2/1.3.
     # include /etc/letsencrypt/options-ssl-nginx.conf;
     # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
