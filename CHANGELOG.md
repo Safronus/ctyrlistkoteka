@@ -28,6 +28,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   tj. lint, ne runtime. Dependabot na tranzitivní balíček PR nezakládá.
   Audit je čistý.
 
+### CaSQB brána `qr.casqb.org`: šablona otestovaná proti nginx 1.28
+- DNS je hotové (`qr` CNAME → ctyrlistkoteka.cz → 51.68.123.44). Šablona
+  `deploy/nginx-casqb-go.conf.template` prošla testem v kontejneru se
+  stejnou řadou nginx jako na VPS: `/abc123` dorazí na backend jako
+  `/go/abc123`, jiné délky tokenu i `/wp-admin` vrací 404, `:80` přesměruje
+  na https, hlavičky sedí a ACME challenge se obslouží.
+- Opraveno `listen 443 ssl http2` → `listen 443 ssl` + `http2 on`; ve staré
+  formě nginx 1.28 hlásil dvě varování při `nginx -t`.
+- Postup v hlavičce souboru upřesněn: certifikát se bere **dřív** než se
+  config nasadí (`certonly --webroot`, ne `--nginx`) — blok s `listen 443
+  ssl` bez certifikátu by `nginx -t` shodil, a hlavní :80 blok jako default
+  server ACME pro nové jméno obslouží už teď.
+
 ### Patička: kratší odznak AbuseIPDB
 - „Počet IP reportováno: 10 140“ → **„IP: 10 140“** (anglicky „IPs: …“).
   Delší text posílal počítadlo návštěv na druhý řádek i na širokém monitoru;

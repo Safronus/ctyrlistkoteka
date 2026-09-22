@@ -9,13 +9,25 @@
 #   1. DNS u casqb.org:  qr  CNAME  ctyrlistkoteka.cz.   (nebo A na IP VPS)
 #      — dělá správce domény casqb.org, u nás nic.
 #   2. Tenhle soubor na VPS, symlink, `nginx -t`, reload.
-#   3. Certifikát:  sudo certbot --nginx -d qr.casqb.org
-#      (certbot doplní ssl_certificate řádky níže).
+#   3. Certifikát SI VEZMI DŘÍV, než tenhle soubor nasadíš:
+#        sudo certbot certonly --webroot -w /var/www/html -d qr.casqb.org
+#      Funguje i bez tohohle configu — hlavní blok na :80 je default server,
+#      takže ACME challenge pro qr.casqb.org obslouží z /var/www/html už teď
+#      (ověřeno 2026-09-22). `certonly` schválně: `--nginx` by si do configu
+#      psal sám a přepsal, co je tady. Bez certifikátu `nginx -t` na bloku
+#      s `listen 443 ssl` selže, proto v tomhle pořadí.
 #   4. V /var/www/ctyrlistkoteka/.env:  CASQB_QR_BASE_URL=https://qr.casqb.org
 #      a  pm2 reload ctyrlistkoteka  (source /home/app/.nvm/nvm.sh && …).
 #
 # Host obsluhuje JEN /<token> — šest znaků z abecedy tokenů — a všechno
 # ostatní vrací 404. Na tomhle jménu nemá být web, jen skok.
+#
+# Ověřeno proti nginx 1.28-alpine (stejná řada jako na VPS) s falešným
+# backendem: /abc123 → backend dostane /go/abc123; 4 i 7 znaků, kořen,
+# /go/… i /wp-admin → 404; :80 → 301 na https; hlavičky včetně
+# X-Robots-Tag sedí; ACME challenge se obslouží. Query string se na
+# backend nepřenáší (proxy_pass s proměnnou) — redirect si utm_* skládá
+# sám, takže na tom nezáleží.
 
 server {
     listen 80;
@@ -32,8 +44,12 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    # Moderní zápis: `listen ... http2` je od nginx 1.25 zastaralý a od 1.28
+    # na něj `nginx -t` hlásí varování (hlavní config ho ještě má, mění se
+    # až spolu s ním, ať se to netestuje dvakrát).
+    http2 on;
     server_name qr.casqb.org;
 
     # SSL — certbot doplní při `certbot --nginx -d qr.casqb.org`:
