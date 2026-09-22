@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { qrTargetPath } from "@/lib/admin/qrTargets";
 import { casqbDestination, parseCasqbTargetUrl } from "@/lib/admin/casqbTarget";
+import { printableSiteUrl } from "@/lib/printableSiteUrl";
 
 /**
  * QR scan resolver. Generated QR codes encode `/go/<token>`; this handler
@@ -45,9 +46,10 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
-  const siteUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz"
-  ).replace(/\/$/, "");
+  // https vynuceně (printableSiteUrl): posílat návštěvníka na http:// by
+  // znamenalo jeden skok navíc a okamžik bez TLS, i když nginx hned
+  // přesměruje. Na VPS je `NEXT_PUBLIC_SITE_URL` bez TLS, viz lib/seo.ts.
+  const siteUrl = printableSiteUrl();
 
   let target = "home";
   let locale = "cs";

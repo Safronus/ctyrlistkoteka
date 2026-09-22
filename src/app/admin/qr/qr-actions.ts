@@ -19,12 +19,15 @@ import {
 import { centerFitsDensity } from "@/lib/admin/qrDensity";
 import { QR_TARGET_KEYS, qrTargetUrl } from "@/lib/admin/qrTargets";
 import { siteName } from "@/lib/siteName";
+import { printableSiteUrl } from "@/lib/printableSiteUrl";
 import { genQrToken } from "@/lib/admin/qrToken";
 import type { QrInput } from "./qr-types";
 
-const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz"
-).replace(/\/$/, "");
+// Tohle se tiskne a už nikdy neopraví, takže schéma se nebere na
+// víru — `printableSiteUrl` vynutí https všude mimo localhost. Holá
+// `NEXT_PUBLIC_SITE_URL` je na VPS `http://…`, takže kódy vyrobené do
+// 2026-09-22 nesou http a spoléhají na nginx 301; nové už ne.
+const SITE_URL = printableSiteUrl();
 
 // QrInput (the raw option bag from the client) lives in ./qr-types — a
 // "use server" module may only export async functions. Everything is

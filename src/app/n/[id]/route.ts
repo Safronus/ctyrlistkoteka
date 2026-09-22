@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { printableSiteUrl } from "@/lib/printableSiteUrl";
 
 /**
  * Find QR scan resolver. Find QR codes encode `/n/<find id>` — a short,
@@ -41,9 +42,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const siteUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz"
-  ).replace(/\/$/, "");
+  // Stejné pravidlo jako u kódu, který sem míří (findQrUrl): https se
+  // vynucuje, ať návštěvník po naskenování nekončí na http.
+  const siteUrl = printableSiteUrl();
 
   // Bounded pattern before touching the DB — `/n/<anything>` is public,
   // so an unparsable id must cost nothing.

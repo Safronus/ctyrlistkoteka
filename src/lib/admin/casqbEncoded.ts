@@ -1,3 +1,5 @@
+import { printableSiteUrl } from "@/lib/printableSiteUrl";
+
 /**
  * The URL a CaSQB code actually encodes — the thing a phone shows in its
  * scan banner before anyone taps.
@@ -11,8 +13,6 @@
  * downloads encode — a code already printed keeps working either way,
  * because `/go/<token>` on this site never stops resolving.
  */
-
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://ctyrlistkoteka.cz").replace(/\/$/, "");
 
 /** Prefix without a trailing slash, e.g. `https://ctyrlistkoteka.cz/go`
  *  or `https://qr.casqb.org`. Server-only: reads a non-public env var. */
@@ -30,7 +30,11 @@ export function casqbEncodedBase(): string {
       /* fall through to the site's own /go */
     }
   }
-  return `${SITE_URL}/go`;
+  // printableSiteUrl, ne holá proměnná: tohle končí v tištěném kódu a na
+  // VPS je `NEXT_PUBLIC_SITE_URL` bez TLS. Voláno až tady, ne do
+  // konstanty na úrovni modulu — jinak by se hodnota zapekla při importu
+  // a testy by ji nemohly podstrčit.
+  return `${printableSiteUrl()}/go`;
 }
 
 export function casqbEncodedUrl(token: string): string {

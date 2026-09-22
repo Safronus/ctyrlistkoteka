@@ -18,6 +18,14 @@ describe("casqbEncodedBase", () => {
     expect(casqbEncodedLabel("m6VZ5H")).toBe("casqb.org/q/m6VZ5H");
   });
 
+  it("forces https even when NEXT_PUBLIC_SITE_URL has none — the VPS has http there", () => {
+    vi.stubEnv("CASQB_QR_BASE_URL", "");
+    // eslint-disable-next-line sonarjs/no-clear-text-protocols -- přesně to, co je na VPS a co se má přepsat
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://ctyrlistkoteka.cz");
+    expect(casqbEncodedBase()).toBe("https://ctyrlistkoteka.cz/go");
+    expect(casqbEncodedLabel("m6VZ5H")).toBe("ctyrlistkoteka.cz/go/m6VZ5H");
+  });
+
   it("ignores anything that is not a bare https base", () => {
     for (const bad of [
       // eslint-disable-next-line sonarjs/no-clear-text-protocols -- the case under test

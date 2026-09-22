@@ -28,6 +28,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   tj. lint, ne runtime. Dependabot na tranzitivní balíček PR nezakládá.
   Audit je čistý.
 
+### Odkazy z QR a přesměrování už nevedou přes http
+- Při ověřování brány vyšlo najevo, že `/go/<token>` posílal návštěvníka na
+  **`http://`** — na VPS je `NEXT_PUBLIC_SITE_URL` bez TLS a tři místa tu
+  proměnnou četla přímo. Nginx sice hned přesměruje na https, ale je to skok
+  navíc a okamžik bez TLS. Nejhorší z toho: **QR kódy na stránky kódovaly
+  `http://ctyrlistkoteka.cz/go/<token>`** — a to se tiskne.
+- Všechna čtyři místa (`/go/<token>`, `/n/<id>`, generátor QR stránek a
+  výchozí adresa CaSQB) teď jdou přes `printableSiteUrl()`, který https
+  vynucuje všude mimo localhost — helper, co přesně pro tohle existoval,
+  jen se na tahle místa nedostal. **QR nálezů ani kartičky do světa
+  postižené nebyly**, ty ho používaly od začátku.
+- Už vytištěné kódy fungují dál (nginx je přesměruje); nové nesou https.
+
 ### CaSQB brána `qr.casqb.org`: šablona otestovaná proti nginx 1.28
 - DNS je hotové (`qr` CNAME → ctyrlistkoteka.cz → 51.68.123.44). Šablona
   `deploy/nginx-casqb-go.conf.template` prošla testem v kontejneru se
