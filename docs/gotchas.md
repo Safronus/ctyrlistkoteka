@@ -939,3 +939,41 @@ nevleze nic, co by Dependabot odmítl. Důsledky: přepis na opravu vydanou
 důvodem v komentáři; a když „Dependabot Updates“ padají hromadně, hledej v
 logu `MINIMUM_RELEASE_AGE`, ne chybu v repu. Ruční spuštění po opravě:
 Insights → Dependency graph → Dependabot → *Check for updates*.
+
+---
+
+## 31. Nové jméno na stejném VPS nedostane certifikát, dokud mu neuděláš vlastní `:80` blok
+
+**Co:** `qr.casqb.org` (CNAME na ctyrlistkoteka.cz) mělo dostat certifikát přes
+`certbot certonly --webroot -w /var/www/html`. Certbot skončil
+`unauthorized` s detailem `Invalid response from
+https://qr.casqb.org/.well-known/acme-challenge/…: 404`.
+
+**Proč:** Ostrý `:80` server blok (zároveň default server, takže chytá i cizí
+jména) přesměrovává **úplně všechno** na https — `/.well-known/acme-challenge/`
+nevyjímaje. Challenge tedy skončila na `:443`, kde pro to jméno žádný blok
+není, spadla na hlavní web a ten na neznámé cestě vrátil 404. Šablona
+`deploy/nginx.conf.template` sice acme-challenge location má, ale **ostrý
+config na serveru ji nemá** — certifikát pro hlavní doménu kdysi bral
+`certbot --nginx`, který webroot vůbec nepoužívá. Past je v tom, že se to
+navenek tváří jako hotová věc: `curl http://<nové-jméno>/cokoliv` odpoví
+(301), takže to vypadá, že nginx to jméno obsluhuje.
+
+**Jak aplikovat:** Nové jméno na tomhle serveru nasazuj **na dvě fáze**:
+
+1. jen `server { listen 80; listen [::]:80; server_name <jméno>; location
+   /.well-known/acme-challenge/ { root /var/www/html; } location / { return
+   301 https://$host$request_uri; } }` → `nginx -t` → reload;
+2. `certbot certonly --webroot -w /var/www/html -d <jméno>`;
+3. teprve pak blok s `listen 443 ssl` (dřív ho `nginx -t` odmítne, protože
+   certifikát ještě neexistuje).
+
+Ověřit dopředu jde jedním curlem — musí vrátit **404 z nginx, ne 301**:
+
+```bash
+curl -sI http://<jméno>/.well-known/acme-challenge/test | head -1
+```
+
+A **`listen [::]` tam musí být**: Let's Encrypt validuje i po IPv6 a CNAME
+dědí AAAA záznam cíle; v tomhle případě šla validace právě přes
+`2001:41d0:305:2100::68b7`.

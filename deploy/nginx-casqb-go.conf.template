@@ -8,14 +8,19 @@
 # Předpoklady (v tomhle pořadí):
 #   1. DNS u casqb.org:  qr  CNAME  ctyrlistkoteka.cz.   (nebo A na IP VPS)
 #      — dělá správce domény casqb.org, u nás nic.
-#   2. Tenhle soubor na VPS, symlink, `nginx -t`, reload.
-#   3. Certifikát SI VEZMI DŘÍV, než tenhle soubor nasadíš:
+#   2. NASAĎ NEJDŘÍV JEN PRVNÍ (`listen 80`) SERVER BLOK — bez toho
+#      druhého. Symlink, `nginx -t`, reload.
+#      Proč na dvakrát: blok s `listen 443 ssl` bez certifikátu `nginx -t`
+#      odmítne, a certifikát bez tohohle :80 bloku nedostaneš — ostrý
+#      default server na :80 posílá na https ÚPLNĚ VŠECHNO včetně
+#      `/.well-known/acme-challenge/`, takže challenge skončí 404 na :443
+#      (ověřeno 2026-09-22 — první pokus na tohle spadl).
+#   3. Certifikát:
 #        sudo certbot certonly --webroot -w /var/www/html -d qr.casqb.org
-#      Funguje i bez tohohle configu — hlavní blok na :80 je default server,
-#      takže ACME challenge pro qr.casqb.org obslouží z /var/www/html už teď
-#      (ověřeno 2026-09-22). `certonly` schválně: `--nginx` by si do configu
-#      psal sám a přepsal, co je tady. Bez certifikátu `nginx -t` na bloku
-#      s `listen 443 ssl` selže, proto v tomhle pořadí.
+#      `certonly` schválně: `--nginx` by si do configu psal sám a přepsal,
+#      co je tady. Pozor, Let's Encrypt chodí i po IPv6 — qr.casqb.org
+#      dědí přes CNAME i AAAA, proto jsou tu `listen [::]`.
+#   3b. Teprve teď doplň druhý (`listen 443 ssl`) blok, `nginx -t`, reload.
 #   4. V /var/www/ctyrlistkoteka/.env:  CASQB_QR_BASE_URL=https://qr.casqb.org
 #      a  pm2 reload ctyrlistkoteka  (source /home/app/.nvm/nvm.sh && …).
 #
@@ -62,11 +67,10 @@ server {
     # tyhle dva řádky chyběly, `nginx -t` blok s `listen 443 ssl` odmítne.
     ssl_certificate /etc/letsencrypt/live/qr.casqb.org/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/qr.casqb.org/privkey.pem;
-    # Doporučené parametry certbota. Odkomentuj, POKUD na serveru existují
-    # (`ls /etc/letsencrypt/options-ssl-nginx.conf /etc/letsencrypt/ssl-dhparams.pem`)
-    # — bez nich platí výchozí nastavení nginx, které je dnes taky TLS 1.2/1.3.
-    # include /etc/letsencrypt/options-ssl-nginx.conf;
-    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    # Doporučené parametry certbota — na VPS ověřeno 2026-09-22, že oba
+    # soubory existují. Bez nich by platil výchozí nginx (taky jen TLS 1.2/1.3).
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     server_tokens off;
     # HSTS stejně jako hlavní web. Platí jen pro tohle jméno a jeho

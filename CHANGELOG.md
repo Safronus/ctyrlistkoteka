@@ -41,10 +41,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   nesahá; posílá se výhradně přes https (ověřeno, na :80 hlavička není).
   Změřeno i to, co platí bez volitelných certbotích parametrů: nginx 1.28
   odmítá TLS 1.0 i 1.1 a nabízí jen 1.2 a 1.3.
-- Postup v hlavičce souboru upřesněn: certifikát se bere **dřív** než se
-  config nasadí (`certonly --webroot`, ne `--nginx`) — blok s `listen 443
-  ssl` bez certifikátu by `nginx -t` shodil, a hlavní :80 blok jako default
-  server ACME pro nové jméno obslouží už teď.
+- Postup v hlavičce souboru přepsán na **dvoufázový** a opraven: tvrzení, že
+  ACME pro nové jméno obslouží hlavní `:80` blok, bylo **chybné** — ostrý
+  config přesměrovává na https i `/.well-known/acme-challenge/`, takže první
+  pokus o certifikát skončil `unauthorized` (404). Správně: nejdřív nasadit
+  jen `:80` blok nového jména, pak `certonly --webroot`, teprve pak blok s
+  `listen 443 ssl`. Gotcha 31; ověřeno i to, že Let's Encrypt validuje přes
+  IPv6 (CNAME dědí AAAA), takže `listen [::]` je podmínka, ne ozdoba.
+- Certbotí `options-ssl-nginx.conf` i `ssl-dhparams.pem` na VPS existují →
+  v šabloně odkomentované.
 
 ### Patička: kratší odznak AbuseIPDB
 - „Počet IP reportováno: 10 140“ → **„IP: 10 140“** (anglicky „IPs: …“).
