@@ -53,8 +53,7 @@ export const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const sessionOptions: SessionOptions = {
   // The fallback below is dev-only, not a real credential: the
   // module-load guard above throws in production before this key could
-  // ever seal a session there — hence the scoped lint disable.
-  // eslint-disable-next-line sonarjs/no-hardcoded-passwords
+  // ever seal a session there.
   password: hasStrongSessionPassword
     ? sessionPassword! // guard above guarantees a ≥32-char string here
     : // Dev fallback — explicitly noisy: local dev keeps working without

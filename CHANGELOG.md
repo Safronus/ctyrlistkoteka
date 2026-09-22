@@ -9,6 +9,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-09
 
+### Závislosti: React 19.3, Next 16.3.5, zod 4.6, dotenv 18
+- Zbylé dva Dependabot PR (#37 skupina 13 balíčků, #39 dotenv). Žádné CVE,
+  žádná změna chování v našem kódu.
+- **React 19.3 + Next 16.3.5 + next-intl 4.14.5**: samé opravy a přírůstky
+  (`<ViewTransition>`, Fragment refs; next-intl opravuje cookie base path
+  a `$` v hodnotách route parametrů). Nic odstraněného.
+- **zod 4.5.4 → 4.6.5** řeší OOM regresi z 4.5 u rekurzivních schémat.
+  `z.properties()` jako samostatné schéma přišlo v 4.6.0 a v 4.6.3 zase
+  zmizelo — nepoužíváme ho, takže se nás ta houpačka netýká.
+- **dotenv 17 → 18**: changelog říká „Remove preloading“, ale to se týká
+  jen `-r dotenv/config` s `dotenv_config_*` přepínači. Export
+  `dotenv/config` (náš `prisma.config.ts` a sedm skriptů) zůstal a byl
+  ověřen — hláška o injektáži jde nově do stderr, ne stdout.
+- **sonarjs 4.2.1** přestal hlásit `no-hardcoded-passwords` u dev fallbacku
+  v `session.ts`, takže tamní `eslint-disable` komentář šel pryč jako mrtvý.
+
 ### Závislosti: iron-session 9, SimpleWebAuthn 14, Vitest 5, pnpm/action-setup 6.1
 - Pět Dependabot PR (#30, #32–#35) vzato najednou. Všechny tři majory
   mají jediný společný breaking change — **Node ≥ 22.13** — a VPS běží na
