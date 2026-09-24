@@ -25,7 +25,17 @@ SSH_KEY="${SSH_KEY:-/persistent/ctyrlistkoteka/id_backup}"
 # Separate key, separate forced command — see the ping block at the bottom.
 PING_KEY="${PING_KEY:-/persistent/ctyrlistkoteka/id_backup_ping}"
 
-SHARE="/volume/02c60934-d1ce-4b09-b529-42a495c6b90c/.srv/.unifi-drive/CtyrlistkotekaBackups/.data"
+# The target MUST live OUTSIDE the UniFi Drive share tree. Drive backs its
+# shares with rclone + a Postgres catalog and reconciles the share's `.data`
+# store against that catalog, deleting anything it did not put there.
+# Snapshots written straight to disk by rsync are never in the catalog, so
+# the old path under `.srv/.unifi-drive/…/.data` lost the whole 27 GB tree
+# the same night, every night, leaving only a dangling `latest` symlink
+# (diagnosed 2026-09-24: 47 GB pulled, `du` of the path 128 K, no snapshot
+# retained since at least 2026-09-15). A plain directory on the data pool is
+# not managed by Drive, survives reboots and firmware updates (it is not on
+# the overlayfs), and keeps hardlink dedup because it is the same filesystem.
+SHARE="${SHARE:-/volume/02c60934-d1ce-4b09-b529-42a495c6b90c/ctyrlistkoteka-backups}"
 SNAP_DIR="${SNAP_DIR:-${SHARE}/snapshots}"
 LATEST_LINK="${SNAP_DIR}/latest"
 KEEP_SNAPSHOTS="${KEEP_SNAPSHOTS:-30}"
@@ -38,8 +48,11 @@ MIN_TOTAL_BYTES="${MIN_TOTAL_BYTES:-$((20 * 1024 * 1024 * 1024))}"
 
 log() { echo "$(date -Is) $*"; }
 
-if [[ ! -d "$SHARE" ]]; then
-  log "FAIL: share path $SHARE not found (renamed in UniFi Drive?)"
+# The data pool must be mounted; the backup directory we own and create.
+# (The old check tested for a UniFi Drive share, which is exactly what we
+# must NOT write into — see the SHARE comment above.)
+if [[ ! -d "$(dirname "$SHARE")" ]]; then
+  log "FAIL: data pool $(dirname "$SHARE") not mounted"
   exit 1
 fi
 if [[ ! -r "$SSH_KEY" ]]; then
@@ -92,6 +105,18 @@ fi
 rm -rf "$TODAY"
 mv "$staging" "$TODAY"
 ln -sfn "$TODAY" "$LATEST_LINK"
+
+# "It ran" is not "it stayed". Re-check the snapshot is still on disk AFTER
+# publishing, before we tell the VPS we are healthy. This is precisely the
+# failure that went unnoticed for days: a managed share ate the tree the
+# moment it landed while every run still logged OK. If it is gone or shrank,
+# do NOT ping — the VPS dead-man's switch then fires within MAX_AGE_DAYS
+# instead of us reporting a success that left nothing behind.
+published_bytes="$(du -sb "$TODAY" 2>/dev/null | cut -f1 || echo 0)"
+if [[ ! -e "${TODAY}/.offsite/MANIFEST.txt" || "${published_bytes:-0}" -lt "$MIN_TOTAL_BYTES" ]]; then
+  log "FAIL: snapshot vanished or shrank to ${published_bytes:-0} B after publish — target may be a managed share; NOT pinging"
+  exit 5
+fi
 
 # Prune only after a good snapshot landed, so a run of failures can never
 # erode history. -mindepth/-maxdepth 1 keeps this pinned to the dated dirs.

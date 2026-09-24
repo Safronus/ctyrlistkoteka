@@ -977,3 +977,35 @@ curl -sI http://<jméno>/.well-known/acme-challenge/test | head -1
 A **`listen [::]` tam musí být**: Let's Encrypt validuje i po IPv6 a CNAME
 dědí AAAA záznam cíle; v tomhle případě šla validace právě přes
 `2001:41d0:305:2100::68b7`.
+
+---
+
+## 32. Offsite záloha tiše mizela — UniFi Drive maže cizí soubory ve svém share
+
+**Co:** Denní pull z VPS na UNAS hlásil roky „OK snapshot … 46 GB", ale v cíli
+zůstal jen viset symlink `latest` a žádná datovaná složka. `du` cílové cesty
+= 128 K místo 47 GB. Obnova by neměla z čeho běžet.
+
+**Proč:** Cíl byl uvnitř UniFi Drive share
+(`…/.srv/.unifi-drive/CtyrlistkotekaBackups/.data/snapshots/`). UniFi Drive
+svoje shary zálohuje `rclone`em s Postgres katalogem a **srovnává obsah
+`.data` proti tomu katalogu** — cokoli tam zapíše proces mimo aplikaci (náš
+`rsync` jako `root`) není v katalogu a Drive to smaže, prakticky hned. 47 GB
+se tedy každou noc přeneslo a bylo pryč do rána; drobný `latest` (symlink)
+se ráno přepsal a proklouzl, proto to vypadalo, že „něco tam je". `ps aux`
+to prozradí: `rclone … rcd` + `postgres … unifi-drive`.
+
+**Jak aplikovat:** Nikdy nezálohuj (ani nepiš cokoli přes SSH/rsync) do
+`…/.srv/.unifi-drive/<share>/.data` — to je backing store aplikace, ne
+běžná složka. Piš do **obyčejného adresáře na datovém poolu**
+(`/volume/<uuid>/<něco>`), který Drive nespravuje; přežije restart i firmware
+(není na overlayfs jako `/etc/cron.d`) a je na stejném filesystemu, takže
+`--link-dest` hardlinky fungují dál. Test na 30 s to odhalí: `mkdir` složku
+přímo do share, počkej, `ls` — když zmizí, sežral ji Drive.
+
+**Obecnější ponaučení:** dead-man switch kontroloval jen to, že pull
+**proběhl** (ping marker), ne že data **přežila** — proto to roky mlčelo.
+`unas-pull.sh` teď po zveřejnění ověří, že snapshot je pořád na disku
+(MANIFEST + velikost), a ping pošle jen tehdy; jinak VPS switch zařve.
+„Proběhlo" ≠ „přežilo" platí pro každou zálohu, kterou nikdo pravidelně
+nezkouší obnovit.
