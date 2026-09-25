@@ -9,21 +9,25 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-09
 
-### Offsite záloha: cíl mimo UniFi Drive (roky tiše mizela)
+### Offsite záloha: snapshoty mizely týž běh — chyba v prune (ne UniFi Drive)
 - Denní pull na UNAS hlásil „OK … 46 GB", ale v cíli nezůstávalo nic — jen
-  viset `latest`, `du` cesty 128 K. Příčina: cíl byl uvnitř UniFi Drive share
-  a Drive (rclone + Postgres katalog) maže ze svého `.data` všechno, co tam
-  nezaložil sám — tedy i náš `rsync`. Diagnostikováno na živém UNAS
-  (`ps aux`, `du`, `find`, probe test). Gotcha 32.
-- **Oprava** `deploy/unas-pull.sh`: cíl přesunut na obyčejnou složku datového
-  poolu `/volume/<uuid>/ctyrlistkoteka-backups/`, kterou Drive nespravuje
-  (ověřeno probe testem — složka po 5 min zůstala). Hardlink dedup i vše
-  ostatní beze změny.
-- **Zpřísněná pojistka:** skript po zveřejnění ověří, že snapshot je pořád na
-  disku (MANIFEST + ≥ 20 GB), a **teprve pak pingne VPS**. Kdyby cokoli zase
-  mazalo, ping nepřijde a dead-man switch na VPS zařve do 3 dnů — místo aby
-  se tiše hlásilo OK. Dřív se kontrolovalo jen „pull proběhl", ne „data
-  přežila". `docs/deployment.md` aktualizováno.
+  viset `latest`, `du` cesty 128 K, a to na **dvou různých cílech**.
+- **Skutečná příčina:** `rsync -a` razítkuje cílový adresář mtime zdroje
+  (`/var/ctyrlistkoteka`, stará 2026-07-20), takže prune `-mtime +30` viděl
+  každý čerstvý snapshot jako >30 dní starý a smazal ho hned, jak vznikl —
+  „0 kept" od začátku. Ověřeno v malém (rsync složky se starou mtime →
+  cíl mtime zdědil, `find -mtime +30` ho označil) i mtime zdroje na VPS.
+- ⚠️ **Původní diagnóza (UniFi Drive maže cizí soubory) byla mylná** — zmátl
+  probe test, který přežil, protože `mkdir` dá čerstvou mtime a `__probe`
+  nematchuje `20*`, takže prune vůbec neprošel. Že snapshot zmizel i po
+  přesunu mimo Drive, ukázalo, že viník je ve skriptu.
+- **Oprava** `deploy/unas-pull.sh`: retence **podle data v názvu** (`YYYY-MM-DD`,
+  nech nejnovějších `KEEP`), nikdy podle mtime; `touch "$TODAY"` po `mv` pro
+  poctivou mtime. Ověření snapshotu se přesunulo **až za prune** a ping jde
+  jen když složka fakt zůstala — dřív bylo ověření před prune, takže bug
+  neodhalilo. Retence otestována lokálně (35 → 30, správná hranice).
+- Cíl zůstává mimo UniFi Drive share — hygiena, ne příčina. `docs/deployment.md`
+  a gotcha 32 opraveny.
 
 ### Závislosti: React 19.3, Next 16.3.5, zod 4.6, dotenv 18
 - Zbylé dva Dependabot PR (#37 skupina 13 balíčků, #39 dotenv). Žádné CVE,

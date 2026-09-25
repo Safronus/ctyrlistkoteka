@@ -980,32 +980,48 @@ dědí AAAA záznam cíle; v tomhle případě šla validace právě přes
 
 ---
 
-## 32. Offsite záloha tiše mizela — UniFi Drive maže cizí soubory ve svém share
+## 32. Offsite záloha tiše mizela — `rsync -a` + prune podle mtime smazaly snapshot týž běh
 
-**Co:** Denní pull z VPS na UNAS hlásil roky „OK snapshot … 46 GB", ale v cíli
-zůstal jen viset symlink `latest` a žádná datovaná složka. `du` cílové cesty
-= 128 K místo 47 GB. Obnova by neměla z čeho běžet.
+**Co:** Denní pull z VPS na UNAS hlásil „OK snapshot … 46 GB", ale v cíli zůstal
+jen viset symlink `latest` a žádná datovaná složka (`du` cesty 128 K místo
+47 GB). Každý běh, na dvou různých cílech. Obnova by neměla z čeho běžet.
 
-**Proč:** Cíl byl uvnitř UniFi Drive share
-(`…/.srv/.unifi-drive/CtyrlistkotekaBackups/.data/snapshots/`). UniFi Drive
-svoje shary zálohuje `rclone`em s Postgres katalogem a **srovnává obsah
-`.data` proti tomu katalogu** — cokoli tam zapíše proces mimo aplikaci (náš
-`rsync` jako `root`) není v katalogu a Drive to smaže, prakticky hned. 47 GB
-se tedy každou noc přeneslo a bylo pryč do rána; drobný `latest` (symlink)
-se ráno přepsal a proklouzl, proto to vypadalo, že „něco tam je". `ps aux`
-to prozradí: `rclone … rcd` + `postgres … unifi-drive`.
+**Proč (a jak jsem se nejdřív spletl):** První hypotéza byla, že UniFi Drive maže
+cizí soubory ve svém share — cíl byl tehdy uvnitř `…/.unifi-drive/…/.data`.
+**Byla špatná.** Po přesunu na obyčejnou složku mimo Drive (`/volume/<uuid>/
+ctyrlistkoteka-backups/`) snapshot zmizel *úplně stejně* → Drive to nebyl. To
+byl důkaz, že viník je **uvnitř skriptu**, a jediný `rm`, který sahá na
+datované složky, je prune:
 
-**Jak aplikovat:** Nikdy nezálohuj (ani nepiš cokoli přes SSH/rsync) do
-`…/.srv/.unifi-drive/<share>/.data` — to je backing store aplikace, ne
-běžná složka. Piš do **obyčejného adresáře na datovém poolu**
-(`/volume/<uuid>/<něco>`), který Drive nespravuje; přežije restart i firmware
-(není na overlayfs jako `/etc/cron.d`) a je na stejném filesystemu, takže
-`--link-dest` hardlinky fungují dál. Test na 30 s to odhalí: `mkdir` složku
-přímo do share, počkej, `ls` — když zmizí, sežral ji Drive.
+```
+find "$SNAP_DIR" -type d -name '20*' -mtime "+${KEEP_SNAPSHOTS}" -exec rm -rf {} +
+```
 
-**Obecnější ponaučení:** dead-man switch kontroloval jen to, že pull
-**proběhl** (ping marker), ne že data **přežila** — proto to roky mlčelo.
-`unas-pull.sh` teď po zveřejnění ověří, že snapshot je pořád na disku
-(MANIFEST + velikost), a ping pošle jen tehdy; jinak VPS switch zařve.
-„Proběhlo" ≠ „přežilo" platí pro každou zálohu, kterou nikdo pravidelně
-nezkouší obnovit.
+`rsync -a` totiž orazítkuje **cílový adresář mtime ZDROJE**. Zdroj je
+`/var/ctyrlistkoteka`, jehož kořen se skoro nemění — měl mtime `2026-07-20`,
+tedy přes dva měsíce. `mv` ji zachová, takže čerstvý snapshot pojmenovaný
+dneškem má mtime dva měsíce starou → `-mtime +30` na něj sedne → prune ho
+smaže **týž běh, co vznikl**. Proto „0 kept" od začátku. Ověřeno v malém:
+`rsync -a` složky se starou zdrojovou mtime → cíl tu starou mtime dostal a
+`find -mtime +30` ho vypsal.
+
+Proč to zmátlo: „probe" test (`mkdir` složky přímo do cíle) přežil — jenže
+`mkdir` dá **čerstvou** mtime a název `__probe` navíc nematchuje `20*`, takže
+tím pravým sítem (prune) vůbec neprošel. Nereprezentativní test = falešná
+jistota.
+
+**Oprava:** retence **podle data v názvu, ne podle mtime** (`YYYY-MM-DD`,
+lexikální řazení = chronologické, nech nejnovějších `KEEP`); k tomu `touch
+"$TODAY"` po `mv`, ať má snapshot poctivou mtime. Obecně: nikdy neřeš retenci
+podle mtime u stromu, který jsi právě protáhl `rsync -a` — přenáší časy
+zdroje.
+
+**Druhá díra, taky opravená:** dead-man switch kontroloval jen že pull
+**proběhl** (ping marker), ne že data **přežila** — proto to mlčelo. Skript
+teď ověří, že je snapshot na disku **až po prune**, a ping pošle jen pak;
+jinak VPS switch zařve do 3 dnů. „Proběhlo" ≠ „přežilo" platí pro každou
+zálohu, kterou nikdo pravidelně nezkouší obnovit.
+
+**Pozn.:** přesun mimo UniFi Drive share zůstal — psát 47 GB přes `rsync` do
+`.data` backing storu aplikace je stejně špatný nápad, jen to nebyla *tahle*
+příčina.

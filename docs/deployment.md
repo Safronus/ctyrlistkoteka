@@ -426,16 +426,16 @@ Klíč na data umí jen číst přes `rrsync` a jen uvnitř `/var/ctyrlistkoteka
 30 denních kopií 27GB stromu zabere ~27 GB, ne 810 GB. Nezměněné soubory
 sdílí inode.
 
-**Cíl je MIMO UniFi Drive** — `/volume/<uuid>/ctyrlistkoteka-backups/`, ne
-share pod `.srv/.unifi-drive/…/.data`. UniFi Drive spravuje své shary přes
-`rclone` + Postgres katalog a soubory, které do nich zapíše někdo mimo
-aplikaci (náš `rsync` jako root), **maže** jako neznámé — snapshot zmizel
-tutéž noc, každou noc, a zůstal jen viset `latest` (diagnostikováno
-2026-09-24, viz gotcha 32). Obyčejná složka na datovém poolu Drive
-neindexuje, přežije restart i firmware (není na overlayfs) a hardlink dedup
-funguje dál (stejný filesystem). Skript po každém běhu **ověří, že snapshot
-opravdu zůstal na disku, a teprve pak pingne VPS** — „proběhlo" už není
-totéž co „přežilo".
+**Retence je podle data v názvu, ne podle mtime.** `rsync -a` razítkuje cílový
+adresář mtime zdroje (`/var/ctyrlistkoteka`, stará dva měsíce), takže původní
+prune `-mtime +30` viděl každý čerstvý snapshot jako starý a smazal ho týž
+běh, co vznikl — „0 kept" od začátku (viz gotcha 32). Teď se drží nejnovějších
+`KEEP_SNAPSHOTS` podle názvu `YYYY-MM-DD` a snapshot se po `mv` `touch`ne, ať
+má poctivou mtime. Cíl je navíc **mimo UniFi Drive share**
+(`/volume/<uuid>/ctyrlistkoteka-backups/`, ne `.srv/.unifi-drive/…/.data`) —
+psát 47 GB přes `rsync` do backing storu aplikace je špatný nápad tak jako
+tak. Skript po každém běhu **ověří (až po prune), že snapshot zůstal na
+disku, a teprve pak pingne VPS** — „proběhlo" už není totéž co „přežilo".
 
 > ⚠️ **Po každém firmware updatu UNASu zkontroluj cron.** UniFi drží `/` na
 > overlayfs a update ho resetuje — skript v `/persistent` přežije, ale

@@ -104,24 +104,40 @@ fi
 
 rm -rf "$TODAY"
 mv "$staging" "$TODAY"
+
+# rsync -a stamps the destination directory with the SOURCE root's mtime
+# (/var/ctyrlistkoteka, mtime 2026-07-20 and rarely touched). Reset it to
+# now, so the snapshot's age reflects when it was TAKEN — otherwise every
+# fresh snapshot looks two months old to anything that reads its mtime.
+touch "$TODAY"
+
 ln -sfn "$TODAY" "$LATEST_LINK"
 
-# "It ran" is not "it stayed". Re-check the snapshot is still on disk AFTER
-# publishing, before we tell the VPS we are healthy. This is precisely the
-# failure that went unnoticed for days: a managed share ate the tree the
-# moment it landed while every run still logged OK. If it is gone or shrank,
-# do NOT ping — the VPS dead-man's switch then fires within MAX_AGE_DAYS
-# instead of us reporting a success that left nothing behind.
-published_bytes="$(du -sb "$TODAY" 2>/dev/null | cut -f1 || echo 0)"
-if [[ ! -e "${TODAY}/.offsite/MANIFEST.txt" || "${published_bytes:-0}" -lt "$MIN_TOTAL_BYTES" ]]; then
-  log "FAIL: snapshot vanished or shrank to ${published_bytes:-0} B after publish — target may be a managed share; NOT pinging"
-  exit 5
+# Retention by DATE-IN-NAME, never by mtime. Names are YYYY-MM-DD, so a
+# lexical sort is chronological; keep the newest KEEP_SNAPSHOTS, drop the
+# rest. This was an mtime prune (`-mtime +KEEP`) and it was the whole bug:
+# rsync gave each new snapshot the source's two-month-old mtime, so the
+# prune deleted every snapshot the same run it was made — nothing was ever
+# kept (diagnosed 2026-09-26; the touch above fixes it too, but sorting by
+# the date in the name never depends on a timestamp again).
+mapfile -t snaps < <(
+  find "$SNAP_DIR" -mindepth 1 -maxdepth 1 -type d -name '20*' -printf '%f\n' | sort
+)
+if (( ${#snaps[@]} > KEEP_SNAPSHOTS )); then
+  for old in "${snaps[@]:0:${#snaps[@]}-KEEP_SNAPSHOTS}"; do
+    rm -rf "${SNAP_DIR:?}/${old}"
+  done
 fi
 
-# Prune only after a good snapshot landed, so a run of failures can never
-# erode history. -mindepth/-maxdepth 1 keeps this pinned to the dated dirs.
-find "$SNAP_DIR" -mindepth 1 -maxdepth 1 -type d -name '20*' -mtime "+${KEEP_SNAPSHOTS}" \
-  -exec rm -rf {} + 2>/dev/null || true
+# "It ran" is not "it stayed". Verify the snapshot is STILL on disk after
+# publishing AND pruning, before telling the VPS we are healthy. If it is
+# gone or short, do NOT ping — the VPS dead-man's switch then fires within
+# MAX_AGE_DAYS instead of us reporting a success that left nothing behind.
+published_bytes="$(du -sb "$TODAY" 2>/dev/null | cut -f1 || echo 0)"
+if [[ ! -e "${TODAY}/.offsite/MANIFEST.txt" || "${published_bytes:-0}" -lt "$MIN_TOTAL_BYTES" ]]; then
+  log "FAIL: snapshot not on disk after publish (${published_bytes:-0} B); NOT pinging"
+  exit 5
+fi
 
 # Tell the VPS we made it. Its own cron checks the age of this marker and
 # shouts if we stop showing up — the safety net for the wiped-cron problem
@@ -140,4 +156,4 @@ else
   log "WARN: ping key $PING_KEY missing — VPS cannot tell this ran"
 fi
 
-log "OK snapshot $(basename "$TODAY") (${actual_bytes} B), $(find "$SNAP_DIR" -mindepth 1 -maxdepth 1 -type d -name '20*' | wc -l) kept"
+log "OK snapshot $(basename "$TODAY") (${published_bytes} B), $(find "$SNAP_DIR" -mindepth 1 -maxdepth 1 -type d -name '20*' | wc -l) kept"
