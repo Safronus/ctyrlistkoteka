@@ -7,6 +7,26 @@ seskupené po datech. Vyčerpávající historie je v `git log` — sem patří
 jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 (pravidlo: docs / changelog / readme se drží aktuální).
 
+## 2026-10
+
+### Závislosti: Next 16.3.8 (bezpečnostní opravy), sharp 0.35.5
+- Dependabot #42 (skupina 13 balíčků; nahradil zavřený #41) a #43
+  (dompurify).
+- **Next 16.3.5 → 16.3.8 je bezpečnostní update:** RCE v `next/og`
+  `ImageResponse` (GHSA-vcvr-r3jv-pc5j; používá ho naše `/og`), SSRF v Image
+  Optimization (`next/image` máme v 7 souborech) a několik cache poisoning /
+  únikových chyb v SSG/ISR a `use cache`. Žádná změna API.
+- **sharp 0.35.4 → 0.35.5**: v typech odstranili neexistující pojmenovaný
+  export. Ověřeno, že `require("sharp")` je pořád volatelné (gotcha 12)
+  a že `default` z ESM importu funguje. Převod do WebP projde.
+- **eslint-plugin-security 4.2** přidal pravidlo `detect-invisible-characters`.
+  Výstup lintu je i tak totožný s předchozím stavem (64 warningů, 0 chyb).
+- **dompurify 3.4.16** (tranzitivní) — hardening proti obcházení sanitizace
+  a DOM clobberingu.
+- Dál: lucide-react 1.50, next-intl 4.14.9, dotenv 18.0.5 (`dotenv/config`
+  je zase ve výchozím stavu potichu), @simplewebauthn/server 14.0.3, vite,
+  vitest, tsx, @types/node, sonarjs — samé opravy.
+
 ## 2026-09
 
 ### Offsite záloha: snapshoty mizely týž běh — chyba v prune (ne UniFi Drive)
