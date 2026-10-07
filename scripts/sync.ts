@@ -2325,6 +2325,29 @@ async function main() {
         status: rv.status ?? null,
         skipped: rv.skipped ?? null,
       });
+      if (!rv.ok) {
+        // Loud, not a buried warn line. A skipped/failed revalidation means
+        // /statistiky and the home stat panels keep serving pre-sync numbers
+        // until each aggregation's own 6 h window elapses — and nobody reads
+        // structured logs. The import itself succeeded, so this does NOT fail
+        // the run; it just has to be impossible to miss. (Note: this catches
+        // a missing token or a down server; it can't catch a revalidate that
+        // reached only one of several workers — that's why we run a single
+        // instance, see deploy/ecosystem.config.cjs.)
+        const why =
+          rv.skipped === "no-token"
+            ? "REVALIDATE_TOKEN není v .env"
+            : rv.skipped === "fetch-failed"
+              ? "server neodpověděl na 127.0.0.1 (běží app? správný PORT?)"
+              : `revalidate endpoint vrátil HTTP ${rv.status}`;
+        process.stderr.write(
+          `\n⚠️  REVALIDACE PO SYNCU NEPROBĚHLA — ${why}.\n` +
+            `    /statistiky zůstanou na starých číslech až 6 h. Oprav příčinu,\n` +
+            `    nebo ručně:\n` +
+            `      curl -s -X POST -H "authorization: Bearer $REVALIDATE_TOKEN" \\\n` +
+            `        http://127.0.0.1:${process.env.PORT ?? "3000"}/api/admin/revalidate\n\n`,
+        );
+      }
     }
 
     log.log({

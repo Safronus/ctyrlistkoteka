@@ -9,6 +9,25 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### /statistiky po syncu: zastaralá data (PM2 cluster + nesdílená cache)
+- Po syncu `/statistiky` ukazovala „něco čerstvé, většina ne" i hodinu poté.
+  Příčina **nebyl** chybějící `REVALIDATE_TOKEN` (ten byl nastavený) — app
+  běžela ve **2 cluster workerech bez sdíleného cacheHandleru**, takže ping
+  `revalidateTag("stats")` trefil jen jeden worker; druhý držel stará čísla
+  (`unstable_cache`, 6 h) a prohlížeč se ho přes keep-alive držel. Potvrzeno
+  tím, že to srovnal až `pm2 reload` (restart obou). Gotcha 33.
+- **Oprava:** `deploy/ecosystem.config.cjs` → `instances: 1`. Cache je tím
+  koherentní, ping po syncu vždy trefí „ten" worker a data jsou hned aktuální.
+  (Chceš-li zpět víc workerů, nejdřív sdílený cacheHandler přes Redis.)
+  ⚠️ Na VPS se to nenasadí samo přes `pm2 reload` — viz postup v odpovědi /
+  README: `pm2 scale ctyrlistkoteka 1 && pm2 save`.
+- **Zpevnění:** `sync.ts` teď na konci **nahlas** (stderr banner) oznámí, když
+  revalidace přeskočila/selhala — dřív jen zahrabaný `warn`. (Nechytne ale
+  „doletělo jen na jeden worker", proto ta jedna instance.) A `revalidate.ts`
+  revaliduje lokalizované routy správným tvarem `/[locale]/…, "page"` jako
+  admin akce (není to příčina téhle potíže — stránky jsou dynamické —, ale je
+  to správně, kdyby se někdy vrátily na ISR).
+
 ### Závislosti: Next 16.3.8 (bezpečnostní opravy), sharp 0.35.5
 - Dependabot #42 (skupina 13 balíčků; nahradil zavřený #41) a #43
   (dompurify).

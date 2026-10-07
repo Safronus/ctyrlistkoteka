@@ -1025,3 +1025,33 @@ zálohu, kterou nikdo pravidelně nezkouší obnovit.
 **Pozn.:** přesun mimo UniFi Drive share zůstal — psát 47 GB přes `rsync` do
 `.data` backing storu aplikace je stejně špatný nápad, jen to nebyla *tahle*
 příčina.
+
+---
+
+## 33. PM2 cluster bez sdíleného cacheHandleru → revalidace po syncu trefí jen jeden worker
+
+**Co:** Hodinu po syncu `/statistiky` ukazovala **„něco čerstvé, většina ne"** —
+třeba „Průměrné tempo" aktuální, zbytek na starých (půl-sync) číslech. Domovská
+působila OK. Token i ping byly v pořádku.
+
+**Proč:** App běžela v **PM2 cluster módu se 2 workery** (`instances: 2`) a Next
+neměl **žádný sdílený cacheHandler**. `unstable_cache` (agregace statistik, 6 h,
+tag `stats`) proto žije v paměti **každého workeru zvlášť**. Sync po doběhnutí
+pingne `revalidateTag("stats")` přes `POST 127.0.0.1:3000/api/admin/revalidate`,
+jenže PM2 to round-robinem pošle **jen jednomu** workeru → ten si cache zahodí,
+**druhý si ji drží dál** až do svého vlastního 6h okna. Prohlížeč se přes
+keep-alive drží jednoho workeru, takže vidíš ten nevyčištěný. `revalidateTag` v
+jednom procesu druhému procesu neřekne, ať zahodí svoji kopii — to je přesně
+důvod, proč Next u víc instancí **vyžaduje sdílený cacheHandler**. Že to „spraví"
+jedině `pm2 reload` (restart obou workerů) je ten podpis.
+
+**Jak aplikovat:** Buď běž na **jedné instanci** (`instances: 1` — zvoleno
+2026-10-07; u malého provozu bez downside, těžkou práci dělá Postgres), nebo —
+když chceš víc workerů — napřed naviaž **sdílený cacheHandler** (Redis) v
+`next.config`, jinak je on-demand revalidace děravá. Obecně: `revalidateTag`/
+`revalidatePath` v self-hosted Nextu platí **jen pro proces, který je zavolal**,
+pokud cache není sdílená. Diagnóza: změň data, zavolej revalidaci jednou a
+koukni, jestli jsou čerstvé na opakované načtení (víc workerů → nekonzistentní).
+
+**Pozn.:** hlasité varování v `sync.ts` tohle **nechytne** — ping se povede
+(HTTP 200), jen nedoletí na druhý worker. Chytá chybějící token / spadlý server.

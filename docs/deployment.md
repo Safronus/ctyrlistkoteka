@@ -535,6 +535,8 @@ pnpm build
 ```bash
 # V /var/www/ctyrlistkoteka
 pm2 start deploy/ecosystem.config.cjs
+# Pozn.: běží na JEDNÉ instanci schválně — cluster bez sdíleného
+# cacheHandleru dělá revalidaci po syncu děravou (viz gotcha 33).
 pm2 save
 pm2 startup systemd -u app --hp /home/app
 # (spustí vytištěný příkaz jako sudo)

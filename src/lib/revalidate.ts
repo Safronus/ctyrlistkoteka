@@ -32,7 +32,22 @@ export function revalidatePublicSurfaces(): void {
   // the alternative, but it's Server-Actions-only and this runs from a route
   // handler.
   revalidateTag("stats", "max");
-  for (const p of ["/", "/sbirka", "/statistiky", "/lokality", "/mapa"]) {
-    revalidatePath(p);
+  // Localized pages live under app/[locale]/…, so Next caches them under the
+  // route key `/[locale]/…`, NOT `/…`. The plain `revalidatePath("/statistiky")`
+  // never matched that entry, so after a CLI sync /statistiky (ISR 6 h) kept
+  // serving stale (often mid-sync) numbers until its own window elapsed; the
+  // home page only *looked* fine because its 1 h window is short enough to
+  // self-heal. Use the dynamic-route + "page" form — the same one the admin
+  // actions already use for "/[locale]/sbirka/[id]". /sbirka, /lokality and
+  // /mapa are force-dynamic, so their entries make this a cheap no-op — kept
+  // for clarity and to stay correct if any is ever switched back to ISR.
+  for (const route of [
+    "/[locale]",
+    "/[locale]/statistiky",
+    "/[locale]/sbirka",
+    "/[locale]/lokality",
+    "/[locale]/mapa",
+  ]) {
+    revalidatePath(route, "page");
   }
 }
