@@ -9,6 +9,32 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### Závislosti: Next 16.4.2 (kritické bezpečnostní opravy), Prisma 7.10.1, React 19.3.1
+- Dependabot #46 (skupina 16 balíčků; nahradil zavřený #45) — vzato jako
+  jeden commit na `main`, #47 (vite 8.3.3) je podmnožina.
+- **Next 16.3.8 → 16.4.2 je bezpečnostní update (16.4.1):** dvě kritické
+  RCE — v `use cache` funkcích vracejících typed arrays a v Image
+  Optimization API při SVG — a DoS přes Server Actions. Přímá expozice
+  je malá (`use cache` nepoužíváme, `dangerouslyAllowSVG` není zapnuté),
+  ale Server Actions používáme v 60 souborech, i veřejně; spěchalo to. 16.4.0 samotná: Cache
+  Components zůstávají opt-in, `middleware.ts` dál funguje, kratší názvy
+  CSS Modules (nemáme), export mangling v Turbopacku. Build, lint,
+  typecheck, 486 testů beze změny (64 warningů = stejný stav jako před).
+- **Prisma 7.10.1**: oprava vnořeného `$transaction`, který přepisoval
+  předaný options objekt (další nesouvisející transakce pak mohla spadnout
+  na P2028 nebo běžet jako savepoint v cizí transakci); Migrate odmítne
+  shadow DB shodnou s hlavní (P3025). Tranzitivní bezpečnostní bumpy
+  (mysql2, fast-uri, source-map-js) — proto je `fast-uri`/`source-map-js`
+  override z 4ff5a7e zbytečný, ale neškodí.
+- **React 19.3.1**: jen vylepšený RSC transport protokol.
+- **zod 4.6.7**: 4.6.6 je první vydání po incidentu z 21. 9. 2026
+  (kompromitovaný git credential, 6 škodlivých commitů na `main`,
+  tentýž den vráceno; **na npm se nikdy nic nedostalo**, provenance
+  4.6.6 odkazuje na čistý commit).
+- Dál: lucide-react 1.58 (jen nové ikony, nic odstraněno), react-easy-crop
+  6.2.4 (obnova „cover" ořezu při prvním načtení), dotenv 18.0.8, postcss,
+  vite 8.3.4, vitest 5.0.5, @types/*.
+
 ### /statistiky po syncu: zastaralá data (PM2 cluster + nesdílená cache)
 - Po syncu `/statistiky` ukazovala „něco čerstvé, většina ne" i hodinu poté.
   Příčina **nebyl** chybějící `REVALIDATE_TOKEN` (ten byl nastavený) — app
