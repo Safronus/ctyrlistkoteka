@@ -54,6 +54,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - Dál: lucide-react 1.58 (jen nové ikony, nic odstraněno), react-easy-crop
   6.2.4 (obnova „cover" ořezu při prvním načtení), dotenv 18.0.8, postcss,
   vite 8.3.4, vitest 5.0.5, @types/*.
+- Hned nato dependabot #48: lucide-react 1.59 (upravená ikona chess-queen,
+  nic odstraněno), postcss 8.5.31 (source mapy u escapování `</style>`).
 
 ### /statistiky po syncu: zastaralá data (PM2 cluster + nesdílená cache)
 - Po syncu `/statistiky` ukazovala „něco čerstvé, většina ne" i hodinu poté.
