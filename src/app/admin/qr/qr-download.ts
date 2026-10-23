@@ -21,24 +21,61 @@ export function downloadSvg(svg: string, filename: string): void {
   triggerDownload(new Blob([svg], { type: "image/svg+xml" }), filename);
 }
 
+/** Options shared by the PNG rasterisers. */
+export interface PngOpts {
+  /** Drop the QR's painted background so the PNG keeps an alpha channel —
+   *  the "průhledné pozadí" download option. See `stripBackgroundRect`. */
+  transparent?: boolean;
+}
+
 export async function downloadPng(
   svg: string,
   filename: string,
   scale = 2,
+  opts: PngOpts = {},
 ): Promise<void> {
-  triggerDownload(await svgToPngBlob(svg, scale), filename);
+  triggerDownload(await svgToPngBlob(svg, scale, opts), filename);
+}
+
+/**
+ * Removes the full-canvas background both QR renderers paint as the very
+ * first `<rect x="0" y="0" …>` of the SVG (`qr.ts` → `theme.bg`,
+ * `casqbQr.ts` → `style.bg`).
+ *
+ * Safe to strip blindly: nothing else in either SVG starts at the origin —
+ * data modules, finder/eye patterns, the panel border and the logo hole
+ * all sit at a non-zero offset (padding or quiet zone) — so only the
+ * background matches, and the code itself is left untouched. The `<svg>`
+ * width/height stay in place, so the rasteriser still reads the same size.
+ * A panel-border card keeps its tinted panel (that rect is inset, not at
+ * 0,0); only the bleed around it turns transparent.
+ */
+export function stripBackgroundRect(svg: string): string {
+  return svg.replace(
+    /<rect x="0" y="0" width="[\d.]+" height="[\d.]+" fill="[^"]*"\s*\/>/,
+    "",
+  );
 }
 
 /** Rasterises an SVG string to a PNG Blob via an offscreen canvas.
- *  `scale` multiplies the SVG's intrinsic size for print-quality pixels. */
-export function svgToPngBlob(svg: string, scale: number): Promise<Blob> {
+ *  `scale` multiplies the SVG's intrinsic size for print-quality pixels.
+ *  With `transparent`, the painted background is dropped first so the PNG
+ *  carries an alpha channel instead of the theme's solid fill. */
+export function svgToPngBlob(
+  svg: string,
+  scale: number,
+  opts: PngOpts = {},
+): Promise<Blob> {
+  const source = opts.transparent ? stripBackgroundRect(svg) : svg;
   return new Promise((resolve, reject) => {
-    const wMatch = svg.match(/<svg[^>]*\swidth="(\d+)"/);
-    const hMatch = svg.match(/<svg[^>]*\sheight="(\d+)"/);
+    const wMatch = source.match(/<svg[^>]*\swidth="(\d+)"/);
+    const hMatch = source.match(/<svg[^>]*\sheight="(\d+)"/);
     const baseW = wMatch ? Number(wMatch[1]) : 600;
     const baseH = hMatch ? Number(hMatch[1]) : 800;
 
-    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    const url = URL.createObjectURL(
+      new Blob([source], { type: "image/svg+xml" }),
+    );
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement("canvas");
@@ -50,8 +87,10 @@ export function svgToPngBlob(svg: string, scale: number): Promise<Blob> {
         reject(new Error("Canvas context není dostupný"));
         return;
       }
-      // The SVG already paints its own (themed) background rect, so we
-      // don't pre-fill — keeps the dark-theme PNG dark instead of white.
+      // Never pre-fill the canvas: normally the SVG paints its own themed
+      // background rect (so the dark-theme PNG stays dark, not white), and
+      // in the transparent case that rect is gone and the untouched canvas
+      // keeps its alpha channel.
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
       canvas.toBlob((b) => {

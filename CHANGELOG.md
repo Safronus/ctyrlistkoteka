@@ -9,6 +9,26 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### /admin/qr: volitelně průhledné pozadí u stahovaných PNG
+- Nový přepínač **„Průhledné pozadí PNG"** u stahování ve **všech čtyřech
+  záložkách** (nálezy — jednotlivě i hromadný ZIP; stránky — generátor
+  i evidence; CaSQB — po vytvoření i uložené; darování — přední strany
+  kartiček v tiskovém archu, pro barevný papír). Vždy vypnuto při otevření,
+  nikam se neukládá (per stažení).
+- Mechanismus je **jeden a klientský**: `stripBackgroundRect` v
+  `qr-download.ts` smaže z SVG úplně první `<rect x="0" y="0" …>` — pozadí,
+  které oba renderery (`qr.ts` → `theme.bg`, `casqbQr.ts` → `style.bg`)
+  kreslí jako první. Nic jiného v SVG nezačíná na počátku (moduly, oči,
+  finder, panel i otvor loga mají nenulový posun), takže se odstraní jen
+  pozadí a kód zůstane; `svgToPngBlob` canvas nepředvyplňuje, takže alfa
+  projde. Žádné volání serveru navíc, SVG a vektorové PDF beze změny.
+- **Jen pro světlé kódy** — tmavý motiv (světlé moduly) na světlém podkladu
+  nenaskenuje; přepínač to u sebe píše. U „panelu" zůstává tónovaný panel,
+  zprůhlední jen přesah kolem.
+- Pojistka: `qr-download.test.ts` ověřuje strip proti **reálnému výstupu
+  obou rendererů** (změna tvaru pozadí spadne v testu, ne u uživatele).
+  Typecheck, lint (64 varování = beze změny), build i 492 testů zelené.
+
 ### Závislosti: Next 16.4.2 (kritické bezpečnostní opravy), Prisma 7.10.1, React 19.3.1
 - Dependabot #46 (skupina 16 balíčků; nahradil zavřený #45) — vzato jako
   jeden commit na `main`, #47 (vite 8.3.3) je podmnožina.

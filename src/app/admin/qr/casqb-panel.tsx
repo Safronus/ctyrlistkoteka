@@ -112,6 +112,11 @@ export function CasqbPanel({
   const [decode, setDecode] = useState<{ verdict: "ok" | "risky" | "fail"; okCount: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: number; token: string; svg: string; encodedUrl: string } | null>(null);
+  // PNG transparency, per download and always off on open. Two scopes kept
+  // apart: the just-created code, and the saved-codes list below. SVG and
+  // the vector PDF are unaffected.
+  const [transparentNew, setTransparentNew] = useState(false);
+  const [transparentList, setTransparentList] = useState(false);
   const [busy, startBusy] = useTransition();
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -457,7 +462,7 @@ export function CasqbPanel({
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <SmallButton onClick={() => downloadSvg(created.svg, `${fileBase}.svg`)} icon={<Download className="h-3.5 w-3.5" aria-hidden />} text="SVG" />
-                  <SmallButton onClick={() => void downloadPng(created.svg, `${fileBase}.png`, 2)} icon={<Download className="h-3.5 w-3.5" aria-hidden />} text="PNG 2048 px" />
+                  <SmallButton onClick={() => void downloadPng(created.svg, `${fileBase}.png`, 2, { transparent: transparentNew })} icon={<Download className="h-3.5 w-3.5" aria-hidden />} text="PNG 2048 px" />
                   <CasqbVectorPdfButton
                     svg={created.svg}
                     token={created.token}
@@ -465,14 +470,34 @@ export function CasqbPanel({
                     url={created.encodedUrl}
                   />
                 </div>
+                <label className="flex cursor-pointer items-center gap-2 text-[11px] text-emerald-900">
+                  <input
+                    type="checkbox"
+                    checked={transparentNew}
+                    onChange={(e) => setTransparentNew(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500/30"
+                  />
+                  Průhledné pozadí PNG (jen světlé kódy)
+                </label>
               </div>
             )}
           </div>
         </div>
       </section>
 
-      <CodeList title="Aktivní" items={active} onEdit={startEdit} onChanged={() => router.refresh()} />
-      <CodeList title="Vyřazené" items={retired} onEdit={startEdit} onChanged={() => router.refresh()} />
+      {(active.length > 0 || retired.length > 0) && (
+        <label className="flex w-fit cursor-pointer items-center gap-2 text-xs text-gray-600">
+          <input
+            type="checkbox"
+            checked={transparentList}
+            onChange={(e) => setTransparentList(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30"
+          />
+          Stahovat PNG uložených kódů s průhledným pozadím
+        </label>
+      )}
+      <CodeList title="Aktivní" items={active} onEdit={startEdit} onChanged={() => router.refresh()} transparent={transparentList} />
+      <CodeList title="Vyřazené" items={retired} onEdit={startEdit} onChanged={() => router.refresh()} transparent={transparentList} />
 
       <section className="space-y-2 rounded-xl border border-gray-200 bg-white p-4 text-xs text-gray-600 sm:p-5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -743,11 +768,13 @@ function CodeList({
   items,
   onEdit,
   onChanged,
+  transparent,
 }: {
   title: string;
   items: CasqbListItem[];
   onEdit: (item: CasqbListItem) => void;
   onChanged: () => void;
+  transparent: boolean;
 }) {
   if (items.length === 0 && title === "Vyřazené") return null;
   return (
@@ -762,7 +789,7 @@ function CodeList({
       ) : (
         <ul className="space-y-2">
           {items.map((item) => (
-            <CodeRow key={item.id} item={item} onEdit={() => onEdit(item)} onChanged={onChanged} />
+            <CodeRow key={item.id} item={item} onEdit={() => onEdit(item)} onChanged={onChanged} transparent={transparent} />
           ))}
         </ul>
       )}
@@ -780,10 +807,12 @@ function CodeRow({
   item,
   onEdit,
   onChanged,
+  transparent,
 }: {
   item: CasqbListItem;
   onEdit: () => void;
   onChanged: () => void;
+  transparent: boolean;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -828,7 +857,7 @@ function CodeRow({
     }
     const base = `casqb-qr-${r.token}`;
     if (kind === "svg") downloadSvg(r.svg, `${base}.svg`);
-    else await downloadPng(r.svg, `${base}.png`, 2);
+    else await downloadPng(r.svg, `${base}.png`, 2, { transparent });
   };
 
   return (

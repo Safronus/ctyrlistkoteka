@@ -57,6 +57,8 @@ export function FindQrExportDialog({
     pdf: false,
   });
   const [cutGuides, setCutGuides] = useState(true);
+  // Affects only the PNG files; the in-ZIP print sheet (PDF) stays on white.
+  const [transparentPng, setTransparentPng] = useState(false);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(0);
   const [phase, setPhase] = useState<string | null>(null);
@@ -104,7 +106,12 @@ export function FindQrExportDialog({
           }
           if (fmts.png) {
             const scale = targetPx / intrinsicWidth(item.svg);
-            zip.file(`${base}.png`, await svgToPngBlob(item.svg, scale));
+            zip.file(
+              `${base}.png`,
+              await svgToPngBlob(item.svg, scale, {
+                transparent: transparentPng,
+              }),
+            );
           }
           if (fmts.pdf) forPdf.push(item);
         }
@@ -172,6 +179,15 @@ export function FindQrExportDialog({
             onChange={(b) => setFmts((f) => ({ ...f, png: b }))}
             label={`PNG — ${PRINT_DPI} DPI pro zvolených ${sizeCm.toFixed(1).replace(".", ",")} cm`}
           />
+          {fmts.png && (
+            <div className="pl-6">
+              <Check
+                checked={transparentPng}
+                onChange={setTransparentPng}
+                label="Průhledné pozadí (jen světlé kódy)"
+              />
+            </div>
+          )}
           <Check
             checked={fmts.pdf}
             onChange={(b) => setFmts((f) => ({ ...f, pdf: b }))}

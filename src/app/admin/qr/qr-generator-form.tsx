@@ -93,6 +93,9 @@ export function QrGeneratorForm() {
   const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pngScale, setPngScale] = useState(2);
+  // Per-download, always off on open (not remembered): transparency is an
+  // export-time decision, and the SVG is unaffected either way.
+  const [transparentPng, setTransparentPng] = useState(false);
   const [isCreating, startCreate] = useTransition();
   // The most recently created (trackable) QR — only this gets downloaded,
   // so everything you save lands in the evidence list below.
@@ -380,7 +383,9 @@ export function QrGeneratorForm() {
                 type="button"
                 onClick={() =>
                   fileBase &&
-                  downloadPng(created.svg, `${fileBase}.png`, pngScale)
+                  downloadPng(created.svg, `${fileBase}.png`, pngScale, {
+                    transparent: transparentPng,
+                  })
                 }
                 className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-2.5 py-1 font-medium text-emerald-800 transition hover:bg-emerald-100"
               >
@@ -395,6 +400,16 @@ export function QrGeneratorForm() {
                 Nový
               </button>
             </div>
+            <label className="flex cursor-pointer items-center gap-2 text-[11px] text-emerald-900">
+              <input
+                type="checkbox"
+                checked={transparentPng}
+                onChange={(e) => setTransparentPng(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500/30"
+              />
+              Průhledné pozadí PNG (jen světlé kódy — tmavý motiv na světlém
+              podkladu nenaskenuje)
+            </label>
           </div>
         ) : (
           <p className="text-center text-xs text-gray-400">

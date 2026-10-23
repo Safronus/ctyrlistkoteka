@@ -84,6 +84,8 @@ export function FindQrList({
   const [busy, startBusy] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
+  // Per-row PNG option, shared and always off on open. SVG is unaffected.
+  const [transparent, setTransparent] = useState(false);
 
   const { donated, others, revoked } = useMemo(() => {
     const q = query.trim();
@@ -192,6 +194,18 @@ export function FindQrList({
               />
               Skrýt nenaskenované
             </label>
+            <label
+              className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-700"
+              title="Týká se jednotlivých PNG z tlačítka PNG u řádku. SVG i hromadné stažení výběru mají vlastní nastavení."
+            >
+              <input
+                type="checkbox"
+                checked={transparent}
+                onChange={(e) => setTransparent(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30"
+              />
+              PNG průhledné
+            </label>
 
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <button
@@ -275,6 +289,7 @@ export function FindQrList({
                 selected={selected}
                 onToggle={onToggle}
                 onSetMany={onSetMany}
+                transparent={transparent}
               />
               <Section
                 title="Ostatní"
@@ -286,6 +301,7 @@ export function FindQrList({
                 selected={selected}
                 onToggle={onToggle}
                 onSetMany={onSetMany}
+                transparent={transparent}
               />
               <Section
                 title="Zrušené"
@@ -297,6 +313,7 @@ export function FindQrList({
                 selected={selected}
                 onToggle={onToggle}
                 onSetMany={onSetMany}
+                transparent={transparent}
               />
             </>
           )}
@@ -316,6 +333,7 @@ function Section({
   selected,
   onToggle,
   onSetMany,
+  transparent,
 }: {
   title: string;
   note: string;
@@ -326,6 +344,7 @@ function Section({
   selected: ReadonlySet<number>;
   onToggle: (findId: number) => void;
   onSetMany: (findIds: number[], checked: boolean) => void;
+  transparent: boolean;
 }) {
   const ids = rows.map((r) => r.findId);
   const allChecked = ids.length > 0 && ids.every((id) => selected.has(id));
@@ -364,6 +383,7 @@ function Section({
               cfg={cfg}
               checked={selected.has(it.findId)}
               onToggle={() => onToggle(it.findId)}
+              transparent={transparent}
             />
           ))}
         </ul>
@@ -386,11 +406,13 @@ function Row({
   cfg,
   checked,
   onToggle,
+  transparent,
 }: {
   item: FindQrListItem;
   cfg: FindQrInput;
   checked: boolean;
   onToggle: () => void;
+  transparent: boolean;
 }) {
   const router = useRouter();
   const [dl, setDl] = useState<"svg" | "png" | null>(null);
@@ -408,7 +430,7 @@ function Row({
       }
       const base = `ctyrlistek-${item.findId}`;
       if (kind === "svg") downloadSvg(r.svg, `${base}.svg`);
-      else await downloadPng(r.svg, `${base}.png`, 2);
+      else await downloadPng(r.svg, `${base}.png`, 2, { transparent });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Stažení selhalo");
     } finally {

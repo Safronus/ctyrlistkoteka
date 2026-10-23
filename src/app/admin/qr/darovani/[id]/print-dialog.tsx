@@ -88,6 +88,9 @@ export function DropPrintDialog({
   const [gapMm, setGapMm] = useState(4);
   const [cut, setCut] = useState<CutStyle>("corners");
   const [numbers, setNumbers] = useState(false);
+  // Drop the card's white background so the PDF images carry alpha — for
+  // printing onto coloured stock. On white paper it looks identical.
+  const [transparentCards, setTransparentCards] = useState(false);
   const [padTopMm, setPadTopMm] = useState(0);
   const [padBottomMm, setPadBottomMm] = useState(0);
   const [backOn, setBackOn] = useState(false);
@@ -159,7 +162,7 @@ export function DropPrintDialog({
       if (cards.length === 0) throw new Error("Není co tisknout");
 
       setPhase("Skládám arch…");
-      const blob = await buildSheet(cards, opts);
+      const blob = await buildSheet(cards, opts, transparentCards);
       const stamp = new Date().toISOString().slice(0, 10);
       triggerDownload(blob, `${safeName(campaignName)}-tiskovy-arch-${stamp}.pdf`);
       onClose();
@@ -293,6 +296,23 @@ export function DropPrintDialog({
               <p className="pl-6 text-[11px] text-gray-400">
                 Pomůcka pro rozdělení kusů mezi tým — po ustřižení na
                 kartičce nezůstane.
+              </p>
+            </div>
+
+            <div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+                <input
+                  type="checkbox"
+                  checked={transparentCards}
+                  onChange={(e) => setTransparentCards(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30"
+                />
+                Průhledné pozadí kartiček
+              </label>
+              <p className="pl-6 text-[11px] text-gray-400">
+                Pro tisk na barevný papír — podklad pak prosvítá skrz. Na
+                bílém papíře vypadá stejně. Jen pro světlé kódy; tmavý motiv
+                na barevném papíře nemusí jít naskenovat.
               </p>
             </div>
 
@@ -564,6 +584,7 @@ function SheetPreview({
 async function buildSheet(
   cards: Rendered[],
   opts: SheetOpts,
+  transparent: boolean,
 ): Promise<Blob> {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
@@ -593,7 +614,9 @@ async function buildSheet(
         1,
         ((p.w / 25.4) * PRINT_DPI) / svgWidth(p.card.svg),
       );
-      const dataUrl = await blobToDataUrl(await svgToPngBlob(p.card.svg, scale));
+      const dataUrl = await blobToDataUrl(
+        await svgToPngBlob(p.card.svg, scale, { transparent }),
+      );
       pdf.addImage(dataUrl, "PNG", p.x, p.y + opts.padTopMm, p.w, p.h);
       drawCutMarks(pdf, p.x, p.y, p.w, p.cellH, opts.cut, opts.gapMm);
       if (opts.numbers) {

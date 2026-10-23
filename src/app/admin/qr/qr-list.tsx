@@ -29,6 +29,9 @@ export interface QrListItem {
 export function QrList({ items }: { items: QrListItem[] }) {
   const active = items.filter((i) => !i.archived);
   const archived = items.filter((i) => i.archived);
+  // Shared across every row's PNG button; always off on open (not
+  // remembered). SVG downloads are unaffected.
+  const [transparent, setTransparent] = useState(false);
 
   if (items.length === 0) {
     return (
@@ -39,11 +42,22 @@ export function QrList({ items }: { items: QrListItem[] }) {
   }
 
   return (
-    <div className="space-y-6">
-      <Section title="Aktivní" items={active} />
-      {archived.length > 0 && (
-        <Section title="Zničené" items={archived} muted />
-      )}
+    <div className="space-y-4">
+      <label className="flex w-fit cursor-pointer items-center gap-2 text-xs text-gray-600">
+        <input
+          type="checkbox"
+          checked={transparent}
+          onChange={(e) => setTransparent(e.target.checked)}
+          className="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30"
+        />
+        Stahovat PNG s průhledným pozadím
+      </label>
+      <div className="space-y-6">
+        <Section title="Aktivní" items={active} transparent={transparent} />
+        {archived.length > 0 && (
+          <Section title="Zničené" items={archived} transparent={transparent} muted />
+        )}
+      </div>
     </div>
   );
 }
@@ -51,10 +65,12 @@ export function QrList({ items }: { items: QrListItem[] }) {
 function Section({
   title,
   items,
+  transparent,
   muted = false,
 }: {
   title: string;
   items: QrListItem[];
+  transparent: boolean;
   muted?: boolean;
 }) {
   if (items.length === 0) {
@@ -75,14 +91,22 @@ function Section({
       </h3>
       <ul className="space-y-2">
         {items.map((it) => (
-          <Row key={it.id} item={it} muted={muted} />
+          <Row key={it.id} item={it} transparent={transparent} muted={muted} />
         ))}
       </ul>
     </div>
   );
 }
 
-function Row({ item, muted }: { item: QrListItem; muted: boolean }) {
+function Row({
+  item,
+  transparent,
+  muted,
+}: {
+  item: QrListItem;
+  transparent: boolean;
+  muted: boolean;
+}) {
   const router = useRouter();
   const [busy, startBusy] = useTransition();
   const [dl, setDl] = useState<"svg" | "png" | null>(null);
@@ -99,7 +123,7 @@ function Row({ item, muted }: { item: QrListItem; muted: boolean }) {
       }
       const base = `ctyrlistkoteka-qr-${r.token}`;
       if (kind === "svg") downloadSvg(r.svg, `${base}.svg`);
-      else await downloadPng(r.svg, `${base}.png`, 2);
+      else await downloadPng(r.svg, `${base}.png`, 2, { transparent });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Stažení selhalo");
     } finally {
