@@ -81,10 +81,8 @@ import { getTopFindsWithThumbs } from "@/lib/votes";
 import { CollapsibleSection } from "@/components/stats/collapsible-section";
 import { DeviationCompass } from "@/components/stats/deviation-compass";
 import { CalendarHeatmapTabs } from "@/components/stats/calendar-heatmap-tabs";
-import {
-  WorldChoroplethMap,
-  CONTINENT_FOCUS,
-} from "@/components/stats/world-choropleth-map";
+import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
+import { CONTINENT_FRAME, type ContinentKey } from "@/lib/continents";
 import { CzRegionsChoroplethMap } from "@/components/stats/cz-regions-choropleth-map";
 import { UsStatesChoroplethMap } from "@/components/stats/us-states-choropleth-map";
 import { GeoMapToggle } from "@/components/stats/geo-map-toggle";
@@ -1238,6 +1236,17 @@ function CornerStat({
   return <div className={`flex flex-col ${positionCls}`}>{inner}</div>;
 }
 
+/** Continent tabs in display order (between World and ČR), with their
+ *  label keys. */
+const CONTINENT_TABS = [
+  ["europe", "geoMapTabEurope"],
+  ["asia", "geoMapTabAsia"],
+  ["africa", "geoMapTabAfrica"],
+  ["northAmerica", "geoMapTabNorthAmerica"],
+  ["southAmerica", "geoMapTabSouthAmerica"],
+  ["oceania", "geoMapTabOceania"],
+] as const satisfies ReadonlyArray<readonly [ContinentKey, string]>;
+
 function GeoStatsSection({
   byCountry,
   byCity,
@@ -1318,6 +1327,9 @@ function GeoStatsSection({
             </h3>
             <GeoMapToggle
               ariaLabel={t("geoMapTabsAria")}
+              loadingLabel={t("geoMapLoading")}
+              errorLabel={t("geoMapLoadError")}
+              retryLabel={t("geoMapRetry")}
               tabs={[
                 {
                   key: "world",
@@ -1325,42 +1337,18 @@ function GeoStatsSection({
                   icon: <Globe className="h-4 w-4" aria-hidden />,
                   node: <WorldChoroplethMap byCountry={localizedByCountry} />,
                 },
-                {
-                  key: "europe",
-                  label: t("geoMapTabEurope"),
+                // Continents: finer 50m borders, fetched on first use so
+                // they stay out of this page's HTML.
+                ...CONTINENT_TABS.map(([key, labelKey]) => ({
+                  key,
+                  label: t(labelKey),
                   icon: <Globe2 className="h-4 w-4" aria-hidden />,
-                  node: (
-                    <WorldChoroplethMap
-                      byCountry={localizedByCountry}
-                      focus={CONTINENT_FOCUS.europe}
-                      ariaLabel={t("geoMapEuropeAria")}
-                    />
-                  ),
-                },
-                {
-                  key: "asia",
-                  label: t("geoMapTabAsia"),
-                  icon: <Globe2 className="h-4 w-4" aria-hidden />,
-                  node: (
-                    <WorldChoroplethMap
-                      byCountry={localizedByCountry}
-                      focus={CONTINENT_FOCUS.asia}
-                      ariaLabel={t("geoMapAsiaAria")}
-                    />
-                  ),
-                },
-                {
-                  key: "africa",
-                  label: t("geoMapTabAfrica"),
-                  icon: <Globe2 className="h-4 w-4" aria-hidden />,
-                  node: (
-                    <WorldChoroplethMap
-                      byCountry={localizedByCountry}
-                      focus={CONTINENT_FOCUS.africa}
-                      ariaLabel={t("geoMapAfricaAria")}
-                    />
-                  ),
-                },
+                  lazy: {
+                    src: `/api/stats/continent-map/${key}?locale=${locale}`,
+                    width: CONTINENT_FRAME[key].width,
+                    height: CONTINENT_FRAME[key].height,
+                  },
+                })),
                 {
                   key: "cz",
                   label: t("geoMapTabCz"),

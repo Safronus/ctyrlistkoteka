@@ -1,27 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { getContinentOutline, isContinentMember } from "./continents";
-import { getWorldCountries } from "./world-countries";
+import {
+  CONTINENT_FRAME,
+  CONTINENT_KEYS,
+  isContinentKey,
+  isContinentMember,
+  isTranscontinental,
+  type ContinentKey,
+} from "./continents";
+import { getWorldCountriesHiRes } from "./world-countries-hires";
 
-/** Membership by the dataset's own (id, name) for a named country. */
-function member(continent: "europe" | "asia" | "africa", name: string): boolean {
-  const f = getWorldCountries().features.find((x) => x.properties.name === name);
+const features = getWorldCountriesHiRes().features;
+
+function byName(name: string) {
+  const f = features.find((x) => x.properties.name === name);
   if (!f) throw new Error(`${name} not in dataset`);
-  return isContinentMember(continent, f.properties.id, f.properties.name);
+  return f.properties;
 }
+const member = (c: ContinentKey, name: string) => {
+  const p = byName(name);
+  return isContinentMember(c, p.id, p.name);
+};
 
-describe("isContinentMember", () => {
-  it("places plain members", () => {
-    expect(member("europe", "Czechia")).toBe(true);
-    expect(member("europe", "Iceland")).toBe(true);
-    expect(member("asia", "Japan")).toBe(true);
-    expect(member("africa", "Madagascar")).toBe(true);
+describe("continent membership (50m dataset)", () => {
+  it("assigns every country to a continent, bar Antarctica and three remote territories", () => {
+    const unassigned = features
+      .filter((f) => !CONTINENT_KEYS.some((c) => isContinentMember(c, f.properties.id, f.properties.name)))
+      .map((f) => f.properties.name)
+      .sort();
+    expect(unassigned).toEqual([
+      "Antarctica",
+      "Br. Indian Ocean Ter.",
+      "Fr. S. Antarctic Lands",
+      "Heard I. and McDonald Is.",
+    ]);
   });
 
-  it("puts transcontinental countries in both Europe and Asia", () => {
-    for (const name of ["Russia", "Turkey", "Georgia", "Cyprus"]) {
-      expect(member("europe", name)).toBe(true);
-      expect(member("asia", name)).toBe(true);
-    }
+  it("puts exactly the five split countries in two continents", () => {
+    const multi = features
+      .filter((f) => CONTINENT_KEYS.filter((c) => isContinentMember(c, f.properties.id, f.properties.name)).length > 1)
+      .map((f) => f.properties.name)
+      .sort();
+    expect(multi).toEqual(["Azerbaijan", "Georgia", "Kazakhstan", "Russia", "Turkey"]);
+    for (const name of multi) expect(isTranscontinental(byName(name).id)).toBe(true);
   });
 
   it("resolves the historical-code countries (FX, SU, YU, UK, HV, DY)", () => {
@@ -34,25 +54,46 @@ describe("isContinentMember", () => {
 
   it("joins the code-less features by name", () => {
     expect(member("europe", "Kosovo")).toBe(true);
+    expect(member("europe", "N. Cyprus")).toBe(true);
     expect(member("africa", "Somaliland")).toBe(true);
-    expect(member("asia", "N. Cyprus")).toBe(true);
+    expect(member("asia", "Siachen Glacier")).toBe(true);
   });
 
-  it("keeps neighbours out", () => {
-    expect(member("europe", "Morocco")).toBe(false);
-    expect(member("europe", "Greenland")).toBe(false);
+  it("keeps the deliberate one-continent calls", () => {
+    expect(member("europe", "Cyprus")).toBe(true);
+    expect(member("asia", "Cyprus")).toBe(false);
+    expect(member("asia", "Armenia")).toBe(true);
+    expect(member("europe", "Armenia")).toBe(false);
+    expect(member("africa", "Egypt")).toBe(true);
     expect(member("asia", "Egypt")).toBe(false);
-    expect(member("africa", "Saudi Arabia")).toBe(false);
+    expect(member("northAmerica", "Greenland")).toBe(true);
+    expect(member("europe", "Greenland")).toBe(false);
+  });
+
+  it("places the new continents' anchors", () => {
+    expect(member("northAmerica", "Canada")).toBe(true);
+    expect(member("northAmerica", "Mexico")).toBe(true);
+    expect(member("southAmerica", "Brazil")).toBe(true);
+    expect(member("southAmerica", "Falkland Is.")).toBe(true);
+    expect(member("oceania", "Australia")).toBe(true);
+    expect(member("oceania", "New Zealand")).toBe(true);
+    expect(member("oceania", "Fiji")).toBe(true);
   });
 });
 
-describe("getContinentOutline", () => {
-  it("returns one merged MultiPolygon per continent, cached", () => {
-    for (const c of ["europe", "asia", "africa"] as const) {
-      const o = getContinentOutline(c);
-      expect(o.geometry.type).toBe("MultiPolygon");
-      expect(o.geometry.type === "MultiPolygon" && o.geometry.coordinates.length).toBeGreaterThan(0);
-      expect(getContinentOutline(c)).toBe(o);
+describe("continent keys + frames", () => {
+  it("validates keys", () => {
+    expect(isContinentKey("europe")).toBe(true);
+    expect(isContinentKey("atlantis")).toBe(false);
+  });
+
+  it("has a frame for every continent", () => {
+    for (const c of CONTINENT_KEYS) {
+      const f = CONTINENT_FRAME[c];
+      expect(f.width).toBeGreaterThan(0);
+      expect(f.height).toBeGreaterThan(0);
+      expect(f.bounds[0][0]).toBeLessThan(f.bounds[1][0]);
+      expect(f.bounds[0][1]).toBeLessThan(f.bounds[1][1]);
     }
   });
 });

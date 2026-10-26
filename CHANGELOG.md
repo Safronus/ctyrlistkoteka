@@ -9,6 +9,45 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### /statistiky: mapy kontinentů jemně, rozdělení Evropa–Asie, 3 nové kontinenty
+- **Záložky:** Svět · Evropa · Asie · Afrika · **S. Amerika · J. Amerika ·
+  Austrálie a Oceánie** · ČR · USA.
+- **Jemné hranice:** kontinenty kreslí 50m data místo hrubých 110m, s
+  projekcí vystředěnou na poledník kontinentu (světová projekce se středem
+  na nultém poledníku tvary Asie a Amerik zkosila). Body bližší než ~1 px se
+  zahazují (oko je nerozliší) a souřadnice jsou zaokrouhlené na 0,1, takže
+  přesnost zůstane tam, kde je vidět, ale bez zbytečné váhy. Obrys je
+  tenčí, se zaoblenými spoji.
+- **Donačítání:** mapy kontinentů nejsou v HTML stránky. Endpoint
+  `GET /api/stats/continent-map/<kontinent>?locale=` (validovaný proti
+  6 kontinentům × 2 jazykům) vrátí SVG; záložka si ho stáhne při prvním
+  kliknutí (už při najetí myší) a pak drží. Bez HTTP `max-age`, jen ETag →
+  304: po syncu jsou počty hned čerstvé (bere z `getStatsGeo`, které sync
+  revaliduje). Geometrie se počítá jednou na kontinent a drží v paměti
+  (první render < 80 ms, další < 1 ms). Po gzipu 32–120 KB na kontinent.
+- **Rozdělení Evropa–Asie:** Rusko, Kazachstán, Turecko, Gruzie
+  a Ázerbájdžán se na obou mapách kreslí jen na „své" straně konvenční
+  čáry Ural → řeka Ural → Kaspik → hřeben Kavkazu → Bospor/Dardanely
+  (SVG ořez při kreslení; data i počty zůstávají za celý stát). Obrys
+  Evropy se uzavírá podél Uralu, Asie už nemá evropské Rusko. Test drží,
+  na které straně leží známá města (Moskva, Samara, Groznyj, Derbent,
+  evropský Istanbul vs. Jekatěrinburg, Aktobe, Tbilisi, Baku, Kadıköy,
+  Çanakkale).
+- **Obrys z topologie** (`topojson.mesh`) místo sloučení polygonů: jen
+  hrany s členem na jedné straně (nebo pobřeží člena), takže vnitřní
+  hranice nikdy nezesílí do obrysu. Rozdělené státy se v SVG zapisují
+  jednou (`<defs>` + `<use>`) — Rusko v 50m je nejtěžší tvar na mapě.
+- **Příslušnost** (`src/lib/continents.ts`) pokrývá všech 241 prvků 50m
+  dat: mimo zůstávají jen Antarktida a tři antarktická/oceánská území
+  (test). Kypr nově jen v Evropě, Arménie jen v Asii (leží celá jižně od
+  hřebene Kavkazu). Francouzská Guyana je v datech součástí Francie, proto je
+  na mapě J. Ameriky ztlumená.
+- Barevná škála zůstává globální (stejná jako u Světa), aby si stát
+  při přepnutí záložky zachoval odstín.
+- Světová mapa (`WorldChoroplethMap`) je zpět jen světová; kontinentální
+  logika žije v `src/lib/continentMap.ts`. Testy: `continents.test.ts`,
+  `continentMap.test.ts` (535 celkem), typecheck, lint (64 = beze změny).
+
 ### /statistiky: Asie už není dole useknutá
 - Okno Asie končilo na 2° s. š., takže Indonésie (do −10,4°) a Timor byly
   useknuté. Nové okno −12° až 78° s. š., 25° až 160° v. d. (Kamčatka),
