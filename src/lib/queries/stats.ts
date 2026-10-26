@@ -33,6 +33,7 @@ import { getDistanceOriginLocationId } from "@/lib/admin/siteSettings";
 import { getSpecialFinds } from "@/lib/specialFinds.server";
 import { countryFromCoords } from "@/lib/geo";
 import { czRegionFromCoords } from "@/lib/cz-regions";
+import { usStateFromCoords } from "@/lib/us-states";
 import { cityFromCadastralArea } from "@/lib/locationCode";
 import { listCadastralAreas } from "@/lib/queries/locations";
 
@@ -545,6 +546,10 @@ export interface StatsGeoResult {
    *  `code` is the ISO 3166-2 region code (e.g. "CZ-ZL"); `name` is the
    *  Czech region name. Only points resolving inside ČR contribute. */
   byKraj: CountryPoint[];
+  /** Finds per US state, for the "USA" map mode. `code` is the 2-digit
+   *  FIPS code (e.g. "06"); `name` the English state name. Only points
+   *  resolving inside the USA contribute (empty until the first US find). */
+  byState: CountryPoint[];
 }
 
 export interface StatsCalendarResult {
@@ -2125,9 +2130,9 @@ async function getStatsTopLocationsImpl(): Promise<StatsTopLocationsResult> {
 
 async function getStatsGeoImpl(): Promise<StatsGeoResult> {
   const rows = await fetchGeoLocRows();
-  const { byCountry, byCity, byKraj, byCountryLocations, byCityLocations } =
+  const { byCountry, byCity, byKraj, byState, byCountryLocations, byCityLocations } =
     buildGeoBreakdowns(rows);
-  return { byCountry, byCity, byKraj, byCountryLocations, byCityLocations };
+  return { byCountry, byCity, byKraj, byState, byCountryLocations, byCityLocations };
 }
 
 async function getStatsCalendarImpl(): Promise<StatsCalendarResult> {
@@ -2676,6 +2681,8 @@ function buildGeoBreakdowns(rows: ReadonlyArray<GeoLocRow>): {
   byCity: CategoryPoint[];
   /** Finds per Czech region (kraj). Points outside ČR don't contribute. */
   byKraj: CountryPoint[];
+  /** Finds per US state (FIPS). Points outside the USA don't contribute. */
+  byState: CountryPoint[];
   byCountryLocations: CountryPoint[];
   byCityLocations: CategoryPoint[];
   /** Total number of distinct cities that host at least one non-
@@ -2692,6 +2699,7 @@ function buildGeoBreakdowns(rows: ReadonlyArray<GeoLocRow>): {
 } {
   const countryAcc = new Map<string, { name: string; count: number }>();
   const krajAcc = new Map<string, { name: string; count: number }>();
+  const stateAcc = new Map<string, { name: string; count: number }>();
   const cityAcc = new Map<string, number>();
   // Same buckets, but one per LOCATION rather than per find.
   const countryLocAcc = new Map<string, { name: string; count: number }>();
@@ -2735,6 +2743,16 @@ function buildGeoBreakdowns(rows: ReadonlyArray<GeoLocRow>): {
         if (pk) pk.count += c;
         else krajAcc.set(kraj.code, { name: kraj.name, count: c });
       }
+      // US states: gated on the country already resolving to the USA
+      // (840) so the 50-state ray-cast never runs for a Czech point.
+      if (country.code === "840") {
+        const st = usStateFromCoords(r.lat, r.lng);
+        if (st) {
+          const ps = stateAcc.get(st.code);
+          if (ps) ps.count += c;
+          else stateAcc.set(st.code, { name: st.name, count: c });
+        }
+      }
     }
   }
 
@@ -2759,6 +2777,11 @@ function buildGeoBreakdowns(rows: ReadonlyArray<GeoLocRow>): {
     .map(([code, v]) => ({ code, name: v.name, count: v.count }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
 
+  const byState: CountryPoint[] = [...stateAcc.entries()]
+    .filter(([, v]) => v.count > 0)
+    .map(([code, v]) => ({ code, name: v.name, count: v.count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
+
   // Location counts keep the zero-find places: a location with no finds yet
   // is still a place you've mapped, which is exactly what this view counts.
   const byCountryLocations: CountryPoint[] = [...countryLocAcc.entries()]
@@ -2773,6 +2796,7 @@ function buildGeoBreakdowns(rows: ReadonlyArray<GeoLocRow>): {
     byCountry,
     byCity,
     byKraj,
+    byState,
     byCountryLocations,
     byCityLocations,
     cityCount,

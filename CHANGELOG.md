@@ -9,6 +9,36 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### /statistiky „Podle států a měst": mapy kontinentů + USA po státech
+- Přepínač mapy rozšířen ze dvou na **šest záložek** v pořadí **Svět ·
+  Evropa · Asie · Afrika · ČR · USA** (`GeoMapToggle` zobecněn z pevné
+  dvojice na pole záložek; pořadí a popisky řídí stránka).
+- **Evropa / Asie / Afrika** = stejný formát jako Svět (choropleth po
+  zemích), jen `WorldChoroplethMap` dostal volitelný `focus`: projekce se
+  `fitSize` nafituje na okno kontinentu a `clipExtent` ořízne na rámeček.
+  **Znovupoužívají `byCountry`** — žádná nová data ani resolver. Okraje
+  sousedních zemí zůstávají vidět jako v atlasu.
+- **USA po státech** = analogie ČR dle krajů: nová `UsStatesChoroplethMap`
+  (projekce `geoAlbersUsa` s insety Aljašky a Havaje, 50 států + DC, čísla
+  v centroidech) + GPS→stát resolver `usStateFromCoords`
+  (`src/lib/us-states.ts`, zrcadlí `cz-regions.ts`). Data jsou **bundlovaný
+  statický GeoJSON** `src/lib/data/us-states.json` (z `us-atlas`, veřejná
+  doména, zaokrouhleno na ~11 m, jen server) — **ne nová závislost**,
+  přesně jako `cz-kraje.json`; `us-atlas` by jinak do stromu přitáhl
+  desítky balíčků včetně zastaralých. `package.json`/lock beze změny.
+  Agregace `byState` v `buildGeoBreakdowns` je **gated na zemi = USA**
+  (`country.code === "840"`), takže ray-cast přes 50 států neběží pro
+  český bod. Zatím prázdná (žádný americký nález) — mapa se **sama
+  zaplní**, až nějaký přibude.
+- **Gotcha, který kousal:** d3-geo čte lat/lng obdélník podle vinutí, a
+  jako Polygon ho bral jako „celý svět *mimo* obdélník" → `fitSize`
+  oddálil na celý svět. Fit proto jde přes **MultiPoint** navzorkovaných
+  bodů hrany (body nemají vinutí), ne přes Polygon.
+- Pojistka: `us-states.test.ts` (8) ověřuje resolver (DC/CA/NY/HI/AK →
+  správný stát, ČR i oceán → null) a že dataset má 50 + DC bez teritorií.
+  Typecheck, lint (64 varování = beze změny), 500 testů, build zelené.
+  Ověřeno i vizuálně (rámování kontinentů, insety AK/HI).
+
 ### /admin/qr: volitelně průhledné pozadí u stahovaných PNG
 - Nový přepínač **„Průhledné pozadí PNG"** u stahování ve **všech čtyřech
   záložkách** (nálezy — jednotlivě i hromadný ZIP; stránky — generátor

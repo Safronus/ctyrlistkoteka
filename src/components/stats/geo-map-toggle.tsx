@@ -1,51 +1,53 @@
 "use client";
 
 import { useState } from "react";
-import { Globe, MapPin } from "lucide-react";
 
-type Mode = "states" | "regions";
+export interface GeoTab {
+  /** Stable key (also the React key). */
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  /** The server-rendered map SVG for this tab. */
+  node: React.ReactNode;
+}
 
 /**
- * Switches the geo map between "by country" (world) and "by Czech region"
- * (kraje). Both maps are server-rendered SVGs passed in as children and
- * just toggled with CSS, so flipping modes is instant and re-fetches
- * nothing.
+ * Switches the geo map between its tabs (Svět / Evropa / Asie / Afrika /
+ * ČR / USA). Every map is a server-rendered SVG passed in as `node` and
+ * just toggled with CSS, so flipping tabs is instant and re-fetches
+ * nothing. The first tab is active on load.
  */
 export function GeoMapToggle({
-  statesLabel,
-  regionsLabel,
-  world,
-  kraje,
+  tabs,
+  ariaLabel,
 }: {
-  statesLabel: string;
-  regionsLabel: string;
-  world: React.ReactNode;
-  kraje: React.ReactNode;
+  tabs: GeoTab[];
+  ariaLabel: string;
 }) {
-  const [mode, setMode] = useState<Mode>("states");
+  const [active, setActive] = useState(tabs[0]?.key);
   return (
     <div>
       <div
         role="radiogroup"
-        aria-label={`${statesLabel} / ${regionsLabel}`}
-        className="mb-3 inline-flex overflow-hidden rounded-md border border-gray-300 bg-white"
+        aria-label={ariaLabel}
+        className="mb-3 inline-flex flex-wrap overflow-hidden rounded-md border border-gray-300 bg-white"
       >
-        <ModeButton
-          active={mode === "states"}
-          onClick={() => setMode("states")}
-          icon={<Globe className="h-4 w-4" aria-hidden />}
-          label={statesLabel}
-        />
-        <ModeButton
-          active={mode === "regions"}
-          onClick={() => setMode("regions")}
-          icon={<MapPin className="h-4 w-4" aria-hidden />}
-          label={regionsLabel}
-          divider
-        />
+        {tabs.map((tab, i) => (
+          <ModeButton
+            key={tab.key}
+            active={active === tab.key}
+            onClick={() => setActive(tab.key)}
+            icon={tab.icon}
+            label={tab.label}
+            divider={i > 0}
+          />
+        ))}
       </div>
-      <div className={mode === "states" ? undefined : "hidden"}>{world}</div>
-      <div className={mode === "regions" ? undefined : "hidden"}>{kraje}</div>
+      {tabs.map((tab) => (
+        <div key={tab.key} className={active === tab.key ? undefined : "hidden"}>
+          {tab.node}
+        </div>
+      ))}
     </div>
   );
 }

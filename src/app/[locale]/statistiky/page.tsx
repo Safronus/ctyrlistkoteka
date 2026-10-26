@@ -14,6 +14,7 @@ import {
   EyeOff,
   Flame,
   Gift,
+  Globe,
   Globe2,
   Heart,
   HelpCircle,
@@ -80,8 +81,12 @@ import { getTopFindsWithThumbs } from "@/lib/votes";
 import { CollapsibleSection } from "@/components/stats/collapsible-section";
 import { DeviationCompass } from "@/components/stats/deviation-compass";
 import { CalendarHeatmapTabs } from "@/components/stats/calendar-heatmap-tabs";
-import { WorldChoroplethMap } from "@/components/stats/world-choropleth-map";
+import {
+  WorldChoroplethMap,
+  CONTINENT_FOCUS,
+} from "@/components/stats/world-choropleth-map";
 import { CzRegionsChoroplethMap } from "@/components/stats/cz-regions-choropleth-map";
+import { UsStatesChoroplethMap } from "@/components/stats/us-states-choropleth-map";
 import { GeoMapToggle } from "@/components/stats/geo-map-toggle";
 import { TopFindsLeaderboard } from "@/components/stats/top-finds-leaderboard";
 import { TopLocationsCard } from "@/components/stats/top-locations-card";
@@ -541,13 +546,14 @@ async function TopLocationsSection() {
 async function GeoSection() {
   const t = await getTranslations("Statistiky");
   const locale = await getLocale();
-  const { byCountry, byCity, byKraj, byCountryLocations, byCityLocations } =
+  const { byCountry, byCity, byKraj, byState, byCountryLocations, byCityLocations } =
     await getStatsGeo();
   return (
     <GeoStatsSection
       byCountry={byCountry}
       byCity={byCity}
       byKraj={byKraj}
+      byState={byState}
       byCountryLocations={byCountryLocations}
       byCityLocations={byCityLocations}
       t={t}
@@ -1235,6 +1241,7 @@ function GeoStatsSection({
   byCountry,
   byCity,
   byKraj,
+  byState,
   byCountryLocations,
   byCityLocations,
   t,
@@ -1243,6 +1250,7 @@ function GeoStatsSection({
   byCountry: readonly CountryPoint[];
   byCity: readonly CategoryPoint[];
   byKraj: readonly CountryPoint[];
+  byState: readonly CountryPoint[];
   byCountryLocations: readonly CountryPoint[];
   byCityLocations: readonly CategoryPoint[];
   t: StatsT;
@@ -1308,10 +1316,63 @@ function GeoStatsSection({
               {t("geoMapHeading")}
             </h3>
             <GeoMapToggle
-              statesLabel={t("geoMapModeStates")}
-              regionsLabel={t("geoMapModeRegions")}
-              world={<WorldChoroplethMap byCountry={localizedByCountry} />}
-              kraje={<CzRegionsChoroplethMap byKraj={byKraj} />}
+              ariaLabel={t("geoMapTabsAria")}
+              tabs={[
+                {
+                  key: "world",
+                  label: t("geoMapTabWorld"),
+                  icon: <Globe className="h-4 w-4" aria-hidden />,
+                  node: <WorldChoroplethMap byCountry={localizedByCountry} />,
+                },
+                {
+                  key: "europe",
+                  label: t("geoMapTabEurope"),
+                  icon: <Globe2 className="h-4 w-4" aria-hidden />,
+                  node: (
+                    <WorldChoroplethMap
+                      byCountry={localizedByCountry}
+                      focus={CONTINENT_FOCUS.europe}
+                      ariaLabel={t("geoMapEuropeAria")}
+                    />
+                  ),
+                },
+                {
+                  key: "asia",
+                  label: t("geoMapTabAsia"),
+                  icon: <Globe2 className="h-4 w-4" aria-hidden />,
+                  node: (
+                    <WorldChoroplethMap
+                      byCountry={localizedByCountry}
+                      focus={CONTINENT_FOCUS.asia}
+                      ariaLabel={t("geoMapAsiaAria")}
+                    />
+                  ),
+                },
+                {
+                  key: "africa",
+                  label: t("geoMapTabAfrica"),
+                  icon: <Globe2 className="h-4 w-4" aria-hidden />,
+                  node: (
+                    <WorldChoroplethMap
+                      byCountry={localizedByCountry}
+                      focus={CONTINENT_FOCUS.africa}
+                      ariaLabel={t("geoMapAfricaAria")}
+                    />
+                  ),
+                },
+                {
+                  key: "cz",
+                  label: t("geoMapTabCz"),
+                  icon: <MapPin className="h-4 w-4" aria-hidden />,
+                  node: <CzRegionsChoroplethMap byKraj={byKraj} />,
+                },
+                {
+                  key: "usa",
+                  label: t("geoMapTabUsa"),
+                  icon: <MapPin className="h-4 w-4" aria-hidden />,
+                  node: <UsStatesChoroplethMap byState={byState} />,
+                },
+              ]}
             />
           </div>
         )}
