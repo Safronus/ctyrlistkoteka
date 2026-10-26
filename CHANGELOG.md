@@ -9,6 +9,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### Závislosti: dompurify 3.4.17, fast-uri 3.1.9 (tranzitivní), lucide-react 1.61
+- **dompurify 3.4.16 → 3.4.17** (přes jsPDF v adminových QR exportech):
+  GHSA-cg2g-xh64-v4q7 (critical, `SAFE_FOR_TEMPLATES` + shadow root),
+  GHSA-mrv2-3pqr-j5jr (high, `IN_PLACE` hook), GHSA-c6gr-qvv4-5v3f (low).
+  Reálná expozice nulová — jsPDF volá DOMPurify jen v `.html()`, kterou
+  nepoužíváme — ale oprava je zvednutí jedné spodní hranice.
+- **fast-uri 3.1.8 → 3.1.9** (přes vývojové nástroje Prismy, ne runtime webu):
+  čtyři hlášení o spoofingu schématu/hostu a normalizaci cest.
+- Obojí jako zvednuté spodní hranice v `pnpm-workspace.yaml` → `overrides`;
+  dependabot tranzitivní balíčky sám nebumpuje. `pnpm audit`: čisto.
+- **lucide-react 1.61** (místo 1.60 z dependabot #49): jen nové ikony.
+- Lint (64 warningů, 0 chyb — beze změny), typecheck, 535 testů, build OK.
+
 ### /statistiky: mapy kontinentů jemně, rozdělení Evropa–Asie, 3 nové kontinenty
 - **Záložky:** Svět · Evropa · Asie · Afrika · **S. Amerika · J. Amerika ·
   Austrálie a Oceánie** · ČR · USA.
