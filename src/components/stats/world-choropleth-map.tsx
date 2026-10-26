@@ -32,7 +32,9 @@ export interface MapFocus {
  */
 export const CONTINENT_FOCUS = {
   europe: { bounds: [[-26, 33], [46, 71]], width: 840, height: 640, continent: "europe" },
-  asia: { bounds: [[24, 2], [150, 78]], width: 980, height: 660, continent: "asia" },
+  // South to −12° so Indonesia (to −10.4°) and Timor aren't cut off; east to
+  // 160° for Kamchatka. The box matches the window's projected aspect (1.43).
+  asia: { bounds: [[25, -12], [160, 78]], width: 980, height: 686, continent: "asia" },
   africa: { bounds: [[-20, -37], [52, 39]], width: 660, height: 700, continent: "africa" },
 } satisfies Record<string, MapFocus>;
 

@@ -9,6 +9,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### /statistiky: Asie už není dole useknutá
+- Okno Asie končilo na 2° s. š., takže Indonésie (do −10,4°) a Timor byly
+  useknuté. Nové okno −12° až 78° s. š., 25° až 160° v. d. (Kamčatka),
+  rámeček 980 × 686 podle skutečného poměru stran promítnutého okna.
+
 ### /statistiky: jednotná barva akčních tlačítek
 - Vedle zeleného „Ukázat N 🍀 →" / „Otevřít 🍀" seděla šedá „Detail
   lokality" a „Na mapě" (text i ikona). Na zbytku webu (domů, Top lokality,
