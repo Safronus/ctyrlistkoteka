@@ -9,6 +9,27 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### /statistiky: kontinent na mapě zvýrazněný obrysem, sousedé ztlumení
+- Záložky Evropa / Asie / Afrika byly jen výřez světové mapy, takže stát
+  na okraji, který do kontinentu nepatří, vypadal stejně jako člen. Teď:
+  **státy mimo kontinent** jsou ploché bledé (bez barvy podle nálezů, bez
+  tooltipu), **členové** normálně a kolem celého kontinentu vede **výrazný
+  tmavě zelený obrys** — hranice členů sloučené přes `topojson.merge`
+  (vnitřní hranice se rozpustí), takže je to jedna linka kolem kontinentu.
+- Příslušnost v `src/lib/continents.ts`: sady podle alpha-2 kódu, jak ho
+  vrací `alpha2FromNumeric` — u sedmi zemí je to **historický kód** (FX
+  Francie, SU Rusko, YU Srbsko, UK, HV Burkina Faso, DY Benin, TP Timor),
+  ne dnešní ISO. Tři prvky bez ISO (Kosovo, Severní Kypr, Somaliland) mají
+  v datech všechny `id = ""`, proto se zařazují podle názvu. Transkontinentální
+  Rusko, Turecko, Kypr, Gruzie, Arménie a Ázerbájdžán jsou v Evropě i Asii;
+  Egypt schválně jen v Africe (jinak by na Asii vtáhl Afriku od západu),
+  Grónsko nikam (Severní Amerika).
+- Opraven i latentní duplicitní React klíč: ty tři prvky s prázdným `id`
+  sdílely `key=""`; klíč je teď `id || name || index`.
+- `continents.test.ts` (6): členové, transkontinentální, historické kódy,
+  bezkódové podle názvu, sousedé venku, obrys je MultiPolygon a cachuje se.
+  Typecheck, lint (64 = beze změny), 506 testů zelené; vizuálně ověřeno.
+
 ### /statistiky „Podle států a měst": mapy kontinentů + USA po státech
 - Přepínač mapy rozšířen ze dvou na **šest záložek** v pořadí **Svět ·
   Evropa · Asie · Afrika · ČR · USA** (`GeoMapToggle` zobecněn z pevné

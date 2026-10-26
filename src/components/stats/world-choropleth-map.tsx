@@ -6,14 +6,21 @@ import {
   localizedCountryName,
   type CountryFeatureProps,
 } from "@/lib/world-countries";
+import {
+  getContinentOutline,
+  isContinentMember,
+  type ContinentKey,
+} from "@/lib/continents";
 import type { CountryPoint } from "@/lib/queries/stats";
 
 /** A continent window: fit the same country choropleth to this lng/lat
- *  rectangle and clip to the box. `[[west, south], [east, north]]`. */
+ *  rectangle, clip to the box, and set `continent` apart from the
+ *  neighbours visible at the edges. `[[west, south], [east, north]]`. */
 export interface MapFocus {
   bounds: [[number, number], [number, number]];
   width: number;
   height: number;
+  continent: ContinentKey;
 }
 
 /**
@@ -24,9 +31,9 @@ export interface MapFocus {
  * the continent fills its box without a distracting empty band.
  */
 export const CONTINENT_FOCUS = {
-  europe: { bounds: [[-26, 33], [46, 71]], width: 840, height: 640 },
-  asia: { bounds: [[24, 2], [150, 78]], width: 980, height: 660 },
-  africa: { bounds: [[-20, -37], [52, 39]], width: 660, height: 700 },
+  europe: { bounds: [[-26, 33], [46, 71]], width: 840, height: 640, continent: "europe" },
+  asia: { bounds: [[24, 2], [150, 78]], width: 980, height: 660, continent: "asia" },
+  africa: { bounds: [[-20, -37], [52, 39]], width: 660, height: 700, continent: "africa" },
 } satisfies Record<string, MapFocus>;
 
 interface Props {
@@ -129,15 +136,35 @@ export async function WorldChoroplethMap({ byCountry, focus, ariaLabel }: Props)
         className="block h-auto w-full"
         style={{ background: "oklch(0.92 0.02 220)" }}
       >
-        {collection.features.map((feat) => {
+        {collection.features.map((feat, i) => {
           const props = feat.properties as CountryFeatureProps;
-          const entry = byCode.get(props.id);
-          const count = entry?.count ?? 0;
           const d = path(feat);
           // Clipped-out countries (fully outside a continent window) yield
           // no path — skip them.
           if (!d) return null;
+          // `id` is empty for the three code-less features and would collide
+          // as a React key, so fall back to name, then index.
+          const key = props.id || props.name || String(i);
 
+          // On a continent tab, countries that aren't part of the continent
+          // are only there as edge context — paint them as flat, inert land
+          // (no count colour, no tooltip) so the continent reads as the
+          // subject and the neighbours recede.
+          if (focus && !isContinentMember(focus.continent, props.id, props.name)) {
+            return (
+              <path
+                key={key}
+                d={d}
+                fill="oklch(0.95 0.004 230)"
+                stroke="oklch(0.88 0.004 230)"
+                strokeWidth={0.4}
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          }
+
+          const entry = byCode.get(props.id);
+          const count = entry?.count ?? 0;
           // √-scaling so countries with a handful of finds are still
           // distinguishable from the blank landmass without making
           // every active country look identical to the dominant one.
@@ -158,7 +185,7 @@ export async function WorldChoroplethMap({ byCountry, focus, ariaLabel }: Props)
           const label = entry?.name ?? localizedCountryName(props.name, locale);
           return (
             <path
-              key={props.id}
+              key={key}
               d={d}
               fill={fill}
               stroke={stroke}
@@ -169,6 +196,23 @@ export async function WorldChoroplethMap({ byCountry, focus, ariaLabel }: Props)
             </path>
           );
         })}
+        {focus &&
+          (() => {
+            // One crisp boundary around the whole continent, drawn over the
+            // fills (members' internal borders dissolved by topojson merge).
+            const od = path(getContinentOutline(focus.continent));
+            return od ? (
+              <path
+                d={od}
+                fill="none"
+                stroke="oklch(0.42 0.09 150)"
+                strokeWidth={2.2}
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+                style={{ pointerEvents: "none" }}
+              />
+            ) : null;
+          })()}
       </svg>
     </div>
   );
