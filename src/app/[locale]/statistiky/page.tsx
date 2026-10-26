@@ -2686,7 +2686,7 @@ function JubileeCard({
       {showMapLink && (
         <Link
           href={`/mapa?find=${find.id}`}
-          className="flex items-center justify-center gap-1 border-t border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-brand-100 hover:text-brand-700"
+          className="flex items-center justify-center gap-1 border-t border-gray-200 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100"
           aria-label={t("showFindOnMapAria", { id: find.id })}
           title={t("showOnMapTitle")}
         >

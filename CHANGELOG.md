@@ -18,6 +18,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   a nejvzdálenější nález) a „Na mapě" v dlaždicích odchylek. Obě sjednocené;
   `CHIP_PRIMARY` zrušen (po sjednocení byl totožný s `CHIP`) a barva
   `DEVIATION_BTN` je teď přímo v konstantě místo přepisů u odkazů.
+- Na přání sjednocena i patička „Na mapě" pod dlaždicemi v sekci
+  Jubilejní (byla trvale šedá `text-gray-500`, zelená jen při najetí).
 
 ### /statistiky: kontinent na mapě zvýrazněný obrysem, sousedé ztlumení
 - Záložky Evropa / Asie / Afrika byly jen výřez světové mapy, takže stát
