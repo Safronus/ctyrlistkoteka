@@ -1043,7 +1043,7 @@ function DeviationStatsCard({
                   <div className="mt-auto flex flex-wrap justify-center gap-2 pt-3">
                     <Link
                       href={`/mapa?focus=${data.topLocation.id}`}
-                      className={`${DEVIATION_BTN} text-gray-600 hover:text-brand-700`}
+                      className={DEVIATION_BTN}
                       title={t("showOnMapTitle")}
                     >
                       <MapPin className="h-3.5 w-3.5" aria-hidden />
@@ -1051,7 +1051,7 @@ function DeviationStatsCard({
                     </Link>
                     <Link
                       href={`/sbirka?loc=${data.topLocation.id}`}
-                      className={`${DEVIATION_BTN} text-brand-700`}
+                      className={DEVIATION_BTN}
                       title={t("deviationShowFindsTitle")}
                     >
                       <Search className="h-3.5 w-3.5" aria-hidden />
@@ -1112,13 +1112,13 @@ function DeviationStatsCard({
                   <div className="mt-auto flex flex-wrap justify-center gap-2 pt-3">
                     <Link
                       href={`/sbirka/${data.mostDeviated.id}`}
-                      className={`${DEVIATION_BTN} text-brand-700`}
+                      className={DEVIATION_BTN}
                     >
                       {t("deviationOpenDetail")}
                     </Link>
                     <Link
                       href={`/mapa?find=${data.mostDeviated.id}`}
-                      className={`${DEVIATION_BTN} text-gray-600 hover:text-brand-700`}
+                      className={DEVIATION_BTN}
                       title={t("showOnMapTitle")}
                     >
                       <MapPin className="h-3.5 w-3.5" aria-hidden />
@@ -1160,9 +1160,10 @@ function DeviationStat({
 }
 
 /** Button styling for the deviation tile's action links — small outline
- *  chips, centred in their card's footer row. */
+ *  chips, centred in their card's footer row. One brand colour for every
+ *  chip, same as the action chips everywhere else on the site. */
 const DEVIATION_BTN =
-  "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium transition hover:border-brand-200 hover:shadow-sm";
+  "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm";
 
 function MainNumber({
   value,

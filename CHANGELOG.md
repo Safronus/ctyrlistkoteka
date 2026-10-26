@@ -9,6 +9,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### /statistiky: jednotná barva akčních tlačítek
+- Vedle zeleného „Ukázat N 🍀 →" / „Otevřít 🍀" seděla šedá „Detail
+  lokality" a „Na mapě" (text i ikona). Na zbytku webu (domů, Top lokality,
+  řádky lokalit, panel na mapě) mají tyhle čipy všude `text-brand-700`;
+  na `/statistiky` byly dvě odchylky se šedou `text-gray-600`: `CHIP`
+  v `highlight-cards.tsx` (nejvýše položená lokalita, první/poslední
+  a nejvzdálenější nález) a „Na mapě" v dlaždicích odchylek. Obě sjednocené;
+  `CHIP_PRIMARY` zrušen (po sjednocení byl totožný s `CHIP`) a barva
+  `DEVIATION_BTN` je teď přímo v konstantě místo přepisů u odkazů.
+
 ### /statistiky: kontinent na mapě zvýrazněný obrysem, sousedé ztlumení
 - Záložky Evropa / Asie / Afrika byly jen výřez světové mapy, takže stát
   na okraji, který do kontinentu nepatří, vypadal stejně jako člen. Teď:

@@ -336,7 +336,7 @@ export function HighlightCards({
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-2">
-            <Link href={`/sbirka?loc=${placeCard.id}`} className={CHIP_PRIMARY}>
+            <Link href={`/sbirka?loc=${placeCard.id}`} className={CHIP}>
               {t("highestPlaceShowFinds", { count: placeCard.count })}
             </Link>
             <Link href={locationDetailHref(placeCard.id)} className={CHIP}>
@@ -357,9 +357,10 @@ export function HighlightCards({
   );
 }
 
+/** Action chips under each highlight card. One brand colour for all of
+ *  them — the same as the action chips everywhere else on the site; a grey
+ *  secondary variant used to sit next to the green one and read as a bug. */
 const CHIP =
-  "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:border-brand-200 hover:text-brand-700 hover:shadow-sm";
-const CHIP_PRIMARY =
   "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:border-brand-200 hover:shadow-sm";
 
 type T = ReturnType<typeof useTranslations<"Statistiky">>;
@@ -499,7 +500,7 @@ function FindBody({
 function FindButtons({ find, t }: { find: FindHighlight; t: T }) {
   return (
     <div className="flex flex-wrap justify-center gap-2">
-      <Link href={`/sbirka/${find.id}`} className={CHIP_PRIMARY}>
+      <Link href={`/sbirka/${find.id}`} className={CHIP}>
         {t("openFind", { id: find.id })}
       </Link>
       {!find.isAnonymized && find.hasGps && (
