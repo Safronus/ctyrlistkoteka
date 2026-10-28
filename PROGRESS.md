@@ -29,8 +29,8 @@ Oprava je SAMOSTATNÝ typ balíčku — balíčky map a nových nálezů se nem�
 ## i18n `next/root-params` (2026-10-28)
 - ✅ Migrace hotová lokálně (1eb48ed) + oprava 404 u `/api/admin/revalidate`
   (64bd0aa); ověřeno proti baseline (build + matice 22 adres + prohlížeč).
-- ⏳ Push → kontrola deploye → smoke test produkce (`lang` na `/`, `/en`,
-  `/admin`; `/sitemap.xml` 200; neznámá URL 404).
+- ✅ Nasazeno (51aa044), smoke test produkce OK: `lang` cs/en, admin
+  `noindex`, sitemap 31 404 URL (ISR), neznámá URL 404, revalidate zvenku 404.
 - Podnět mimo rozsah: web nemá vlastní českou 404 (ukazuje výchozí
   černou anglickou) — UX rozhodnutí pro majitele.
 
