@@ -63,6 +63,8 @@ import {
 } from "../src/lib/stateMapping";
 import { findUrl, pingIndexNow } from "../src/lib/indexnow";
 import { pingRevalidate } from "../src/lib/revalidatePing";
+import { duplicateFindFiles } from "../src/lib/duplicateFindFiles";
+import { pluralCs } from "../src/lib/format";
 import type { WatermarkSpec } from "../src/lib/images";
 import {
   DEFAULT_WATERMARK_OPTIONS,
@@ -1074,6 +1076,35 @@ async function scanFindDir(
 }
 
 /**
+ * Several photos of one find in one directory: sync uses the last one
+ * (sorted) and ignores the rest without a word — a stale twin left next to
+ * a corrected photo then decides nothing until the next rename makes it win.
+ * Logged as a failure so it shows up in the run's failure list; the run
+ * still goes on with the same winner as before.
+ */
+function reportDuplicateFindFiles(
+  ctx: Context,
+  files: readonly FindFileInfo[],
+  subdirLabel: string,
+  shortCropForm: boolean,
+): void {
+  const dups = duplicateFindFiles(
+    files.map((f) => f.filename),
+    { shortCropForm },
+  );
+  for (const d of dups) {
+    ctx.log.failure({
+      file: `${subdirLabel}/${d.used}`,
+      reason: "duplicate_find_id",
+      details:
+        `Nález #${d.findId} má v adresáři ${subdirLabel}/ ${d.files.length} ` +
+        `${pluralCs(d.files.length, ["soubor", "soubory", "souborů"])} — ` +
+        `použit ${d.used}, ignorováno: ${d.files.filter((n) => n !== d.used).join(", ")}.`,
+    });
+  }
+}
+
+/**
  * Re-link finds to their location/map from the filename + the maps present
  * this run, independently of whether their photo changed. A find first
  * ingested while its location map was missing keeps `location_id = null`;
@@ -1092,12 +1123,26 @@ async function reconcileFindLinks(
   mapToLocation: ReadonlyMap<number, number>,
 ): Promise<number> {
   // Desired link per find — POSITIVE only (map present → location known).
-  const desired = new Map<number, { locationId: number; mapId: number }>();
+  // `all` is originals then crops, each sorted: within a kind the LAST file
+  // wins, as in phaseFinds — so with duplicate photos (reported there) the
+  // link follows the file whose photo the site shows. An original still
+  // outranks its crop, as it always has here.
+  const desired = new Map<
+    number,
+    { locationId: number; mapId: number; imageType: ImageType }
+  >();
   for (const f of all) {
-    if (desired.has(f.parsed.findId)) continue;
     const locationId = mapToLocation.get(f.parsed.mapNumber);
     if (locationId === undefined) continue; // map not on disk → never wipe
-    desired.set(f.parsed.findId, { locationId, mapId: f.parsed.mapNumber });
+    const prev = desired.get(f.parsed.findId);
+    if (prev?.imageType === ImageType.ORIGINAL && f.imageType === ImageType.CROP) {
+      continue;
+    }
+    desired.set(f.parsed.findId, {
+      locationId,
+      mapId: f.parsed.mapNumber,
+      imageType: f.imageType,
+    });
   }
   if (desired.size === 0) return 0;
 
@@ -1145,6 +1190,8 @@ async function phaseFinds(
     originalsByFindId,
   );
   const all = [...finds, ...crops];
+  reportDuplicateFindFiles(ctx, finds, "finds", false);
+  reportDuplicateFindFiles(ctx, crops, "crops", true);
   ctx.log.log({
     event: "finds.scan",
     level: "info",

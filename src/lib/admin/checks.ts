@@ -16,6 +16,7 @@ import {
   type LokaceStavyPoznamky,
 } from "./jsonSchema";
 import { ADMIN_ROOTS } from "./paths";
+import { duplicateFindFiles } from "@/lib/duplicateFindFiles";
 
 /** Result of a single consistency check. The page renders one card
  *  per result; an empty `offenders` array is the green-check case.
@@ -1144,6 +1145,62 @@ async function checkOriginalCropFilenameMismatch(): Promise<FindCheckResult> {
   };
 }
 
+/** Several photos of one find in finds/ (or crops/): sync uses the last
+ *  one sorted and ignores the rest without a word — see
+ *  src/lib/duplicateFindFiles.ts. One row per IGNORED file, linked, so the
+ *  operator can open it and throw it away (admin delete = trash). */
+async function checkDuplicateFindFiles(): Promise<FindCheckResult> {
+  const [originalNames, cropNames] = await Promise.all([
+    readScopeFilenames(ADMIN_ROOTS.findOriginals),
+    readScopeFilenames(ADMIN_ROOTS.findCrops),
+  ]);
+  const offenders: FindOffender[] = [];
+  const scopes = [
+    { dups: duplicateFindFiles(originalNames, { shortCropForm: false }), crop: false },
+    { dups: duplicateFindFiles(cropNames, { shortCropForm: true }), crop: true },
+  ];
+  for (const { dups, crop } of scopes) {
+    for (const d of dups) {
+      for (const name of d.files) {
+        if (name === d.used) continue;
+        offenders.push({
+          findId: d.findId,
+          locationCode: "—",
+          detail: `Sync tenhle ${crop ? "ořez" : "originál"} ignoruje — používá ${d.used}.`,
+          ...(crop ? { cropFilename: name } : { filename: name }),
+        });
+      }
+    }
+  }
+  offenders.sort((a, b) => a.findId - b.findId);
+
+  const finds =
+    offenders.length > 0
+      ? await prisma.find.findMany({
+          where: { id: { in: [...new Set(offenders.map((o) => o.findId))] } },
+          select: { id: true, locationId: true },
+        })
+      : [];
+  const codes = await loadLocationCodes(
+    finds.map((f) => f.locationId).filter((x): x is number => x !== null),
+  );
+  const locByFind = new Map(finds.map((f) => [f.id, f.locationId]));
+  for (const o of offenders) {
+    const locId = locByFind.get(o.findId) ?? null;
+    o.locationCode = locId !== null ? codes.get(locId) ?? `#${locId}` : "—";
+  }
+
+  return {
+    kind: "find",
+    group: "filesystem-vs-json",
+    id: "duplicate-find-files",
+    title: "Víc fotek téhož nálezu",
+    description:
+      "Každý nález má mít v data/finds/ nejvýš jeden originál a v data/crops/ nejvýš jeden ořez. Sync z více souborů použije abecedně poslední a ostatní ignoruje — tady jsou ty ignorované.",
+    offenders,
+  };
+}
+
 /** readdir helper used by the cross-ref checks. Returns NFC-normalised
  *  names (filenames coming from rsync-from-macOS arrive in NFD on
  *  some paths; parseFindFilename normalises again internally, so the
@@ -1377,6 +1434,7 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     checkFilenameNotInJson(),
     checkJsonNotInFilename(),
     checkOriginalCropFilenameMismatch(),
+    checkDuplicateFindFiles(),
     checkCropSameSizeAsOriginal(),
     checkFindsMissingEn(),
     checkMapsMissingEn(),
