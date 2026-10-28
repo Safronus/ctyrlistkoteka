@@ -15,6 +15,8 @@ import {
   type WholeFileMergeSections,
 } from "./lspMerge";
 import { prepareTrashDir } from "./trash";
+import { compactToRanges } from "@/lib/parseRanges";
+import { pluralCs } from "@/lib/format";
 
 /**
  * Streaming reader + read-only analyzer for a "web package" ZIP. yauzl opens
@@ -263,6 +265,63 @@ function conflictFindIds(paths: readonly string[]): number[] {
 /** Read-only pass: categorize + count new vs replace (with id lists), map
  *  details, incomplete pairs, invalid names, and a full LSP merge dry-run.
  *  Writes nothing. */
+/** How many id ranges a warning lists before it trails off. */
+const WARNING_RANGES_SHOWN = 8;
+
+function rangesPreview(ids: readonly number[]): string {
+  const ranges = compactToRanges(ids);
+  const shown = ranges.slice(0, WARNING_RANGES_SHOWN).join(", ");
+  return ranges.length > WARNING_RANGES_SHOWN ? `${shown}, …` : shown;
+}
+
+/**
+ * The ordinary package is for NEW finds. For a find already on the server
+ * it swaps the photos (and with them whatever the filename decides, e.g.
+ * the location), but its LSP is merged additively — states and
+ * anonymization are only ever added, never removed, and a changed note
+ * stops the merge. Correcting a published find is the correction package's
+ * job ("oprava-nalezu"), so say so before the operator confirms.
+ */
+export function alreadyOnServerWarning(ids: readonly number[]): string | null {
+  const n = new Set(ids).size;
+  if (n === 0) return null;
+  const one = n === 1;
+  return (
+    `${n} ${pluralCs(n, ["nález", "nálezy", "nálezů"])} z balíčku už na serveru ` +
+    `${one ? "je" : "jsou"} (${rangesPreview(ids)}). Běžný balíček u ${one ? "něj" : "nich"} ` +
+    `jen vymění fotky — stavy a anonymizaci v ${LOKACE_STAVY_POZNAMKY_FILENAME} ` +
+    `jen doplní, nic neodebere, a změněná poznámka import zastaví. ` +
+    `Na opravu už publikovaných nálezů je opravný balíček („oprava-nalezu“).`
+  );
+}
+
+/**
+ * The same find id twice in one folder of the package: the commit writes
+ * every one of them (it trashes only what was on disk BEFORE), so the
+ * server ends up with several photos of one find and sync silently uses
+ * the alphabetically last — the very state /admin/checks flags as
+ * "Víc fotek téhož nálezu".
+ */
+export function repeatedIdsWarning(
+  scope: "finds" | "crops",
+  idsInOrder: readonly number[],
+): string | null {
+  const seen = new Set<number>();
+  const repeated = new Set<number>();
+  for (const id of idsInOrder) {
+    if (seen.has(id)) repeated.add(id);
+    seen.add(id);
+  }
+  const n = repeated.size;
+  if (n === 0) return null;
+  return (
+    `V ${scope}/ ${n === 1 ? "je" : "jsou"} ${n} ${pluralCs(n, ["číslo", "čísla", "čísel"])} ` +
+    `nálezu víckrát (${rangesPreview([...repeated])}). Na serveru by po importu ` +
+    `zůstalo víc fotek téhož nálezu a sync by použil abecedně poslední — ` +
+    `nech v balíčku od každého nálezu jen jeden soubor.`
+  );
+}
+
 export async function analyzeImportZip(zipPath: string): Promise<ImportPlan> {
   const [existFinds, existCrops, existMaps, currentLsp] = await Promise.all([
     existingFindIds(ADMIN_ROOTS.findOriginals),
@@ -276,6 +335,9 @@ export async function analyzeImportZip(zipPath: string): Promise<ImportPlan> {
   const mapEntries: ImportMapEntry[] = [];
   const findIdsInZip = new Set<number>();
   const cropIdsInZip = new Set<number>();
+  // Every id in zip order (with repeats) — for repeatedIdsWarning.
+  const findIdsSeen: number[] = [];
+  const cropIdsSeen: number[] = [];
   const invalidNames: string[] = [];
   const warnings: string[] = [];
   let lspBuf: Buffer | null = null;
@@ -287,6 +349,7 @@ export async function analyzeImportZip(zipPath: string): Promise<ImportPlan> {
         if (entry.findId === null) invalidNames.push(entry.zipPath);
         else {
           findIdsInZip.add(entry.findId);
+          findIdsSeen.push(entry.findId);
           if (existFinds.has(entry.findId)) {
             finds.replace++;
             finds.replaceIds.push(entry.findId);
@@ -301,6 +364,7 @@ export async function analyzeImportZip(zipPath: string): Promise<ImportPlan> {
         if (entry.findId === null) invalidNames.push(entry.zipPath);
         else {
           cropIdsInZip.add(entry.findId);
+          cropIdsSeen.push(entry.findId);
           if (existCrops.has(entry.findId)) {
             crops.replace++;
             crops.replaceIds.push(entry.findId);
@@ -385,6 +449,14 @@ export async function analyzeImportZip(zipPath: string): Promise<ImportPlan> {
       );
       lsp.present = false;
     }
+  }
+
+  for (const w of [
+    alreadyOnServerWarning([...finds.replaceIds, ...crops.replaceIds]),
+    repeatedIdsWarning("finds", findIdsSeen),
+    repeatedIdsWarning("crops", cropIdsSeen),
+  ]) {
+    if (w) warnings.push(w);
   }
 
   if (finds.total === 0 && crops.total === 0 && maps.total === 0 && !lsp.present)
