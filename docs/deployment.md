@@ -23,6 +23,14 @@ a uživatel je spouští v Termiusu.
 >   `bash deploy/cloak-check.sh` z VPS: 6× ✅. `nginx -t` hlásí 3×
 >   `ssl_stapling ignored, no OCSP responder URL` — neškodné (Let's Encrypt
 >   OCSP v 2025 zrušil); úklid = odebrat `ssl_stapling` z konfigurace.
+> - **Docker služby (2026-10-28):** GoatCounter má data v
+>   `/var/ctyrlistkoteka/goatcounter/goatcounter-data` (bind, uid 1000) —
+>   do té doby omylem v anonymním volume mimo zálohy (cíl připojení
+>   neodpovídal cestě v image). RustDesk aktualizován, klíč beze změny.
+>   Aktualizace: `deploy/update-docker-services.sh`; denní záloha obou:
+>   `deploy/backup-services.sh` (cron 3:05 → `/var/ctyrlistkoteka/backups/services`).
+>   PostGIS rozšíření 3.5.3. Docker (docker-ce) je **bez repozitáře**
+>   (osiřelý z 25.04) — vrátí se s upgradem na 26.04.
 > - **Databáze:** **nativní PostgreSQL 17 + PostGIS** (systemd
 >   `postgresql@17-main`), ne 16. Schéma je zpětně kompatibilní.
 > - **PM2:** appka jede pod PM2 jako user `app`. **Ověř
