@@ -18,6 +18,25 @@ const ORIGINAL_BYTES = Buffer.from("original jpeg bytes");
 const NEW_CROP_BYTES = Buffer.from("new crop jpeg bytes");
 const sha1 = (b: Buffer) => createHash("sha1").update(b).digest("hex");
 
+// Switches the tests flip: an admin sync "running", and a backup that fails
+// (the last step before the LSP write — to prove the rollback).
+const flags = vi.hoisted(() => ({ syncRunning: false, failBackup: false }));
+
+vi.mock("./syncRunner", () => ({
+  getStatus: vi.fn(async () => (flags.syncRunning ? { state: "running" } : null)),
+}));
+
+vi.mock("./lspBackups", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./lspBackups")>();
+  return {
+    ...real,
+    createBackup: vi.fn(async () => {
+      if (flags.failBackup) throw new Error("disk full (test)");
+      return real.createBackup();
+    }),
+  };
+});
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     find: {
@@ -130,6 +149,8 @@ async function loadModules() {
 beforeEach(async () => {
   tmp = await fs.mkdtemp(path.join(os.tmpdir(), "find-update-"));
   await seedDataDir();
+  flags.syncRunning = false;
+  flags.failBackup = false;
 });
 
 afterEach(async () => {
@@ -199,6 +220,92 @@ describe("analyzeFindUpdateZip", () => {
     const before = await snapshot(path.join(tmp, "data"));
     await update.analyzeFindUpdateZip(await buildZip());
     expect(await snapshot(path.join(tmp, "data"))).toEqual(before);
+  });
+});
+
+describe("commitFindUpdateZip", () => {
+  const data = () => path.join(tmp, "data");
+  const ls = async (sub: string) => (await fs.readdir(path.join(data(), sub))).sort();
+  const liveLsp = async () =>
+    JSON.parse(await fs.readFile(path.join(data(), "meta", "LokaceStavyPoznamky.json"), "utf8"));
+
+  it("applies the correction: rename same bytes, write new, trash old, LSP last", async () => {
+    const { update } = await loadModules();
+    const r = await update.commitFindUpdateZip(await buildZip());
+    if ("error" in r) throw new Error(r.error);
+    // Original bytes were already on disk → renamed; the crop is new.
+    expect(r.summary).toMatchObject({ finds: 1, renamed: 1, written: 1, unchanged: 0, trashed: 1, noteOverridesRemoved: 1 });
+    expect(await ls("finds")).toEqual([NAME]);
+    expect(await ls("crops")).toEqual([NAME]);
+    expect(await fs.readFile(path.join(data(), "finds", NAME))).toEqual(ORIGINAL_BYTES);
+    expect(await fs.readFile(path.join(data(), "crops", NAME))).toEqual(NEW_CROP_BYTES);
+
+    const lspNow = await liveLsp();
+    expect(lspNow.stavy.DAROVANY).toEqual(["31650"]);
+    expect(lspNow.stavy.GIGANT).toEqual(["31650"]); // the web's own key, kept
+    expect(lspNow.poznamky).toEqual({ "31650": "Pro babičku" });
+    expect(lspNow.lokace["298"]).toEqual(["31640-31655"]);
+
+    // R8: the override is gone.
+    const overrides = JSON.parse(await fs.readFile(path.join(data(), ".admin", "find-note-overrides.json"), "utf8"));
+    expect(overrides["31650"]).toBeUndefined();
+
+    // The old crop and the previous LSP are recoverable from the trash.
+    const bucket = path.join(data(), ".trash", r.summary.trashBucket!);
+    expect((await fs.readdir(path.join(bucket, "crops"))).sort()).toEqual(["31650.jpg"]);
+    expect(await fs.readdir(path.join(bucket, "meta"))).toEqual(["LokaceStavyPoznamky.json"]);
+  });
+
+  it("is idempotent — the same package again changes nothing", async () => {
+    const { update } = await loadModules();
+    const zip = await buildZip();
+    const first = await update.commitFindUpdateZip(zip);
+    if ("error" in first) throw new Error(first.error);
+    const files = { finds: await ls("finds"), crops: await ls("crops") };
+    const lspFirst = await liveLsp();
+    const second = await update.commitFindUpdateZip(zip);
+    if ("error" in second) throw new Error(second.error);
+    expect(second.summary).toMatchObject({ renamed: 0, written: 0, unchanged: 2, trashed: 0, noteOverridesRemoved: 0 });
+    expect({ finds: await ls("finds"), crops: await ls("crops") }).toEqual(files);
+    expect(await liveLsp()).toEqual(lspFirst);
+  });
+
+  it("refuses a package with errors and writes nothing", async () => {
+    const { update } = await loadModules();
+    const before = await snapshot(data());
+    const r = await update.commitFindUpdateZip(await buildZip({ cropSha1: "d".repeat(40) }));
+    expect("error" in r && r.error).toMatch(/neprošel kontrolami/);
+    expect(await snapshot(data())).toEqual(before);
+  });
+
+  it("refuses while an admin sync is running", async () => {
+    const { update } = await loadModules();
+    flags.syncRunning = true;
+    const before = await snapshot(data());
+    const r = await update.commitFindUpdateZip(await buildZip());
+    expect("error" in r && r.error).toMatch(/běží sync/);
+    expect(await snapshot(data())).toEqual(before);
+  });
+
+  it("rolls everything back when the last step fails", async () => {
+    const { update } = await loadModules();
+    // Compare everything except the trash, where the rollback copies stay.
+    const outsideTrash = async () =>
+      Object.fromEntries(Object.entries(await snapshot(data())).filter(([k]) => !k.startsWith(".trash")));
+    const before = await outsideTrash();
+    flags.failBackup = true;
+    const r = await update.commitFindUpdateZip(await buildZip());
+    expect("error" in r && r.error).toMatch(/vše jsem vrátil do původního stavu/);
+    expect(await outsideTrash()).toEqual(before);
+  });
+
+  it("accepts a live LSP carrying the exporter's metadata block", async () => {
+    const { update } = await loadModules();
+    const file = path.join(data(), "meta", "LokaceStavyPoznamky.json");
+    await fs.writeFile(file, JSON.stringify({ ...(await liveLsp()), metadata: { exportedBy: "desktop" } }));
+    const plan = await update.analyzeFindUpdateZip(await buildZip());
+    if ("error" in plan) throw new Error(plan.error);
+    expect(plan.ok).toBe(true);
   });
 });
 

@@ -9,6 +9,29 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### /admin/import: opravný balíček nálezů — F2 zápis
+- **Potvrdit opravu** v náhledu (jen u bezchybného balíčku) zapíše opravu.
+  Server nejdřív znovu projde všechny kontroly a odmítne, když běží sync
+  spuštěný z adminu (sync z terminálu na VPS vidět není — UI to říká).
+- Po nálezech vznikne **právě jeden originál a jeden ořez** pod novým
+  názvem: **stejné bajty se jen přejmenují** (sync pak WebP
+  nepřegeneruje), nové se zapíšou, staré soubory téhož čísla jdou do koše.
+  Webový přepis poznámky (cs+en) se smaže, když balíček změní text
+  poznámky (R8). **LSP se zapíše poslední**, po rotující záloze a snímku
+  do koše.
+- **Vše, nebo nic:** každý krok na disku se zaznamená a při chybě se vrátí
+  v opačném pořadí (soubory z koše, přepisy poznámek z původního textu).
+  Test vynucuje selhání těsně před zápisem LSP a ověřuje, že data skončí
+  bit po bitu jako předtím; vypnutý rollback test shodí.
+- Opakovaný import téhož balíčku nic nezmění (idempotence, test).
+- Pojistka: `removeFindNoteOverrides` u nečitelného souboru přepisů
+  **odmítne zapisovat** (dosavadní čtení by ho bralo jako prázdný a zápis
+  by všechny přepisy smazal). Názvy z manifestu nesmí obsahovat oddělovač
+  cesty (V3), zápis navíc jde přes `safeJoin`.
+- Živé LSP se nově čte benevolentně jako u slučování (blok `metadata`
+  z exportu desktopu se zahodí), dřív by ho analýza odmítla.
+- DB se nemění — oprava se na webu projeví po syncu (F3 ho spustí sám).
+
 ### /admin/import: opravný balíček nálezů — F1 analýza
 - Nový druh balíčku `"typ": "oprava-nalezu"` z desktopu: oprava dat
   nálezů, které už jsou na webu (stav, poznámka, anonymizace, mapa, fotky).

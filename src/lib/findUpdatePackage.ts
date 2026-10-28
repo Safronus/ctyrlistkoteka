@@ -428,6 +428,8 @@ export function planFindUpdate(input: PlanInput): FindUpdatePlan {
       ["originál", entry.original, orig],
       ["ořez", entry.crop, crop],
     ] as const) {
+      // The name becomes a path under data/finds|crops — no separators.
+      if (/[\\/]/.test(name)) fErr.push(`V3: ${label} „${name}" obsahuje oddělovač cesty.`);
       if (!p.ok) fErr.push(`V3: ${label} „${name}" nejde rozparsovat: ${p.error}`);
       else if (p.value.findId !== id) fErr.push(`V3: ${label} „${name}" nese číslo ${p.value.findId}, ne ${id}.`);
       if (!JPEG_RE.test(name)) fErr.push(`V3: ${label} „${name}" není JPG.`);

@@ -34,7 +34,11 @@ import {
   mergeWholeFile,
   type WholeFileMergeResult,
 } from "@/app/admin/json/lokace-stavy-poznamky/merge-whole-action";
-import { isFindUpdatePackageZip } from "@/lib/admin/findUpdateImport";
+import {
+  commitFindUpdateZip,
+  isFindUpdatePackageZip,
+  type FindUpdateCommitSummary,
+} from "@/lib/admin/findUpdateImport";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,8 +46,9 @@ export const dynamic = "force-dynamic";
 interface CommitResponse {
   ok: boolean;
   error?: string;
-  packageType?: "v1" | "v2" | "photos";
+  packageType?: "v1" | "v2" | "photos" | "update";
   summary?: ImportFileSummary;
+  updateSummary?: FindUpdateCommitSummary;
   mapSummary?: MapPackageImportSummary;
   photoSummary?: PhotoPackageSummary;
   /** Result of the LSP whole-file merge, or null when the package had none. */
@@ -104,18 +109,48 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // A correction package ("oprava-nalezu") must NEVER reach the ordinary
     // v1 commit below: that one overwrites files by find id and only ADDS
     // to the LSP, so it would rename the photos while leaving the old
-    // states and notes in place. Until its own commit exists (phase F2) it
-    // is refused outright.
+    // states and notes in place. It has its own all-or-nothing commit.
     if (await isFindUpdatePackageZip(zipPath)) {
-      const error =
-        "Opravný balíček nálezů zatím web jen analyzuje — zápis (fáze F2) ještě není hotový. Nic se nezměnilo.";
+      const r = await commitFindUpdateZip(zipPath);
+      if ("error" in r) {
+        await recordImportEvent({
+          uploadId, fileName, bytes,
+          packageType: "update",
+          outcome: "failed",
+          error: r.error,
+        });
+        return json({ ok: false, error: r.error }, 409);
+      }
+      const u = r.summary;
+      await appendAudit({
+        action: "file.replace",
+        ip,
+        credentialLabel,
+        details: {
+          scope: "import-find-update",
+          finds: u.finds,
+          renamed: u.renamed,
+          written: u.written,
+          unchanged: u.unchanged,
+          trashed: u.trashed,
+          noteOverridesRemoved: u.noteOverridesRemoved,
+          trashBucket: u.trashBucket,
+        },
+      });
       await recordImportEvent({
         uploadId, fileName, bytes,
         packageType: "update",
-        outcome: "failed",
-        error,
+        outcome: "committed",
+        summary:
+          `oprava ${u.finds} ${pluralCs(u.finds, ["nálezu", "nálezů", "nálezů"])}: ` +
+          `${u.renamed} přejmenováno, ${u.written} nových fotek, ${u.trashed} do koše` +
+          (u.noteOverridesRemoved > 0 ? `, ${u.noteOverridesRemoved} přepisů poznámky smazáno` : ""),
       });
-      return json({ ok: false, error }, 409);
+      // The LSP changed: the admin pages that read it. The public site
+      // follows once sync has run.
+      revalidatePath("/admin/json/lokace-stavy-poznamky");
+      revalidatePath("/admin/files/meta");
+      return json({ ok: true, packageType: "update", updateSummary: u });
     }
     // Photos land straight in generated/ as WebP — no sync afterwards,
     // they are servable the moment they are written. Asked first for the

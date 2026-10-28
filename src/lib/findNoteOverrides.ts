@@ -82,12 +82,56 @@ export async function writeFindNoteOverride(
   const en = clean(override.en);
   if (!cs && !en) all.delete(id);
   else all.set(id, { ...(cs ? { cs } : {}), ...(en ? { en } : {}) });
+  await writeAll(all);
+}
 
-  // Serialise sorted by id for stable, reviewable diffs.
+/** Serialise sorted by id for stable, reviewable diffs. */
+async function writeAll(all: Map<number, FindNoteOverride>): Promise<void> {
   const obj: Record<string, FindNoteOverride> = {};
   for (const key of [...all.keys()].sort((a, b) => a - b)) {
     obj[String(key)] = all.get(key)!;
   }
   await ensureDir(ADMIN_DIR);
   await atomicWrite(FILE, `${JSON.stringify(obj, null, 2)}\n`);
+}
+
+/**
+ * Drops the overrides of `ids` in one write and returns the file's previous
+ * raw text (null when it didn't exist), so the caller can put it back with
+ * `restoreFindNoteOverridesRaw` if a later step fails.
+ *
+ * Unlike `readFindNoteOverrides`, an unreadable file is an ERROR here, not
+ * an empty store — writing after reading it as empty would wipe every
+ * override.
+ */
+export async function removeFindNoteOverrides(
+  ids: readonly number[],
+): Promise<string | null> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(FILE, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+  try {
+    JSON.parse(raw);
+  } catch (err) {
+    throw new Error(
+      `find-note-overrides.json není čitelný JSON (${(err as Error).message}) — nic jsem nezměnil.`,
+    );
+  }
+  const all = await readFindNoteOverrides();
+  let removed = false;
+  for (const id of ids) removed = all.delete(id) || removed;
+  if (removed) await writeAll(all);
+  return raw;
+}
+
+/** Puts back the raw text `removeFindNoteOverrides` returned. `null` means
+ *  there was no file, which the removal never creates — nothing to undo. */
+export async function restoreFindNoteOverridesRaw(raw: string | null): Promise<void> {
+  if (raw === null) return;
+  await ensureDir(ADMIN_DIR);
+  await atomicWrite(FILE, raw);
 }

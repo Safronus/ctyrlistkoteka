@@ -1,8 +1,18 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, FilePenLine, X } from "lucide-react";
-// Type-only — erased at compile time, so nothing of the module (zod, the
-// prisma enums) reaches the client bundle.
+import Link from "next/link";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Database,
+  FilePenLine,
+  RotateCcw,
+  X,
+} from "lucide-react";
+// Type-only — erased at compile time, so nothing of the modules (zod, the
+// prisma enums, node:fs) reaches the client bundle.
+import type { FindUpdateCommitSummary } from "@/lib/admin/findUpdateImport";
 import type { FindSide, FindUpdateItem, FindUpdatePlan } from "@/lib/findUpdatePackage";
 import { pluralCs } from "@/lib/format";
 
@@ -11,16 +21,18 @@ import { pluralCs } from "@/lib/format";
  * and what it will show after the correction. Errors block everything (one
  * error anywhere = nothing is applied, contract §6).
  *
- * Phase F1: review only. The commit (F2) does not exist yet, so there is no
- * confirm button — the server refuses the commit of this package type too.
+ * Confirming is only possible for a package without errors; the server
+ * re-runs every check before it writes anyway.
  */
 export function UpdateReviewCard({
   plan,
   fileName,
+  onConfirm,
   onCancel,
 }: {
   plan: FindUpdatePlan;
   fileName: string;
+  onConfirm: () => void;
   onCancel: () => void;
 }) {
   const changed = plan.finds.filter((f) => f.changed).length;
@@ -87,19 +99,105 @@ export function UpdateReviewCard({
       </div>
 
       <p className="mt-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
-        Zatím jen náhled: zápis opravy na web se teprve připravuje (fáze F2).
-        Nic se nezměnilo a nezmění.
+        Potvrzení zapíše fotky a <code>LokaceStavyPoznamky.json</code> najednou
+        — buď všechno, nebo nic (staré soubory jdou do koše). Na webu se změny
+        projeví až po <strong>syncu</strong>. Nespouštěj při tom sync ručně
+        z terminálu na serveru — ten tady vidět není.
       </p>
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex justify-end gap-2">
         <button
           type="button"
           onClick={onCancel}
           className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
         >
           <X className="h-3.5 w-3.5" aria-hidden />
-          Zavřít
+          Zrušit
         </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={!plan.ok}
+          title={plan.ok ? undefined : "Balíček má chyby — oprav ho na desktopu"}
+          className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+          Potvrdit opravu
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** Result of a written correction, and the one thing left to do. */
+export function UpdateDoneCard({
+  summary,
+  onReset,
+}: {
+  summary: FindUpdateCommitSummary;
+  onReset: () => void;
+}) {
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <header className="mb-3 flex items-center gap-2">
+        <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden />
+        <h2 className="text-sm font-semibold text-gray-900">Oprava zapsána</h2>
+      </header>
+      <ul className="space-y-0.5 text-xs text-gray-700">
+        <li>
+          Opravené nálezy: <strong>{summary.finds}</strong>.
+        </li>
+        <li>
+          Fotky: {summary.renamed} jen přejmenováno (beze změny obsahu),{" "}
+          {summary.written} nových, {summary.unchanged} už bylo na místě.
+        </li>
+        <li>
+          Do koše: {summary.trashed}{" "}
+          {pluralCs(summary.trashed, ["soubor", "soubory", "souborů"])}
+          {summary.trashBucket ? (
+            <>
+              {" "}
+              (<code>data/.trash/{summary.trashBucket}</code>)
+            </>
+          ) : null}
+          .
+        </li>
+        {summary.noteOverridesRemoved > 0 && (
+          <li>
+            Smazané webové přepisy poznámky: {summary.noteOverridesRemoved}. EN
+            překlad se znovu objeví ve frontě překladů — kromě darovaných
+            a anonymizovaných nálezů, jejichž poznámku web nezobrazuje.
+          </li>
+        )}
+        <li>
+          <code>LokaceStavyPoznamky.json</code> zapsán (předchozí verze je
+          v zálohách editoru a v koši).
+        </li>
+      </ul>
+
+      <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50/50 p-3">
+        <p className="text-xs text-gray-700">
+          Data jsou na disku. Na webu se oprava projeví až po{" "}
+          <strong>syncu</strong> — spusť ho teď.
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/sync"
+            className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
+          >
+            <Database className="h-4 w-4" aria-hidden />
+            Přejít na Sync
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+          <button
+            type="button"
+            onClick={onReset}
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden />
+            Nahrát další balíček
+          </button>
+        </div>
       </div>
     </section>
   );

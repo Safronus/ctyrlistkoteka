@@ -246,6 +246,19 @@ describe("planFindUpdate — validation (one error per rule)", () => {
     ).toMatch(/V3: originál a ořez musí nést stejný název/);
   });
 
+  it("V3: a name may not carry a path separator", () => {
+    expect(
+      errorsOf((i) => {
+        const bad = n(31650, 298, "DAROVANY", "NE", "a/../../x");
+        i.manifest.finds["31650"]!.original = bad;
+        i.manifest.finds["31650"]!.crop = bad;
+        i.zipEntries = i.zipEntries.map((e, k) =>
+          k === 2 ? { path: `finds/${bad}`, sha1: A } : k === 3 ? { path: `crops/${bad}`, sha1: B } : e,
+        );
+      }),
+    ).toMatch(/V3: originál .* obsahuje oddělovač cesty/);
+  });
+
   it("V4: nothing outside the manifest", () => {
     expect(errorsOf((i) => (i.zipEntries = [...i.zipEntries, { path: "finds/99999.jpg", sha1: C }]))).toMatch(
       /V4: soubor finds\/99999\.jpg v manifestu není/,

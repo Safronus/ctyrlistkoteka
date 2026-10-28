@@ -37,7 +37,8 @@ import type { WholeFileMergeSectionDiff } from "@/lib/admin/lspMerge";
 import type { FindUpdatePlan } from "@/lib/findUpdatePackage";
 import { pluralCs } from "@/lib/format";
 import { compactToRanges } from "@/lib/parseRanges";
-import { UpdateReviewCard } from "./update-review-card";
+import type { FindUpdateCommitSummary } from "@/lib/admin/findUpdateImport";
+import { UpdateDoneCard, UpdateReviewCard } from "./update-review-card";
 
 /** Structural subset of the server's WholeFileMergeResult. Declared locally
  *  rather than imported because that type lives in a "use server" module,
@@ -110,6 +111,12 @@ type Phase =
       fileName: string;
       packageType: "photos";
       photoSummary: PhotoPackageSummary;
+    }
+  | {
+      kind: "done";
+      fileName: string;
+      packageType: "update";
+      updateSummary: FindUpdateCommitSummary;
     }
   | { kind: "error"; message: string };
 
@@ -309,8 +316,9 @@ export function ImportPanel() {
       try {
         const res = await postJson<{
           ok: true;
-          packageType: "v1" | "v2" | "photos";
+          packageType: "v1" | "v2" | "photos" | "update";
           summary?: ImportFileSummary;
+          updateSummary?: FindUpdateCommitSummary;
           mapSummary?: MapPackageImportSummary;
           photoSummary?: PhotoPackageSummary;
           lsp?: LspMergeResult | null;
@@ -321,7 +329,9 @@ export function ImportPanel() {
           fileName,
         });
         uploadIdRef.current = null; // commit's finally already deleted the ZIP
-        if (res.packageType === "photos" && res.photoSummary) {
+        if (res.packageType === "update" && res.updateSummary) {
+          setPhase({ kind: "done", fileName, packageType: "update", updateSummary: res.updateSummary });
+        } else if (res.packageType === "photos" && res.photoSummary) {
           setPhase({
             kind: "done",
             fileName,
@@ -400,6 +410,7 @@ export function ImportPanel() {
         <UpdateReviewCard
           plan={phase.updatePlan}
           fileName={phase.fileName}
+          onConfirm={() => void confirm(phase.uploadId, phase.fileName, collision)}
           onCancel={reset}
         />
       );
@@ -463,6 +474,9 @@ export function ImportPanel() {
   }
 
   if (phase.kind === "done") {
+    if (phase.packageType === "update") {
+      return <UpdateDoneCard summary={phase.updateSummary} onReset={reset} />;
+    }
     if (phase.packageType === "photos") {
       return (
         <PhotoDoneCard photoSummary={phase.photoSummary} onReset={reset} />
