@@ -73,7 +73,16 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 - ⏳ Stažení obou souborů na Mac přes Termius SFTP do
   `~/Backups/ctyrlistkoteka/pre-26.04/` + kontrola hashů; snapshot v OVH.
   (rsync z Macu jako `app@` nejde — klíč Macu tam není povolený.)
+- ✅ Fáze 1 dokončena: oba soubory na Macu (hashe sedí), snapshot v OVH.
+- ✅ Fáze 2: 0 balíčků k aktualizaci (25.10 je EOL), reboot není potřeba.
+- ❌→⏳ Nalezeno: `logrotate.service` failed **od 2026-05-02** — ručně
+  připsaný `postrotate` mimo `{}` s překlepem `endscriptx` v
+  `/etc/logrotate.d/fail2ban-blocklist`. Oprava (celý soubor) předána
+  majiteli; repo verze opravena lokálně (commit bez pushe).
+- ⏳ Po upgradu: týdenní *Runtime security* ať hlásí i `systemctl --failed`
+  — chyba půl roku nikoho nevzbudila.
 - ⛔ Od fáze 2 do konce fáze 4 **žádný push do `main`** (push = deploy).
+  Lokálně čekají commity k pushnutí po fázi 4 (= testovací deploy).
 - ⏳ 2026-10-29 7:30 naplánovaná připomínka: `tail -n 2 pull.log` na UNASu
   (ranní běh má trvat ~1 min).
 
