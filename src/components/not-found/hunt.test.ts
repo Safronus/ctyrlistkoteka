@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, lensRound, MAX_ROUND, meadowRound, prng, summarizeTimes } from "./hunt";
+import {
+  difficultyTier,
+  formatDuration,
+  lensRound,
+  MAX_ROUND,
+  meadowColumns,
+  meadowRound,
+  meadowRows,
+  parseBests,
+  prng,
+  recordBest,
+  summarizeTimes,
+} from "./hunt";
 
 describe("prng", () => {
   it("is reproducible from the seed and stays in [0, 1)", () => {
@@ -12,8 +24,8 @@ describe("prng", () => {
 });
 
 describe("meadowRound", () => {
-  it("starts small and easy: 8×6, three greens, no decoys", () => {
-    const r = meadowRound(1, 7);
+  it("starts easy: 8×6 on a narrow meadow, three greens, no decoys", () => {
+    const r = meadowRound(1, 7, 8);
     expect([r.columns, r.rows, r.cells.length]).toEqual([8, 6, 48]);
     expect(r.cells.some((c) => c.bud)).toBe(false);
     expect(r.lucky).toBeGreaterThanOrEqual(0);
@@ -99,5 +111,60 @@ describe("formatDuration", () => {
   it("switches to minutes past a minute", () => {
     expect(formatDuration(65000, "cs")).toBe("1:05,0");
     expect(formatDuration(125400, "en")).toBe("2:05.4");
+  });
+});
+
+describe("page-wide layout", () => {
+  it("spans the page: ~46 px cells on a phone, ~58 px elsewhere, 6..24 columns", () => {
+    expect(meadowColumns(343)).toBe(7);
+    expect(meadowColumns(1200)).toBe(20);
+    expect(meadowColumns(200)).toBe(6);
+    expect(meadowColumns(5000)).toBe(24);
+  });
+
+  it("takes its rows from the round, so a wider screen is a bigger (harder) meadow", () => {
+    expect([1, 2, 5, 8, 30].map(meadowRows)).toEqual([6, 7, 10, 10, 10]);
+    expect(meadowRound(1, 1, 7).cells).toHaveLength(42);
+    expect(meadowRound(1, 1, 20).cells).toHaveLength(120);
+  });
+
+  it("scales the lens meadow with the field area, so density stays", () => {
+    expect(lensRound(1, 1, 2).clovers).toHaveLength(120);
+    expect(lensRound(1, 1, 0.5).clovers).toHaveLength(30);
+    expect(lensRound(1, 1, 100).clovers).toHaveLength(150); // clamped ×2.5
+  });
+});
+
+describe("difficultyTier", () => {
+  it("climbs easy → medium → hard → master", () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 30].map(difficultyTier)).toEqual([
+      "easy", "easy", "medium", "medium", "hard", "hard", "master", "master", "master",
+    ]);
+  });
+});
+
+describe("personal bests", () => {
+  it("parses only plausible entries and survives junk", () => {
+    expect(parseBests(null)).toEqual({ meadow: {}, lens: {} });
+    expect(parseBests("not json")).toEqual({ meadow: {}, lens: {} });
+    expect(
+      parseBests(JSON.stringify({
+        meadow: { 1: 4200, 2: -5, 9: 100, x: 1 },
+        lens: { 3: 9000, 4: "7", 5: 1e12 },
+        evil: { 1: 1 },
+      })),
+    ).toEqual({ meadow: { 1: 4200 }, lens: { 3: 9000 } });
+  });
+
+  it("records a first time, keeps a better one, replaces a worse one", () => {
+    let b = parseBests(null);
+    const first = recordBest(b, "meadow", 2, 5000);
+    expect(first).toMatchObject({ improved: true, previous: null });
+    b = first.bests;
+    expect(recordBest(b, "meadow", 2, 6000)).toMatchObject({ improved: false, previous: 5000 });
+    const better = recordBest(b, "meadow", 2, 4000);
+    expect(better).toMatchObject({ improved: true, previous: 5000 });
+    expect(better.bests.meadow[2]).toBe(4000);
+    expect(b.meadow[2]).toBe(5000); // no mutation
   });
 });

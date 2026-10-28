@@ -1,10 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CloverShape } from "./clover-shape";
-import { HuntFooter } from "./hunt-footer";
-import { meadowRound, newSeed, SHADES } from "./hunt";
+import { HuntFooter, type RoundRecord } from "./hunt-footer";
+import {
+  MEADOW_MAX_CELL,
+  meadowColumns,
+  meadowRound,
+  clockNow,
+  newSeed,
+  SHADES,
+} from "./hunt";
+import { usePersonalBests } from "./use-personal-bests";
+
+/** Width the meadow may take before it is on screen (the section is
+ *  max-w-7xl with px-4, the meadow has its own padding). */
+function initialWidth(): number {
+  return Math.min(window.innerWidth, 1280) - 56;
+}
 
 /**
  * 404 game „Louka“: a grid of three-leaf clovers with ONE four-leaf among
@@ -24,20 +38,28 @@ export function MeadowGame() {
   const [found, setFound] = useState(false);
   const [total, setTotal] = useState(0);
   // Round clock: started when a round is laid out, one entry per round won.
-  const [startedAt, setStartedAt] = useState(() => performance.now());
+  const [startedAt, setStartedAt] = useState(() => clockNow());
   const [times, setTimes] = useState<number[]>([]);
   const [shaking, setShaking] = useState<number | null>(null);
   const [message, setMessage] = useState("");
-  const layout = useMemo(() => meadowRound(round, seed), [round, seed]);
+  const { bests, record } = usePersonalBests();
+  const [lastRecord, setLastRecord] = useState<RoundRecord>(null);
+  // Columns follow the page width, fixed for a round (a rotated phone
+  // mustn't reshuffle the meadow mid-search); recomputed for the next one.
+  const box = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState(() => meadowColumns(initialWidth()));
+  const layout = useMemo(() => meadowRound(round, seed, columns), [round, seed, columns]);
 
   function pick(i: number) {
     if (found) return;
     const n = tries + 1;
     setTries(n);
     if (i === layout.lucky) {
+      const ms = clockNow() - startedAt;
       setFound(true);
       setTotal((x) => x + 1);
-      setTimes((ts) => [...ts, performance.now() - startedAt]);
+      setTimes((ts) => [...ts, ms]);
+      setLastRecord(record("meadow", round, ms));
       setMessage(t("foundAfter", { count: n }));
     } else {
       setShaking(i);
@@ -47,19 +69,25 @@ export function MeadowGame() {
   }
 
   function nextRound() {
+    const width = box.current?.clientWidth ?? initialWidth();
+    setColumns(meadowColumns(width));
+    setLastRecord(null);
     setRound((r) => r + 1);
     setSeed(newSeed());
     setTries(0);
     setFound(false);
-    setStartedAt(performance.now());
+    setStartedAt(clockNow());
     setMessage("");
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-5">
+    <div ref={box} className="flex w-full flex-col items-center gap-5">
       <div
-        className="grid w-full max-w-xl gap-0.5 rounded-2xl border border-brand-200 bg-brand-50/60 p-2 shadow-inner sm:gap-1 sm:p-3"
-        style={{ gridTemplateColumns: `repeat(${layout.columns}, minmax(0, 1fr))` }}
+        className="grid w-full gap-0.5 rounded-2xl border border-brand-200 bg-brand-50/60 p-2 shadow-inner sm:gap-1 sm:p-3"
+        style={{
+          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+          maxWidth: columns * MEADOW_MAX_CELL,
+        }}
       >
         {layout.cells.map((c, i) => {
           const isLucky = i === layout.lucky;
@@ -95,6 +123,9 @@ export function MeadowGame() {
       </div>
 
       <HuntFooter
+        game="meadow"
+        bests={bests}
+        record={lastRecord}
         round={round}
         tries={tries}
         total={total}

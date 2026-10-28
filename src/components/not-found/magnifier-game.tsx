@@ -3,8 +3,17 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CloverShape } from "./clover-shape";
-import { HuntFooter } from "./hunt-footer";
-import { lensRound, newSeed, SHADES, type LensClover } from "./hunt";
+import { HuntFooter, type RoundRecord } from "./hunt-footer";
+import { clockNow, LENS_REFERENCE_AREA, lensRound, newSeed, SHADES, type LensClover } from "./hunt";
+import { usePersonalBests } from "./use-personal-bests";
+
+/** Field size before it is on screen — mirrors the classes on the field
+ *  (full width up to max-w-7xl; h-72 / sm:h-96 / lg:h-[30rem]). */
+function initialArea(): number {
+  const w = Math.min(window.innerWidth, 1280) - 32;
+  const h = window.innerWidth < 640 ? 288 : window.innerWidth < 1024 ? 384 : 480;
+  return (w * h) / LENS_REFERENCE_AREA;
+}
 
 const STEP = 24; // keyboard move, px
 const HIT = 20; // how close to the four-leaf's centre a pick must land, px
@@ -27,10 +36,15 @@ export function MagnifierGame() {
   const [found, setFound] = useState(false);
   const [total, setTotal] = useState(0);
   // Round clock: started when a round is laid out, one entry per round won.
-  const [startedAt, setStartedAt] = useState(() => performance.now());
+  const [startedAt, setStartedAt] = useState(() => clockNow());
   const [times, setTimes] = useState<number[]>([]);
   const [message, setMessage] = useState("");
-  const layout = useMemo(() => lensRound(round, seed), [round, seed]);
+  const { bests, record } = usePersonalBests();
+  const [lastRecord, setLastRecord] = useState<RoundRecord>(null);
+  // Clover count follows the field area (same density on any screen),
+  // fixed for a round and recomputed for the next one.
+  const [area, setArea] = useState(initialArea);
+  const layout = useMemo(() => lensRound(round, seed, area), [round, seed, area]);
 
   function check(x: number, y: number) {
     const el = box.current;
@@ -40,9 +54,11 @@ export function MagnifierGame() {
     const cx = (layout.lucky.x / 100) * el.clientWidth;
     const cy = (layout.lucky.y / 100) * el.clientHeight;
     if (Math.hypot(x - cx, y - cy) <= HIT) {
+      const ms = clockNow() - startedAt;
       setFound(true);
       setTotal((v) => v + 1);
-      setTimes((ts) => [...ts, performance.now() - startedAt]);
+      setTimes((ts) => [...ts, ms]);
+      setLastRecord(record("lens", round, ms));
       setLens({ x: cx, y: cy });
       setMessage(t("foundAfter", { count: n }));
     } else {
@@ -82,11 +98,14 @@ export function MagnifierGame() {
   }
 
   function nextRound() {
+    const el = box.current;
+    setArea(el ? (el.clientWidth * el.clientHeight) / LENS_REFERENCE_AREA : initialArea());
+    setLastRecord(null);
     setRound((r) => r + 1);
     setSeed(newSeed());
     setTries(0);
     setFound(false);
-    setStartedAt(performance.now());
+    setStartedAt(clockNow());
     setLens(null);
     setMessage("");
   }
@@ -126,7 +145,7 @@ export function MagnifierGame() {
           check(p.x, p.y);
         }}
         onKeyDown={onKey}
-        className="relative h-72 w-full max-w-2xl cursor-none touch-none overflow-hidden rounded-2xl border border-brand-200 bg-brand-50 shadow-inner focus-visible:outline-2 focus-visible:outline-brand-600 sm:h-96"
+        className="relative h-72 w-full cursor-none touch-none overflow-hidden rounded-2xl border border-brand-200 bg-brand-50 shadow-inner focus-visible:outline-2 focus-visible:outline-brand-600 sm:h-96 lg:h-[30rem]"
       >
         <div className="absolute inset-0" style={{ filter: `blur(${layout.blur}px)` }}>
           {meadow(false)}
@@ -149,6 +168,9 @@ export function MagnifierGame() {
       </div>
 
       <HuntFooter
+        game="lens"
+        bests={bests}
+        record={lastRecord}
         round={round}
         tries={tries}
         total={total}

@@ -50,20 +50,40 @@ export interface MeadowRound {
   cells: MeadowCell[];
 }
 
+/** Rows in a meadow round: 6, growing by one per round to 10. */
+export function meadowRows(round: number): number {
+  return Math.min(6 + (clampRound(round) - 1), 10);
+}
+
+/** Largest meadow cell, px (a narrow column count on a wide box). */
+export const MEADOW_MAX_CELL = 80;
+
 /**
- * Round 1: 8×6, three greens, no decoys, every clover centred. Each round
- * adds a column and a row (up to 12×10) and narrows the greens (round 3+:
+ * Columns for a meadow `width` px wide: ~46 px cells on a phone, ~58 px
+ * elsewhere, 6..24. The meadow spans the page, so a desktop meadow holds
+ * more clovers than a phone one — the owner's call (2026-10-28): desktop
+ * may be the harder game.
+ */
+export function meadowColumns(width: number): number {
+  const cell = width < 640 ? 46 : 58;
+  return Math.min(Math.max(Math.floor(width / cell), 6), 24);
+}
+
+/**
+ * Round 1: 6 rows (as wide as the page allows), three greens, no decoys,
+ * every clover centred. Each round adds a row (up to 10) and narrows the
+ * greens (round 3+:
  * one). From round 2 the clovers wander off their cell centres; from round 3
  * they grow past the cell so neighbours OVERLAP, and decoys appear —
  * three-leafs with a bud — more of all of it every round. The click target
  * stays the cell, so the game is fair: the four-leaf is in its cell, however
  * tangled it looks.
  */
-export function meadowRound(round: number, seed: number): MeadowRound {
+export function meadowRound(round: number, seed: number, columns = 8): MeadowRound {
   const r = clampRound(round);
   const rnd = prng(seed);
-  const columns = Math.min(8 + (r - 1), 12);
-  const rows = Math.min(6 + (r - 1), 10);
+  // The round sets the rows; the page width sets the columns (meadowColumns).
+  const rows = meadowRows(r);
   const count = columns * rows;
   const lucky = Math.floor(rnd() * count);
   const shades = r >= 3 ? 1 : r === 2 ? 2 : 3;
@@ -101,17 +121,22 @@ export interface LensRound {
   blur: number;
 }
 
+/** Reference field the lens counts are tuned for (px). */
+export const LENS_REFERENCE_AREA = 672 * 384;
+
 /**
- * Round 1: 60 clovers, lens radius 64 px, 5 px blur. Each round adds 20
+ * Round 1: 60 clovers (on the reference field), lens radius 64 px, 5 px blur. Each round adds 20
  * clovers (up to 200), shrinks the lens by 4 px (down to 40) and blurs 1 px
  * more (up to 10); decoys with a bud from round 3. Positions are scattered
  * uniformly — the four-leaf keeps clear of the edges so the lens can reach
  * it whole.
  */
-export function lensRound(round: number, seed: number): LensRound {
+export function lensRound(round: number, seed: number, area = 1): LensRound {
   const r = clampRound(round);
   const rnd = prng(seed);
-  const total = Math.min(60 + 20 * (r - 1), 200);
+  // `area` = field area / the reference field (672×384 px): a bigger field
+  // gets more clovers, so the density — the real difficulty — is the same.
+  const total = Math.round(Math.min(60 + 20 * (r - 1), 200) * Math.min(Math.max(area, 0.4), 2.5));
   const budShare = r >= 3 ? Math.min(0.08 + 0.05 * (r - 3), 0.3) : 0;
   const make = (bud: boolean, margin: number): LensClover => ({
     x: margin + rnd() * (100 - 2 * margin),
@@ -133,6 +158,11 @@ export function lensRound(round: number, seed: number): LensRound {
 
 /** The greens, lightest to darkest — indexes of `shade`. */
 export const SHADES = ["text-brand-500", "text-brand-600", "text-brand-700"] as const;
+
+/** Monotonic milliseconds for the round clock (event handlers only). */
+export function clockNow(): number {
+  return performance.now();
+}
 
 /** A fresh 32-bit seed from the browser's CSPRNG. */
 export function newSeed(): number {
@@ -171,4 +201,69 @@ export function formatDuration(ms: number, locale: string): string {
   const sep = locale === "cs" ? "," : ".";
   const s = seconds.toFixed(1).replace(".", sep);
   return minutes > 0 ? `${minutes}:${s.padStart(4, "0")}` : `${s} s`;
+}
+
+// ─── Difficulty & personal records ────────────────────────────────────────
+
+export type HuntGame = "meadow" | "lens";
+export type Tier = "easy" | "medium" | "hard" | "master";
+
+/** Rounds 1–2 easy, 3–4 medium, 5–6 hard, 7+ master. */
+export function difficultyTier(round: number): Tier {
+  const r = clampRound(round);
+  return r <= 2 ? "easy" : r <= 4 ? "medium" : r <= 6 ? "hard" : "master";
+}
+
+/** Best round time per game and round, in ms — what the browser keeps. */
+export type PersonalBests = Record<HuntGame, Record<number, number>>;
+
+export const BESTS_STORAGE_KEY = "ctyr-404-bests-v1";
+
+/**
+ * Parse what localStorage holds. It is untrusted (any script on the origin,
+ * a hand edit, an old format): anything that isn't a plausible
+ * game → round (1..MAX_ROUND) → positive finite time under an hour is
+ * dropped, never thrown.
+ */
+export function parseBests(raw: string | null): PersonalBests {
+  const out: PersonalBests = { meadow: {}, lens: {} };
+  if (!raw) return out;
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return out;
+  }
+  if (!data || typeof data !== "object") return out;
+  for (const game of ["meadow", "lens"] as const) {
+    const g = (data as Record<string, unknown>)[game];
+    if (!g || typeof g !== "object") continue;
+    for (const [k, v] of Object.entries(g as Record<string, unknown>)) {
+      const round = Number(k);
+      if (
+        Number.isInteger(round) && round >= 1 && round <= MAX_ROUND &&
+        typeof v === "number" && Number.isFinite(v) && v > 0 && v < 3_600_000
+      ) {
+        out[game][round] = v;
+      }
+    }
+  }
+  return out;
+}
+
+/** Record a won round; `improved` when it beats (or sets) the stored best. */
+export function recordBest(
+  bests: PersonalBests,
+  game: HuntGame,
+  round: number,
+  ms: number,
+): { bests: PersonalBests; improved: boolean; previous: number | null } {
+  const r = clampRound(round);
+  const previous = bests[game][r] ?? null;
+  if (previous !== null && previous <= ms) return { bests, improved: false, previous };
+  return {
+    bests: { ...bests, [game]: { ...bests[game], [r]: ms } },
+    improved: true,
+    previous,
+  };
 }

@@ -14,7 +14,7 @@ export default async function NotFound() {
   const t = await getTranslations("NotFound");
   const game = randomInt(2) === 0 ? "meadow" : "lens";
   return (
-    <section className="mx-auto flex w-full max-w-4xl flex-col items-center gap-3 px-4 py-10 sm:py-14">
+    <section className="mx-auto flex w-full max-w-7xl flex-col items-center gap-3 px-4 py-10 sm:py-14">
       <h1 className="text-center text-2xl font-bold text-gray-900 sm:text-3xl">{t("title")}</h1>
       <p className="mb-4 max-w-xl text-center text-sm text-gray-600 sm:text-base">{t("subtitle")}</p>
       <CloverHunt game={game} />

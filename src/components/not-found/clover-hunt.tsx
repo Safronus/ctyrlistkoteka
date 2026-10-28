@@ -8,7 +8,7 @@ import { useTranslations } from "next-intl";
 // links are server-rendered around it, so nothing depends on JS but the game.
 function Loading() {
   const t = useTranslations("NotFound");
-  return <p className="h-72 text-sm text-gray-500 sm:h-96">{t("loading")}</p>;
+  return <p className="h-72 text-sm text-gray-500 sm:h-96 lg:h-[30rem]">{t("loading")}</p>;
 }
 const MeadowGame = dynamic(() => import("./meadow-game").then((m) => m.MeadowGame), {
   ssr: false,

@@ -984,7 +984,24 @@
     "budLeaf": "Tohle je jen trojlístek s pupenem. Hledej dál!",
     "loading": "Louka roste…",
     "roundTime": "Čas: {time}.",
-    "newRecord": "Nový rekord! 🏆",
-    "bestAverage": "Nejlepší čas {best} · průměr {average}"
+    "difficulty": "Obtížnost",
+    "tier": {
+      "easy": "Lehká",
+      "medium": "Střední",
+      "hard": "Těžká",
+      "master": "Mistrovská"
+    },
+    "speedTable": "Tabulka rychlosti",
+    "colRound": "Kolo",
+    "colTier": "Obtížnost",
+    "colBest": "Tvůj rekord",
+    "colToday": "Dnes",
+    "storedNote": "Hra {game}. Rekordy jsou uložené jen v tomto prohlížeči — nic se neposílá.",
+    "gameName": {
+      "meadow": "Louka",
+      "lens": "Lupa"
+    },
+    "firstRecord": "První čas v kole {n} zapsán jako tvůj rekord 🏆",
+    "personalRecord": "Nový osobní rekord v kole {n}! (předtím {previous}) 🏆"
   }
 }

@@ -985,7 +985,24 @@
     "budLeaf": "That's just a three-leaf with a bud. Keep looking!",
     "loading": "The meadow is growing…",
     "roundTime": "Time: {time}.",
-    "newRecord": "New record! 🏆",
-    "bestAverage": "Best time {best} · average {average}"
+    "difficulty": "Difficulty",
+    "tier": {
+      "easy": "Easy",
+      "medium": "Medium",
+      "hard": "Hard",
+      "master": "Master"
+    },
+    "speedTable": "Speed table",
+    "colRound": "Round",
+    "colTier": "Difficulty",
+    "colBest": "Your record",
+    "colToday": "Today",
+    "storedNote": "Game: {game}. Records are kept in this browser only — nothing is sent.",
+    "gameName": {
+      "meadow": "Meadow",
+      "lens": "Magnifier"
+    },
+    "firstRecord": "First time in round {n} saved as your record 🏆",
+    "personalRecord": "New personal record in round {n}! (was {previous}) 🏆"
   }
 }

@@ -28,6 +28,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### 404 hra: osobní rekordy, obtížnost, tabulka rychlosti, celá šířka
+- **Osobní rekordy** po kolech pro každou hru, uložené jen v prohlížeči
+  návštěvníka (`localStorage`, nic se neposílá) — schválená výjimka
+  v CLAUDE.md §3; čtení validuje `parseBests` (nedůvěryhodný vstup).
+- **Měřič obtížnosti** (Lehká → Střední → Těžká → Mistrovská, 8 dílků)
+  a rozbalovací **tabulka rychlosti**: kolo, obtížnost, tvůj rekord, dnešní čas.
+- Louka se roztáhne **přes celou šířku stránky**: sloupce podle šířky
+  (~46 px buňky na mobilu, ~58 px jinde), řádky podle kola — desktop je
+  záměrně těžší (víc lístků). Lupa drží stejnou hustotu na jakékoli ploše.
+  Rozměr se pro kolo zafixuje (otočení telefonu nepřeskupí louku).
+
 ### Vlastní 404: hledání čtyřlístku (Louka / Lupa) s časomírou
 - Místo černé anglické 404 od Next.js je 404 hra v duchu webu, CZ i EN,
   s navigací a patičkou. Server pro každý požadavek náhodně vybere

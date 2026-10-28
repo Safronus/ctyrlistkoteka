@@ -81,6 +81,7 @@ jen odvozené WebP varianty (web ~1600 px, thumb ~400 px).
 - Cloudflare (uživatel si výslovně nepřeje)
 - Externí analytiku bez GDPR consent bannery (zatím nic)
 - Klientská storage API (`localStorage`, `IndexedDB`) pro aplikační stav mimo preferenci UI
+  - ⚠️ **Jediná schválená výjimka (2026-10-28): osobní rekordy hry na stránce 404** (`ctyr-404-bests-v1`, `src/components/not-found/use-personal-bests.ts`). Jen časy kol v prohlížeči návštěvníka, nic se neposílá ani nepáruje; čtení validuje `parseBests`. Nerozšiřuj na další stav.
 - SSR-only komponenty tam, kde stačí statický export
 
 ---
