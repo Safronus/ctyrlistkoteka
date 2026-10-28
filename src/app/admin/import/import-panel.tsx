@@ -37,7 +37,10 @@ import type { WholeFileMergeSectionDiff } from "@/lib/admin/lspMerge";
 import type { FindUpdatePlan } from "@/lib/findUpdatePackage";
 import { pluralCs } from "@/lib/format";
 import { compactToRanges } from "@/lib/parseRanges";
-import type { FindUpdateCommitSummary } from "@/lib/admin/findUpdateImport";
+import type {
+  FindUpdateCommitSummary,
+  UpdateSyncStart,
+} from "@/lib/admin/findUpdateImport";
 import { UpdateDoneCard, UpdateReviewCard } from "./update-review-card";
 
 /** Structural subset of the server's WholeFileMergeResult. Declared locally
@@ -117,6 +120,7 @@ type Phase =
       fileName: string;
       packageType: "update";
       updateSummary: FindUpdateCommitSummary;
+      updateSync: UpdateSyncStart | null;
     }
   | { kind: "error"; message: string };
 
@@ -319,6 +323,7 @@ export function ImportPanel() {
           packageType: "v1" | "v2" | "photos" | "update";
           summary?: ImportFileSummary;
           updateSummary?: FindUpdateCommitSummary;
+          updateSync?: UpdateSyncStart;
           mapSummary?: MapPackageImportSummary;
           photoSummary?: PhotoPackageSummary;
           lsp?: LspMergeResult | null;
@@ -330,7 +335,13 @@ export function ImportPanel() {
         });
         uploadIdRef.current = null; // commit's finally already deleted the ZIP
         if (res.packageType === "update" && res.updateSummary) {
-          setPhase({ kind: "done", fileName, packageType: "update", updateSummary: res.updateSummary });
+          setPhase({
+            kind: "done",
+            fileName,
+            packageType: "update",
+            updateSummary: res.updateSummary,
+            updateSync: res.updateSync ?? null,
+          });
         } else if (res.packageType === "photos" && res.photoSummary) {
           setPhase({
             kind: "done",
@@ -475,7 +486,13 @@ export function ImportPanel() {
 
   if (phase.kind === "done") {
     if (phase.packageType === "update") {
-      return <UpdateDoneCard summary={phase.updateSummary} onReset={reset} />;
+      return (
+        <UpdateDoneCard
+          summary={phase.updateSummary}
+          sync={phase.updateSync}
+          onReset={reset}
+        />
+      );
     }
     if (phase.packageType === "photos") {
       return (

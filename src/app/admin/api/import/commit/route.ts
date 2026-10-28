@@ -38,7 +38,9 @@ import {
   commitFindUpdateZip,
   isFindUpdatePackageZip,
   type FindUpdateCommitSummary,
+  type UpdateSyncStart,
 } from "@/lib/admin/findUpdateImport";
+import { startRun } from "@/lib/admin/syncRunner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +51,8 @@ interface CommitResponse {
   packageType?: "v1" | "v2" | "photos" | "update";
   summary?: ImportFileSummary;
   updateSummary?: FindUpdateCommitSummary;
+  /** The sync a correction package starts on its own once it is on disk. */
+  updateSync?: UpdateSyncStart;
   mapSummary?: MapPackageImportSummary;
   photoSummary?: PhotoPackageSummary;
   /** Result of the LSP whole-file merge, or null when the package had none. */
@@ -147,10 +151,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           (u.noteOverridesRemoved > 0 ? `, ${u.noteOverridesRemoved} přepisů poznámky smazáno` : ""),
       });
       // The LSP changed: the admin pages that read it. The public site
-      // follows once sync has run.
+      // follows once sync has run — and sync revalidates it on success.
       revalidatePath("/admin/json/lokace-stavy-poznamky");
       revalidatePath("/admin/files/meta");
-      return json({ ok: true, packageType: "update", updateSummary: u });
+      // A correction is only half done until the DB has it, so start the
+      // full sync right away instead of leaving it to the operator. The
+      // files are already committed either way: a refused start (another
+      // run slipped in) is reported, never turned into a failed import.
+      let updateSync: UpdateSyncStart;
+      try {
+        const run = await startRun({ dryRun: false, startedBy: credentialLabel });
+        updateSync = { started: true, runId: run.runId };
+        await appendAudit({
+          action: "sync.start",
+          ip,
+          credentialLabel,
+          details: {
+            runId: run.runId,
+            args: run.args,
+            dryRun: false,
+            only: null,
+            trigger: "import-find-update",
+          },
+        });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        updateSync = { started: false, reason };
+        await appendAudit({
+          action: "sync.start",
+          ip,
+          credentialLabel,
+          details: { outcome: "rejected", reason, trigger: "import-find-update" },
+        });
+      }
+      return json({ ok: true, packageType: "update", updateSummary: u, updateSync });
     }
     // Photos land straight in generated/ as WebP — no sync afterwards,
     // they are servable the moment they are written. Asked first for the

@@ -266,6 +266,12 @@ export interface FindUpdateCommitSummary {
   trashBucket: string | null;
 }
 
+/** Outcome of the sync the commit route starts right after a correction:
+ *  started, or refused (the files are committed either way). */
+export type UpdateSyncStart =
+  | { started: true; runId: string }
+  | { started: false; reason: string };
+
 /** One reversible step on disk. */
 type Op =
   | { kind: "trash"; from: string; copy: string }

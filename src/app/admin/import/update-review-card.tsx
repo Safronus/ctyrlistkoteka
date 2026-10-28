@@ -12,7 +12,10 @@ import {
 } from "lucide-react";
 // Type-only — erased at compile time, so nothing of the modules (zod, the
 // prisma enums, node:fs) reaches the client bundle.
-import type { FindUpdateCommitSummary } from "@/lib/admin/findUpdateImport";
+import type {
+  FindUpdateCommitSummary,
+  UpdateSyncStart,
+} from "@/lib/admin/findUpdateImport";
 import type { FindSide, FindUpdateItem, FindUpdatePlan } from "@/lib/findUpdatePackage";
 import { pluralCs } from "@/lib/format";
 
@@ -132,9 +135,12 @@ export function UpdateReviewCard({
 /** Result of a written correction, and the one thing left to do. */
 export function UpdateDoneCard({
   summary,
+  sync,
   onReset,
 }: {
   summary: FindUpdateCommitSummary;
+  /** null = an older server that did not start the sync on its own. */
+  sync: UpdateSyncStart | null;
   onReset: () => void;
 }) {
   return (
@@ -175,18 +181,39 @@ export function UpdateDoneCard({
         </li>
       </ul>
 
-      <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50/50 p-3">
-        <p className="text-xs text-gray-700">
-          Data jsou na disku. Na webu se oprava projeví až po{" "}
-          <strong>syncu</strong> — spusť ho teď.
-        </p>
+      <div
+        className={`mt-4 rounded-lg border p-3 ${
+          sync && !sync.started
+            ? "border-amber-200 bg-amber-50/60"
+            : "border-brand-200 bg-brand-50/50"
+        }`}
+      >
+        {sync?.started ? (
+          <p className="text-xs text-gray-700">
+            Data jsou na disku a <strong>sync už běží</strong> — oprava se na
+            webu projeví po jeho dokončení. Průběh sleduj na stránce Sync.
+          </p>
+        ) : sync ? (
+          <p className="flex items-start gap-1.5 text-xs text-amber-900">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span>
+              Data jsou na disku, ale sync se nespustil: {sync.reason} Na webu se
+              oprava projeví až po <strong>syncu</strong> — spusť ho ručně.
+            </span>
+          </p>
+        ) : (
+          <p className="text-xs text-gray-700">
+            Data jsou na disku. Na webu se oprava projeví až po{" "}
+            <strong>syncu</strong> — spusť ho teď.
+          </p>
+        )}
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <Link
             href="/admin/sync"
             className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
           >
             <Database className="h-4 w-4" aria-hidden />
-            Přejít na Sync
+            {sync?.started ? "Sledovat sync" : "Přejít na Sync"}
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
           <button
