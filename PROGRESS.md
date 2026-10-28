@@ -64,6 +64,19 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 - Ubuntu 25.10 → 26.04: výstup fáze 0 od majitele → doladit plán + R-PG,
   zapnout `--docker` v `runtime-security.yml`, opravit nálezy inventury.
 
+## Upgrade Ubuntu 25.10 → 26.04 (od 2026-10-28 23:06 UTC)
+- Plán + kontrolní seznam nginx / Node / služby / pravidla:
+  `docs/ubuntu-upgrade-26.04.md`.
+- ✅ Fáze 1 na VPS: dump `ctyrlistkoteka-2026-10-28_2306.dump` (sha256
+  a5f78476…9eaa, 16 tabulek), `/var/backups/etc-pre-26.04.tgz` (sha256
+  939dec20…941e), zálohy služeb, off-site čerstvý, 32 GB volno.
+- ⏳ Stažení obou souborů na Mac přes Termius SFTP do
+  `~/Backups/ctyrlistkoteka/pre-26.04/` + kontrola hashů; snapshot v OVH.
+  (rsync z Macu jako `app@` nejde — klíč Macu tam není povolený.)
+- ⛔ Od fáze 2 do konce fáze 4 **žádný push do `main`** (push = deploy).
+- ⏳ 2026-10-29 7:30 naplánovaná připomínka: `tail -n 2 pull.log` na UNASu
+  (ranní běh má trvat ~1 min).
+
 ## Seznam oprav (nahlášeno majitelem)
 1. ✅ **404 – Lupa na mobilu** (2026-10-28): na dotyku lupa pluje nad
    prstem (poloměr + 36 px), tažení nic nevybírá, klepnutí vybere ťuknuté

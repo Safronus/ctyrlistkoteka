@@ -1,7 +1,9 @@
 # Upgrade VPS: Ubuntu 25.10 „questing" → 26.04 LTS „resolute"
 
-> **Stav: NÁVRH k odsouhlasení (2026-10-28, doladěno podle inventury).**
-> Fáze 0 hotová (výsledek v private ops repu, `inventory/`); fáze 1–6 ještě neběžely.
+> **Stav: PROBÍHÁ (od 2026-10-28 23:06 UTC).** Fáze 0 hotová (výsledek
+> v private ops repu, `inventory/`). Fáze 1: dump DB, `/etc`, zálohy služeb
+> a off-site ✅; čeká stažení na Mac (Termius SFTP) + snapshot v OVH.
+> Fáze 2–6 ještě neběžely.
 > Claude Code se k VPS nepřipojuje — příkazy spouští majitel v Termiusu,
 > výstupy vkládá zpět do session. Každá fáze končí kontrolou; do další se
 > jde až po ní.
@@ -142,6 +144,54 @@ RustDesk klient, jeden testovací deploy (prázdný commit z Macu) a ručně
 spuštěný workflow *Runtime security* — po fázi 5 musí být **zelený**
 (do fáze 6 se ještě může ozvat `apt-orphaned` kvůli balíčkům PG 17).
 Runner: `systemctl status` jeho služby, v GitHubu stav „Idle".
+
+### Kontrolní seznam: nginx, Node a ostatní služby (projít celý ve fázi 4)
+
+Upgrade OS mění pod appkou knihovny, unity i výchozí konfigurace. „Web
+odpovídá 200" nestačí — tohle všechno musí sedět:
+
+**nginx**
+- Upgrader nabídne přepsat konfigurace → **ponechat naše**. Pak porovnat
+  s předupgradovou zálohou: `/etc/nginx/sites-available/ctyrlistkoteka`,
+  drop-in `conf.d/ctyrlistkoteka-gzip.conf`, `snippets/admin-allowlist.conf`
+  a `snippets/permaban-list.conf` musí zůstat beze změny
+  (`sudo diff -r` proti rozbalenému `etc-pre-26.04.tgz`).
+- `sudo nginx -t`; maska `/admin` → `bash deploy/cloak-check.sh` = 6× ✅
+  (oba `@admin_*_cloak` bloky jsou klon živého `location /` — viz
+  `deploy/nginx-cloak-app404.py`).
+- Komprese (`curl -sI -H 'Accept-Encoding: gzip' …` → `content-encoding`),
+  bezpečnostní hlavičky, `stats.` a `qr.casqb.org` vhosty.
+- certbot: `systemctl is-enabled certbot.timer` + `certbot renew --dry-run`.
+- Ve fázi 5 odebrat `ssl_stapling` (OCSP u Let's Encrypt skončil).
+
+**Node / PM2 / appka**
+- nvm v `/home/app` upgrade nezmění — ale ověřit, že běží správná binárka:
+  `readlink /proc/<pid>/exe` u démona PM2 i workerů (gotchas #34), ne
+  `pm2 ls`. `systemctl is-enabled pm2-app` musí být `enabled`.
+- Nativní moduly proti nové glibc: v `/var/www/ctyrlistkoteka`
+  `node -e "require('sharp'); require('@prisma/client')"` bez chyby.
+  Ostrý test = jeden deploy (build + migrace + reload) a `pnpm sync --dry-run`.
+- Self-hosted runner: služba `actions.runner.*` aktivní, v GitHubu „Idle".
+
+**Ostatní služby a časovače**
+- `fail2ban`, `nftables` (permaban set načtený), `unattended-upgrades`
+  (Allowed-Origins jedou přes `${distro_codename}` → přepnou se samy; v
+  `/etc/apt/apt.conf.d/52ctyrlistkoteka-unattended.conf` ověřit, že zůstal náš soubor).
+- Cron uživatele `app` (`crontab -l`: backup 3:00, služby 3:05, staging
+  3:10, freshness 6:40, úklidy koše) a systemd timery (`systemctl
+  list-timers`: sync Google Sheets, certbot).
+- Docker: GoatCounter + RustDesk běží (`update-docker-services.sh` až po
+  návratu Docker repa ve fázi 5).
+- Ruční běh workflow *Runtime security*: `os-release` musí zezelenat.
+
+**Pravidla projektu (CLAUDE.md §11) — ve stejném úkolu**
+- `docs/deployment.md` → callout „Skutečný stav produkce" (OS 26.04,
+  verze nginx/Docker/PG), CLAUDE.md §12 (už ne 25.10 EOL), `CHANGELOG.md`,
+  `PROGRESS.md`, komentář v `deploy/unattended-upgrades-50ctyrlistkoteka.conf`.
+- Rozšířit/upravit kontrolu, pokud nová verze něco změní
+  (`scripts/check-runtime-security.ts`).
+- Paměť `project_node2shell_runtime_security` uzavřít, až bude týdenní
+  kontrola zelená a Node 24.18.0 smazaný.
 
 ## Fáze 5 — dočištění
 
