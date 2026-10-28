@@ -621,6 +621,7 @@ co běží. Živý soubor se od něj legitimně liší:
 | `include snippets/admin-allowlist.conf` s reálnými IP | **do gitu nepatří** (repo je veřejné) |
 | `include snippets/permaban-list.conf` | generuje fail2ban/permaban, viz §10 |
 | `proxy_pass http://localhost:3000` | šablona má `127.0.0.1`; funkčně totéž |
+| komprese (`gzip_types` …) **není ve vhostu** | žije v drop-inu `/etc/nginx/conf.d/ctyrlistkoteka-gzip.conf` (viz níž „Komprese"); blok v šabloně slouží jen nové instalaci |
 
 **Živý soubor je autorita.** Než začneš cokoli měnit podle šablony, porovnej:
 
@@ -630,6 +631,29 @@ sudo diff -u /var/www/ctyrlistkoteka/deploy/nginx.conf.template /etc/nginx/sites
 
 Zálohu živého configu bere i off-site záloha (`deploy/offsite-stage.sh`, §7),
 takže historii máš i mimo VPS.
+
+### Komprese
+
+Ubuntu má v `/etc/nginx/nginx.conf` jen `gzip on;` a zbytek zakomentovaný,
+takže bez `gzip_types` se komprimovalo **jen HTML** — JSON z `/api`, SVG
+mapy kontinentů na `/statistiky` (Asie 342 KB místo ~120 KB) a další typy
+chodily nekomprimované (zjištěno 2026-10-28; blok ze šablony se do živého
+vhostu nikdy nedostal). Řešení je drop-in na úrovni `http {}`, který
+nesahá na vhost ani na distribuční `nginx.conf`:
+
+```bash
+sudo install -m 644 /var/www/ctyrlistkoteka/deploy/nginx-gzip.conf /etc/nginx/conf.d/ctyrlistkoteka-gzip.conf && sudo nginx -t && sudo systemctl reload nginx
+```
+
+`gzip on;` v drop-inu schválně chybí (je v `nginx.conf`, duplicita by
+`nginx -t` shodila). Když `nginx -t` selže, reload se neprovede, ale
+soubor zůstane a shodil by příští reload — pak ho smaž
+(`sudo rm /etc/nginx/conf.d/ctyrlistkoteka-gzip.conf`). Ověření (čekej
+`Content-Encoding: gzip`):
+
+```bash
+curl -s -D - -o /dev/null -H "accept-encoding: gzip" "https://ctyrlistkoteka.cz/api/stats/continent-map/asia?locale=cs" | grep -i content-encoding
+```
 
 ### Bezpečný postup úpravy
 

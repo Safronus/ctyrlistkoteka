@@ -9,6 +9,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### Server: komprese odpovědí (nginx drop-in)
+- Produkční nginx komprimoval **jen HTML**: v `nginx.conf` je `gzip on;`,
+  ale `gzip_types` zakomentované, a blok ze šablony se do živého vhostu
+  nikdy nedostal. JSON z `/api` a SVG mapy kontinentů tak šly ven
+  nekomprimované (Asie 342 KB místo ~120 KB).
+- Nový `deploy/nginx-gzip.conf` → `/etc/nginx/conf.d/` (úroveň `http {}`):
+  `gzip_vary`, `gzip_proxied any`, `gzip_comp_level 6`, `gzip_min_length`,
+  `gzip_types` vč. JSON, JS, SVG. Nesahá na vhost ani distribuční config.
+  **Vyžaduje ruční nasazení na VPS** (příkaz v `docs/deployment.md`,
+  „Komprese").
+
 ### Závislosti: dompurify 3.4.17, fast-uri 3.1.9 (tranzitivní), lucide-react 1.61
 - **dompurify 3.4.16 → 3.4.17** (přes jsPDF v adminových QR exportech):
   GHSA-cg2g-xh64-v4q7 (critical, `SAFE_FOR_TEMPLATES` + shadow root),
