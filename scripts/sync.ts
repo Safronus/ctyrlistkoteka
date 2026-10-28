@@ -2388,7 +2388,9 @@ async function main() {
             ? "REVALIDATE_TOKEN není v .env"
             : rv.skipped === "fetch-failed"
               ? "server neodpověděl na 127.0.0.1 (běží app? správný PORT?)"
-              : `revalidate endpoint vrátil HTTP ${rv.status}`;
+              : rv.status === 404
+                ? "server token odmítl — REVALIDATE_TOKEN v .env se neshoduje s tím, se kterým běží app (po změně .env: pm2 reload --update-env), nebo ho app nemá vůbec (endpoint pak schválně vrací 404)"
+                : `revalidate endpoint vrátil HTTP ${rv.status}`;
         process.stderr.write(
           `\n⚠️  REVALIDACE PO SYNCU NEPROBĚHLA — ${why}.\n` +
             `    /statistiky zůstanou na starých číslech až 6 h. Oprav příčinu,\n` +

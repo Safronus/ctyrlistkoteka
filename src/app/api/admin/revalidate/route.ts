@@ -12,9 +12,12 @@ import { revalidatePublicSurfaces } from "@/lib/revalidate";
  *
  * Auth: a bearer token from `REVALIDATE_TOKEN`. The repo is public, so the
  * gate has to be a secret, not the path. It fails CLOSED — with no token
- * configured it never revalidates. Living under `/api/admin` also puts it
- * behind the Nginx admin cloak for external callers; the localhost ping
- * reaches the Next server directly and bypasses that.
+ * configured it never revalidates.
+ *
+ * Every failure answers a bare 404, like every route under `/api/admin/*`:
+ * the Nginx cloak is `location /admin` (a prefix), so `/api/admin/…` is not
+ * reliably behind it, and a 401 / 503 tells a scanner it found something.
+ * The CLI sync explains a 404 itself (scripts/sync.ts).
  */
 export const dynamic = "force-dynamic";
 
@@ -28,15 +31,13 @@ function tokenValid(provided: string | null): boolean {
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
-  if (!process.env.REVALIDATE_TOKEN) {
-    return NextResponse.json({ error: "not_configured" }, { status: 503 });
-  }
   const header = req.headers.get("authorization");
   const provided = header?.startsWith("Bearer ")
     ? header.slice(7)
     : req.headers.get("x-revalidate-token");
+  // Unconfigured and wrong token look the same from outside — on purpose.
   if (!tokenValid(provided)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    return new NextResponse("Not found", { status: 404 });
   }
   revalidatePublicSurfaces();
   return NextResponse.json({ revalidated: true });
