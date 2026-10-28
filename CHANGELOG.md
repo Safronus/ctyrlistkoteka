@@ -28,6 +28,27 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### /admin/import: opravný balíček — sync sám (F3) + pojistky proti duplicitním fotkám (F4)
+- **F3:** po potvrzení opravného balíčku se hned spustí plný sync (audit
+  `sync.start`, `trigger: "import-find-update"`); po úspěchu obnoví cache
+  veřejného webu. Odmítnutý start (už běží jiný sync) oprava přežije —
+  soubory i LSP jsou zapsané, karta to řekne žlutě. Jen u opravného
+  balíčku; balíčky map a nových nálezů se chovají jako dřív.
+- **F4 sync:** víc souborů téhož čísla v `finds/` nebo `crops/` se dřív
+  tiše vyřešilo (vyhrál abecedně poslední). Teď každý běh hlásí
+  `duplicate_find_id` (který soubor je použit, které ignorovány); vítěz
+  se nemění.
+- **Oprava:** `reconcileFindLinks` bral u duplicit **první** soubor,
+  zbytek syncu **poslední** — přiřazení k lokalitě tak mohlo sledovat
+  fotku, kterou web neukazuje. Teď oba berou stejný; originál má před
+  ořezem přednost jako dřív.
+- **/admin/checks:** nová kontrola „Víc fotek téhož nálezu“ — po řádku
+  na každý ignorovaný soubor, s odkazem na jeho detail.
+- **Náhled běžného balíčku** (jen text, import beze změny) varuje, když
+  jeho nálezy už na serveru jsou (stavy a anonymizaci LSP jen doplní,
+  na opravu je opravný balíček), a když je v jedné složce totéž číslo
+  víckrát (zapsaly by se oba soubory — tak duplicity vznikají).
+
 ### /admin/import: opravný balíček nálezů — F2 zápis
 - **Potvrdit opravu** v náhledu (jen u bezchybného balíčku) zapíše opravu.
   Server nejdřív znovu projde všechny kontroly a odmítne, když běží sync

@@ -18,12 +18,11 @@ Oprava je SAMOSTATNÝ typ balíčku — balíčky map a nových nálezů se nem�
 - ⏳ Společný test na 31420–31422 (desktop → /admin/import → potvrdit → sync).
   Po něm ověřit /sbirka/3142x: darovaný banner, skrytá poznámka, stejné WebP.
   F3+F4 pushnout AŽ po ověřeném testu.
-- ⚠️ Varování v analýze BĚŽNÉHO balíčku (už na serveru / číslo víckrát) —
-  napsané v `src/lib/admin/importZip.ts`, NEcommitnuté: čeká na souhlas,
-  protože jde o změnu v balíčku nových nálezů.
+- ✅ Varování v náhledu BĚŽNÉHO balíčku (jen text) — schváleno, ee93b6f.
+- ✅ F5 dokumentace (admin-overview, sync-workflow, CHANGELOG), jen lokálně.
 
 ### Zbývá
-- F5 dokumentace (admin-overview, sync-workflow, CHANGELOG).
+- Push F3–F5 po ověřeném testu; pak výsledek poslat desktopové session.
 
 ## Bezpečnost runtime (od 2026-10-28)
 

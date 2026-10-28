@@ -160,6 +160,25 @@ Obsah failures logu:
 Uživatel si failures projde ručně a buď opraví názvy souborů, nebo přidá
 výjimky do parseru.
 
+### Víc fotek téhož nálezu (`duplicate_find_id`)
+
+Sync bere od každého nálezu **jeden originál** z `finds/` a **jeden ořez**
+z `crops/` — při víc souborech téhož čísla ten **abecedně poslední** (stejné
+řazení jako čtení adresáře). Ostatní ignoruje. Od 2026-10-28 to každý běh
+hlásí řádkem ve failures logu (krátký ořez `<id>.jpg` se počítá taky):
+
+```jsonl
+{"file":"finds/31420+…+NORMÁLNÍ+NE+BezPoznámky.jpg","reason":"duplicate_find_id","details":"Nález #31420 má v adresáři finds/ 2 soubory — použit …, ignorováno: …"}
+```
+
+Vítěz se nemění, běh pokračuje. Proč to hlásit: zapomenutá stará fotka vedle
+opravené nic nerozhoduje, dokud ji nějaké přejmenování neudělá abecedně
+poslední. Stejné soubory ukazuje `/admin/checks` → „Víc fotek téhož nálezu“
+(po řádku na ignorovaný soubor, s odkazem, odkud ho jde smazat do koše).
+Přiřazení k lokalitě (`reconcileFindLinks`) bere stejný soubor jako zbytek
+syncu; originál má před ořezem přednost. Helper je
+`src/lib/duplicateFindFiles.ts`.
+
 ## IndexNow ping (SEO)
 
 Na konci **ostrého** (ne `--dry-run`) syncu s fázemi finds skript sám
