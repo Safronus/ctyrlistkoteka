@@ -1098,3 +1098,55 @@ proto radši na verze **starší než ~3 dny**, pokud nejde o bezpečnostní
 opravu. Když „Dependabot Updates" padá, hledej v logu `MATURE` /
 `MINIMUM_RELEASE_AGE` dřív, než začneš hledat chybu v repu. Znovu spustit:
 Insights → Dependency graph → Dependabot → *Check for updates*.
+
+## 36. Žádný `app/layout.tsx`: každá sekce má vlastní kořenový layout (`next/root-params`)
+
+**Co:** Od 2026-10-28 neexistuje `src/app/layout.tsx`. Kořenové layouty
+jsou čtyři: `[locale]/layout.tsx` (veřejný web, `lang` z URL), a česky
+`admin/layout.tsx`, `d/layout.tsx`, `tym/layout.tsx`. Všechny renderují
+`RootShell` (`src/components/root-shell.tsx`: `<html>`, font, ThemeScript,
+DeployHealthScript, `globals.css`) a metadata z `buildRootMetadata`
+(`src/lib/rootMetadata.ts`). Jazyk čte `src/i18n/request.ts` přes
+`next/root-params` (explicitní `locale` → root param → `cs`).
+
+**Proč:** next-intl 4.13.5 označil `setRequestLocale` i `requestLocale` za
+deprecated ve prospěch `next/root-params` — a ten vidí **jen parametry
+kořenového layoutu**. S `app/layout.tsx` nad `[locale]` by `locale` root
+param nebyl vůbec.
+
+**Pasti, na které se narazilo:**
+- **Route group nefunguje.** `(unlocalized)/layout.tsx` pro admin/d/tym
+  vypadá jako učebnicové řešení, ale generátor typů Next 16.4 při hledání
+  kořenů skupiny vypustí → layout skupiny je pro něj layout na `/`, tedy
+  předek `[locale]`, a `.next/types/root-params.d.ts` hlásí *No root params
+  detected* (import `locale` pak neprojde typecheckem). Proto kořen **po
+  sekcích**.
+- **Nenamapované URL.** Bez layoutu nad všemi kořeny vykreslí Next pro
+  neznámou adresu holou 404 bez CSP nonce. Drží to catch-all
+  `[locale]/[...rest]` a `admin/[...rest]` (`notFound()`). Nová
+  mimolokalizovaná sekce s víc stránkami potřebuje svůj catch-all taky.
+- **`next/root-params` nejde číst v route handlerech ani server actions**
+  (Next 16.4). Tam se next-intl volá vždy s explicitním `locale`
+  (`getTranslations({ locale, namespace })`), jinak dostaneš `cs`.
+- **Přechod mezi kořeny = celé načtení stránky** (admin ↔ web), ne
+  klientská navigace. Záměr, ne chyba.
+- **Nová mimolokalizovaná sekce** (vedle admin/d/tym) = vlastní
+  `layout.tsx` s `<RootShell lang="cs">`, jinak build spadne na chybějícím
+  root layoutu.
+
+## 37. `sitemap.xml` byl dynamický jen omylem — přes `requestLocale`
+
+**Co:** `src/app/sitemap.ts` má `revalidate = 86400` („regeneruje se
+denně“), ale build ho až do 2026-10-28 hlásil jako `ƒ` (render na každý
+požadavek). Po přechodu na `next/root-params` je z něj `○ 1d` — ISR, jak
+byl napsaný.
+
+**Proč:** sitemap → `listLocations` → `locationNameResolver` → next-intl
+`getLocale()`. Starý `requestLocale` přitom četl hlavičky požadavku, a to
+celou routu tiše přepnulo na dynamickou. `next/root-params` hlavičky nečte.
+
+**Jak aplikovat:** `revalidatePublicSurfaces()` (po každém syncu) teď
+`/sitemap.xml` zahazuje, takže nové nálezy v něm jsou hned. Statický
+sitemap se ale **předrenderuje při buildu** → build potřebuje databázi
+(na VPS ji má; jinde by build spadl). Kdykoli se route z `ƒ` nečekaně
+změní na `○` nebo naopak, hledej, co v jejím stromu čte hlavičky/cookies.

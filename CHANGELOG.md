@@ -28,6 +28,27 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### i18n: jazyk přes `next/root-params` (pryč deprecated `setRequestLocale`)
+- next-intl 4.13.5 označil `setRequestLocale` a `requestLocale` za
+  zastaralé. Jazyk se teď čte přes `next/root-params` — viditelně se nic
+  nemění, jde o kompatibilitu s budoucí verzí knihovny.
+- `next/root-params` vidí jen kořenový layout, proto zmizel
+  `app/layout.tsx`: kořenem veřejného webu je `[locale]/layout.tsx`,
+  `/admin`, `/d` a `/tym` mají každá vlastní český kořen (sdílený
+  `RootShell`). Přechod admin ↔ web je teď celé načtení stránky.
+- Neznámé adresy drží uvnitř správného kořene catch-all stránky
+  (`notFound()`); vypadají jako dřív, jen bez atributu `lang`.
+- Vedlejší efekt: `sitemap.xml` je konečně ISR (24 h), jak byl napsaný —
+  dřív ho omylem zdynamičtělo čtení hlaviček ve starém `requestLocale`.
+  Sync ho po dokončení zahodí, nové nálezy v něm jsou hned.
+- Ověřeno proti baseline buildu `main`: stejná tabulka rout (kromě výše
+  uvedeného) a shodné odpovědi u 19 z 22 testovaných adres.
+
+### Bezpečnost: `/api/admin/revalidate` odpovídá na chybné ověření 404
+- Vracela 401 (špatný token) a 503 (token nenastaven). Pravidlo pro
+  `/api/admin/*` (nejsou spolehlivě za nginx maskou) je holá 404 — teď
+  platí i tady, s testem. CLI sync 404 v hlášce vysvětlí.
+
 ### Kontrola runtime: upgrady z repozitářů mimo Ubuntu
 - Týdenní *Runtime security* nově hlásí každý čekající upgrade z cizího
   apt repozitáře (PGDG, Docker CE…). Ty nemají pocket `-security`, takže

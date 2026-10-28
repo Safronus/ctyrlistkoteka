@@ -108,14 +108,16 @@ ctyrlistkoteka/
 │   └── migrations/
 │
 ├── src/
-│   ├── app/
-│   │   ├── layout.tsx
-│   │   ├── page.tsx              # /
-│   │   ├── sbirka/
-│   │   │   ├── page.tsx          # /sbirka
-│   │   │   └── [id]/page.tsx     # /sbirka/16230
-│   │   ├── mapa/page.tsx
-│   │   ├── statistiky/page.tsx
+│   ├── app/                      # ŽÁDNÝ app/layout.tsx — víc kořenových layoutů (gotchas #36)
+│   │   ├── [locale]/
+│   │   │   ├── layout.tsx        # kořen veřejného webu (lang z URL, next/root-params)
+│   │   │   ├── page.tsx          # /  a  /en
+│   │   │   ├── sbirka/
+│   │   │   │   ├── page.tsx      # /sbirka
+│   │   │   │   └── [id]/page.tsx # /sbirka/16230
+│   │   │   ├── mapa/page.tsx
+│   │   │   └── statistiky/page.tsx
+│   │   ├── admin/layout.tsx      # vlastní kořen (cs); stejně d/ a tym/
 │   │   ├── api/
 │   │   │   ├── finds/route.ts
 │   │   │   ├── locations/route.ts

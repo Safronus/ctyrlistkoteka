@@ -53,7 +53,13 @@
 | `/mapa` | CSR po hydrataci (dynamic import Leaflet) | Leaflet nemá SSR |
 | `/statistiky` | ISR (revalidate 6 h) + Redis cache | drahé agregace |
 | `/api/*` | Dynamic (Node.js) | live dotazy |
-| `sitemap.xml` | ISR (revalidate 24 h) | SEO |
+| `sitemap.xml` | ISR (revalidate 24 h) + zahodí se po každém syncu | SEO; do 2026-10-28 byl omylem dynamický (gotchas #37) |
+
+**Kořenové layouty (od 2026-10-28):** žádný `app/layout.tsx`. Veřejný web má
+kořen `[locale]/layout.tsx` (jazyk z URL přes `next/root-params`), sekce
+`/admin`, `/d` a `/tym` mají každá vlastní český kořen; všechny sdílí
+`RootShell` a `buildRootMetadata`. Přechod mezi kořeny je celé načtení
+stránky. Podrobnosti a pasti: gotchas #36.
 
 ## Cache vrstvy (shora dolů)
 
