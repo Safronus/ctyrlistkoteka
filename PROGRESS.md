@@ -15,14 +15,16 @@ Oprava je SAMOSTATNÝ typ balíčku — balíčky map a nových nálezů se nem�
   bere stejný soubor jako zbytek syncu (3f6d3a7, jen lokálně).
 
 ### Rozpracováno
-- ⏳ Společný test na 31420–31422 (desktop → /admin/import → potvrdit → sync).
-  Po něm ověřit /sbirka/3142x: darovaný banner, skrytá poznámka, stejné WebP.
-  F3+F4 pushnout AŽ po ověřeném testu.
+- ✅ Společný test 2026-10-28 OVĚŘEN: `oprava-nalezu-2026-10-28_1342.zip`
+  (31420–31422 → mapa 149, 31426/31427/31429 → mapa 32) — banner + překryv
+  daru, poznámka skrytá, WebP = sha1 balíčku (jen přejmenování), 2 WebP na
+  nález; 31423–31425 a 31428 beze změny. Otevřené: R8 u 31427/31429 —
+  odpoví výsledková karta / historie importu.
 - ✅ Varování v náhledu BĚŽNÉHO balíčku (jen text) — schváleno, ee93b6f.
 - ✅ F5 dokumentace (admin-overview, sync-workflow, CHANGELOG), jen lokálně.
 
 ### Zbývá
-- Push F3–F5 po ověřeném testu; pak výsledek poslat desktopové session.
+- ✅ F3–F5 pushnuté po ověřeném testu (2026-10-28), výsledek poslán desktopu.
 
 ## Bezpečnost runtime (od 2026-10-28)
 
