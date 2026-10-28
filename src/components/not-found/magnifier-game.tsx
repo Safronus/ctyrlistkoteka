@@ -17,6 +17,8 @@ function initialArea(): number {
 
 const STEP = 24; // keyboard move, px
 const HIT = 20; // how close to the four-leaf's centre a pick must land, px
+const TAP_SLOP = 10; // touch: movement below this is a tap, not a drag, px
+const FINGER_GAP = 36; // touch: space between the fingertip and the lens rim, px
 
 /**
  * 404 game „Lupa“: the meadow is out of focus; a magnifying glass (pointer,
@@ -25,6 +27,12 @@ const HIT = 20; // how close to the four-leaf's centre a pick must land, px
  * Enter — where it is. Each round: more clovers, a smaller lens, more blur,
  * decoys (hunt.ts). The blurred layer is the same meadow, so nothing gives
  * the clover away except looking. Rendered client-only (see CloverHunt).
+ *
+ * Touch works like the iOS text loupe: a finger would cover the very spot
+ * it magnifies, so a drag floats the lens ABOVE the fingertip. Lifting the
+ * finger picks nothing and leaves the lens where it was; a tap picks the
+ * spot tapped — i.e. you tap the clover you can see in the lens. Mouse and
+ * pen keep the lens right under the pointer, click to pick.
  */
 export function MagnifierGame() {
   const t = useTranslations("NotFound");
@@ -41,6 +49,12 @@ export function MagnifierGame() {
   const [message, setMessage] = useState("");
   const { bests, record } = usePersonalBests();
   const [lastRecord, setLastRecord] = useState<RoundRecord>(null);
+  // The touch currently on the field: where it went down and whether it
+  // has moved far enough to be a drag. `lastPointer` lets onClick ignore
+  // the click a browser synthesises after a touch tap (pointerup already
+  // handled it).
+  const touch = useRef<{ x: number; y: number; dragging: boolean } | null>(null);
+  const lastPointer = useRef<string>("mouse");
   // Clover count follows the field area (same density on any screen),
   // fixed for a round and recomputed for the next one.
   const [area, setArea] = useState(initialArea);
@@ -69,6 +83,54 @@ export function MagnifierGame() {
   function local(e: { clientX: number; clientY: number }) {
     const r = box.current!.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  /** Lens position for a fingertip at `p`: lifted above it, kept on the field. */
+  function aboveFinger(p: { x: number; y: number }) {
+    const el = box.current!;
+    return {
+      x: Math.min(el.clientWidth, Math.max(0, p.x)),
+      y: Math.min(el.clientHeight, Math.max(0, p.y - layout.lensRadius - FINGER_GAP)),
+    };
+  }
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    lastPointer.current = e.pointerType;
+    if (e.pointerType !== "touch") return;
+    // Keep receiving moves when the finger slides past the field's edge —
+    // that is how the lens reaches the bottom strip. Touch is captured
+    // implicitly in current browsers; this is the explicit belt, and it
+    // throws if the pointer is already gone (cancelled) — harmless then.
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Pointer no longer active; the implicit capture (or none) applies.
+    }
+    touch.current = { ...local(e), dragging: false };
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (found) return;
+    const p = local(e);
+    if (e.pointerType !== "touch") {
+      setLens(p);
+      return;
+    }
+    const t0 = touch.current;
+    if (!t0) return;
+    if (!t0.dragging && Math.hypot(p.x - t0.x, p.y - t0.y) < TAP_SLOP) return;
+    t0.dragging = true;
+    setLens(aboveFinger(p));
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const t0 = touch.current;
+    touch.current = null;
+    if (e.pointerType !== "touch" || !t0 || t0.dragging) return;
+    // A tap: pick the tapped spot. The lens stays put (it is what the
+    // player is looking at) — unless there isn't one yet.
+    if (!lens) setLens(aboveFinger(t0));
+    check(t0.x, t0.y);
   }
 
   function center() {
@@ -137,9 +199,13 @@ export function MagnifierGame() {
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the arrow keys drive the lens
         tabIndex={0}
         aria-label={t("lensLabel")}
-        onPointerMove={(e) => !found && setLens(local(e))}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => (touch.current = null)}
         onFocus={() => !lens && setLens(center())}
         onClick={(e) => {
+          if (lastPointer.current === "touch") return; // handled on pointerup
           const p = local(e);
           setLens(p);
           check(p.x, p.y);

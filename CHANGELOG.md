@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### 404 Lupa: na dotyku lupa nad prstem
+- Prst zakrýval místo, které lupa zvětšovala. Na dotyku teď lupa pluje nad
+  prstem (jako lupa v iOS), zvednutí prstu nic nevybírá a čtyřlístek se
+  vybírá klepnutím na místo, které je v lupě vidět. Klepnutí se počítá
+  jako jeden pokus (dopočítaný `click` po dotyku se ignoruje). Myš, pero a
+  šipky beze změny; nápověda CZ/EN upravena.
+
 ### /admin/qr: průhledné PNG je průhledné i pod obrázkem ve středu
 - Volba „průhledné pozadí“ mazala jen podklad celé karty; pod čtyřlístkem
   nebo smajlíkem ve středu (a pod logem CaSQB) zůstával bílý čtverec —

@@ -64,13 +64,16 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 - Ubuntu 25.10 → 26.04: výstup fáze 0 od majitele → doladit plán + R-PG,
   zapnout `--docker` v `runtime-security.yml`, opravit nálezy inventury.
 
-## Seznam oprav (nahlášeno majitelem, zatím neopraveno)
-1. **404 – Lupa na mobilu:** při tažení prstem prst zakrývá místo pod
-   lupou, takže v lupě nejde nic vidět. Nápad: na dotykovém zařízení držet
-   lupu kousek NAD prstem (jako lupa v iOS při výběru textu).
-2. **/sbirka na mobilu – spodní banner v dlaždicích:** informace, která se
-   ukáže při najetí myší (hover), na dotyku nejde vyvolat. Nápad: na
-   dotykových zařízeních banner zobrazit trvale, nebo na první klepnutí.
+## Seznam oprav (nahlášeno majitelem)
+1. ✅ **404 – Lupa na mobilu** (2026-10-28): na dotyku lupa pluje nad
+   prstem (poloměr + 36 px), tažení nic nevybírá, klepnutí vybere ťuknuté
+   místo; myš a šipky beze změny. Ověřeno simulovaným dotykem v prohlížeči.
+2. ⏳ **/sbirka na mobilu – dlaždice:** spodní banner při najetí myší
+   ZŮSTÁVÁ jen na desktopu (rozhodnutí majitele 2026-10-28: na mobilu jen
+   datum, nic nepřidávat — trvalá lišta zakrývala datum). Nový problém:
+   na mobilu v horní liště dlaždice **není vidět číslo nálezu**. Čeká se na
+   screenshot od majitele (v emulaci 375 px je číslo vidět — závisí na
+   zařízení/šířce).
 
 ## Pravidelné hlídání a aktualizace služeb (2026-10-28)
 - ✅ Týdenní kontrola: + osiřelé balíčky, + rozšíření DB (`--db`), + Docker

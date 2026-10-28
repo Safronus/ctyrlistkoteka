@@ -966,7 +966,7 @@
     "title": "404 — nothing grows here",
     "subtitle": "This page isn't in the collection. But maybe you'll find a four-leaf clover…",
     "meadowHint": "One four-leaf clover hides among the three-leaf ones. Find it!",
-    "lensHint": "The meadow is blurry — search it with the magnifier (mouse, finger or arrow keys) and click the four-leaf clover.",
+    "lensHint": "The meadow is blurry — search it with the magnifier (mouse, arrow keys, or drag a finger — the lens floats above it) and click or tap the four-leaf clover.",
     "lensLabel": "Meadow with a magnifier. Arrow keys move it, Enter picks the spot under it.",
     "cellLabel": "Leaf {n}",
     "threeLeaf": "That's a three-leaf. Keep looking!",
