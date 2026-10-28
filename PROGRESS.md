@@ -3,6 +3,28 @@
 Záchytný bod pro navázání v nové session. Historie změn je v `CHANGELOG.md`,
 tady jen to, co je rozpracované.
 
+## Opravný balíček nálezů („oprava-nalezu“, od 2026-10-28)
+
+Smlouva formátu: desktopové repo `docs/WEB_aktualizace_nalezu.md` (revize 2).
+Oprava je SAMOSTATNÝ typ balíčku — balíčky map a nových nálezů se nemění.
+
+### Hotovo
+- ✅ F1 analýza + náhled (20b76b5), F2 zápis vše-nebo-nic (d470529) — nasazené.
+- ✅ F3 po potvrzení opravy se sám spustí plný sync (bfb76bd, jen lokálně).
+- ✅ F4 sync + /admin/checks hlásí víc fotek téhož nálezu; `reconcileFindLinks`
+  bere stejný soubor jako zbytek syncu (3f6d3a7, jen lokálně).
+
+### Rozpracováno
+- ⏳ Společný test na 31420–31422 (desktop → /admin/import → potvrdit → sync).
+  Po něm ověřit /sbirka/3142x: darovaný banner, skrytá poznámka, stejné WebP.
+  F3+F4 pushnout AŽ po ověřeném testu.
+- ⚠️ Varování v analýze BĚŽNÉHO balíčku (už na serveru / číslo víckrát) —
+  napsané v `src/lib/admin/importZip.ts`, NEcommitnuté: čeká na souhlas,
+  protože jde o změnu v balíčku nových nálezů.
+
+### Zbývá
+- F5 dokumentace (admin-overview, sync-workflow, CHANGELOG).
+
 ## Bezpečnost runtime (od 2026-10-28)
 
 ### Hotovo
