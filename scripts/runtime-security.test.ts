@@ -3,6 +3,7 @@ import {
   assessNode,
   compareVersions,
   formatResult,
+  orphanedPackages,
   isCodenameSupported,
   isImageCurrent,
   osCodename,
@@ -236,5 +237,25 @@ describe("formatResult", () => {
       .toBe(`[error] ${detail}`);
     expect(formatResult("ok", "node", "Node.js v24.22.1", { inActions: false, strict: false }))
       .toBe("[ok] Node.js v24.22.1");
+  });
+});
+
+describe("orphanedPackages", () => {
+  // Real `apt list --installed` lines: Ubuntu 26.04, Docker repo disabled
+  // afterwards (2026-10-28) — the state the VPS's docker-ce was found in.
+  const out = [
+    "Listing...",
+    "docker-ce-cli/now 5:29.9.2-1~ubuntu.26.04~resolute arm64 [installed,local]",
+    "openssl/resolute-updates,resolute-security,now 3.5.5-1ubuntu3.7 arm64 [installed,automatic]",
+    "libfoo1/now 1.2-3 amd64 [installed,auto-removable,local]",
+    "nginx/resolute,now 1.28.3-2ubuntu1 amd64 [installed]",
+  ].join("\n");
+
+  it("lists installed packages no repository offers", () => {
+    expect(orphanedPackages(out)).toEqual(["docker-ce-cli", "libfoo1"]);
+  });
+
+  it("is quiet when every package has a source", () => {
+    expect(orphanedPackages("Listing...\nnginx/resolute,now 1.28.3 amd64 [installed]\n")).toEqual([]);
   });
 });

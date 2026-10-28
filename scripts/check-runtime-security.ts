@@ -13,7 +13,8 @@
  *   • `--os` (Linux) — Ubuntu release still supported (`ubuntu-distro-info
  *     --supported`), no pending upgrades from a `-security` pocket, and none
  *     from repositories outside Ubuntu (PGDG, Docker…), which have no such
- *     pocket to tell a security fix apart.
+ *     pocket to tell a security fix apart — and no installed package that
+ *     no repository offers any more (an orphan never shows as upgradable).
  *   • `--docker` — every RUNNING container's image vs. what its tag points
  *     to in the registry now (manifest digest via an anonymous HEAD). Only
  *     the image name and tag go out, to that image's own registry.
@@ -44,6 +45,7 @@ import {
   type CheckCategory,
   type ImageRef,
   securityUpgrades,
+  orphanedPackages,
   thirdPartyUpgrades,
   type NodeRelease,
 } from "./runtime-security";
@@ -198,6 +200,24 @@ async function checkUbuntu(): Promise<void> {
     }
   } catch (err) {
     finding("apt-foreign", `Check of repositories outside Ubuntu could not run: ${(err as Error).message}`);
+  }
+
+  try {
+    const { stdout } = await run("apt", ["list", "--installed"], {
+      timeout: EXEC_TIMEOUT_MS,
+      maxBuffer: APT_SIM_MAX_BUFFER,
+    });
+    const orphans = orphanedPackages(stdout);
+    if (orphans.length === 0) {
+      ok("apt-orphaned", "Every installed package comes from a configured repository");
+    } else {
+      finding(
+        "apt-orphaned",
+        `${orphans.length} installed package(s) no repository offers any more — they get no updates (re-add the repo, or remove them): ${orphans.join(", ")}`,
+      );
+    }
+  } catch (err) {
+    finding("apt-orphaned", `Orphaned package check could not run: ${(err as Error).message}`);
   }
 }
 

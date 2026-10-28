@@ -142,6 +142,33 @@ export function thirdPartyUpgrades(aptGetSimulation: string): string[] {
   return names;
 }
 
+/**
+ * Installed packages no configured repository offers any more — from
+ * `apt list --installed`, where apt marks them `[installed,local]`, e.g.
+ * (captured on 26.04 after the Docker repo was disabled, 2026-10-28)
+ *   docker-ce-cli/now 5:29.9.2-1~ubuntu.26.04~resolute arm64 [installed,local]
+ *
+ * Neither `securityUpgrades` nor `thirdPartyUpgrades` can see these: with
+ * no source there is never an upgrade to list, so an orphan reads as
+ * "nothing pending" forever. That is how docker-ce sat on the VPS for
+ * months — its repo vanished in a release upgrade (do-release-upgrade
+ * disables third-party repos) and nothing noticed. Leftovers of an old
+ * release (obsolete libs, old kernels) show up here too, and rightly so:
+ * they get no fixes either.
+ */
+export function orphanedPackages(aptListInstalled: string): string[] {
+  const names: string[] = [];
+  for (const line of aptListInstalled.split("\n")) {
+    const open = line.lastIndexOf("[");
+    if (open < 0 || !line.trimEnd().endsWith("]")) continue;
+    const flags = line.slice(open + 1, line.trimEnd().length - 1).split(",");
+    if (!flags.includes("installed") || !flags.includes("local")) continue;
+    const name = line.slice(0, line.indexOf("/"));
+    if (name) names.push(name);
+  }
+  return names;
+}
+
 /** `VERSION_CODENAME` from the contents of /etc/os-release. */
 export function osCodename(osRelease: string): string | null {
   const m = /^VERSION_CODENAME="?([a-z]+)"?\s*$/m.exec(osRelease);
@@ -247,6 +274,7 @@ export type CheckCategory =
   | "os-release"
   | "apt-security"
   | "apt-foreign"
+  | "apt-orphaned"
   | "docker";
 
 /**
