@@ -353,6 +353,6 @@ export function formatResult(
   }
   const level = opts.strict ? "error" : "warning";
   return opts.inActions
-    ? `::${level}::Runtime security finding [${category}] — details only on the VPS: pnpm exec tsx scripts/check-runtime-security.ts --os --docker`
+    ? `::${level}::Runtime security finding [${category}] — details only on the VPS: run the check-runtime-security.ts command from runtime-security.yml there`
     : `[${level}] ${message}`;
 }
