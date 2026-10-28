@@ -14,6 +14,9 @@ a uživatel je spouští v Termiusu.
 >   (kratší podpora ~9 měsíců, častější OS upgrade). Sekce níž, které
 >   argumentují „držíme se LTS" (nginx verze, unattended-upgrades), jsou
 >   tím pádem aspirační — počítej s dřívějším `do-release-upgrade`.
+>   ❌ **25.10 je od 2026-07-09 EOL** — žádné bezpečnostní aktualizace
+>   systému. Upgrade na 26.04 LTS je naplánovaný jako samostatný krok;
+>   týdenní *Runtime security* workflow do té doby svítí červeně.
 > - **Databáze:** **nativní PostgreSQL 17 + PostGIS** (systemd
 >   `postgresql@17-main`), ne 16. Schéma je zpětně kompatibilní.
 > - **PM2:** appka jede pod PM2 jako user `app`. **Ověř
@@ -164,7 +167,7 @@ systemctl status pm2-app --no-pager | grep -o 'PM2 v[0-9.]*' | head -1
 
 # 2) Nainstaluj pm2 pod aktuální verzi Node, PŘESNĚ v té verzi.
 source /home/app/.nvm/nvm.sh
-nvm alias default lts/*            # ať se verze aktivuje i příště
+nvm alias default 24.22.1          # konkrétní verze, ne lts/* (viz „Upgrade Node.js")
 npm install -g pm2@6.0.14          # ← dosaď číslo z kroku 1, ne holé `pm2`
 
 # 3) Přegeneruj systemd unit na novou cestu k Node.
@@ -228,6 +231,65 @@ dole**. Po každém upgradu Node proto unit přegeneruj.
 > Pozor i na druhou stranu téhle mince: `pm2 startup` zapéká do systemd
 > unitu absolutní cestu ke *konkrétní* verzi Node z nvm. Po `nvm install
 > --lts` unit ukazuje na starou verzi — viz varování u kroku s PM2 níž.
+
+### Upgrade Node.js (bezpečnostní vydání v rámci řady)
+
+Postup z 2026-10-28 (24.18.0 → 24.22.1 kvůli CVE-2026-111497 „Node2Shell").
+Dvě pasti, kvůli kterým nestačí `nvm install` + `nvm alias default`:
+**pm2 a pnpm jsou nainstalované pod konkrétní verzí Node** (po přepnutí
+zmizí z PATH a příští deploy spadne) a **`dump.pm2` drží absolutní cestu
+k interpreteru** (workery by po `pm2 reload` dál jely na staré verzi).
+Verzi `24.22.1` nahraď cílovou; pm2 instaluj ve verzi běžícího démona.
+
+```bash
+# 0) Výchozí stav (pnpm verzi si zapiš — musí po upgradu sedět)
+cd /var/www/ctyrlistkoteka && source /home/app/.nvm/nvm.sh && node -v && pnpm -v
+systemctl status pm2-app --no-pager | grep -o 'PM2 v[0-9.]*' | head -1
+
+# 1) Node + pnpm (corepack) + pm2 ve stejné verzi jako démon
+nvm install 24.22.1 && nvm alias default 24.22.1 && nvm use 24.22.1
+corepack enable
+cd /var/www/ctyrlistkoteka && pnpm -v          # = číslo z kroku 0
+npm install -g pm2@6.0.14                      # ← verze démona z kroku 0
+
+# 2) systemd unit na novou cestu → spusť vypsaný `sudo env PATH=…` řádek
+pm2 startup systemd -u app --hp /home/app
+
+# 3) Démon na novou binárku
+sudo systemctl restart pm2-app
+sudo readlink /proc/$(pgrep -f 'PM2 v' | head -1)/exe   # → …/v24.22.1/bin/node
+
+# 4) Workery načisto (pár vteřin výpadku) — jinak zůstanou na staré verzi
+pm2 delete ctyrlistkoteka \
+  && pm2 start /var/www/ctyrlistkoteka/deploy/ecosystem.config.cjs && pm2 save
+
+# 5) Ověření
+for p in $(pm2 pid ctyrlistkoteka); do readlink /proc/$p/exe; done
+grep -o '"exec_interpreter": *"[^"]*"' /home/app/.pm2/dump.pm2
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3000/
+```
+
+Starou verzi nech na disku jako pojistku; smaž ji později postupem
+„Mazání staré verze Node" výš. Na Macu stačí `nvm install` + `nvm alias
+default` + `corepack enable`. Verzi pnpm drží `packageManager` v
+`package.json`, takže nový Node nepřinese tiše jiné pnpm.
+
+### Hlídání bezpečnosti runtime (co Dependabot nevidí)
+
+Dependabot hlídá jen `package.json`, lockfile a verze GitHub Actions.
+Samotný Node.js na VPS ani systémové balíčky (nginx, OpenSSL, PostgreSQL)
+nevidí. Na to je `scripts/check-runtime-security.ts`:
+
+| Kdy | Co | Výsledek |
+| --- | --- | --- |
+| každý deploy (`deploy.yml`, po reloadu) | Node buildu + Node běžících PM2 workerů vs. nejnovější bezpečnostní vydání řady (`nodejs.org/dist/index.json`) | jen `::warning::`, deploy nikdy neshodí |
+| týdně v pondělí 06:00 UTC (`runtime-security.yml`, self-hosted runner) | totéž + Ubuntu podporováno (`ubuntu-distro-info --supported`) + čekající `-security` balíčky z `apt` + `pnpm audit --prod --audit-level high` | **selže** → GitHub pošle e-mail o failnutém běhu |
+
+Ručně: Actions → *Runtime security* → *Run workflow*, nebo na VPS
+`cd /var/www/ctyrlistkoteka && source /home/app/.nvm/nvm.sh && pnpm exec tsx scripts/check-runtime-security.ts --strict --os --pm2 ctyrlistkoteka`.
+Ven jde jen GET na `nodejs.org`. Kontrola `apt` čte lokální seznamy
+balíčků — jsou tak čerstvé, jak poslední `apt update`. Na nepodporovaném
+vydání žádné nové opravy nepřibudou, proto ta druhá kontrola.
 
 ### Nejčastější příkazy, jak je opravdu napsat
 

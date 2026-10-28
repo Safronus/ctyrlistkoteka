@@ -1,0 +1,39 @@
+name: Runtime security
+
+# Weekly check of what Dependabot can't see: the Node.js runtime on the VPS
+# (incl. the binary the PM2 workers really run), the Ubuntu release and its
+# pending security upgrades — plus `pnpm audit` of the deployed lockfile.
+# A finding FAILS the run on purpose: GitHub e-mails the owner about failed
+# scheduled runs, which is the whole point. See docs/deployment.md
+# ("Hlídání bezpečnosti runtime").
+
+on:
+  schedule:
+    # Monday 06:00 UTC (07:00/08:00 Prague), before the Dependabot triage.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+# ⚠️ SECURITY (public repo): runs on the self-hosted VPS runner. Scheduled
+# and manual runs execute only code from `main`. NEVER add a `pull_request`
+# trigger — a fork's code would run on the VPS (same rule as deploy.yml).
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Node.js / Ubuntu / pnpm audit
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - name: Check the deployed app and host
+        run: |
+          set -uo pipefail
+          # The deployed checkout = exactly what production runs. Read-only:
+          # nothing here writes to it.
+          cd /var/www/ctyrlistkoteka
+          source "/home/app/.nvm/nvm.sh"
+          status=0
+          pnpm exec tsx scripts/check-runtime-security.ts --strict --os --pm2 ctyrlistkoteka || status=1
+          pnpm audit --prod --audit-level high || status=1
+          exit "$status"

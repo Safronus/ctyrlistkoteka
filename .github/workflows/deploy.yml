@@ -26,13 +26,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # pnpm version comes from `packageManager` in package.json — passing
+      # `version:` here as well makes the action fail on the mismatch.
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          version: 10
 
+      # Same major as the VPS. `check-latest` skips the runner's tool cache,
+      # which lagged behind security releases (2026-10-28: cache served
+      # v24.21.0 a week after v24.22.1 fixed CVE-2026-111497).
       - uses: actions/setup-node@v7
         with:
-          node-version: lts/*
+          node-version: 24
+          check-latest: true
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -138,3 +142,11 @@ jobs:
                 ;;
             esac
           done
+
+          # --- Runtime security (advisory) -----------------------------
+          # Node.js of the build and of the reloaded PM2 workers vs the
+          # newest security release (Dependabot can't see the runtime).
+          # Warnings only — a deploy never fails on this; the weekly
+          # runtime-security.yml is the one that goes red.
+          pnpm exec tsx scripts/check-runtime-security.ts --pm2 ctyrlistkoteka \
+            || echo "::warning::Runtime security check did not run."

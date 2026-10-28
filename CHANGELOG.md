@@ -9,6 +9,25 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### Bezpečnost runtime: Node 24.22.1 (Node2Shell) + hlídání, co Dependabot nevidí
+- **CVE-2026-111497 „Node2Shell"** — zápis mimo paměť v Brotli dekodéru
+  Node.js (opraveno v 22.23.4 / 24.22.1 / 26.12.1). Oprava je jen v runtime,
+  žádný bump balíčku nepomůže. Přímá expozice webu nízká (Next.js
+  nerozbaluje komprimovaná těla požadavků, vlastní Brotli nikde), zbytkové
+  riziko jsou serverové `fetch()` ven. VPS 24.18.0 → 24.22.1 ručně, postup
+  v `docs/deployment.md` („Upgrade Node.js"); Mac 24.15.0 → 24.22.1.
+- **`scripts/check-runtime-security.ts`** — Node buildu i skutečně běžících
+  PM2 workerů vs. nejnovější bezpečnostní vydání řady (`nodejs.org`),
+  volitelně Ubuntu podporováno + čekající `-security` balíčky z `apt`.
+  V každém deployi jen varování; nový týdenní workflow **Runtime security**
+  (self-hosted runner, + `pnpm audit`) při nálezu selže → e-mail.
+- **CI**: `node-version: 24` + `check-latest` (cache runneru servírovala
+  24.21.0 týden po opravě). **`packageManager: pnpm@10.33.2`** — nový Node
+  nepřinese tiše jiné pnpm; `version:` z `pnpm/action-setup` odebrán.
+- ❌ Zjištěno: **Ubuntu 25.10 na VPS je od 2026-07-09 EOL** (bez
+  bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
+  doby týdenní kontrola svítí červeně schválně.
+
 ### /admin/import: opravný balíček nálezů — F2 zápis
 - **Potvrdit opravu** v náhledu (jen u bezchybného balíčku) zapíše opravu.
   Server nejdřív znovu projde všechny kontroly a odmítne, když běží sync
