@@ -960,5 +960,28 @@
     "contentText": "Poznámky u nálezů mohou výjimečně zmiňovat další osoby. U nálezů označených jako anonymizované se na webu nezobrazují poznámky, přesná poloha ani jména a tyto nálezy nejsou zařazeny do vyhledávačů.",
     "changesHeading": "8. Změny těchto zásad",
     "changesText": "Zásady můžeme upravit podle vývoje webu. Aktuální znění je vždy na této stránce, s datem účinnosti uvedeným nahoře."
+  },
+  "NotFound": {
+    "title": "404 — tady nic neroste",
+    "subtitle": "Tahle stránka ve sbírce není. Ale možná tu najdeš čtyřlístek…",
+    "meadowHint": "Mezi trojlístky se schovává jeden čtyřlístek. Najdi ho!",
+    "lensHint": "Louka je rozmazaná — prohledej ji lupou (myš, prst nebo šipky) a klikni na čtyřlístek.",
+    "lensLabel": "Louka s lupou. Šipkami posouváš lupu, Enter vybere místo pod ní.",
+    "cellLabel": "Lístek {n}",
+    "threeLeaf": "Tohle je trojlístek. Hledej dál!",
+    "foundAfter": "Máš ho! Čtyřlístek nalezen {count, plural, one {na první pokus} few {na # pokusy} other {na # pokusů}} 🍀",
+    "tries": "{count, plural, one {# pokus} few {# pokusy} other {# pokusů}}",
+    "randomFind": "Ukaž mi skutečný čtyřlístek ze sbírky",
+    "randomLoading": "Hledám ve sbírce…",
+    "randomFailed": "Teď se nepovedlo vybrat nález — zkus Sbírku.",
+    "waysOut": "Kam dál",
+    "home": "Domů",
+    "collection": "Sbírka",
+    "map": "Mapa",
+    "round": "Kolo {n}",
+    "nextRound": "Hledat další — kolo {n} 🍀",
+    "totalFound": "Nalezeno: {count}",
+    "budLeaf": "Tohle je jen trojlístek s pupenem. Hledej dál!",
+    "loading": "Louka roste…"
   }
 }

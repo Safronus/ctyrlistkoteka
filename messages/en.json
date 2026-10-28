@@ -961,5 +961,28 @@
     "contentText": "Notes on finds may occasionally mention other people. For finds marked as anonymized, the site shows no notes, no precise location and no names, and such finds are excluded from search engines.",
     "changesHeading": "8. Changes to this policy",
     "changesText": "We may update this policy as the site evolves. The current version is always on this page, with the effective date shown at the top."
+  },
+  "NotFound": {
+    "title": "404 — nothing grows here",
+    "subtitle": "This page isn't in the collection. But maybe you'll find a four-leaf clover…",
+    "meadowHint": "One four-leaf clover hides among the three-leaf ones. Find it!",
+    "lensHint": "The meadow is blurry — search it with the magnifier (mouse, finger or arrow keys) and click the four-leaf clover.",
+    "lensLabel": "Meadow with a magnifier. Arrow keys move it, Enter picks the spot under it.",
+    "cellLabel": "Leaf {n}",
+    "threeLeaf": "That's a three-leaf. Keep looking!",
+    "foundAfter": "Got it! Four-leaf clover found {count, plural, one {on the first try} other {in # tries}} 🍀",
+    "tries": "{count, plural, one {# try} other {# tries}}",
+    "randomFind": "Show me a real four-leaf clover from the collection",
+    "randomLoading": "Searching the collection…",
+    "randomFailed": "Couldn't pick a find right now — try the Collection.",
+    "waysOut": "Where next",
+    "home": "Home",
+    "collection": "Collection",
+    "map": "Map",
+    "round": "Round {n}",
+    "nextRound": "Find another — round {n} 🍀",
+    "totalFound": "Found: {count}",
+    "budLeaf": "That's just a three-leaf with a bud. Keep looking!",
+    "loading": "The meadow is growing…"
   }
 }
