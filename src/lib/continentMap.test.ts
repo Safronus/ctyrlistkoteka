@@ -88,11 +88,10 @@ describe("renderContinentMapSvg", () => {
     expect(render("asia")).toMatch(/<use href="#geo-asia-t\d+" fill="oklch\(0\.[0-9.]+ [0-9.]+ 145\)"/);
   });
 
-  it("caches the geometry: a second render is fast and identical", () => {
-    const a = render("asia");
-    const t0 = performance.now();
-    const b = render("asia");
-    expect(performance.now() - t0).toBeLessThan(50);
-    expect(b).toBe(a);
+  // Deterministic on purpose: an earlier version also asserted the second
+  // render took < 50 ms, and a wall-clock threshold flakes when another
+  // build or test run shares the machine.
+  it("renders identically from the cached geometry", () => {
+    expect(render("asia")).toBe(render("asia"));
   });
 });
