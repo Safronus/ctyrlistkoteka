@@ -64,6 +64,19 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 - Ubuntu 25.10 → 26.04: výstup fáze 0 od majitele → doladit plán + R-PG,
   zapnout `--docker` v `runtime-security.yml`, opravit nálezy inventury.
 
+## Pravidelné hlídání a aktualizace služeb (2026-10-28)
+- ✅ Týdenní kontrola: + osiřelé balíčky, + rozšíření DB (`--db`), + Docker
+  images (`--docker`). Ruční běh na VPS je zachytil všechny (OS EOL,
+  osiřelý Docker, zastaralý RustDesk).
+- ✅ RustDesk aktualizován (klíč beze změny), PostGIS rozšíření 3.5.3,
+  vývojové kontejnery z VPS pryč, dev compose jen na loopback.
+- ✅ GoatCounter: data přesunuta do zálohovaného stromu, historie ověřena.
+- ✅ `deploy/backup-services.sh` (cron 3:05) + `deploy/update-docker-services.sh`.
+- ⏳ Za pár dní: smazat staré Docker volume (stará kopie GoatCounteru + dvě
+  prázdné z dubna) — podrobnosti v private `ops/inventory/`.
+- ⏳ Upgrade Ubuntu 26.04 (vrátí i Docker repozitář; PostgreSQL varianta A
+  = 18 z Ubuntu, dump/restore) + odebrat `ssl_stapling` z nginx.
+
 ## i18n `next/root-params` (2026-10-28)
 - ✅ Migrace hotová lokálně (1eb48ed) + oprava 404 u `/api/admin/revalidate`
   (64bd0aa); ověřeno proti baseline (build + matice 22 adres + prohlížeč).
