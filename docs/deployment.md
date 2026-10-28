@@ -237,9 +237,14 @@ dole**. Po každém upgradu Node proto unit přegeneruj.
 Postup z 2026-10-28 (24.18.0 → 24.22.1 kvůli CVE-2026-111497 „Node2Shell").
 Dvě pasti, kvůli kterým nestačí `nvm install` + `nvm alias default`:
 **pm2 a pnpm jsou nainstalované pod konkrétní verzí Node** (po přepnutí
-zmizí z PATH a příští deploy spadne) a **`dump.pm2` drží absolutní cestu
-k interpreteru** (workery by po `pm2 reload` dál jely na staré verzi).
-Verzi `24.22.1` nahraď cílovou; pm2 instaluj ve verzi běžícího démona.
+zmizí z PATH a příští deploy spadne) a **o verzi workerů rozhoduje démon
+PM2**. Appka jede v `exec_mode: 'cluster'` a v něm workery forkuje sám
+démon, vlastní binárkou; `exec_interpreter` v `dump.pm2` se ignoruje.
+Ověřeno 2026-10-28: dump ukazoval v24.22.1, `/proc/<pid>/exe` workeru
+v24.18.0, dokud démon běžel ze starého unitu. Rozhoduje tedy **krok 2
+(sudo řádek opravdu spustit) + restart démona**; `readlink /proc/…/exe`
+je jediné spolehlivé ověření. Verzi `24.22.1` nahraď cílovou; pm2 instaluj
+ve verzi běžícího démona.
 
 ```bash
 # 0) Výchozí stav (pnpm verzi si zapiš — musí po upgradu sedět)
@@ -252,16 +257,17 @@ corepack enable
 cd /var/www/ctyrlistkoteka && pnpm -v          # = číslo z kroku 0
 npm install -g pm2@6.0.14                      # ← verze démona z kroku 0
 
-# 2) systemd unit na novou cestu → spusť vypsaný `sudo env PATH=…` řádek
-pm2 startup systemd -u app --hp /home/app
+# 2) systemd unit na novou cestu. `pm2 startup` jen VYPÍŠE sudo příkaz —
+#    ten je potřeba opravdu spustit (rovnou takhle):
+sudo env PATH=$PATH:/home/app/.nvm/versions/node/v24.22.1/bin pm2 startup systemd -u app --hp /home/app
+grep -o '/home/app/.nvm/versions/node/v[0-9.]*' /etc/systemd/system/pm2-app.service | sort -u   # → jen v24.22.1
 
-# 3) Démon na novou binárku
-sudo systemctl restart pm2-app
+# 3) Démon na novou binárku (pár vteřin výpadku; workery naběhnou s ním)
+sudo systemctl daemon-reload && sudo systemctl restart pm2-app
 sudo readlink /proc/$(pgrep -f 'PM2 v' | head -1)/exe   # → …/v24.22.1/bin/node
 
-# 4) Workery načisto (pár vteřin výpadku) — jinak zůstanou na staré verzi
-pm2 delete ctyrlistkoteka \
-  && pm2 start /var/www/ctyrlistkoteka/deploy/ecosystem.config.cjs && pm2 save
+# 4) Přepsat dump na novou cestu (kvůli pozdějšímu mazání staré verze)
+pm2 start /var/www/ctyrlistkoteka/deploy/ecosystem.config.cjs && pm2 save
 
 # 5) Ověření
 for p in $(pm2 pid ctyrlistkoteka); do readlink /proc/$p/exe; done

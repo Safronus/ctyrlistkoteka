@@ -13,11 +13,10 @@ tady jen to, co je rozpracované.
   Node.js", „Hlídání bezpečnosti runtime").
 
 ### Rozpracováno
-- ⏳ VPS: Node 24.18.0 → 24.22.1 (CVE-2026-111497) — spouští majitel ručně
-  podle `docs/deployment.md` → „Upgrade Node.js". Ověření: krok 5 musí
-  ukázat `…/v24.22.1/bin/node` u všech workerů i v `dump.pm2`.
-- ⏳ Týdenní triáž (`~/.claude/scheduled-tasks/ctyrlistkoteka-dependabot-triage`):
-  přidat kontrolu Node bezpečnostních vydání.
+- ✅ VPS: Node 24.18.0 → 24.22.1 (CVE-2026-111497) hotový 2026-10-28 —
+  unit `pm2-app`, démon i worker ověřeny přes `/proc/<pid>/exe`.
+- ✅ Týdenní triáž (`~/.claude/scheduled-tasks/ctyrlistkoteka-dependabot-triage`)
+  kontroluje runtime vždy, i bez PR.
 
 ### Zbývá
 - ❌ Ubuntu 25.10 je od 2026-07-09 EOL → plán upgradu na 26.04 LTS (záloha
@@ -33,5 +32,4 @@ tady jen to, co je rozpracované.
 - Ven jde jen GET na `nodejs.org/dist/index.json`.
 
 ### Další krok
-Výstupy kroků 3 a 5 z VPS → ověřit → push této větve na `main` → ověřit
-deploy (warning musí zmizet) → ručně spustit *Runtime security*.
+Plán upgradu Ubuntu 25.10 → 26.04 LTS (fáze 4).
