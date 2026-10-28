@@ -26,7 +26,7 @@ Lokality jsou katastrální/typové jednotky. Jedna lokalita = jedna sub-část
 | --- | --- | --- |
 | `id` | INTEGER PK | odpovídá klíči v `LokaceStavyPoznamky.json` (1, 2, 10…) |
 | `code` | VARCHAR(100) UNIQUE | `RATIBOŘ_POLE001f` (s diakritikou) |
-| `code_transliterated` | VARCHAR(100) UNIQUE | `RATIBOR__POLE001f` (na disku) |
+| `code_transliterated` | VARCHAR(100) UNIQUE | `RATIBOR_POLE001f` — ASCII podoba kódu (`toAsciiCode`: bez diakritiky, mezery a jiné ne-ASCII znaky → `_`); názvy souborů na disku diakritiku zachovávají |
 | `cadastral_area` | VARCHAR(100) | `RATIBOŘ` |
 | `location_type` | VARCHAR(50) | `POLE`, `LES`, `MESTO`, `ZAHRADA`, … |
 | `number` | SMALLINT | `1` (pořadové číslo) |
@@ -75,12 +75,12 @@ polygonem.
 | Sloupec | Typ | Poznámka |
 | --- | --- | --- |
 | `id` | INTEGER PK | **ID z názvu souboru**, NE autoincrement |
-| `location_id` | INTEGER FK → locations NULL | z JSON `lokace` |
+| `location_id` | INTEGER FK → locations NULL | z čísla mapy v názvu souboru (pole 2 → mapa → lokace); JSON `lokace` se nepoužívá |
 | `map_id` | INTEGER FK → location_maps NULL | MAP_NUMBER z filename |
 | `found_at` | DATE NULL | z EXIF `DateTimeOriginal` |
 | `leaf_count` | SMALLINT NOT NULL DEFAULT 4 | Vždy 4 — sbírka obsahuje výhradně čtyřlístky. Sloupec je v DB zachován jako historický artefakt schématu, app vrstva ho neexponuje. |
 | `notes` | TEXT NULL | z JSON `poznamky`, **API skrývá pro anonymizované** |
-| `is_anonymized` | BOOLEAN DEFAULT FALSE | z JSON `anonymizace` + filename pole 5 |
+| `is_anonymized` | BOOLEAN DEFAULT FALSE | NEBO: filename pole 5 = ANO / JSON `anonymizace` / anonymizovaná mapa; JSON umí jen zapnout (viz filename-convention.md, pole 5) |
 | `coordinates` | GEOMETRY(Point, 4326) NULL | z EXIF GPS |
 | `created_at` | TIMESTAMPTZ | |
 | `updated_at` | TIMESTAMPTZ | |

@@ -177,13 +177,13 @@ Detail viz `docs/data-schema.md` a `prisma/schema.prisma`.
 
 ### Zdroj pravdy
 
-Oddělovač v názvech souborů je `+`, ale na disku se `+` i diakritika transliterují na `_`.
+Oddělovač v názvech souborů je `+`; skutečné názvy na disku `+` i diakritiku zachovávají (parser = `split('+')`).
 
-1. **Název souboru fotky** → ID nálezu, číslo mapy, kód lokality, stav, anonymizace, příznak poznámky.
+1. **Název souboru fotky** → ID nálezu, **číslo mapy (= přiřazení k lokalitě)**, kód lokality, anonymizace (pole 5), příznak poznámky. STATE v názvu je jen čitelný otisk, do DB nejde.
 2. **EXIF metadata fotky** → GPS souřadnice, datum nálezu.
 3. **Název souboru lokační mapy** → kód lokality, popis, GPS středu, zoom, MAP_ID.
 4. **EXIF metadata mapy** → AOI_POLYGON (volitelné), anonymizace, marker středobodu.
-5. **`LokaceStavyPoznamky.json`** → autoritativní mapování lokalita→nálezy, stavy, poznámky, anonymizace.
+5. **`LokaceStavyPoznamky.json`** → autoritativní **stavy** a **poznámky**; anonymizaci umí jen zapnout (výsledek = NEBO s polem 5 a anonymizovanou mapou). Sekce `lokace` přiřazení find→lokalita **neurčuje** (slouží jen kontrolám v adminu).
 
 Detailní pravidla a priority zdrojů viz `docs/filename-convention.md`.
 

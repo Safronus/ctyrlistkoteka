@@ -24,16 +24,16 @@ přes SCP/rsync do datového adresáře a pak spustí sync skript přes SSH.
 ```
 /var/ctyrlistkoteka/data/
 ├── finds/
-│   ├── 16230_00031_RATIBOR__POLE001f_NORMA_LNI__NE_BezPozna_mky.HEIC
-│   ├── 16230_00031_RATIBOR__POLE001f_NORMA_LNI__NE_BezPozna_mky.HEIC
-│   └── ...                         # flat, tisíce souborů (originály)
+│   ├── 16230+00031+RATIBOŘ_POLE001f+NORMÁLNÍ+NE+BezPoznámky.HEIC
+│   ├── 16231+00031+RATIBOŘ_POLE001f+DAROVANY+NE+Pro babičku.HEIC
+│   └── ...                         # flat, tisíce souborů (originály); `+` i diakritika zůstávají
 │
 ├── crops/                           # výřezy čtyřlístků (volitelně oddělená složka)
 │   └── ...                         # Claude Code se zeptá uživatele na konvenci
 │
 ├── maps/
-│   ├── RATIBOR__POLE001a_Pole_nad_penzionem_..._GPS49_36668S_17_88867V_Z16_00026.png
-│   └── ...                         # flat, jedna mapa na sub-lokalitu
+│   ├── manifest.json               # mapy v2 — autoritativní metadata (přes /admin/import)
+│   └── ...                         # PNG mapy, i ve vnořených složkách
 │
 └── meta/
     └── LokaceStavyPoznamky.json    # jeden soubor, průběžně upravovaný

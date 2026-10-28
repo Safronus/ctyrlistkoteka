@@ -13,9 +13,11 @@
  *                              #   na které už nic v DB neukazuje
  *
  * Pořadí kroků viz docs/sync-workflow.md. Zdroje pravdy:
- *   - název souboru: IDs + kód lokality
+ *   - název souboru: IDs, číslo mapy (= přiřazení find→lokace), kód
+ *     lokality, anonymizace (pole 5)
  *   - EXIF: GPS + datum nálezu
- *   - LokaceStavyPoznamky.json: přiřazení find→lokace, stavy, poznámky, anonymizace
+ *   - LokaceStavyPoznamky.json: stavy, poznámky, anonymizace (jen zapnout);
+ *     sekce `lokace` se jen načte, přiřazení neurčuje
  */
 
 // Prisma 7 no longer auto-loads .env; CLI scripts must load it themselves

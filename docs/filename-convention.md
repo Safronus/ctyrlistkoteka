@@ -1,8 +1,16 @@
 # Konvence pojmenování souborů
 
 **Tento dokument je kritický pro import.** Oddělovač mezi poli je `+` (plus).
-Uvnitř jednotlivých polí se vyskytují `_` (podtržítka) jako náhrada diakritiky
-a mezer v českém textu.
+Skutečné názvy souborů na disku `+` **i diakritiku zachovávají** — parser je
+proto prosté `split('+')` (`src/lib/parseFilename.ts`). Podtržítko `_` se
+vyskytuje jen uvnitř polí (např. v kódu lokace `RATIBOŘ_POLE001f`).
+
+> **Oprava 2026-10-28:** starší verze tohoto dokumentu tvrdila, že se na disku
+> `+` i diakritika přepisují na `_` a parser musí oddělovače „rekonstruovat".
+> To neplatí; plně transliterovaný název (`16230_00031_RATIBOR__…`)
+> současný parser **odmítne** (potřebuje aspoň 5 segmentů
+> oddělených `+`). Z transliterace přežilo jen pár starých tokenů uvnitř
+> jinak `+`-ového názvu (viz pole 4 a 6).
 
 ---
 
@@ -18,20 +26,10 @@ Pole jsou oddělena znakem `+`. Uvnitř polí se mohou vyskytovat `_`.
 
 ### Reálný příklad
 
-Skutečný název (s diakritikou):
+Takhle soubor na disku skutečně vypadá (s `+` i diakritikou):
 ```
 16230+00031+RATIBOŘ_POLE001f+NORMÁLNÍ+NE+BezPoznámky.HEIC
 ```
-
-Na filesystému (po transliteraci diakritiky na `_`):
-```
-16230_00031_RATIBOR__POLE001f_NORMA_LNI__NE_BezPozna_mky.HEIC
-```
-
-**POZOR:** Na filesystému jsou `+` i diakritické znaky nahrazeny `_`. Proto
-skutečný soubor na disku nemá `+` oddělovače — vše jsou podtržítka. Parser
-musí **rekonstruovat `+` oddělovače** z transliterovaného názvu, viz sekce
-„Strategie parsování" níže.
 
 ### Dekompozice polí
 
@@ -66,7 +64,8 @@ musí **rekonstruovat `+` oddělovače** z transliterovaného názvu, viz sekce
 - `TYP` = typ prostředí (POLE, LES, MESTO, ZAHRADA, PARK, …)
 - `NNN` = třímístné číslo (001–999)
 - `písmeno` = sub-část (a–z), volitelné
-- Na disku se diakritika v katastrálním názvu transliteruje: `RATIBOŘ` → `RATIBOR_`
+- Diakritika v katastrálním názvu zůstává (`RATIBOŘ`); segment se bere jako
+  neprůhledný řetězec a rozkládá ho až `splitLocationCode` v `locationCode.ts`.
 
 #### 4. `STATE` — stav nálezu
 Enumerace (v originálním českém znění):
@@ -92,8 +91,9 @@ přejmenování v adminu se toho musí držet — jinak by v archivu vznikla dv�
 psaní téhož stavu a `grep DAROVANY` by přestal nacházet všechno. Kanonická
 podoba je `STATE_FILENAME_TOKEN` v `src/lib/stateMapping.ts` a hlídá ji test.
 
-Na disku historicky transliterováno: `NORMA_LNI_` (NORMÁLNÍ), `DAROVAN_`
-(DAROVANÝ) atd. — čtení je bere, zápis ne.
+Z dob transliterace přežívají jako **čtecí fallback** jen tokeny
+`NORMA_LNI_`, `DAROVANY_` a `DAROVAN_` (uvnitř jinak `+`-ového názvu) — čtení
+je bere, zápis ne (`src/lib/stateMapping.ts`).
 
 ##### Víc stavů najednou (od 2026-08-14)
 
@@ -130,13 +130,21 @@ Kontroly konzistence hlídají, že se ty dva zdroje nerozešly.
 - `ANO` = tajná lokace, GPS se nezobrazují na veřejném webu
 
 **Důležité:** Toto je **per-nález** rozhodnutí. Jeden nález na lokalitě může být
-anonymní, jiný na stejné lokalitě veřejný. JSON `anonymizace.ANONYMIZOVANE` je
-autoritativní zdroj, filename pole 5 je doplňkové.
+anonymní, jiný na stejné lokalitě veřejný.
+
+**Jak se `finds.is_anonymized` skutečně počítá** (`scripts/sync.ts`, fáze finds
+a meta): výsledek je **NEBO** ze tří zdrojů — pole 5 = `ANO`, ID v JSON
+`anonymizace.ANONYMIZOVANE`, nebo nález leží na anonymizované lokační mapě.
+Pole 5 se zapíše (ANO i NE) při každém zpracování souboru; meta fáze z JSON
+umí příznak jen **zapnout**, nikdy vypnout. **Odanonymizování** proto potřebuje
+obojí: odebrat ID z `ANONYMIZOVANE` **a** přejmenovat soubor na `NE` (tím se
+znovu zpracuje). Samotné odebrání z JSON smaže jen stav `ANONYMIZED`, příznak
+zůstane `true`.
 
 #### 6. `NOTE_OR_FLAG` — poznámka
 - `BezPoznámky` = nález nemá poznámku
 - Cokoli jiného = volný text poznámky (může obsahovat mezery, diakritiku)
-- Na disku transliterováno (`BezPozna_mky`)
+- Starý transliterovaný tvar `BezPozna_mky` parser ještě přijme jako „bez poznámky"
 - Poznámky jsou také v `LokaceStavyPoznamky.json` (`poznamky` sekce) — **JSON je
   autoritativní zdroj textu**, filename jen signalizuje přítomnost/nepřítomnost.
 
@@ -173,15 +181,14 @@ Oddělovač je `+`. Popis může obsahovat mezery, pomlčky, závorky, diakritik
 
 ### Reálný příklad
 
-Skutečný název:
+Skutečný název (takhle i na disku):
 ```
 RATIBOŘ_POLE001a+Pole nad penzionem HORA - hlavní ultimátní naleziště (levá hrana)+GPS49.36668S+17.88867V+Z16+00026.png
 ```
 
-Na filesystému (transliterováno):
-```
-RATIBOR__POLE001a_Pole_nad_penzionem_HORA_-_hlavni__ultima_tni__nalezis_te___leva__hrana__GPS49_36668S_17_88867V_Z16_00026.png
-```
+> Od 2026-07-26 se mapy (v2) spravují přes `data/maps/manifest.json`
+> a `/admin/import`; ten je pro jejich metadata autoritativní. Schéma názvu
+> níže platí pro název PNG souboru.
 
 ### Dekompozice polí
 
@@ -206,9 +213,9 @@ Shodný identifikátor jako u fotek nálezů. Propojovací klíč.
 Volný text, lidsky čitelný popis. Uloží se do `locations.display_name`.
 
 #### 3–4. GPS souřadnice
-- `GPS{lat}S` → latitude, kladná (S = Sever/North)
-- `{lon}V` → longitude, kladná (V = Východ/East)
-- Desetinná tečka v originále. Na disku nahrazena `_`: `49_36668` → `49.36668`.
+- `GPS{lat}S` → latitude, kladná (S = Sever/North; `J` = jih, záporná)
+- `{lon}V` → longitude, kladná (V = Východ/East; `Z` = západ, záporná — Dublin, Reykjavík)
+- Desetinná **tečka** (`49.36668`); parser podtržítko místo tečky nepřijme.
 - **Toto je střed mapy** (centroid lokace).
 
 #### 5. `Z{zoom}`
@@ -257,47 +264,20 @@ Uloží se do `locations.map_image_bounds` jako JSONB.
 
 ---
 
-## C) Strategie parsování (transliterovaných názvů z disku)
+## C) Parsování
 
-### Problém
+Názvy na disku mají `+` i diakritiku, takže parser (`src/lib/parseFilename.ts`)
+je `split('+')` a validace jednotlivých segmentů:
 
-Na disku jsou originální `+` a diakritické znaky nahrazeny `_`. Proto název:
-```
-16230_00031_RATIBOR__POLE001f_NORMA_LNI__NE_BezPozna_mky.HEIC
-```
-nelze jednoduše splitnout na `_`.
-
-### Řešení: pozicový parser
-
-**Pro fotky nálezů:**
-
-```
-1. Odstraň příponu.
-2. Z levé strany: najdi řetězec číslic → FIND_ID.
-3. Přeskoč "_", najdi další řetězec 5 číslic → MAP_NUMBER.
-4. Přeskoč "_". Najdi LOCATION_CODE vzor: {UPPER+}_{UPPER}{3digit}{lower?}
-   (regex: [A-Z_]+[A-Z]+\d{3}[a-z]?)
-5. Přeskoč "_". Matchuj STATE na známé transliterované varianty:
-   NORMA_LNI_ | DAROVAN_ | BEZGPS | BEZFOTKY
-6. Přeskoč "_". ANON_FLAG: NE | ANO.
-7. Přeskoč "_". Zbytek = NOTE (nebo BezPozna_mky → has_note = false).
-```
-
-**Pro lokační mapy:**
-
-```
-1. Odstraň příponu.
-2. Najdi GPS vzor: GPS\d+_\d+S → tím se oddělí {CODE+DESCRIPTION} od {GPS...}.
-3. Z levé strany: LOCATION_CODE (stejný vzor jako výše).
-4. Mezi CODE a GPS: DESCRIPTION (transliterovaný).
-5. Za GPS: longitude (\d+_\d+V), Z(\d+), MAP_ID (\d{5}).
-```
-
-### Alternativa: uživatel dodá originální názvy
-
-Pokud existuje mapování `{transliterovaný} → {originální s +}`, parser je
-triviální: `split('+')`. Claude Code se zeptá uživatele, zda toto mapování
-existuje (generátor, databáze originálních názvů, jiný zdroj).
+- **Fotka nálezu** (`parseFindFilename`): aspoň 5 segmentů
+  `FIND_ID + MAP_NUMBER + LOCATION_CODE + STATE + ANON_FLAG [+ NOTE…]`;
+  poznámka může `+` sama obsahovat (zbytek segmentů se spojí). Název se
+  normalizuje na NFC (macOS ukládá diakritiku jako NFD).
+- **Lokační mapa** (`parseMapFilename`): `CODE + DESCRIPTION + GPS{lat}S|J +
+  {lon}V + Z{zoom} + MAP_ID`.
+- Transliterované zbytky se berou jen jako čtecí fallback uvnitř `+`-ového
+  názvu (`NORMA_LNI_`, `DAROVANY_`, `DAROVAN_`, `BezPozna_mky`). Plně
+  transliterovaný název (bez `+`) se **nenaparsuje**.
 
 ### Robustnost
 
@@ -309,7 +289,10 @@ existuje (generátor, databáze originálních názvů, jiný zdroj).
 
 ## D) `LokaceStavyPoznamky.json`
 
-Autoritativní zdroj pro přiřazení, stavy, poznámky, anonymizaci.
+Autoritativní zdroj pro **stavy** a **poznámky**; k **anonymizaci** přispívá
+(viz pole 5 výše). Sekce `lokace` **neurčuje**, ke které lokalitě nález
+v DB patří — to dělá číslo mapy v názvu souboru (viz E). `lokace` dnes
+slouží jen kontrolám konzistence v adminu (`src/lib/admin/checks.ts`).
 
 ### Struktura
 
@@ -392,9 +375,9 @@ Při konfliktu:
 | ID nálezu | Název souboru (pole 1) |
 | Číslo mapy | Název souboru (pole 2) |
 | Kód lokace | Název souboru (pole 3) |
-| Přiřazení find→lokace | **JSON** `lokace` |
-| Stav | **JSON** `stavy` (přesnější než filename) |
-| Anonymizace | **JSON** `anonymizace` + doplňkově filename pole 5 |
+| Přiřazení find→lokace | **Název souboru** (pole 2 = číslo mapy → mapa → lokace); JSON `lokace` se nepoužívá, jen kontroly |
+| Stav | **JSON** `stavy` (STATE v názvu je jen čitelný otisk, do DB nejde) |
+| Anonymizace | **NEBO**: filename pole 5 = ANO / JSON `anonymizace` / anonymizovaná mapa (JSON umí jen zapnout, viz pole 5) |
 | Poznámka (text) | **JSON** `poznamky` |
 | GPS | **EXIF** metadata fotky |
 | Datum nálezu | **EXIF** metadata fotky |

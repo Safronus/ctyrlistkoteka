@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### Dokumentace: opravené tři nepřesnosti o datech nálezů
+- **Formát názvů souborů:** docs tvrdily, že se na disku `+` i diakritika
+  přepisují na `_` a parser oddělovače „rekonstruuje". Neplatí: názvy `+`
+  i diakritiku zachovávají, parser je `split('+')` a plně transliterovaný
+  název odmítne. Opraveno v `filename-convention.md` (A, B, C),
+  `sync-workflow.md`, `data-schema.md` (`code_transliterated`) a `CLAUDE.md`.
+- **Zdroj lokace nálezu:** přiřazení find→lokalita určuje číslo mapy v názvu
+  souboru, **ne** JSON `lokace` (ta slouží jen kontrolám). Opraveno
+  v `filename-convention.md` (D, E), `data-schema.md`, `CLAUDE.md` a komentáři
+  v hlavičce `scripts/sync.ts`. Upřesněna i anonymizace: NEBO ze tří zdrojů,
+  JSON ji umí jen zapnout.
+- **Admin a sbírkové tabulky:** `admin-overview.md` tvrdil, že admin do
+  `finds`/`find_images` nikdy nepíše. Tři výjimky (přeřezání výřezu, smazání
+  výřezů = celých fotek, kód pro odemčení) jsou teď vyjmenované.
+
 ### Závislosti: next 16.4.3 + patch/minor bumpy
 - **next / eslint-config-next 16.4.2 → 16.4.3** — jen backportované
   opravy (mj. Google font URL bez přípony, OpenTelemetry trasy); žádné

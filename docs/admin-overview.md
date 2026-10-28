@@ -211,10 +211,21 @@ odvozený název vytvořil druhý soubor pro totéž ID).
 
 - `/`, `/sbirka`, `/mapa`, `/statistiky`, `/lokality` zůstávají
   read-only. **Do sbírkových tabulek** (`finds`, `find_images`,
-  `locations`, `location_maps`) nepíše admin nikdy — ty se mění
-  výhradně přes `pnpm sync` z filesystemu. Admin vlastní jen své
-  postranní tabulky (`votes`, `find_qr_codes`/`find_qr_scans`,
-  `drop_*`), které sync naopak nikdy nesahá.
+  `locations`, `location_maps`) se jinak píše přes `pnpm sync`
+  z filesystemu, s **třemi výjimkami**, kdy admin zapisuje rovnou:
+  - **přeřezání výřezu** (`src/lib/admin/recrop.ts`) přepíše řádek
+    `find_images` typu CROP na nové WebP (platí hned, sync pak jen
+    přepočítá stejné bajty);
+  - **hromadné smazání výřezů = celých fotek**
+    (`src/app/admin/checks/delete-crops-action.ts`) maže CROP řádky
+    `find_images`;
+  - **kód pro odemčení** darovaných fotek
+    (`src/app/admin/files/donation-photos/unlock-code-action.ts`) píše
+    `finds.unlock_code` — sloupec patří adminu a sync na něj nesahá.
+
+  Jinak admin vlastní jen své postranní tabulky (`votes`,
+  `find_qr_codes`/`find_qr_scans`, `drop_*`), které sync nikdy nesahá.
+  (Oprava 2026-10-28: dřív tu stálo „nepíše admin nikdy".)
 - Anonymizované nálezy: `find.notes` se nesmí číst přímo, vždy přes
   `anonymize(find)` v `src/lib/anonymize.ts`. Admin to taky respektuje
   (stačí Audit log neukládat poznámky verbatim — ten je v `secure/`).
