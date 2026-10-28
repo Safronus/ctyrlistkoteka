@@ -36,6 +36,26 @@ import { routing } from "./i18n/routing";
 
 const isDev = process.env.NODE_ENV !== "production";
 
+/**
+ * Set by Nginx — and only by Nginx — on an `/admin` request it refused at
+ * the IP allowlist (`@admin_page_cloak`, see deploy/nginx.conf.template).
+ * Nginx clears it on every request it lets through, so a client can't
+ * smuggle it in; and all it can do is turn an admin URL into a 404 anyway.
+ *
+ * Why the app answers instead of Nginx: the old mask returned a 120-byte
+ * HTML stub without CSP, while a real 404 here is a full page — so /admin
+ * stood out. Answered by the app, a cloaked admin URL takes exactly the
+ * path any unknown URL takes. (`/api/admin` is cloaked in Nginx alone: it
+ * rewrites the request onto the `api/[...rest]` catch-all, which never
+ * echoes the path — no middleware involved.)
+ */
+const CLOAK_HEADER = "x-ctyr-cloak";
+
+/** `/admin` and below — NOT `/adminx`, which is just an unknown URL. */
+export function isAdminPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
 const intlMiddleware = createIntlMiddleware(routing);
 
 function buildCsp(nonce: string): string {
@@ -111,8 +131,15 @@ export function middleware(request: NextRequest) {
   const csp = buildCsp(nonce);
 
   const pathname = request.nextUrl.pathname;
+  const cloaked =
+    request.headers.get(CLOAK_HEADER) === "1" && isAdminPath(pathname);
+  // Never let the marker reach a page.
+  request.headers.delete(CLOAK_HEADER);
+
+  // A cloaked admin page goes down the same road as any unknown URL:
+  // next-intl rewrites it into `[locale]`, whose catch-all 404s.
   const isLocaleRoute =
-    !pathname.startsWith("/admin") && !pathname.startsWith("/api");
+    cloaked || (!isAdminPath(pathname) && !pathname.startsWith("/api"));
 
   // Mutate the incoming request's headers in place so both the
   // pass-through (NextResponse.next) and the next-intl rewrite branch
@@ -145,7 +172,9 @@ export function middleware(request: NextRequest) {
   // that don't honor CSP frame-ancestors). The actual auth gate lives
   // in the admin layout/pages — middleware can't read iron-session
   // (Edge runtime, no Node crypto) so we keep that check server-side.
-  if (pathname.startsWith("/admin")) {
+  // Exact admin paths only, and never when cloaked: on a 404 these headers
+  // would single the URL out (they used to land on `/adminx` too).
+  if (!cloaked && isAdminPath(pathname)) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
     response.headers.set("Cache-Control", "private, no-store");
   }
