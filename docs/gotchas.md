@@ -1127,8 +1127,10 @@ param nebyl vůbec.
   sekcích**.
 - **Nenamapované URL.** Bez layoutu nad všemi kořeny vykreslí Next pro
   neznámou adresu holou 404 bez CSP nonce. Drží to catch-all
-  `[locale]/[...rest]` a `admin/[...rest]` (`notFound()`). Nová
+  `[locale]/[...rest]` a `admin/[...rest]` (`notFound()`); veřejný web má
+  vlastní `[locale]/not-found.tsx` (hra na hledání čtyřlístku). Nová
   mimolokalizovaná sekce s víc stránkami potřebuje svůj catch-all taky.
+  404 stránka nesmí nic vypisovat z požadavku — vrací ji i maska `/admin`.
 - **`next/root-params` nejde číst v route handlerech ani server actions**
   (Next 16.4). Tam se next-intl volá vždy s explicitním `locale`
   (`getTranslations({ locale, namespace })`), jinak dostaneš `cs`.

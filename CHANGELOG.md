@@ -28,6 +28,22 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### Vlastní 404: hledání čtyřlístku (Louka / Lupa) s časomírou
+- Místo černé anglické 404 od Next.js je 404 hra v duchu webu, CZ i EN,
+  s navigací a patičkou. Server pro každý požadavek náhodně vybere
+  **Louku** (mřížka trojlístků, jeden čtyřlístek) nebo **Lupu** (rozmazaná
+  louka, ostrá jen pod lupou — myš, prst i šipky).
+- Po nalezení: skutečný náhodný čtyřlístek ze sbírky (`/api/random-find`)
+  a **další kolo**, každé těžší (`hunt.ts`, s testy): Louka roste až na
+  12×10, ztrácí barevné rozlišení, lístky se posouvají a **překrývají**,
+  přibývají „podvodníci“ s pupenem; Lupa přidává lístky, zmenšuje lupu a
+  víc rozmazává.
+- **Časomíra**: stopky kola, čas v hlášce, nejlepší čas a průměr, „Nový
+  rekord! 🏆“ — jen pro návštěvu (nic se neukládá ani neposílá).
+- Bezpečnost/soukromí: hra běží jen v prohlížeči (seed z crypto), stránka
+  nevypisuje nic z adresy (slouží i maskovanému `/admin`), CSP beze změny;
+  přístupnost: neutrální popisky buněk, živý region, `prefers-reduced-motion`.
+
 ### Bezpečnost: veřejné logy Actions jen s kategoriemi nálezů
 - Repo je veřejné, a tak i logy GitHub Actions. *Runtime security* do nich
   psala stav OS a jména čekajících bezpečnostních balíčků — seznam toho,
