@@ -20,7 +20,21 @@ const sha1 = (b: Buffer) => createHash("sha1").update(b).digest("hex");
 
 // Switches the tests flip: an admin sync "running", and a backup that fails
 // (the last step before the LSP write — to prove the rollback).
-const flags = vi.hoisted(() => ({ syncRunning: false, failBackup: false }));
+const flags = vi.hoisted(() => ({ syncRunning: false, failBackup: false, tickingClock: false }));
+
+// Trash buckets are named by the second (trashTimestamp). With
+// `tickingClock`, every call returns the next second — the slow-machine case
+// where a commit straddles a second boundary, made deterministic.
+vi.mock("./atomic", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./atomic")>();
+  let tick = 0;
+  return {
+    ...real,
+    trashTimestamp: vi.fn(() =>
+      flags.tickingClock ? `20261028T1200${String(tick++ % 60).padStart(2, "0")}` : real.trashTimestamp(),
+    ),
+  };
+});
 
 vi.mock("./syncRunner", () => ({
   getStatus: vi.fn(async () => (flags.syncRunning ? { state: "running" } : null)),
@@ -151,6 +165,7 @@ beforeEach(async () => {
   await seedDataDir();
   flags.syncRunning = false;
   flags.failBackup = false;
+  flags.tickingClock = false;
 });
 
 afterEach(async () => {
@@ -254,6 +269,24 @@ describe("commitFindUpdateZip", () => {
     const bucket = path.join(data(), ".trash", r.summary.trashBucket!);
     expect((await fs.readdir(path.join(bucket, "crops"))).sort()).toEqual(["31650.jpg"]);
     expect(await fs.readdir(path.join(bucket, "meta"))).toEqual(["LokaceStavyPoznamky.json"]);
+  });
+
+  it("keeps one commit in ONE trash bucket even when the clock ticks between steps", async () => {
+    // Was flaky (≈1 in 25 full runs): each trash scope took its own
+    // timestamp, so a commit crossing a second split into two buckets and
+    // the reported bucket lacked the LSP snapshot.
+    flags.tickingClock = true;
+    try {
+      const { update } = await loadModules();
+      const r = await update.commitFindUpdateZip(await buildZip());
+      if ("error" in r) throw new Error(r.error);
+      const buckets = await fs.readdir(path.join(data(), ".trash"));
+      expect(buckets).toEqual([r.summary.trashBucket]);
+      const bucket = path.join(data(), ".trash", r.summary.trashBucket!);
+      expect((await fs.readdir(bucket)).sort()).toEqual(["crops", "meta"]);
+    } finally {
+      flags.tickingClock = false;
+    }
   });
 
   it("is idempotent — the same package again changes nothing", async () => {

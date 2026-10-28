@@ -28,6 +28,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### Oprava: opravný balíček se už nerozdělí do dvou složek koše
+- Zápis opravy (`commitFindUpdateZip`) trashuje tři kategorie (originály,
+  ořezy, předchozí LSP). Každá si brala vlastní časové razítko po
+  sekundách, takže oprava, která přešla přes hranici sekundy, skončila ve
+  **dvou** složkách `data/.trash/<čas>/` — a výsledková karta i hláška
+  o návratu ukazovaly jen tu první, bez zálohy LSP.
+- Teď má celý zápis jedno razítko. Projevovalo se jako nestabilní test
+  (1 z 25 plných běhů); nový test simuluje tikající hodiny a chybu vyvolá
+  vždy. Po opravě 0 z 25. Ostatní místa (`prepareTrashDir`) prověřena —
+  trashují jedinou kategorii, nebo už razítko sdílí.
+
 ### 404 hra: osobní rekordy, obtížnost, tabulka rychlosti, celá šířka
 - **Osobní rekordy** po kolech pro každou hru, uložené jen v prohlížeči
   návštěvníka (`localStorage`, nic se neposílá) — schválená výjimka

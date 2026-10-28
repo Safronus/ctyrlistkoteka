@@ -30,7 +30,7 @@ import {
   lokaceStavyPoznamkySchema,
   type LokaceStavyPoznamky,
 } from "./jsonSchema";
-import { atomicWrite, ensureDir } from "./atomic";
+import { atomicWrite, ensureDir, trashTimestamp } from "./atomic";
 import { formatJsonCompactArrays } from "./jsonFormat";
 import { createBackup } from "./lspBackups";
 import { iterateZipUtf8 } from "./mapPackageImport";
@@ -339,10 +339,14 @@ export async function commitFindUpdateZip(
   };
   const ops: Op[] = [];
   const trashDirs = new Map<string, string>();
+  // ONE bucket for the whole commit: each scope taking its own timestamp
+  // split a commit that crossed a second boundary into two buckets, and the
+  // one reported (summary.trashBucket) then lacked the LSP snapshot.
+  const bucket = trashTimestamp();
   const trashDir = async (scope: string) => {
     let dir = trashDirs.get(scope);
     if (!dir) {
-      dir = await prepareTrashDir(scope);
+      dir = await prepareTrashDir(scope, bucket);
       trashDirs.set(scope, dir);
       summary.trashBucket ??= path.relative(ADMIN_ROOTS.trash, path.dirname(dir));
     }

@@ -1156,3 +1156,18 @@ celou routu tiše přepnulo na dynamickou. `next/root-params` hlavičky nečte.
 sitemap se ale **předrenderuje při buildu** → build potřebuje databázi
 (na VPS ji má; jinde by build spadl). Kdykoli se route z `ƒ` nečekaně
 změní na `○` nebo naopak, hledej, co v jejím stromu čte hlavičky/cookies.
+
+## 38. Jedna operace = jedna složka koše (`prepareTrashDir` s jedním razítkem)
+
+**Co:** Složky koše se jmenují podle `trashTimestamp()` s přesností na
+sekundy. Operace, která trashuje **víc kategorií** (`finds`, `crops`,
+`meta`…) a každou připraví zvlášť přes `prepareTrashDir(scope)`, se při
+přechodu přes hranici sekundy rozdělí do dvou složek. Opravný balíček tak
+hlásil složku, ve které chyběla záloha LSP (2026-10-28; projevilo se jako
+nestabilní test, 1 z 25 běhů).
+
+**Jak aplikovat:** Na začátku operace vezmi `const bucket =
+trashTimestamp()` a předávej ho do **každého** `prepareTrashDir(scope,
+bucket)`. Test: namockuj `trashTimestamp` tak, aby každé volání vrátilo
+další sekundu (`findUpdateImport.test.ts`, „keeps one commit in ONE trash
+bucket“) — chybu pak vyvolá deterministicky, ne jednou za 25 běhů.
