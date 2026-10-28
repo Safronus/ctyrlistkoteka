@@ -261,10 +261,13 @@ export function renderQrSvg(opts: RenderQrOpts): string {
     // With the "panel" border, the centre image's backing pad picks up the
     // panel tint too, so it blends into the panel instead of being a white
     // patch in the middle of the tinted card.
+    // `data-qr-bg`: a background fill, dropped by the transparent PNG
+    // download (`stripBackgroundFills`). Safe — no module is drawn under
+    // the hole (`inHole`), so nothing shows through behind the image.
     const holeFill = border === "panel" ? theme.panel : theme.hole;
     centerSvg += `<rect x="${centerX - pad}" y="${centerY - pad}" width="${
       centerD + pad * 2
-    }" height="${centerD + pad * 2}" rx="${pad}" fill="${holeFill}"/>`;
+    }" height="${centerD + pad * 2}" rx="${pad}" fill="${holeFill}" data-qr-bg="1"/>`;
     const b64 = center === "smiley" ? QR_SMILEY_B64 : QR_CLOVER_B64;
     if (b64) {
       centerSvg += `<image href="data:image/png;base64,${b64}" x="${centerX}" y="${centerY}" width="${centerD}" height="${centerD}"/>`;
@@ -319,7 +322,7 @@ export function renderQrSvg(opts: RenderQrOpts): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CARD_W} ${CARD_H}" width="${CARD_W}" height="${CARD_H}" data-qr-px="${QR_PX}" data-qr-modules="${SIZE}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif">
   <defs>${CLOVER_SYMBOL}</defs>
-  <rect x="0" y="0" width="${CARD_W}" height="${CARD_H}" fill="${theme.bg}"/>
+  <rect x="0" y="0" width="${CARD_W}" height="${CARD_H}" fill="${theme.bg}" data-qr-bg="1"/>
   ${panelSvg}
   <g transform="translate(${BM} ${BM})">
   ${titleSvg}

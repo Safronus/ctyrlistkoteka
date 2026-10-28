@@ -23,8 +23,8 @@ export function downloadSvg(svg: string, filename: string): void {
 
 /** Options shared by the PNG rasterisers. */
 export interface PngOpts {
-  /** Drop the QR's painted background so the PNG keeps an alpha channel —
-   *  the "průhledné pozadí" download option. See `stripBackgroundRect`. */
+  /** Drop the QR's painted backgrounds so the PNG keeps an alpha channel —
+   *  the "průhledné pozadí" download option. See `stripBackgroundFills`. */
   transparent?: boolean;
 }
 
@@ -38,35 +38,32 @@ export async function downloadPng(
 }
 
 /**
- * Removes the full-canvas background both QR renderers paint as the very
- * first `<rect x="0" y="0" …>` of the SVG (`qr.ts` → `theme.bg`,
- * `casqbQr.ts` → `style.bg`).
+ * Removes every background fill the QR renderers mark with `data-qr-bg`:
+ * the full-canvas background (`qr.ts` → `theme.bg`, `casqbQr.ts` →
+ * `style.bg`) AND the solid pad behind the centre image / logo. Matching
+ * the marker, not a position, is the point: the old origin-only match
+ * left the centre pad behind, so a "transparent" PNG still carried a white
+ * square under the clover (reported 2026-10-28).
  *
- * Safe to strip blindly: nothing else in either SVG starts at the origin —
- * data modules, finder/eye patterns, the panel border and the logo hole
- * all sit at a non-zero offset (padding or quiet zone) — so only the
- * background matches, and the code itself is left untouched. The `<svg>`
- * width/height stay in place, so the rasteriser still reads the same size.
- * A panel-border card keeps its tinted panel (that rect is inset, not at
- * 0,0); only the bleed around it turns transparent.
+ * Dropping the pad is safe: both renderers skip every module inside the
+ * hole, so only the image stays there. A panel-border card keeps its
+ * tinted panel (unmarked); its pad was panel-coloured anyway. The `<svg>`
+ * width/height stay, so the rasteriser still reads the same size.
  */
-export function stripBackgroundRect(svg: string): string {
-  return svg.replace(
-    /<rect x="0" y="0" width="[\d.]+" height="[\d.]+" fill="[^"]*"\s*\/>/,
-    "",
-  );
+export function stripBackgroundFills(svg: string): string {
+  return svg.replace(/<rect\b[^>]*\sdata-qr-bg="1"[^>]*\/>/g, "");
 }
 
 /** Rasterises an SVG string to a PNG Blob via an offscreen canvas.
  *  `scale` multiplies the SVG's intrinsic size for print-quality pixels.
- *  With `transparent`, the painted background is dropped first so the PNG
- *  carries an alpha channel instead of the theme's solid fill. */
+ *  With `transparent`, the painted backgrounds are dropped first so the PNG
+ *  carries an alpha channel instead of the theme's solid fills. */
 export function svgToPngBlob(
   svg: string,
   scale: number,
   opts: PngOpts = {},
 ): Promise<Blob> {
-  const source = opts.transparent ? stripBackgroundRect(svg) : svg;
+  const source = opts.transparent ? stripBackgroundFills(svg) : svg;
   return new Promise((resolve, reject) => {
     const wMatch = source.match(/<svg[^>]*\swidth="(\d+)"/);
     const hMatch = source.match(/<svg[^>]*\sheight="(\d+)"/);

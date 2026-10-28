@@ -9,6 +9,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### /admin/qr: průhledné PNG je průhledné i pod obrázkem ve středu
+- Volba „průhledné pozadí“ mazala jen podklad celé karty; pod čtyřlístkem
+  nebo smajlíkem ve středu (a pod logem CaSQB) zůstával bílý čtverec —
+  nahlášeno u QR nálezů, platilo ve všech čtyřech záložkách i v PDF
+  Darování. Renderery teď výplně pozadí značí `data-qr-bg` a strip maže
+  všechny (`stripBackgroundFills`). Moduly pod středem se nekreslí, takže
+  nic neprosvítá; ověřeno rasterizací skutečného SVG kartičky nálezu.
+
 ### Off-site zálohy: prázdný share v Drive je v pořádku, hlídání e-mailem, vlastník root
 - Nahlášená „prázdná složka“ na UNASu nebyla chyba: zálohy běží denně
   (30 snapshotů), jen leží záměrně mimo UniFi Drive. Doplněno do docs.

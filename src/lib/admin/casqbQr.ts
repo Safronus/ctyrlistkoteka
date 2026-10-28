@@ -422,7 +422,7 @@ export function renderCasqbQrSvg(opts: RenderCasqbQrOpts): string {
     const hx = cx - box.holeW / 2;
     const hy = cy - box.holeH / 2;
     const rx = Math.min(box.holeW, box.holeH) * 0.18;
-    logo += `<rect x="${f(hx)}" y="${f(hy)}" width="${f(box.holeW)}" height="${f(box.holeH)}" rx="${f(rx)}" fill="${style.bg}"/>`;
+    logo += `<rect x="${f(hx)}" y="${f(hy)}" width="${f(box.holeW)}" height="${f(box.holeH)}" rx="${f(rx)}" fill="${style.bg}" data-qr-bg="1"/>`;
     const lx = cx - box.w / 2;
     const ly = cy - box.h / 2;
     const v = vectorFor(style);
@@ -436,7 +436,7 @@ export function renderCasqbQrSvg(opts: RenderCasqbQrOpts): string {
 
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${opts.px}" height="${opts.px}" shape-rendering="geometricPrecision" role="img" aria-label="QR kód CaSQB" data-qr-modules="${n}">` +
-    `<rect x="0" y="0" width="${total}" height="${total}" fill="${style.bg}"/>` +
+    `<rect x="0" y="0" width="${total}" height="${total}" fill="${style.bg}" data-qr-bg="1"/>` +
     `<g fill="${style.fg}">${modules.join("")}</g>` +
     eye(0, 0) +
     eye(0, n - 7) +

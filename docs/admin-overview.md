@@ -272,17 +272,21 @@ odvozený název vytvořil druhý soubor pro totéž ID).
   QR, dokud v titulku může být emoji.
 - **Průhledné pozadí PNG** je přepínač u stahování ve všech čtyřech
   záložkách (vždy vypnutý, nepamatuje se). Mechanismus je jeden a klientský:
-  `stripBackgroundRect` (`qr-download.ts`) smaže z SVG úplně první
-  `<rect x="0" y="0" …>`, což je pozadí, které oba renderery (`qr.ts` →
-  `theme.bg`, `casqbQr.ts` → `style.bg`) vykreslují jako první; nic jiného
-  v SVG na počátku nezačíná (moduly, oči, panel i otvor loga mají nenulový
-  posun), takže se odstraní jen pozadí a kód zůstane. `svgToPngBlob` canvas
+  `stripBackgroundFills` (`qr-download.ts`) smaže z SVG každý `<rect>`
+  označený `data-qr-bg="1"`. Značku nesou jen výplně pozadí: podklad celé
+  karty (`qr.ts` → `theme.bg`, `casqbQr.ts` → `style.bg`) **a podklad pod
+  obrázkem/logem ve středu**. Do 2026-10-28 se mazal jen první
+  `<rect x="0" y="0">`, takže pod čtyřlístkem/smajlíkem zůstával bílý
+  čtverec. Smazat podklad středu je bezpečné — oba renderery pod ním
+  nekreslí žádný modul (`inHole`). Panel rámečku značku nemá a zůstává.
+  Moduly ani oči se značkou nikdy nekreslí. `svgToPngBlob` canvas
   nepředvyplňuje, takže alfa projde. Pokrývá to i PDF v Darování (přední
   strany kartiček — pro barevný papír). SVG a vektorové PDF jsou beze změny.
   Jen pro **světlé kódy**: tmavý motiv má světlé moduly, na světlém podkladu
   by nenaskenoval — UI na to u přepínače upozorňuje. Pojistka je test
   `qr-download.test.ts`, který strip ověřuje proti reálnému výstupu obou
-  rendererů (kdyby některý změnil tvar pozadí, spadne tam, ne u uživatele).
+  rendererů (neoznačené pozadí nebo označený modul spadne tam, ne u
+  uživatele).
 - **„Zrušený" QR nálezu neznamená rozbitý.** Revoke jen vypne
   započítávání: `/n/<číslo>` pořád přesměruje na detail nálezu (jen bez
   `?ref=qr`) a řádek se přesune do sekce „Zrušené". Kdyby zrušení
