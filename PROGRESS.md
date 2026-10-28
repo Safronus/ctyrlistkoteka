@@ -26,6 +26,35 @@ Oprava je SAMOSTATNÝ typ balíčku — balíčky map a nových nálezů se nem�
 ### Zbývá
 - ✅ F3–F5 pushnuté po ověřeném testu (2026-10-28), výsledek poslán desktopu.
 
+## Bezpečnost: maska /admin + audit úniků + vlastní 404 (od 2026-10-28)
+
+Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
+
+### Zjištěno
+- ❌ Nginx maska `/admin` a `/api/admin` (`@admin_notfound`) vrací cizím IP
+  natvrdo 120 B HTML bez CSP, kdežto skutečná 404 appky má ~71 kB, titulek
+  webu a CSP hlavičku → útočník pozná, že `/admin` „je jiná“ (únik
+  informace, ne přístup). Vlastní 404 by rozdíl jen zvětšila.
+
+### Plán
+1. ⏳ **Jednotná 404 přes appku** — nginx maska předá požadavek appce
+   s interní hlavičkou (nastavuje ji jen nginx, zvenku se vždy přepíše),
+   appka vrátí tutéž 404 jako pro neexistující adresu. App: middleware +
+   testy. VPS: nginx (celý soubor pro Termius + ověření z cizí IP).
+2. ⏳ **Audit veřejného repa na úniky** (repo je public): git historie
+   (gitleaks/ruční), informace o adminu, nginx/allowlistu, endpointech,
+   cestách a konfiguracích, které by mohl útočník využít → zpráva +
+   návrh, co z docs/šablon stáhnout nebo zobecnit.
+3. ⏳ **Vlastní 404 „hledej čtyřlístek“** — 3 dema lokálně (louka, lupa,
+   jednoduchá), majitel vybere v náhledu; pak jedna 404 pro web i masku.
+   Požadavky: nevypisuje adresu ani nic z požadavku, hra jen v prohlížeči,
+   nic neposílá ani neukládá, CSP-kompatibilní, přístupná (klávesnice,
+   reduced motion), CZ/EN.
+
+### Stále čeká (nezapomenout)
+- Ubuntu 25.10 → 26.04: výstup fáze 0 od majitele → doladit plán + R-PG,
+  zapnout `--docker` v `runtime-security.yml`, opravit nálezy inventury.
+
 ## i18n `next/root-params` (2026-10-28)
 - ✅ Migrace hotová lokálně (1eb48ed) + oprava 404 u `/api/admin/revalidate`
   (64bd0aa); ověřeno proti baseline (build + matice 22 adres + prohlížeč).
