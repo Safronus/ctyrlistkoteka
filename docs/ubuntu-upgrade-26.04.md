@@ -74,7 +74,10 @@ sudo -u postgres psql -d ctyrlistkoteka -Atc "select extname, extversion from pg
 sudo -u postgres psql -Atc "show data_checksums"
 systemctl is-enabled pm2-app nginx postgresql docker redis-server fail2ban nftables unattended-upgrades 2>&1
 systemctl list-units --type=service --no-pager | grep -i -E 'actions\.runner|goatcounter'
-docker ps --format '{{.Names}}  {{.Image}}'
+sudo docker ps --format '{{.Names}}  {{.Image}}'
+sudo docker images --format '{{.Repository}}:{{.Tag}}  {{.CreatedSince}}'
+for d in /home/*/actions-runner* /opt/actions-runner*; do [ -x "$d/bin/Runner.Listener" ] && echo "$d $("$d/bin/Runner.Listener" --version)"; done
+apt-get -s dist-upgrade | grep '^Inst' | grep -v ' Ubuntu:' | head -20
 df -h / /var; free -h
 apt list --upgradable 2>/dev/null | wc -l
 ```
