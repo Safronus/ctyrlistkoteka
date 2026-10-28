@@ -1068,7 +1068,7 @@ se odloží na další cyklus — neodstřelí ti to sezení.
 > jedinou notifikací bylo MOTD při SSH loginu a v 07/2026 takhle visel
 > kernel reboot 12 dní. Kdybys mail chtěl zprovoznit:
 > `sudo apt install mailutils` + v `/etc/aliases` řádek
-> `root: safronus@gmail.com` a `sudo newaliases`.
+> `root: TVUJ_EMAIL@example.com` (svůj e-mail) a `sudo newaliases`.
 
 Předpokladem automatického rebootu je, že se aplikace sama vrátí. Ověř
 (mělo by být 4× `enabled`):

@@ -35,7 +35,7 @@ ignoreip = 127.0.0.1/8 ::1
 #         + WireGuard tunel (10.0.0.0/24)
 
 # Default destemail / sender — pokud máš mailutils nakonfigurované.
-# destemail = safronus@gmail.com
+# destemail = TVUJ_EMAIL@example.com   (doplň svůj — do repa ho nepiš)
 # sendername = ctyrlistkoteka-fail2ban
 # action = %(action_mwl)s    # mail-with-log default action (volitelné)
 
