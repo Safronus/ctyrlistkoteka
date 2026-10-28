@@ -5,8 +5,17 @@
 #   mkdir -p /persistent/ctyrlistkoteka
 #   cp unas-pull.sh /persistent/ctyrlistkoteka/
 #   chmod +x /persistent/ctyrlistkoteka/unas-pull.sh
-#   printf '30 4 * * * root /persistent/ctyrlistkoteka/unas-pull.sh >> /persistent/ctyrlistkoteka/pull.log 2>&1\n' \
+#   printf '10 6 * * * root /persistent/ctyrlistkoteka/unas-pull.sh >> /persistent/ctyrlistkoteka/pull.log 2>&1\n' \
 #     > /etc/cron.d/ctyrlistkoteka-backup
+#
+# 06:10 local is what runs in production. Any time works as long as it is
+# AFTER offsite-stage.sh on the VPS (03:10) and BEFORE offsite-freshness.sh
+# (06:40), which expects today's ping.
+#
+# Snapshots are invisible in the UniFi Drive app and that is correct: they
+# live outside every Drive share (see SHARE below). An empty
+# `ctyrlistkoteka-backups` share in Drive is a leftover, not a failure —
+# check `pull.log` and the snapshots directory over SSH instead.
 #
 # ⚠️ UniFi OS keeps / on an overlayfs, so /etc/cron.d is WIPED BY FIRMWARE
 # UPDATES. The script itself lives in /persistent (which survives), but the
@@ -81,7 +90,16 @@ log "pull start → $staging"
 # The remote path is '.' because the VPS key is pinned to a forced rrsync
 # command rooted at /var/ctyrlistkoteka — the client cannot ask for
 # anything outside it.
-if ! rsync -a --delete --numeric-ids --partial \
+#
+# --chown=0:0: the snapshot belongs to root on the NAS, not to whatever the
+# VPS uid happens to mean here. With plain --numeric-ids the VPS's uid 1000
+# (`app`) landed on a UniFi system account (`uisys-…`), which could then
+# rewrite the backups (found 2026-10-28). Ownership on restore is `app:app`
+# anyway — restore copies the files back and chowns them.
+# Note for --link-dest: a file is only hardlinked when its owner matches, so
+# the existing snapshots must be root-owned too (one-time `chown -R`, see
+# docs/deployment.md), or the next run re-downloads the whole tree.
+if ! rsync -a --delete --numeric-ids --chown=0:0 --partial \
       -e "ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
       "${link_dest[@]}" \
       "${VPS_USER}@${VPS_HOST}:." "${staging}/"; then

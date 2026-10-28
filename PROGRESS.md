@@ -85,6 +85,18 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 - ⏳ Upgrade Ubuntu 26.04 (vrátí i Docker repozitář; PostgreSQL varianta A
   = 18 z Ubuntu, dump/restore) + odebrat `ssl_stapling` z nginx.
 
+## Off-site zálohy na UNAS — „prázdná složka“ (2026-10-28)
+- ✅ Diagnóza: zálohy **fungují**. 30 snapshotů (2026-09-29 → 2026-10-28)
+  po ~48 GB, `pull.log` denně `OK`, `.last-pull` čerstvý. Prázdný je jen
+  share v UniFi Drive — snapshoty leží záměrně mimo Drive (gotcha #32).
+  Majitel: v Drive je vidět nemusí, stačí SSH.
+- ✅ Docs/skripty: cron je ve skutečnosti `10 6`, ne `30 4` — sladěno.
+- ✅ Týdenní kontrola hlídá i `.offsite/.last-pull` (zastavený pull → e-mail).
+- ⏳ Vlastník snapshotů: `--chown=0:0` v `unas-pull.sh` (dřív uid 1000 =
+  systémový účet UniFi `uisys-…`). Na UNASu čeká: nový skript +
+  jednorázový `chown -R root:root` stávajících snapshotů + ověření, že
+  další běh hardlinkuje (trvá ~1 min, ne celé stahování).
+
 ## i18n `next/root-params` (2026-10-28)
 - ✅ Migrace hotová lokálně (1eb48ed) + oprava 404 u `/api/admin/revalidate`
   (64bd0aa); ověřeno proti baseline (build + matice 22 adres + prohlížeč).

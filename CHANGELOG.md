@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### Off-site zálohy: prázdný share v Drive je v pořádku, hlídání e-mailem, vlastník root
+- Nahlášená „prázdná složka“ na UNASu nebyla chyba: zálohy běží denně
+  (30 snapshotů), jen leží záměrně mimo UniFi Drive. Doplněno do docs.
+- Týdenní *Runtime security* hlídá i `.offsite/.last-pull` — zastavený
+  off-site pull teď pošle e-mail, ne jen řádek do logu na VPS.
+- `unas-pull.sh`: `rsync --chown=0:0`. Dřív `--numeric-ids` dávalo
+  snapshotům uid 1000 z VPS, které na UNASu patří systémovému účtu UniFi.
+- Čas cronu v docs a nápovědách sladěn se skutečností (06:10).
+
 ### Bezpečnost runtime: Node 24.22.1 (Node2Shell) + hlídání, co Dependabot nevidí
 - **CVE-2026-111497 „Node2Shell"** — zápis mimo paměť v Brotli dekodéru
   Node.js (opraveno v 22.23.4 / 24.22.1 / 26.12.1). Oprava je jen v runtime,

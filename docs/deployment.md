@@ -303,7 +303,7 @@ nevidí. Na to je `scripts/check-runtime-security.ts`:
 | Kdy | Co | Výsledek |
 | --- | --- | --- |
 | každý deploy (`deploy.yml`, po reloadu) | Node buildu + Node běžících PM2 workerů vs. nejnovější bezpečnostní vydání řady (`nodejs.org/dist/index.json`) | jen `::warning::`, deploy nikdy neshodí |
-| týdně v pondělí 06:00 UTC (`runtime-security.yml`, self-hosted runner) | totéž + Ubuntu podporováno (`ubuntu-distro-info --supported`) + čekající `-security` balíčky z `apt` + **jakékoli** čekající upgrady z repozitářů mimo Ubuntu (PGDG, Docker CE…; `apt-get -s dist-upgrade`) + **rozšíření databáze** pozadu za balíčkem (`--db`: PostGIS, pg_trgm… — verze v DB vs. nainstalovaná; apt rozšíření v DB sám neaktualizuje) + **osiřelé balíčky** (nainstalované, ale žádný repozitář je nenabízí — `apt list --installed` → `[installed,local]`) + **Docker images** běžících kontejnerů vs. registry (`--docker`, od 2026-10-28 i v týdenním běhu) + **TLS certifikáty** našich domén (`--tls`: řetězec platný a víc než 21 dní do vypršení — certbot obnovuje při 30) + **čerstvost záloh** (`--backup <složka>/<předpona>`: nejnovější dump DB, snímek GoatCounteru a klíče RustDesku ne starší než 36 h) + `pnpm audit --prod --audit-level high` | **selže** → GitHub pošle e-mail o failnutém běhu |
+| týdně v pondělí 06:00 UTC (`runtime-security.yml`, self-hosted runner) | totéž + Ubuntu podporováno (`ubuntu-distro-info --supported`) + čekající `-security` balíčky z `apt` + **jakékoli** čekající upgrady z repozitářů mimo Ubuntu (PGDG, Docker CE…; `apt-get -s dist-upgrade`) + **rozšíření databáze** pozadu za balíčkem (`--db`: PostGIS, pg_trgm… — verze v DB vs. nainstalovaná; apt rozšíření v DB sám neaktualizuje) + **osiřelé balíčky** (nainstalované, ale žádný repozitář je nenabízí — `apt list --installed` → `[installed,local]`) + **Docker images** běžících kontejnerů vs. registry (`--docker`, od 2026-10-28 i v týdenním běhu) + **TLS certifikáty** našich domén (`--tls`: řetězec platný a víc než 21 dní do vypršení — certbot obnovuje při 30) + **čerstvost záloh** (`--backup <složka>/<předpona>`: nejnovější dump DB, snímek GoatCounteru a klíče RustDesku ne starší než 36 h; od 2026-10-28 i `.offsite/.last-pull` = poslední ping z UNASu, takže zastavený off-site pull pošle e-mail, ne jen řádek do logu) + `pnpm audit --prod --audit-level high` | **selže** → GitHub pošle e-mail o failnutém běhu |
 
 **Veřejný log = jen kategorie.** Repo je veřejné, a s ním i logy Actions.
 V Actions (`GITHUB_ACTIONS=true`) proto skript vypíše jen kategorii nálezu
@@ -504,7 +504,7 @@ k němu cestu ani přihlašovací údaje. Kdo ovládne server, na zálohy nedos�
 VPS                                    UNAS (doma)
 ─────────────────────────────────      ──────────────────────────────
 backup.sh          03:00  →  DB dump
-offsite-stage.sh   03:10  →  .offsite/ ←── unas-pull.sh  04:30
+offsite-stage.sh   03:10  →  .offsite/ ←── unas-pull.sh  06:10
                                              │  rsync + hardlink snapshoty
 offsite-freshness  06:40  ←── .last-pull ────┘  (ping druhým klíčem)
 ```
@@ -513,7 +513,7 @@ offsite-freshness  06:40  ←── .last-pull ────┘  (ping druhým kl
 | --- | --- | --- |
 | `deploy/backup.sh` | VPS 03:00 | ověřený `pg_dump` |
 | `deploy/offsite-stage.sh` | VPS 03:10 | posbírá DB dump (hardlink), zašifruje `.env`, uloží crontab + nginx conf, zapíše manifest |
-| `deploy/unas-pull.sh` | UNAS 04:30 | `rsync` celého `/var/ctyrlistkoteka` → datované snapshoty |
+| `deploy/unas-pull.sh` | UNAS 06:10 | `rsync` celého `/var/ctyrlistkoteka` → datované snapshoty (vlastník `root`) |
 | `deploy/offsite-freshness.sh` | VPS 06:40 | křikne, když se UNAS 3 dny neozval |
 
 **SSH klíče na VPS** (`/home/app/.ssh/authorized_keys`) — dva, oba
@@ -542,13 +542,28 @@ psát 47 GB přes `rsync` do backing storu aplikace je špatný nápad tak jako
 tak. Skript po každém běhu **ověří (až po prune), že snapshot zůstal na
 disku, a teprve pak pingne VPS** — „proběhlo" už není totéž co „přežilo".
 
+> ℹ️ **Prázdný share `ctyrlistkoteka-backups` v aplikaci UniFi Drive je v
+> pořádku.** Snapshoty leží záměrně mimo Drive (viz výše) a Drive je
+> neuvidí. Stav záloh se ověřuje přes SSH na UNASu:
+> `tail -n 5 /persistent/ctyrlistkoteka/pull.log` (řádky `OK snapshot …`)
+> a `ls /volume/<uuid>/ctyrlistkoteka-backups/snapshots/` (30 datovaných
+> složek + `latest`). Ověřeno 2026-10-28: 30 snapshotů po ~48 GB, žádný `FAIL`.
+
+**Vlastník souborů ve snapshotu je `root`** (`rsync --chown=0:0`, od
+2026-10-28). Dřív `--numeric-ids` přeneslo uid 1000 z VPS a na UNASu to uid
+patří systémovému účtu UniFi (`uisys-…`), který tak mohl zálohy přepisovat.
+Při zavedení je potřeba **jednou** přepsat vlastníka i u stávajících
+snapshotů (`chown -R root:root …/snapshots/20*`) — `--link-dest` hardlinkuje
+jen soubory se shodným vlastníkem, jinak by další běh stáhl celých ~48 GB
+znovu. Při obnově vrať vlastníka na `app:app` (`chown -R app:app`).
+
 > ⚠️ **Po každém firmware updatu UNASu zkontroluj cron.** UniFi drží `/` na
 > overlayfs a update ho resetuje — skript v `/persistent` přežije, ale
 > `/etc/cron.d/ctyrlistkoteka-backup` **ne**. Právě proto existuje
 > `offsite-freshness.sh`: jinak by se zálohy zastavily tiše a zjistilo by se
 > to až při obnově. Obnovení entry:
 > ```bash
-> printf '30 4 * * * root /persistent/ctyrlistkoteka/unas-pull.sh >> /persistent/ctyrlistkoteka/pull.log 2>&1\n' \
+> printf '10 6 * * * root /persistent/ctyrlistkoteka/unas-pull.sh >> /persistent/ctyrlistkoteka/pull.log 2>&1\n' \
 >   > /etc/cron.d/ctyrlistkoteka-backup
 > ```
 

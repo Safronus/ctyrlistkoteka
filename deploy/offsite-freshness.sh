@@ -34,7 +34,7 @@ FAIL $(date +%FT%T) off-site backup is STALE: last pull ${age_days} days ago.
   wiped /etc/cron.d/ctyrlistkoteka-backup (the script in /persistent
   survives, the cron entry does not). Re-create it:
 
-    printf '30 4 * * * root /persistent/ctyrlistkoteka/unas-pull.sh >> /persistent/ctyrlistkoteka/pull.log 2>&1\\n' \\
+    printf '10 6 * * * root /persistent/ctyrlistkoteka/unas-pull.sh >> /persistent/ctyrlistkoteka/pull.log 2>&1\\n' \\
       > /etc/cron.d/ctyrlistkoteka-backup
 
   Then run the script once by hand and confirm this stops firing.

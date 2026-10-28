@@ -39,6 +39,7 @@ jobs:
             --backup /var/backups/postgres/ctyrlistkoteka- \
             --backup /var/ctyrlistkoteka/backups/services/goatcounter- \
             --backup /var/ctyrlistkoteka/backups/services/rustdesk-keys- \
+            --backup /var/ctyrlistkoteka/.offsite/.last-pull \
             || status=1
           # The repo — and so this log — is public: say THAT something is
           # vulnerable, never WHAT. Details on the VPS: pnpm audit --prod
