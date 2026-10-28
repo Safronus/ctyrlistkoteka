@@ -101,10 +101,13 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
   Majitel: v Drive je vidět nemusí, stačí SSH.
 - ✅ Docs/skripty: cron je ve skutečnosti `10 6`, ne `30 4` — sladěno.
 - ✅ Týdenní kontrola hlídá i `.offsite/.last-pull` (zastavený pull → e-mail).
-- ⏳ Vlastník snapshotů: `--chown=0:0` v `unas-pull.sh` (dřív uid 1000 =
-  systémový účet UniFi `uisys-…`). Na UNASu čeká: nový skript +
-  jednorázový `chown -R root:root` stávajících snapshotů + ověření, že
-  další běh hardlinkuje (trvá ~1 min, ne celé stahování).
+- ✅ Vlastník snapshotů: `--chown=0:0` v `unas-pull.sh` (dřív uid 1000 =
+  systémový účet UniFi `uisys-…`). Na UNASu nainstalováno (sha256 sedí
+  s commitem 8e22538), `chown -R root:root` hotový, ruční běh OK:
+  30 snapshotů, soubor z `data/` má 30 hardlinků a vlastníka `root`.
+- ⏳ Ruční běh trval 3 min 12 s (obvykle ~1 min, hlavně `sys`); hypotéza:
+  mazal existující dnešní snapshot. Zkontrolovat ranní řádek v `pull.log`
+  (2026-10-29 06:10) — má být zase ~1 min.
 
 ## i18n `next/root-params` (2026-10-28)
 - ✅ Migrace hotová lokálně (1eb48ed) + oprava 404 u `/api/admin/revalidate`

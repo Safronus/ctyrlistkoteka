@@ -552,10 +552,11 @@ disku, a teprve pak pingne VPS** — „proběhlo" už není totéž co „pře�
 **Vlastník souborů ve snapshotu je `root`** (`rsync --chown=0:0`, od
 2026-10-28). Dřív `--numeric-ids` přeneslo uid 1000 z VPS a na UNASu to uid
 patří systémovému účtu UniFi (`uisys-…`), který tak mohl zálohy přepisovat.
-Při zavedení je potřeba **jednou** přepsat vlastníka i u stávajících
+Při zavedení bylo potřeba **jednou** přepsat vlastníka i u stávajících
 snapshotů (`chown -R root:root …/snapshots/20*`) — `--link-dest` hardlinkuje
 jen soubory se shodným vlastníkem, jinak by další běh stáhl celých ~48 GB
-znovu. Při obnově vrať vlastníka na `app:app` (`chown -R app:app`).
+znovu. Provedeno 2026-10-28; ověřeno ručním během: soubor z `data/` má
+30 hardlinků (= sdílený všemi 30 snapshoty) a vlastníka `root`. Při obnově vrať vlastníka na `app:app` (`chown -R app:app`).
 
 > ⚠️ **Po každém firmware updatu UNASu zkontroluj cron.** UniFi drží `/` na
 > overlayfs a update ho resetuje — skript v `/persistent` přežije, ale
