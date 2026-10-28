@@ -43,3 +43,16 @@ sat there unnoticed since June.
 """
 paths = ['''src/app/admin/qr/qr-actions\.ts''']
 regexes = ['''ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789''']
+
+[[allowlists]]
+description = """
+The same QR token alphabet, in its shared home.
+
+src/lib/admin/qrToken.ts (commit fee8e56, CaSQB tab) took over
+`TOKEN_ALPHABET` — the characters a token is built FROM, one of each, hence
+the high entropy. Not a secret. Missing until a local full-history scan on
+2026-10-28; without it a manual full scan in CI would fail on noise and a
+real leak could drown in it.
+"""
+paths = ['''src/lib/admin/qrToken\.ts''']
+regexes = ['''ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789''']
