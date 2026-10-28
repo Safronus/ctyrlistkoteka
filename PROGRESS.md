@@ -24,6 +24,11 @@ tady jen to, co je rozpracované.
   Do té doby týdenní *Runtime security* svítí červeně — schválně.
 - Po ověření upgradu: smazat Node 24.18.0 na VPS postupem „Mazání staré
   verze Node".
+- Rozšířit kontrolu o mezery: Docker images na hostu (GoatCounter,
+  RustDesk), balíčky z repozitářů mimo Ubuntu `-security` (PGDG), verze
+  self-hosted runneru (CLAUDE.md §11 „Bezpečnost a aktualizace runtime").
+- Dependabot #197 selhal na `postcss@^8.5.32` mladším než jeho karence
+  (gotchas #35) — ověřit, že další běh projde.
 
 ### Klíčová rozhodnutí
 - Deploy na nález jen varuje (nikdy neshodí produkci), týdenní běh selže,

@@ -280,6 +280,27 @@ NODE_ENV=production
 - [docs/gotchas.md](docs/gotchas.md) — **lessons learned** — NFC normalizace, `"use server"` exporty, admin cookie path
 - [docs/collaboration.md](docs/collaboration.md) — pracovní pravidla, commit policy, design-call etiketa
 
+### Bezpečnost a aktualizace runtime (od 2026-10-28)
+
+Dependabot hlídá jen npm balíčky a GitHub Actions. **Node.js, Ubuntu a
+systémové služby** (nginx, PostgreSQL/PostGIS, Redis, PM2, Docker kontejnery
+na hostu) hlídáme sami — cíl je mít vše aktuální a nedat šanci známým CVE.
+
+- **Kontrola:** `scripts/check-runtime-security.ts` — v každém deployi jen
+  varuje, týdenní workflow *Runtime security* při nálezu selže (e-mail).
+  Týdenní triáž (scheduled task) čte jeho výsledek.
+- **Upgrade Node:** výhradně postupem `docs/deployment.md` → „Upgrade
+  Node.js"; ověření jen přes `readlink /proc/<pid>/exe` (gotchas #34).
+- **Při každé změně runtime nebo služby** (verze Node/pnpm/PM2, upgrade OS,
+  nová služba na hostu, nový Docker kontejner) ve stejném úkolu aktualizuj
+  `docs/deployment.md` (callout „Skutečný stav produkce"), `CHANGELOG.md`,
+  `PROGRESS.md` a případně rozšiř kontrolu — nová služba bez hlídání
+  bezpečnostních aktualizací je dluh.
+- **Známé mezery (2026-10-28):** Ubuntu 25.10 je EOL (upgrade na 26.04 LTS
+  čeká); kontrola zatím nepokrývá Docker images (GoatCounter, RustDesk),
+  balíčky z repozitářů mimo Ubuntu `-security` (např. PGDG) ani verzi
+  self-hosted runneru.
+
 ---
 
 ## 12. Informace o uživateli a prostředí

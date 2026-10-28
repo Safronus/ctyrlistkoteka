@@ -1055,3 +1055,46 @@ koukni, jestli jsou čerstvé na opakované načtení (víc workerů → nekonzi
 
 **Pozn.:** hlasité varování v `sync.ts` tohle **nechytne** — ping se povede
 (HTTP 200), jen nedoletí na druhý worker. Chytá chybějící token / spadlý server.
+
+---
+
+## 34. Upgrade Node: v PM2 cluster režimu rozhoduje binárka démona, ne `dump.pm2`
+
+**Co:** Při upgradu 24.18.0 → 24.22.1 (Node2Shell, 2026-10-28) ukazoval
+`dump.pm2` správně `exec_interpreter: …/v24.22.1/bin/node`, `pm2 delete` +
+`pm2 start` proběhly, web odpovídal 200 — a worker přitom pořád běžel na
+**v24.18.0** (`readlink /proc/<pid>/exe`).
+
+**Proč:** Appka jede v `exec_mode: 'cluster'`. Workery v něm forkuje sám
+démon PM2 přes Node `cluster`, tedy **vlastní binárkou**; `exec_interpreter`
+se ignoruje. Démon startuje systemd unit `pm2-app` a ten měl zapečenou starou
+cestu, protože `pm2 startup` **jen vypíše** `sudo env PATH=… pm2 startup …`
+— ten řádek je potřeba opravdu spustit.
+
+**Jak aplikovat:** Postup v `docs/deployment.md` → „Upgrade Node.js". Jediné
+spolehlivé ověření je `readlink /proc/<pid>/exe` u démona i workerů, žádný
+config ani `pm2 ls`. Hlídá to i `scripts/check-runtime-security.ts --pm2`
+(deploy + týdenní *Runtime security*), který čte právě `/proc`.
+
+---
+
+## 35. Dependabot padá na bump přímé závislosti mladší než ~2 dny
+
+**Co:** Běh „Dependabot Updates" #197 (2026-10-28) skončil `failure`:
+`ERR_PNPM_NO_MATURE_MATCHING_VERSION Version 8.5.32 (released 39 hours ago)
+of postcss does not meet the minimumReleaseAge constraint` — při pokusu
+o major PR pro `eslint` a `typescript` (`update_not_possible`).
+
+**Proč:** Ráno jsme ručně zvedli `postcss` na `^8.5.32` (vydáno 2026-10-26
+20:36 UTC). Lokálně to prošlo (naše karence je 24 h), Dependabot ale verzi
+39 h starou odmítl — jeho vlastní okno je **delší než 24 h** (přesnou
+hodnotu log neuvádí; ⚠️ neověřeno). Na rozdíl od #30 tu nejde o tranzitivní
+balíček v zámku, ale o **spodní hranici přímé závislosti v `package.json`**:
+dokud verze nedozraje, Dependabot nedokáže vyřešit strom pro žádnou změnu.
+
+**Jak aplikovat:** Škoda je jen dočasná (Dependabot ten den neotevře PR),
+samo se to srovná, jakmile verze zestárne. Ruční bumpy přímých závislostí
+proto radši na verze **starší než ~3 dny**, pokud nejde o bezpečnostní
+opravu. Když „Dependabot Updates" padá, hledej v logu `MATURE` /
+`MINIMUM_RELEASE_AGE` dřív, než začneš hledat chybu v repu. Znovu spustit:
+Insights → Dependency graph → Dependabot → *Check for updates*.
