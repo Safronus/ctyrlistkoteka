@@ -85,6 +85,11 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 - ⏳ Upgrade Ubuntu 26.04 (vrátí i Docker repozitář; PostgreSQL varianta A
   = 18 z Ubuntu, dump/restore) + odebrat `ssl_stapling` z nginx.
 
+## /admin/qr — průhledné PNG pod středovým obrázkem (2026-10-28)
+- ✅ Opraveno a nasazeno (1898e2a): strip maže všechny výplně `data-qr-bg`
+  (pozadí + podklad pod obrázkem/logem). Platí ve všech záložkách i v PDF
+  Darování. ⏳ Majitel ověří stažením QR nálezu v adminu.
+
 ## Off-site zálohy na UNAS — „prázdná složka“ (2026-10-28)
 - ✅ Diagnóza: zálohy **fungují**. 30 snapshotů (2026-09-29 → 2026-10-28)
   po ~48 GB, `pull.log` denně `OK`, `.last-pull` čerstvý. Prázdný je jen
