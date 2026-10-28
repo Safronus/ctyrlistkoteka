@@ -4,8 +4,8 @@
 # and failure detection. Same contract as backup.sh: write to a temp file,
 # verify, only then keep it and rotate.
 #
-# Wire into cron as user `app`, after backup.sh:
-#   10 3 * * * /var/www/ctyrlistkoteka/deploy/backup-services.sh >> /var/log/ctyr-backup.log 2>&1
+# Wire into cron as user `app`, after backup.sh and before offsite-stage.sh (3:10):
+#   5 3 * * * /var/www/ctyrlistkoteka/deploy/backup-services.sh >> /var/log/ctyr-backup.log 2>&1
 #
 # Prereqs (once):
 #   sudo mkdir -p /var/ctyrlistkoteka/backups/services
