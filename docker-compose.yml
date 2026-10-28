@@ -7,8 +7,13 @@ services:
       POSTGRES_USER: ctyrlist
       POSTGRES_PASSWORD: ctyrlist_dev
       POSTGRES_DB: ctyrlistkoteka
+    # Loopback only. A published port bypasses the host firewall (Docker
+    # writes its own rules), so "5432:5432" would put a database with the
+    # dev password on every interface of whatever machine runs this —
+    # including the VPS, where these containers were once created by mistake
+    # (found 2026-10-28, never started).
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,9 +26,9 @@ services:
     image: redis:7-alpine
     container_name: ctyrlistkoteka-redis
     restart: unless-stopped
+    # Loopback only, same reason — and this Redis has no password.
     ports:
-      - "6379:6379"
-    # pro lokální vývoj stačí bez auth; produkce má Redis bez network exposure
+      - "127.0.0.1:6379:6379"
     command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
 
 volumes:

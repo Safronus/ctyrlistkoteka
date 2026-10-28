@@ -28,6 +28,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### Bezpečnost: vývojový docker-compose jen na loopback
+- `docker-compose.yml` (lokální Postgres + Redis) publikoval porty
+  `5432:5432` a `6379:6379` na všechna rozhraní — databáze s vývojovým
+  heslem a Redis bez hesla. Publikovaný port Docker pouští mimo firewall.
+  Inventura VPS (2026-10-28) našla tyhle dva kontejnery na produkci
+  vytvořené (nikdy nespuštěné); teď `127.0.0.1:…` — lokální vývoj beze změny.
+
 ### Kontrola runtime: osiřelé balíčky + Docker images každý týden
 - Inventura VPS (2026-10-28) našla Docker nainstalovaný z repozitáře, který
   už v systému není (zmizel při upgradu Ubuntu, `do-release-upgrade` cizí
