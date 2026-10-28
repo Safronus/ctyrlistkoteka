@@ -28,6 +28,19 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### Zálohy a aktualizace Docker služeb (GoatCounter, RustDesk)
+- `deploy/backup-services.sh`: denní záloha do stromu, který jde off-site —
+  konzistentní snímek SQLite GoatCounteru (Python online backup, za běhu,
+  jen pro čtení; ověřeno se živým zapisovatelem) + klíče RustDesku (0600).
+  Do 2026-10-28 neměla off-site záloha ani jedno.
+- `deploy/update-docker-services.sh`: pull + přestavění + ověření (běží
+  všechny služby, klíč RustDesku beze změny, **žádná data v anonymním
+  volume**) + úklid nahrazených image. Ověřeno na zkušebních projektech
+  (dobrý projde, anonymní volume i změněný klíč zastaví).
+- Inventura odhalila, že GoatCounter ukládá data do anonymního volume
+  (cíl připojení v compose neodpovídá cestě v image) — oprava přesunem dat
+  probíhá na VPS.
+
 ### Kontrola runtime: rozšíření databáze
 - `--db` v týdenní kontrole: rozšíření (PostGIS, pg_trgm…), jejichž verze
   v databázi zaostává za nainstalovaným balíčkem. apt balíček aktualizuje,
