@@ -155,3 +155,85 @@ export function isCodenameSupported(codename: string, supportedOutput: string): 
     .map((l) => l.trim())
     .includes(codename);
 }
+
+// ─── Docker images ─────────────────────────────────────────────────────────
+
+/** Where a `docker run` image reference is pulled from. */
+export interface ImageRef {
+  /** Registry API host, e.g. `registry-1.docker.io`, `ghcr.io`. */
+  registry: string;
+  /** Repository path on that registry, e.g. `library/redis`. */
+  repository: string;
+  tag: string;
+}
+
+export type ParsedImageRef =
+  | { kind: "tag"; ref: ImageRef }
+  /** `name@sha256:…` — fixed on purpose; there is no "newer" to compare. */
+  | { kind: "pinned" }
+  | { kind: "invalid" };
+
+const DOCKER_HUB_API = "registry-1.docker.io";
+
+/**
+ * Splits an image reference the way the Docker CLI does: the first path
+ * component is a registry only when it looks like a host (has a `.` or `:`,
+ * or is `localhost`); otherwise the image is on Docker Hub, where a bare
+ * name lives under `library/`. A missing tag means `latest`.
+ */
+export function parseImageRef(raw: string): ParsedImageRef {
+  const ref = raw.trim();
+  if (ref.includes("@")) return { kind: "pinned" };
+  if (!ref || /\s/.test(ref)) return { kind: "invalid" };
+
+  const slash = ref.indexOf("/");
+  const first = slash < 0 ? "" : ref.slice(0, slash);
+  const isHost = first.includes(".") || first.includes(":") || first === "localhost";
+  const registry = isHost ? first : DOCKER_HUB_API;
+  let path = isHost ? ref.slice(slash + 1) : ref;
+
+  // The tag is after the last ":" of the LAST path component (a registry
+  // port has its own ":" but sits before the first "/").
+  const lastSlash = path.lastIndexOf("/");
+  const colon = path.lastIndexOf(":");
+  let tag = "latest";
+  if (colon > lastSlash) {
+    tag = path.slice(colon + 1);
+    path = path.slice(0, colon);
+  }
+  if (!path || !tag) return { kind: "invalid" };
+  if (registry === DOCKER_HUB_API && !path.includes("/")) path = `library/${path}`;
+  return { kind: "tag", ref: { registry, repository: path.toLowerCase(), tag } };
+}
+
+/** `WWW-Authenticate: Bearer realm="…",service="…",scope="…"` → its params. */
+export function parseBearerChallenge(
+  header: string,
+): { realm: string; service?: string; scope?: string } | null {
+  const trimmed = header.trim();
+  if (!/^bearer\s/i.test(trimmed)) return null;
+  const params = new Map<string, string>();
+  for (const part of trimmed.slice("bearer".length).split(",")) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    const key = part.slice(0, eq).trim().toLowerCase();
+    const value = part.slice(eq + 1).trim().replace(/^"|"$/g, "");
+    params.set(key, value);
+  }
+  const realm = params.get("realm");
+  // The token endpoint comes from the registry's answer — only ever follow
+  // it over https.
+  if (!realm?.startsWith("https://")) return null;
+  return { realm, service: params.get("service"), scope: params.get("scope") };
+}
+
+/**
+ * Does the image a container runs match what its tag points to in the
+ * registry now? `repoDigests` is `docker image inspect` → `.RepoDigests`
+ * (`name@sha256:…`) of the image the CONTAINER uses — so a fresh `docker
+ * pull` without recreating the container still reads as outdated, which it
+ * is.
+ */
+export function isImageCurrent(repoDigests: readonly string[], remoteDigest: string): boolean {
+  return repoDigests.some((d) => d.slice(d.indexOf("@") + 1) === remoteDigest);
+}

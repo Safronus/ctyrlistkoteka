@@ -49,8 +49,9 @@ Oprava je SAMOSTATNÝ typ balíčku — balíčky map a nových nálezů se nem�
   verze Node".
 - ✅ Upgrady z repozitářů mimo Ubuntu (PGDG, Docker CE) — hlídá týdenní
   kontrola (lokálně, nepushnuto).
-- Zbývající mezery: Docker images na hostu (GoatCounter, RustDesk), verze
-  self-hosted runneru — obojí by chtělo nový odchozí dotaz → rozhodnutí.
+- ✅ Docker images: `--docker` hotový a ověřený lokálně; ⏳ zapnout v
+  `runtime-security.yml` po fázi 0 (`app: docker OK`?).
+- Verze runneru: vědomě nehlídat (rozhodnutí 2026-10-28).
 - Dependabot #197 selhal na `postcss@^8.5.32` mladším než jeho karence
   (gotchas #35) — ověřit, že další běh projde.
 

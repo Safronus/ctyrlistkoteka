@@ -1,7 +1,7 @@
 /**
  * Runtime security check — the part Dependabot can't see.
  *
- *   pnpm tsx scripts/check-runtime-security.ts [--strict] [--os] [--pm2 <app>]
+ *   pnpm tsx scripts/check-runtime-security.ts [--strict] [--os] [--docker] [--pm2 <app>]
  *
  * Checks:
  *   • Node.js — the binary running this script (= the nvm default the deploy
@@ -14,6 +14,9 @@
  *     --supported`), no pending upgrades from a `-security` pocket, and none
  *     from repositories outside Ubuntu (PGDG, Docker…), which have no such
  *     pocket to tell a security fix apart.
+ *   • `--docker` — every RUNNING container's image vs. what its tag points
+ *     to in the registry now (manifest digest via an anonymous HEAD). Only
+ *     the image name and tag go out, to that image's own registry.
  *     Both matter: an EOL release gets no new security packages, so "no
  *     pending security upgrades" alone would read as green forever.
  *
@@ -22,8 +25,9 @@
  * `--strict` 1 on any finding or check that could not run (the weekly
  * workflow, so a failed run e-mails the owner).
  *
- * The only outbound request is a GET of nodejs.org/dist/index.json from the
- * VPS runner — no project data leaves the machine (CLAUDE.md §9).
+ * Outbound: a GET of nodejs.org/dist/index.json, and with `--docker` an
+ * anonymous manifest HEAD (+ token) per image at its registry — no project
+ * data leaves the machine (CLAUDE.md §9).
  */
 
 import { execFile } from "node:child_process";
@@ -32,7 +36,11 @@ import { promisify } from "node:util";
 import {
   assessNode,
   isCodenameSupported,
+  isImageCurrent,
   osCodename,
+  parseBearerChallenge,
+  parseImageRef,
+  type ImageRef,
   securityUpgrades,
   thirdPartyUpgrades,
   type NodeRelease,
@@ -50,6 +58,7 @@ const APT_SIM_MAX_BUFFER = 16 * 1024 * 1024;
 const args = process.argv.slice(2);
 const strict = args.includes("--strict");
 const checkOs = args.includes("--os");
+const checkDocker = args.includes("--docker");
 const pm2Index = args.indexOf("--pm2");
 const pm2App = pm2Index >= 0 ? args[pm2Index + 1] : undefined;
 const inActions = process.env.GITHUB_ACTIONS === "true";
@@ -187,6 +196,106 @@ async function checkUbuntu(): Promise<void> {
   }
 }
 
+/** Manifest media types a tag may resolve to — an index first, so the
+ *  digest is the multi-arch one `docker pull` records in RepoDigests. */
+const MANIFEST_ACCEPT = [
+  "application/vnd.oci.image.index.v1+json",
+  "application/vnd.docker.distribution.manifest.list.v2+json",
+  "application/vnd.docker.distribution.manifest.v2+json",
+  "application/vnd.oci.image.manifest.v1+json",
+].join(",");
+
+/** Digest the tag points to now. Anonymous: a HEAD, and on a Bearer
+ *  challenge one token GET from the realm the registry names (https only). */
+async function remoteDigest(ref: ImageRef): Promise<string> {
+  const url = `https://${ref.registry}/v2/${ref.repository}/manifests/${encodeURIComponent(ref.tag)}`;
+  const head = (auth?: string) =>
+    fetch(url, {
+      method: "HEAD",
+      headers: { Accept: MANIFEST_ACCEPT, ...(auth ? { Authorization: auth } : {}) },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+
+  let res = await head();
+  if (res.status === 401) {
+    const challenge = parseBearerChallenge(res.headers.get("www-authenticate") ?? "");
+    if (!challenge) throw new Error("registry asks for an unsupported login");
+    const tokenUrl = new URL(challenge.realm);
+    if (challenge.service) tokenUrl.searchParams.set("service", challenge.service);
+    tokenUrl.searchParams.set("scope", challenge.scope ?? `repository:${ref.repository}:pull`);
+    const tokenRes = await fetch(tokenUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    if (!tokenRes.ok) throw new Error(`token endpoint: HTTP ${tokenRes.status}`);
+    const body = (await tokenRes.json()) as { token?: unknown; access_token?: unknown };
+    const token = typeof body.token === "string" ? body.token : body.access_token;
+    if (typeof token !== "string") throw new Error("token endpoint returned no token");
+    res = await head(`Bearer ${token}`);
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const digest = res.headers.get("docker-content-digest");
+  if (!digest?.startsWith("sha256:")) throw new Error("no Docker-Content-Digest header");
+  return digest;
+}
+
+async function checkDockerImages(): Promise<void> {
+  let containers: { name: string; image: string; imageId: string }[];
+  try {
+    const { stdout: ids } = await run("docker", ["ps", "-q"], { timeout: EXEC_TIMEOUT_MS });
+    const idList = ids.split("\n").filter(Boolean);
+    if (idList.length === 0) {
+      ok("No running Docker containers");
+      return;
+    }
+    const { stdout } = await run(
+      "docker",
+      ["inspect", "--format", "{{.Name}}\t{{.Config.Image}}\t{{.Image}}", ...idList],
+      { timeout: EXEC_TIMEOUT_MS },
+    );
+    containers = stdout
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const [name = "", image = "", imageId = ""] = line.split("\t");
+        return { name: name.replace(/^\//, ""), image, imageId };
+      });
+  } catch (err) {
+    finding(`Docker image check could not run: ${(err as Error).message}`);
+    return;
+  }
+
+  for (const c of containers) {
+    const parsed = parseImageRef(c.image);
+    if (parsed.kind === "pinned") {
+      ok(`Docker ${c.name}: ${c.image} is pinned by digest — update it by hand`);
+      continue;
+    }
+    if (parsed.kind === "invalid") {
+      finding(`Docker ${c.name}: image reference "${c.image}" could not be read`);
+      continue;
+    }
+    try {
+      const { stdout } = await run(
+        "docker",
+        ["image", "inspect", "--format", "{{json .RepoDigests}}", c.imageId],
+        { timeout: EXEC_TIMEOUT_MS },
+      );
+      const repoDigests = JSON.parse(stdout) as unknown;
+      const local = Array.isArray(repoDigests)
+        ? repoDigests.filter((d): d is string => typeof d === "string")
+        : [];
+      const remote = await remoteDigest(parsed.ref);
+      if (isImageCurrent(local, remote)) {
+        ok(`Docker ${c.name}: ${c.image} is current`);
+      } else {
+        finding(
+          `Docker ${c.name}: ${c.image} has a newer image in the registry (${remote.slice(0, 19)}…) — docker pull + recreate the container`,
+        );
+      }
+    } catch (err) {
+      finding(`Docker ${c.name}: ${c.image} could not be checked: ${(err as Error).message}`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   if (pm2Index >= 0 && !pm2App) {
     console.error("--pm2 needs an app name");
@@ -194,6 +303,7 @@ async function main(): Promise<void> {
   }
   await checkNode();
   if (checkOs) await checkUbuntu();
+  if (checkDocker) await checkDockerImages();
   console.log(findings === 0 ? "Runtime security: all clear" : `Runtime security: ${findings} finding(s)`);
   process.exit(strict && findings > 0 ? 1 : 0);
 }

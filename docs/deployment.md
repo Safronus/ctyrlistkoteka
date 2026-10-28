@@ -302,6 +302,17 @@ ze simulace `apt-get -s dist-upgrade` (bez roota, nic neinstaluje), ne
 z `apt list`: Docker CE pojmenovává suite stejně jako vydání (`questing`)
 a v seznamu by vypadal jako archiv Ubuntu.
 
+**Docker images** (`--docker`, zatím ručně — do týdenního workflow se zapne
+po ověření, že uživatel runneru smí na Docker socket): u každého
+**běžícího** kontejneru porovná digest jeho image (`RepoDigests` image, kterou
+kontejner opravdu používá) s digestem, na který teď ukazuje tag v registry
+(anonymní `HEAD` manifestu + token z `Bearer` výzvy, jen https). Ven jde jen
+název image a tag, do registry té image. Zastaralé hlásí i po `docker pull`
+bez přestavění kontejneru — běží pořád ta stará. Image připnutá digestem
+(`name@sha256:…`) se jen vypíše. Ověřeno 2026-10-28 na lokálním dev
+`redis:7-alpine`: zastaralý → po `pull` pořád zastaralý → po přestavění
+aktuální.
+
 ### Nejčastější příkazy, jak je opravdu napsat
 
 | Chci | Příkaz |

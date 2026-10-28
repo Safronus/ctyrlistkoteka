@@ -78,6 +78,7 @@ sudo docker ps --format '{{.Names}}  {{.Image}}'
 sudo docker images --format '{{.Repository}}:{{.Tag}}  {{.CreatedSince}}'
 for d in /home/*/actions-runner* /opt/actions-runner*; do [ -x "$d/bin/Runner.Listener" ] && echo "$d $("$d/bin/Runner.Listener" --version)"; done
 apt-get -s dist-upgrade | grep '^Inst' | grep -v ' Ubuntu:' | head -20
+id app; sudo -u app docker ps -q >/dev/null 2>&1 && echo "app: docker OK" || echo "app: docker NE"
 df -h / /var; free -h
 apt list --upgradable 2>/dev/null | wc -l
 ```

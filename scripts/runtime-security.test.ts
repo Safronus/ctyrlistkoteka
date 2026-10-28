@@ -3,7 +3,10 @@ import {
   assessNode,
   compareVersions,
   isCodenameSupported,
+  isImageCurrent,
   osCodename,
+  parseBearerChallenge,
+  parseImageRef,
   parseVersion,
   securityUpgrades,
   thirdPartyUpgrades,
@@ -141,5 +144,72 @@ describe("thirdPartyUpgrades", () => {
     ).toEqual(["containerd.io"]);
     expect(thirdPartyUpgrades("NOTE: This is only a simulation!\n")).toEqual([]);
     expect(thirdPartyUpgrades("Inst odd [1.0] (1.1 [amd64])")).toEqual([]);
+  });
+});
+
+describe("parseImageRef", () => {
+  it("puts bare and user names on Docker Hub, bare ones under library/", () => {
+    expect(parseImageRef("redis:7-alpine")).toEqual({
+      kind: "tag",
+      ref: { registry: "registry-1.docker.io", repository: "library/redis", tag: "7-alpine" },
+    });
+    expect(parseImageRef("postgis/postgis:16-3.4")).toEqual({
+      kind: "tag",
+      ref: { registry: "registry-1.docker.io", repository: "postgis/postgis", tag: "16-3.4" },
+    });
+  });
+
+  it("defaults the tag to latest and recognises a registry host, incl. one with a port", () => {
+    expect(parseImageRef("rustdesk/rustdesk-server")).toMatchObject({ ref: { tag: "latest" } });
+    expect(parseImageRef("ghcr.io/arp242/goatcounter:2.6")).toEqual({
+      kind: "tag",
+      ref: { registry: "ghcr.io", repository: "arp242/goatcounter", tag: "2.6" },
+    });
+    expect(parseImageRef("localhost:5000/team/app")).toEqual({
+      kind: "tag",
+      ref: { registry: "localhost:5000", repository: "team/app", tag: "latest" },
+    });
+  });
+
+  it("leaves digest-pinned references alone and rejects junk", () => {
+    expect(parseImageRef("redis@sha256:7aec734b")).toEqual({ kind: "pinned" });
+    expect(parseImageRef("")).toEqual({ kind: "invalid" });
+    expect(parseImageRef("redis:")).toEqual({ kind: "invalid" });
+  });
+});
+
+describe("parseBearerChallenge", () => {
+  it("reads Docker Hub's challenge (captured 2026-10-28)", () => {
+    expect(
+      parseBearerChallenge(
+        'Bearer realm="https://auth.docker.io/token",service="registry.docker.io",scope="repository:library/redis:pull"',
+      ),
+    ).toEqual({
+      realm: "https://auth.docker.io/token",
+      service: "registry.docker.io",
+      scope: "repository:library/redis:pull",
+    });
+  });
+
+  it("refuses a non-bearer challenge or a token endpoint that isn't https", () => {
+    expect(parseBearerChallenge('Basic realm="x"')).toBeNull();
+    expect(parseBearerChallenge('Bearer realm="http://evil.example/token"')).toBeNull();
+  });
+});
+
+describe("isImageCurrent", () => {
+  const local = ["redis@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6"];
+
+  it("matches on the digest, whatever the name prefix", () => {
+    expect(
+      isImageCurrent(local, "sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6"),
+    ).toBe(true);
+  });
+
+  it("is outdated when the tag now points elsewhere, or nothing was pulled by tag", () => {
+    expect(
+      isImageCurrent(local, "sha256:6ba19c50b56777f5c11c58eff8ddb69d0d5f27ba131cffb63f180ccfd43c66af"),
+    ).toBe(false);
+    expect(isImageCurrent([], "sha256:6ba19c50")).toBe(false);
   });
 });

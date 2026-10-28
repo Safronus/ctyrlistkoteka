@@ -36,7 +36,11 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   z `apt list` — Docker CE má suite pojmenovanou jako vydání a vypadal
   by jako Ubuntu. Formát ověřen skutečným výstupem na Ubuntu 26.04
   s repy PGDG a Docker CE (kontejner, 2026-10-28); testy z něj vychází.
-- Zbývá: Docker images na hostu a verze self-hosted runneru.
+- **Docker images** (`--docker`): digest image běžícího kontejneru vs.
+  digest tagu v registry (anonymní `HEAD`, ven jen název image + tag).
+  Hlásí i stažený, ale nepřestavěný kontejner. Do týdenního workflow se
+  zapne po inventuře (přístup runneru k Docker socketu).
+- Verze self-hosted runneru se vědomě nehlídá (aktualizuje se sám).
 
 ### /admin/import: opravný balíček — sync sám (F3) + pojistky proti duplicitním fotkám (F4)
 - **F3:** po potvrzení opravného balíčku se hned spustí plný sync (audit
