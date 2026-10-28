@@ -237,3 +237,38 @@ export function parseBearerChallenge(
 export function isImageCurrent(repoDigests: readonly string[], remoteDigest: string): boolean {
   return repoDigests.some((d) => d.slice(d.indexOf("@") + 1) === remoteDigest);
 }
+
+// ─── Output ────────────────────────────────────────────────────────────────
+
+/** What a result is about — the only thing a public log gets to see. */
+export type CheckCategory =
+  | "node"
+  | "pm2-node"
+  | "os-release"
+  | "apt-security"
+  | "apt-foreign"
+  | "docker";
+
+/**
+ * One output line for a check result.
+ *
+ * The repo is public, and so are its GitHub Actions logs: a line such as
+ * "openssl, libssl3t64 pending" or "Ubuntu … no longer supported" there is
+ * a list of what the server has NOT patched, readable by anyone. So inside
+ * Actions a line names only its category and points at the VPS for the
+ * details; everywhere else (a shell on the VPS, a laptop) it says it all.
+ */
+export function formatResult(
+  kind: "ok" | "finding",
+  category: CheckCategory,
+  message: string,
+  opts: { inActions: boolean; strict: boolean },
+): string {
+  if (kind === "ok") {
+    return opts.inActions ? `[ok] ${category}` : `[ok] ${message}`;
+  }
+  const level = opts.strict ? "error" : "warning";
+  return opts.inActions
+    ? `::${level}::Runtime security finding [${category}] — details only on the VPS: pnpm exec tsx scripts/check-runtime-security.ts --os --docker`
+    : `[${level}] ${message}`;
+}

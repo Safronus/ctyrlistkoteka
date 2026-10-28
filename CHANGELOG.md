@@ -28,6 +28,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### Bezpečnost: veřejné logy Actions jen s kategoriemi nálezů
+- Repo je veřejné, a tak i logy GitHub Actions. *Runtime security* do nich
+  psala stav OS a jména čekajících bezpečnostních balíčků — seznam toho,
+  co na serveru není opravené. V Actions teď jen kategorie nálezu
+  (`os-release`, `apt-security`, …) + odkaz na VPS; `pnpm audit` jen *že*
+  ne *co*. Lokálně/na VPS plný výpis beze změny. E-mail o selhání chodí
+  dál (běh pořád selže).
+- `.gitleaks.toml`: výjimka pro abecedu QR tokenů v `qrToken.ts` — plný
+  sken historie (gitleaks v8.28.0) je teď čistý.
+- Ukázkové konfigurace: zástupná hodnota místo osobního e-mailu.
+
 ### Bezpečnost: maska `/admin` je od skutečné 404 nerozeznatelná
 - **Zjištěno:** nginx maska (`@admin_notfound`) vracela cizím IP 120 B HTML
   bez CSP, kdežto skutečná 404 je celá stránka s CSP (~70 kB) → útočník

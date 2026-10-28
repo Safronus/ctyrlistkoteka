@@ -40,6 +40,8 @@ import {
   osCodename,
   parseBearerChallenge,
   parseImageRef,
+  formatResult,
+  type CheckCategory,
   type ImageRef,
   securityUpgrades,
   thirdPartyUpgrades,
@@ -65,14 +67,13 @@ const inActions = process.env.GITHUB_ACTIONS === "true";
 
 let findings = 0;
 
-function finding(message: string): void {
+function finding(category: CheckCategory, message: string): void {
   findings++;
-  const level = strict ? "error" : "warning";
-  console.log(inActions ? `::${level}::${message}` : `[${level}] ${message}`);
+  console.log(formatResult("finding", category, message, { inActions, strict }));
 }
 
-function ok(message: string): void {
-  console.log(`[ok] ${message}`);
+function ok(category: CheckCategory, message: string): void {
+  console.log(formatResult("ok", category, message, { inActions, strict }));
 }
 
 async function fetchNodeReleases(): Promise<NodeRelease[]> {
@@ -113,7 +114,7 @@ async function checkNode(): Promise<void> {
   try {
     releases = await fetchNodeReleases();
   } catch (err) {
-    finding(`Node.js check could not run: ${NODE_INDEX_URL}: ${(err as Error).message}`);
+    finding("node", `Node.js check could not run: ${NODE_INDEX_URL}: ${(err as Error).message}`);
     return;
   }
 
@@ -123,20 +124,22 @@ async function checkNode(): Promise<void> {
     try {
       for (const [label, v] of await pm2NodeVersions(pm2App)) versions.set(label, v);
     } catch (err) {
-      finding(`PM2 worker Node.js check could not run: ${(err as Error).message}`);
+      finding("pm2-node", `PM2 worker Node.js check could not run: ${(err as Error).message}`);
     }
   }
 
   for (const [label, version] of versions) {
+    const category: CheckCategory = label === "script runtime" ? "node" : "pm2-node";
     const a = assessNode(version, releases);
     if (a.status === "ok") {
-      ok(`Node.js ${a.current} (${label}) — newest in line ${a.latestInLine}`);
+      ok(category, `Node.js ${a.current} (${label}) — newest in line ${a.latestInLine}`);
     } else if (a.status === "vulnerable") {
       finding(
+        category,
         `Node.js ${a.current} (${label}) is older than security release ${a.latestSecurity} — upgrade to ${a.latestInLine} (docs/deployment.md, "Upgrade Node.js")`,
       );
     } else {
-      finding(`Node.js ${a.current} (${label}) could not be assessed: ${a.reason}`);
+      finding(category, `Node.js ${a.current} (${label}) could not be assessed: ${a.reason}`);
     }
   }
 }
@@ -149,14 +152,15 @@ async function checkUbuntu(): Promise<void> {
       timeout: EXEC_TIMEOUT_MS,
     });
     if (isCodenameSupported(codename, stdout)) {
-      ok(`Ubuntu "${codename}" is a supported release`);
+      ok("os-release", `Ubuntu "${codename}" is a supported release`);
     } else {
       finding(
+        "os-release",
         `Ubuntu "${codename}" is no longer supported — it receives no security updates; upgrade the release`,
       );
     }
   } catch (err) {
-    finding(`Ubuntu support check could not run: ${(err as Error).message}`);
+    finding("os-release", `Ubuntu support check could not run: ${(err as Error).message}`);
   }
 
   try {
@@ -167,13 +171,13 @@ async function checkUbuntu(): Promise<void> {
     });
     const pending = securityUpgrades(stdout);
     if (pending.length === 0) {
-      ok("No pending security upgrades from apt");
+      ok("apt-security", "No pending security upgrades from apt");
     } else {
-      finding(`${pending.length} apt security upgrade(s) pending: ${pending.join(", ")}`);
+      finding("apt-security", `${pending.length} apt security upgrade(s) pending: ${pending.join(", ")}`);
     }
 
   } catch (err) {
-    finding(`apt security check could not run: ${(err as Error).message}`);
+    finding("apt-security", `apt security check could not run: ${(err as Error).message}`);
   }
 
   try {
@@ -185,14 +189,15 @@ async function checkUbuntu(): Promise<void> {
     });
     const foreign = thirdPartyUpgrades(stdout);
     if (foreign.length === 0) {
-      ok("No pending upgrades from repositories outside Ubuntu");
+      ok("apt-foreign", "No pending upgrades from repositories outside Ubuntu");
     } else {
       finding(
+        "apt-foreign",
         `${foreign.length} upgrade(s) pending from repositories outside Ubuntu (no -security pocket there — any may be a security fix): ${foreign.join(", ")}`,
       );
     }
   } catch (err) {
-    finding(`Check of repositories outside Ubuntu could not run: ${(err as Error).message}`);
+    finding("apt-foreign", `Check of repositories outside Ubuntu could not run: ${(err as Error).message}`);
   }
 }
 
@@ -242,7 +247,7 @@ async function checkDockerImages(): Promise<void> {
     const { stdout: ids } = await run("docker", ["ps", "-q"], { timeout: EXEC_TIMEOUT_MS });
     const idList = ids.split("\n").filter(Boolean);
     if (idList.length === 0) {
-      ok("No running Docker containers");
+      ok("docker", "No running Docker containers");
       return;
     }
     const { stdout } = await run(
@@ -258,18 +263,18 @@ async function checkDockerImages(): Promise<void> {
         return { name: name.replace(/^\//, ""), image, imageId };
       });
   } catch (err) {
-    finding(`Docker image check could not run: ${(err as Error).message}`);
+    finding("docker", `Docker image check could not run: ${(err as Error).message}`);
     return;
   }
 
   for (const c of containers) {
     const parsed = parseImageRef(c.image);
     if (parsed.kind === "pinned") {
-      ok(`Docker ${c.name}: ${c.image} is pinned by digest — update it by hand`);
+      ok("docker", `Docker ${c.name}: ${c.image} is pinned by digest — update it by hand`);
       continue;
     }
     if (parsed.kind === "invalid") {
-      finding(`Docker ${c.name}: image reference "${c.image}" could not be read`);
+      finding("docker", `Docker ${c.name}: image reference "${c.image}" could not be read`);
       continue;
     }
     try {
@@ -284,14 +289,15 @@ async function checkDockerImages(): Promise<void> {
         : [];
       const remote = await remoteDigest(parsed.ref);
       if (isImageCurrent(local, remote)) {
-        ok(`Docker ${c.name}: ${c.image} is current`);
+        ok("docker", `Docker ${c.name}: ${c.image} is current`);
       } else {
         finding(
+          "docker",
           `Docker ${c.name}: ${c.image} has a newer image in the registry (${remote.slice(0, 19)}…) — docker pull + recreate the container`,
         );
       }
     } catch (err) {
-      finding(`Docker ${c.name}: ${c.image} could not be checked: ${(err as Error).message}`);
+      finding("docker", `Docker ${c.name}: ${c.image} could not be checked: ${(err as Error).message}`);
     }
   }
 }

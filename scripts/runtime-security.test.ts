@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assessNode,
   compareVersions,
+  formatResult,
   isCodenameSupported,
   isImageCurrent,
   osCodename,
@@ -211,5 +212,29 @@ describe("isImageCurrent", () => {
       isImageCurrent(local, "sha256:6ba19c50b56777f5c11c58eff8ddb69d0d5f27ba131cffb63f180ccfd43c66af"),
     ).toBe(false);
     expect(isImageCurrent([], "sha256:6ba19c50")).toBe(false);
+  });
+});
+
+describe("formatResult", () => {
+  const detail = "2 apt security upgrade(s) pending: openssl, libssl3t64";
+
+  it("keeps a public Actions log to the category — no package names, versions or OS state", () => {
+    const line = formatResult("finding", "apt-security", detail, { inActions: true, strict: true });
+    expect(line).toMatch(/^::error::Runtime security finding \[apt-security\]/);
+    expect(line).not.toContain("openssl");
+    expect(formatResult("ok", "node", "Node.js v24.22.1 (script runtime)", { inActions: true, strict: false }))
+      .toBe("[ok] node");
+  });
+
+  it("warns instead of erroring without --strict (the deploy)", () => {
+    expect(formatResult("finding", "os-release", "x", { inActions: true, strict: false }))
+      .toMatch(/^::warning::/);
+  });
+
+  it("says everything outside Actions (a shell on the VPS)", () => {
+    expect(formatResult("finding", "apt-security", detail, { inActions: false, strict: true }))
+      .toBe(`[error] ${detail}`);
+    expect(formatResult("ok", "node", "Node.js v24.22.1", { inActions: false, strict: false }))
+      .toBe("[ok] Node.js v24.22.1");
   });
 });

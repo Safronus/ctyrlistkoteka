@@ -35,5 +35,10 @@ jobs:
           source "/home/app/.nvm/nvm.sh"
           status=0
           pnpm exec tsx scripts/check-runtime-security.ts --strict --os --pm2 ctyrlistkoteka || status=1
-          pnpm audit --prod --audit-level high || status=1
+          # The repo — and so this log — is public: say THAT something is
+          # vulnerable, never WHAT. Details on the VPS: pnpm audit --prod
+          if ! pnpm audit --prod --audit-level high > /dev/null 2>&1; then
+            echo "::error::pnpm audit failed (high/critical vulnerability, or the audit could not run) — details only on the VPS: pnpm audit --prod"
+            status=1
+          fi
           exit "$status"
