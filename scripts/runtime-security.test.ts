@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   assessNode,
+  certDaysLeft,
   compareVersions,
   formatResult,
   orphanedPackages,
   outdatedExtensions,
   isCodenameSupported,
   isImageCurrent,
+  newestWithPrefix,
   osCodename,
   parseBearerChallenge,
   parseImageRef,
@@ -274,5 +276,33 @@ describe("outdatedExtensions", () => {
 
   it("is quiet when every extension is current", () => {
     expect(outdatedExtensions([{ name: "postgis", default_version: "3.5.3", installed_version: "3.5.3" }])).toEqual([]);
+  });
+});
+
+describe("certDaysLeft", () => {
+  it("counts whole days, negative once expired", () => {
+    const now = new Date("2026-10-28T12:00:00Z");
+    expect(certDaysLeft(new Date("2026-12-27T12:00:00Z"), now)).toBe(60);
+    expect(certDaysLeft(new Date("2026-11-08T11:00:00Z"), now)).toBe(10);
+    expect(certDaysLeft(new Date("2026-10-27T12:00:00Z"), now)).toBe(-1);
+  });
+});
+
+describe("newestWithPrefix", () => {
+  const files = [
+    { name: "goatcounter-2026-10-27_0305.sqlite3.gz", mtimeMs: 100 },
+    { name: "goatcounter-2026-10-28_0305.sqlite3.gz", mtimeMs: 200 },
+    { name: "goatcounter-2026-10-29_0305.sqlite3.partial", mtimeMs: 300 },
+    { name: "rustdesk-keys-2026-10-20_0305.tar.gz", mtimeMs: 50 },
+  ];
+
+  it("takes the newest finished file of that kind only", () => {
+    expect(newestWithPrefix(files, "goatcounter-")?.name).toBe("goatcounter-2026-10-28_0305.sqlite3.gz");
+    // An old rustdesk backup is not rescued by a fresh goatcounter one.
+    expect(newestWithPrefix(files, "rustdesk-keys-")?.mtimeMs).toBe(50);
+  });
+
+  it("is null when there is none", () => {
+    expect(newestWithPrefix(files, "ctyrlistkoteka-")).toBeNull();
   });
 });

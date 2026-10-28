@@ -28,6 +28,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### Kontrola runtime: TLS certifikáty a čerstvost záloh
+- `--tls`: certifikát každé naší domény (web, www, stats, qr.casqb.org) musí
+  mít platný řetězec a víc než 21 dní do vypršení — certbot obnovuje při 30,
+  takže méně znamená, že obnova selhává. Dřív by selhání ukázal až web.
+- `--backup <složka>/<předpona>`: nejnovější záloha každého druhu (dump DB,
+  snímek GoatCounteru, klíče RustDesku) nesmí být starší než 36 h — každý
+  druh zvlášť, aby čerstvá jedna záloha nepřekryla zastavenou druhou.
+- Ověřeno naživo (naše domény OK, `expired.badssl.com` → nález; stará
+  i chybějící záloha → nález). Obojí v týdenním běhu.
+
 ### Zálohy a aktualizace Docker služeb (GoatCounter, RustDesk)
 - `deploy/backup-services.sh`: denní záloha do stromu, který jde off-site —
   konzistentní snímek SQLite GoatCounteru (Python online backup, za běhu,

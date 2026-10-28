@@ -194,6 +194,34 @@ export function outdatedExtensions(
     .map((r) => ({ name: r.name, installed: r.installed_version, available: r.default_version }));
 }
 
+/** certbot renews at 30 days left — under 21 means renewal is failing. */
+export const CERT_WARN_DAYS = 21;
+
+/** Whole days until `validTo` (negative once expired). */
+export function certDaysLeft(validTo: Date, now: Date): number {
+  return Math.floor((validTo.getTime() - now.getTime()) / 86_400_000);
+}
+
+/** Backups run nightly; a weekly check older than this has missed one. */
+export const BACKUP_MAX_AGE_HOURS = 36;
+
+/**
+ * Newest file in a directory listing whose name starts with `prefix`
+ * (`goatcounter-`, `ctyrlistkoteka-`…) — per kind, so one kind still
+ * succeeding can't hide another that stopped.
+ */
+export function newestWithPrefix(
+  files: readonly { name: string; mtimeMs: number }[],
+  prefix: string,
+): { name: string; mtimeMs: number } | null {
+  let best: { name: string; mtimeMs: number } | null = null;
+  for (const f of files) {
+    if (!f.name.startsWith(prefix) || f.name.endsWith(".partial")) continue;
+    if (!best || f.mtimeMs > best.mtimeMs) best = f;
+  }
+  return best;
+}
+
 /** `VERSION_CODENAME` from the contents of /etc/os-release. */
 export function osCodename(osRelease: string): string | null {
   const m = /^VERSION_CODENAME="?([a-z]+)"?\s*$/m.exec(osRelease);
@@ -301,6 +329,8 @@ export type CheckCategory =
   | "apt-foreign"
   | "apt-orphaned"
   | "db-extensions"
+  | "tls"
+  | "backups"
   | "docker";
 
 /**

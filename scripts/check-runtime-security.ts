@@ -1,7 +1,8 @@
 /**
  * Runtime security check — the part Dependabot can't see.
  *
- *   pnpm tsx scripts/check-runtime-security.ts [--strict] [--os] [--db] [--docker] [--pm2 <app>]
+ *   pnpm tsx scripts/check-runtime-security.ts [--strict] [--os] [--db] [--docker]
+ *     [--tls host,…] [--backup dir/prefix …] [--pm2 <app>]
  *
  * Checks:
  *   • Node.js — the binary running this script (= the nvm default the deploy
@@ -18,6 +19,12 @@
  *   • `--db` — database extensions (PostGIS, pg_trgm…) whose version in the
  *     DB lags the installed package (needs DATABASE_URL, read from .env;
  *     only reads the extension catalogue).
+ *   • `--tls host[,host…]` — certificate of each host:443 valid (chain) and
+ *     not expiring within CERT_WARN_DAYS (certbot renews at 30: below 21
+ *     its renewal is failing). Connects to our own domains only.
+ *   • `--backup <dir>/<prefix>` (repeatable) — the newest file of that kind
+ *     is at most BACKUP_MAX_AGE_HOURS old, e.g.
+ *     `--backup /var/backups/postgres/ctyrlistkoteka-`.
  *   • `--docker` — every RUNNING container's image vs. what its tag points
  *     to in the registry now (manifest digest via an anonymous HEAD). Only
  *     the image name and tag go out, to that image's own registry.
@@ -35,7 +42,9 @@
  */
 
 import { execFile } from "node:child_process";
-import { readFile, readlink } from "node:fs/promises";
+import { readdir, readFile, readlink, stat } from "node:fs/promises";
+import path from "node:path";
+import { connect as tlsConnect } from "node:tls";
 import { promisify } from "node:util";
 import {
   assessNode,
@@ -48,6 +57,10 @@ import {
   type CheckCategory,
   type ImageRef,
   securityUpgrades,
+  BACKUP_MAX_AGE_HOURS,
+  CERT_WARN_DAYS,
+  certDaysLeft,
+  newestWithPrefix,
   orphanedPackages,
   outdatedExtensions,
   type ExtensionRow,
@@ -69,6 +82,16 @@ const strict = args.includes("--strict");
 const checkOs = args.includes("--os");
 const checkDocker = args.includes("--docker");
 const checkDb = args.includes("--db");
+/** Values of a repeatable `--flag value` / `--flag a,b` argument. */
+function listArg(flag: string): string[] {
+  const out: string[] = [];
+  args.forEach((a, i) => {
+    if (a === flag && args[i + 1]) out.push(...args[i + 1]!.split(",").filter(Boolean));
+  });
+  return out;
+}
+const tlsHosts = listArg("--tls");
+const backupSpecs = listArg("--backup");
 const pm2Index = args.indexOf("--pm2");
 const pm2App = pm2Index >= 0 ? args[pm2Index + 1] : undefined;
 const inActions = process.env.GITHUB_ACTIONS === "true";
@@ -362,6 +385,69 @@ async function checkDbExtensions(): Promise<void> {
   }
 }
 
+/** Peer certificate's expiry (and whether the chain verified) for host:443. */
+function peerCertificate(host: string): Promise<{ validTo: Date; authorized: boolean; error: string | null }> {
+  return new Promise((resolve, reject) => {
+    const socket = tlsConnect({ host, port: 443, servername: host, rejectUnauthorized: false });
+    socket.setTimeout(FETCH_TIMEOUT_MS, () => socket.destroy(new Error("timeout")));
+    socket.once("secureConnect", () => {
+      const cert = socket.getPeerCertificate();
+      const result = {
+        validTo: new Date(cert.valid_to),
+        authorized: socket.authorized,
+        error: socket.authorizationError ? String(socket.authorizationError) : null,
+      };
+      socket.end();
+      resolve(result);
+    });
+    socket.once("error", reject);
+  });
+}
+
+async function checkTls(): Promise<void> {
+  for (const host of tlsHosts) {
+    try {
+      const c = await peerCertificate(host);
+      const days = certDaysLeft(c.validTo, new Date());
+      if (!c.authorized) {
+        finding("tls", `TLS ${host}: certificate does not verify (${c.error ?? "unknown"})`);
+      } else if (days < CERT_WARN_DAYS) {
+        finding("tls", `TLS ${host}: certificate expires in ${days} day(s) — certbot renewal is failing (sudo certbot renew --dry-run)`);
+      } else {
+        ok("tls", `TLS ${host}: certificate valid for ${days} more days`);
+      }
+    } catch (err) {
+      finding("tls", `TLS ${host}: could not connect: ${(err as Error).message}`);
+    }
+  }
+}
+
+async function checkBackups(): Promise<void> {
+  for (const spec of backupSpecs) {
+    const dir = path.dirname(spec);
+    const prefix = path.basename(spec);
+    try {
+      const names = await readdir(dir);
+      const files = await Promise.all(
+        names.map(async (name) => ({ name, mtimeMs: (await stat(path.join(dir, name))).mtimeMs })),
+      );
+      const newest = newestWithPrefix(files, prefix);
+      if (!newest) {
+        finding("backups", `Backup ${spec}*: none found`);
+        continue;
+      }
+      const hours = (Date.now() - newest.mtimeMs) / 3_600_000;
+      if (hours > BACKUP_MAX_AGE_HOURS) {
+        finding("backups", `Backup ${spec}*: newest (${newest.name}) is ${Math.round(hours)} h old — the nightly job stopped`);
+      } else {
+        ok("backups", `Backup ${spec}*: newest ${newest.name}, ${Math.round(hours)} h old`);
+      }
+    } catch (err) {
+      finding("backups", `Backup ${spec}*: could not check: ${(err as Error).message}`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   if (pm2Index >= 0 && !pm2App) {
     console.error("--pm2 needs an app name");
@@ -370,6 +456,8 @@ async function main(): Promise<void> {
   await checkNode();
   if (checkOs) await checkUbuntu();
   if (checkDb) await checkDbExtensions();
+  if (tlsHosts.length > 0) await checkTls();
+  if (backupSpecs.length > 0) await checkBackups();
   if (checkDocker) await checkDockerImages();
   console.log(findings === 0 ? "Runtime security: all clear" : `Runtime security: ${findings} finding(s)`);
   process.exit(strict && findings > 0 ? 1 : 0);

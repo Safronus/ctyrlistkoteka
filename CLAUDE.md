@@ -305,7 +305,8 @@ na hostu) hlídáme sami — cíl je mít vše aktuální a nedat šanci známý
   Ubuntu (PGDG, Docker CE…) týdenní kontrola hlídá od 2026-10-28
   (`thirdPartyUpgrades`), stejně jako **osiřelé balíčky** bez repozitáře
   (`orphanedPackages` — tak zůstal stát docker-ce), **rozšíření DB**
-  pozadu za balíčkem (`--db`, tak zůstal PostGIS 3.5.2) a **Docker images**
+  pozadu za balíčkem (`--db`, tak zůstal PostGIS 3.5.2), **TLS certifikáty**
+  (`--tls`), **čerstvost záloh** (`--backup`) a **Docker images**
   běžících kontejnerů (`--docker`; uživatel runneru je ve skupině docker).
 
 ---
