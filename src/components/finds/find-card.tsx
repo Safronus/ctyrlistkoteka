@@ -73,9 +73,10 @@ export async function FindCard({
           roughly centred.
           Phones (< md, incl. small phones in landscape such as 667 px)
           can't fit a five-digit number between all of that (#31420
-          truncated to "#31…", 2026-10-28), so there the 🍀 drops and the
-          vote pill moves onto the photo's top-right corner — see
-          VOTE_ON_PHOTO. */}
+          truncated to "#31…", 2026-10-28), so there the vote pill moves
+          onto the photo's top-right corner (VOTE_ON_PHOTO) and the flag
+          takes the right slot, as wide as the pin, so the number sits in
+          the middle of the tile. */}
       <div className="flex items-center justify-between gap-0.5 px-1.5 py-1.5">
         {/* Left — map-pin deep-link to /mapa (or spacer). */}
         {showMapLink ? (
@@ -91,15 +92,18 @@ export async function FindCard({
           <span aria-hidden className="h-7 w-7 shrink-0" />
         )}
         {/* Country flag right beside the pin — the tile's only hint of where
-            the find is without hovering. */}
-        {place?.flag && (
+            the find is without hovering. On phones it moves to the right
+            slot (pin-wide) to balance the pin, or an empty slot does. */}
+        {place?.flag ? (
           <span
-            className="shrink-0 text-sm leading-none"
+            className="shrink-0 text-sm leading-none max-md:order-last max-md:w-7 max-md:text-center"
             title={[place.country, place.city].filter(Boolean).join(" · ")}
             aria-label={[place.country, place.city].filter(Boolean).join(" · ")}
           >
             {place.flag}
           </span>
+        ) : (
+          <span aria-hidden className="hidden h-7 w-7 shrink-0 max-md:order-last max-md:block" />
         )}
 
         {/* Centre — the find number links to the detail page. */}
@@ -108,7 +112,7 @@ export async function FindCard({
           className="flex min-w-0 flex-1 items-center justify-center gap-1"
         >
           <span className="truncate text-xs font-semibold text-gray-900 group-hover:text-brand-700 sm:text-sm">
-            <span className="max-md:hidden">🍀 </span>#{find.id}
+            🍀 #{find.id}
           </span>
           {find.isRecord && (
             <span
@@ -231,15 +235,16 @@ export async function FindCard({
 /**
  * Phones (< md) only: the vote pill leaves the top bar and sits on the
  * photo's top-right corner (the bar is 40 px tall — 28 px controls +
- * py-1.5 — so top-12 lands it 8 px into the photo), on a white chip so it
- * reads over any picture. ONE VoteButton re-positioned by breakpoint,
+ * py-1.5 — so top-11 lands it 4 px into the photo, 4 px off the edge), on
+ * a half-transparent white chip without blur, so it covers as little of
+ * the photo as possible (owner's call, 2026-10-28). ONE VoteButton re-positioned by breakpoint,
  * never two (that would double the vote hydration and split the state).
  * Its DOM stays in the top bar, positioned off the card (`relative`), so
  * it never nests inside the photo's <a>. The state badges top-left stop
  * short of it.
  */
 const VOTE_ON_PHOTO =
-  "max-md:absolute max-md:right-2 max-md:top-12 max-md:z-10 max-md:rounded-full max-md:bg-white/90 max-md:pr-1.5 max-md:shadow-md max-md:ring-1 max-md:ring-black/5 max-md:backdrop-blur";
+  "max-md:absolute max-md:right-1 max-md:top-11 max-md:z-10 max-md:rounded-full max-md:bg-white/50 max-md:pr-1.5 max-md:shadow-sm max-md:ring-1 max-md:ring-black/5";
 const BADGES_BESIDE_VOTE = "max-md:right-16";
 
 /**

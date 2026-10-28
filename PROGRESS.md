@@ -74,7 +74,9 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
    pěticiferné číslo ořezávalo na „#31…“. Pod `md` (768 px) teď palec
    s hlasy sedí jako bílý čip v pravém horním rohu fotky a 🍀 před číslem
    odpadá; tablet a desktop beze změny. Ověřeno měřením na 390 / 640 /
-   768 px (rezerva i pro šesticiferná ID). ⏳ Majitel ověří na iPhonu.
+   768 px (rezerva i pro šesticiferná ID). Ověřeno majitelem na iPhonu;
+   doladěno: 🍀 zpět, číslo přesně na středu (vlajka vpravo ve slotu
+   šířky špendlíku), palec 4 px od rohu na 50% průhledném čipu bez blur.
 
 ## Pravidelné hlídání a aktualizace služeb (2026-10-28)
 - ✅ Týdenní kontrola: + osiřelé balíčky, + rozšíření DB (`--db`), + Docker
@@ -92,7 +94,7 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 ## /admin/qr — průhledné PNG pod středovým obrázkem (2026-10-28)
 - ✅ Opraveno a nasazeno (1898e2a): strip maže všechny výplně `data-qr-bg`
   (pozadí + podklad pod obrázkem/logem). Platí ve všech záložkách i v PDF
-  Darování. ⏳ Majitel ověří stažením QR nálezu v adminu.
+  Darování. Ověřeno majitelem stažením QR nálezu (2026-10-28).
 
 ## Off-site zálohy na UNAS — „prázdná složka“ (2026-10-28)
 - ✅ Diagnóza: zálohy **fungují**. 30 snapshotů (2026-09-29 → 2026-10-28)
