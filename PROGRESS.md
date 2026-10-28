@@ -48,11 +48,15 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
    jen LOKÁLNĚ v `tmp/security-audit-2026-10-28.md` (git ji ignoruje;
    nikdy ji necommituj, popisuje slabiny). Čeká rozhodnutí majitele
    o navržených krocích.
-3. ⏳ **Vlastní 404 „hledej čtyřlístek“** — 3 dema lokálně (louka, lupa,
-   jednoduchá), majitel vybere v náhledu; pak jedna 404 pro web i masku.
-   Požadavky: nevypisuje adresu ani nic z požadavku, hra jen v prohlížeči,
-   nic neposílá ani neukládá, CSP-kompatibilní, přístupná (klávesnice,
-   reduced motion), CZ/EN.
+3. ✅ **Vlastní 404 „hledej čtyřlístek“** nasazená 2026-10-28 (c5ef41e):
+   náhodně Louka / Lupa, kola se zvyšující obtížností, časomíra + rekord
+   pro návštěvu, CZ/EN, ověřeno na produkci (CSP bez chyb).
+   - ⏳ Návrh **Top 10 žebříčku** (anonymní, server měří čas, HMAC kola,
+     nová tabulka + endpoint + rate limit + věta do /soukromi) — čeká na
+     rozhodnutí majitele; alternativa = osobní rekord v localStorage
+     (vyžaduje výjimku z pravidla v CLAUDE.md).
+4. ⏳ **Rozdělení na dvě repa:** P1 hotovo (private repo + `ops/`),
+   P2–P5 odloženo majitelem.
 
 ### Stále čeká (nezapomenout)
 - Ubuntu 25.10 → 26.04: výstup fáze 0 od majitele → doladit plán + R-PG,
