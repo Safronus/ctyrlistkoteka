@@ -12,7 +12,8 @@ import { revalidatePath, revalidateTag } from "next/cache";
  *      which otherwise serve up-to-6h-stale numbers even on a dynamic render
  *      because the DATA is cached under the tag, independent of the page.
  *   2. `revalidatePath(...)` — drops the ISR route caches for the pages that
- *      cache their render (`/` = revalidate 3600, `/statistiky` = 21600).
+ *      cache their render (`/` = revalidate 3600, `/statistiky` = 21600)
+ *      and for `/sitemap.xml` (revalidate 86400).
  *      /sbirka, /mapa and /lokality are `force-dynamic`, so revalidating
  *      them is a cheap no-op — kept for clarity and to stay correct if any
  *      is ever switched back to ISR.
@@ -50,4 +51,10 @@ export function revalidatePublicSurfaces(): void {
   ]) {
     revalidatePath(route, "page");
   }
+  // The sitemap is ISR (`revalidate = 86400`). It used to render on every
+  // request only because next-intl's old `requestLocale` read the request
+  // headers on its way through locationNameResolver; with next/root-params
+  // it caches as written — so drop it here, or new finds would wait up to a
+  // day to reach it.
+  revalidatePath("/sitemap.xml");
 }

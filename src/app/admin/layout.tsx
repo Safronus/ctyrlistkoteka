@@ -10,14 +10,21 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { getAdminSession, isAuthenticated } from "@/lib/admin/session";
+import { RootShell } from "@/components/root-shell";
+import { buildRootMetadata } from "@/lib/rootMetadata";
 import { LogoutButton } from "./logout-button";
 
-export const metadata: Metadata = {
-  // Robots get told no-index by the meta tag and by the route's
-  // x-robots-tag header (set in middleware) — admin should never
-  // appear in any search index.
-  robots: { index: false, follow: false },
-};
+// This is a ROOT layout (its own <html>, Czech) — see RootShell for why the
+// site has one root per top-level section instead of app/layout.tsx.
+export function generateMetadata(): Metadata {
+  return {
+    ...buildRootMetadata("cs"),
+    // Robots get told no-index by the meta tag and by the route's
+    // x-robots-tag header (set in middleware) — admin should never
+    // appear in any search index.
+    robots: { index: false, follow: false },
+  };
+}
 
 // /admin pages mutate filesystem + DB on demand and must always reflect
 // the current auth state — caching would defeat the guard.
@@ -32,69 +39,71 @@ export default async function AdminLayout({
   const authed = isAuthenticated(session);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 xl:max-w-[1600px] 2xl:max-w-[1900px]">
-          <Link
-            href="/admin"
-            className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-gray-900"
-          >
-            <ShieldCheck className="h-5 w-5 text-brand-600" aria-hidden />
-            <span className="hidden sm:inline">Čtyřlístkotéka — admin</span>
-            <span className="sm:hidden">admin</span>
-          </Link>
-          {authed && (
-            <>
-              {/* Only the sections reached often enough to deserve a
-                  permanent slot. Everything else (Soubory, Překlady,
-                  Efekty, Rozdané, Návštěvnost, Audit) keeps its tile on
-                  the overview — dropping it from here shortens the bar,
-                  it doesn't hide the page. */}
-              <nav
-                aria-label="Admin sekce"
-                className="flex flex-1 items-center justify-center gap-1 text-sm"
-              >
-                <NavLink href="/admin" icon={Gauge} label="Přehled" />
-                <NavLink href="/admin/sync" icon={Database} label="Sync" />
-                <NavLink href="/admin/qr" icon={QrCode} label="QR" />
-                <NavLink
-                  href="/admin/import"
-                  icon={PackageOpen}
-                  label="Import balíčků"
-                />
-                <NavLink
-                  href="/admin/checks"
-                  icon={ListChecks}
-                  label="Kontroly"
-                />
-                <NavLink
-                  href="/admin/json/lokace-stavy-poznamky"
-                  icon={FileJson}
-                  label="JSON"
-                />
-              </nav>
-              <div className="flex shrink-0 items-center gap-3 text-sm text-gray-600">
-                <span className="hidden lg:inline">
-                  Přihlášen jako{" "}
-                  <strong className="font-medium text-gray-900">
-                    {session.credentialLabel}
-                  </strong>
-                </span>
-                <LogoutButton />
-              </div>
-            </>
-          )}
-        </div>
-      </header>
-      {/* Wider on desktop than the rest of the public site — admin is
-          desktop-first and benefits from the extra horizontal room
-          on JSON previews, file listings, and sync logs. xl gets
-          1600 px, 2xl gets 1900 px; phones/tablets keep the original
-          ~1152 px so the layout doesn't go edge-to-edge there. */}
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 xl:max-w-[1600px] 2xl:max-w-[1900px]">
-        {children}
-      </main>
-    </div>
+    <RootShell lang="cs">
+      <div className="min-h-screen bg-gray-50">
+        <header className="border-b border-gray-200 bg-white">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 xl:max-w-[1600px] 2xl:max-w-[1900px]">
+            <Link
+              href="/admin"
+              className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-gray-900"
+            >
+              <ShieldCheck className="h-5 w-5 text-brand-600" aria-hidden />
+              <span className="hidden sm:inline">Čtyřlístkotéka — admin</span>
+              <span className="sm:hidden">admin</span>
+            </Link>
+            {authed && (
+              <>
+                {/* Only the sections reached often enough to deserve a
+                    permanent slot. Everything else (Soubory, Překlady,
+                    Efekty, Rozdané, Návštěvnost, Audit) keeps its tile on
+                    the overview — dropping it from here shortens the bar,
+                    it doesn't hide the page. */}
+                <nav
+                  aria-label="Admin sekce"
+                  className="flex flex-1 items-center justify-center gap-1 text-sm"
+                >
+                  <NavLink href="/admin" icon={Gauge} label="Přehled" />
+                  <NavLink href="/admin/sync" icon={Database} label="Sync" />
+                  <NavLink href="/admin/qr" icon={QrCode} label="QR" />
+                  <NavLink
+                    href="/admin/import"
+                    icon={PackageOpen}
+                    label="Import balíčků"
+                  />
+                  <NavLink
+                    href="/admin/checks"
+                    icon={ListChecks}
+                    label="Kontroly"
+                  />
+                  <NavLink
+                    href="/admin/json/lokace-stavy-poznamky"
+                    icon={FileJson}
+                    label="JSON"
+                  />
+                </nav>
+                <div className="flex shrink-0 items-center gap-3 text-sm text-gray-600">
+                  <span className="hidden lg:inline">
+                    Přihlášen jako{" "}
+                    <strong className="font-medium text-gray-900">
+                      {session.credentialLabel}
+                    </strong>
+                  </span>
+                  <LogoutButton />
+                </div>
+              </>
+            )}
+          </div>
+        </header>
+        {/* Wider on desktop than the rest of the public site — admin is
+            desktop-first and benefits from the extra horizontal room
+            on JSON previews, file listings, and sync logs. xl gets
+            1600 px, 2xl gets 1900 px; phones/tablets keep the original
+            ~1152 px so the layout doesn't go edge-to-edge there. */}
+        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 xl:max-w-[1600px] 2xl:max-w-[1900px]">
+          {children}
+        </main>
+      </div>
+    </RootShell>
   );
 }
 
