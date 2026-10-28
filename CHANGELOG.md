@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### Závislosti: next 16.4.3 + patch/minor bumpy
+- **next / eslint-config-next 16.4.2 → 16.4.3** — jen backportované
+  opravy (mj. Google font URL bez přípony, OpenTelemetry trasy); žádné
+  změny API. **dotenv 18.0.9**, **vite 8.3.5**, **postcss 8.5.32**,
+  **lucide-react 1.62** (jen nové ikony). Nahrazuje Dependabot #50.
+  lucide 1.63 zatím blokuje `minimumReleaseAge`.
+
 ### Server: komprese odpovědí (nginx drop-in)
 - Produkční nginx komprimoval **jen HTML**: v `nginx.conf` je `gzip on;`,
   ale `gzip_types` zakomentované, a blok ze šablony se do živého vhostu
