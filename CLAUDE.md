@@ -303,9 +303,9 @@ na hostu) hlídáme sami — cíl je mít vše aktuální a nedat šanci známý
   čeká, návrh v `docs/ubuntu-upgrade-26.04.md`); verzi self-hosted runneru
   kontrola nehlídá (vědomě — aktualizuje se sám). Balíčky z repozitářů mimo
   Ubuntu (PGDG, Docker CE…) týdenní kontrola hlídá od 2026-10-28
-  (`thirdPartyUpgrades`). Docker images umí přepínač `--docker` (digest
-  běžícího kontejneru vs. registry), do týdenního workflow se zapne, až
-  inventura ukáže, že uživatel runneru smí na Docker socket.
+  (`thirdPartyUpgrades`), stejně jako **osiřelé balíčky** bez repozitáře
+  (`orphanedPackages` — tak zůstal stát docker-ce) a **Docker images**
+  běžících kontejnerů (`--docker`; uživatel runneru je ve skupině docker).
 
 ---
 

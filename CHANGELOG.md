@@ -28,6 +28,17 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### Kontrola runtime: osiřelé balíčky + Docker images každý týden
+- Inventura VPS (2026-10-28) našla Docker nainstalovaný z repozitáře, který
+  už v systému není (zmizel při upgradu Ubuntu, `do-release-upgrade` cizí
+  repa vypíná) — bez aktualizací, a žádná kontrola to neviděla: osiřelý
+  balíček nikdy není „k upgradu“.
+- Nová kontrola `apt-orphaned`: balíčky, které `apt list --installed`
+  hlásí jako `[installed,local]`. Formát ověřen skutečným výstupem
+  (Ubuntu 26.04, Docker repo vypnutý), testy z něj vychází.
+- Týdenní *Runtime security* nově spouští i `--docker` (digest běžícího
+  kontejneru vs. registry) — uživatel runneru má k Dockeru přístup.
+
 ### Oprava: opravný balíček se už nerozdělí do dvou složek koše
 - Zápis opravy (`commitFindUpdateZip`) trashuje tři kategorie (originály,
   ořezy, předchozí LSP). Každá si brala vlastní časové razítko po
