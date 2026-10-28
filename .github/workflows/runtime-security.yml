@@ -34,7 +34,7 @@ jobs:
           cd /var/www/ctyrlistkoteka
           source "/home/app/.nvm/nvm.sh"
           status=0
-          pnpm exec tsx scripts/check-runtime-security.ts --strict --os --docker --pm2 ctyrlistkoteka || status=1
+          pnpm exec tsx scripts/check-runtime-security.ts --strict --os --db --docker --pm2 ctyrlistkoteka || status=1
           # The repo — and so this log — is public: say THAT something is
           # vulnerable, never WHAT. Details on the VPS: pnpm audit --prod
           if ! pnpm audit --prod --audit-level high > /dev/null 2>&1; then

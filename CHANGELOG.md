@@ -28,6 +28,14 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### Kontrola runtime: rozšíření databáze
+- `--db` v týdenní kontrole: rozšíření (PostGIS, pg_trgm…), jejichž verze
+  v databázi zaostává za nainstalovaným balíčkem. apt balíček aktualizuje,
+  ale rozšíření v existující DB ne — tak zůstal PostGIS 3.5.2 vedle balíčku
+  3.5.3 (inventura 2026-10-28, opraveno `postgis_extensions_upgrade()`).
+- Čte jen katalog `pg_available_extensions` přes `DATABASE_URL` z `.env`;
+  chybová hláška uvádí host:port, nikdy heslo (ověřeno).
+
 ### Bezpečnost: vývojový docker-compose jen na loopback
 - `docker-compose.yml` (lokální Postgres + Redis) publikoval porty
   `5432:5432` a `6379:6379` na všechna rozhraní — databáze s vývojovým

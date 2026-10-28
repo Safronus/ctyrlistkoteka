@@ -295,7 +295,7 @@ nevidí. Na to je `scripts/check-runtime-security.ts`:
 | Kdy | Co | Výsledek |
 | --- | --- | --- |
 | každý deploy (`deploy.yml`, po reloadu) | Node buildu + Node běžících PM2 workerů vs. nejnovější bezpečnostní vydání řady (`nodejs.org/dist/index.json`) | jen `::warning::`, deploy nikdy neshodí |
-| týdně v pondělí 06:00 UTC (`runtime-security.yml`, self-hosted runner) | totéž + Ubuntu podporováno (`ubuntu-distro-info --supported`) + čekající `-security` balíčky z `apt` + **jakékoli** čekající upgrady z repozitářů mimo Ubuntu (PGDG, Docker CE…; `apt-get -s dist-upgrade`) + **osiřelé balíčky** (nainstalované, ale žádný repozitář je nenabízí — `apt list --installed` → `[installed,local]`) + **Docker images** běžících kontejnerů vs. registry (`--docker`, od 2026-10-28 i v týdenním běhu) + `pnpm audit --prod --audit-level high` | **selže** → GitHub pošle e-mail o failnutém běhu |
+| týdně v pondělí 06:00 UTC (`runtime-security.yml`, self-hosted runner) | totéž + Ubuntu podporováno (`ubuntu-distro-info --supported`) + čekající `-security` balíčky z `apt` + **jakékoli** čekající upgrady z repozitářů mimo Ubuntu (PGDG, Docker CE…; `apt-get -s dist-upgrade`) + **rozšíření databáze** pozadu za balíčkem (`--db`: PostGIS, pg_trgm… — verze v DB vs. nainstalovaná; apt rozšíření v DB sám neaktualizuje) + **osiřelé balíčky** (nainstalované, ale žádný repozitář je nenabízí — `apt list --installed` → `[installed,local]`) + **Docker images** běžících kontejnerů vs. registry (`--docker`, od 2026-10-28 i v týdenním běhu) + `pnpm audit --prod --audit-level high` | **selže** → GitHub pošle e-mail o failnutém běhu |
 
 **Veřejný log = jen kategorie.** Repo je veřejné, a s ním i logy Actions.
 V Actions (`GITHUB_ACTIONS=true`) proto skript vypíše jen kategorii nálezu

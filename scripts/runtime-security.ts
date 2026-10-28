@@ -169,6 +169,31 @@ export function orphanedPackages(aptListInstalled: string): string[] {
   return names;
 }
 
+/** One row of `pg_available_extensions` for an extension the DB has. */
+export interface ExtensionRow {
+  name: string;
+  /** What the installed package provides. */
+  default_version: string;
+  /** What the database is actually running. */
+  installed_version: string;
+}
+
+/**
+ * Extensions whose version in the database lags the installed package.
+ * A package upgrade (apt) does NOT upgrade an extension already created
+ * in a database — someone has to run `ALTER EXTENSION … UPDATE` (for
+ * PostGIS: `SELECT postgis_extensions_upgrade();`). Found 2026-10-28:
+ * PostGIS 3.5.2 in the DB against a 3.5.3 package, months after the apt
+ * upgrade.
+ */
+export function outdatedExtensions(
+  rows: readonly ExtensionRow[],
+): { name: string; installed: string; available: string }[] {
+  return rows
+    .filter((r) => r.installed_version !== r.default_version)
+    .map((r) => ({ name: r.name, installed: r.installed_version, available: r.default_version }));
+}
+
 /** `VERSION_CODENAME` from the contents of /etc/os-release. */
 export function osCodename(osRelease: string): string | null {
   const m = /^VERSION_CODENAME="?([a-z]+)"?\s*$/m.exec(osRelease);
@@ -275,6 +300,7 @@ export type CheckCategory =
   | "apt-security"
   | "apt-foreign"
   | "apt-orphaned"
+  | "db-extensions"
   | "docker";
 
 /**

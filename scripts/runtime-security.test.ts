@@ -4,6 +4,7 @@ import {
   compareVersions,
   formatResult,
   orphanedPackages,
+  outdatedExtensions,
   isCodenameSupported,
   isImageCurrent,
   osCodename,
@@ -257,5 +258,21 @@ describe("orphanedPackages", () => {
 
   it("is quiet when every package has a source", () => {
     expect(orphanedPackages("Listing...\nnginx/resolute,now 1.28.3 amd64 [installed]\n")).toEqual([]);
+  });
+});
+
+describe("outdatedExtensions", () => {
+  it("flags an extension the DB runs older than its package (the PostGIS case)", () => {
+    expect(
+      outdatedExtensions([
+        { name: "pg_trgm", default_version: "1.6", installed_version: "1.6" },
+        { name: "plpgsql", default_version: "1.0", installed_version: "1.0" },
+        { name: "postgis", default_version: "3.5.3", installed_version: "3.5.2" },
+      ]),
+    ).toEqual([{ name: "postgis", installed: "3.5.2", available: "3.5.3" }]);
+  });
+
+  it("is quiet when every extension is current", () => {
+    expect(outdatedExtensions([{ name: "postgis", default_version: "3.5.3", installed_version: "3.5.3" }])).toEqual([]);
   });
 });

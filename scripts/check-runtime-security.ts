@@ -1,7 +1,7 @@
 /**
  * Runtime security check — the part Dependabot can't see.
  *
- *   pnpm tsx scripts/check-runtime-security.ts [--strict] [--os] [--docker] [--pm2 <app>]
+ *   pnpm tsx scripts/check-runtime-security.ts [--strict] [--os] [--db] [--docker] [--pm2 <app>]
  *
  * Checks:
  *   • Node.js — the binary running this script (= the nvm default the deploy
@@ -15,6 +15,9 @@
  *     from repositories outside Ubuntu (PGDG, Docker…), which have no such
  *     pocket to tell a security fix apart — and no installed package that
  *     no repository offers any more (an orphan never shows as upgradable).
+ *   • `--db` — database extensions (PostGIS, pg_trgm…) whose version in the
+ *     DB lags the installed package (needs DATABASE_URL, read from .env;
+ *     only reads the extension catalogue).
  *   • `--docker` — every RUNNING container's image vs. what its tag points
  *     to in the registry now (manifest digest via an anonymous HEAD). Only
  *     the image name and tag go out, to that image's own registry.
@@ -46,6 +49,8 @@ import {
   type ImageRef,
   securityUpgrades,
   orphanedPackages,
+  outdatedExtensions,
+  type ExtensionRow,
   thirdPartyUpgrades,
   type NodeRelease,
 } from "./runtime-security";
@@ -63,6 +68,7 @@ const args = process.argv.slice(2);
 const strict = args.includes("--strict");
 const checkOs = args.includes("--os");
 const checkDocker = args.includes("--docker");
+const checkDb = args.includes("--db");
 const pm2Index = args.indexOf("--pm2");
 const pm2App = pm2Index >= 0 ? args[pm2Index + 1] : undefined;
 const inActions = process.env.GITHUB_ACTIONS === "true";
@@ -322,6 +328,40 @@ async function checkDockerImages(): Promise<void> {
   }
 }
 
+async function checkDbExtensions(): Promise<void> {
+  try {
+    await import("dotenv/config");
+    if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set");
+    // Imported only with --db: the deploy's check must not need a database.
+    const { createPrismaClient } = await import("../src/lib/prismaClient");
+    const prisma = createPrismaClient({ max: 1 });
+    try {
+      const rows = await prisma.$queryRaw<ExtensionRow[]>`
+        SELECT name, default_version, installed_version
+        FROM pg_available_extensions
+        WHERE installed_version IS NOT NULL
+        ORDER BY name`;
+      const behind = outdatedExtensions(rows);
+      if (behind.length === 0) {
+        ok("db-extensions", `Database extensions match their packages (${rows.map((r) => `${r.name} ${r.installed_version}`).join(", ")})`);
+      } else {
+        finding(
+          "db-extensions",
+          `Database extension(s) behind the installed package — run ALTER EXTENSION … UPDATE (PostGIS: SELECT postgis_extensions_upgrade();): ${behind.map((e) => `${e.name} ${e.installed} → ${e.available}`).join(", ")}`,
+        );
+      }
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch (err) {
+    // Prisma's message is multi-line ("Invalid … invocation:\n\n…Can't
+    // reach database server at host:port") — fold it onto one line. It
+    // names host and port, never the password.
+    const why = (err as Error).message.replace(/\s+/g, " ").trim() || (err as Error).name;
+    finding("db-extensions", `Database extension check could not run: ${why}`);
+  }
+}
+
 async function main(): Promise<void> {
   if (pm2Index >= 0 && !pm2App) {
     console.error("--pm2 needs an app name");
@@ -329,6 +369,7 @@ async function main(): Promise<void> {
   }
   await checkNode();
   if (checkOs) await checkUbuntu();
+  if (checkDb) await checkDbExtensions();
   if (checkDocker) await checkDockerImages();
   console.log(findings === 0 ? "Runtime security: all clear" : `Runtime security: ${findings} finding(s)`);
   process.exit(strict && findings > 0 ? 1 : 0);
