@@ -37,10 +37,13 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
   informace, ne přístup). Vlastní 404 by rozdíl jen zvětšila.
 
 ### Plán
-1. ⏳ **Jednotná 404 přes appku** — nginx maska předá požadavek appce
-   s interní hlavičkou (nastavuje ji jen nginx, zvenku se vždy přepíše),
-   appka vrátí tutéž 404 jako pro neexistující adresu. App: middleware +
-   testy. VPS: nginx (celý soubor pro Termius + ověření z cizí IP).
+1. **Jednotná 404 přes appku**
+   - ✅ App (5d2909d): middleware `X-Ctyr-Cloak`, catch-all `api/[...rest]`,
+     `X-Robots-Tag` jen na skutečném adminu, testy.
+   - ✅ `deploy/nginx-cloak-app404.py` (klonuje živé `location /` a
+     `/api/`) + `deploy/cloak-check.sh`; ověřeno skutečným nginx v Dockeru.
+   - ⏳ **VPS (majitel):** spustit skript → `nginx -t` → reload →
+     `bash deploy/cloak-check.sh` z VPS (musí být 6× ✅).
 2. ⏳ **Audit veřejného repa na úniky** (repo je public): git historie
    (gitleaks/ruční), informace o adminu, nginx/allowlistu, endpointech,
    cestách a konfiguracích, které by mohl útočník využít → zpráva +

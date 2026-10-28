@@ -222,7 +222,11 @@ prázdné manifesty. Poučení: build může „uspět" a přesto vyrobit rozbit
 nerozeznatelnou od neexistující cesty; jen IP z allowlistu vidí reálný
 `/admin` (307 → login, login 200). To je **záměr a funguje to** (viz
 [admin-overview.md](admin-overview.md), `deploy/nginx.conf.template`
-`location /admin` → `@admin_notfound`).
+`location /admin` → `@admin_page_cloak`). ⚠️ Do 2026-10-28 maska
+`@admin_notfound` vracela 120 B HTML bez CSP, takže od skutečné 404
+(celá stránka s CSP) **rozeznatelná byla** — opraveno, maskovaný požadavek
+teď vyřizuje appka stejně jako neznámou adresu (deployment.md, tabulka
+location bloků).
 
 **Past:** Claude Code (a jakýkoli `curl` z Bash toolu) běží **na uživatelově
 Macu**, takže odchozí požadavky jdou přes **jeho domácí přípoj (statická

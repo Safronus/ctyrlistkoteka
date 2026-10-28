@@ -41,6 +41,8 @@ krok za krokem. Tento README je rychlý katalog.
 | `systemd-sync.timer` | `/etc/systemd/system/` | Zapnout přes `systemctl enable --now ctyrlistkoteka-sync.timer`. |
 | `backup.sh` | (git, spouští se odtud) | Denní `pg_dump` + rotace. Do crontab uživatele `app`. |
 | `nginx-add-api-admin.py` | (git, spouští se odtud) | **(jednorázový, 2026-08-10)** Dostane `/api/admin` za masku adminu a allowlist do sdíleného snippetu. `sudo python3 deploy/nginx-add-api-admin.py && sudo nginx -t && sudo systemctl reload nginx`. Idempotentní, dělá si vlastní zálohu, odmítne pokračovat, když by snippet nechal admin otevřený. Po doběhnutí na všech strojích může zmizet. |
+| `nginx-cloak-app404.py` | (git, spouští se odtud) | **(jednorázový, 2026-10-28)** Maska `/admin` + `/api/admin` odpovídá jako appka (dřív 120 B HTML bez CSP → rozpoznatelné). Bloky `@admin_page_cloak` / `@admin_api_cloak` **klonuje z živého** `location /` (a `location /api/`), aby měly stejný rate limit, hlavičky a proxy. `sudo python3 deploy/nginx-cloak-app404.py && sudo nginx -t && sudo systemctl reload nginx` — až po nasazení appky ≥ 5d2909d. Idempotentní, záloha vedle souboru, při nečekané struktuře nic nezmění. |
+| `cloak-check.sh` | (git, spouští se odtud) | Ověří, že maska je od skutečné 404 nerozeznatelná (6 případů, stránky i API). Spouštět z IP **mimo** allowlist (VPS, mobilní data); na allowlistu sám odmítne. Jen čte. `bash deploy/cloak-check.sh`. |
 
 Spárované s:
 - `.github/workflows/deploy.yml` — GitHub Actions CI/CD

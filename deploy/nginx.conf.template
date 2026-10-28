@@ -170,7 +170,9 @@ server {
     # hodnoty v šabloně.
     location /admin {
         include /etc/nginx/snippets/admin-allowlist.conf;
-        error_page 403 = @admin_notfound;
+        error_page 403 = @admin_page_cloak;
+        # Hlavicku masky smi nastavit jen Nginx - u povoleneho pozadavku ji vymaz.
+        proxy_set_header X-Ctyr-Cloak "";
 
         # Sized to match `experimental.serverActions.bodySizeLimit` in
         # next.config.ts (200 MB). Per-file cap is enforced by the
@@ -209,7 +211,9 @@ server {
     # -----------------------------------------------------------------
     location /api/admin {
         include /etc/nginx/snippets/admin-allowlist.conf;
-        error_page 403 = @admin_notfound;
+        error_page 403 = @admin_api_cloak;
+        # Hlavicku masky smi nastavit jen Nginx - u povoleneho pozadavku ji vymaz.
+        proxy_set_header X-Ctyr-Cloak "";
 
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -230,17 +234,58 @@ server {
     # tyhle dva řádky vyhrají nad allowlistem výš bez ohledu na pořadí.
     # Nezruš je v domnění, že jsou nadbytečné vedle allowlistu: allowlist
     # pouští tvoji domácí IP, tohle nepouští nikoho.
-    location = /api/admin/drops/sync { return 404; }
-    location = /api/admin/revalidate { return 404; }
+    location = /api/admin/drops/sync { error_page 403 = @admin_api_cloak; return 403; }
+    location = /api/admin/revalidate { error_page 403 = @admin_api_cloak; return 403; }
 
-    # Maskovaná 404 pro IP, které neprošly /admin allowlistem. `internal`
-    # znamená, že nelze hitnout přímo zvenku — jen jako cíl error_page.
-    location @admin_notfound {
-        internal;
-        # default_type + krátký HTML podobný defaultnímu Next.js 404,
-        # aby se /admin chovalo neodlišitelně od neexistující cesty.
-        default_type text/html;
-        return 404 "<!DOCTYPE html><html><head><title>404</title></head><body><h1>404</h1><p>This page could not be found.</p></body></html>";
+    # -----------------------------------------------------------------
+    # Maska pro IP, které neprošly allowlistem /admin a /api/admin.
+    # Odpovídá APPKA, ne Nginx (od 2026-10-28; dřívější @admin_notfound
+    # vracel 120 B HTML bez CSP a z venku byl rozpoznatelný). Oba bloky
+    # jsou KLONY napodobované cesty — `location /` pro stránky,
+    # `location /api/` (nebo `/`, když na serveru není) pro API — aby
+    # měly stejný rate limit, hlavičky i proxy. Na VPS je vyrábí
+    # deploy/nginx-cloak-app404.py z živého configu; nepiš je ručně.
+    # Named location je vnitřní (zvenku nedosažitelná) sama od sebe.
+    # -----------------------------------------------------------------
+    location @admin_page_cloak {
+        # Klon `location /` (rate limit, hlavicky, proxy) + znacka pro
+        # middleware appky, ktera /admin... posle do 404 jako neznamou
+        # adresu. Vygeneroval deploy/nginx-cloak-app404.py.
+        limit_req zone=ctyr_main burst=200 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # NOTE: no WebSocket Upgrade headers here. Hard-coding
+        # `Connection: "upgrade"` on every request (including large POST
+        # uploads to /admin/api/upload/*) corrupts the proxied
+        # connection — Safari surfaces it as a generic fetch
+        # "Load failed". Next.js in production uses plain HTTP here.
+        proxy_read_timeout 60s;
+        proxy_set_header X-Ctyr-Cloak "1";
+    }
+
+    location @admin_api_cloak {
+        # Klon `location /api/` + prepis na cestu, kterou nic
+        # neobsluhuje -> catch-all api/[...rest] -> "Not found" jako pro
+        # /api/<cokoli>. Skutecny admin handler se neda trefit vubec.
+        rewrite ^ /api/__cloak$uri break;
+        limit_req zone=api_limit burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # NOTE: no WebSocket Upgrade headers here. Hard-coding
+        # `Connection: "upgrade"` on every request (including large POST
+        # uploads to /admin/api/upload/*) corrupts the proxied
+        # connection — Safari surfaces it as a generic fetch
+        # "Load failed". Next.js in production uses plain HTTP here.
     }
 
     # API rate limit (přísnější — 60 req/min, burst 20).

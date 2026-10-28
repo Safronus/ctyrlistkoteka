@@ -28,6 +28,27 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### Bezpečnost: maska `/admin` je od skutečné 404 nerozeznatelná
+- **Zjištěno:** nginx maska (`@admin_notfound`) vracela cizím IP 120 B HTML
+  bez CSP, kdežto skutečná 404 je celá stránka s CSP (~70 kB) → útočník
+  poznal, že `/admin` „je jiná“. Do adminu se tím nedostal (allowlist +
+  WebAuthn), ale maska neplnila účel. Stejně tak `return 404` u
+  loopback-only rout posílal stránku Nginxu.
+- **Oprava:** masku vyřizuje appka. Stránky: nginx pošle požadavek
+  s `X-Ctyr-Cloak: 1` (u povolených ho maže), middleware ho pošle do 404
+  stejnou cestou jako neznámou adresu. API: nginx přepíše na
+  `/api/__cloak…` → nový catch-all `api/[...rest]` → holé „Not found“,
+  stejné jako pro jakékoli neznámé `/api/…` (dřív to byla HTML stránka,
+  která vypisovala cestu). Bloky masky jsou klony napodobované lokace,
+  takže sedí i rate limit (jinak by masku prozradila chybějící 429).
+- `X-Robots-Tag` / `Cache-Control: private` jen na skutečném `/admin…`,
+  ne na `/adminx` apod. (dřív prefix prozrazovaly).
+- **Ověřeno** skutečným nginx 1.28 v Dockeru: maska ≡ skutečná 404 až na
+  samotnou cestu (stránky i API, GET i POST); povolená IP se do adminu
+  dostane i s podvrženou hlavičkou; `deploy/cloak-check.sh` starou masku
+  označí 6× ❌, novou 6× ✅.
+- Nginx část: `deploy/nginx-cloak-app404.py` (spouští majitel na VPS).
+
 ### i18n: jazyk přes `next/root-params` (pryč deprecated `setRequestLocale`)
 - next-intl 4.13.5 označil `setRequestLocale` a `requestLocale` za
   zastaralé. Jazyk se teď čte přes `next/root-params` — viditelně se nic

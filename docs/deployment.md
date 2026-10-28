@@ -769,11 +769,11 @@ na to, kde jsou napsané.
 | `location ~* /generated/find-photos/…_ANON\.…$` | **404 na anonymizované fotky darů.** Regex má přednost před prefixem, takže uhodnutá URL neobejde `unlockFindPhotos`. Viz CLAUDE.md §6. |
 | `location /generated/` | Fotky servíruje Nginx přímo z disku (`alias`), mimo Node i mimo rate limit. `expires 1y` + `immutable` — soubory mají sha1 v názvu. |
 | `location /_next/static/` | Buildové JS/CSS. **Mimo rate limit** — viz past č. 3 níž. |
-| `location /admin` | IP allowlist → `deny all`, 403 se přepisuje na 404 přes `@admin_notfound` (scanner nezjistí, že `/admin` existuje). `client_max_body_size 200M` musí sedět s `serverActions.bodySizeLimit` v `next.config.ts`. |
+| `location /admin` | IP allowlist → `deny all`, 403 → `@admin_page_cloak` (od 2026-10-28; dřív `@admin_notfound`). Vymaže hlavičku `X-Ctyr-Cloak` z požadavku klienta. `client_max_body_size 200M` musí sedět s `serverActions.bodySizeLimit` v `next.config.ts`. |
 | `location /api/admin` | **(2026-08-10)** Tentýž allowlist. Prefix `/admin` na `/api/admin/…` nesedí, takže šest rout (`file`, `blocklist/export`, `sync/start`, `sync/status`, `drops/sync`, `revalidate`) viselo mimo masku. Volá je jen prohlížeč admina, tedy z povolené IP. **Sadu `allow` drž shodnou s `/admin`** — rozejdou-li se, admin bude půl na půl vracet 404 a maska ti schválně neřekne proč. |
-| `location = /api/admin/drops/sync`<br>`location = /api/admin/revalidate` | Natvrdo `return 404`. Obojí volá výhradně stroj sám přes loopback (systemd timer / `revalidatePing.ts`), který Nginx obchází — přes proxy nemá dorazit ani jedno. Přesná shoda má v Nginxu nejvyšší prioritu, takže vyhraje nad allowlistem bez ohledu na pořadí. |
+| `location = /api/admin/drops/sync`<br>`location = /api/admin/revalidate` | `return 403` → `@admin_api_cloak` (dřív `return 404`, jenže to posílalo stránku Nginxu, odlišnou od 404 appky). Obojí volá výhradně stroj sám přes loopback (systemd timer / `revalidatePing.ts`), který Nginx obchází — přes proxy nemá dorazit ani jedno. Přesná shoda má v Nginxu nejvyšší prioritu, takže vyhraje nad allowlistem bez ohledu na pořadí. |
 | `location /` | Všechno ostatní na Next.js, s rate limitem `ctyr_main`. |
-| `location @admin_notfound` | `internal` — jen cíl pro `error_page`. |
+| `location @admin_page_cloak`<br>`location @admin_api_cloak` | **(2026-10-28)** Maska pro cizí IP — odpovídá **appka**, ne Nginx. Stránky: proxy s `X-Ctyr-Cloak: 1` → middleware je pošle do 404 jako neznámou adresu. API: `rewrite` na `/api/__cloak$uri` → catch-all `api/[...rest]` → holé „Not found“. Výsledek je od skutečné 404 neodlišitelný (kromě samotné cesty). **Rate limit musí být stejný jako u napodobované cesty** (`ctyr_main` pro stránky, to co platí pro `/api/` u API), jinak by 429/ne-429 masku prozradilo. Dřívější `@admin_notfound` vracel 120 B HTML bez CSP — z venku rozpoznatelné. |
 
 ### Tři pasti, na které jsme už naletěli
 
