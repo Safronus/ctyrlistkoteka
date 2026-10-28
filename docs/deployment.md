@@ -17,6 +17,12 @@ a uživatel je spouští v Termiusu.
 >   ❌ **25.10 je od 2026-07-09 EOL** — žádné bezpečnostní aktualizace
 >   systému. Upgrade na 26.04 LTS je naplánovaný jako samostatný krok;
 >   týdenní *Runtime security* workflow do té doby svítí červeně.
+> - **Maska `/admin` (2026-10-28):** nasazený `deploy/nginx-cloak-app404.py`
+>   — `@admin_page_cloak` / `@admin_api_cloak` jsou klony živého
+>   `location /` (blok `location /api/` na produkci NENÍ, API padá pod `/`).
+>   `bash deploy/cloak-check.sh` z VPS: 6× ✅. `nginx -t` hlásí 3×
+>   `ssl_stapling ignored, no OCSP responder URL` — neškodné (Let's Encrypt
+>   OCSP v 2025 zrušil); úklid = odebrat `ssl_stapling` z konfigurace.
 > - **Databáze:** **nativní PostgreSQL 17 + PostGIS** (systemd
 >   `postgresql@17-main`), ne 16. Schéma je zpětně kompatibilní.
 > - **PM2:** appka jede pod PM2 jako user `app`. **Ověř

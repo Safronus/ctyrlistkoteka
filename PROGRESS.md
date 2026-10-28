@@ -42,8 +42,10 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
      `X-Robots-Tag` jen na skutečném adminu, testy.
    - ✅ `deploy/nginx-cloak-app404.py` (klonuje živé `location /` a
      `/api/`) + `deploy/cloak-check.sh`; ověřeno skutečným nginx v Dockeru.
-   - ⏳ **VPS (majitel):** spustit skript → `nginx -t` → reload →
-     `bash deploy/cloak-check.sh` z VPS (musí být 6× ✅).
+   - ✅ **VPS 2026-10-28:** skript, `nginx -t`, reload; `cloak-check.sh`
+     z VPS 6× ✅; admin z domácí IP OK, z mobilní sítě 404.
+   - Drobný úklid na později: `ssl_stapling` v nginx je zbytečný (LE zrušil
+     OCSP) — jen varování v `nginx -t`.
 2. ✅ **Audit veřejného repa na úniky** hotový 2026-10-28 — zpráva je
    jen LOKÁLNĚ v `tmp/security-audit-2026-10-28.md` (git ji ignoruje;
    nikdy ji necommituj, popisuje slabiny). Čeká rozhodnutí majitele
