@@ -45,9 +45,10 @@ Oprava je SAMOSTATNÝ typ balíčku — balíčky map a nových nálezů se nem�
   Do té doby týdenní *Runtime security* svítí červeně — schválně.
 - Po ověření upgradu: smazat Node 24.18.0 na VPS postupem „Mazání staré
   verze Node".
-- Rozšířit kontrolu o mezery: Docker images na hostu (GoatCounter,
-  RustDesk), balíčky z repozitářů mimo Ubuntu `-security` (PGDG), verze
-  self-hosted runneru (CLAUDE.md §11 „Bezpečnost a aktualizace runtime").
+- ✅ Upgrady z repozitářů mimo Ubuntu (PGDG, Docker CE) — hlídá týdenní
+  kontrola (lokálně, nepushnuto).
+- Zbývající mezery: Docker images na hostu (GoatCounter, RustDesk), verze
+  self-hosted runneru — obojí by chtělo nový odchozí dotaz → rozhodnutí.
 - Dependabot #197 selhal na `postcss@^8.5.32` mladším než jeho karence
   (gotchas #35) — ověřit, že další běh projde.
 

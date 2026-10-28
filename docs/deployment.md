@@ -289,13 +289,18 @@ nevidí. Na to je `scripts/check-runtime-security.ts`:
 | Kdy | Co | Výsledek |
 | --- | --- | --- |
 | každý deploy (`deploy.yml`, po reloadu) | Node buildu + Node běžících PM2 workerů vs. nejnovější bezpečnostní vydání řady (`nodejs.org/dist/index.json`) | jen `::warning::`, deploy nikdy neshodí |
-| týdně v pondělí 06:00 UTC (`runtime-security.yml`, self-hosted runner) | totéž + Ubuntu podporováno (`ubuntu-distro-info --supported`) + čekající `-security` balíčky z `apt` + `pnpm audit --prod --audit-level high` | **selže** → GitHub pošle e-mail o failnutém běhu |
+| týdně v pondělí 06:00 UTC (`runtime-security.yml`, self-hosted runner) | totéž + Ubuntu podporováno (`ubuntu-distro-info --supported`) + čekající `-security` balíčky z `apt` + **jakékoli** čekající upgrady z repozitářů mimo Ubuntu (PGDG, Docker CE…; `apt-get -s dist-upgrade`) + `pnpm audit --prod --audit-level high` | **selže** → GitHub pošle e-mail o failnutém běhu |
 
 Ručně: Actions → *Runtime security* → *Run workflow*, nebo na VPS
 `cd /var/www/ctyrlistkoteka && source /home/app/.nvm/nvm.sh && pnpm exec tsx scripts/check-runtime-security.ts --strict --os --pm2 ctyrlistkoteka`.
 Ven jde jen GET na `nodejs.org`. Kontrola `apt` čte lokální seznamy
 balíčků — jsou tak čerstvé, jak poslední `apt update`. Na nepodporovaném
 vydání žádné nové opravy nepřibudou, proto ta druhá kontrola.
+Cizí repozitáře nemají pocket `-security`, takže u nich nejde poznat, který
+upgrade je bezpečnostní — hlásí se proto **každý** čekající. Origin se čte
+ze simulace `apt-get -s dist-upgrade` (bez roota, nic neinstaluje), ne
+z `apt list`: Docker CE pojmenovává suite stejně jako vydání (`questing`)
+a v seznamu by vypadal jako archiv Ubuntu.
 
 ### Nejčastější příkazy, jak je opravdu napsat
 

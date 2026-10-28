@@ -28,6 +28,16 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
   doby týdenní kontrola svítí červeně schválně.
 
+### Kontrola runtime: upgrady z repozitářů mimo Ubuntu
+- Týdenní *Runtime security* nově hlásí každý čekající upgrade z cizího
+  apt repozitáře (PGDG, Docker CE…). Ty nemají pocket `-security`, takže
+  je dosavadní kontrola nikdy neviděla, ať čekaly jakkoli dlouho.
+- Origin se čte z `apt-get -s dist-upgrade` (simulace, bez roota), ne
+  z `apt list` — Docker CE má suite pojmenovanou jako vydání a vypadal
+  by jako Ubuntu. Formát ověřen skutečným výstupem na Ubuntu 26.04
+  s repy PGDG a Docker CE (kontejner, 2026-10-28); testy z něj vychází.
+- Zbývá: Docker images na hostu a verze self-hosted runneru.
+
 ### /admin/import: opravný balíček — sync sám (F3) + pojistky proti duplicitním fotkám (F4)
 - **F3:** po potvrzení opravného balíčku se hned spustí plný sync (audit
   `sync.start`, `trigger: "import-find-update"`); po úspěchu obnoví cache

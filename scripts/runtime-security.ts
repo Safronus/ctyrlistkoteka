@@ -98,6 +98,50 @@ export function securityUpgrades(aptListOutput: string): string[] {
   return names;
 }
 
+/** Is this source (`<label>:<version>/<suite>`) Ubuntu's own archive,
+ *  incl. Ubuntu Pro ESM (`UbuntuESM`, `UbuntuESMApps`)? */
+function isUbuntuSource(source: string): boolean {
+  const label = source.slice(0, source.indexOf(":"));
+  return label === "Ubuntu" || label.startsWith("UbuntuESM");
+}
+
+/**
+ * Package names from `apt-get -s dist-upgrade` whose new version comes ONLY
+ * from repositories outside Ubuntu's archive — PGDG, Docker CE, and the like.
+ *
+ * `securityUpgrades` can't see these: a foreign repo has no `-security`
+ * pocket, so its fixes never match there, and they usually aren't in
+ * unattended-upgrades' origins either. Any pending upgrade from such a repo
+ * is therefore reported — it may well be the security release.
+ *
+ * Why the simulation and not `apt list --upgradable`: the list shows only
+ * the suite, and Docker CE names its suite after the release (`resolute`),
+ * indistinguishable from the archive. The simulation prints the origin
+ * label of every source, e.g. (captured on 26.04, 2026-10-28)
+ *   Inst openssl [3.5.5-1ubuntu3] (3.5.5-1ubuntu3.7 Ubuntu:26.04/resolute-updates, Ubuntu:26.04/resolute-security [arm64])
+ *   Inst docker-ce-cli [5:29.9.1-…] (5:29.9.2-… Docker CE:resolute [arm64])
+ *   Inst postgresql-client-17 [17.10-…] (17.11-… PostgreSQL for Debian/Ubuntu repository:resolute-pgdg [arm64])
+ * Labels may contain spaces and slashes, so sources are split on ", " only.
+ */
+export function thirdPartyUpgrades(aptGetSimulation: string): string[] {
+  const names: string[] = [];
+  for (const line of aptGetSimulation.split("\n")) {
+    // Inst <name> [<installed>] (<version> <source>, <source> [<arch>])
+    const text = line.trimEnd();
+    if (!text.startsWith("Inst ") || !text.endsWith("])")) continue;
+    const open = text.indexOf(" (");
+    const arch = text.lastIndexOf(" [");
+    if (open < 0 || arch <= open) continue;
+    const name = text.slice("Inst ".length).split(" ")[0] ?? "";
+    const versionAndSources = text.slice(open + 2, arch);
+    const space = versionAndSources.indexOf(" ");
+    if (!name || space < 0) continue; // no source listed — nothing to judge
+    const sources = versionAndSources.slice(space + 1);
+    if (!sources.split(", ").some(isUbuntuSource)) names.push(name);
+  }
+  return names;
+}
+
 /** `VERSION_CODENAME` from the contents of /etc/os-release. */
 export function osCodename(osRelease: string): string | null {
   const m = /^VERSION_CODENAME="?([a-z]+)"?\s*$/m.exec(osRelease);

@@ -6,6 +6,7 @@ import {
   osCodename,
   parseVersion,
   securityUpgrades,
+  thirdPartyUpgrades,
   type NodeRelease,
 } from "./runtime-security";
 
@@ -107,5 +108,38 @@ describe("osCodename / isCodenameSupported", () => {
     expect(isCodenameSupported("noble", supported)).toBe(true);
     expect(isCodenameSupported("questing", supported)).toBe(false);
     expect(isCodenameSupported("nob", supported)).toBe(false);
+  });
+});
+
+describe("thirdPartyUpgrades", () => {
+  // Real `apt-get -s dist-upgrade` lines, captured on Ubuntu 26.04 with the
+  // PGDG and Docker CE repos added (2026-10-28).
+  const sim = [
+    "NOTE: This is only a simulation!",
+    "      apt-get needs root privileges for real execution.",
+    "Inst libssl3t64 [3.5.5-1ubuntu3] (3.5.5-1ubuntu3.7 Ubuntu:26.04/resolute-updates, Ubuntu:26.04/resolute-security [arm64])",
+    "Inst docker-ce-cli [5:29.9.1-1~ubuntu.26.04~resolute] (5:29.9.2-1~ubuntu.26.04~resolute Docker CE:resolute [arm64])",
+    "Inst postgresql-client-17 [17.10-1.pgdg26.04+1] (17.11-1.pgdg26.04+2 PostgreSQL for Debian/Ubuntu repository:resolute-pgdg [arm64])",
+    "Conf libssl3t64 (3.5.5-1ubuntu3.7 Ubuntu:26.04/resolute-updates, Ubuntu:26.04/resolute-security [arm64])",
+  ].join("\n");
+
+  it("reports packages whose new version comes only from a foreign repo", () => {
+    expect(thirdPartyUpgrades(sim)).toEqual(["docker-ce-cli", "postgresql-client-17"]);
+  });
+
+  it("counts a package as Ubuntu's when any of its sources is the archive or ESM", () => {
+    const mixed = [
+      "Inst libpq5 [17.10-1] (17.11-1 PostgreSQL for Debian/Ubuntu repository:resolute-pgdg, Ubuntu:26.04/resolute-updates [amd64])",
+      "Inst libfoo [1.0] (1.0+esm1 UbuntuESMApps:26.04/resolute-apps-security [amd64])",
+    ].join("\n");
+    expect(thirdPartyUpgrades(mixed)).toEqual([]);
+  });
+
+  it("reads a new dependency (no installed version) and ignores everything else", () => {
+    expect(
+      thirdPartyUpgrades("Inst containerd.io (2.2.2-1 Docker CE:resolute [amd64])\nRemv foo [1.0]\n"),
+    ).toEqual(["containerd.io"]);
+    expect(thirdPartyUpgrades("NOTE: This is only a simulation!\n")).toEqual([]);
+    expect(thirdPartyUpgrades("Inst odd [1.0] (1.1 [amd64])")).toEqual([]);
   });
 });

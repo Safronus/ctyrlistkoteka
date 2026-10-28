@@ -11,7 +11,9 @@
  *     compared with the newest security release of its major line from
  *     nodejs.org/dist/index.json.
  *   • `--os` (Linux) — Ubuntu release still supported (`ubuntu-distro-info
- *     --supported`) and no pending upgrades from a `-security` pocket.
+ *     --supported`), no pending upgrades from a `-security` pocket, and none
+ *     from repositories outside Ubuntu (PGDG, Docker…), which have no such
+ *     pocket to tell a security fix apart.
  *     Both matter: an EOL release gets no new security packages, so "no
  *     pending security upgrades" alone would read as green forever.
  *
@@ -32,6 +34,7 @@ import {
   isCodenameSupported,
   osCodename,
   securityUpgrades,
+  thirdPartyUpgrades,
   type NodeRelease,
 } from "./runtime-security";
 
@@ -40,6 +43,9 @@ const run = promisify(execFile);
 const NODE_INDEX_URL = "https://nodejs.org/dist/index.json";
 const FETCH_TIMEOUT_MS = 15_000;
 const EXEC_TIMEOUT_MS = 30_000;
+// A full-upgrade simulation lists every package; execFile's 1 MB default
+// could cut it off on a stale host.
+const APT_SIM_MAX_BUFFER = 16 * 1024 * 1024;
 
 const args = process.argv.slice(2);
 const strict = args.includes("--strict");
@@ -156,8 +162,28 @@ async function checkUbuntu(): Promise<void> {
     } else {
       finding(`${pending.length} apt security upgrade(s) pending: ${pending.join(", ")}`);
     }
+
   } catch (err) {
     finding(`apt security check could not run: ${(err as Error).message}`);
+  }
+
+  try {
+    // Simulation only — no root, no lock, nothing installed; same local
+    // package lists as above.
+    const { stdout } = await run("apt-get", ["-s", "dist-upgrade"], {
+      timeout: EXEC_TIMEOUT_MS,
+      maxBuffer: APT_SIM_MAX_BUFFER,
+    });
+    const foreign = thirdPartyUpgrades(stdout);
+    if (foreign.length === 0) {
+      ok("No pending upgrades from repositories outside Ubuntu");
+    } else {
+      finding(
+        `${foreign.length} upgrade(s) pending from repositories outside Ubuntu (no -security pocket there — any may be a security fix): ${foreign.join(", ")}`,
+      );
+    }
+  } catch (err) {
+    finding(`Check of repositories outside Ubuntu could not run: ${(err as Error).message}`);
   }
 }
 

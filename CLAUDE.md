@@ -297,9 +297,10 @@ na hostu) hlídáme sami — cíl je mít vše aktuální a nedat šanci známý
   `PROGRESS.md` a případně rozšiř kontrolu — nová služba bez hlídání
   bezpečnostních aktualizací je dluh.
 - **Známé mezery (2026-10-28):** Ubuntu 25.10 je EOL (upgrade na 26.04 LTS
-  čeká); kontrola zatím nepokrývá Docker images (GoatCounter, RustDesk),
-  balíčky z repozitářů mimo Ubuntu `-security` (např. PGDG) ani verzi
-  self-hosted runneru.
+  čeká, návrh v `docs/ubuntu-upgrade-26.04.md`); kontrola zatím nepokrývá
+  Docker images (GoatCounter, RustDesk) ani verzi self-hosted runneru.
+  Balíčky z repozitářů mimo Ubuntu (PGDG, Docker CE…) týdenní kontrola
+  hlídá od 2026-10-28 (`thirdPartyUpgrades`).
 
 ---
 
