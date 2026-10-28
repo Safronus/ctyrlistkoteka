@@ -1,6 +1,7 @@
 # Upgrade VPS: Ubuntu 25.10 „questing" → 26.04 LTS „resolute"
 
-> **Stav: NÁVRH k odsouhlasení (2026-10-28).** Nic z toho ještě neběželo.
+> **Stav: NÁVRH k odsouhlasení (2026-10-28, doladěno podle inventury).**
+> Fáze 0 hotová (výsledek v private ops repu, `inventory/`); fáze 1–6 ještě neběžely.
 > Claude Code se k VPS nepřipojuje — příkazy spouští majitel v Termiusu,
 > výstupy vkládá zpět do session. Každá fáze končí kontrolou; do další se
 > jde až po ní.
@@ -40,28 +41,28 @@ Známé problémy z release notes, které se nás můžou týkat:
   případ, stav v archivu „New" — logy pro diagnostiku jsou
   v `/var/log/dist-upgrade/` (`main.log`, `apt.log`).
 
-## Rozhodnutí R-PG (otevřené — rozhodne majitel po fázi 0)
+## Rozhodnutí R-PG: **varianta A — PostgreSQL 18 z Ubuntu** (2026-10-28)
 
-Po upgradu OS zůstane PG 17 nainstalovaný a běžící, ale **z archivu
-Ubuntu už bez bezpečnostních aktualizací**. Dvě cesty:
+Po upgradu OS zůstane PG 17 běžet, ale bez bezpečnostních aktualizací
+(26.04 `postgresql-17` nemá). Varianta A, protože podle inventury:
+- na serveru **není** repozitář PGDG — varianta B by přidávala cizí repo
+  (a další věc k hlídání);
+- PG 18.6 + `postgresql-18-postgis-3` (PostGIS 3.6.2) jsou v archivu 26.04
+  (ověřeno Launchpad API);
+- databáze má `data_checksums = off`, PG 18 je při `initdb` zapíná →
+  převod **dump/restore** (výchozí metoda `pg_upgradecluster`), ne
+  `pg_upgrade`. Naše DB je malá, dump je rychlý;
+- Prisma PG 18 oficiálně podporuje.
 
-- **A — přejít na PG 18 z Ubuntu** (`pg_upgradecluster`). Žádné cizí
-  repo, aktualizace přes Ubuntu `-security` (už je chytá vzor
-  `postgresql-` v unattended-upgrades). Cena: major migrace DB.
-  Prisma PG 18 oficiálně podporuje.
-- **B — nechat PG 17 z repozitáře PGDG** (`apt.postgresql.org`, má
-  `resolute-pgdg` s `postgresql-17` i `postgresql-17-postgis-3`). Bez
-  migrace dat; PG 17 má upstream podporu do listopadu 2029. Cena: další
-  apt repo (do unattended-upgrades se musí přidat jeho origin, jinak se
-  nepatchuje — přesně ta mezera, kterou kontrola runtime zatím nevidí).
+Migrace DB je **samostatné okno** (fáze 6) až po ověřeném OS — nemíchat.
 
-Doporučení: **A, ale jako samostatný krok až po ověřeném OS** — upgrade
-OS a migraci DB nemíchat; když se něco pokazí, je jasné, co. Pokud fáze 0
-ukáže, že PGDG už na hostu je, mění to výchozí bod a probereme znovu.
+## Fáze 0 — inventura (jen čtení) ✅ hotovo 2026-10-28
 
-## Fáze 0 — inventura (jen čtení, nic nemění)
-
-Výstup celé fáze vlož do session; podle něj se doladí zbytek plánu.
+Výsledek a z něj plynoucí opravy jsou v private ops repu (`inventory/`).
+Pro plán důležité: cgroup v2 (blokátor „cgroup v1“ se nás netýká),
+`Prompt=normal`, žádná cizí apt repa (Docker repo už chybí — docker-ce je
+osiřelý, viz fáze 5), ~31 GB volného místa. Příkazy pro případné
+zopakování:
 
 ```bash
 lsb_release -ds; uname -r; stat -fc %T /sys/fs/cgroup
@@ -97,6 +98,9 @@ apt list --upgradable 2>/dev/null | wc -l
    nabídne přepsat.
 5. `data/` má originál na Macu (rsync), `generated/` jde přegenerovat
    syncem — zálohovat netřeba, jen ověřit, že rsync z Macu je aktuální.
+6. **Zálohy služeb:** ručně `deploy/backup-services.sh` (GoatCounter +
+   klíče RustDesku) a ověřit, že poslední noční off-site stažení proběhlo
+   (`offsite-freshness.sh` v logu `/var/log/ctyr-backup.log`).
 
 ## Fáze 2 — dorovnat 25.10
 
@@ -113,8 +117,9 @@ jinak upgrade nezačínat.
 - Upgrader nabídne záložní sshd na portu **1022** — přes nftables bude
   zavřený; nechat zavřený, pokud hlavní SSH funguje (jinak ho dočasně
   povolit a pak zase zavřít).
-- Cizí apt repa vypne (záloha s příponou `.distUpgrade`) — po upgradu se
-  znovu zapnou ručně (fáze 5).
+- Cizí apt repa vypíná (záloha s příponou `.distUpgrade`). U nás žádné
+  nejsou — Docker repo zmizelo už při upgradu 25.04 → 25.10 (právě takhle)
+  a vrátí se ve fázi 5. Docker přitom poběží dál (osiřelý balíček).
 - U dotazů na konfigurační soubory (`nginx.conf`, `sshd_config`,
   `fail2ban`, `50unattended-upgrades`, `postgresql.conf`…) **ponechat
   naši verzi** a rozdíl si uložit; porovná se se zálohou `/etc`.
@@ -132,14 +137,37 @@ source /home/app/.nvm/nvm.sh && pm2 ls && node -v
 pg_lsclusters
 ```
 Plus z venku: web, `/sbirka`, `/mapa`, `/statistiky`, `/admin` (cloak +
-WebAuthn), jeden testovací deploy (prázdný commit z Macu) a ručně spuštěný
-workflow *Runtime security* — musí být **zelený** (Ubuntu podporováno).
+WebAuthn, `bash deploy/cloak-check.sh` z VPS = 6× ✅), `stats.` (GoatCounter),
+RustDesk klient, jeden testovací deploy (prázdný commit z Macu) a ručně
+spuštěný workflow *Runtime security* — po fázi 5 musí být **zelený**
+(do fáze 6 se ještě může ozvat `apt-orphaned` kvůli balíčkům PG 17).
 Runner: `systemctl status` jeho služby, v GitHubu stav „Idle".
 
 ## Fáze 5 — dočištění
 
-- Znovu zapnout cizí repa (`.distUpgrade`), u každého ověřit suite
-  `resolute`.
+- **Docker repozitář zpět** (oficiální postup docs.docker.com; 25.10 už
+  Docker nepodporuje, 26.04 ano):
+  ```bash
+  sudo install -m 0755 -d /etc/apt/keyrings
+  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  sudo chmod a+r /etc/apt/keyrings/docker.asc
+  sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+  Types: deb
+  URIs: https://download.docker.com/linux/ubuntu
+  Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+  Components: stable
+  Architectures: $(dpkg --print-architecture)
+  Signed-By: /etc/apt/keyrings/docker.asc
+  EOF
+  sudo apt update && sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  ```
+  Upgrade Dockeru restartuje kontejnery → hned po něm
+  `sudo bash deploy/update-docker-services.sh /home/app/rustdesk /var/ctyrlistkoteka/goatcounter`.
+  Rozhodnout: zařadit origin Dockeru do `unattended-upgrades`
+  (automatické bezpečnostní aktualizace, za cenu restartu kontejnerů),
+  nebo jen hlídat (`apt-foreign` v týdenní kontrole).
+- `nginx`: odebrat `ssl_stapling` (Let's Encrypt OCSP zrušil — jen
+  varování v `nginx -t`), `nginx -t`, reload.
 - `apt autoremove` — **jen po přečtení seznamu** (nesmí zmizet
   PG 17, dokud běží).
 - Aktualizovat dokumentaci: CLAUDE.md §12, callout v `deployment.md`,
@@ -149,17 +177,19 @@ Runner: `systemctl status` jeho služby, v GitHubu stav „Idle".
 ## Fáze 6 — PostgreSQL (podle R-PG; samostatné okno)
 
 Varianta A (náčrt, doladí se po fázi 0):
-1. Čerstvý `pg_dump -Fc` na Mac.
-2. `sudo apt install postgresql-18 postgresql-18-postgis-3`.
+1. Čerstvý `pg_dump -Fc` na Mac (+ `pg_restore --list`).
+2. `sudo apt install postgresql-18 postgresql-18-postgis-3` (PostGIS 3.6.2).
 3. `sudo pg_dropcluster 18 main --stop` — jen prázdný cluster, který
    balíček sám založil (oznámit předem; data v něm nejsou).
 4. `sudo pg_upgradecluster 17 main` — výchozí metoda **dump/restore**,
    ne `-m upgrade`: PG 18 při `initdb` zapíná datové checksums, a
-   `pg_upgrade` vyžaduje shodu se starým clusterem (fáze 0 ukáže
-   `data_checksums`). Při naší velikosti DB je dump rychlý. Nový cluster
+   `pg_upgrade` vyžaduje shodu se starým clusterem (fáze 0: `data_checksums
+   = off`). Při naší velikosti DB je dump rychlý. Nový cluster
    převezme port 5432, starý zůstane zastavený vedle.
 5. `SELECT postgis_extensions_upgrade();` v DB `ctyrlistkoteka`,
-   `pm2 reload`, ověřit web + `pnpm sync --dry-run` + `/admin/checks`.
+   `pm2 reload`, ověřit web + `pnpm sync --dry-run` + `/admin/checks` +
+   týdenní kontrolu s `--db` (rozšíření musí sedět s balíčky) + noční
+   `backup.sh` (pg_dump 18 proti clusteru 18).
 6. Až po několika dnech provozu: `pg_dropcluster 17 main` a odebrat
    balíčky PG 17 (destruktivní — oznámit a odsouhlasit předem).
 
