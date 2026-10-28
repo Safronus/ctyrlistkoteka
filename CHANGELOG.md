@@ -9,6 +9,31 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### /admin/import: opravný balíček nálezů — F1 analýza
+- Nový druh balíčku `"typ": "oprava-nalezu"` z desktopu: oprava dat
+  nálezů, které už jsou na webu (stav, poznámka, anonymizace, mapa, fotky).
+  Smlouva formátu je společná s desktopem (`docs/WEB_aktualizace_nalezu.md`
+  v repu desktopové aplikace, revize 2, schválená 2026-10-28).
+- **F1 = jen analýza, nic nezapisuje:** validace V1–V10 (nález na webu
+  existuje, názvy a čísla sedí, v ZIPu přesně soubory z manifestu, sha1
+  sedí na bajty, výřez LSP mluví jen o nálezech z manifestu, lokace = číslo
+  mapy z názvu a mapa na webu existuje, ANO v názvu ⇔ ANONYMIZOVANE, NE na
+  anonymizované mapě = chyba, žádný GIGANT ani neznámý stav). Náhled po
+  nálezech: stavy / poznámka / anonymizace / mapa PŘED → PO, fotky beze
+  změny vs. nové (sha1 proti `find_images`), ohlášení smazání webového
+  přepisu poznámky (R8). Jediná chyba = nic se nepoužije.
+- Výřez LSP je **plná pravda** pro uvedené nálezy: sloučení
+  (`applyFindUpdateToLsp`) je u nich náhrada, ne doplnění; klíč `stavy`,
+  který výřez nenese (GIGANT, webový), zůstává. Nedotčené řádky LSP si
+  drží přesné formátování. Spočítá se už v analýze, F2 ho jen zapíše.
+- **Pojistka:** commit opravný balíček zatím výslovně odmítne — jinak by
+  propadl do klasického importu, který by soubory přepsal a LSP jen
+  doplnil. Rozpoznání jde jako první, protože manifest s `typ`, který mapový
+  import nezná, by jinak vzal za balíček map (test to drží).
+- Testy: `findUpdatePackage.test.ts` (32), `findUpdateImport.test.ts` (7,
+  skutečný ZIP + dočasný DATA_DIR). Ověřeno i tím, že vypnutí pravidla V7b
+  test shodí.
+
 ### Dokumentace: opravené tři nepřesnosti o datech nálezů
 - **Formát názvů souborů:** docs tvrdily, že se na disku `+` i diakritika
   přepisují na `_` a parser oddělovače „rekonstruuje". Neplatí: názvy `+`

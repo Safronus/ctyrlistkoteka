@@ -22,6 +22,11 @@ import {
   analyzePhotoPackageZip,
   type PhotoPackagePlan,
 } from "@/lib/admin/photoPackageImport";
+import {
+  analyzeFindUpdateZip,
+  isFindUpdatePackageZip,
+} from "@/lib/admin/findUpdateImport";
+import type { FindUpdatePlan } from "@/lib/findUpdatePackage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,11 +34,13 @@ export const dynamic = "force-dynamic";
 interface AnalyzeResponse {
   ok: boolean;
   /** "v1" = flat finds/crops/maps/meta package; "v2" = location-map
-   *  package; "photos" = real photographs of locations. */
-  packageType?: "v1" | "v2" | "photos";
+   *  package; "photos" = real photographs of locations; "update" =
+   *  correction of finds already on the site ("oprava-nalezu"). */
+  packageType?: "v1" | "v2" | "photos" | "update";
   plan?: ImportPlan;
   mapPlan?: MapPackageImportPlan;
   photoPlan?: PhotoPackagePlan;
+  updatePlan?: FindUpdatePlan;
   error?: string;
 }
 
@@ -72,6 +79,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const fileName = (body.fileName ?? "").slice(0, 200) || uploadId;
 
   try {
+    // A correction package goes first: its `typ` is one the map importer
+    // doesn't know, so asking the map importer first would misroute it.
+    if (await isFindUpdatePackageZip(zipPath)) {
+      const updatePlan = await analyzeFindUpdateZip(zipPath);
+      if ("error" in updatePlan) {
+        await recordImportEvent({
+          uploadId, fileName, bytes,
+          packageType: "update",
+          outcome: "failed",
+          error: updatePlan.error,
+        });
+        return json({ ok: false, error: updatePlan.error }, 400);
+      }
+      const n = updatePlan.finds.length;
+      const bad = updatePlan.errors.length + updatePlan.finds.reduce((s, f) => s + f.errors.length, 0);
+      await recordImportEvent({
+        uploadId, fileName, bytes,
+        packageType: "update",
+        outcome: "analyzed",
+        summary:
+          `oprava ${n} ${pluralCs(n, ["nálezu", "nálezů", "nálezů"])}` +
+          (bad > 0 ? `, ${bad} ${pluralCs(bad, ["chyba", "chyby", "chyb"])}` : ""),
+      });
+      return json({ ok: true, packageType: "update", updatePlan });
+    }
     // Photo packages are asked about FIRST: their manifest sits at the same
     // path as the map package's, so whoever asks first has to be the one
     // that can tell them apart by `typ`.

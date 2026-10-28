@@ -37,6 +37,7 @@ const PACKAGE_LABEL: Record<ImportHistoryPackage, string> = {
   v1: "🍀",
   v2: "mapy v2",
   photos: "fotky lokalit",
+  update: "oprava 🍀",
   unknown: "neznámý",
 };
 

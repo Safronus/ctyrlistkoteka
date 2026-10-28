@@ -14,7 +14,7 @@ import {
  *  time. Top-level objects use `z.strictObject` (Zod 4 API) to
  *  reject typos in keys instead of silently swallowing them. */
 
-const rangesField = z.array(z.string()).superRefine((arr, ctx) => {
+export const rangesField = z.array(z.string()).superRefine((arr, ctx) => {
   arr.forEach((raw, i) => {
     const s = raw.trim();
     if (s === "") return;

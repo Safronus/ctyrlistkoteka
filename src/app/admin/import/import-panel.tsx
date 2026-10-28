@@ -34,8 +34,10 @@ import type {
 // lspMerge is a pure lib (no node/"use server"), so importing its diff type
 // is safe for the client bundle.
 import type { WholeFileMergeSectionDiff } from "@/lib/admin/lspMerge";
+import type { FindUpdatePlan } from "@/lib/findUpdatePackage";
 import { pluralCs } from "@/lib/format";
 import { compactToRanges } from "@/lib/parseRanges";
+import { UpdateReviewCard } from "./update-review-card";
 
 /** Structural subset of the server's WholeFileMergeResult. Declared locally
  *  rather than imported because that type lives in a "use server" module,
@@ -81,6 +83,13 @@ type Phase =
       fileName: string;
       packageType: "photos";
       photoPlan: PhotoPackagePlan;
+    }
+  | {
+      kind: "review";
+      uploadId: string;
+      fileName: string;
+      packageType: "update";
+      updatePlan: FindUpdatePlan;
     }
   | { kind: "committing"; fileName: string }
   | {
@@ -230,13 +239,22 @@ export function ImportPanel() {
       setPhase({ kind: "analyzing", fileName: file.name });
       const res = await postJson<{
         ok: true;
-        packageType: "v1" | "v2" | "photos";
+        packageType: "v1" | "v2" | "photos" | "update";
         plan?: ImportPlan;
         mapPlan?: MapPackageImportPlan;
         photoPlan?: PhotoPackagePlan;
+        updatePlan?: FindUpdatePlan;
       }>("/admin/api/import/analyze", { uploadId, fileName: file.name });
       abortRef.current = null;
-      if (res.packageType === "photos" && res.photoPlan) {
+      if (res.packageType === "update" && res.updatePlan) {
+        setPhase({
+          kind: "review",
+          uploadId,
+          fileName: file.name,
+          packageType: "update",
+          updatePlan: res.updatePlan,
+        });
+      } else if (res.packageType === "photos" && res.photoPlan) {
         setPhase({
           kind: "review",
           uploadId,
@@ -377,6 +395,15 @@ export function ImportPanel() {
   }
 
   if (phase.kind === "review") {
+    if (phase.packageType === "update") {
+      return (
+        <UpdateReviewCard
+          plan={phase.updatePlan}
+          fileName={phase.fileName}
+          onCancel={reset}
+        />
+      );
+    }
     if (phase.packageType === "photos") {
       return (
         <PhotoReviewCard

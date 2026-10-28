@@ -17,7 +17,7 @@ import { ensureDir } from "./atomic";
  * newest-first and capped, because nobody scrolls a year of imports.
  */
 
-export type ImportHistoryPackage = "v1" | "v2" | "photos" | "unknown";
+export type ImportHistoryPackage = "v1" | "v2" | "photos" | "update" | "unknown";
 export type ImportHistoryOutcome =
   /** Uploaded and analysed; the operator has not decided yet. */
   | "analyzed"

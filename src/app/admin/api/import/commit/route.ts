@@ -34,6 +34,7 @@ import {
   mergeWholeFile,
   type WholeFileMergeResult,
 } from "@/app/admin/json/lokace-stavy-poznamky/merge-whole-action";
+import { isFindUpdatePackageZip } from "@/lib/admin/findUpdateImport";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,6 +101,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
+    // A correction package ("oprava-nalezu") must NEVER reach the ordinary
+    // v1 commit below: that one overwrites files by find id and only ADDS
+    // to the LSP, so it would rename the photos while leaving the old
+    // states and notes in place. Until its own commit exists (phase F2) it
+    // is refused outright.
+    if (await isFindUpdatePackageZip(zipPath)) {
+      const error =
+        "Opravný balíček nálezů zatím web jen analyzuje — zápis (fáze F2) ještě není hotový. Nic se nezměnilo.";
+      await recordImportEvent({
+        uploadId, fileName, bytes,
+        packageType: "update",
+        outcome: "failed",
+        error,
+      });
+      return json({ ok: false, error }, 409);
+    }
     // Photos land straight in generated/ as WebP — no sync afterwards,
     // they are servable the moment they are written. Asked first for the
     // same reason as in the analyzer: both packages carry a manifest.json.
