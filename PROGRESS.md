@@ -58,4 +58,6 @@ Oprava je SAMOSTATNÝ typ balíčku — balíčky map a nových nálezů se nem�
 - Ven jde jen GET na `nodejs.org/dist/index.json`.
 
 ### Další krok
-Plán upgradu Ubuntu 25.10 → 26.04 LTS (fáze 4).
+Plán upgradu Ubuntu 25.10 → 26.04 LTS je NÁVRH v `docs/ubuntu-upgrade-26.04.md`
+(2026-10-28): čeká na fázi 0 (inventura na VPS, jen čtení) a rozhodnutí R-PG
+(PG 18 z Ubuntu vs. PG 17 z PGDG) — 26.04 už `postgresql-17` nemá.
