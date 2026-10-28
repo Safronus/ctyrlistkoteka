@@ -44,10 +44,10 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
      `/api/`) + `deploy/cloak-check.sh`; ověřeno skutečným nginx v Dockeru.
    - ⏳ **VPS (majitel):** spustit skript → `nginx -t` → reload →
      `bash deploy/cloak-check.sh` z VPS (musí být 6× ✅).
-2. ⏳ **Audit veřejného repa na úniky** (repo je public): git historie
-   (gitleaks/ruční), informace o adminu, nginx/allowlistu, endpointech,
-   cestách a konfiguracích, které by mohl útočník využít → zpráva +
-   návrh, co z docs/šablon stáhnout nebo zobecnit.
+2. ✅ **Audit veřejného repa na úniky** hotový 2026-10-28 — zpráva je
+   jen LOKÁLNĚ v `tmp/security-audit-2026-10-28.md` (git ji ignoruje;
+   nikdy ji necommituj, popisuje slabiny). Čeká rozhodnutí majitele
+   o navržených krocích.
 3. ⏳ **Vlastní 404 „hledej čtyřlístek“** — 3 dema lokálně (louka, lupa,
    jednoduchá), majitel vybere v náhledu; pak jedna 404 pro web i masku.
    Požadavky: nevypisuje adresu ani nic z požadavku, hra jen v prohlížeči,
