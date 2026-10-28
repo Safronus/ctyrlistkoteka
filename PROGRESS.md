@@ -52,6 +52,7 @@ Oprava je SAMOSTATNÝ typ balíčku — balíčky map a nových nálezů se nem�
 - ✅ Docker images: `--docker` hotový a ověřený lokálně; ⏳ zapnout v
   `runtime-security.yml` po fázi 0 (`app: docker OK`?).
 - Verze runneru: vědomě nehlídat (rozhodnutí 2026-10-28).
+- ✅ Úklid worktree/větví po triáži (2026-10-28).
 - Dependabot #197 selhal na `postcss@^8.5.32` mladším než jeho karence
   (gotchas #35) — ověřit, že další běh projde.
 
