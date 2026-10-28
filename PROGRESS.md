@@ -68,12 +68,13 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 1. ✅ **404 – Lupa na mobilu** (2026-10-28): na dotyku lupa pluje nad
    prstem (poloměr + 36 px), tažení nic nevybírá, klepnutí vybere ťuknuté
    místo; myš a šipky beze změny. Ověřeno simulovaným dotykem v prohlížeči.
-2. ⏳ **/sbirka na mobilu – dlaždice:** spodní banner při najetí myší
-   ZŮSTÁVÁ jen na desktopu (rozhodnutí majitele 2026-10-28: na mobilu jen
-   datum, nic nepřidávat — trvalá lišta zakrývala datum). Nový problém:
-   na mobilu v horní liště dlaždice **není vidět číslo nálezu**. Čeká se na
-   screenshot od majitele (v emulaci 375 px je číslo vidět — závisí na
-   zařízení/šířce).
+2. ✅ **/sbirka na mobilu – dlaždice** (2026-10-28): spodní banner při
+   najetí myší ZŮSTÁVÁ jen na desktopu (rozhodnutí majitele: na mobilu jen
+   datum, nic nepřidávat). Skutečný problém byl jinde — v horní liště se
+   pěticiferné číslo ořezávalo na „#31…“. Pod `md` (768 px) teď palec
+   s hlasy sedí jako bílý čip v pravém horním rohu fotky a 🍀 před číslem
+   odpadá; tablet a desktop beze změny. Ověřeno měřením na 390 / 640 /
+   768 px (rezerva i pro šesticiferná ID). ⏳ Majitel ověří na iPhonu.
 
 ## Pravidelné hlídání a aktualizace služeb (2026-10-28)
 - ✅ Týdenní kontrola: + osiřelé balíčky, + rozšíření DB (`--db`), + Docker

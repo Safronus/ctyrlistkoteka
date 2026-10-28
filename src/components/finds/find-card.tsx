@@ -64,13 +64,18 @@ export async function FindCard({
     find.coordinates !== null;
 
   return (
-    <div className="group overflow-hidden rounded-lg border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm">
+    <div className="group relative overflow-hidden rounded-lg border border-gray-200 bg-white transition hover:border-brand-200 hover:shadow-sm">
       {/* Banner above the photo: map-pin (left) · "🍀 #123" (centre) ·
           vote (right). The pin and the vote button are SIBLINGS of the
           detail links below — never nested inside an <a> — so the markup
           stays valid and each control keeps its own click target. When a
           side control is absent, a same-size spacer holds the number
-          roughly centred. */}
+          roughly centred.
+          Phones (< md, incl. small phones in landscape such as 667 px)
+          can't fit a five-digit number between all of that (#31420
+          truncated to "#31…", 2026-10-28), so there the 🍀 drops and the
+          vote pill moves onto the photo's top-right corner — see
+          VOTE_ON_PHOTO. */}
       <div className="flex items-center justify-between gap-0.5 px-1.5 py-1.5">
         {/* Left — map-pin deep-link to /mapa (or spacer). */}
         {showMapLink ? (
@@ -103,7 +108,7 @@ export async function FindCard({
           className="flex min-w-0 flex-1 items-center justify-center gap-1"
         >
           <span className="truncate text-xs font-semibold text-gray-900 group-hover:text-brand-700 sm:text-sm">
-            🍀 #{find.id}
+            <span className="max-md:hidden">🍀 </span>#{find.id}
           </span>
           {find.isRecord && (
             <span
@@ -119,7 +124,7 @@ export async function FindCard({
         {/* Right — vote pill (or spacer). Only when a thumbnail exists
             (no-photo finds have nothing to vote on). */}
         {find.primaryImage ? (
-          <div className="shrink-0">
+          <div className={`shrink-0 ${VOTE_ON_PHOTO}`}>
             <VoteButton
               findId={find.id}
               initialVoted={voted}
@@ -128,7 +133,7 @@ export async function FindCard({
             />
           </div>
         ) : (
-          <span aria-hidden className="h-7 w-7 shrink-0" />
+          <span aria-hidden className="h-7 w-7 shrink-0 max-md:hidden" />
         )}
       </div>
 
@@ -148,7 +153,11 @@ export async function FindCard({
         />
         {/* State badges — top-left. */}
         {find.states.length > 0 && (
-          <div className="pointer-events-none absolute inset-x-2 top-2">
+          <div
+            className={`pointer-events-none absolute inset-x-2 top-2 ${
+              find.primaryImage ? BADGES_BESIDE_VOTE : ""
+            }`}
+          >
             <StateBadges states={find.states} className="drop-shadow-sm" />
           </div>
         )}
@@ -218,6 +227,20 @@ export async function FindCard({
     </div>
   );
 }
+
+/**
+ * Phones (< md) only: the vote pill leaves the top bar and sits on the
+ * photo's top-right corner (the bar is 40 px tall — 28 px controls +
+ * py-1.5 — so top-12 lands it 8 px into the photo), on a white chip so it
+ * reads over any picture. ONE VoteButton re-positioned by breakpoint,
+ * never two (that would double the vote hydration and split the state).
+ * Its DOM stays in the top bar, positioned off the card (`relative`), so
+ * it never nests inside the photo's <a>. The state badges top-left stop
+ * short of it.
+ */
+const VOTE_ON_PHOTO =
+  "max-md:absolute max-md:right-2 max-md:top-12 max-md:z-10 max-md:rounded-full max-md:bg-white/90 max-md:pr-1.5 max-md:shadow-md max-md:ring-1 max-md:ring-black/5 max-md:backdrop-blur";
+const BADGES_BESIDE_VOTE = "max-md:right-16";
 
 /**
  * Slide-up detail strip along the bottom of the tile's photo, revealed on

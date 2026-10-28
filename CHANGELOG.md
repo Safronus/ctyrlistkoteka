@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### /sbirka na mobilu: číslo nálezu v dlaždici zase celé
+- V horní liště dlaždice se pěticiferné číslo (#31420) na telefonu
+  ořezávalo na „#31…“. Pod 768 px se palec s hlasy přesunul do pravého
+  horního rohu fotky (jedna instance tlačítka, jen jinak umístěná) a 🍀
+  před číslem odpadl. Štítky stavu nechávají palci místo. Tablet a
+  desktop beze změny.
+
 ### 404 Lupa: na dotyku lupa nad prstem
 - Prst zakrýval místo, které lupa zvětšovala. Na dotyku teď lupa pluje nad
   prstem (jako lupa v iOS), zvednutí prstu nic nevybírá a čtyřlístek se
