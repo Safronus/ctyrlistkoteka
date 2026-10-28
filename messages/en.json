@@ -983,6 +983,9 @@
     "nextRound": "Find another — round {n} 🍀",
     "totalFound": "Found: {count}",
     "budLeaf": "That's just a three-leaf with a bud. Keep looking!",
-    "loading": "The meadow is growing…"
+    "loading": "The meadow is growing…",
+    "roundTime": "Time: {time}.",
+    "newRecord": "New record! 🏆",
+    "bestAverage": "Best time {best} · average {average}"
   }
 }

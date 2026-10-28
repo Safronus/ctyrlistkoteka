@@ -26,6 +26,9 @@ export function MagnifierGame() {
   const [tries, setTries] = useState(0);
   const [found, setFound] = useState(false);
   const [total, setTotal] = useState(0);
+  // Round clock: started when a round is laid out, one entry per round won.
+  const [startedAt, setStartedAt] = useState(() => performance.now());
+  const [times, setTimes] = useState<number[]>([]);
   const [message, setMessage] = useState("");
   const layout = useMemo(() => lensRound(round, seed), [round, seed]);
 
@@ -39,6 +42,7 @@ export function MagnifierGame() {
     if (Math.hypot(x - cx, y - cy) <= HIT) {
       setFound(true);
       setTotal((v) => v + 1);
+      setTimes((ts) => [...ts, performance.now() - startedAt]);
       setLens({ x: cx, y: cy });
       setMessage(t("foundAfter", { count: n }));
     } else {
@@ -82,6 +86,7 @@ export function MagnifierGame() {
     setSeed(newSeed());
     setTries(0);
     setFound(false);
+    setStartedAt(performance.now());
     setLens(null);
     setMessage("");
   }
@@ -148,6 +153,8 @@ export function MagnifierGame() {
         tries={tries}
         total={total}
         found={found}
+        startedAt={startedAt}
+        times={times}
         message={message || t("lensHint")}
         onNext={nextRound}
       />

@@ -140,3 +140,35 @@ export function newSeed(): number {
   crypto.getRandomValues(a);
   return a[0]!;
 }
+
+// ─── Clock ─────────────────────────────────────────────────────────────────
+
+/** Round times so far → the numbers the footer shows. */
+export function summarizeTimes(times: readonly number[]): {
+  last: number | null;
+  best: number | null;
+  average: number | null;
+  /** The last round beat every earlier one (needs at least two rounds). */
+  newRecord: boolean;
+} {
+  if (times.length === 0) return { last: null, best: null, average: null, newRecord: false };
+  const last = times[times.length - 1]!;
+  const best = Math.min(...times);
+  const earlier = times.slice(0, -1);
+  return {
+    last,
+    best,
+    average: times.reduce((a, b) => a + b, 0) / times.length,
+    newRecord: earlier.length > 0 && last < Math.min(...earlier),
+  };
+}
+
+/** Milliseconds as „12,3 s“ / „1:05,0“ (cs) or "12.3 s" / "1:05.0" (en). */
+export function formatDuration(ms: number, locale: string): string {
+  const tenths = Math.max(0, Math.round(ms / 100));
+  const minutes = Math.floor(tenths / 600);
+  const seconds = (tenths % 600) / 10;
+  const sep = locale === "cs" ? "," : ".";
+  const s = seconds.toFixed(1).replace(".", sep);
+  return minutes > 0 ? `${minutes}:${s.padStart(4, "0")}` : `${s} s`;
+}

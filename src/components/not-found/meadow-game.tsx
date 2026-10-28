@@ -23,6 +23,9 @@ export function MeadowGame() {
   const [tries, setTries] = useState(0);
   const [found, setFound] = useState(false);
   const [total, setTotal] = useState(0);
+  // Round clock: started when a round is laid out, one entry per round won.
+  const [startedAt, setStartedAt] = useState(() => performance.now());
+  const [times, setTimes] = useState<number[]>([]);
   const [shaking, setShaking] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const layout = useMemo(() => meadowRound(round, seed), [round, seed]);
@@ -34,6 +37,7 @@ export function MeadowGame() {
     if (i === layout.lucky) {
       setFound(true);
       setTotal((x) => x + 1);
+      setTimes((ts) => [...ts, performance.now() - startedAt]);
       setMessage(t("foundAfter", { count: n }));
     } else {
       setShaking(i);
@@ -47,6 +51,7 @@ export function MeadowGame() {
     setSeed(newSeed());
     setTries(0);
     setFound(false);
+    setStartedAt(performance.now());
     setMessage("");
   }
 
@@ -94,13 +99,14 @@ export function MeadowGame() {
         tries={tries}
         total={total}
         found={found}
+        startedAt={startedAt}
+        times={times}
         message={message || t("meadowHint")}
         onNext={nextRound}
       />
 
       <style>{`
         @keyframes ctyr-shake { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-4px) rotate(-6deg) } 75% { transform: translateX(4px) rotate(6deg) } }
-        @keyframes ctyr-pop { 0% { transform: scale(1) } 50% { transform: scale(1.35) rotate(12deg) } 100% { transform: scale(1) } }
       `}</style>
     </div>
   );

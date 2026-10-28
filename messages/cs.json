@@ -982,6 +982,9 @@
     "nextRound": "Hledat další — kolo {n} 🍀",
     "totalFound": "Nalezeno: {count}",
     "budLeaf": "Tohle je jen trojlístek s pupenem. Hledej dál!",
-    "loading": "Louka roste…"
+    "loading": "Louka roste…",
+    "roundTime": "Čas: {time}.",
+    "newRecord": "Nový rekord! 🏆",
+    "bestAverage": "Nejlepší čas {best} · průměr {average}"
   }
 }

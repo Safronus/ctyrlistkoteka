@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lensRound, MAX_ROUND, meadowRound, prng } from "./hunt";
+import { formatDuration, lensRound, MAX_ROUND, meadowRound, prng, summarizeTimes } from "./hunt";
 
 describe("prng", () => {
   it("is reproducible from the seed and stays in [0, 1)", () => {
@@ -74,5 +74,30 @@ describe("lensRound", () => {
         expect(v).toBeLessThanOrEqual(92);
       }
     }
+  });
+});
+
+describe("summarizeTimes", () => {
+  it("is empty before the first round", () => {
+    expect(summarizeTimes([])).toEqual({ last: null, best: null, average: null, newRecord: false });
+  });
+
+  it("tracks last, best, average — and a record only when an earlier round is beaten", () => {
+    expect(summarizeTimes([9000])).toMatchObject({ last: 9000, best: 9000, newRecord: false });
+    expect(summarizeTimes([9000, 12000])).toMatchObject({ best: 9000, average: 10500, newRecord: false });
+    expect(summarizeTimes([9000, 12000, 7000])).toMatchObject({ last: 7000, best: 7000, newRecord: true });
+  });
+});
+
+describe("formatDuration", () => {
+  it("writes seconds with tenths in the locale's decimal sign", () => {
+    expect(formatDuration(12345, "cs")).toBe("12,3 s");
+    expect(formatDuration(12345, "en")).toBe("12.3 s");
+    expect(formatDuration(0, "en")).toBe("0.0 s");
+  });
+
+  it("switches to minutes past a minute", () => {
+    expect(formatDuration(65000, "cs")).toBe("1:05,0");
+    expect(formatDuration(125400, "en")).toBe("2:05.4");
   });
 });
