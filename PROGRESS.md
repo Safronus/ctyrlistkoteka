@@ -92,14 +92,16 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
   `options-ssl-nginx.conf`; týdenní kontrola hlídá `systemd-failed`
   (b2db9a1); dokumentace (callout, CLAUDE.md §11/§12). Starší jádro
   6.17.0-41 ponecháno jako záložní položka GRUBu.
-- ⏳ certbot `renew --dry-run` znovu (staging LE vracel 503 „Service busy"
-  na authz — ne naše chyba; ostré certy platí 53–88 dní).
+- ✅ certbot `renew --dry-run` 2026-10-29 ráno: všechny 3 certifikáty
+  (ctyrlistkoteka.cz+www, qr.casqb.org, stats.ctyrlistkoteka.cz) success.
+  Noční 503 byl jen přetížený staging LE.
 - ⏳ Fáze 6 — PostgreSQL 18 (samostatné okno, dump/restore). Do té doby
   `apt-orphaned` ❌ kvůli 4 balíčkům PG 17 — čekané. Rozhodnutí majitele
   2026-10-29: e-mail z týdenní kontroly nechat chodit, nic nepotlačovat.
-- **Další krok (ráno 2026-10-29):** 1) UNAS `tail -n 2 pull.log` (ranní
-  běh ~1 min?), 2) `sudo certbot renew --dry-run`, 3) připravit fázi 6.
-- ⏳ 2026-10-29 7:30 naplánovaná připomínka: `tail -n 2 pull.log` na UNASu.
+- ✅ UNAS ranní běh 2026-10-29: 06:10:01 → 06:11:24 (83 s), snapshot
+  2026-10-29 OK, 30 ponecháno. Ruční běh včera (3 min 12 s) byl výjimka.
+- **Další krok:** fáze 6 — plán 6a–6e v `docs/ubuntu-upgrade-26.04.md`;
+  čeká na souhlas majitele a výstup 6a (jen čtení).
 
 ## Seznam oprav (nahlášeno majitelem)
 1. ✅ **404 – Lupa na mobilu** (2026-10-28): na dotyku lupa pluje nad

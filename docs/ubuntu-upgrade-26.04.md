@@ -227,27 +227,66 @@ odpovídá 200" nestačí — tohle všechno musí sedět:
   `PROGRESS.md`, CHANGELOG.
 - Smazat Node 24.18.0 postupem „Mazání staré verze Node".
 
-## Fáze 6 — PostgreSQL (podle R-PG; samostatné okno)
+## Fáze 6 — PostgreSQL 17 → 18 (podle R-PG; samostatné okno)
 
-Varianta A (náčrt, doladí se po fázi 0):
-1. Čerstvý `pg_dump -Fc` na Mac (+ `pg_restore --list`).
-2. `sudo apt install postgresql-18 postgresql-18-postgis-3` (PostGIS 3.6.2).
-3. `sudo pg_dropcluster 18 main --stop` — jen prázdný cluster, který
-   balíček sám založil (oznámit předem; data v něm nejsou).
-4. `sudo pg_upgradecluster 17 main` — výchozí metoda **dump/restore**,
-   ne `-m upgrade`: PG 18 při `initdb` zapíná datové checksums, a
-   `pg_upgrade` vyžaduje shodu se starým clusterem (fáze 0: `data_checksums
-   = off`). Při naší velikosti DB je dump rychlý. Nový cluster
-   převezme port 5432, starý zůstane zastavený vedle.
-5. `SELECT postgis_extensions_upgrade();` v DB `ctyrlistkoteka`,
-   `pm2 reload`, ověřit web + `pnpm sync --dry-run` + `/admin/checks` +
-   týdenní kontrolu s `--db` (rozšíření musí sedět s balíčky) + noční
-   `backup.sh` (pg_dump 18 proti clusteru 18).
-6. Až po několika dnech provozu: `pg_dropcluster 17 main` a odebrat
-   balíčky PG 17 (destruktivní — oznámit a odsouhlasit předem).
+Plán doladěný 2026-10-29 (předpoklady: OS hotový, certbot a UNAS ověřené
+ráno 2026-10-29). Každá podfáze končí kontrolou výstupů, do další se jde
+až po ní.
 
-Návrat: starý cluster 17 běží dál až do kroku 6 — `pg_ctlcluster`
-přepnutí zpět; v nejhorším snapshot z fáze 1.
+### 6a — předkontrola (jen čtení, kdykoliv)
+
+Kolace (glibc se s OS změnil — dump/restore indexy stejně přestaví),
+md5 hesla (PG 18 je označuje za zastaralá), ručně měněná nastavení
+a `pg_hba` (`pg_upgradecluster` je přenese), velikost DB, kandidáti balíčků,
+co dalšího sahá do DB (cron, časovače).
+
+```bash
+pg_lsclusters
+sudo -u postgres psql -d ctyrlistkoteka -Atc "select extname, extversion from pg_extension order by 1"
+sudo -u postgres psql -Atc "select datname, datcollversion, pg_database_collation_actual_version(oid) from pg_database where datallowconn"
+sudo -u postgres psql -Atc "select rolname from pg_authid where rolpassword like 'md5%'"
+sudo -u postgres psql -Atc "select pg_size_pretty(pg_database_size('ctyrlistkoteka'))"
+sudo -u postgres psql -Atc "select name, setting from pg_settings where source = 'configuration file' order by 1"
+sudo grep -vE '^[[:space:]]*(#|$)' /etc/postgresql/17/main/pg_hba.conf
+ls -la /etc/postgresql/17/main/conf.d/
+grep -E '^[[:space:]]*create_main_cluster' /etc/postgresql-common/createcluster.conf
+apt-cache policy postgresql-18 postgresql-18-postgis-3 | grep -E '^[a-z]|Candidate'
+df -h /var/lib/postgresql
+crontab -l | grep -v '^#'
+systemctl list-timers --no-pager | grep -E 'sync|backup|drop'
+```
+
+### 6b — okno údržby (výpadek webu několik minut)
+
+Nic nepushovat do `main`. Zastavit zápisy (časovače `drop-sheet-sync`
+a `ctyrlistkoteka-sync`, PM2 proces `ctyrlistkoteka`), čerstvý dump přes
+`deploy/backup.sh` + stáhnout na Mac a ověřit hash, `apt install
+postgresql-18 postgresql-18-postgis-3`, smazat jen prázdný cluster 18,
+který si balíček sám založí (oznámit předem — data v něm nejsou),
+`pg_upgradecluster 17 main` (dump/restore — viz R-PG: checksums), ověřit
+`pg_lsclusters` (18 na 5432 online, 17 zastavený vedle), verze rozšíření,
+počet nálezů, pak PM2 a časovače zpět. Přesné příkazy se doplní po 6a.
+
+### 6c — ověření
+
+Web + `/admin/checks`, `pnpm sync --dry-run`, ruční `deploy/backup.sh`
+(pg_dump 18 proti clusteru 18, `pg_restore --list`), ruční běh *Runtime
+security* (`--db`: rozšíření sedí s balíčky), další noční off-site stažení
+na UNAS.
+
+### 6d — úklid (až po několika dnech provozu, se souhlasem)
+
+`pg_dropcluster 17 main` a odebrat balíčky PG 17 (destruktivní — oznámit
+a odsouhlasit předem). Pak `apt-orphaned` v týdenní kontrole zezelená.
+
+### 6e — dokumentace
+
+Callout v `deployment.md`, CLAUDE.md §2/§3/§11/§12 (PG 17 → 18),
+CHANGELOG, PROGRESS, paměť.
+
+Návrat: cluster 17 zůstává až do 6d — přepnutí zpět přes porty
+a `pg_ctlcluster` (zápisy po přepnutí by se ztratily); v nejhorším dump
+z 6b nebo snapshot VPS.
 
 ## Zdroje
 
