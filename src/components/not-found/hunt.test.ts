@@ -11,6 +11,9 @@ import {
   prng,
   recordBest,
   summarizeTimes,
+  tableRow,
+  tableRowLabel,
+  todayByRow,
 } from "./hunt";
 
 describe("prng", () => {
@@ -166,5 +169,35 @@ describe("personal bests", () => {
     expect(better).toMatchObject({ improved: true, previous: 5000 });
     expect(better.bests.meadow[2]).toBe(4000);
     expect(b.meadow[2]).toBe(5000); // no mutation
+  });
+});
+
+describe("speed table rows (8+)", () => {
+  it("files every round from MAX_ROUND on into the last row, labelled „8+“", () => {
+    expect(tableRow(1)).toBe(1);
+    expect(tableRow(MAX_ROUND - 1)).toBe(MAX_ROUND - 1);
+    expect(tableRow(MAX_ROUND)).toBe(MAX_ROUND);
+    expect(tableRow(11)).toBe(MAX_ROUND);
+    expect(tableRowLabel(3)).toBe("3");
+    expect(tableRowLabel(MAX_ROUND)).toBe(`${MAX_ROUND}+`);
+  });
+
+  it("matches where recordBest stores a round past 8", () => {
+    const { bests } = recordBest(parseBests(null), "meadow", 11, 7_000);
+    expect(Object.keys(bests.meadow)).toEqual([String(tableRow(11))]);
+  });
+
+  it("folds today's rounds 8, 9, 10, 11 into one row: best time and count (the reported case)", () => {
+    // Rounds 1–11 as in the screenshot: round 8 took 18.8 s, round 11 7.0 s.
+    const times = [9_200, 1_500, 1_700, 9_700, 4_500, 38_000, 11_500, 18_800, 6_100, 5_000, 7_000];
+    const rows = todayByRow(times);
+    expect(rows.get(1)).toEqual({ best: 9_200, count: 1 });
+    expect(rows.get(7)).toEqual({ best: 11_500, count: 1 });
+    expect(rows.get(MAX_ROUND)).toEqual({ best: 5_000, count: 4 });
+    expect(rows.size).toBe(MAX_ROUND);
+  });
+
+  it("is empty before the first round is won", () => {
+    expect(todayByRow([]).size).toBe(0);
   });
 });

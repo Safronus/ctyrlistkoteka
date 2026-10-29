@@ -9,6 +9,9 @@ import {
   formatDuration,
   MAX_ROUND,
   summarizeTimes,
+  tableRow,
+  tableRowLabel,
+  todayByRow,
   type HuntGame,
   type PersonalBests,
   type Tier,
@@ -75,9 +78,12 @@ export function HuntFooter({
   const elapsed = found && stats.last !== null ? stats.last : Math.max(0, now - startedAt);
   const fmt = (ms: number) => formatDuration(ms, locale);
   const tier = difficultyTier(round);
-  const shownRound = Math.min(round, MAX_ROUND);
+  // Rounds past MAX_ROUND keep its difficulty and share its row („8+“).
+  const shownRound = tableRow(round);
+  const shownLabel = tableRowLabel(shownRound);
+  const today = todayByRow(times);
   const tableRounds = Array.from({ length: MAX_ROUND }, (_, i) => i + 1).filter(
-    (r) => r <= Math.max(round, 1) || bests[game][r] !== undefined,
+    (r) => r <= shownRound || bests[game][r] !== undefined,
   );
 
   return (
@@ -116,8 +122,8 @@ export function HuntFooter({
         <p className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900 motion-safe:animate-[ctyr-pop_0.6s]">
           <Trophy className="h-4 w-4" aria-hidden />
           {record.previous === null
-            ? t("firstRecord", { n: Math.min(round, MAX_ROUND) })
-            : t("personalRecord", { n: Math.min(round, MAX_ROUND), previous: fmt(record.previous) })}
+            ? t("firstRecord", { n: shownLabel })
+            : t("personalRecord", { n: shownLabel, previous: fmt(record.previous) })}
         </p>
       )}
 
@@ -146,10 +152,10 @@ export function HuntFooter({
           <tbody>
             {tableRounds.map((r) => {
               const best = bests[game][r];
-              const today = times[r - 1];
+              const todayRow = today.get(r);
               return (
                 <tr key={r} className={r === shownRound ? "bg-brand-50 font-semibold" : ""}>
-                  <td className="py-1">{r}</td>
+                  <td className="py-1">{tableRowLabel(r)}</td>
                   <td className="py-1">
                     <span className="inline-flex items-center gap-1.5">
                       <span className={`h-2 w-2 rounded-full ${TIER_COLOR[difficultyTier(r)]}`} aria-hidden />
@@ -157,7 +163,12 @@ export function HuntFooter({
                     </span>
                   </td>
                   <td className="py-1 text-right font-mono">{best !== undefined ? fmt(best) : "—"}</td>
-                  <td className="py-1 text-right font-mono">{today !== undefined ? fmt(today) : "—"}</td>
+                  <td className="py-1 text-right font-mono">
+                    {todayRow ? fmt(todayRow.best) : "—"}
+                    {todayRow && todayRow.count > 1 && (
+                      <span className="ml-1 font-sans text-gray-500">{t("roundsCount", { count: todayRow.count })}</span>
+                    )}
+                  </td>
                 </tr>
               );
             })}

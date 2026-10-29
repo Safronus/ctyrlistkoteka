@@ -964,8 +964,8 @@
   "NotFound": {
     "title": "404 — tady nic neroste",
     "subtitle": "Tahle stránka ve sbírce není. Ale možná tu najdeš čtyřlístek…",
-    "meadowHint": "Mezi trojlístky se schovává jeden čtyřlístek. Najdi ho!",
-    "lensHint": "Louka je rozmazaná — prohledej ji lupou (myš, šipky, nebo táhni prstem — lupa pluje nad ním) a klikni nebo ťukni na čtyřlístek.",
+    "meadowHint": "Mezi trojlístky se schovává jediný čtyřlístek — najdi ho a klikni na něj 🍀",
+    "lensHint": "Louka je rozmazaná — čtyřlístek uvidíš jen pod lupou 🍀",
     "lensLabel": "Louka s lupou. Šipkami posouváš lupu, Enter vybere místo pod ní.",
     "cellLabel": "Lístek {n}",
     "threeLeaf": "Tohle je trojlístek. Hledej dál!",
@@ -1002,6 +1002,17 @@
       "lens": "Lupa"
     },
     "firstRecord": "První čas v kole {n} zapsán jako tvůj rekord 🏆",
-    "personalRecord": "Nový osobní rekord v kole {n}! (předtím {previous}) 🏆"
+    "personalRecord": "Nový osobní rekord v kole {n}! (předtím {previous}) 🏆",
+    "roundsCount": "({count}×)",
+    "howToTitle": "Jak hrát?",
+    "howToGoal": "Najdi jediný čtyřlístek a vyber ho. Za každý špatný výběr se přičte pokus.",
+    "howToControlsMeadow": "Klikni myší nebo ťukni prstem. Klávesnicí: Tab přechází mezi lístky, Enter vybere.",
+    "howToControlsLens": "Myší posouváš lupu, kliknutím vybereš. Na mobilu táhni prstem — lupa pluje kousek nad ním — a pak ťukni na čtyřlístek, který v lupě vidíš. Klávesnicí: šipky posouvají lupu, Enter vybere.",
+    "howToDecoy": "Pozor na trojlístky s pupenem (od 3. kola) — vypadají jako čtyři lístky, ale čtyřlístek to není.",
+    "howToRoundsMeadow": "Po nalezení pokračuješ dalším kolem. Každé je těžší: víc lístků, hustší louka a víc návnad (Lehká → Střední → Těžká → Mistrovská).",
+    "howToRoundsLens": "Po nalezení pokračuješ dalším kolem. Každé je těžší: víc lístků, menší lupa a víc rozmazání (Lehká → Střední → Těžká → Mistrovská).",
+    "howToEndless": "Od 8. kola zůstává obtížnost mistrovská a hra pokračuje bez konce — všechna tato kola mají v tabulce společný řádek „8+“.",
+    "howToClock": "Čas běží od začátku každého kola. V Tabulce rychlosti uvidíš svůj rekord a dnešní čas pro každé kolo.",
+    "howToStored": "Rekordy zůstávají jen v tomhle prohlížeči — nic se nikam neposílá."
   }
 }

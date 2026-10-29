@@ -965,8 +965,8 @@
   "NotFound": {
     "title": "404 — nothing grows here",
     "subtitle": "This page isn't in the collection. But maybe you'll find a four-leaf clover…",
-    "meadowHint": "One four-leaf clover hides among the three-leaf ones. Find it!",
-    "lensHint": "The meadow is blurry — search it with the magnifier (mouse, arrow keys, or drag a finger — the lens floats above it) and click or tap the four-leaf clover.",
+    "meadowHint": "A single four-leaf clover hides among the three-leaf ones — find it and click it 🍀",
+    "lensHint": "The meadow is blurry — you'll only spot the four-leaf clover under the magnifier 🍀",
     "lensLabel": "Meadow with a magnifier. Arrow keys move it, Enter picks the spot under it.",
     "cellLabel": "Leaf {n}",
     "threeLeaf": "That's a three-leaf. Keep looking!",
@@ -1003,6 +1003,17 @@
       "lens": "Magnifier"
     },
     "firstRecord": "First time in round {n} saved as your record 🏆",
-    "personalRecord": "New personal record in round {n}! (was {previous}) 🏆"
+    "personalRecord": "New personal record in round {n}! (was {previous}) 🏆",
+    "roundsCount": "({count}×)",
+    "howToTitle": "How to play?",
+    "howToGoal": "Find the one four-leaf clover and pick it. Every wrong pick counts as a try.",
+    "howToControlsMeadow": "Click with the mouse or tap with a finger. Keyboard: Tab moves between leaves, Enter picks.",
+    "howToControlsLens": "Move the magnifier with the mouse, click to pick. On a phone, drag a finger — the lens floats just above it — then tap the four-leaf clover you see in the lens. Keyboard: arrow keys move the lens, Enter picks.",
+    "howToDecoy": "Watch out for three-leaf clovers with a bud (from round 3) — they look like four leaves, but they aren't four-leaf clovers.",
+    "howToRoundsMeadow": "After a find you go on to the next round. Each one is harder: more leaves, a denser meadow and more decoys (Easy → Medium → Hard → Master).",
+    "howToRoundsLens": "After a find you go on to the next round. Each one is harder: more leaves, a smaller lens and more blur (Easy → Medium → Hard → Master).",
+    "howToEndless": "From round 8 the difficulty stays at Master and the game goes on without end — all those rounds share one “8+” row in the table.",
+    "howToClock": "The clock runs from the start of each round. The Speed table shows your record and today's time for every round.",
+    "howToStored": "Records stay in this browser only — nothing is sent anywhere."
   }
 }

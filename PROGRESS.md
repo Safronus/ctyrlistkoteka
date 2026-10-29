@@ -111,15 +111,19 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
    768 px (rezerva i pro šesticiferná ID). Ověřeno majitelem na iPhonu;
    doladěno: 🍀 zpět, číslo přesně na středu (vlajka vpravo ve slotu
    šířky špendlíku), palec 4 px od rohu na 50% průhledném čipu bez blur.
-3. ⏳ **404 – kola nad 8 vs. tabulka rychlosti** (nahlášeno 2026-10-29,
-   screenshot: Louka, kolo 11, tabulka jen 1–8). Kola běží dál schválně
-   (obtížnost se od 8 nezvyšuje, `MAX_ROUND = 8` v `hunt.ts`), ale
-   `hunt-footer.tsx` ukazuje řádky jen do 8 a „Dnes“ u řádku 8 bere
-   `times[7]` (čas skutečného kola 8 — 18,8 s), takže kola 9+ v tabulce
-   chybí, přestože rekord se jim počítá do řádku 8 (`Math.min(round,
-   MAX_ROUND)`). Rozhodnout s majitelem, jak to má vypadat (např. řádek
-   „8+“ s nejlepším/posledním časem kol ≥ 8, nebo kola nad 8 nepočítat).
-   Není to regrese upgradu — chyba původní implementace.
+3. ✅ **404 – kola nad 8 vs. tabulka rychlosti** (nahlášeno a opraveno
+   2026-10-29). Kola od 8 dál mají v tabulce společný řádek „8+“ (rekord =
+   nejlepší z nich, jak se už ukládal; „Dnes“ = nejlepší dnešní + počet),
+   hlášky „v kole 8+“. Nově rozbalovací „Jak hrát?“ nad loukou (cíl,
+   ovládání myš/prst/klávesnice podle hry, návnady s pupenem, kola
+   a obtížnost, „8+“, časomíra, rekordy jen v prohlížeči), CZ/EN.
+   Ověřeno: 11 kol v prohlížeči, mobil, EN; testy `hunt.test.ts`.
+
+## Nápady (zatím jen poznámka, neimplementovat bez zadání)
+- **/statistiky – odhad vývoje** (majitel 2026-10-29): předpověď, kdy padne
+  čtyřlístek č. 100 000 a další milníky — z dosavadního tempa nálezů
+  (např. trend posledních měsíců / sezónnost). Před návrhem probrat
+  s majitelem: které milníky, z jakého období počítat, jak ukázat nejistotu.
 
 ## Pravidelné hlídání a aktualizace služeb (2026-10-28)
 - ✅ Týdenní kontrola: + osiřelé balíčky, + rozšíření DB (`--db`), + Docker

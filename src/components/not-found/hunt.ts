@@ -214,6 +214,35 @@ export function difficultyTier(round: number): Tier {
   return r <= 2 ? "easy" : r <= 4 ? "medium" : r <= 6 ? "hard" : "master";
 }
 
+/**
+ * The speed table's row for a round. Rounds go on past MAX_ROUND at the
+ * same (top) difficulty, so they all share the last row — shown as „8+“ —
+ * and its stored record, exactly as recordBest files them.
+ */
+export function tableRow(round: number): number {
+  return clampRound(round);
+}
+
+/** The label of a table row: „8+“ for the open-ended last one. */
+export function tableRowLabel(row: number): string {
+  return row >= MAX_ROUND ? `${MAX_ROUND}+` : String(row);
+}
+
+/**
+ * This visit's round times folded into table rows: per row the best time
+ * and how many won rounds landed in it (more than one only in the „8+“
+ * row). `times[i]` is round i + 1, as the games record them.
+ */
+export function todayByRow(times: readonly number[]): Map<number, { best: number; count: number }> {
+  const rows = new Map<number, { best: number; count: number }>();
+  times.forEach((ms, i) => {
+    const row = tableRow(i + 1);
+    const prev = rows.get(row);
+    rows.set(row, prev ? { best: Math.min(prev.best, ms), count: prev.count + 1 } : { best: ms, count: 1 });
+  });
+  return rows;
+}
+
 /** Best round time per game and round, in ms — what the browser keeps. */
 export type PersonalBests = Record<HuntGame, Record<number, number>>;
 

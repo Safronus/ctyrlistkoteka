@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CloverShape } from "./clover-shape";
 import { HuntFooter, type RoundRecord } from "./hunt-footer";
+import { HowToPlay } from "./how-to-play";
 import { clockNow, LENS_REFERENCE_AREA, lensRound, newSeed, SHADES, type LensClover } from "./hunt";
 import { usePersonalBests } from "./use-personal-bests";
 
@@ -192,6 +193,7 @@ export function MagnifierGame() {
 
   return (
     <div className="flex w-full flex-col items-center gap-5">
+      <HowToPlay game="lens" />
       {/* A pointer/keyboard surface, not a form control — hence the role. */}
       <div
         ref={box}
@@ -243,7 +245,7 @@ export function MagnifierGame() {
         found={found}
         startedAt={startedAt}
         times={times}
-        message={message || t("lensHint")}
+        message={message}
         onNext={nextRound}
       />
     </div>

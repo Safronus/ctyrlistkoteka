@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CloverShape } from "./clover-shape";
 import { HuntFooter, type RoundRecord } from "./hunt-footer";
+import { HowToPlay } from "./how-to-play";
 import {
   MEADOW_MAX_CELL,
   meadowColumns,
@@ -82,6 +83,7 @@ export function MeadowGame() {
 
   return (
     <div ref={box} className="flex w-full flex-col items-center gap-5">
+      <HowToPlay game="meadow" />
       <div
         className="grid w-full gap-0.5 rounded-2xl border border-brand-200 bg-brand-50/60 p-2 shadow-inner sm:gap-1 sm:p-3"
         style={{
@@ -132,7 +134,7 @@ export function MeadowGame() {
         found={found}
         startedAt={startedAt}
         times={times}
-        message={message || t("meadowHint")}
+        message={message}
         onNext={nextRound}
       />
 

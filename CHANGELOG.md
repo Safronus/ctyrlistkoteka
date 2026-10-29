@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### 404: řádek „8+“ v tabulce rychlosti + „Jak hrát?“
+- Kola nad 8 (obtížnost už se nezvyšuje) se v tabulce rychlosti nezobrazovala
+  a „Dnes“ u kola 8 ukazoval čas kola 8, i když rekord patřil kolu 11. Teď
+  mají společný řádek „8+“ (rekord a nejlepší dnešní čas + počet kol).
+- Nad loukou je krátký úvod a rozbalovací „Jak hrát?“ s pravidly a
+  ovládáním pro danou hru (myš, prst, klávesnice), CZ/EN.
+
 ### Ubuntu 26.04.1 LTS na VPS + hlídání selhaných služeb
 - VPS přešel z EOL Ubuntu 25.10 na **26.04.1 LTS** (jádro 7.0), postup a
   kontrolní seznam v `docs/ubuntu-upgrade-26.04.md`. PostgreSQL 17 běží dál
