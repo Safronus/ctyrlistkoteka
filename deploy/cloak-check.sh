@@ -26,6 +26,9 @@ import sys,re,difflib
 d,g,m,label=sys.argv[1:5]
 def n(s):
     s=re.sub(r'nonce-[A-Za-z0-9+/=]+','nonce-X',s); s=re.sub(r'nonce="[^"]+"','nonce="X"',s)
+    # The 404 page draws its game („Louka“/„Lupa“) at random per request,
+    # for every 404 alike — two samples can legitimately differ in it.
+    s=re.sub(r'\b(meadow|lens)\b','GAME',s)
     return re.sub(r'nonce\\":\\"[^\\]+','nonce\\":\\"X',s)
 rd=lambda f: n(open(d+'/'+f,encoding='utf-8',errors='replace').read())
 tok=lambda s: re.findall(r'[A-Za-z0-9_\-]+|[^A-Za-z0-9_\-]',s)
