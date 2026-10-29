@@ -124,6 +124,35 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
   čtyřlístek č. 100 000 a další milníky — z dosavadního tempa nálezů
   (např. trend posledních měsíců / sezónnost). Před návrhem probrat
   s majitelem: které milníky, z jakého období počítat, jak ukázat nejistotu.
+- **CZ/EN podle jazyka prohlížeče** (majitel 2026-10-29). Dnes vědomě
+  VYPNUTO (`src/i18n/routing.ts`: `localeDetection: false`,
+  `localeCookie: false`) — automatika přesměrovávala podle cookie /
+  `Accept-Language` a klik na „CZ“ vracel na EN; cookie bez HttpOnly hlásily
+  skenery. Šetrnější varianty k probrání: (a) jednorázová lišta „This site
+  is also in English → switch“ podle `navigator.language`, bez přesměrování
+  a bez cookie (zavření jen pro návštěvu); (b) přesměrování jen při vstupu
+  na `/` z cizího webu podle `Accept-Language`, bez cookie — pozor na SEO
+  a na to, aby šlo vždy vrátit na CZ.
+- **Vylepšení her 404 — seznam k výběru** (majitel 2026-10-29, nic
+  nerozhodnuto):
+  1. Ověřit/opravit časomíru ve skryté záložce (pauza přes
+     `visibilitychange`, ať se nepočítá čas mimo stránku).
+  2. Nápověda po několika chybách (např. po 5 pokusech zúžit oblast nebo
+     krátce zvýraznit čtvrtinu louky) — bez vlivu na rekord, nebo s
+     poznámkou „s nápovědou“.
+  3. Volba hry: tlačítko „Zkusit Louku / Lupu“ (dnes náhodně per request).
+  4. Souhrn návštěvy: celkový čas, průměr na kolo, nejlepší kolo
+     (`summarizeTimes` to už počítá), série kol bez chyby.
+  5. Denní výzva: stejná louka pro všechny podle data (seed z data, žádný
+     server) + vlastní rekord dne.
+  6. Sdílení výsledku jako text do schránky („Kolo 11, 7,0 s 🍀“), bez dat.
+  7. Mobil: krátká vibrace při nálezu (`navigator.vibrate`, respektovat
+     `prefers-reduced-motion`).
+  8. Přístupnost: vyšší kontrast / odlišení odstínů pro barvoslepé.
+  9. Tlačítko „Smazat moje rekordy“ (jediný localStorage klíč).
+  10. Oslava milníků (10., 25., 50. nalezený čtyřlístek v návštěvě).
+  11. Dřívější návrh **anonymního Top 10** (server měří čas, HMAC kola,
+      rate limit, věta do /soukromi) — stále čeká na rozhodnutí.
 
 ## Pravidelné hlídání a aktualizace služeb (2026-10-28)
 - ✅ Týdenní kontrola: + osiřelé balíčky, + rozšíření DB (`--db`), + Docker
