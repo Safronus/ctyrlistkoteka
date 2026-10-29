@@ -86,6 +86,7 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
   staging serveru LE (ne naše chyba) — zopakovat; certy platí 53–88 dní.
 - ⏳ Majitel: web, `/admin` (WebAuthn), RustDesk klient z domova; ověřit, že
   živý vhost GoatCounteru nepoužívá `proxy_params`.
+- Rozhodnuto 2026-10-29: Docker → `unattended-upgrades` (automaticky).
 - ⏳ Fáze 5 (Docker repo + update kontejnerů, `ssl_stapling`, autoremove po
   přečtení, dokumentace, Node 24.18.0, `deployment.md` §3 bez `libvips-dev`,
   `systemctl --failed` do týdenní kontroly) a fáze 6 (PG 18, samostatné okno).

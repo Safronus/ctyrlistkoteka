@@ -214,9 +214,11 @@ odpovídá 200" nestačí — tohle všechno musí sedět:
   ```
   Upgrade Dockeru restartuje kontejnery → hned po něm
   `sudo bash deploy/update-docker-services.sh /home/app/rustdesk /var/ctyrlistkoteka/goatcounter`.
-  Rozhodnout: zařadit origin Dockeru do `unattended-upgrades`
-  (automatické bezpečnostní aktualizace, za cenu restartu kontejnerů),
-  nebo jen hlídat (`apt-foreign` v týdenní kontrole).
+  **Rozhodnuto (majitel, 2026-10-29): origin Dockeru ZAŘADIT do
+  `unattended-upgrades`** — záplaty automaticky, za cenu občasného
+  nočního restartu GoatCounteru a RustDesku. Po zavedení ověřit, že
+  kontejnery po restartu Dockeru samy naběhnou (`restart:` v compose)
+  a že `apt-foreign` v týdenní kontrole pak Docker nehlásí.
 - `nginx`: odebrat `ssl_stapling` (Let's Encrypt OCSP zrušil — jen
   varování v `nginx -t`), `nginx -t`, reload.
 - `apt autoremove` — **jen po přečtení seznamu** (nesmí zmizet
