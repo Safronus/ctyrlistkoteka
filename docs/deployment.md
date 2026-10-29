@@ -303,7 +303,7 @@ nevidí. Na to je `scripts/check-runtime-security.ts`:
 | Kdy | Co | Výsledek |
 | --- | --- | --- |
 | každý deploy (`deploy.yml`, po reloadu) | Node buildu + Node běžících PM2 workerů vs. nejnovější bezpečnostní vydání řady (`nodejs.org/dist/index.json`) | jen `::warning::`, deploy nikdy neshodí |
-| týdně v pondělí 06:00 UTC (`runtime-security.yml`, self-hosted runner) | totéž + Ubuntu podporováno (`ubuntu-distro-info --supported`) + čekající `-security` balíčky z `apt` + **jakékoli** čekající upgrady z repozitářů mimo Ubuntu (PGDG, Docker CE…; `apt-get -s dist-upgrade`) + **rozšíření databáze** pozadu za balíčkem (`--db`: PostGIS, pg_trgm… — verze v DB vs. nainstalovaná; apt rozšíření v DB sám neaktualizuje) + **osiřelé balíčky** (nainstalované, ale žádný repozitář je nenabízí — `apt list --installed` → `[installed,local]`) + **Docker images** běžících kontejnerů vs. registry (`--docker`, od 2026-10-28 i v týdenním běhu) + **TLS certifikáty** našich domén (`--tls`: řetězec platný a víc než 21 dní do vypršení — certbot obnovuje při 30) + **čerstvost záloh** (`--backup <složka>/<předpona>`: nejnovější dump DB, snímek GoatCounteru a klíče RustDesku ne starší než 36 h; od 2026-10-28 i `.offsite/.last-pull` = poslední ping z UNASu, takže zastavený off-site pull pošle e-mail, ne jen řádek do logu) + `pnpm audit --prod --audit-level high` | **selže** → GitHub pošle e-mail o failnutém běhu |
+| týdně v pondělí 06:00 UTC (`runtime-security.yml`, self-hosted runner) | totéž + Ubuntu podporováno (`ubuntu-distro-info --supported`) + čekající `-security` balíčky z `apt` + **jakékoli** čekající upgrady z repozitářů mimo Ubuntu (PGDG, Docker CE…; `apt-get -s dist-upgrade`) + **rozšíření databáze** pozadu za balíčkem (`--db`: PostGIS, pg_trgm… — verze v DB vs. nainstalovaná; apt rozšíření v DB sám neaktualizuje) + **osiřelé balíčky** (nainstalované, ale žádný repozitář je nenabízí — `apt list --installed` → `[installed,local]`) + **systemd jednotky ve stavu failed** (`systemd-failed`, od 2026-10-29 — `logrotate.service` takhle padal půl roku bez povšimnutí) + **Docker images** běžících kontejnerů vs. registry (`--docker`, od 2026-10-28 i v týdenním běhu) + **TLS certifikáty** našich domén (`--tls`: řetězec platný a víc než 21 dní do vypršení — certbot obnovuje při 30) + **čerstvost záloh** (`--backup <složka>/<předpona>`: nejnovější dump DB, snímek GoatCounteru a klíče RustDesku ne starší než 36 h; od 2026-10-28 i `.offsite/.last-pull` = poslední ping z UNASu, takže zastavený off-site pull pošle e-mail, ne jen řádek do logu) + `pnpm audit --prod --audit-level high` | **selže** → GitHub pošle e-mail o failnutém běhu |
 
 **Veřejný log = jen kategorie.** Repo je veřejné, a s ním i logy Actions.
 V Actions (`GITHUB_ACTIONS=true`) proto skript vypíše jen kategorii nálezu
@@ -373,7 +373,12 @@ sudo apt install -y postgresql-17 postgresql-17-postgis-3 postgresql-contrib
 sudo apt install -y nginx certbot python3-certbot-nginx
 
 # Knihovny pro zpracování obrázků
-sudo apt install -y libheif-examples libvips-dev
+# libvips-dev NEinstaluj: sharp nosí vlastní přibalenou libvips
+# (`node -e "console.log(require('sharp').versions)"` vypíše i její
+# závislosti — aom, heif, mozjpeg…) a HEIC dekóduje JS knihovna
+# heic-convert. Systémová libvips-dev tu byla zbytečně a upgrade na
+# 26.04 ji stejně odebral (2026-10-28).
+sudo apt install -y libheif-examples
 
 # Redis (volitelné)
 sudo apt install -y redis-server

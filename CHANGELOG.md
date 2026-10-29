@@ -9,6 +9,21 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### Ubuntu 26.04.1 LTS na VPS + hlídání selhaných služeb
+- VPS přešel z EOL Ubuntu 25.10 na **26.04.1 LTS** (jádro 7.0), postup a
+  kontrolní seznam v `docs/ubuntu-upgrade-26.04.md`. PostgreSQL 17 běží dál
+  (přechod na 18 je samostatná fáze), Node/PM2/appka beze změny.
+- Cestou nalezeno: `logrotate.service` padal každou noc od 2026-05-02
+  (ručně připsaný `postrotate` mimo `{}` s překlepem `endscriptx`) —
+  opraveno na serveru i v `deploy/logrotate-fail2ban-blocklist.conf`.
+- Týdenní *Runtime security* nově hlásí **systemd jednotky ve stavu
+  failed** (`systemd-failed`).
+- `unattended-upgrades`: nově i oficiální repozitář Dockeru (rozhodnutí
+  majitele — záplaty automaticky) + varování k `Remove-Unused-Dependencies`.
+- `deploy/cloak-check.sh` ignoruje náhodnou volbu hry na stránce 404.
+- `deployment.md` §3: `libvips-dev` se už neinstaluje (sharp má libvips
+  přibalenou).
+
 ### /sbirka na mobilu: číslo nálezu v dlaždici zase celé
 - V horní liště dlaždice se pěticiferné číslo (#31420) na telefonu
   ořezávalo na „#31…“. Pod 768 px se palec s hlasy přesunul do pravého

@@ -3,6 +3,7 @@ import {
   assessNode,
   certDaysLeft,
   compareVersions,
+  failedUnits,
   formatResult,
   orphanedPackages,
   outdatedExtensions,
@@ -260,6 +261,31 @@ describe("orphanedPackages", () => {
 
   it("is quiet when every package has a source", () => {
     expect(orphanedPackages("Listing...\nnginx/resolute,now 1.28.3 amd64 [installed]\n")).toEqual([]);
+  });
+});
+
+describe("failedUnits", () => {
+  it("lists failed units from `--plain --no-legend` output (the logrotate case)", () => {
+    const out = [
+      "logrotate.service loaded failed failed Rotate log files",
+      "drop-sheet-sync.service loaded failed failed Google Sheets sync",
+      "",
+    ].join("\n");
+    expect(failedUnits(out)).toEqual(["logrotate.service", "drop-sheet-sync.service"]);
+  });
+
+  it("tolerates the ● marker and template / escaped unit names", () => {
+    const out = "● systemd-fsck@dev-disk-by\\x2duuid-1234.service loaded failed failed File System Check\n" +
+      "  actions.runner.Safronus-ctyrlistkoteka.vps.service loaded failed failed GitHub Actions Runner";
+    expect(failedUnits(out)).toEqual([
+      "systemd-fsck@dev-disk-by\\x2duuid-1234.service",
+      "actions.runner.Safronus-ctyrlistkoteka.vps.service",
+    ]);
+  });
+
+  it("is quiet on empty output and ignores non-unit text", () => {
+    expect(failedUnits("")).toEqual([]);
+    expect(failedUnits("0 loaded units listed.\n")).toEqual([]);
   });
 });
 

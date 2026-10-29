@@ -169,6 +169,23 @@ export function orphanedPackages(aptListInstalled: string): string[] {
   return names;
 }
 
+/**
+ * Unit names from `systemctl list-units --state=failed --plain --no-legend`.
+ * Each line starts with the unit name; anything else (an empty output, a
+ * stray message) yields nothing. The failed logrotate.service sat unseen
+ * from 2026-05-02 to 2026-10-28 — this is what would have caught it.
+ */
+export function failedUnits(systemctlOutput: string): string[] {
+  const units: string[] = [];
+  for (const line of systemctlOutput.split("\n")) {
+    const name = line.trim().replace(/^[●*]\s*/, "").split(/\s+/)[0] ?? "";
+    if (/^[\w@.:\\-]+\.(service|socket|timer|mount|path|target|scope|slice|device|swap|automount)$/.test(name)) {
+      units.push(name);
+    }
+  }
+  return units;
+}
+
 /** One row of `pg_available_extensions` for an extension the DB has. */
 export interface ExtensionRow {
   name: string;
@@ -328,6 +345,7 @@ export type CheckCategory =
   | "apt-security"
   | "apt-foreign"
   | "apt-orphaned"
+  | "systemd-failed"
   | "db-extensions"
   | "tls"
   | "backups"

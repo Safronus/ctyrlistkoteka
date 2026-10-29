@@ -15,7 +15,8 @@
  *     --supported`), no pending upgrades from a `-security` pocket, and none
  *     from repositories outside Ubuntu (PGDG, Docker…), which have no such
  *     pocket to tell a security fix apart — and no installed package that
- *     no repository offers any more (an orphan never shows as upgradable).
+ *     no repository offers any more (an orphan never shows as upgradable),
+ *     and no systemd unit in the failed state.
  *   • `--db` — database extensions (PostGIS, pg_trgm…) whose version in the
  *     DB lags the installed package (needs DATABASE_URL, read from .env;
  *     only reads the extension catalogue).
@@ -48,6 +49,7 @@ import { connect as tlsConnect } from "node:tls";
 import { promisify } from "node:util";
 import {
   assessNode,
+  failedUnits,
   isCodenameSupported,
   isImageCurrent,
   osCodename,
@@ -247,6 +249,27 @@ async function checkUbuntu(): Promise<void> {
     }
   } catch (err) {
     finding("apt-orphaned", `Orphaned package check could not run: ${(err as Error).message}`);
+  }
+
+  try {
+    // Read-only, no root. A failed unit is a job that stopped doing its
+    // work (rotation, renewal, sync…) without anyone being told.
+    const { stdout } = await run(
+      "systemctl",
+      ["list-units", "--state=failed", "--plain", "--no-legend", "--no-pager"],
+      { timeout: EXEC_TIMEOUT_MS },
+    );
+    const failed = failedUnits(stdout);
+    if (failed.length === 0) {
+      ok("systemd-failed", "No systemd unit in the failed state");
+    } else {
+      finding(
+        "systemd-failed",
+        `${failed.length} systemd unit(s) failed: ${failed.join(", ")} — see systemctl status <unit>`,
+      );
+    }
+  } catch (err) {
+    finding("systemd-failed", `Failed-unit check could not run: ${(err as Error).message}`);
   }
 }
 
