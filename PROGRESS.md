@@ -64,27 +64,32 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 - Ubuntu 25.10 → 26.04: výstup fáze 0 od majitele → doladit plán + R-PG,
   zapnout `--docker` v `runtime-security.yml`, opravit nálezy inventury.
 
-## Upgrade Ubuntu 25.10 → 26.04 (od 2026-10-28 23:06 UTC)
+## Upgrade Ubuntu 25.10 → 26.04 (2026-10-28/29)
 - Plán + kontrolní seznam nginx / Node / služby / pravidla:
   `docs/ubuntu-upgrade-26.04.md`.
-- ✅ Fáze 1 na VPS: dump `ctyrlistkoteka-2026-10-28_2306.dump` (sha256
-  a5f78476…9eaa, 16 tabulek), `/var/backups/etc-pre-26.04.tgz` (sha256
-  939dec20…941e), zálohy služeb, off-site čerstvý, 32 GB volno.
-- ⏳ Stažení obou souborů na Mac přes Termius SFTP do
-  `~/Backups/ctyrlistkoteka/pre-26.04/` + kontrola hashů; snapshot v OVH.
-  (rsync z Macu jako `app@` nejde — klíč Macu tam není povolený.)
-- ✅ Fáze 1 dokončena: oba soubory na Macu (hashe sedí), snapshot v OVH.
-- ✅ Fáze 2: 0 balíčků k aktualizaci (25.10 je EOL), reboot není potřeba.
-- ❌→⏳ Nalezeno: `logrotate.service` failed **od 2026-05-02** — ručně
-  připsaný `postrotate` mimo `{}` s překlepem `endscriptx` v
-  `/etc/logrotate.d/fail2ban-blocklist`. Oprava (celý soubor) předána
-  majiteli; repo verze opravena lokálně (commit bez pushe).
-- ⏳ Po upgradu: týdenní *Runtime security* ať hlásí i `systemctl --failed`
-  — chyba půl roku nikoho nevzbudila.
-- ⛔ Od fáze 2 do konce fáze 4 **žádný push do `main`** (push = deploy).
-  Lokálně čekají commity k pushnutí po fázi 4 (= testovací deploy).
-- ⏳ 2026-10-29 7:30 naplánovaná připomínka: `tail -n 2 pull.log` na UNASu
-  (ranní běh má trvat ~1 min).
+- ✅ Fáze 1: dump `ctyrlistkoteka-2026-10-28_2306.dump` + `etc-pre-26.04.tgz`
+  na Macu (hashe sedí), zálohy služeb, snapshot v OVH.
+- ✅ Fáze 2: 0 balíčků k aktualizaci. Nalezen a opraven `logrotate.service`
+  failed od 2026-05-02 (postrotate mimo `{}` + `endscriptx`, 3659064).
+- ✅ Fáze 3: `do-release-upgrade` → **Ubuntu 26.04.1 LTS, jádro 7.0.0-42**.
+  Odebráno 12 balíčků (`libvips-dev` + -dev hlavičky; sharp má libvips
+  přibalenou — ověřeno `sharp.versions`). „Remove obsolete" (349) = N.
+- ✅ Fáze 4: služby active, `--failed` prázdné; PG 17 online, PostGIS 3.5.3
+  na GEOS 3.14.1/PROJ 9.7.1, 31 700 nálezů; PM2 démon i worker v24.22.1;
+  naše konfigurace beze změny (`tar -d` proti záloze); nginx `*_params`
+  přepsal balíček (Host `$host$is_request_port$request_port`) — naše vhosty
+  je nepoužívají; časovače, cron, Docker, fail2ban, nftables, runner OK;
+  port 1022 zavřený. Testovací deploy 62dccc6 ✅. *Runtime security*:
+  `os-release` ✅, jediné ❌ `apt-orphaned` (čekané do fází 5/6).
+  cloak-check ❌ byl falešný poplach (náhodná hra 404) — opraveno 62dccc6.
+- ⏳ certbot `renew --dry-run`: 3× `rateLimited … Service busy` od
+  staging serveru LE (ne naše chyba) — zopakovat; certy platí 53–88 dní.
+- ⏳ Majitel: web, `/admin` (WebAuthn), RustDesk klient z domova; ověřit, že
+  živý vhost GoatCounteru nepoužívá `proxy_params`.
+- ⏳ Fáze 5 (Docker repo + update kontejnerů, `ssl_stapling`, autoremove po
+  přečtení, dokumentace, Node 24.18.0, `deployment.md` §3 bez `libvips-dev`,
+  `systemctl --failed` do týdenní kontroly) a fáze 6 (PG 18, samostatné okno).
+- ⏳ 2026-10-29 7:30 naplánovaná připomínka: `tail -n 2 pull.log` na UNASu.
 
 ## Seznam oprav (nahlášeno majitelem)
 1. ✅ **404 – Lupa na mobilu** (2026-10-28): na dotyku lupa pluje nad
