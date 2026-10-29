@@ -95,7 +95,10 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 - ⏳ certbot `renew --dry-run` znovu (staging LE vracel 503 „Service busy"
   na authz — ne naše chyba; ostré certy platí 53–88 dní).
 - ⏳ Fáze 6 — PostgreSQL 18 (samostatné okno, dump/restore). Do té doby
-  `apt-orphaned` ❌ kvůli 4 balíčkům PG 17 — čekané.
+  `apt-orphaned` ❌ kvůli 4 balíčkům PG 17 — čekané. Rozhodnutí majitele
+  2026-10-29: e-mail z týdenní kontroly nechat chodit, nic nepotlačovat.
+- **Další krok (ráno 2026-10-29):** 1) UNAS `tail -n 2 pull.log` (ranní
+  běh ~1 min?), 2) `sudo certbot renew --dry-run`, 3) připravit fázi 6.
 - ⏳ 2026-10-29 7:30 naplánovaná připomínka: `tail -n 2 pull.log` na UNASu.
 
 ## Seznam oprav (nahlášeno majitelem)
