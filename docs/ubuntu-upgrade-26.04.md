@@ -1,8 +1,8 @@
 # Upgrade VPS: Ubuntu 25.10 „questing" → 26.04 LTS „resolute"
 
 > **Stav: OS HOTOVÝ — Ubuntu 26.04.1 LTS běží od 2026-10-28 ~23:55 UTC.**
-> Fáze 0–4 ✅ (průběh a nálezy v `PROGRESS.md`). Zbývá fáze 5 (dočištění)
-> a fáze 6 (PostgreSQL 18, samostatné okno). Poučení z průběhu:
+> Fáze 0–5 ✅ (průběh a nálezy v `PROGRESS.md`). Zbývá fáze 6
+> (PostgreSQL 18, samostatné okno). Poučení z průběhu:
 > `apt-listchanges` během upgradu ukazuje changelogy v pageru (`q`, pak `Y`);
 > u dotazu „Remove obsolete packages?" (u nás 349) odpovědět **N**.
 > Claude Code se k VPS nepřipojuje — příkazy spouští majitel v Termiusu,

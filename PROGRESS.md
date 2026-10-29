@@ -82,14 +82,20 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
   port 1022 zavřený. Testovací deploy 62dccc6 ✅. *Runtime security*:
   `os-release` ✅, jediné ❌ `apt-orphaned` (čekané do fází 5/6).
   cloak-check ❌ byl falešný poplach (náhodná hra 404) — opraveno 62dccc6.
-- ⏳ certbot `renew --dry-run`: 3× `rateLimited … Service busy` od
-  staging serveru LE (ne naše chyba) — zopakovat; certy platí 53–88 dní.
-- ⏳ Majitel: web, `/admin` (WebAuthn), RustDesk klient z domova; ověřit, že
-  živý vhost GoatCounteru nepoužívá `proxy_params`.
+- ✅ Majitel: web, `/admin`, RustDesk z domova OK.
 - Rozhodnuto 2026-10-29: Docker → `unattended-upgrades` (automaticky).
-- ⏳ Fáze 5 (Docker repo + update kontejnerů, `ssl_stapling`, autoremove po
-  přečtení, dokumentace, Node 24.18.0, `deployment.md` §3 bez `libvips-dev`,
-  `systemctl --failed` do týdenní kontroly) a fáze 6 (PG 18, samostatné okno).
+- ✅ Fáze 5 (2026-10-29): PG 17 balíčky `apt-mark manual` (jinak by je
+  noční autoremove z u-u smazal); Docker 29.9.2 z oficiálního repa +
+  v `unattended-upgrades`; kontejnery aktuální; autoremove 296 balíčků
+  (gcc, -dev, libvips42, GEOS 3.13 — PostGIS je na 3.14.1, ověřeno `ldd`);
+  Node 24.18.0 smazán; `ssl_stapling` pryč z ručně zpřísněného
+  `options-ssl-nginx.conf`; týdenní kontrola hlídá `systemd-failed`
+  (b2db9a1); dokumentace (callout, CLAUDE.md §11/§12). Starší jádro
+  6.17.0-41 ponecháno jako záložní položka GRUBu.
+- ⏳ certbot `renew --dry-run` znovu (staging LE vracel 503 „Service busy"
+  na authz — ne naše chyba; ostré certy platí 53–88 dní).
+- ⏳ Fáze 6 — PostgreSQL 18 (samostatné okno, dump/restore). Do té doby
+  `apt-orphaned` ❌ kvůli 4 balíčkům PG 17 — čekané.
 - ⏳ 2026-10-29 7:30 naplánovaná připomínka: `tail -n 2 pull.log` na UNASu.
 
 ## Seznam oprav (nahlášeno majitelem)

@@ -23,6 +23,10 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - `deploy/cloak-check.sh` ignoruje náhodnou volbu hry na stránce 404.
 - `deployment.md` §3: `libvips-dev` se už neinstaluje (sharp má libvips
   přibalenou).
+- Dočištění po upgradu (2026-10-29): Docker CE 29.9.2 z oficiálního
+  repozitáře místo osiřelé 29.2.1, autoremove 296 nepotřebných balíčků
+  (kompilátory, -dev hlavičky, staré jádro), Node 24.18.0 smazán,
+  `ssl_stapling` odebrán z nginx. PostgreSQL 17 zůstává do přechodu na 18.
 
 ### /sbirka na mobilu: číslo nálezu v dlaždici zase celé
 - V horní liště dlaždice se pěticiferné číslo (#31420) na telefonu

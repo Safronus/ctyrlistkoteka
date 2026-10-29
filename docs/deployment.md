@@ -4,35 +4,43 @@
 bez Cloudflare. Claude Code **nepouští** příkazy na serveru přímo — generuje je
 a uživatel je spouští v Termiusu.
 
-> ### ⚠️ Skutečný stav produkce (ověřeno 2026-06-30)
+> ### ⚠️ Skutečný stav produkce (ověřeno 2026-10-29)
 >
 > Tenhle návod byl psaný pro Ubuntu 24.04 LTS + PostgreSQL 16. Reálný VPS
 > se mezitím posunul — drž se těchto faktů, krokový návod níž ber jako
 > referenci:
 >
-> - **OS:** Ubuntu **25.10 „questing"** — interim release, **ne LTS**
->   (kratší podpora ~9 měsíců, častější OS upgrade). Sekce níž, které
->   argumentují „držíme se LTS" (nginx verze, unattended-upgrades), jsou
->   tím pádem aspirační — počítej s dřívějším `do-release-upgrade`.
->   ❌ **25.10 je od 2026-07-09 EOL** — žádné bezpečnostní aktualizace
->   systému. Upgrade na 26.04 LTS je naplánovaný jako samostatný krok;
->   týdenní *Runtime security* workflow do té doby svítí červeně.
+> - **OS:** Ubuntu **26.04.1 LTS „resolute"** (jádro 7.0) — od
+>   2026-10-28, standardní podpora do 2031-04. Upgrade z EOL 25.10 proběhl
+>   podle `docs/ubuntu-upgrade-26.04.md` (průběh, nálezy, kontrolní
+>   seznam). nginx 1.28.3, Docker CE 29.9 z oficiálního repa, certbot 4.0.
+>   `libvips-dev` ani kompilátory na hostu nejsou (autoremove 2026-10-29;
+>   deploy nic nepřekládá — sharp má libvips přibalenou).
 > - **Maska `/admin` (2026-10-28):** nasazený `deploy/nginx-cloak-app404.py`
 >   — `@admin_page_cloak` / `@admin_api_cloak` jsou klony živého
 >   `location /` (blok `location /api/` na produkci NENÍ, API padá pod `/`).
->   `bash deploy/cloak-check.sh` z VPS: 6× ✅. `nginx -t` hlásí 3×
->   `ssl_stapling ignored, no OCSP responder URL` — neškodné (Let's Encrypt
->   OCSP v 2025 zrušil); úklid = odebrat `ssl_stapling` z konfigurace.
+>   `bash deploy/cloak-check.sh` z VPS: 6× ✅ (i po upgradu na 26.04).
+> - **TLS:** `ssl_stapling` odebrán 2026-10-29 z
+>   `/etc/letsencrypt/options-ssl-nginx.conf` (Let's Encrypt OCSP zrušil).
+>   Ten soubor je **ručně zpřísněný** (`prefer_server_ciphers on`, vlastní
+>   `ssl_ecdh_curve`, `resolver`) — certbot ho proto sám neaktualizuje;
+>   záloha před úpravou `/var/backups/options-ssl-nginx.conf.pre-stapling-2026-10-29`.
 > - **Docker služby (2026-10-28):** GoatCounter má data v
 >   `/var/ctyrlistkoteka/goatcounter/goatcounter-data` (bind, uid 1000) —
 >   do té doby omylem v anonymním volume mimo zálohy (cíl připojení
 >   neodpovídal cestě v image). RustDesk aktualizován, klíč beze změny.
 >   Aktualizace: `deploy/update-docker-services.sh`; denní záloha obou:
 >   `deploy/backup-services.sh` (cron 3:05 → `/var/ctyrlistkoteka/backups/services`).
->   PostGIS rozšíření 3.5.3. Docker (docker-ce) je **bez repozitáře**
->   (osiřelý z 25.04) — vrátí se s upgradem na 26.04.
+>   PostGIS rozšíření 3.5.3. Docker CE z oficiálního repozitáře
+>   (`/etc/apt/sources.list.d/docker.sources`, od 2026-10-29) a v
+>   `unattended-upgrades` (origin `Docker:${distro_codename}`) — záplaty
+>   automaticky, kontejnery mají `restart:` a naběhnou samy.
 > - **Databáze:** **nativní PostgreSQL 17 + PostGIS** (systemd
 >   `postgresql@17-main`), ne 16. Schéma je zpětně kompatibilní.
+>   ⚠️ Na 26.04 je PG 17 **osiřelý** (archiv má jen 18) — žádné záplaty,
+>   týdenní kontrola hlásí `apt-orphaned`. Přechod na PG 18 = fáze 6
+>   plánu upgradu (samostatné okno). Balíčky PG 17 jsou `apt-mark manual`,
+>   aby je noční autoremove nesmazal.
 > - **PM2:** appka jede pod PM2 jako user `app`. **Ověř
 >   `systemctl is-enabled pm2-app` → musí být `enabled`** — jednou unit
 >   chyběl a po rebootu by se web sám nenahodil (viz §7).

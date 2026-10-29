@@ -299,8 +299,9 @@ na hostu) hlídáme sami — cíl je mít vše aktuální a nedat šanci známý
   `docs/deployment.md` (callout „Skutečný stav produkce"), `CHANGELOG.md`,
   `PROGRESS.md` a případně rozšiř kontrolu — nová služba bez hlídání
   bezpečnostních aktualizací je dluh.
-- **Známé mezery (2026-10-28):** Ubuntu 25.10 je EOL (upgrade na 26.04 LTS
-  čeká, návrh v `docs/ubuntu-upgrade-26.04.md`); verzi self-hosted runneru
+- **Známé mezery (2026-10-29):** OS je už 26.04 LTS, ale PostgreSQL 17 je
+  na něm osiřelý (přechod na 18 = fáze 6 v `docs/ubuntu-upgrade-26.04.md`,
+  do té doby `apt-orphaned` svítí); verzi self-hosted runneru
   kontrola nehlídá (vědomě — aktualizuje se sám). Balíčky z repozitářů mimo
   Ubuntu (PGDG, Docker CE…) týdenní kontrola hlídá od 2026-10-28
   (`thirdPartyUpgrades`), stejně jako **osiřelé balíčky** bez repozitáře
@@ -316,7 +317,7 @@ na hostu) hlídáme sami — cíl je mít vše aktuální a nedat šanci známý
 
 - Lokalita: Zlín, ČR (CE časová zóna `Europe/Prague`).
 - Doména: `ctyrlistkoteka.cz` u **hukot.net**.
-- Produkční server: **OVH VPS-2** (6 vCPU, 12 GB RAM, 100 GB SSD), Gravelines (GRA), **Ubuntu 25.10 „questing"** (interim, ne LTS — **od 2026-07-09 EOL, bez bezpečnostních aktualizací**; upgrade na 26.04 LTS je naplánovaný). Běží **nativní PostgreSQL 17 + PostGIS**, Node LTS přes nvm, PM2 (ověř `systemctl is-enabled pm2-app`), Nginx. Na hostu je i Docker s pomocnými self-hosted službami (GoatCounter analytika, RustDesk) nezávislými na appce. Skutečný stav + odlišnosti od krokového návodu viz callout na začátku `docs/deployment.md`.
+- Produkční server: **OVH VPS-2** (6 vCPU, 12 GB RAM, 100 GB SSD), Gravelines (GRA), **Ubuntu 26.04.1 LTS „resolute"** (od 2026-10-28, podpora do 2031-04). Běží **nativní PostgreSQL 17 + PostGIS** (na 26.04 osiřelý — přechod na 18 čeká), Node LTS přes nvm, PM2 (ověř `systemctl is-enabled pm2-app`), Nginx. Na hostu je i Docker s pomocnými self-hosted službami (GoatCounter analytika, RustDesk) nezávislými na appce. Skutečný stav + odlišnosti od krokového návodu viz callout na začátku `docs/deployment.md`.
 - IP adresy, hostname a přihlašovací údaje jsou v `docs/deployment.md` a `.env` — **nedávej je do commitnutých souborů** mimo `.env.example`.
 - Uživatel používá **Termius** pro SSH. Claude Code generuje příkazy, uživatel je spouští sám.
 - GitHub repo: **veřejné** ([github.com/Safronus/ctyrlistkoteka](https://github.com/Safronus/ctyrlistkoteka)). Bylo původně privátní, autor ho v průběhu vývoje přepnul na public — celý zdrojový kód je tedy otevřený. Citlivé věci (DB heslo, `VOTE_FINGERPRINT_SALT`, `FIND_PHOTO_UNLOCK_CODE`, admin credentials) zůstávají v `.env` na VPS, do gitu nejdou — `.gitignore` je drží mimo. Při každém commitu stejně zkontroluj, že žádné tajemství neutíká.
