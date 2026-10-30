@@ -120,8 +120,11 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
   Appka FlatGeobuf nepoužívá (`git grep` 0), `$queryRawUnsafe` 0×.
   Rozhodnutí majitele 2026-10-30: **REVOKE EXECUTE** na
   `st_fromflatgeobuf*` FROM PUBLIC (postup `deployment.md` §4) + týdenní
-  kontrola `db-privileges`. ⏳ REVOKE spustit na VPS a ověřit ručním
-  *Runtime security*.
+  kontrola `db-privileges`. ✅ REVOKE na VPS 2026-10-30: obě funkce
+  `{postgres=X/postgres}`, `ctyrlist` → „permission denied“, `/mapa` 200;
+  ruční *Runtime security* `[ok] db-privileges`, jediný nález
+  `apt-orphaned` (do 6d). Až Ubuntu vydá opravený PostGIS: funkce vyřadit
+  z `REVOKED_DB_FUNCTIONS` a právo vrátit.
 - ✅ UNAS ranní běh 2026-10-29: 06:10:01 → 06:11:24 (83 s), snapshot
   2026-10-29 OK, 30 ponecháno. Ruční běh včera (3 min 12 s) byl výjimka.
 - **Další krok:** `/admin/checks` od majitele; 2026-10-31 ráno UNAS `tail -n 2 pull.log`; 2026-11-06 krok 6d.
