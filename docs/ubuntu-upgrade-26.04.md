@@ -293,7 +293,13 @@ který si balíček sám založí (oznámit předem — data v něm nejsou),
 `pg_lsclusters` (18 na 5432 online, 17 zastavený vedle), verze rozšíření,
 počet nálezů, pak PM2 a časovače zpět. Přesné příkazy se doplní po 6a.
 
-### 6c — ověření
+### 6c — ověření ✅ 2026-10-30
+
+`pg_dump` 18.6 (wrapper vybírá podle portu), ruční `backup.sh` proti 18
+OK, `start.conf` clusteru 17 = `manual`, `postgresql@18-main` active,
+deploy proti 18 bez migrací, `pnpm sync --dry-run` čistý (31 700 nálezů,
+0 parse failures), *Runtime security* jen `apt-orphaned`.
+
 
 Web + `/admin/checks`, `pnpm sync --dry-run`, ruční `deploy/backup.sh`
 (pg_dump 18 proti clusteru 18, `pg_restore --list`), ruční běh *Runtime

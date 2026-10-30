@@ -101,16 +101,21 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
   `docs/ubuntu-upgrade-26.04.md`. Ruční *Runtime security*: jen
   `apt-orphaned` (balíčky PG 17 — čekané do 6d). Rozhodnutí majitele
   2026-10-29: e-mail z týdenní kontroly nechat chodit, nic nepotlačovat.
-- ⏳ 6c: `pg_dump --version` (wrapper → 18), ruční `backup.sh` proti 18,
-  `start.conf` clusteru 17 = manual, `/admin/checks`, `pnpm sync --dry-run`,
-  noční záloha + UNAS stažení 2026-10-31.
+- ✅ 6c (2026-10-30): `pg_dump` 18.6, ruční `backup.sh` proti 18 OK
+  (4 461 517 B), `start.conf` 17 = manual, `postgresql@18-main` active /
+  `@17-main` inactive, deploy `ab487b7` (34 migrací, nic k aplikaci),
+  `pnpm sync --dry-run` čistý (31 700 nálezů, 0 parse failures,
+  reconcile.clean). ⏳ zbývá: `/admin/checks` (majitel) a noční záloha +
+  UNAS stažení 2026-10-31.
+- ⏳ 6d naplánováno: připomínka 2026-11-06 8:00 (scheduled task
+  `pg17-uklid-pripominka-2026-11-06`).
 - ⏳ 6d (po několika dnech, se souhlasem): `pg_dropcluster 17 main` +
   odebrat balíčky PG 17 → `apt-orphaned` zezelená.
 - ⚠️ K ověření: PostGIS je v *universe* — zjistit, jak na 26.04 chodí
   jeho bezpečnostní záplaty (bez Ubuntu Pro).
 - ✅ UNAS ranní běh 2026-10-29: 06:10:01 → 06:11:24 (83 s), snapshot
   2026-10-29 OK, 30 ponecháno. Ruční běh včera (3 min 12 s) byl výjimka.
-- **Další krok:** 6c — výstupy kontrolních příkazů od majitele.
+- **Další krok:** `/admin/checks` od majitele; 2026-10-31 ráno UNAS `tail -n 2 pull.log`; 2026-11-06 krok 6d.
 
 ## Seznam oprav (nahlášeno majitelem)
 1. ✅ **404 – Lupa na mobilu** (2026-10-28): na dotyku lupa pluje nad
