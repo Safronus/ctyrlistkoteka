@@ -221,8 +221,12 @@ vždy přes tuto funkci.
 
 ### Git workflow
 
-- Hlavní větev: `main` (chráněná, automatický deploy).
-- Práce ve feature větvích: `feat/xxx`, `fix/xxx`, `chore/xxx`, `docs/xxx`.
+- Hlavní větev: `main` — **push do `main` = deploy** (self-hosted runner na VPS).
+  Commituje a pushuje se přímo do `main`, bez PR (rozhodnutí majitele).
+- Ruleset na GitHubu (od 2026-10-30) na `main` **blokuje force push a smazání
+  větve**; povinné PR ani kontroly schválně nemá, aby nerozbil push = deploy.
+- Feature větve (`feat/xxx`, `fix/xxx`, `chore/xxx`, `docs/xxx`) jen volitelně
+  u větších věcí.
 - Commit zprávy: Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`).
 - Před `git push`: **vždy** `pnpm lint && pnpm typecheck && pnpm test`.
 
