@@ -9,6 +9,13 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
+### PostgreSQL 18 na VPS
+- Produkční DB přešla z PostgreSQL 17 (na Ubuntu 26.04 bez záplat) na
+  **PostgreSQL 18.6 + PostGIS 3.6.2** z archivu Ubuntu, převodem
+  `pg_upgradecluster` (dump/restore) — nově se zapnutými datovými
+  checksums. Výpadek webu ~10 minut, data beze ztráty (31 700 nálezů).
+  Starý cluster zůstává zastavený pro návrat, úklid po několika dnech.
+
 ### 404: řádek „8+“ v tabulce rychlosti + „Jak hrát?“
 - Kola nad 8 (obtížnost už se nezvyšuje) se v tabulce rychlosti nezobrazovala
   a „Dnes“ u kola 8 ukazoval čas kola 8, i když rekord patřil kolu 11. Teď

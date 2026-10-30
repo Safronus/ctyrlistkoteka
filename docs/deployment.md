@@ -31,16 +31,17 @@ a uživatel je spouští v Termiusu.
 >   neodpovídal cestě v image). RustDesk aktualizován, klíč beze změny.
 >   Aktualizace: `deploy/update-docker-services.sh`; denní záloha obou:
 >   `deploy/backup-services.sh` (cron 3:05 → `/var/ctyrlistkoteka/backups/services`).
->   PostGIS rozšíření 3.5.3. Docker CE z oficiálního repozitáře
+>   Docker CE z oficiálního repozitáře
 >   (`/etc/apt/sources.list.d/docker.sources`, od 2026-10-29) a v
 >   `unattended-upgrades` (origin `Docker:${distro_codename}`) — záplaty
 >   automaticky, kontejnery mají `restart:` a naběhnou samy.
-> - **Databáze:** **nativní PostgreSQL 17 + PostGIS** (systemd
->   `postgresql@17-main`), ne 16. Schéma je zpětně kompatibilní.
->   ⚠️ Na 26.04 je PG 17 **osiřelý** (archiv má jen 18) — žádné záplaty,
->   týdenní kontrola hlásí `apt-orphaned`. Přechod na PG 18 = fáze 6
->   plánu upgradu (samostatné okno). Balíčky PG 17 jsou `apt-mark manual`,
->   aby je noční autoremove nesmazal.
+> - **Databáze:** **nativní PostgreSQL 18.6 + PostGIS 3.6.2** (systemd
+>   `postgresql@18-main`, port 5432) od **2026-10-30** — převod
+>   `pg_upgradecluster` (dump/restore), datové checksums zapnuté.
+>   Starý cluster `17 main` je zastavený na portu 5433 (`start.conf` =
+>   manual) a jeho balíčky jsou `apt-mark manual` — úklid je fáze 6d
+>   v `docs/ubuntu-upgrade-26.04.md`; do té doby týdenní kontrola hlásí
+>   `apt-orphaned`.
 > - **PM2:** appka jede pod PM2 jako user `app`. **Ověř
 >   `systemctl is-enabled pm2-app` → musí být `enabled`** — jednou unit
 >   chyběl a po rebootu by se web sám nenahodil (viz §7).
@@ -374,8 +375,8 @@ corepack prepare pnpm@latest --activate
 # PM2
 npm install -g pm2
 
-# PostgreSQL + PostGIS (na Ubuntu 25.10 je default 17; na 24.04 LTS to bylo 16)
-sudo apt install -y postgresql-17 postgresql-17-postgis-3 postgresql-contrib
+# PostgreSQL + PostGIS (na Ubuntu 26.04 LTS je default 18; contrib je součástí balíčku)
+sudo apt install -y postgresql-18 postgresql-18-postgis-3
 
 # Nginx + Certbot
 sudo apt install -y nginx certbot python3-certbot-nginx
@@ -465,7 +466,7 @@ Přidej:
 
 | Věc | Kde | Jak na ni |
 | --- | --- | --- |
-| **PostgreSQL 17 + PostGIS** | **nativně na hostu**, NE v Dockeru | `psql -h 127.0.0.1 -U ctyrlist -d ctyrlistkoteka` (heslo z `~/.pgpass`) |
+| **PostgreSQL 18 + PostGIS** | **nativně na hostu**, NE v Dockeru | `psql -h 127.0.0.1 -U ctyrlist -d ctyrlistkoteka` (heslo z `~/.pgpass`) |
 | Aplikace (Next.js) | PM2, `/var/www/ctyrlistkoteka` | `pm2 status`, `pm2 logs` |
 | Nginx | nativně | `sudo nginx -t && sudo systemctl reload nginx` |
 | Docker | jen pomocné služby (GoatCounter, RustDesk) | s appkou ani DB nesouvisí |
@@ -1269,7 +1270,7 @@ pm2 reload ctyrlistkoteka
 pm2 logs ctyrlistkoteka --lines 100
 sudo journalctl -u nginx -n 50
 sudo tail -f /var/log/nginx/ctyrlistkoteka.error.log
-sudo tail -f /var/log/postgresql/postgresql-17-main.log
+sudo tail -f /var/log/postgresql/postgresql-18-main.log
 df -h                              # místo na disku
 du -sh /var/ctyrlistkoteka/*       # velikost dat
 ```

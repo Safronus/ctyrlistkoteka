@@ -44,7 +44,7 @@ Nginx (SSL, reverse proxy, cache statických assetů)
     ▼
 Next.js (App Router, SSR + ISR)
     │
-    ├──► PostgreSQL 17 + PostGIS  (127.0.0.1:5432)
+    ├──► PostgreSQL 18 + PostGIS  (127.0.0.1:5432)
     └──► /var/ctyrlistkoteka/generated/  (thumb + web WebP)
 ```
 
@@ -63,7 +63,7 @@ jen odvozené WebP varianty (web ~1600 px, thumb ~400 px).
 | Styling | Tailwind CSS (v4+) | žádný runtime-CSS-in-JS |
 | UI komponenty | shadcn/ui + Radix | selektivně, ne celou sadu |
 | Ikony | lucide-react | |
-| DB | PostgreSQL + PostGIS 3 | prod: **nativní PG 17**; lokální dev: `postgis/postgis:16-3.4` |
+| DB | PostgreSQL + PostGIS 3 | prod: **nativní PG 18** (od 2026-10-30); lokální dev: `postgis/postgis:16-3.4` |
 | ORM | Prisma | pro geo sloupce používej raw SQL nebo `Unsupported("geometry")` |
 | Mapy | Leaflet + react-leaflet | OSM dlaždice, markercluster, image overlays |
 | Grafy | Recharts | pro základní grafy; ECharts jen pokud Recharts nestačí |
@@ -299,9 +299,9 @@ na hostu) hlídáme sami — cíl je mít vše aktuální a nedat šanci známý
   `docs/deployment.md` (callout „Skutečný stav produkce"), `CHANGELOG.md`,
   `PROGRESS.md` a případně rozšiř kontrolu — nová služba bez hlídání
   bezpečnostních aktualizací je dluh.
-- **Známé mezery (2026-10-29):** OS je už 26.04 LTS, ale PostgreSQL 17 je
-  na něm osiřelý (přechod na 18 = fáze 6 v `docs/ubuntu-upgrade-26.04.md`,
-  do té doby `apt-orphaned` svítí); verzi self-hosted runneru
+- **Známé mezery (2026-10-30):** DB je od 2026-10-30 na PostgreSQL 18;
+  balíčky PG 17 a zastavený cluster `17 main` čekají na úklid (fáze 6d
+  v `docs/ubuntu-upgrade-26.04.md`), do té doby `apt-orphaned` svítí; verzi self-hosted runneru
   kontrola nehlídá (vědomě — aktualizuje se sám). Balíčky z repozitářů mimo
   Ubuntu (PGDG, Docker CE…) týdenní kontrola hlídá od 2026-10-28
   (`thirdPartyUpgrades`), stejně jako **osiřelé balíčky** bez repozitáře
@@ -317,7 +317,7 @@ na hostu) hlídáme sami — cíl je mít vše aktuální a nedat šanci známý
 
 - Lokalita: Zlín, ČR (CE časová zóna `Europe/Prague`).
 - Doména: `ctyrlistkoteka.cz` u **hukot.net**.
-- Produkční server: **OVH VPS-2** (6 vCPU, 12 GB RAM, 100 GB SSD), Gravelines (GRA), **Ubuntu 26.04.1 LTS „resolute"** (od 2026-10-28, podpora do 2031-04). Běží **nativní PostgreSQL 17 + PostGIS** (na 26.04 osiřelý — přechod na 18 čeká), Node LTS přes nvm, PM2 (ověř `systemctl is-enabled pm2-app`), Nginx. Na hostu je i Docker s pomocnými self-hosted službami (GoatCounter analytika, RustDesk) nezávislými na appce. Skutečný stav + odlišnosti od krokového návodu viz callout na začátku `docs/deployment.md`.
+- Produkční server: **OVH VPS-2** (6 vCPU, 12 GB RAM, 100 GB SSD), Gravelines (GRA), **Ubuntu 26.04.1 LTS „resolute"** (od 2026-10-28, podpora do 2031-04). Běží **nativní PostgreSQL 18 + PostGIS 3.6** (od 2026-10-30; starý cluster 17 zastavený do úklidu), Node LTS přes nvm, PM2 (ověř `systemctl is-enabled pm2-app`), Nginx. Na hostu je i Docker s pomocnými self-hosted službami (GoatCounter analytika, RustDesk) nezávislými na appce. Skutečný stav + odlišnosti od krokového návodu viz callout na začátku `docs/deployment.md`.
 - IP adresy, hostname a přihlašovací údaje jsou v `docs/deployment.md` a `.env` — **nedávej je do commitnutých souborů** mimo `.env.example`.
 - Uživatel používá **Termius** pro SSH. Claude Code generuje příkazy, uživatel je spouští sám.
 - GitHub repo: **veřejné** ([github.com/Safronus/ctyrlistkoteka](https://github.com/Safronus/ctyrlistkoteka)). Bylo původně privátní, autor ho v průběhu vývoje přepnul na public — celý zdrojový kód je tedy otevřený. Citlivé věci (DB heslo, `VOTE_FINGERPRINT_SALT`, `FIND_PHOTO_UNLOCK_CODE`, admin credentials) zůstávají v `.env` na VPS, do gitu nejdou — `.gitignore` je drží mimo. Při každém commitu stejně zkontroluj, že žádné tajemství neutíká.

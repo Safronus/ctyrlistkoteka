@@ -1,8 +1,9 @@
 # Upgrade VPS: Ubuntu 25.10 „questing" → 26.04 LTS „resolute"
 
 > **Stav: OS HOTOVÝ — Ubuntu 26.04.1 LTS běží od 2026-10-28 ~23:55 UTC.**
-> Fáze 0–5 ✅ (průběh a nálezy v `PROGRESS.md`). Zbývá fáze 6
-> (PostgreSQL 18, samostatné okno). Poučení z průběhu:
+> Fáze 0–5 ✅ (průběh a nálezy v `PROGRESS.md`). Fáze 6: **DB běží na
+> PostgreSQL 18.6 od 2026-10-30** (6a–6b ✅, 6c ověření, zbývá úklid 6d).
+> Poučení z průběhu:
 > `apt-listchanges` během upgradu ukazuje changelogy v pageru (`q`, pak `Y`);
 > u dotazu „Remove obsolete packages?" (u nás 349) odpovědět **N**.
 > Claude Code se k VPS nepřipojuje — příkazy spouští majitel v Termiusu,
@@ -256,7 +257,32 @@ crontab -l | grep -v '^#'
 systemctl list-timers --no-pager | grep -E 'sync|backup|drop'
 ```
 
-### 6b — okno údržby (výpadek webu několik minut)
+### 6b — okno údržby (výpadek webu několik minut) ✅ 2026-10-30
+
+**Průběh (2026-10-30, ~16:30–16:42 UTC, výpadek webu ~10 min):**
+- 6a: kolace prázdné (locale `C.UTF-8` → nezávislé na glibc), žádná md5
+  hesla, DB 55 MB, výchozí konfigurace, `pg_hba` = scram.
+- `apt install postgresql-18 postgresql-18-postgis-3`: 15 balíčků, nic
+  neodebráno. **Prázdný cluster 18 se NEzaložil** (na rozdíl od
+  předpokladu) — krok `pg_dropcluster 18 main` odpadl; ověřeno
+  `pg_lsclusters` a `ls /etc/postgresql/` (jen `17`).
+- Zastaveny časovače `drop-sheet-sync` + `ctyrlistkoteka-sync`, PM2
+  `ctyrlistkoteka`; žádní klienti v `pg_stat_activity`.
+- Dump `ctyrlistkoteka-2026-10-30_1634.dump` (4 466 097 B) přes
+  `backup.sh`, na Macu v `~/backups/ctyrlistkoteka/pre-26.04/`, sha256 sedí.
+- `sudo pg_upgradecluster 17 main` → `Success`; initdb s checksums,
+  `C.UTF-8`, role i konfigurace přeneseny, vacuumdb/analyze proběhl sám.
+  Výsledek: `18 main 5432 online`, `17 main 5433 down` („Disabling
+  automatic startup of old cluster“).
+- Ověřeno: `PostgreSQL 18.6`, `pg_trgm 1.6`, `postgis 3.6.2` (bez
+  „need upgrade“ — `postgis_extensions_upgrade()` nebyl potřeba), GEOS
+  3.14.1, PROJ 9.7.1, `finds` = 31 700, `data_checksums = on`, přihlášení
+  `ctyrlist` přes TCP (`.pgpass`) OK.
+- PM2 + časovače zpět, `/sbirka` 200, log bez chyb DB. Ruční *Runtime
+  security*: vše `[ok]` vč. `db-extensions`, jediný nález `apt-orphaned`
+  (balíčky PG 17 — čekané do 6d).
+
+Původní plán:
 
 Nic nepushovat do `main`. Zastavit zápisy (časovače `drop-sheet-sync`
 a `ctyrlistkoteka-sync`, PM2 proces `ctyrlistkoteka`), čerstvý dump přes

@@ -95,13 +95,22 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 - ✅ certbot `renew --dry-run` 2026-10-29 ráno: všechny 3 certifikáty
   (ctyrlistkoteka.cz+www, qr.casqb.org, stats.ctyrlistkoteka.cz) success.
   Noční 503 byl jen přetížený staging LE.
-- ⏳ Fáze 6 — PostgreSQL 18 (samostatné okno, dump/restore). Do té doby
-  `apt-orphaned` ❌ kvůli 4 balíčkům PG 17 — čekané. Rozhodnutí majitele
+- ✅ Fáze 6a–6b (2026-10-30): **DB na PostgreSQL 18.6 + PostGIS 3.6.2**,
+  `pg_upgradecluster` (dump/restore), výpadek ~10 min, 31 700 nálezů,
+  checksums on; cluster 17 zastavený na 5433. Detail v
+  `docs/ubuntu-upgrade-26.04.md`. Ruční *Runtime security*: jen
+  `apt-orphaned` (balíčky PG 17 — čekané do 6d). Rozhodnutí majitele
   2026-10-29: e-mail z týdenní kontroly nechat chodit, nic nepotlačovat.
+- ⏳ 6c: `pg_dump --version` (wrapper → 18), ruční `backup.sh` proti 18,
+  `start.conf` clusteru 17 = manual, `/admin/checks`, `pnpm sync --dry-run`,
+  noční záloha + UNAS stažení 2026-10-31.
+- ⏳ 6d (po několika dnech, se souhlasem): `pg_dropcluster 17 main` +
+  odebrat balíčky PG 17 → `apt-orphaned` zezelená.
+- ⚠️ K ověření: PostGIS je v *universe* — zjistit, jak na 26.04 chodí
+  jeho bezpečnostní záplaty (bez Ubuntu Pro).
 - ✅ UNAS ranní běh 2026-10-29: 06:10:01 → 06:11:24 (83 s), snapshot
   2026-10-29 OK, 30 ponecháno. Ruční běh včera (3 min 12 s) byl výjimka.
-- **Další krok:** fáze 6 — plán 6a–6e v `docs/ubuntu-upgrade-26.04.md`;
-  čeká na souhlas majitele a výstup 6a (jen čtení).
+- **Další krok:** 6c — výstupy kontrolních příkazů od majitele.
 
 ## Seznam oprav (nahlášeno majitelem)
 1. ✅ **404 – Lupa na mobilu** (2026-10-28): na dotyku lupa pluje nad
