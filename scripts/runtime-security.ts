@@ -211,6 +211,30 @@ export function outdatedExtensions(
     .map((r) => ({ name: r.name, installed: r.installed_version, available: r.default_version }));
 }
 
+/**
+ * DB functions whose EXECUTE is revoked from PUBLIC on production because
+ * of an open hole nobody has patched yet. CVE-2026-73515 (2026-10-30):
+ * out-of-bounds read in PostGIS's FlatGeobuf decoder (fixed upstream in
+ * 3.7.0beta2 / stable-3.6, Ubuntu 26.04 still ships 3.6.2 — universe,
+ * best-effort patches). The app never reads FlatGeobuf, so the app role
+ * loses nothing. The revoke does not survive a restore from our dumps
+ * (`--no-privileges`) and may not survive an extension update — hence the
+ * weekly check. Drop a name once the fixed package is installed.
+ */
+export const REVOKED_DB_FUNCTIONS = ["st_fromflatgeobuf", "st_fromflatgeobuftotable"] as const;
+
+/** A function the app role could call, as `has_function_privilege` sees it. */
+export interface FunctionPrivilegeRow {
+  /** `oid::regprocedure`, e.g. `st_fromflatgeobuf(anyelement,bytea)`. */
+  signature: string;
+  executable: boolean;
+}
+
+/** Signatures the app role can still execute although they should be revoked. */
+export function executableRevokedFunctions(rows: readonly FunctionPrivilegeRow[]): string[] {
+  return rows.filter((r) => r.executable).map((r) => r.signature);
+}
+
 /** certbot renews at 30 days left — under 21 means renewal is failing. */
 export const CERT_WARN_DAYS = 21;
 
@@ -347,6 +371,7 @@ export type CheckCategory =
   | "apt-orphaned"
   | "systemd-failed"
   | "db-extensions"
+  | "db-privileges"
   | "tls"
   | "backups"
   | "docker";

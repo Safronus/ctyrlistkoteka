@@ -18,8 +18,9 @@
  *     no repository offers any more (an orphan never shows as upgradable),
  *     and no systemd unit in the failed state.
  *   • `--db` — database extensions (PostGIS, pg_trgm…) whose version in the
- *     DB lags the installed package (needs DATABASE_URL, read from .env;
- *     only reads the extension catalogue).
+ *     DB lags the installed package, and functions revoked because of an
+ *     open CVE (REVOKED_DB_FUNCTIONS) that the app role can execute again
+ *     (needs DATABASE_URL, read from .env; only reads the catalogue).
  *   • `--tls host[,host…]` — certificate of each host:443 valid (chain) and
  *     not expiring within CERT_WARN_DAYS (certbot renews at 30: below 21
  *     its renewal is failing). Connects to our own domains only.
@@ -65,7 +66,10 @@ import {
   newestWithPrefix,
   orphanedPackages,
   outdatedExtensions,
+  executableRevokedFunctions,
+  REVOKED_DB_FUNCTIONS,
   type ExtensionRow,
+  type FunctionPrivilegeRow,
   thirdPartyUpgrades,
   type NodeRelease,
 } from "./runtime-security";
@@ -394,6 +398,23 @@ async function checkDbExtensions(): Promise<void> {
         finding(
           "db-extensions",
           `Database extension(s) behind the installed package — run ALTER EXTENSION … UPDATE (PostGIS: SELECT postgis_extensions_upgrade();): ${behind.map((e) => `${e.name} ${e.installed} → ${e.available}`).join(", ")}`,
+        );
+      }
+      // has_function_privilege checks the role DATABASE_URL logs in as —
+      // the app's own role, i.e. exactly who must not reach these.
+      const fns = await prisma.$queryRaw<FunctionPrivilegeRow[]>`
+        SELECT p.oid::regprocedure::text AS signature,
+               has_function_privilege(p.oid, 'EXECUTE') AS executable
+        FROM pg_proc p
+        WHERE p.proname::text = ANY(${[...REVOKED_DB_FUNCTIONS]}::text[])
+        ORDER BY 1`;
+      const open = executableRevokedFunctions(fns);
+      if (open.length === 0) {
+        ok("db-privileges", `Revoked DB functions not executable by the app role (${fns.length} checked)`);
+      } else {
+        finding(
+          "db-privileges",
+          `App role can execute function(s) revoked for an open CVE — re-run the REVOKE from docs/deployment.md: ${open.join(", ")}`,
         );
       }
     } finally {

@@ -413,6 +413,25 @@ Otestuj:
 psql 'postgresql://ctyrlist:HESLO@localhost:5432/ctyrlistkoteka' -c 'SELECT postgis_version();'
 ```
 
+### Odebraná práva na zranitelné funkce (od 2026-10-30)
+
+**CVE-2026-73515** — PostGIS < 3.7.0beta2 čte mimo buffer při dekódování
+FlatGeobuf (únik paměti / pád serveru). Ubuntu 26.04 má 3.6.2 z *universe*
+(opravy jen „best-effort“) a opravu zatím nevydalo. Appka FlatGeobuf
+nepoužívá, proto je funkce běžným rolím zakázané (vlastník je `postgres`,
+`ctyrlist` není superuser, takže si právo vrátit nemůže):
+
+```bash
+sudo -u postgres psql -d ctyrlistkoteka -v ON_ERROR_STOP=1 -c "REVOKE EXECUTE ON FUNCTION public.st_fromflatgeobuf(anyelement, bytea), public.st_fromflatgeobuftotable(text, text, bytea) FROM PUBLIC"
+```
+
+⚠️ **Zopakovat po každé obnově z dumpu** (`backup.sh` i
+`pg_restore` jedou s `--no-privileges`) **a po `ALTER EXTENSION postgis
+UPDATE` / `postgis_extensions_upgrade()`**. Hlídá to týdenní *Runtime
+security* (`--db`, kategorie `db-privileges`, seznam funkcí
+v `REVOKED_DB_FUNCTIONS`). Až Ubuntu vydá opravený PostGIS, funkce ze
+seznamu vyřaď a právo vrať (`GRANT EXECUTE … TO PUBLIC`).
+
 ### Denní zálohy
 
 > ⚠️ **Nepoužívej holý `pg_dump` v cronu.** Do 07/2026 tu stál jednořádkový
@@ -607,6 +626,8 @@ pg_restore -U ctyrlist -d ctyrlistkoteka --no-owner --no-privileges -j4 \
 # 3. kontrola
 psql -U ctyrlist -d ctyrlistkoteka -tAc \
   "select 'finds='||(select count(*) from finds)||' locations='||(select count(*) from locations);"
+
+# 4. znovu odebrat práva na zranitelné funkce — viz §4 „Odebraná práva“
 ```
 
 Fotky se obnoví prostým zkopírováním `data/` a `generated/` ze snapshotu na

@@ -307,7 +307,8 @@ na hostu) hlídáme sami — cíl je mít vše aktuální a nedat šanci známý
   (`thirdPartyUpgrades`), stejně jako **osiřelé balíčky** bez repozitáře
   (`orphanedPackages` — tak zůstal stát docker-ce), **systemd jednotky
   ve stavu failed** (`failedUnits` — tak půl roku padal logrotate), **rozšíření DB**
-  pozadu za balíčkem (`--db`, tak zůstal PostGIS 3.5.2), **TLS certifikáty**
+  pozadu za balíčkem (`--db`, tak zůstal PostGIS 3.5.2), **odebraná práva**
+  na funkce s otevřenou CVE (`db-privileges`, FlatGeobuf — CVE-2026-73515), **TLS certifikáty**
   (`--tls`), **čerstvost záloh** (`--backup`) a **Docker images**
   běžících kontejnerů (`--docker`; uživatel runneru je ve skupině docker).
 

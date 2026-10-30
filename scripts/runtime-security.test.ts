@@ -3,6 +3,7 @@ import {
   assessNode,
   certDaysLeft,
   compareVersions,
+  executableRevokedFunctions,
   failedUnits,
   formatResult,
   orphanedPackages,
@@ -286,6 +287,24 @@ describe("failedUnits", () => {
   it("is quiet on empty output and ignores non-unit text", () => {
     expect(failedUnits("")).toEqual([]);
     expect(failedUnits("0 loaded units listed.\n")).toEqual([]);
+  });
+});
+
+describe("executableRevokedFunctions", () => {
+  it("flags a revoked function the app role can run again (restore / extension update)", () => {
+    expect(
+      executableRevokedFunctions([
+        { signature: "st_fromflatgeobuf(anyelement,bytea)", executable: true },
+        { signature: "st_fromflatgeobuftotable(text,text,bytea)", executable: false },
+      ]),
+    ).toEqual(["st_fromflatgeobuf(anyelement,bytea)"]);
+  });
+
+  it("is quiet when every revoked function is closed — or none exists", () => {
+    expect(
+      executableRevokedFunctions([{ signature: "st_fromflatgeobuf(anyelement,bytea)", executable: false }]),
+    ).toEqual([]);
+    expect(executableRevokedFunctions([])).toEqual([]);
   });
 });
 

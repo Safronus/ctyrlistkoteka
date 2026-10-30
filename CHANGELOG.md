@@ -15,6 +15,10 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   `pg_upgradecluster` (dump/restore) — nově se zapnutými datovými
   checksums. Výpadek webu ~10 minut, data beze ztráty (31 700 nálezů).
   Starý cluster zůstává zastavený pro návrat, úklid po několika dnech.
+- PostGIS 3.6.2 má otevřenou **CVE-2026-73515** (FlatGeobuf, Ubuntu ji
+  zatím neopravilo): funkce `ST_FromFlatGeobuf*` jsou v DB zakázané
+  (`REVOKE … FROM PUBLIC`, appka je nepoužívá) a týdenní *Runtime
+  security* hlídá, že zakázané zůstanou (`db-privileges`).
 
 ### 404: řádek „8+“ v tabulce rychlosti + „Jak hrát?“
 - Kola nad 8 (obtížnost už se nezvyšuje) se v tabulce rychlosti nezobrazovala
