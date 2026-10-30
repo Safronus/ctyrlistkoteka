@@ -193,8 +193,9 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
   vývojové kontejnery z VPS pryč, dev compose jen na loopback.
 - ✅ GoatCounter: data přesunuta do zálohovaného stromu, historie ověřena.
 - ✅ `deploy/backup-services.sh` (cron 3:05) + `deploy/update-docker-services.sh`.
-- ⏳ Za pár dní: smazat staré Docker volume (stará kopie GoatCounteru + dvě
-  prázdné z dubna) — podrobnosti v private `ops/inventory/`.
+- ✅ 2026-10-30: staré Docker volume smazány (stará kopie GoatCounteru + dvě
+  z dubna; obsah archivován, GoatCounter i RustDesk běží) — podrobnosti
+  v private `ops/inventory/`.
 - ⏳ Upgrade Ubuntu 26.04 (vrátí i Docker repozitář; PostgreSQL varianta A
   = 18 z Ubuntu, dump/restore) + odebrat `ssl_stapling` z nginx.
 
