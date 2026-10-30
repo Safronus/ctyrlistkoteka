@@ -111,8 +111,15 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
   `pg17-uklid-pripominka-2026-11-06`).
 - ⏳ 6d (po několika dnech, se souhlasem): `pg_dropcluster 17 main` +
   odebrat balíčky PG 17 → `apt-orphaned` zezelená.
-- ⚠️ K ověření: PostGIS je v *universe* — zjistit, jak na 26.04 chodí
-  jeho bezpečnostní záplaty (bez Ubuntu Pro).
+- ⚠️ PostGIS záplaty (průzkum 2026-10-30): PostGIS je v *universe* →
+  bez Ubuntu Pro jen „best-effort“ opravy (Canonical FAQ). Otevřená
+  **CVE-2026-73515** (out-of-bounds read v dekodéru FlatGeobuf, CVSS 8.1,
+  PR:L — útočník potřebuje SQL přístup do DB): Ubuntu všude „Needs
+  evaluation“, Debian „minor issue / no-dsa“; upstream opraveno v
+  3.7.0beta2 a backport v `stable-3.6` (commit 767fa40). My máme 3.6.2.
+  Appka FlatGeobuf nepoužívá (`git grep` 0), `$queryRawUnsafe` 0×.
+  Čeká rozhodnutí majitele: přijmout / REVOKE EXECUTE na FlatGeobuf
+  funkce / Ubuntu Pro (free) / PGDG.
 - ✅ UNAS ranní běh 2026-10-29: 06:10:01 → 06:11:24 (83 s), snapshot
   2026-10-29 OK, 30 ponecháno. Ruční běh včera (3 min 12 s) byl výjimka.
 - **Další krok:** `/admin/checks` od majitele; 2026-10-31 ráno UNAS `tail -n 2 pull.log`; 2026-11-06 krok 6d.
