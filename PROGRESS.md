@@ -254,7 +254,9 @@ Pořadí dané majitelem: **bezpečnost první**, pak vzhled.
 - Verze runneru: vědomě nehlídat (rozhodnutí 2026-10-28).
 - ✅ Úklid worktree/větví po triáži (2026-10-28).
 - Dependabot #197 selhal na `postcss@^8.5.32` mladším než jeho karence
-  (gotchas #35) — ověřit, že další běh projde.
+  (gotchas #35). Kontrola 2026-10-30: od #197 žádný další běh (schedule
+  `weekly` / pondělí); postcss 8.5.32 je teď ~4 dny starý → ⏳ ověřit
+  pondělní běh 2026-11-02 (`gh run list --workflow "Dependabot Updates"`).
 
 ### Klíčová rozhodnutí
 - Deploy na nález jen varuje (nikdy neshodí produkci), týdenní běh selže,
