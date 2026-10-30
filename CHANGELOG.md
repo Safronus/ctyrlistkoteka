@@ -9,16 +9,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-10
 
-### PostgreSQL 18 na VPS
-- Produkční DB přešla z PostgreSQL 17 (na Ubuntu 26.04 bez záplat) na
-  **PostgreSQL 18.6 + PostGIS 3.6.2** z archivu Ubuntu, převodem
-  `pg_upgradecluster` (dump/restore) — nově se zapnutými datovými
-  checksums. Výpadek webu ~10 minut, data beze ztráty (31 700 nálezů).
-  Starý cluster zůstává zastavený pro návrat, úklid po několika dnech.
-- PostGIS 3.6.2 má otevřenou **CVE-2026-73515** (FlatGeobuf, Ubuntu ji
-  zatím neopravilo): funkce `ST_FromFlatGeobuf*` jsou v DB zakázané
-  (`REVOKE … FROM PUBLIC`, appka je nepoužívá) a týdenní *Runtime
-  security* hlídá, že zakázané zůstanou (`db-privileges`).
+### Provoz: upgrade databáze serveru
+- Podrobnosti v neveřejné provozní dokumentaci.
 
 ### 404: řádek „8+“ v tabulce rychlosti + „Jak hrát?“
 - Kola nad 8 (obtížnost už se nezvyšuje) se v tabulce rychlosti nezobrazovala
@@ -27,24 +19,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 - Nad loukou je krátký úvod a rozbalovací „Jak hrát?“ s pravidly a
   ovládáním pro danou hru (myš, prst, klávesnice), CZ/EN.
 
-### Ubuntu 26.04.1 LTS na VPS + hlídání selhaných služeb
-- VPS přešel z EOL Ubuntu 25.10 na **26.04.1 LTS** (jádro 7.0), postup a
-  kontrolní seznam v `docs/ubuntu-upgrade-26.04.md`. PostgreSQL 17 běží dál
-  (přechod na 18 je samostatná fáze), Node/PM2/appka beze změny.
-- Cestou nalezeno: `logrotate.service` padal každou noc od 2026-05-02
-  (ručně připsaný `postrotate` mimo `{}` s překlepem `endscriptx`) —
-  opraveno na serveru i v `deploy/logrotate-fail2ban-blocklist.conf`.
-- Týdenní *Runtime security* nově hlásí **systemd jednotky ve stavu
-  failed** (`systemd-failed`).
-- `unattended-upgrades`: nově i oficiální repozitář Dockeru (rozhodnutí
-  majitele — záplaty automaticky) + varování k `Remove-Unused-Dependencies`.
-- `deploy/cloak-check.sh` ignoruje náhodnou volbu hry na stránce 404.
-- `deployment.md` §3: `libvips-dev` se už neinstaluje (sharp má libvips
-  přibalenou).
-- Dočištění po upgradu (2026-10-29): Docker CE 29.9.2 z oficiálního
-  repozitáře místo osiřelé 29.2.1, autoremove 296 nepotřebných balíčků
-  (kompilátory, -dev hlavičky, staré jádro), Node 24.18.0 smazán,
-  `ssl_stapling` odebrán z nginx. PostgreSQL 17 zůstává do přechodu na 18.
+### Provoz: upgrade operačního systému serveru + hlídání selhaných služeb
+- Podrobnosti v neveřejné provozní dokumentaci.
 
 ### /sbirka na mobilu: číslo nálezu v dlaždici zase celé
 - V horní liště dlaždice se pěticiferné číslo (#31420) na telefonu
@@ -69,82 +45,26 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   všechny (`stripBackgroundFills`). Moduly pod středem se nekreslí, takže
   nic neprosvítá; ověřeno rasterizací skutečného SVG kartičky nálezu.
 
-### Off-site zálohy: prázdný share v Drive je v pořádku, hlídání e-mailem, vlastník root
-- Nahlášená „prázdná složka“ na UNASu nebyla chyba: zálohy běží denně
-  (30 snapshotů), jen leží záměrně mimo UniFi Drive. Doplněno do docs.
-- Týdenní *Runtime security* hlídá i `.offsite/.last-pull` — zastavený
-  off-site pull teď pošle e-mail, ne jen řádek do logu na VPS.
-- `unas-pull.sh`: `rsync --chown=0:0`. Dřív `--numeric-ids` dávalo
-  snapshotům uid 1000 z VPS, které na UNASu patří systémovému účtu UniFi.
-- Čas cronu v docs a nápovědách sladěn se skutečností (06:10).
+### Provoz: off-site zálohy — hlídání a vlastnictví
+- Podrobnosti v neveřejné provozní dokumentaci.
 
-### Bezpečnost runtime: Node 24.22.1 (Node2Shell) + hlídání, co Dependabot nevidí
-- **CVE-2026-111497 „Node2Shell"** — zápis mimo paměť v Brotli dekodéru
-  Node.js (opraveno v 22.23.4 / 24.22.1 / 26.12.1). Oprava je jen v runtime,
-  žádný bump balíčku nepomůže. Přímá expozice webu nízká (Next.js
-  nerozbaluje komprimovaná těla požadavků, vlastní Brotli nikde), zbytkové
-  riziko jsou serverové `fetch()` ven. VPS 24.18.0 → 24.22.1 ručně, postup
-  v `docs/deployment.md` („Upgrade Node.js"); Mac 24.15.0 → 24.22.1.
-- **`scripts/check-runtime-security.ts`** — Node buildu i skutečně běžících
-  PM2 workerů vs. nejnovější bezpečnostní vydání řady (`nodejs.org`),
-  volitelně Ubuntu podporováno + čekající `-security` balíčky z `apt`.
-  V každém deployi jen varování; nový týdenní workflow **Runtime security**
-  (self-hosted runner, + `pnpm audit`) při nálezu selže → e-mail.
-- **CI**: `node-version: 24` + `check-latest` (cache runneru servírovala
-  24.21.0 týden po opravě). **`packageManager: pnpm@10.33.2`** — nový Node
-  nepřinese tiše jiné pnpm; `version:` z `pnpm/action-setup` odebrán.
-- ❌ Zjištěno: **Ubuntu 25.10 na VPS je od 2026-07-09 EOL** (bez
-  bezpečnostních aktualizací). Upgrade na 26.04 LTS je další krok; do té
-  doby týdenní kontrola svítí červeně schválně.
+### Provoz: aktualizace runtime + týdenní bezpečnostní kontrola
+- Podrobnosti v neveřejné provozní dokumentaci.
 
-### Kontrola runtime: TLS certifikáty a čerstvost záloh
-- `--tls`: certifikát každé naší domény (web, www, stats, qr.casqb.org) musí
-  mít platný řetězec a víc než 21 dní do vypršení — certbot obnovuje při 30,
-  takže méně znamená, že obnova selhává. Dřív by selhání ukázal až web.
-- `--backup <složka>/<předpona>`: nejnovější záloha každého druhu (dump DB,
-  snímek GoatCounteru, klíče RustDesku) nesmí být starší než 36 h — každý
-  druh zvlášť, aby čerstvá jedna záloha nepřekryla zastavenou druhou.
-- Ověřeno naživo (naše domény OK, `expired.badssl.com` → nález; stará
-  i chybějící záloha → nález). Obojí v týdenním běhu.
+### Provoz: týdenní kontrola runtime rozšířena
+- Podrobnosti v neveřejné provozní dokumentaci.
 
-### Zálohy a aktualizace Docker služeb (GoatCounter, RustDesk)
-- `deploy/backup-services.sh`: denní záloha do stromu, který jde off-site —
-  konzistentní snímek SQLite GoatCounteru (Python online backup, za běhu,
-  jen pro čtení; ověřeno se živým zapisovatelem) + klíče RustDesku (0600).
-  Do 2026-10-28 neměla off-site záloha ani jedno.
-- `deploy/update-docker-services.sh`: pull + přestavění + ověření (běží
-  všechny služby, klíč RustDesku beze změny, **žádná data v anonymním
-  volume**) + úklid nahrazených image. Ověřeno na zkušebních projektech
-  (dobrý projde, anonymní volume i změněný klíč zastaví).
-- Inventura odhalila, že GoatCounter ukládá data do anonymního volume
-  (cíl připojení v compose neodpovídá cestě v image) — oprava přesunem dat
-  probíhá na VPS.
+### Provoz: zálohy a aktualizace pomocných služeb
+- Podrobnosti v neveřejné provozní dokumentaci.
 
-### Kontrola runtime: rozšíření databáze
-- `--db` v týdenní kontrole: rozšíření (PostGIS, pg_trgm…), jejichž verze
-  v databázi zaostává za nainstalovaným balíčkem. apt balíček aktualizuje,
-  ale rozšíření v existující DB ne — tak zůstal PostGIS 3.5.2 vedle balíčku
-  3.5.3 (inventura 2026-10-28, opraveno `postgis_extensions_upgrade()`).
-- Čte jen katalog `pg_available_extensions` přes `DATABASE_URL` z `.env`;
-  chybová hláška uvádí host:port, nikdy heslo (ověřeno).
+### Provoz: týdenní kontrola runtime rozšířena
+- Podrobnosti v neveřejné provozní dokumentaci.
 
-### Bezpečnost: vývojový docker-compose jen na loopback
-- `docker-compose.yml` (lokální Postgres + Redis) publikoval porty
-  `5432:5432` a `6379:6379` na všechna rozhraní — databáze s vývojovým
-  heslem a Redis bez hesla. Publikovaný port Docker pouští mimo firewall.
-  Inventura VPS (2026-10-28) našla tyhle dva kontejnery na produkci
-  vytvořené (nikdy nespuštěné); teď `127.0.0.1:…` — lokální vývoj beze změny.
+### Provoz: vývojové služby na serveru jen na loopback
+- Podrobnosti v neveřejné provozní dokumentaci.
 
-### Kontrola runtime: osiřelé balíčky + Docker images každý týden
-- Inventura VPS (2026-10-28) našla Docker nainstalovaný z repozitáře, který
-  už v systému není (zmizel při upgradu Ubuntu, `do-release-upgrade` cizí
-  repa vypíná) — bez aktualizací, a žádná kontrola to neviděla: osiřelý
-  balíček nikdy není „k upgradu“.
-- Nová kontrola `apt-orphaned`: balíčky, které `apt list --installed`
-  hlásí jako `[installed,local]`. Formát ověřen skutečným výstupem
-  (Ubuntu 26.04, Docker repo vypnutý), testy z něj vychází.
-- Týdenní *Runtime security* nově spouští i `--docker` (digest běžícího
-  kontejneru vs. registry) — uživatel runneru má k Dockeru přístup.
+### Provoz: týdenní kontrola runtime rozšířena
+- Podrobnosti v neveřejné provozní dokumentaci.
 
 ### Oprava: opravný balíček se už nerozdělí do dvou složek koše
 - Zápis opravy (`commitFindUpdateZip`) trashuje tři kategorie (originály,
@@ -237,19 +157,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
   `/api/admin/*` (nejsou spolehlivě za nginx maskou) je holá 404 — teď
   platí i tady, s testem. CLI sync 404 v hlášce vysvětlí.
 
-### Kontrola runtime: upgrady z repozitářů mimo Ubuntu
-- Týdenní *Runtime security* nově hlásí každý čekající upgrade z cizího
-  apt repozitáře (PGDG, Docker CE…). Ty nemají pocket `-security`, takže
-  je dosavadní kontrola nikdy neviděla, ať čekaly jakkoli dlouho.
-- Origin se čte z `apt-get -s dist-upgrade` (simulace, bez roota), ne
-  z `apt list` — Docker CE má suite pojmenovanou jako vydání a vypadal
-  by jako Ubuntu. Formát ověřen skutečným výstupem na Ubuntu 26.04
-  s repy PGDG a Docker CE (kontejner, 2026-10-28); testy z něj vychází.
-- **Docker images** (`--docker`): digest image běžícího kontejneru vs.
-  digest tagu v registry (anonymní `HEAD`, ven jen název image + tag).
-  Hlásí i stažený, ale nepřestavěný kontejner. Do týdenního workflow se
-  zapne po inventuře (přístup runneru k Docker socketu).
-- Verze self-hosted runneru se vědomě nehlídá (aktualizuje se sám).
+### Provoz: týdenní kontrola runtime rozšířena
+- Podrobnosti v neveřejné provozní dokumentaci.
 
 ### /admin/import: opravný balíček — sync sám (F3) + pojistky proti duplicitním fotkám (F4)
 - **F3:** po potvrzení opravného balíčku se hned spustí plný sync (audit
@@ -560,25 +469,8 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-09
 
-### Offsite záloha: snapshoty mizely týž běh — chyba v prune (ne UniFi Drive)
-- Denní pull na UNAS hlásil „OK … 46 GB", ale v cíli nezůstávalo nic — jen
-  viset `latest`, `du` cesty 128 K, a to na **dvou různých cílech**.
-- **Skutečná příčina:** `rsync -a` razítkuje cílový adresář mtime zdroje
-  (`/var/ctyrlistkoteka`, stará 2026-07-20), takže prune `-mtime +30` viděl
-  každý čerstvý snapshot jako >30 dní starý a smazal ho hned, jak vznikl —
-  „0 kept" od začátku. Ověřeno v malém (rsync složky se starou mtime →
-  cíl mtime zdědil, `find -mtime +30` ho označil) i mtime zdroje na VPS.
-- ⚠️ **Původní diagnóza (UniFi Drive maže cizí soubory) byla mylná** — zmátl
-  probe test, který přežil, protože `mkdir` dá čerstvou mtime a `__probe`
-  nematchuje `20*`, takže prune vůbec neprošel. Že snapshot zmizel i po
-  přesunu mimo Drive, ukázalo, že viník je ve skriptu.
-- **Oprava** `deploy/unas-pull.sh`: retence **podle data v názvu** (`YYYY-MM-DD`,
-  nech nejnovějších `KEEP`), nikdy podle mtime; `touch "$TODAY"` po `mv` pro
-  poctivou mtime. Ověření snapshotu se přesunulo **až za prune** a ping jde
-  jen když složka fakt zůstala — dřív bylo ověření před prune, takže bug
-  neodhalilo. Retence otestována lokálně (35 → 30, správná hranice).
-- Cíl zůstává mimo UniFi Drive share — hygiena, ne příčina. `docs/deployment.md`
-  a gotcha 32 opraveny.
+### Provoz: oprava off-site záloh
+- Podrobnosti v neveřejné provozní dokumentaci.
 
 ### Závislosti: React 19.3, Next 16.3.5, zod 4.6, dotenv 18
 - Zbylé dva Dependabot PR (#37 skupina 13 balíčků, #39 dotenv). Žádné CVE,
@@ -4201,9 +4093,7 @@ z middleware, sitemap, robots i OG obrázek.
   z trackovaných souborů (`deploy/permaban-whitelist.conf` je teď jen šablona
   s placeholdery, `deploy/README.md` příklady, `docs/gotchas.md`). Skutečné
   adresy žijí výhradně v `/etc/permaban-whitelist.conf` a nginx configu na
-  VPS — odkud je skripty reálně čtou, takže se nic nerozbilo. *(Pozn.: v git
-  historii zůstávají; jejich odstranění z minulých commitů je samostatný
-  destruktivní krok — rewrite historie.)*
+  VPS — odkud je skripty reálně čtou, takže se nic nerozbilo.
 - **robots.txt už neprozrazuje `/admin`**: `Disallow: /admin/` odstraněn.
   robots.txt je veřejně čitelný, takže ta řádka fungovala jako ukazatel na
   admin cestu pro kohokoli, kdo dělá průzkum — opak skrývání. Admin drží mimo
@@ -4276,8 +4166,8 @@ z middleware, sitemap, robots i OG obrázek.
 - **EXIF**: malé „volné" fotky pod prahem konverze se servírovaly s původními
   metadaty (GPS) — teď se vždy stripují.
 - **+2h posun** v časech na `/statistiky` (found_at je naivní Prague wall-clock).
-- **libssh2** (host) povýšen na `1.11.1-1ubuntu0.25.10.2` — záplata
-  CVE-2026-55200 (+ CVE-2026-55199, CVE-2025-15661).
+- Bezpečnostní aktualizace systémového balíčku na hostu (podrobnosti
+  v neveřejné provozní dokumentaci).
 - Deploy maže `.next/cache` před buildem (zrušený build otrávil cache → chybějící
   Tailwind utility v CSS).
 - Deploy `concurrency.cancel-in-progress: false` — zrušený build uprostřed
@@ -4286,9 +4176,7 @@ z middleware, sitemap, robots i OG obrázek.
 - Mobil: „plavání" šířky (overflow-x na `<html>`), výška sparkline grafu.
 
 ### Dokumentace
-- `docs/deployment.md` + `CLAUDE.md` srovnány se skutečností produkce:
-  Ubuntu 25.10 „questing", nativní PostgreSQL 17, ověření `pm2-app` unitu,
-  Docker pomocné služby na hostu.
+- `docs/deployment.md` + `CLAUDE.md` srovnány se skutečností produkce.
 - `docs/admin-overview.md` doplněn o sekce Efekty, Rozdané, QR, Hlasování,
   Návštěvnost, Kontroly, Audit.
 - README: spolupráce přešla z Claude Opus 4.8 na **Claude Fable 5** (i v patičce).

@@ -217,35 +217,8 @@ prázdné manifesty. Poučení: build může „uspět" a přesto vyrobit rozbit
 
 ## 6. `/admin` cloak: `curl` z Claude Code / Macu chodí přes domácí IP (= allowlist)
 
-**Co:** `/admin` je na produkci schovaný **Nginx IP-allowlistem** — cizí IP
-(mobil přes GSM, útočník, Googlebot) dostane **maskovanou 404**
-nerozeznatelnou od neexistující cesty; jen IP z allowlistu vidí reálný
-`/admin` (307 → login, login 200). To je **záměr a funguje to** (viz
-[admin-overview.md](admin-overview.md), `deploy/nginx.conf.template`
-`location /admin` → `@admin_page_cloak`). ⚠️ Do 2026-10-28 maska
-`@admin_notfound` vracela 120 B HTML bez CSP, takže od skutečné 404
-(celá stránka s CSP) **rozeznatelná byla** — opraveno, maskovaný požadavek
-teď vyřizuje appka stejně jako neznámou adresu (deployment.md, tabulka
-location bloků).
-
-**Past:** Claude Code (a jakýkoli `curl` z Bash toolu) běží **na uživatelově
-Macu**, takže odchozí požadavky jdou přes **jeho domácí přípoj (statická
-IP)**, která **je na allowlistu**. Proto `curl https://ctyrlistkoteka.cz/admin`
-z tohoto prostředí vrátí **200/307, ne 404**. To **neznamená, že cloak
-nefunguje** — jen testuješ zevnitř povolené sítě. Uživatel na mobilu (jiná
-IP) správně vidí 404.
-
-**Jak aplikovat:**
-- **Netvrď „cloak je rozbitý", když z Bash dostaneš 200 na `/admin`.** Je to
-  artefakt domácí IP. Pro test „jak to vidí cizí" použij mobil/jinou síť,
-  ne zdejší `curl`.
-- Domácí IP uživatele je na allowlistu `/admin` záměrně (a v permaban
-  whitelistu / fail2ban `ignoreip`). **Konkrétní IP nepatří do gitu** — repo
-  je veřejné; reálné adresy žijí jen v `/etc/permaban-whitelist.conf` a nginx
-  configu na VPS. Když je potřebuješ, jsou v mé trvalé paměti, ne tady.
-- Ochrana `/admin` je vrstvená a **hotová**: Nginx cloak (404 mimo
-  allowlist) + WebAuthn passkey + iron-session + `X-Robots-Tag: noindex`.
-  Nepředělávej to.
+Přesunuto do soukromé provozní dokumentace (`ops/docs/gotchas-infra.md`,
+stejné číslo).
 
 ## 7. Nová route může pár minut po deployi vracet 404 (než se PM2/Nginx usadí)
 
@@ -948,160 +921,28 @@ Insights → Dependency graph → Dependabot → *Check for updates*.
 
 ## 31. Nové jméno na stejném VPS nedostane certifikát, dokud mu neuděláš vlastní `:80` blok
 
-**Co:** `qr.casqb.org` (CNAME na ctyrlistkoteka.cz) mělo dostat certifikát přes
-`certbot certonly --webroot -w /var/www/html`. Certbot skončil
-`unauthorized` s detailem `Invalid response from
-https://qr.casqb.org/.well-known/acme-challenge/…: 404`.
-
-**Proč:** Ostrý `:80` server blok (zároveň default server, takže chytá i cizí
-jména) přesměrovává **úplně všechno** na https — `/.well-known/acme-challenge/`
-nevyjímaje. Challenge tedy skončila na `:443`, kde pro to jméno žádný blok
-není, spadla na hlavní web a ten na neznámé cestě vrátil 404. Šablona
-`deploy/nginx.conf.template` sice acme-challenge location má, ale **ostrý
-config na serveru ji nemá** — certifikát pro hlavní doménu kdysi bral
-`certbot --nginx`, který webroot vůbec nepoužívá. Past je v tom, že se to
-navenek tváří jako hotová věc: `curl http://<nové-jméno>/cokoliv` odpoví
-(301), takže to vypadá, že nginx to jméno obsluhuje.
-
-**Jak aplikovat:** Nové jméno na tomhle serveru nasazuj **na dvě fáze**:
-
-1. jen `server { listen 80; listen [::]:80; server_name <jméno>; location
-   /.well-known/acme-challenge/ { root /var/www/html; } location / { return
-   301 https://$host$request_uri; } }` → `nginx -t` → reload;
-2. `certbot certonly --webroot -w /var/www/html -d <jméno>`;
-3. teprve pak blok s `listen 443 ssl` (dřív ho `nginx -t` odmítne, protože
-   certifikát ještě neexistuje).
-
-Ověřit dopředu jde jedním curlem — musí vrátit **404 z nginx, ne 301**:
-
-```bash
-curl -sI http://<jméno>/.well-known/acme-challenge/test | head -1
-```
-
-A **`listen [::]` tam musí být**: Let's Encrypt validuje i po IPv6 a CNAME
-dědí AAAA záznam cíle; v tomhle případě šla validace právě přes
-`2001:41d0:305:2100::68b7`.
-
----
+Přesunuto do soukromé provozní dokumentace (`ops/docs/gotchas-infra.md`,
+stejné číslo).
 
 ## 32. Offsite záloha tiše mizela — `rsync -a` + prune podle mtime smazaly snapshot týž běh
 
-**Co:** Denní pull z VPS na UNAS hlásil „OK snapshot … 46 GB", ale v cíli zůstal
-jen viset symlink `latest` a žádná datovaná složka (`du` cesty 128 K místo
-47 GB). Každý běh, na dvou různých cílech. Obnova by neměla z čeho běžet.
-
-**Proč (a jak jsem se nejdřív spletl):** První hypotéza byla, že UniFi Drive maže
-cizí soubory ve svém share — cíl byl tehdy uvnitř `…/.unifi-drive/…/.data`.
-**Byla špatná.** Po přesunu na obyčejnou složku mimo Drive (`/volume/<uuid>/
-ctyrlistkoteka-backups/`) snapshot zmizel *úplně stejně* → Drive to nebyl. To
-byl důkaz, že viník je **uvnitř skriptu**, a jediný `rm`, který sahá na
-datované složky, je prune:
-
-```
-find "$SNAP_DIR" -type d -name '20*' -mtime "+${KEEP_SNAPSHOTS}" -exec rm -rf {} +
-```
-
-`rsync -a` totiž orazítkuje **cílový adresář mtime ZDROJE**. Zdroj je
-`/var/ctyrlistkoteka`, jehož kořen se skoro nemění — měl mtime `2026-07-20`,
-tedy přes dva měsíce. `mv` ji zachová, takže čerstvý snapshot pojmenovaný
-dneškem má mtime dva měsíce starou → `-mtime +30` na něj sedne → prune ho
-smaže **týž běh, co vznikl**. Proto „0 kept" od začátku. Ověřeno v malém:
-`rsync -a` složky se starou zdrojovou mtime → cíl tu starou mtime dostal a
-`find -mtime +30` ho vypsal.
-
-Proč to zmátlo: „probe" test (`mkdir` složky přímo do cíle) přežil — jenže
-`mkdir` dá **čerstvou** mtime a název `__probe` navíc nematchuje `20*`, takže
-tím pravým sítem (prune) vůbec neprošel. Nereprezentativní test = falešná
-jistota.
-
-**Oprava:** retence **podle data v názvu, ne podle mtime** (`YYYY-MM-DD`,
-lexikální řazení = chronologické, nech nejnovějších `KEEP`); k tomu `touch
-"$TODAY"` po `mv`, ať má snapshot poctivou mtime. Obecně: nikdy neřeš retenci
-podle mtime u stromu, který jsi právě protáhl `rsync -a` — přenáší časy
-zdroje.
-
-**Druhá díra, taky opravená:** dead-man switch kontroloval jen že pull
-**proběhl** (ping marker), ne že data **přežila** — proto to mlčelo. Skript
-teď ověří, že je snapshot na disku **až po prune**, a ping pošle jen pak;
-jinak VPS switch zařve do 3 dnů. „Proběhlo" ≠ „přežilo" platí pro každou
-zálohu, kterou nikdo pravidelně nezkouší obnovit.
-
-**Pozn.:** přesun mimo UniFi Drive share zůstal — psát 47 GB přes `rsync` do
-`.data` backing storu aplikace je stejně špatný nápad, jen to nebyla *tahle*
-příčina.
-
----
+Přesunuto do soukromé provozní dokumentace (`ops/docs/gotchas-infra.md`,
+stejné číslo).
 
 ## 33. PM2 cluster bez sdíleného cacheHandleru → revalidace po syncu trefí jen jeden worker
 
-**Co:** Hodinu po syncu `/statistiky` ukazovala **„něco čerstvé, většina ne"** —
-třeba „Průměrné tempo" aktuální, zbytek na starých (půl-sync) číslech. Domovská
-působila OK. Token i ping byly v pořádku.
-
-**Proč:** App běžela v **PM2 cluster módu se 2 workery** (`instances: 2`) a Next
-neměl **žádný sdílený cacheHandler**. `unstable_cache` (agregace statistik, 6 h,
-tag `stats`) proto žije v paměti **každého workeru zvlášť**. Sync po doběhnutí
-pingne `revalidateTag("stats")` přes `POST 127.0.0.1:3000/api/admin/revalidate`,
-jenže PM2 to round-robinem pošle **jen jednomu** workeru → ten si cache zahodí,
-**druhý si ji drží dál** až do svého vlastního 6h okna. Prohlížeč se přes
-keep-alive drží jednoho workeru, takže vidíš ten nevyčištěný. `revalidateTag` v
-jednom procesu druhému procesu neřekne, ať zahodí svoji kopii — to je přesně
-důvod, proč Next u víc instancí **vyžaduje sdílený cacheHandler**. Že to „spraví"
-jedině `pm2 reload` (restart obou workerů) je ten podpis.
-
-**Jak aplikovat:** Buď běž na **jedné instanci** (`instances: 1` — zvoleno
-2026-10-07; u malého provozu bez downside, těžkou práci dělá Postgres), nebo —
-když chceš víc workerů — napřed naviaž **sdílený cacheHandler** (Redis) v
-`next.config`, jinak je on-demand revalidace děravá. Obecně: `revalidateTag`/
-`revalidatePath` v self-hosted Nextu platí **jen pro proces, který je zavolal**,
-pokud cache není sdílená. Diagnóza: změň data, zavolej revalidaci jednou a
-koukni, jestli jsou čerstvé na opakované načtení (víc workerů → nekonzistentní).
-
-**Pozn.:** hlasité varování v `sync.ts` tohle **nechytne** — ping se povede
-(HTTP 200), jen nedoletí na druhý worker. Chytá chybějící token / spadlý server.
-
----
+Přesunuto do soukromé provozní dokumentace (`ops/docs/gotchas-infra.md`,
+stejné číslo).
 
 ## 34. Upgrade Node: v PM2 cluster režimu rozhoduje binárka démona, ne `dump.pm2`
 
-**Co:** Při upgradu 24.18.0 → 24.22.1 (Node2Shell, 2026-10-28) ukazoval
-`dump.pm2` správně `exec_interpreter: …/v24.22.1/bin/node`, `pm2 delete` +
-`pm2 start` proběhly, web odpovídal 200 — a worker přitom pořád běžel na
-**v24.18.0** (`readlink /proc/<pid>/exe`).
-
-**Proč:** Appka jede v `exec_mode: 'cluster'`. Workery v něm forkuje sám
-démon PM2 přes Node `cluster`, tedy **vlastní binárkou**; `exec_interpreter`
-se ignoruje. Démon startuje systemd unit `pm2-app` a ten měl zapečenou starou
-cestu, protože `pm2 startup` **jen vypíše** `sudo env PATH=… pm2 startup …`
-— ten řádek je potřeba opravdu spustit.
-
-**Jak aplikovat:** Postup v `docs/deployment.md` → „Upgrade Node.js". Jediné
-spolehlivé ověření je `readlink /proc/<pid>/exe` u démona i workerů, žádný
-config ani `pm2 ls`. Hlídá to i `scripts/check-runtime-security.ts --pm2`
-(deploy + týdenní *Runtime security*), který čte právě `/proc`.
-
----
+Přesunuto do soukromé provozní dokumentace (`ops/docs/gotchas-infra.md`,
+stejné číslo).
 
 ## 35. Dependabot padá na bump přímé závislosti mladší než ~2 dny
 
-**Co:** Běh „Dependabot Updates" #197 (2026-10-28) skončil `failure`:
-`ERR_PNPM_NO_MATURE_MATCHING_VERSION Version 8.5.32 (released 39 hours ago)
-of postcss does not meet the minimumReleaseAge constraint` — při pokusu
-o major PR pro `eslint` a `typescript` (`update_not_possible`).
-
-**Proč:** Ráno jsme ručně zvedli `postcss` na `^8.5.32` (vydáno 2026-10-26
-20:36 UTC). Lokálně to prošlo (naše karence je 24 h), Dependabot ale verzi
-39 h starou odmítl — jeho vlastní okno je **delší než 24 h** (přesnou
-hodnotu log neuvádí; ⚠️ neověřeno). Na rozdíl od #30 tu nejde o tranzitivní
-balíček v zámku, ale o **spodní hranici přímé závislosti v `package.json`**:
-dokud verze nedozraje, Dependabot nedokáže vyřešit strom pro žádnou změnu.
-
-**Jak aplikovat:** Škoda je jen dočasná (Dependabot ten den neotevře PR),
-samo se to srovná, jakmile verze zestárne. Ruční bumpy přímých závislostí
-proto radši na verze **starší než ~3 dny**, pokud nejde o bezpečnostní
-opravu. Když „Dependabot Updates" padá, hledej v logu `MATURE` /
-`MINIMUM_RELEASE_AGE` dřív, než začneš hledat chybu v repu. Znovu spustit:
-Insights → Dependency graph → Dependabot → *Check for updates*.
+Přesunuto do soukromé provozní dokumentace (`ops/docs/gotchas-infra.md`,
+stejné číslo).
 
 ## 36. Žádný `app/layout.tsx`: každá sekce má vlastní kořenový layout (`next/root-params`)
 

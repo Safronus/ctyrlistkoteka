@@ -1,7 +1,8 @@
 # Čtyřlístkotéka — Claude Code instrukce
 
 Tento dokument je **primárním zdrojem kontextu** pro Claude Code. Přečti si ho celý
-před jakýmkoli úkonem. Poté projdi `docs/` pro detaily.
+před jakýmkoli úkonem. Poté projdi `docs/` pro detaily a **`ops/`** (soukromý
+provozní kontext + `ops/PROGRESS.md`, viz §11 „Provozní kontext“).
 
 ---
 
@@ -283,34 +284,22 @@ NODE_ENV=production
 - [docs/gotchas.md](docs/gotchas.md) — **lessons learned** — NFC normalizace, `"use server"` exporty, admin cookie path
 - [docs/collaboration.md](docs/collaboration.md) — pracovní pravidla, commit policy, design-call etiketa
 
-### Bezpečnost a aktualizace runtime (od 2026-10-28)
+### Provozní kontext (soukromý)
 
-Dependabot hlídá jen npm balíčky a GitHub Actions. **Node.js, Ubuntu a
-systémové služby** (nginx, PostgreSQL/PostGIS, Redis, PM2, Docker kontejnery
-na hostu) hlídáme sami — cíl je mít vše aktuální a nedat šanci známým CVE.
+Stav serveru, provozní návody (deployment, upgrady), bezpečnostní kontrola
+runtime, známé mezery, infrastrukturní gotchas a **záchytné body práce
+(`PROGRESS.md`)** jsou v soukromém repu `Safronus/ctyrlistkoteka-ops`,
+naklonovaném do `ops/` (v `.gitignore`):
 
-- **Kontrola:** `scripts/check-runtime-security.ts` — v každém deployi jen
-  varuje, týdenní workflow *Runtime security* při nálezu selže (e-mail).
-  Týdenní triáž (scheduled task) čte jeho výsledek.
-- **Upgrade Node:** výhradně postupem `docs/deployment.md` → „Upgrade
-  Node.js"; ověření jen přes `readlink /proc/<pid>/exe` (gotchas #34).
-- **Při každé změně runtime nebo služby** (verze Node/pnpm/PM2, upgrade OS,
-  nová služba na hostu, nový Docker kontejner) ve stejném úkolu aktualizuj
-  `docs/deployment.md` (callout „Skutečný stav produkce"), `CHANGELOG.md`,
-  `PROGRESS.md` a případně rozšiř kontrolu — nová služba bez hlídání
-  bezpečnostních aktualizací je dluh.
-- **Známé mezery (2026-10-30):** DB je od 2026-10-30 na PostgreSQL 18;
-  balíčky PG 17 a zastavený cluster `17 main` čekají na úklid (fáze 6d
-  v `docs/ubuntu-upgrade-26.04.md`), do té doby `apt-orphaned` svítí; verzi self-hosted runneru
-  kontrola nehlídá (vědomě — aktualizuje se sám). Balíčky z repozitářů mimo
-  Ubuntu (PGDG, Docker CE…) týdenní kontrola hlídá od 2026-10-28
-  (`thirdPartyUpgrades`), stejně jako **osiřelé balíčky** bez repozitáře
-  (`orphanedPackages` — tak zůstal stát docker-ce), **systemd jednotky
-  ve stavu failed** (`failedUnits` — tak půl roku padal logrotate), **rozšíření DB**
-  pozadu za balíčkem (`--db`, tak zůstal PostGIS 3.5.2), **odebraná práva**
-  na funkce s otevřenou CVE (`db-privileges`, FlatGeobuf — CVE-2026-73515), **TLS certifikáty**
-  (`--tls`), **čerstvost záloh** (`--backup`) a **Docker images**
-  běžících kontejnerů (`--docker`; uživatel runneru je ve skupině docker).
+- `ops/CLAUDE-ops.md` — provozní instrukce (runtime security, server, prostředí)
+- `ops/PROGRESS.md` — záchytné body (jediná platná kopie)
+- `ops/docs/` — deployment, upgrade Ubuntu, `gotchas-infra.md`
+- `ops/CHANGELOG-ops.md` — provozní a bezpečnostní změny
+
+**Když `ops/` chybí, nic si nedomýšlej — zeptej se.** Klonuj přes
+`gh repo clone Safronus/ctyrlistkoteka-ops ops` (HTTPS). Nic z `ops/`
+nikdy necommituj do veřejného repa; změny serveru / bezpečnosti / stavu
+práce se commitují a pushují do ops, kód sem — často obojí.
 
 ---
 
@@ -318,7 +307,7 @@ na hostu) hlídáme sami — cíl je mít vše aktuální a nedat šanci známý
 
 - Lokalita: Zlín, ČR (CE časová zóna `Europe/Prague`).
 - Doména: `ctyrlistkoteka.cz` u **hukot.net**.
-- Produkční server: **OVH VPS-2** (6 vCPU, 12 GB RAM, 100 GB SSD), Gravelines (GRA), **Ubuntu 26.04.1 LTS „resolute"** (od 2026-10-28, podpora do 2031-04). Běží **nativní PostgreSQL 18 + PostGIS 3.6** (od 2026-10-30; starý cluster 17 zastavený do úklidu), Node LTS přes nvm, PM2 (ověř `systemctl is-enabled pm2-app`), Nginx. Na hostu je i Docker s pomocnými self-hosted službami (GoatCounter analytika, RustDesk) nezávislými na appce. Skutečný stav + odlišnosti od krokového návodu viz callout na začátku `docs/deployment.md`.
-- IP adresy, hostname a přihlašovací údaje jsou v `docs/deployment.md` a `.env` — **nedávej je do commitnutých souborů** mimo `.env.example`.
+- Produkční server: VPS (detail v `ops/CLAUDE-ops.md`).
 - Uživatel používá **Termius** pro SSH. Claude Code generuje příkazy, uživatel je spouští sám.
-- GitHub repo: **veřejné** ([github.com/Safronus/ctyrlistkoteka](https://github.com/Safronus/ctyrlistkoteka)). Bylo původně privátní, autor ho v průběhu vývoje přepnul na public — celý zdrojový kód je tedy otevřený. Citlivé věci (DB heslo, `VOTE_FINGERPRINT_SALT`, `FIND_PHOTO_UNLOCK_CODE`, admin credentials) zůstávají v `.env` na VPS, do gitu nejdou — `.gitignore` je drží mimo. Při každém commitu stejně zkontroluj, že žádné tajemství neutíká.
+- IP adresy, hostname, verze, stav záplat a přihlašovací údaje **nikdy do veřejného repa** (ani do commit zpráv).
+- GitHub repo: **veřejné** ([github.com/Safronus/ctyrlistkoteka](https://github.com/Safronus/ctyrlistkoteka)) — celý kód je otevřený. Citlivé věci (DB heslo, `VOTE_FINGERPRINT_SALT`, `FIND_PHOTO_UNLOCK_CODE`, admin credentials) zůstávají v `.env` na VPS, do gitu nejdou — `.gitignore` je drží mimo. Při každém commitu zkontroluj, že žádné tajemství ani provozní detail neutíká.

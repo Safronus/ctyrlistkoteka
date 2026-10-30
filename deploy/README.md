@@ -188,8 +188,8 @@ fail2ban v půli akce / manuální editace souboru.
 sudo cp deploy/permaban-whitelist.conf /etc/permaban-whitelist.conf
 sudo chmod 644 /etc/permaban-whitelist.conf
 sudo chown root:root /etc/permaban-whitelist.conf
-# Pak ještě edituj — IP v repu odpovídají homelab + admin allow listu
-# z nginx.conf.template, ale pokud máš víc / jiné, dolaď v Termiusu.
+# Pak ještě edituj — v repu jsou jen zástupné hodnoty; skutečné IP
+# doplň v Termiusu přímo na serveru (do gitu nepatří).
 
 # 2. blocklist-tools.sh (přepis se starou verzí v repu — nový skript
 #    má nové defaulty + whitelist + snapshot).

@@ -213,13 +213,12 @@ export function outdatedExtensions(
 
 /**
  * DB functions whose EXECUTE is revoked from PUBLIC on production because
- * of an open hole nobody has patched yet. CVE-2026-73515 (2026-10-30):
- * out-of-bounds read in PostGIS's FlatGeobuf decoder (fixed upstream in
- * 3.7.0beta2 / stable-3.6, Ubuntu 26.04 still ships 3.6.2 — universe,
- * best-effort patches). The app never reads FlatGeobuf, so the app role
- * loses nothing. The revoke does not survive a restore from our dumps
- * (`--no-privileges`) and may not survive an extension update — hence the
- * weekly check. Drop a name once the fixed package is installed.
+ * of a published CVE (here CVE-2026-73515, PostGIS FlatGeobuf decoder) that
+ * the installed package may still carry. The app never reads FlatGeobuf,
+ * so the app role loses nothing. A revoke does not survive a restore from
+ * our dumps (`--no-privileges`) and may not survive an extension update —
+ * hence the weekly check. Drop a name once a fixed package is installed
+ * (runbook in the private ops repo).
  */
 export const REVOKED_DB_FUNCTIONS = ["st_fromflatgeobuf", "st_fromflatgeobuftotable"] as const;
 

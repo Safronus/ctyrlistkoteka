@@ -414,7 +414,7 @@ async function checkDbExtensions(): Promise<void> {
       } else {
         finding(
           "db-privileges",
-          `App role can execute function(s) revoked for an open CVE — re-run the REVOKE from docs/deployment.md: ${open.join(", ")}`,
+          `App role can execute function(s) revoked for an open CVE — re-run the REVOKE from the ops runbook: ${open.join(", ")}`,
         );
       }
     } finally {
