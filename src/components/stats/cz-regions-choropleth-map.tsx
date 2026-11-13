@@ -18,7 +18,9 @@ interface Props {
  * Choropleth of finds across the 14 Czech regions (kraje), rendered as a
  * static server-side SVG — same approach as WorldChoroplethMap. Region
  * names live in the GeoJSON properties (already Czech), so no locale
- * lookup is needed; counts are drawn at each region's centroid.
+ * lookup is needed; counts are drawn at each region's centroid, in a
+ * second pass after every shape so a neighbour painted later can't cover
+ * them (Praha comes before Středočeský kraj in the data).
  */
 export async function CzRegionsChoroplethMap({ byKraj }: Props) {
   const t = await getTranslations("Statistiky");
@@ -30,6 +32,23 @@ export async function CzRegionsChoroplethMap({ byKraj }: Props) {
   const byCode = new Map<string, number>();
   for (const k of byKraj) byCode.set(k.code, k.count);
 
+  const regions = collection.features.flatMap((feat) => {
+    const props = feat.properties as CzRegionProps;
+    const d = path(feat);
+    if (!d) return [];
+    const count = byCode.get(props.id) ?? 0;
+    // Same √-scaled green ramp as the world map for visual parity.
+    const intensity = max > 0 ? Math.sqrt(count / max) : 0;
+    const fill =
+      count > 0
+        ? `oklch(${0.92 - intensity * 0.5} ${0.04 + intensity * 0.13} 145)`
+        : "oklch(0.93 0.005 145)";
+    const stroke =
+      count > 0 ? "oklch(0.32 0.04 145)" : "oklch(0.62 0.02 145)";
+    const [cx, cy] = path.centroid(feat);
+    return [{ props, d, count, intensity, fill, stroke, cx, cy }];
+  });
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200">
       <svg
@@ -40,50 +59,36 @@ export async function CzRegionsChoroplethMap({ byKraj }: Props) {
         className="block h-auto w-full"
         style={{ background: "oklch(0.92 0.02 220)" }}
       >
-        {collection.features.map((feat) => {
-          const props = feat.properties as CzRegionProps;
-          const count = byCode.get(props.id) ?? 0;
-          const d = path(feat);
-          if (!d) return null;
-
-          // Same √-scaled green ramp as the world map for visual parity.
-          const intensity = max > 0 ? Math.sqrt(count / max) : 0;
-          const fill =
-            count > 0
-              ? `oklch(${0.92 - intensity * 0.5} ${0.04 + intensity * 0.13} 145)`
-              : "oklch(0.93 0.005 145)";
-          const stroke =
-            count > 0 ? "oklch(0.32 0.04 145)" : "oklch(0.62 0.02 145)";
-          const [cx, cy] = path.centroid(feat);
-          const showCount = count > 0 && Number.isFinite(cx);
-          return (
-            <g key={props.id}>
-              <path
-                d={d}
-                fill={fill}
-                stroke={stroke}
-                strokeWidth={0.8}
-                vectorEffect="non-scaling-stroke"
-              >
-                <title>{`${props.name}: ${count} ${t("labelFinds", { count })}`}</title>
-              </path>
-              {showCount && (
-                <text
-                  x={cx}
-                  y={cy}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontSize={13}
-                  fontWeight={600}
-                  fill={intensity > 0.55 ? "#ffffff" : "oklch(0.28 0.05 145)"}
-                  style={{ pointerEvents: "none" }}
-                >
-                  {count}
-                </text>
-              )}
-            </g>
-          );
-        })}
+        {regions.map((r) => (
+          <g key={r.props.id}>
+            <path
+              d={r.d}
+              fill={r.fill}
+              stroke={r.stroke}
+              strokeWidth={0.8}
+              vectorEffect="non-scaling-stroke"
+            >
+              <title>{`${r.props.name}: ${r.count} ${t("labelFinds", { count: r.count })}`}</title>
+            </path>
+          </g>
+        ))}
+        {regions
+          .filter((r) => r.count > 0 && Number.isFinite(r.cx))
+          .map((r) => (
+            <text
+              key={`label-${r.props.id}`}
+              x={r.cx}
+              y={r.cy}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={13}
+              fontWeight={600}
+              fill={r.intensity > 0.55 ? "#ffffff" : "oklch(0.28 0.05 145)"}
+              style={{ pointerEvents: "none" }}
+            >
+              {r.count}
+            </text>
+          ))}
       </svg>
     </div>
   );

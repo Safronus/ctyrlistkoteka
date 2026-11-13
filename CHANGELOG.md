@@ -7,6 +7,16 @@ seskupené po datech. Vyčerpávající historie je v `git log` — sem patří
 jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 (pravidlo: docs / changelog / readme se drží aktuální).
 
+## 2026-11
+
+### /statistiky: Washington D.C. na mapě USA je vidět
+- Počet nálezů v D.C. (61) se na mapě USA neukazoval: SVG kreslí v pořadí
+  dokumentu a číslo se kreslilo se svým „státem“, takže ho překryly
+  později kreslené Maryland a Virginie. Čísla se teď kreslí až po všech
+  plochách (i na mapě krajů ČR, kde je Praha před Středočeským krajem).
+- D.C. je na mapě jen ~4 body velké, zelená výplň nebyla vidět — oblasti
+  menší než 12 bodů s nálezy dostanou zelený kroužek s číslem.
+
 ## 2026-10
 
 ### Provoz: upgrade databáze serveru

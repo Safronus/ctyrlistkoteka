@@ -7,6 +7,12 @@ import type { CountryPoint } from "@/lib/queries/stats";
 // Hawaii insets at the lower left). fitSize rescales it into this box.
 const WIDTH = 960;
 const HEIGHT = 560;
+const LABEL_FONT = 12;
+// A state whose drawn shape is smaller than this (either side, viewBox
+// units) can't show its fill — DC is ~4 units. It gets a marker instead.
+const TINY_FEATURE = 12;
+// Marker radius: room for the count's digits at LABEL_FONT.
+const markerRadius = (count: number) => 6 + 3.5 * String(count).length;
 
 interface Props {
   /** Finds per US state — `code` is the 2-digit FIPS code (join key),
@@ -21,6 +27,12 @@ interface Props {
  * green ramp. Alaska and Hawaii ride in geoAlbersUsa's built-in insets.
  * State names come straight from the dataset (English); empty until a US
  * find appears, which is expected.
+ *
+ * Counts are drawn in a second pass, after every shape: SVG paints in
+ * document order, so a count drawn with its own state was covered by
+ * neighbours painted later (DC's „61" vanished under Maryland and
+ * Virginia). A state too small to show its fill (DC) gets a green marker
+ * with the count inside instead.
  */
 export async function UsStatesChoroplethMap({ byState }: Props) {
   const t = await getTranslations("Statistiky");
@@ -32,6 +44,37 @@ export async function UsStatesChoroplethMap({ byState }: Props) {
   const byCode = new Map<string, number>();
   for (const s of byState) byCode.set(s.code, s.count);
 
+  const states = collection.features.flatMap((feat) => {
+    const props = feat.properties as UsStateProps;
+    const d = path(feat);
+    if (!d) return [];
+    const count = byCode.get(props.id) ?? 0;
+    const intensity = max > 0 ? Math.sqrt(count / max) : 0;
+    const fill =
+      count > 0
+        ? `oklch(${0.92 - intensity * 0.5} ${0.04 + intensity * 0.13} 145)`
+        : "oklch(0.93 0.005 145)";
+    const stroke =
+      count > 0 ? "oklch(0.32 0.04 145)" : "oklch(0.62 0.02 145)";
+    const [[x0, y0], [x1, y1]] = path.bounds(feat);
+    const [cx, cy] = path.centroid(feat);
+    return [
+      {
+        props,
+        d,
+        count,
+        intensity,
+        fill,
+        stroke,
+        cx,
+        cy,
+        title: `${props.name}: ${count} ${t("labelFinds", { count })}`,
+        tiny: Math.max(x1 - x0, y1 - y0) < TINY_FEATURE,
+        showCount: count > 0 && Number.isFinite(cx),
+      },
+    ];
+  });
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200">
       <svg
@@ -42,49 +85,50 @@ export async function UsStatesChoroplethMap({ byState }: Props) {
         className="block h-auto w-full"
         style={{ background: "oklch(0.92 0.02 220)" }}
       >
-        {collection.features.map((feat) => {
-          const props = feat.properties as UsStateProps;
-          const count = byCode.get(props.id) ?? 0;
-          const d = path(feat);
-          if (!d) return null;
-
-          const intensity = max > 0 ? Math.sqrt(count / max) : 0;
-          const fill =
-            count > 0
-              ? `oklch(${0.92 - intensity * 0.5} ${0.04 + intensity * 0.13} 145)`
-              : "oklch(0.93 0.005 145)";
-          const stroke =
-            count > 0 ? "oklch(0.32 0.04 145)" : "oklch(0.62 0.02 145)";
-          const [cx, cy] = path.centroid(feat);
-          const showCount = count > 0 && Number.isFinite(cx);
-          return (
-            <g key={props.id}>
-              <path
-                d={d}
-                fill={fill}
-                stroke={stroke}
-                strokeWidth={0.8}
-                vectorEffect="non-scaling-stroke"
-              >
-                <title>{`${props.name}: ${count} ${t("labelFinds", { count })}`}</title>
-              </path>
-              {showCount && (
-                <text
-                  x={cx}
-                  y={cy}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontSize={12}
-                  fontWeight={600}
-                  fill={intensity > 0.55 ? "#ffffff" : "oklch(0.28 0.05 145)"}
-                  style={{ pointerEvents: "none" }}
+        {states.map((s) => (
+          <g key={s.props.id}>
+            <path
+              d={s.d}
+              fill={s.fill}
+              stroke={s.stroke}
+              strokeWidth={0.8}
+              vectorEffect="non-scaling-stroke"
+            >
+              <title>{s.title}</title>
+            </path>
+          </g>
+        ))}
+        {states
+          .filter((s) => s.showCount)
+          .map((s) => (
+            <g key={`label-${s.props.id}`}>
+              {s.tiny && (
+                <circle
+                  cx={s.cx}
+                  cy={s.cy}
+                  r={markerRadius(s.count)}
+                  fill={s.fill}
+                  stroke={s.stroke}
+                  strokeWidth={1}
+                  vectorEffect="non-scaling-stroke"
                 >
-                  {count}
-                </text>
+                  <title>{s.title}</title>
+                </circle>
               )}
+              <text
+                x={s.cx}
+                y={s.cy}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={LABEL_FONT}
+                fontWeight={600}
+                fill={s.intensity > 0.55 ? "#ffffff" : "oklch(0.28 0.05 145)"}
+                style={{ pointerEvents: "none" }}
+              >
+                {s.count}
+              </text>
             </g>
-          );
-        })}
+          ))}
       </svg>
     </div>
   );
