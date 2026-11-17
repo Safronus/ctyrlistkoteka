@@ -9,6 +9,24 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-11
 
+### Závislosti: next 16.4.6 (bezpečnostní opravy) + patch/minor bumpy
+- **next / eslint-config-next 16.4.3 → 16.4.6** — 16.4.5 opravuje sedm
+  hlášení (moderate), mj. GHSA-mfr8-8qww-v76h (únik mezi uživateli přes
+  `unstable_cache`, který používáme v sedmi souborech) a GHSA-pc58-hwjq-p385
+  (self-hosted aplikace přeposílající fetch odpovědi). 16.4.6 přidává
+  kompresi odpovědí route handlerů a opravy Turbopacku.
+- **@simplewebauthn/server 14.1.0** (neplatné `expectedRPID`/`expectedOrigin`
+  teď vyhodí chybu — naše hodnoty jsou vždy vyplněné), **iron-session 9.1.0**
+  (`destroy()` po spotřebovaném těle odpovědi hází; logout volá `destroy()`
+  ještě před odpovědí), **next-intl 4.15.1**, **lucide-react 1.72**
+  (přejmenované `*-alert`/`*-warning` ikony mají dál staré aliasy — všech 85
+  importovaných ikon ověřeno proti typům), **svg2pdf.js 2.9.0**,
+  **tailwindcss 4.3.5**, **vitest 5.1.0**, **vite 8.3.8**, **d3-geo 3.1.2**,
+  **dotenv 18.0.10**, **react-easy-crop 6.2.5**, **eslint-plugin-security
+  4.2.1**; CI: **pnpm/action-setup 6.1.1**. Dependabot #54 (nahradil #53) a #52.
+- Lint (64 warningů, 0 chyb — beze změny), typecheck, 664 testů, build OK
+  (6 varování Turbopacku o trasování souborů — stejná jako před bumpem).
+
 ### /statistiky: Washington D.C. na mapě USA je vidět
 - Počet nálezů v D.C. (61) se na mapě USA neukazoval: SVG kreslí v pořadí
   dokumentu a číslo se kreslilo se svým „státem“, takže ho překryly
