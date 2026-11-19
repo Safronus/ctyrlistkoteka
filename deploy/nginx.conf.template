@@ -30,8 +30,13 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    # HTTP/2 as a separate directive: `listen ... http2` is deprecated since
+    # nginx 1.25 and `certbot --nginx` rewrites the `listen` lines it manages,
+    # so the flag would silently get lost there. Keep `http2 on;` on its own
+    # line, right after certbot's `listen` lines.
+    http2 on;
     server_name ctyrlistkoteka.cz www.ctyrlistkoteka.cz;
 
     # SSL — certbot doplní tyto řádky při běhu `certbot --nginx`:

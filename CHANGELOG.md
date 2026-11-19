@@ -9,6 +9,12 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-11
 
+### Web přes HTTP/2
+- Hlavní web nově odpovídá přes HTTP/2 (dosud HTTP/1.1; `qr.casqb.org`
+  ho už měl). Šablona `deploy/nginx.conf.template` přešla na samostatný
+  `http2 on;` místo zastaralého `listen … http2`, který `certbot --nginx`
+  při přepisu svých `listen` řádků ztrácí.
+
 ### Závislosti: next 16.4.6 (bezpečnostní opravy) + patch/minor bumpy
 - **next / eslint-config-next 16.4.3 → 16.4.6** — 16.4.5 opravuje sedm
   hlášení (moderate), mj. GHSA-mfr8-8qww-v76h (únik mezi uživateli přes

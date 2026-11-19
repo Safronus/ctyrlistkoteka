@@ -57,8 +57,7 @@ server {
     listen 443 ssl;
     listen [::]:443 ssl;
     # Moderní zápis: `listen ... http2` je od nginx 1.25 zastaralý a od 1.28
-    # na něj `nginx -t` hlásí varování (hlavní config ho ještě má, mění se
-    # až spolu s ním, ať se to netestuje dvakrát).
+    # na něj `nginx -t` hlásí varování (hlavní config má stejný zápis).
     http2 on;
     server_name qr.casqb.org;
 
