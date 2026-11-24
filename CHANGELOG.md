@@ -9,6 +9,15 @@ jen to, co stojí za zapamatování. **Každou podstatnou změnu sem přidej**
 
 ## 2026-11
 
+### Bezpečnostní podlaha pro `effect` (GHSA-7589-6fvf-x4pw)
+- Týdenní kontrola Runtime security padla na `pnpm audit`: high ReDoS
+  v `effect` ≤ 3.22.0, který přes `prisma → @prisma/config` (pevně
+  `effect@3.20.0` i v nejnovější 7.10.1) tahá `@prisma/client`. Prakticky
+  nezneužitelné (`@prisma/config` `Schema.TemplateLiteral` nepoužívá a čte
+  jen náš `prisma.config.ts`), ale audit má být zelený — přidán override
+  `effect@<3.22.1 → ^3.22.1` v `pnpm-workspace.yaml` (lock: 3.22.5).
+  Odebrat, až Prisma zvedne `effect` sama.
+
 ### Web přes HTTP/2
 - Hlavní web nově odpovídá přes HTTP/2 (dosud HTTP/1.1; `qr.casqb.org`
   ho už měl). Šablona `deploy/nginx.conf.template` přešla na samostatný
